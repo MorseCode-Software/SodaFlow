@@ -6,21 +6,22 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The result of one stage of a view chain in a transaction. It is the public change
-///     notification and it is also the protocol between two stages.
+///     The result of one stage of a view chain in a transaction. It is the public
+///     change notification and it is also the protocol between two stages.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The event holds its result <see cref="Keys" /> and the store on the two sides of the
-///         change, which are <see cref="Before" /> and <see cref="After" />. The next stage does
-///         not sample them. A stage below runs in the same transaction, and a sample of a cell
-///         there gives the value from before the transaction. Thus, the event must hold the
-///         results, or the chain does not agree with itself. That also lets a consumer make a
-///         delta with no copy of the previous values.
+///         The event holds its result <see cref="Keys" /> and the store on the two
+///         sides of the change, which are <see cref="Before" /> and
+///         <see cref="After" />. The next stage does not sample them. A stage
+///         below runs in the same transaction, and a sample of a cell there gives
+///         the value from before the transaction. Thus, the event must hold the
+///         results, or the chain does not agree with itself. That also lets a
+///         consumer make a delta with no copy of the previous values.
 ///     </para>
 ///     <para>
-///         The index of an operation is correct for a consumer that applies the operations in
-///         sequence to the previous key list.
+///         The index of an operation is correct for a consumer that applies the
+///         operations in sequence to the previous key list.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -55,18 +56,20 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
 
     /// <summary>The store as this transaction left it.</summary>
     /// <remarks>
-    ///     This is the store and not the content of this view, which is <see cref="Keys" />. It
-    ///     comes with <see cref="Before" />, which is the same store from before the transaction.
+    ///     This is the store and not the content of this view, which is
+    ///     <see cref="Keys" />. It comes with <see cref="Before" />, which is the same
+    ///     store from before the transaction.
     ///     Thus, a delta across a value of an item needs no other data.
     /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 
     /// <summary>The store as this transaction found it.</summary>
     /// <remarks>
-    ///     This is the same instance as the <see cref="After" /> of the previous change. Thus, a
-    ///     listener on a sequence of these changes keeps no more memory than a listener on their
-    ///     <see cref="After" /> alone. A transaction that changes only a criteria does not change
-    ///     the store, and this field and <see cref="After" /> are then the same object.
+    ///     This is the same instance as the <see cref="After" /> of the previous
+    ///     change. Thus, a listener on a sequence of these changes keeps no more
+    ///     memory than a listener on their <see cref="After" /> alone. A transaction
+    ///     that changes only a criteria does not change the store, and this field and
+    ///     <see cref="After" /> are then the same object.
     /// </remarks>
     public CollectionSnapshot<TKey, TIdentity, TState> Before { get; }
 
@@ -81,42 +84,50 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///     <see cref="Operations" /> is empty. Read all of <see cref="Keys" />.
     /// </summary>
     /// <remarks>
-    ///     A stage resets at a change of its order, and it always resets then and never reports
-    ///     moves. It also resets at a change of the limits of its window, at a change that is too
-    ///     large for a list of operations, and at a reset in the stage above it. A change of the
-    ///     predicate alone comes as the adds and the removals from it, and it is a reset only when
-    ///     it is that large.
+    ///     A stage resets at a change of its order, and it always resets then and
+    ///     never reports moves. It also resets at a change of the limits of its
+    ///     window, at a change that is too large for a list of operations, and at a
+    ///     reset in the stage above it. A change of the predicate alone comes as the
+    ///     adds and the removals from it, and it is a reset only when it is that
+    ///     large.
     /// </remarks>
     public bool IsReset { get; }
 
-    /// <summary>Whether this change alters what the view holds, or the order it holds it in.</summary>
+    /// <summary>
+    ///     Whether this change alters what the view holds, or the order it holds
+    ///     it in.
+    /// </summary>
     internal bool MovesKeys { get; }
 
-    /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
+    /// <summary>
+    ///     Whether this change alters what the view holds, rather than only
+    ///     where.
+    /// </summary>
     /// <remarks>
-    ///     A change of order is not a change of the members, thus a cell on the shape sends no
-    ///     value at one.
+    ///     A change of order is not a change of the members, thus a cell on the shape
+    ///     sends no value at one.
     /// </remarks>
     internal bool ChangesMembership { get; }
 
     /// <summary>
-    ///     True when this is a reset that changed only the order. The stage holds the keys that it
-    ///     held, and no value of those keys changed.
+    ///     True when this is a reset that changed only the order. The stage holds the
+    ///     keys that it held, and no value of those keys changed.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         A sort reports this at a new order, when no other change came to it in the
-    ///         transaction. A stage below, with no change of its own criteria, then keeps its
-    ///         content and does not build again from the stage above. A filter moves its members to
-    ///         the new order and does not test its predicate again, because no value that changes
-    ///         the answer changed. A sort keeps its list, because its members and its own order did
-    ///         not change. The two stages report the same change, thus the next stage below can do
-    ///         the same.
+    ///         A sort reports this at a new order, when no other change came to it in
+    ///         the transaction. A stage below, with no change of its own criteria,
+    ///         then keeps its content and does not build again from the stage above. A
+    ///         filter moves its members to the new order and does not test its
+    ///         predicate again, because no value that changes the answer changed. A
+    ///         sort keeps its list, because its members and its own order did not
+    ///         change. The two stages report the same change, thus the next stage
+    ///         below can do the same.
     ///     </para>
     ///     <para>
-    ///         A window cannot do that. A change of the order above it changes the keys in the
-    ///         window, thus a slice builds again and reports a usual reset, and the stages below it
-    ///         also build again.
+    ///         A window cannot do that. A change of the order above it changes the
+    ///         keys in the window, thus a slice builds again and reports a usual
+    ///         reset, and the stages below it also build again.
     ///     </para>
     /// </remarks>
     internal bool ReordersOnly { get; }
@@ -124,22 +135,23 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
     /// <summary>
-    ///     The result of this change for one key, or nothing when the change has no result for
-    ///     it.
+    ///     The result of this change for one key, or nothing when the change has no
+    ///     result for it.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         This is the equivalent, for a view, of the projection for one item on the root. A
-    ///         cell for one item on a view can thus use this stream, and not a lift against the
-    ///         keys of the view. An observer from this stream is a stream node that
-    ///         removes itself when the change does not name its key. An observer from a lift is a
-    ///         cell node that the graph reads at each change of the view, and measurements
-    ///         show approximately four times the cost.
+    ///         This is the equivalent, for a view, of the projection for one item on
+    ///         the root. A cell for one item on a view can thus use this stream, and
+    ///         not a lift against the keys of the view. An observer from this stream
+    ///         is a stream node that removes itself when the change does not name its
+    ///         key. An observer from a lift is a cell node that the graph reads at
+    ///         each change of the view, and measurements show approximately four times
+    ///         the cost.
     ///     </para>
     ///     <para>
-    ///         A reset has no operations, because each position can be different. Thus, this code
-    ///         calculates the answer again from the store, and only for a key that one of the two
-    ///         sides holds.
+    ///         A reset has no operations, because each position can be different.
+    ///         Thus, this code calculates the answer again from the store, and only
+    ///         for a key that one of the two sides holds.
     ///     </para>
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
@@ -171,14 +183,15 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     }
 
     /// <summary>
-    ///     The result of this change for the identity of one key, as this view reads it, or
-    ///     nothing.
+    ///     The result of this change for the identity of one key, as this view reads
+    ///     it, or nothing.
     /// </summary>
     /// <remarks>
-    ///     An update is a new state and a move is a new position. The two are not a new identity,
-    ///     thus an observer of the identity sends no value for them. The identity changes when the
-    ///     key enters this view or leaves it. On a view, and not on the collection, that also
-    ///     occurs when a criteria gives a different answer for an item that no edit changed.
+    ///     An update is a new state and a move is a new position. The two are not a
+    ///     new identity, thus an observer of the identity sends no value for them. The
+    ///     identity changes when the key enters this view or leaves it. On a view, and
+    ///     not on the collection, that also occurs when a criteria gives a different
+    ///     answer for an item that no edit changed.
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectIdentityChangeFor<TProjected>(
         TKey key,
@@ -213,13 +226,14 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     }
 
     /// <summary>
-    ///     The result of this change for the two parts of one key together, as this view reads
-    ///     them, or nothing.
+    ///     The result of this change for the two parts of one key together, as this
+    ///     view reads them, or nothing.
     /// </summary>
     /// <remarks>
-    ///     This takes each operation that names the key, as the state projection does, because an
-    ///     item holds the state. An update and a move thus send a value from one of these, and an
-    ///     observer of the identity alone sleeps through the two.
+    ///     This takes each operation that names the key, as the state projection does,
+    ///     because an item holds the state. An update and a move thus send a value
+    ///     from one of these, and an observer of the identity alone sleeps through the
+    ///     two.
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectItemChangeFor<TProjected>(
         TKey key,
@@ -269,11 +283,12 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
 
     /// <summary>This change as keyed deltas, which is what an item change is.</summary>
     /// <remarks>
-    ///     This changes the shape of the data and does not calculate it again. A view change names
-    ///     the keys that entered, the keys that left, and the keys that changed, and it holds the
-    ///     store on the two sides for their values. A reset names no key, thus this code reads the
-    ///     current content and the previous content of the view. That cost is the size of the view
-    ///     and not the size of the collection, and it occurs only at a change of criteria.
+    ///     This changes the shape of the data and does not calculate it again. A view
+    ///     change names the keys that entered, the keys that left, and the keys that
+    ///     changed, and it holds the store on the two sides for their values. A reset
+    ///     names no key, thus this code reads the current content and the previous
+    ///     content of the view. That cost is the size of the view and not the size of
+    ///     the collection, and it occurs only at a change of criteria.
     /// </remarks>
     internal ItemChange<TKey, TIdentity, TState> ToItemChange(IEqualityComparer<TKey> keyEqualityComparer)
     {
@@ -405,25 +420,28 @@ public sealed class ViewRemove<TKey> : ViewOperation<TKey>
 
 /// <summary>
 ///     The key stayed and its position changed. It is equivalent to a removal at
-///     <see cref="FromIndex" /> and then an add at <see cref="ToIndex" />. This code reports one
-///     operation, thus a bound list can move the row and keep its selection.
+///     <see cref="FromIndex" /> and then an add at <see cref="ToIndex" />. This
+///     code reports one operation, thus a bound list can move the row and keep its
+///     selection.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A move comes only from a change to the value of the key, in an order that reads that
-///         value. The move is the sort, and no <see cref="ViewUpdate{TKey}" /> comes with it. A
-///         consumer that makes a delta must read this as an update that also moved the key, and a
-///         stage below must sort on it.
+///         A move comes only from a change to the value of the key, in an order
+///         that reads that value. The move is the sort, and no
+///         <see cref="ViewUpdate{TKey}" /> comes with it. A consumer that makes a
+///         delta must read this as an update that also moved the key, and a stage
+///         below must sort on it.
 ///     </para>
 ///     <para>
-///         A change of order is never a set of moves, at each count of the keys that move. It is
-///         always a reset, with
-///         <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" /> set. The stages use
-///         that rule. A filter keeps the order of its upstream collection and sorts a key that
-///         moved in the order that it holds. Thus, a move from a new order leaves the filter in the
-///         previous order. Each stage below also reads a move as a change of value: a stage sorts
-///         the key again, and a cell for one item sends a value. For a change of order alone, that
-///         is work with no result.
+///         A change of order is never a set of moves, at each count of the keys
+///         that move. It is always a reset, with
+///         <see cref="CollectionViewChange{TKey,TIdentity,TState}.IsReset" /> set.
+///         The stages use that rule. A filter keeps the order of its upstream
+///         collection and sorts a key that moved in the order that it holds. Thus,
+///         a move from a new order leaves the filter in the previous order. Each
+///         stage below also reads a move as a change of value: a stage sorts the
+///         key again, and a cell for one item sends a value. For a change of order
+///         alone, that is work with no result.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -447,14 +465,14 @@ public sealed class ViewMove<TKey> : ViewOperation<TKey>
 }
 
 /// <summary>
-///     The item at <see cref="Index" /> changed, and it did not enter the view, go out of the
-///     view, or move.
+///     The item at <see cref="Index" /> changed, and it did not enter the view, go
+///     out of the view, or move.
 /// </summary>
 /// <remarks>
-///     This operation makes a chain possible. A filter below, and a sort below, must test an item
-///     again when its state changed, also when the stage above saw no change of position. This
-///     operation gives that message. A UI consumer can ignore it, because the <c>StateCell</c> of
-///     the row reports the value.
+///     This operation makes a chain possible. A filter below, and a sort below,
+///     must test an item again when its state changed, also when the stage above
+///     saw no change of position. This operation gives that message. A UI consumer
+///     can ignore it, because the <c>StateCell</c> of the row reports the value.
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 [PublicAPI]

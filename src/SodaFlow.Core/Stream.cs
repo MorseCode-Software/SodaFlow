@@ -12,13 +12,14 @@ internal static class StreamInternal
     internal static StreamSink<T> CreateSinkImpl<T>(Func<T, T, T> coalesce) => new(coalesce);
 
     /// <summary>
-    ///     Connects one input stream to a shared pulse stream. Each firing of the input gives its
-    ///     value to <paramref name="capture" /> and then sends into the pulse. Thus, the step that
-    ///     puts the inputs together reads the captured value, and not the value of a behavior.
+    ///     Connects one input stream to a shared pulse stream. Each firing of the
+    ///     input gives its value to <paramref name="capture" /> and then sends into
+    ///     the pulse. Thus, the step that puts the inputs together reads the captured
+    ///     value, and not the value of a behavior.
     /// </summary>
     /// <remarks>
-    ///     Behavior.LiftImpl, SnapshotLatestImpl, and MergeMaybesImpl use this. For a behavior, give
-    ///     the stream of its updates.
+    ///     Behavior.LiftImpl, SnapshotLatestImpl, and MergeMaybesImpl use this. For a
+    ///     behavior, give the stream of its updates.
     /// </remarks>
     internal static IListener Pulse<TInput>(
         Stream<TInput> input,
@@ -1806,7 +1807,10 @@ public class Stream<T>
     ///     Removes all firings from the output except the last one.
     /// </summary>
     /// <param name="trans">The transaction that supplies the last firing.</param>
-    /// <returns>A stream that contains only the last firing from the given transaction.</returns>
+    /// <returns>
+    ///     A stream that contains only the last firing from the given
+    ///     transaction.
+    /// </returns>
     internal Stream<T> LastFiringOnly(TransactionInternal trans) =>
         this.Coalesce(trans1: trans, f: static (_, second) => second);
 
@@ -1842,17 +1846,19 @@ public class Stream<T>
     /// </summary>
     /// <remarks>
     ///     This method uses CarryState, because it needs that state protocol. The
-    ///     protocol keeps the last value that the stream sent, moves it between firings, and
-    ///     commits it at the transaction boundary. Before, this method kept its own copy of the
-    ///     protocol. A correction to one copy could miss the other copy, and the deferral is
-    ///     sufficiently subtle to make that a risk.
-    ///     Cost kept the two copies separate. CollectLazyImpl needs a looped stream, a behavior
-    ///     to hold the state, a snapshot, two maps, and a filter on the output. That is six
-    ///     streams to keep one value. CarryState costs no more, because the emit flag removes
-    ///     the firing without a copy. Thus, this method is one output stream.
-    ///     The state is a MaybeInternal and not a T, because there can be no previous value.
-    ///     None is also a correct initial value. Thus, CarryState needs its own initialized flag
-    ///     and must not read an empty state as "not started".
+    ///     protocol keeps the last value that the stream sent, moves it between
+    ///     firings, and commits it at the transaction boundary. Before, this method
+    ///     kept its own copy of the protocol. A correction to one copy could miss the
+    ///     other copy, and the deferral is sufficiently subtle to make that a risk.
+    ///     Cost kept the two copies separate. CollectLazyImpl needs a looped stream, a
+    ///     behavior to hold the state, a snapshot, two maps, and a filter on the
+    ///     output. That is six streams to keep one value. CarryState costs no more,
+    ///     because the emit flag removes the firing without a copy. Thus, this method
+    ///     is one output stream.
+    ///     The state is a MaybeInternal and not a T, because there can be no previous
+    ///     value.
+    ///     None is also a correct initial value. Thus, CarryState needs its own
+    ///     initialized flag and must not read an empty state as "not started".
     /// </remarks>
     internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
         TransactionInternal.Apply((trans1, _) =>
@@ -1902,31 +1908,33 @@ public class Stream<T>
                 .HoldLazyImpl(initialState));
 
     /// <summary>
-    ///     Runs <paramref name="f" /> on each firing and moves state between the firings. It
-    ///     sends the result for a firing when <paramref name="f" /> asks for that. Collect and
-    ///     Accum always ask and differ only in their use of the output stream. Calm removes the
-    ///     firings that it must not send.
+    ///     Runs <paramref name="f" /> on each firing and moves state between the
+    ///     firings. It sends the result for a firing when <paramref name="f" /> asks
+    ///     for that. Collect and Accum always ask and differ only in their use of the
+    ///     output stream. Calm removes the firings that it must not send.
     /// </summary>
     /// <remarks>
-    ///     Before, FRP primitives made this method: a looped stream to move the state back, a
-    ///     behavior to hold the state, a snapshot to read it, and one map for each output. That
-    ///     is four streams for Collect and two for Accum, to move one value between firings.
+    ///     Before, FRP primitives made this method: a looped stream to move the state
+    ///     back, a behavior to hold the state, a snapshot to read it, and one map for
+    ///     each output. That is four streams for Collect and two for Accum, to move
+    ///     one value between firings.
     ///     This method is now one output stream and two fields.
-    ///     The behavior supplied those two fields, and the division between them is important.
-    ///     A snapshot reads a behavior with SampleNoTransaction. Thus, each firing in a
-    ///     transaction saw the state from the start of that transaction, and the behavior
-    ///     committed the result of the last firing. One field with an update without a copy lets a
-    ///     later firing in the same transaction see an earlier one. That is a different fold,
-    ///     and the caller function f can find it.
+    ///     The behavior supplied those two fields, and the division between them is
+    ///     important.
+    ///     A snapshot reads a behavior with SampleNoTransaction. Thus, each firing in
+    ///     a transaction saw the state from the start of that transaction, and the
+    ///     behavior committed the result of the last firing. One field with an update
+    ///     without a copy lets a later firing in the same transaction see an earlier
+    ///     one. That is a different fold, and the caller function f can find it.
     ///     Failure shows the deferral. A transaction that throws discards its last
-    ///     queue. Thus, a firing in that transaction does not commit, and the state stays as it
-    ///     was before. This is the one difference from a commit without a copy.
-    ///     CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue holds this behavior. All
-    ///     other tests pass with one of the two methods.
-    ///     The emit flag lets Calm use this method. A Maybe result with a filter costs a second
-    ///     stream and a node in the rank graph. Calm exists to prevent that cost. A bool in a
-    ///     tuple that is already a struct costs one branch, and the processor predicts that
-    ///     branch.
+    ///     queue. Thus, a firing in that transaction does not commit, and the state
+    ///     stays as it was before. This is the one difference from a commit without a
+    ///     copy. CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue holds
+    ///     this behavior. All other tests pass with one of the two methods.
+    ///     The emit flag lets Calm use this method. A Maybe result with a filter costs
+    ///     a second stream and a node in the rank graph. Calm exists to prevent that
+    ///     cost. A bool in a tuple that is already a struct costs one branch, and the
+    ///     processor predicts that branch.
     /// </remarks>
     private Stream<TReturn> CarryState<TState, TReturn>(
         TransactionInternal trans1,

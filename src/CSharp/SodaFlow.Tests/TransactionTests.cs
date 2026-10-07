@@ -11,9 +11,9 @@ namespace SodaFlow.Tests;
 public sealed class TransactionTests
 {
     /// <summary>
-    ///     Runs an action in one transaction, and then sends on a sink whose listener throws. Thus,
-    ///     the transaction fails while it propagates, which is the failure that drops a posted
-    ///     action.
+    ///     Runs an action in one transaction, and then sends on a sink whose listener
+    ///     throws. Thus, the transaction fails while it propagates, which is the
+    ///     failure that drops a posted action.
     /// </summary>
     /// <param name="inTransaction">Runs with the failing transaction open.</param>
     /// <returns>The exception that the transaction gave.</returns>

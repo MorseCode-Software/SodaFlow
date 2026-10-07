@@ -120,11 +120,11 @@ public sealed class OrderedKeysTests
     }
 
     /// <summary>
-    ///     A stage that gets an order equal to the order that it holds does nothing, and a stage
-    ///     that gets that order in the opposite direction turns its list. The stage does that only
-    ///     when it can identify the order. This code compares two orders with the selector instance
-    ///     and the comparer instances of their construction, thus a factory must give the same
-    ///     selector at each call.
+    ///     A stage that gets an order equal to the order that it holds does nothing,
+    ///     and a stage that gets that order in the opposite direction turns its list.
+    ///     The stage does that only when it can identify the order. This code compares
+    ///     two orders with the selector instance and the comparer instances of their
+    ///     construction, thus a factory must give the same selector at each call.
     /// </summary>
     [Test]
     public async Task OrdersBuiltTheSameWayAreRecognisedAsTheSameOrder()
@@ -230,10 +230,11 @@ public sealed class OrderedKeysTests
     }
 
     /// <summary>
-    ///     An order in the opposite direction is not the list in the opposite direction. A
-    ///     descending order puts the sort values in the opposite direction and keeps the ascending
-    ///     key as its last level. Thus, two keys with equal sort values keep their sequence when the
-    ///     stage turns the list, and a simple reversal of the positions does not keep it.
+    ///     An order in the opposite direction is not the list in the opposite
+    ///     direction. A descending order puts the sort values in the opposite
+    ///     direction and keeps the ascending key as its last level. Thus, two keys
+    ///     with equal sort values keep their sequence when the stage turns the list,
+    ///     and a simple reversal of the positions does not keep it.
     /// </summary>
     [Test]
     public async Task ReversingAnOrderKeepsTiedKeysInKeyOrder()
@@ -294,10 +295,10 @@ public sealed class OrderedKeysTests
     }
 
     /// <summary>
-    ///     A key that the snapshot does not hold has no sort value, and each stage adds only the
-    ///     keys in its snapshot. Thus, a call to add such a key is a defect. This code throws an
-    ///     exception and does not omit the key with no message, at an add of one key and at a build
-    ///     of a full set.
+    ///     A key that the snapshot does not hold has no sort value, and each stage
+    ///     adds only the keys in its snapshot. Thus, a call to add such a key is a
+    ///     defect. This code throws an exception and does not omit the key with no
+    ///     message, at an add of one key and at a build of a full set.
     /// </summary>
     [Test]
     public async Task FilingAKeyTheSnapshotDoesNotHoldThrows()

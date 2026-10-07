@@ -7,27 +7,31 @@ using SodaFlow.Bindable.ObjectModel;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What it costs to send one update from the graph to a bound property. It also gives how much of that is
-///     the two-way value sampling its cell.
+///     What it costs to send one update from the graph to a bound property. It
+///     also gives how much of that is the two-way value sampling its cell.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The two-way value wrote back the value that the update carried. It now samples the cell, thus a
-///         late update cannot put a stale value on the screen. A sample out of a transaction opens one, and a
-///         transaction takes a process-wide lock. Thus, the change has a cost, and the question of how much
-///         it costs is a fair one.
+///         The two-way value wrote back the value that the update carried. It now
+///         samples the cell, thus a late update cannot put a stale value on the
+///         screen. A sample out of a transaction opens one, and a transaction
+///         takes a process-wide lock. Thus, the change has a cost, and the
+///         question of how much it costs is a fair one.
 ///     </para>
 ///     <para>
-///         The scheduler here queues, and other code drains it explicitly, which is what a dispatcher does
-///         and is the condition that matters. The work goes in the queue in a transaction and runs at its
-///         end, with no transaction in flight. Thus, the sample has to open its own. With
-///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the sending transaction is open
-///         and joins it, which has a lower cost and flatters the numbers.
+///         The scheduler here queues, and other code drains it explicitly, which
+///         is what a dispatcher does and is the condition that matters. The work
+///         goes in the queue in a transaction and runs at its end, with no
+///         transaction in flight. Thus, the sample has to open its own. With
+///         <see cref="ImmediateBindingScheduler" /> the refresh runs while the
+///         sending transaction is open and joins it, which has a lower cost and
+///         flatters the numbers.
 ///     </para>
 ///     <para>
-///         One-way values are the contrast and not a control. They were not changed, and they write back the
-///         value the update carried, thus the difference between the two is what a sample costs. Most
-///         bindings are one-way, and pay none of this.
+///         One-way values are the contrast and not a control. They were not
+///         changed, and they write back the value the update carried, thus the
+///         difference between the two is what a sample costs. Most bindings are
+///         one-way, and pay none of this.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -56,8 +60,8 @@ public class BindableRefreshBenchmarks
     private int next;
 
     /// <summary>
-    ///     Builds the two bound cells. A constructor rather than a global setup, so the fields can
-    ///     stay readonly and non-nullable.
+    ///     Builds the two bound cells. A constructor rather than a global setup, so
+    ///     the fields can stay readonly and non-nullable.
     /// </summary>
     public BindableRefreshBenchmarks()
     {
@@ -66,8 +70,9 @@ public class BindableRefreshBenchmarks
     }
 
     /// <summary>
-    ///     One update into a cell nothing is bound to: the transaction and the graph, with no
-    ///     bindable in the path. The baseline, so the ratios read as what binding adds.
+    ///     One update into a cell nothing is bound to: the transaction and the graph,
+    ///     with no bindable in the path. The baseline, so the ratios read as what
+    ///     binding adds.
     /// </summary>
     [Benchmark(Baseline = true, Description = "send, nothing bound")]
     public void SendToAnUnboundCell() => this.unboundCell.Send(++this.next);
@@ -81,8 +86,8 @@ public class BindableRefreshBenchmarks
     }
 
     /// <summary>
-    ///     One update to a two-way value, which samples the cell. The sample opens a transaction
-    ///     of its own, since the drain runs with none in flight.
+    ///     One update to a two-way value, which samples the cell. The sample opens a
+    ///     transaction of its own, since the drain runs with none in flight.
     /// </summary>
     [Benchmark(Description = "send and deliver, two-way")]
     public void SendAndDeliverTwoWay()
@@ -96,8 +101,8 @@ public class BindableRefreshBenchmarks
     public int SampleOutsideATransaction() => this.twoWayCell.Sample();
 
     /// <summary>
-    ///     An empty transaction, which is the floor below the sample above. It gives the cost to get
-    ///     the lock, to open, and to close, with nothing in between.
+    ///     An empty transaction, which is the floor below the sample above. It gives
+    ///     the cost to get the lock, to open, and to close, with nothing in between.
     /// </summary>
     [Benchmark(Description = "empty transaction")]
     public int EmptyTransaction() => Transaction.Run(static () => 0);

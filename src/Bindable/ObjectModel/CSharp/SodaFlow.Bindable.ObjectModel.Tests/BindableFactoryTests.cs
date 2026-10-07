@@ -9,10 +9,10 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Tests the one operation that the factory does and the extension methods do not: it moves
-///     one supplied scheduler into each object that it creates. A method that does not pass the
-///     scheduler makes a bindable that operates. Thus, only a test of this shape finds that
-///     error.
+///     Tests the one operation that the factory does and the extension methods do
+///     not: it moves one supplied scheduler into each object that it creates. A
+///     method that does not pass the scheduler makes a bindable that operates.
+///     Thus, only a test of this shape finds that error.
 /// </summary>
 public sealed class BindableFactoryTests
 {
@@ -107,9 +107,10 @@ public sealed class BindableFactoryTests
     }
 
     /// <summary>
-    ///     The factory is the only way to build a bindable, and each bindable needs a scheduler.
-    ///     Thus, a factory with no scheduler fails at its construction, and not at the first
-    ///     notification on an incorrect thread.
+    ///     The factory is the only way to build a bindable, and each bindable needs a
+    ///     scheduler.
+    ///     Thus, a factory with no scheduler fails at its construction, and not at the
+    ///     first notification on an incorrect thread.
     /// </summary>
     [Test]
     public async Task TheFactoryRejectsANullScheduler() =>
@@ -117,7 +118,8 @@ public sealed class BindableFactoryTests
         await Assert.That(static () => new BindableFactory(null!)).ThrowsExactly<ArgumentNullException>();
 
     /// <summary>
-    ///     Keeps a record that the code asked it, and then operates as the immediate scheduler.
+    ///     Keeps a record that the code asked it, and then operates as the immediate
+    ///     scheduler.
     ///     Thus, the bindable in the test continues to operate.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage

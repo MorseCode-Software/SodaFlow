@@ -11,8 +11,8 @@ using TUnit.Core;
 namespace SodaFlow.Tests;
 
 /// <summary>
-///     Debounce, on a clock that each test moves by hand. A test of a wait on the true clock
-///     measures the machine and not the graph.
+///     Debounce, on a clock that each test moves by hand. A test of a wait on the
+///     true clock measures the machine and not the graph.
 /// </summary>
 public sealed class DebounceTests
 {
@@ -214,8 +214,9 @@ public sealed class DebounceTests
         internal ITimerSystem<int> Timers { get; }
 
         /// <summary>
-        ///     Moves the clock, and opens a transaction. The timer system reads the clock at the
-        ///     start of a transaction, thus a step with no transaction sends no alarm.
+        ///     Moves the clock, and opens a transaction. The timer system reads the clock
+        ///     at the start of a transaction, thus a step with no transaction sends no
+        ///     alarm.
         /// </summary>
         internal void AdvanceTo(int now)
         {

@@ -5,29 +5,31 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     One axis of movement. It bounces between a minimum bound and a maximum bound
-///     continuously.
+///     One axis of movement. It bounces between a minimum bound and a maximum
+///     bound continuously.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This shape is the full idea of the sample. A <see cref="Cell{T}" /> holds the current
-///         <see cref="Flight" />, which is the equation that the body follows now. The position is
-///         that equation at the current time. Each bounce replaces the equation, and
-///         <c>SwitchB</c> makes the behavior follow the current equation.
+///         This shape is the full idea of the sample. A <see cref="Cell{T}" />
+///         holds the current <see cref="Flight" />, which is the equation that the
+///         body follows now. The position is that equation at the current time.
+///         Each bounce replaces the equation, and <c>SwitchB</c> makes the
+///         behavior follow the current equation.
 ///     </para>
 ///     <para>
-///         The feedback is the important part. The next bounce is a function of the current
-///         flight, and the bounce makes the next flight. Thus, the graph refers to itself.
-///         <c>Cell.Loop</c> makes this shape possible, and there is no sink. The simulation uses
-///         only FRP feedback, thus no code must send a value.
+///         The feedback is the important part. The next bounce is a function of
+///         the current flight, and the bounce makes the next flight. Thus, the
+///         graph refers to itself.
+///         <c>Cell.Loop</c> makes this shape possible, and there is no sink. The
+///         simulation uses only FRP feedback, thus no code must send a value.
 ///     </para>
 /// </remarks>
 internal static class BouncingAxis
 {
     /// <summary>
-    ///     The minimum time between one bounce and the next bounce. Two bounces cannot be nearer
-    ///     in time than this value. Thus, the code does not read the root of the last bounce as a
-    ///     new bounce at the same moment.
+    ///     The minimum time between one bounce and the next bounce. Two bounces cannot
+    ///     be nearer in time than this value. Thus, the code does not read the root of
+    ///     the last bounce as a new bounce at the same moment.
     /// </summary>
     private const double MinimumInterval = 1e-6;
 
@@ -35,11 +37,12 @@ internal static class BouncingAxis
     ///     The speed below which a damped body stops and does not bounce again.
     /// </summary>
     /// <remarks>
-    ///     This value makes the damping finite. A multiplier below one at each bounce makes the
-    ///     bounces nearer in time as fast as it makes them smaller, and the interval between them
-    ///     does not become zero. Thus, a simulation that calculates each bounce in sequence
-    ///     schedules bounces continuously and the body does not stop. The solution, here and in
-    ///     other code, is a rule that a sufficiently low speed is a stop.
+    ///     This value makes the damping finite. A multiplier below one at each bounce
+    ///     makes the bounces nearer in time as fast as it makes them smaller, and the
+    ///     interval between them does not become zero. Thus, a simulation that
+    ///     calculates each bounce in sequence schedules bounces continuously and the
+    ///     body does not stop. The solution, here and in other code, is a rule that a
+    ///     sufficiently low speed is a stop.
     /// </remarks>
     private const double RestSpeed = 25.0;
 
@@ -47,37 +50,49 @@ internal static class BouncingAxis
     ///     The maximum speed that a bounce can give to a body.
     /// </summary>
     /// <remarks>
-    ///     This is the second part of the problem that <see cref="RestSpeed" /> corrects. A
-    ///     multiplier above one at each bounce increases the speed with no limit, thus the bounces
-    ///     become nearer in time with no limit. When they are nearer in time than the timer can do
-    ///     them, the current flight is older than the moment on the screen. The code then draws the
-    ///     body at the position from an equation that is no longer correct. A maximum speed keeps
-    ///     the bounces sufficiently far apart for the timer. Thus, the simulation can apply a
+    ///     This is the second part of the problem that <see cref="RestSpeed" />
+    ///     corrects. A multiplier above one at each bounce increases the speed with no
+    ///     limit, thus the bounces become nearer in time with no limit. When they are
+    ///     nearer in time than the timer can do them, the current flight is older than
+    ///     the moment on the screen. The code then draws the body at the position from
+    ///     an equation that is no longer correct. A maximum speed keeps the bounces
+    ///     sufficiently far apart for the timer. Thus, the simulation can apply a
     ///     multiplier above one correctly.
     /// </remarks>
     private const double MaximumSpeed = 2000.0;
 
     /// <summary>
-    ///     Builds the position along one axis. The result is a behavior with a value at each
-    ///     moment, and it bounces between <paramref name="min" /> and <paramref name="max" />.
+    ///     Builds the position along one axis. The result is a behavior with a value
+    ///     at each moment, and it bounces between <paramref name="min" /> and
+    ///     <paramref name="max" />.
     /// </summary>
     /// <param name="timers">
     ///     The clock for the position, and the source of the alarms for each bounce.
     /// </param>
-    /// <param name="initial">The flight that the body follows before a bounce or a restart.</param>
-    /// <param name="min">The minimum bound. On an axis that points down it is the ceiling.</param>
-    /// <param name="max">The maximum bound. On an axis that points down it is the floor.</param>
+    /// <param name="initial">
+    ///     The flight that the body follows before a bounce or a
+    ///     restart.
+    /// </param>
+    /// <param name="min">
+    ///     The minimum bound. On an axis that points down it is the
+    ///     ceiling.
+    /// </param>
+    /// <param name="max">
+    ///     The maximum bound. On an axis that points down it is the
+    ///     floor.
+    /// </param>
     /// <param name="restarts">
-    ///     Flights from other code. They have priority above a bounce in the same transaction.
-    ///     The release of a thrown ball comes here, and so does the restart of a scene that damping
-    ///     stopped. The scene with one ball sends no flights and gives a stream that never
-    ///     fires.
+    ///     Flights from other code. They have priority above a bounce in the same
+    ///     transaction.
+    ///     The release of a thrown ball comes here, and so does the restart of a scene
+    ///     that damping stopped. The scene with one ball sends no flights and gives a
+    ///     stream that never fires.
     /// </param>
     /// <param name="restitution">
-    ///     The multiplier for the speed at each bounce. A value of one is a fully elastic bounce,
-    ///     a lower value decreases the speed, and a higher value increases it. The code reads this
-    ///     at the moment of the bounce, thus a change applies to the next bounce and not to the
-    ///     current flight.
+    ///     The multiplier for the speed at each bounce. A value of one is a fully
+    ///     elastic bounce, a lower value decreases the speed, and a higher value
+    ///     increases it. The code reads this at the moment of the bounce, thus a
+    ///     change applies to the next bounce and not to the current flight.
     /// </param>
     public static Behavior<double> Create(
         ITimerSystem<double> timers,
@@ -97,8 +112,8 @@ internal static class BouncingAxis
                 restitution: restitution));
 
     /// <summary>
-    ///     The equation that applies at each moment. Each bounce replaces the equation before
-    ///     it.
+    ///     The equation that applies at each moment. Each bounce replaces the equation
+    ///     before it.
     /// </summary>
     private static Cell<Flight> Flights(
         ITimerSystem<double> timers,
@@ -137,18 +152,19 @@ internal static class BouncingAxis
         flight.Map(f => timers.Time.Map(f.PositionAt)).SwitchB();
 
     /// <summary>
-    ///     The time when the given flight next touches a bound, or none when it touches no
-    ///     bound.
+    ///     The time when the given flight next touches a bound, or none when it
+    ///     touches no bound.
     /// </summary>
     internal static Maybe<double> NextBounceTime(Flight flight, double min, double max) =>
         TimeToReach(flight: flight, bound: min).Earlier(TimeToReach(flight: flight, bound: max));
 
     /// <summary>The first of the two moments, or the one moment that is available.</summary>
     /// <remarks>
-    ///     The two calculations here have the same result: two candidate moments, and each one
-    ///     can be missing. The answer is the first of the two. This is an extension method, because
-    ///     the subject of the question is one of the two moments. It is private, thus the name of
-    ///     the second moment stays in this file.
+    ///     The two calculations here have the same result: two candidate moments, and
+    ///     each one can be missing. The answer is the first of the two. This is an
+    ///     extension method, because the subject of the question is one of the two
+    ///     moments. It is private, thus the name of the second moment stays in this
+    ///     file.
     /// </remarks>
     private static Maybe<double> Earlier(this Maybe<double> first, Maybe<double> second) =>
         first.Match(
@@ -159,25 +175,26 @@ internal static class BouncingAxis
             onNone: () => second);
 
     /// <summary>
-    ///     The flight that starts where the given flight touches a bound, in the opposite
-    ///     direction.
+    ///     The flight that starts where the given flight touches a bound, in the
+    ///     opposite direction.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <paramref name="restitution" /> is the full damping. A value of one bounces with
-    ///         no loss, a value below one decreases the speed, and a value above one increases
-    ///         it.
+    ///         <paramref name="restitution" /> is the full damping. A value of one
+    ///         bounces with no loss, a value below one decreases the speed, and a
+    ///         value above one increases it.
     ///     </para>
     ///     <para>
-    ///         Below <see cref="RestSpeed" /> the body stops, and the damping needs that rule.
-    ///         The body stops only at a position where a stop is possible: at the far bound of an
-    ///         axis that accelerates to that bound, which is the floor, or at each position on an
-    ///         axis with no acceleration. A slow body at the ceiling does not stop, because it
-    ///         falls next.
+    ///         Below <see cref="RestSpeed" /> the body stops, and the damping needs
+    ///         that rule.
+    ///         The body stops only at a position where a stop is possible: at the far
+    ///         bound of an axis that accelerates to that bound, which is the floor, or
+    ///         at each position on an axis with no acceleration. A slow body at the
+    ///         ceiling does not stop, because it falls next.
     ///     </para>
     ///     <para>
-    ///         Above <see cref="MaximumSpeed" /> the speed does not increase, and a multiplier
-    ///         above one needs that rule, for the opposite cause.
+    ///         Above <see cref="MaximumSpeed" /> the speed does not increase, and a
+    ///         multiplier above one needs that rule, for the opposite cause.
     ///     </para>
     /// </remarks>
     private static Flight Reflect(Flight flight, double time, double min, double max, double restitution)
@@ -198,7 +215,10 @@ internal static class BouncingAxis
                 Acceleration: flight.Acceleration);
     }
 
-    /// <summary>The given speed, in its direction, with a limit of <see cref="MaximumSpeed" />.</summary>
+    /// <summary>
+    ///     The given speed, in its direction, with a limit of
+    ///     <see cref="MaximumSpeed" />.
+    /// </summary>
     private static double Clamp(double velocity) =>
         velocity > MaximumSpeed
             ? MaximumSpeed
@@ -207,8 +227,8 @@ internal static class BouncingAxis
                 : velocity;
 
     /// <summary>
-    ///     The time until the flight touches the bound, or none when it does not touch the bound
-    ///     in forward time.
+    ///     The time until the flight touches the bound, or none when it does not touch
+    ///     the bound in forward time.
     /// </summary>
     private static Maybe<double> TimeToReach(Flight flight, double bound)
     {
@@ -239,8 +259,8 @@ internal static class BouncingAxis
     }
 
     /// <summary>
-    ///     The absolute time at <paramref name="dt" /> seconds into the flight, when that time is
-    ///     sufficiently far forward to be a new bounce.
+    ///     The absolute time at <paramref name="dt" /> seconds into the flight, when
+    ///     that time is sufficiently far forward to be a new bounce.
     /// </summary>
     private static Maybe<double> Reached(Flight flight, double dt) =>
         dt > MinimumInterval && !double.IsNaN(dt) && !double.IsInfinity(dt)

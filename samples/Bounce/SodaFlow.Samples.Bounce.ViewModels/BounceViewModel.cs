@@ -12,22 +12,26 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// <remarks>
 ///     <para>
 ///         There is one timer system for the full sample. It is the source of
-///         <see cref="ITimerSystem{T}.Time" />, and the position of each ball is a function of that
-///         time. It holds a background thread that fires the alarms of the bounces. That thread
-///         runs while the process runs. For that cause there is one timer system, and not one timer
-///         system for each scene.
+///         <see cref="ITimerSystem{T}.Time" />, and the position of each ball is a
+///         function of that time. It holds a background thread that fires the
+///         alarms of the bounces. That thread runs while the process runs. For
+///         that cause there is one timer system, and not one timer system for each
+///         scene.
 ///     </para>
 ///     <para>
-///         <see cref="SecondsTimerSystem" /> measures the time in seconds from its construction,
-///         and that is necessary for a simulation. <see cref="SystemClockTimerSystem" /> is the
-///         second timer system in the library, and it gives a <see cref="DateTime" /> for a
-///         schedule on true calendar times.
+///         <see cref="SecondsTimerSystem" /> measures the time in seconds from its
+///         construction, and that is necessary for a simulation.
+///         <see cref="SystemClockTimerSystem" /> is the second timer system in the
+///         library, and it gives a <see cref="DateTime" /> for a schedule on true
+///         calendar times.
 ///     </para>
 ///     <para>
-///         See which parts of this are bindable and which parts are not. The balls are behaviors.
-///         Code reads them with a sample, and they bind to nothing, because there is no sequence of
-///         changes for a binding. The selected scene is a usual value that changes, thus it is a
-///         usual cell and a usual bindable property, as in the other samples.
+///         See which parts of this are bindable and which parts are not. The balls
+///         are behaviors.
+///         Code reads them with a sample, and they bind to nothing, because there
+///         is no sequence of changes for a binding. The selected scene is a usual
+///         value that changes, thus it is a usual cell and a usual bindable
+///         property, as in the other samples.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -38,8 +42,8 @@ public sealed class BounceViewModel : IBounceViewModel
     private const double LargestDamping = 1.1;
 
     /// <summary>
-    ///     The initial position of the slider. It has a large loss, thus damping shows a
-    ///     result on the screen.
+    ///     The initial position of the slider. It has a large loss, thus damping shows
+    ///     a result on the screen.
     /// </summary>
     private const double InitialDamping = 0.7;
 
@@ -65,25 +69,25 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The smallest scene is first, thus the sequence of the scenes is the sequence of
-    ///     the idea.
+    ///     The smallest scene is first, thus the sequence of the scenes is the
+    ///     sequence of the idea.
     /// </remarks>
     public IReadOnlyList<IScene> Scenes { get; }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     There is no other method that also sets the selection. A second path is a second item
-    ///     to keep in agreement with the first, and this library makes that unnecessary. The
-    ///     bindable property is the path for a value, and a bindable action is the path for an
-    ///     event.
+    ///     There is no other method that also sets the selection. A second path is a
+    ///     second item to keep in agreement with the first, and this library makes
+    ///     that unnecessary. The bindable property is the path for a value, and a
+    ///     bindable action is the path for an event.
     /// </remarks>
     public ITwoWayBindableValue<IScene> SelectedScene { get; }
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This shows that the selection is part of the graph and not a value that only the view
-    ///     holds. This property is a function of the selection, thus no code must see a change of
-    ///     tab and then update a label.
+    ///     This shows that the selection is part of the graph and not a value that
+    ///     only the view holds. This property is a function of the selection, thus no
+    ///     code must see a change of tab and then update a label.
     /// </remarks>
     public IOneWayBindableValue<string> SelectedSummary { get; }
 
@@ -104,8 +108,8 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Only the bindables use this. The scenes do not use it, because their balls are
-    ///     behaviors and no code subscribes to a behavior.
+    ///     Only the bindables use this. The scenes do not use it, because their balls
+    ///     are behaviors and no code subscribes to a behavior.
     /// </remarks>
     public void Dispose()
     {
@@ -117,9 +121,9 @@ public sealed class BounceViewModel : IBounceViewModel
 
     /// <param name="bindableFactory">The bindable factory.</param>
     /// <param name="handleException">
-    ///     This receives each exception from a wait on a timer and from a timer that fires. A
-    ///     timer callback does not run on a call stack of the caller, thus there is no other
-    ///     destination for its exception.
+    ///     This receives each exception from a wait on a timer and from a timer that
+    ///     fires. A timer callback does not run on a call stack of the caller, thus
+    ///     there is no other destination for its exception.
     /// </param>
     public static IBounceViewModel Create(IBindableFactory bindableFactory, Action<Exception> handleException)
     {

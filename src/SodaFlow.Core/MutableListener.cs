@@ -3,13 +3,15 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A listener whose target can be replaced while the handle itself stays the same.
+///     A listener whose target can be replaced while the handle itself stays the
+///     same.
 /// </summary>
 /// <remarks>
-///     Use this for an object with a long life that listens to a sequence of sources with short
-///     lives. It is one field with one life and a target that changes. To give it a listener,
-///     call <c>SetListener</c>. To release the current listener, call <c>ClearListener</c>. To
-///     stop it fully, call <c>Unlisten</c>.
+///     Use this for an object with a long life that listens to a sequence of
+///     sources with short lives. It is one field with one life and a target that
+///     changes. To give it a listener, call <c>SetListener</c>. To release the
+///     current listener, call <c>ClearListener</c>. To stop it fully, call
+///     <c>Unlisten</c>.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

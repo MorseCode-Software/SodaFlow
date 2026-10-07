@@ -12,15 +12,17 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 /// <remarks>
 ///     <para>
 ///         See the code that is not here. There is no <c>count</c> field, no
-///         <c>OnPropertyChanged("Count")</c>, and no code that must remember to examine the
-///         enabled state of Reset again. The count is a fold across a stream of edits, the label
-///         is a function of the count, and the enabled state of Reset is a second function of the
-///         count. Thus, the three values are always in agreement.
+///         <c>OnPropertyChanged("Count")</c>, and no code that must remember to
+///         examine the enabled state of Reset again. The count is a fold across a
+///         stream of edits, the label is a function of the count, and the enabled
+///         state of Reset is a second function of the count. Thus, the three
+///         values are always in agreement.
 ///     </para>
 ///     <para>
-///         The view binds to <c>SomeProperty.Value</c> and never to <c>SomeProperty</c>. That is
-///         the operation of the bindable object model. Each property is an object that raises
-///         PropertyChanged for "Value".
+///         The view binds to <c>SomeProperty.Value</c> and never to
+///         <c>SomeProperty</c>. That is the operation of the bindable object
+///         model. Each property is an object that raises PropertyChanged for
+///         "Value".
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -66,13 +68,13 @@ public sealed class CounterViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Each entry holds a subscription into the graph, and its disposal releases that
-    ///     subscription.
+    ///     Each entry holds a subscription into the graph, and its disposal releases
+    ///     that subscription.
     ///     <para />
-    ///     The list holds <see cref="IDisposable" /> and not bindables, because the disposables of
-    ///     a view model are not always bindables. A graph with MapAsync also holds an
-    ///     AsyncMapStatus, as the search sample shows. Disposal is the only operation on them
-    ///     here.
+    ///     The list holds <see cref="IDisposable" /> and not bindables, because the
+    ///     disposables of a view model are not always bindables. A graph with MapAsync
+    ///     also holds an AsyncMapStatus, as the search sample shows. Disposal is the
+    ///     only operation on them here.
     /// </remarks>
     public void Dispose()
     {

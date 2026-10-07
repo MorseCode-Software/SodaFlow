@@ -365,9 +365,9 @@ public sealed class AsyncConcurrencyStrategyTests
 
     /// <summary>
     ///     A small custom strategy on the short
-    ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type is
-    ///     <see cref="Unit" />. Each value starts immediately, as Parallel does, and this strategy
-    ///     also counts the admissions.
+    ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type
+    ///     is <see cref="Unit" />. Each value starts immediately, as Parallel does,
+    ///     and this strategy also counts the admissions.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CountingStrategy : AsyncConcurrencyStrategy<int>

@@ -70,7 +70,10 @@ internal sealed class TransactionInternal
     /// <summary>
     ///     Tells you if there is a current transaction.
     /// </summary>
-    /// <returns><code>true</code> if there is a current transaction, or <code>false</code>.</returns>
+    /// <returns>
+    ///     <code>true</code> if there is a current transaction, or
+    ///     <code>false</code>.
+    /// </returns>
     internal static bool HasCurrentTransaction() => localTransaction != null;
 
     /// <summary>
@@ -232,8 +235,8 @@ internal sealed class TransactionInternal
     /// </summary>
     /// <param name="action">The action to run after all last actions.</param>
     /// <param name="onFailure">
-    ///     The action to run where <paramref name="action" /> keeps no promise, with the exception
-    ///     that is the cause. Null where the caller gave none.
+    ///     The action to run where <paramref name="action" /> keeps no promise, with
+    ///     the exception that is the cause. Null where the caller gave none.
     /// </param>
     private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure)
     {

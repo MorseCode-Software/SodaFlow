@@ -10,8 +10,9 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     The fold over a collection. Each test reads the value of the fold after each edit. Thus, a
-///     test fails where the fold and the items of the collection disagree.
+///     The fold over a collection. Each test reads the value of the fold after
+///     each edit. Thus, a test fails where the fold and the items of the
+///     collection disagree.
 /// </summary>
 public sealed class CollectionFoldTests
 {
@@ -637,7 +638,8 @@ public sealed class CollectionFoldTests
             subtract: static (a, b) => a - b);
 
     /// <summary>
-    ///     A fold that reads the two parts of each item. Thus, a change of the identity moves it.
+    ///     A fold that reads the two parts of each item. Thus, a change of the
+    ///     identity moves it.
     /// </summary>
     private static Cell<int> Weighted(ReactiveCollection<int, ItemIdentity, ItemState> collection) =>
         collection.Fold(
@@ -647,8 +649,8 @@ public sealed class CollectionFoldTests
             subtract: static (a, b) => a - b);
 
     /// <summary>
-    ///     A fold that reads the identity alone, with the weight that <see cref="Weighted" /> gives
-    ///     it.
+    ///     A fold that reads the identity alone, with the weight that
+    ///     <see cref="Weighted" /> gives it.
     /// </summary>
     private static Cell<int> WeightedByIdentity(ReactiveCollection<int, ItemIdentity, ItemState> collection) =>
         collection.FoldByIdentity(
@@ -658,12 +660,15 @@ public sealed class CollectionFoldTests
             subtract: static (a, b) => a - b);
 
     /// <summary>
-    ///     The number of the key times 100, 1000 for an identity that a replacement made, and the
-    ///     score.
+    ///     The number of the key times 100, 1000 for an identity that a replacement
+    ///     made, and the score.
     /// </summary>
     private static int WeightOf(ItemIdentity identity, ItemState state) => IdentityWeightOf(identity) + state.Score;
 
-    /// <summary>The number of the key times 100, and 1000 for an identity that a replacement made.</summary>
+    /// <summary>
+    ///     The number of the key times 100, and 1000 for an identity that a
+    ///     replacement made.
+    /// </summary>
     private static int IdentityWeightOf(ItemIdentity identity) =>
         identity.Number * 100 + (identity.Code[0] == 'R' ? 1000 : 0);
 

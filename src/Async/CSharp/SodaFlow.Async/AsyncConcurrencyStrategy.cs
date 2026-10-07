@@ -15,26 +15,31 @@ public abstract class AsyncConcurrencyStrategy<TState>
     : AsyncConcurrencyStrategy<Unit, TState>;
 
 /// <summary>
-///     The entry point, which is not generic, for the strategies in the library: Parallel, Queue,
-///     QueuePerGroup, and SwitchLatest. Parallel, Queue, and SwitchLatest use only the schedule and
-///     do not read the <c>TInput</c> of the call, thus their input type is <see cref="Unit" />.
-///     QueuePerGroup reads the input to find its group, thus its input type is the <c>TInput</c> of
-///     the call. The schedule of each one is in one shared position, the internal
-///     <c>AsyncConcurrencyStrategyFactory</c> in SodaFlow.Core.Async. That factory is generic over
-///     the type of a value that a strategy does not use, because Core has no dependency on
-///     SodaFlow.Functional and thus no type of its own for it. The static methods below give
-///     <see cref="Unit" /> as that type argument and return the result. Thus, a consumer of this C#
-///     wrapper gets a version with the <see cref="Unit" /> type, which this wrapper also uses for
-///     <c>cancelAll</c> and for other values.
+///     The entry point, which is not generic, for the strategies in the library:
+///     Parallel, Queue, QueuePerGroup, and SwitchLatest. Parallel, Queue, and
+///     SwitchLatest use only the schedule and do not read the <c>TInput</c> of the
+///     call, thus their input type is <see cref="Unit" />.
+///     QueuePerGroup reads the input to find its group, thus its input type is the
+///     <c>TInput</c> of the call. The schedule of each one is in one shared
+///     position, the internal <c>AsyncConcurrencyStrategyFactory</c> in
+///     SodaFlow.Core.Async. That factory is generic over the type of a value that
+///     a strategy does not use, because Core has no dependency on
+///     SodaFlow.Functional and thus no type of its own for it. The static methods
+///     below give <see cref="Unit" /> as that type argument and return the result.
+///     Thus, a consumer of this C# wrapper gets a version with the
+///     <see cref="Unit" /> type, which this wrapper also uses for <c>cancelAll</c>
+///     and for other values.
 ///     <para>
-///         As a base class, this class has no relation to that shared factory. This class and
-///         <see cref="AsyncConcurrencyStrategy{TState}" /> are short versions of
-///         <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> in SodaFlow.Core.Async, for a
-///         custom strategy that reads no input. Subclass
-///         <see cref="AsyncConcurrencyStrategy{TState}" /> for such a strategy with a state of its
-///         own, and this class for such a strategy with no state. The short version gives
-///         <see cref="Unit" /> for each type that the strategy does not use, thus the subclass
-///         does not write it.
+///         As a base class, this class has no relation to that shared factory.
+///         This class and <see cref="AsyncConcurrencyStrategy{TState}" /> are
+///         short versions of
+///         <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> in
+///         SodaFlow.Core.Async, for a custom strategy that reads no input.
+///         Subclass <see cref="AsyncConcurrencyStrategy{TState}" /> for such a
+///         strategy with a state of its own, and this class for such a strategy
+///         with no state. The short version gives <see cref="Unit" /> for each
+///         type that the strategy does not use, thus the subclass does not write
+///         it.
 ///     </para>
 /// </summary>
 [PublicAPI]
@@ -52,8 +57,8 @@ public abstract class AsyncConcurrencyStrategy
         AsyncConcurrencyStrategyFactory.SwitchLatest<Unit>();
 
     /// <summary>
-    ///     Each send starts its own operation immediately. The results come in the sequence
-    ///     of their ends.
+    ///     Each send starts its own operation immediately. The results come in the
+    ///     sequence of their ends.
     /// </summary>
     public static AsyncConcurrencyStrategyBase<Unit> Parallel() => ParallelInstance;
 
@@ -64,12 +69,13 @@ public abstract class AsyncConcurrencyStrategy
     public static AsyncConcurrencyStrategyBase<Unit> Queue() => QueueInstance;
 
     /// <summary>
-    ///     The entry point for a queue for each group. In one group, one operation or no
-    ///     operation runs at a time, and two different groups run at the same time. Call
-    ///     <see cref="QueuePerGroupHelper{TInput}.Create{TGroup}" /> on the result to give the
-    ///     group function. <typeparamref name="TInput" /> here only lets the compiler infer the
-    ///     input type of that call, and
-    ///     <see cref="QueuePerGroupHelper{TInput}.Create{TGroup}" /> makes the strategy.
+    ///     The entry point for a queue for each group. In one group, one operation or
+    ///     no operation runs at a time, and two different groups run at the same time.
+    ///     Call <see cref="QueuePerGroupHelper{TInput}.Create{TGroup}" /> on the
+    ///     result to give the group function. <typeparamref name="TInput" /> here only
+    ///     lets the compiler infer the input type of that call, and
+    ///     <see cref="QueuePerGroupHelper{TInput}.Create{TGroup}" /> makes the
+    ///     strategy.
     /// </summary>
     public static QueuePerGroupHelper<TInput> QueuePerGroup<TInput>() => QueuePerGroupHelper<TInput>.Instance;
 
@@ -78,9 +84,9 @@ public abstract class AsyncConcurrencyStrategy
 
     /// <summary>
     ///     This type is here only to let <see cref="QueuePerGroup{TInput}" /> infer
-    ///     <typeparamref name="TInput" />, and to let <see cref="Create{TGroup}" /> infer
-    ///     <c>TGroup</c>. Without it, C# cannot infer two type parameters from two different
-    ///     calls.
+    ///     <typeparamref name="TInput" />, and to let <see cref="Create{TGroup}" />
+    ///     infer <c>TGroup</c>. Without it, C# cannot infer two type parameters from
+    ///     two different calls.
     /// </summary>
     [PublicAPI]
     public class QueuePerGroupHelper<TInput>
@@ -92,9 +98,10 @@ public abstract class AsyncConcurrencyStrategy
         }
 
         /// <summary>
-        ///     Builds a strategy with one queue for each group. <paramref name="getGroup" /> puts
-        ///     each input in a group. In one group, a subsequent send goes behind the sends before
-        ///     it, as <see cref="Queue" /> does. Two different groups do not wait for each other.
+        ///     Builds a strategy with one queue for each group.
+        ///     <paramref name="getGroup" /> puts each input in a group. In one group, a
+        ///     subsequent send goes behind the sends before it, as <see cref="Queue" />
+        ///     does. Two different groups do not wait for each other.
         /// </summary>
         /// <param name="getGroup">Calculates the group key of an input value.</param>
         /// <param name="groupComparer">

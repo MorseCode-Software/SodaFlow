@@ -11,43 +11,50 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The other scenes get their shape because their parts operate independently. A ball is
-///         two axes, and one axis knows nothing about the other axis. One ball knows nothing about
-///         a second ball. A collision removes the two conditions. It connects the two axes of two
-///         balls at one instant. Thus, this scene cannot calculate one flight at a time.
+///         The other scenes get their shape because their parts operate
+///         independently. A ball is two axes, and one axis knows nothing about the
+///         other axis. One ball knows nothing about a second ball. A collision
+///         removes the two conditions. It connects the two axes of two balls at
+///         one instant. Thus, this scene cannot calculate one flight at a time.
 ///     </para>
 ///     <para>
-///         This scene calculates a collision and does not look for one. No code here moves time
-///         forward to find an overlap. The moment when two balls touch is a root of a quadratic.
-///         The scene calculates that root first and then schedules it with <c>At</c>, as it does
-///         for a wall. Thus, a slow frame cannot cause a missed collision, and a low frame rate
-///         cannot let two balls move through each other.
+///         This scene calculates a collision and does not look for one. No code
+///         here moves time forward to find an overlap. The moment when two balls
+///         touch is a root of a quadratic.
+///         The scene calculates that root first and then schedules it with
+///         <c>At</c>, as it does for a wall. Thus, a slow frame cannot cause a
+///         missed collision, and a low frame rate cannot let two balls move
+///         through each other.
 ///     </para>
 ///     <para>
-///         One fact makes that quadratic possible. Each ball has the same gravity, thus the
-///         acceleration between any two balls is zero. The distance between them is a straight
-///         line in time, although each one moves on a curve. Thus, the time when the two touch is
-///         a quadratic and not a quartic. A ball with a different acceleration makes this scene
+///         One fact makes that quadratic possible. Each ball has the same gravity,
+///         thus the acceleration between any two balls is zero. The distance
+///         between them is a straight line in time, although each one moves on a
+///         curve. Thus, the time when the two touch is a quadratic and not a
+///         quartic. A ball with a different acceleration makes this scene
 ///         necessitate a different solver.
 ///     </para>
 ///     <para>
-///         Thus, the state is one cell that holds each ball, and not one cell for each axis. The
-///         scene moves forward one event at a time. It calculates the first event that occurs
-///         next, moves to that time, applies the event, and calculates again. An event is a ball
-///         that touches a wall, or two balls that touch each other. Between two events each ball
-///         is an equation, and a view samples that equation.
+///         Thus, the state is one cell that holds each ball, and not one cell for
+///         each axis. The scene moves forward one event at a time. It calculates
+///         the first event that occurs next, moves to that time, applies the
+///         event, and calculates again. An event is a ball that touches a wall, or
+///         two balls that touch each other. Between two events each ball is an
+///         equation, and a view samples that equation.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class CollisionScene : IScene
 {
     /// <summary>
-    ///     The scene applies two events together when the time between them is less than this.
+    ///     The scene applies two events together when the time between them is less
+    ///     than this.
     /// </summary>
     /// <remarks>
-    ///     Three balls can touch at one instant. That is not frequent, but it is possible. If
-    ///     the scene applies only the first event, the other events fire again immediately. Thus,
-    ///     the scene applies each event at the same moment together.
+    ///     Three balls can touch at one instant. That is not frequent, but it is
+    ///     possible. If the scene applies only the first event, the other events fire
+    ///     again immediately. Thus, the scene applies each event at the same moment
+    ///     together.
     /// </remarks>
     private const double SimultaneousWithin = 1e-9;
 
@@ -58,43 +65,49 @@ internal sealed class CollisionScene : IScene
     private const double MinimumInterval = 1e-6;
 
     /// <summary>
-    ///     The speed of a damped ball when it moves up from the floor, at each arrival speed.
+    ///     The speed of a damped ball when it moves up from the floor, at each arrival
+    ///     speed.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         A ball in this scene cannot stop fully, and the collision solver sets that rule
-    ///         for the scene. A ball that stops has no velocity and no acceleration. A ball with
-    ///         an acceleration different from the balls near it makes the distance between that
-    ///         pair a curve. Then the code calculates the contact with a quartic and not a
-    ///         quadratic. Each ball must have the same acceleration, or none of this operates.
+    ///         A ball in this scene cannot stop fully, and the collision solver sets
+    ///         that rule for the scene. A ball that stops has no velocity and no
+    ///         acceleration. A ball with an acceleration different from the balls near
+    ///         it makes the distance between that pair a curve. Then the code
+    ///         calculates the contact with a quartic and not a quadratic. Each ball
+    ///         must have the same acceleration, or none of this operates.
     ///     </para>
     ///     <para>
-    ///         Thus, a ball that damping stopped continues to bounce at this speed. With this
-    ///         gravity that speed moves it 0.22px from the floor each 44ms. That is one fifth of a
-    ///         pixel, and almost each frame rounds it away. The height falls with the square of
-    ///         this number, but the number of events rises only with the number itself. Thus, you
-    ///         can make the bounce invisible. The cost of the events is the limit. Four balls that
-    ///         stopped cost 6.2s of processor time over a run of 78s at 40px/s, 10.4s at this
-    ///         speed of 20, and 14.2s at 12. This minimum speed also answers Zeno, which is the
-    ///         second function of a stop. The interval between two bounces on the floor stops
-    ///         becoming smaller here, and does not become zero.
+    ///         Thus, a ball that damping stopped continues to bounce at this speed.
+    ///         With this gravity that speed moves it 0.22px from the floor each 44ms.
+    ///         That is one fifth of a pixel, and almost each frame rounds it away. The
+    ///         height falls with the square of this number, but the number of events
+    ///         rises only with the number itself. Thus, you can make the bounce
+    ///         invisible. The cost of the events is the limit. Four balls that stopped
+    ///         cost 6.2s of processor time over a run of 78s at 40px/s, 10.4s at this
+    ///         speed of 20, and 14.2s at 12. This minimum speed also answers Zeno,
+    ///         which is the second function of a stop. The interval between two
+    ///         bounces on the floor stops becoming smaller here, and does not become
+    ///         zero.
     ///     </para>
     /// </remarks>
     private const double MinimumFloorBounce = 20.0;
 
     /// <summary>
-    ///     The distance from a wall at which the scene bounces a ball immediately, and does not
-    ///     schedule the bounce.
+    ///     The distance from a wall at which the scene bounces a ball immediately, and
+    ///     does not schedule the bounce.
     /// </summary>
     /// <remarks>
-    ///     A ball that an impact sends at a wall that is very near touches that wall in less
-    ///     than one millisecond. No alarm is that accurate. The alarm comes some milliseconds
-    ///     after that, and the ball is then twelve pixels through the wall. Three balls that
-    ///     stopped and then collide show this, because the three move below the floor together.
-    ///     A bounce here applies the change at the same instant. The bounce then occurs before the
-    ///     true position by this distance. For that cause this limit is a distance and not a time.
-    ///     A user cannot see one pixel at each speed, but one millisecond is one pixel for a slow
-    ///     ball and ten pixels for a fast ball.
+    ///     A ball that an impact sends at a wall that is very near touches that wall
+    ///     in less than one millisecond. No alarm is that accurate. The alarm comes
+    ///     some milliseconds after that, and the ball is then twelve pixels through
+    ///     the wall. Three balls that stopped and then collide show this, because the
+    ///     three move below the floor together.
+    ///     A bounce here applies the change at the same instant. The bounce then
+    ///     occurs before the true position by this distance. For that cause this limit
+    ///     is a distance and not a time.
+    ///     A user cannot see one pixel at each speed, but one millisecond is one pixel
+    ///     for a slow ball and ten pixels for a fast ball.
     /// </remarks>
     private const double TouchingDistance = 1.0;
 
@@ -103,20 +116,21 @@ internal sealed class CollisionScene : IScene
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         A pair that overlaps has no root after the current time, thus the scene has no
-    ///         value to calculate and must examine the pair again. One more step is usually
-    ///         sufficient, because it moves the two balls apart and the next step finds a correct
-    ///         contact. A group of balls against a wall needs more than one step. A move of one
-    ///         pair sends a ball into a third ball, and the code can correct only one pair at a
-    ///         time.
+    ///         A pair that overlaps has no root after the current time, thus the scene
+    ///         has no value to calculate and must examine the pair again. One more
+    ///         step is usually sufficient, because it moves the two balls apart and
+    ///         the next step finds a correct contact. A group of balls against a wall
+    ///         needs more than one step. A move of one pair sends a ball into a third
+    ///         ball, and the code can correct only one pair at a time.
     ///     </para>
     ///     <para>
-    ///         Thus, this value limits the cost of that correction. At the smallest possible
-    ///         value the simulation can use one second of the clock on a group of balls, one
-    ///         microsecond at a time, and the scene stops. At one millisecond a group of balls
-    ///         costs at most one thousand steps each second, and the clock stays current. One
-    ///         millisecond is also the minimum time for an alarm. Thus, a smaller value
-    ///         asks for a step that the timer cannot supply.
+    ///         Thus, this value limits the cost of that correction. At the smallest
+    ///         possible value the simulation can use one second of the clock on a
+    ///         group of balls, one microsecond at a time, and the scene stops. At one
+    ///         millisecond a group of balls costs at most one thousand steps each
+    ///         second, and the clock stays current. One millisecond is also the
+    ///         minimum time for an alarm. Thus, a smaller value asks for a step that
+    ///         the timer cannot supply.
     ///     </para>
     /// </remarks>
     private const double OverlapRetry = 0.001;
@@ -127,27 +141,29 @@ internal sealed class CollisionScene : IScene
     /// <remarks>
     ///     <para>
     ///         This is the opposite of <see cref="MinimumFloorBounce" />, and
-    ///         <see cref="BouncingAxis" /> has one for the same cause. Above a restitution of one,
-    ///         each impact gives back more than it took. Thus, the speed increases with no limit
-    ///         and the events become closer together with no limit. When they are closer together
-    ///         than the minimum time for an alarm, the graph learns about a bounce after the ball
-    ///         moved through the wall. The balls then go out of the box and do not come back.
+    ///         <see cref="BouncingAxis" /> has one for the same cause. Above a
+    ///         restitution of one, each impact gives back more than it took. Thus, the
+    ///         speed increases with no limit and the events become closer together
+    ///         with no limit. When they are closer together than the minimum time for
+    ///         an alarm, the graph learns about a bounce after the ball moved through
+    ///         the wall. The balls then go out of the box and do not come back.
     ///     </para>
     ///     <para>
-    ///         The value 2000px/s is the value in <see cref="BouncingAxis" />. It is a limit that
-    ///         a correct run does not get to, and not a limit that changes a correct run. With
-    ///         each part of the energy of this scene in its lightest ball, that ball moves at
-    ///         approximately 2050px/s, and that is the maximum that an elastic run can make. Thus,
-    ///         only a run that receives energy gets to this limit.
+    ///         The value 2000px/s is the value in <see cref="BouncingAxis" />. It is a
+    ///         limit that a correct run does not get to, and not a limit that changes
+    ///         a correct run. With each part of the energy of this scene in its
+    ///         lightest ball, that ball moves at approximately 2050px/s, and that is
+    ///         the maximum that an elastic run can make. Thus, only a run that
+    ///         receives energy gets to this limit.
     ///     </para>
     /// </remarks>
     private const double MaximumSpeed = 2000.0;
 
     /// <param name="timers">The clock that gives the position of each ball.</param>
     /// <param name="restitution">
-    ///     The value that a bounce multiplies the speed by. The other two damped scenes read the
-    ///     same cell. Here it applies to the two types of impact: a wall, and one ball against a
-    ///     second ball.
+    ///     The value that a bounce multiplies the speed by. The other two damped
+    ///     scenes read the same cell. Here it applies to the two types of impact: a
+    ///     wall, and one ball against a second ball.
     /// </param>
     /// <param name="restarts">Fires when a user selects the tab of this scene.</param>
     internal CollisionScene(
@@ -218,8 +234,8 @@ internal sealed class CollisionScene : IScene
     public IReadOnlyList<Ball> Balls { get; }
 
     /// <summary>
-    ///     The world that each ball starts from, and returns to when a user selects the tab
-    ///     again.
+    ///     The world that each ball starts from, and returns to when a user selects
+    ///     the tab again.
     /// </summary>
     private static Body[] Initial(double time)
     {
@@ -269,10 +285,10 @@ internal sealed class CollisionScene : IScene
     ///     The world at the instant after <paramref name="time" />.
     /// </summary>
     /// <remarks>
-    ///     This method first moves each ball to that moment, thus each ball then has the same
-    ///     start time. That keeps a pair a quadratic, because the method can use the distance and
-    ///     the velocity at one instant. Without this, the method must use four equations that each
-    ///     start at a different time.
+    ///     This method first moves each ball to that moment, thus each ball then has
+    ///     the same start time. That keeps a pair a quadratic, because the method can
+    ///     use the distance and the velocity at one instant. Without this, the method
+    ///     must use four equations that each start at a different time.
     /// </remarks>
     private static Body[] Step(IReadOnlyList<Body> world, double time, double restitution)
     {
@@ -313,10 +329,11 @@ internal sealed class CollisionScene : IScene
 
     /// <summary>The same ball, with its speed at or below <see cref="MaximumSpeed" />.</summary>
     /// <remarks>
-    ///     This method multiplies the full velocity and does not limit one axis. Thus, a ball at
-    ///     the maximum speed keeps its direction. It runs after the impacts and not in them,
-    ///     because the impulse keeps the momentum constant. It is better to keep that step
-    ///     unchanged and to apply the limit where a reader can see it.
+    ///     This method multiplies the full velocity and does not limit one axis. Thus,
+    ///     a ball at the maximum speed keeps its direction. It runs after the impacts
+    ///     and not in them, because the impulse keeps the momentum constant. It is
+    ///     better to keep that step unchanged and to apply the limit where a reader
+    ///     can see it.
     /// </remarks>
     private static Body Bounded(Body body)
     {
@@ -335,7 +352,8 @@ internal sealed class CollisionScene : IScene
     }
 
     /// <summary>
-    ///     The same ball, reflected from each wall that it is out of and moves away from.
+    ///     The same ball, reflected from each wall that it is out of and moves away
+    ///     from.
     /// </summary>
     private static Body Contained(Body body, double restitution)
     {
@@ -374,8 +392,8 @@ internal sealed class CollisionScene : IScene
     }
 
     /// <summary>
-    ///     Each event that occurs next, in no sequence. Walls come first, then pairs of
-    ///     balls.
+    ///     Each event that occurs next, in no sequence. Walls come first, then pairs
+    ///     of balls.
     /// </summary>
     private static IEnumerable<Event> Events(IReadOnlyList<Body> world)
     {
@@ -412,12 +430,12 @@ internal sealed class CollisionScene : IScene
     ///     The time when a ball next touches a wall, or none when it touches no wall.
     /// </summary>
     /// <remarks>
-    ///     This is almost the same as <see cref="BouncingAxis" /> does. It adds one condition: a
-    ///     ball on the incorrect side of its bound that continues to move away. Such a ball has
-    ///     no root after the current time, and it moves away permanently. That state must not
-    ///     occur, but an impact that the scene applies while a ball is against a wall can make
-    ///     it. A solver with no correction for an incorrect state loses a ball at the first
-    ///     rounding error.
+    ///     This is almost the same as <see cref="BouncingAxis" /> does. It adds one
+    ///     condition: a ball on the incorrect side of its bound that continues to move
+    ///     away. Such a ball has no root after the current time, and it moves away
+    ///     permanently. That state must not occur, but an impact that the scene
+    ///     applies while a ball is against a wall can make it. A solver with no
+    ///     correction for an incorrect state loses a ball at the first rounding error.
     /// </remarks>
     private static Maybe<double> WallTime(Flight flight, double min, double max)
     {
@@ -448,22 +466,23 @@ internal sealed class CollisionScene : IScene
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         This method cannot correct one thing. It calculates the moment accurately, but the
-    ///         graph learns about that moment only when an alarm fires. An alarm is a wait on a
-    ///         true clock, and it is some milliseconds late. Until it fires, the two balls follow
-    ///         the equations that they had and continue to move together. At the fastest impacts
-    ///         they overlap by some pixels before they move apart. The error is the speed of
-    ///         approach multiplied by the time that the alarm adds. For that cause it shows here
-    ///         and almost never at a wall in the other scenes. Two balls can approach each other
-    ///         faster than one ball approaches a wall.
+    ///         This method cannot correct one thing. It calculates the moment
+    ///         accurately, but the graph learns about that moment only when an alarm
+    ///         fires. An alarm is a wait on a true clock, and it is some milliseconds
+    ///         late. Until it fires, the two balls follow the equations that they had
+    ///         and continue to move together. At the fastest impacts they overlap by
+    ///         some pixels before they move apart. The error is the speed of approach
+    ///         multiplied by the time that the alarm adds. For that cause it shows
+    ///         here and almost never at a wall in the other scenes. Two balls can
+    ///         approach each other faster than one ball approaches a wall.
     ///     </para>
     ///     <para>
-    ///         The two balls have the same gravity, thus the acceleration is not in the
-    ///         difference and the distance between them is a straight line. That gives
-    ///         <c>|dp + dv t| = r1 + r2</c>, which is a quadratic in <c>t</c>. The answer is its
-    ///         smaller positive root. This method discards a pair that moves apart. Such a pair
-    ///         moves away, or the scene applied its impact, and in each condition the next event
-    ///         for them is not a contact.
+    ///         The two balls have the same gravity, thus the acceleration is not in
+    ///         the difference and the distance between them is a straight line. That
+    ///         gives <c>|dp + dv t| = r1 + r2</c>, which is a quadratic in <c>t</c>.
+    ///         The answer is its smaller positive root. This method discards a pair
+    ///         that moves apart. Such a pair moves away, or the scene applied its
+    ///         impact, and in each condition the next event for them is not a contact.
     ///     </para>
     /// </remarks>
     private static Maybe<double> ContactTime(Body first, Body second)
@@ -516,24 +535,26 @@ internal sealed class CollisionScene : IScene
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         This is the usual result. Only the part along the line between the two centers
-    ///         changes. The part at a right angle to that line does not change, and that makes an
-    ///         impact at an angle continue at an angle. Thus, the geometry gives the angle of
-    ///         departure, and no code here sets it.
+    ///         This is the usual result. Only the part along the line between the two
+    ///         centers changes. The part at a right angle to that line does not
+    ///         change, and that makes an impact at an angle continue at an angle.
+    ///         Thus, the geometry gives the angle of departure, and no code here sets
+    ///         it.
     ///     </para>
     ///     <para>
-    ///         The momentum is the same at each restitution, because the two impulses are equal
-    ///         and opposite because this method makes them so. The energy is the same only at a
-    ///         restitution of one. That is the difference between the two parts of the damping. A
-    ///         wall can remove momentum because it is attached to the world, and one ball cannot
-    ///         remove momentum from a second ball.
+    ///         The momentum is the same at each restitution, because the two impulses
+    ///         are equal and opposite because this method makes them so. The energy is
+    ///         the same only at a restitution of one. That is the difference between
+    ///         the two parts of the damping. A wall can remove momentum because it is
+    ///         attached to the world, and one ball cannot remove momentum from a
+    ///         second ball.
     ///     </para>
     ///     <para>
-    ///         The mass is the square of the radius, because the scene draws each ball as a disc
-    ///         of one density and a disc has an area. The ratio is what a user sees. A large ball
-    ///         that touches a small ball changes its direction by a small angle, and the small
-    ///         ball comes back at a high speed. Two equal balls that touch directly interchange
-    ///         their velocities.
+    ///         The mass is the square of the radius, because the scene draws each ball
+    ///         as a disc of one density and a disc has an area. The ratio is what a
+    ///         user sees. A large ball that touches a small ball changes its direction
+    ///         by a small angle, and the small ball comes back at a high speed. Two
+    ///         equal balls that touch directly interchange their velocities.
     ///     </para>
     /// </remarks>
     private static void Collide(IList<Body> bodies, int first, int second, double restitution)
@@ -619,13 +640,13 @@ internal sealed class CollisionScene : IScene
     }
 
     /// <summary>
-    ///     The distance that the given ball can move in the given direction before it touches a
-    ///     wall.
+    ///     The distance that the given ball can move in the given direction before it
+    ///     touches a wall.
     /// </summary>
     /// <remarks>
-    ///     This is zero for a ball at the wall that it moves to, or through that wall. The
-    ///     direction is a unit vector, thus the answer is a distance in the units of this
-    ///     scene.
+    ///     This is zero for a ball at the wall that it moves to, or through that wall.
+    ///     The direction is a unit vector, thus the answer is a distance in the units
+    ///     of this scene.
     /// </remarks>
     private static double Room(Body body, double directionX, double directionY) =>
         Math.Max(
@@ -643,8 +664,8 @@ internal sealed class CollisionScene : IScene
                     max: Arrangement.Height - body.Radius)));
 
     /// <summary>
-    ///     The distance that one axis of a ball can move before that axis goes out of the
-    ///     box.
+    ///     The distance that one axis of a ball can move before that axis goes out of
+    ///     the box.
     /// </summary>
     private static double RoomOnAxis(double position, double direction, double min, double max)
     {
@@ -664,8 +685,7 @@ internal sealed class CollisionScene : IScene
         public double Mass => this.Radius * this.Radius;
 
         /// <summary>
-        ///     The same movement, written as if it started at
-        ///     <paramref name="time" />.
+        ///     The same movement, written as if it started at <paramref name="time" />.
         /// </summary>
         public Body RebasedTo(double time) =>
             this with
@@ -701,12 +721,12 @@ internal sealed class CollisionScene : IScene
         /// </summary>
         /// <remarks>
         ///     <para>
-        ///         <see cref="BouncingAxis" /> lets a ball stop, and this method does not. See
-        ///         <see cref="MinimumFloorBounce" /> for the cause, and for the state of a ball
-        ///         that stopped in this scene. The horizontal axis is different and needs no
-        ///         minimum, because that axis has no acceleration. Thus, a ball that damping
-        ///         stops on that axis has the same acceleration as the balls near it, and costs
-        ///         nothing.
+        ///         <see cref="BouncingAxis" /> lets a ball stop, and this method does not.
+        ///         See <see cref="MinimumFloorBounce" /> for the cause, and for the state
+        ///         of a ball that stopped in this scene. The horizontal axis is different
+        ///         and needs no minimum, because that axis has no acceleration. Thus, a
+        ///         ball that damping stops on that axis has the same acceleration as the
+        ///         balls near it, and costs nothing.
         ///     </para>
         /// </remarks>
         public Body Reflected(bool horizontal, double min, double max, double restitution)
@@ -747,13 +767,14 @@ internal sealed class CollisionScene : IScene
     }
 
     /// <summary>
-    ///     An event that occurs next. It is a wall for one ball, or a contact between two
-    ///     balls.
+    ///     An event that occurs next. It is a wall for one ball, or a contact between
+    ///     two balls.
     /// </summary>
     /// <remarks>
-    ///     A value of <see cref="Other" /> below zero means a wall, and <see cref="Horizontal" />
-    ///     then gives the axis. This is one struct and not two types, because the only operation
-    ///     on these values is to find the first one.
+    ///     A value of <see cref="Other" /> below zero means a wall, and
+    ///     <see cref="Horizontal" /> then gives the axis. This is one struct and not
+    ///     two types, because the only operation on these values is to find the first
+    ///     one.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private readonly record struct Event(double Time, int Index, int Other, bool Horizontal);
@@ -764,21 +785,23 @@ internal sealed class CollisionScene : IScene
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <see cref="Maybe{T}" /> has a Match operation and no read operation, and that is not
-///         clear where other code uses the answer directly. A test for a value, and then a second
-///         read of that value, needs a default value that the code cannot use. This is the
-///         <c>TryGet</c> shape that .NET uses for the same question.
+///         <see cref="Maybe{T}" /> has a Match operation and no read operation,
+///         and that is not clear where other code uses the answer directly. A test
+///         for a value, and then a second read of that value, needs a default
+///         value that the code cannot use. This is the <c>TryGet</c> shape that
+///         .NET uses for the same question.
 ///     </para>
 ///     <para>
-///         Allocation-free, which is why it is this rather than <c>ToEnumerable</c>. That returns a
-///         one-element array for a value, and <c>Events</c> asks this fourteen times for four balls
-///         on each step of the world, and that step occurs at each bounce. The tuple is a struct
+///         Allocation-free, which is why it is this rather than
+///         <c>ToEnumerable</c>. That returns a one-element array for a value, and
+///         <c>Events</c> asks this fourteen times for four balls on each step of
+///         the world, and that step occurs at each bounce. The tuple is a struct
 ///         and the two lambdas are static, thus nothing here uses the heap.
 ///     </para>
 ///     <para>
-///         <c>file</c> because <see cref="CollisionScene" /> is the only caller, and an extension
-///         on a type with this many uses must not show on each <see cref="Maybe{T}" /> in the
-///         assembly for one method.
+///         <c>file</c> because <see cref="CollisionScene" /> is the only caller,
+///         and an extension on a type with this many uses must not show on each
+///         <see cref="Maybe{T}" /> in the assembly for one method.
 ///     </para>
 /// </remarks>
 file static class MaybeExtensions

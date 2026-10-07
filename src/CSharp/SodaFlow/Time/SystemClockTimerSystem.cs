@@ -11,11 +11,12 @@ namespace SodaFlow.Time;
 public class SystemClockTimerSystem : TimerSystem<DateTime>
 {
     /// <summary>
-    ///     Initializes a new instance of the <see cref="SystemClockTimerSystem" /> class, measuring
-    ///     time with <see cref="DateTime.Now" />.
+    ///     Initializes a new instance of the <see cref="SystemClockTimerSystem" />
+    ///     class, measuring time with <see cref="DateTime.Now" />.
     /// </summary>
     /// <param name="handleException">
-    ///     Called with each exception from a wait for a timer, and from a timer that fires.
+    ///     Called with each exception from a wait for a timer, and from a timer that
+    ///     fires.
     /// </param>
     // ReSharper disable once InheritdocConsiderUsage
     public SystemClockTimerSystem(Action<Exception> handleException)

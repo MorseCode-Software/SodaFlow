@@ -10,9 +10,9 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     What a group can express. A fold needs an add, a subtract that removes what the add gave,
-///     and a zero. The value can be a pair, a record, or a map, thus these tests hold more than a
-///     sum and a count.
+///     What a group can express. A fold needs an add, a subtract that removes what
+///     the add gave, and a zero. The value can be a pair, a record, or a map, thus
+///     these tests hold more than a sum and a count.
 /// </summary>
 public sealed class CollectionFoldShapeTests
 {

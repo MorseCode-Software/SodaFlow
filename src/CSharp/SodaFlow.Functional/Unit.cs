@@ -23,8 +23,8 @@ public readonly struct Unit
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is a <see cref="Unit" />, and
-    ///     <see langword="false" /> otherwise.
+    ///     <see langword="true" /> if <paramref name="obj" /> is a <see cref="Unit" />
+    ///     , and <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
     ///     There is only one value of this type, so any two instances are equal.
@@ -64,7 +64,8 @@ public readonly struct Unit
     int IStructuralEquatable.GetHashCode(IEqualityComparer comparer) => 0;
 
     /// <summary>
-    ///     Returns a string that represents the value of this <see cref="Unit" /> instance.
+    ///     Returns a string that represents the value of this <see cref="Unit" />
+    ///     instance.
     /// </summary>
     /// <returns>The string representation of this <see cref="Unit" /> instance.</returns>
     /// <remarks>
@@ -73,18 +74,26 @@ public readonly struct Unit
     public override string ToString() => "()";
 
     /// <summary>
-    ///     Returns <see langword="true" /> since instances of <see cref="Unit" /> are always equal.
+    ///     Returns <see langword="true" /> since instances of <see cref="Unit" /> are
+    ///     always equal.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
-    /// <returns><see langword="true" /> since instances of <see cref="Unit" /> are always equal.</returns>
+    /// <returns>
+    ///     <see langword="true" /> since instances of <see cref="Unit" /> are
+    ///     always equal.
+    /// </returns>
     public static bool operator ==(Unit x, Unit y) => true;
 
     /// <summary>
-    ///     Returns <see langword="false" /> since instances of <see cref="Unit" /> are always equal.
+    ///     Returns <see langword="false" /> since instances of <see cref="Unit" /> are
+    ///     always equal.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
-    /// <returns><see langword="false" /> since instances of <see cref="Unit" /> are always equal.</returns>
+    /// <returns>
+    ///     <see langword="false" /> since instances of <see cref="Unit" /> are
+    ///     always equal.
+    /// </returns>
     public static bool operator !=(Unit x, Unit y) => false;
 }

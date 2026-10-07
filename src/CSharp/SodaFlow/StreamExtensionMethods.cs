@@ -13,38 +13,46 @@ namespace SodaFlow;
 ///     The operations available on a <see cref="Stream{T}" />.
 /// </summary>
 /// <remarks>
-///     A stream is a sequence of discrete firings. These are extension methods rather than instance
-///     members, thus the combinators live out of the small assembly that holds the FRP engine. The
-///     effect at the call site is the same.
-///     Build the graph in a <see cref="Transaction.Run{T}(System.Func{T})" />, thus the listener gets
-///     the first firing.
+///     A stream is a sequence of discrete firings. These are extension methods
+///     rather than instance members, thus the combinators live out of the small
+///     assembly that holds the FRP engine. The effect at the call site is the
+///     same.
+///     Build the graph in a <see cref="Transaction.Run{T}(System.Func{T})" />,
+///     thus the listener gets the first firing.
 /// </remarks>
 [PublicAPI]
 public static class StreamExtensionMethods
 {
     /// <summary>
-    ///     Listen for events/firings on this stream, keeping the stream alive for as long as the returned
-    ///     listener is reachable. A disposal of the <see cref="IStrongListener" /> from this call stops the
-    ///     listener. This is an OPERATIONAL mechanism for the boundary between the world of I/O and FRP.
+    ///     Listen for events/firings on this stream, keeping the stream alive for as
+    ///     long as the returned listener is reachable. A disposal of the
+    ///     <see cref="IStrongListener" /> from this call stops the listener. This is
+    ///     an OPERATIONAL mechanism for the boundary between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to run with each value the stream fires.</param>
-    /// <returns>An <see cref="IStrongListener" />. A disposal of it stops the listener.</returns>
+    /// <returns>
+    ///     An <see cref="IStrongListener" />. A disposal of it stops the
+    ///     listener.
+    /// </returns>
     /// <remarks>
     ///     <para>
-    ///         Make no assumption about the thread that calls the handler, and the handler must not block.
-    ///         The handler must not call <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an exception, because this method
-    ///         is not for the definition of a new primitive.
+    ///         Make no assumption about the thread that calls the handler, and the
+    ///         handler must not block. The handler must not call
+    ///         <see cref="StreamSinkExtensionMethods.Send{T}" /> or
+    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an
+    ///         exception, because this method is not for the definition of a new
+    ///         primitive.
     ///     </para>
     ///     <para>
-    ///         With no disposal of the <see cref="IStrongListener" />, the listener continues until a
-    ///         GC collects this stream.
+    ///         With no disposal of the <see cref="IStrongListener" />, the listener
+    ///         continues until a GC collects this stream.
     ///     </para>
     ///     <para>
-    ///         This roots the stream, thus a GC cannot collect the graph behind it while the listener from
-    ///         this call is reachable. Use <see cref="Listen{T}(Stream{T}, Action{T})" /> where that is not
+    ///         This roots the stream, thus a GC cannot collect the graph behind it
+    ///         while the listener from this call is reachable. Use
+    ///         <see cref="Listen{T}(Stream{T}, Action{T})" /> where that is not
     ///         wanted.
     ///     </para>
     /// </remarks>
@@ -52,76 +60,91 @@ public static class StreamExtensionMethods
     public static IStrongListener ListenStrong<T>(this Stream<T> s, Action<T> handler) => s.ListenStrongImpl(handler);
 
     /// <summary>
-    ///     Listen for events/firings on this stream, without keeping the stream alive. The returned
-    ///     <see cref="IWeakListener" />. A call to <see cref="IListener.Unlisten" /> stops the listener, and
-    ///     the listener also stops when a GC collects it. This is an OPERATIONAL mechanism for interfacing
-    ///     between the world of I/O and FRP.
+    ///     Listen for events/firings on this stream, without keeping the stream alive.
+    ///     The returned <see cref="IWeakListener" />. A call to
+    ///     <see cref="IListener.Unlisten" /> stops the listener, and the listener also
+    ///     stops when a GC collects it. This is an OPERATIONAL mechanism for
+    ///     interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to run with each value the stream fires.</param>
     /// <returns>
-    ///     An <see cref="IWeakListener" />. A call to its <see cref="IListener.Unlisten" /> stops the
-    ///     listener. Only <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
+    ///     An <see cref="IWeakListener" />. A call to its
+    ///     <see cref="IListener.Unlisten" /> stops the listener. Only
+    ///     <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         Make no assumption about the thread that calls the handler, and the handler must not block.
-    ///         The handler must not call <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an exception, because this method
-    ///         is not for the definition of a new primitive.
+    ///         Make no assumption about the thread that calls the handler, and the
+    ///         handler must not block. The handler must not call
+    ///         <see cref="StreamSinkExtensionMethods.Send{T}" /> or
+    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an
+    ///         exception, because this method is not for the definition of a new
+    ///         primitive.
     ///     </para>
     ///     <para>
-    ///         With no call to <see cref="IListener.Unlisten" />, the listener continues. It stops when
-    ///         a GC collects the stream, or when a GC collects the listener.
+    ///         With no call to <see cref="IListener.Unlisten" />, the listener
+    ///         continues. It stops when a GC collects the stream, or when a GC
+    ///         collects the listener.
     ///     </para>
     ///     <para>
-    ///         This does not root the stream. Nothing here keeps the monitored graph in memory, thus the
-    ///         listener stops when a GC collects the stream. Keep the listener from this call where that
-    ///         matters, or use <see cref="ListenStrong{T}(Stream{T}, Action{T})" /> to keep the stream in
-    ///         memory.
+    ///         This does not root the stream. Nothing here keeps the monitored graph
+    ///         in memory, thus the listener stops when a GC collects the stream. Keep
+    ///         the listener from this call where that matters, or use
+    ///         <see cref="ListenStrong{T}(Stream{T}, Action{T})" /> to keep the stream
+    ///         in memory.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IWeakListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
 
     /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister, without keeping the
-    ///     stream alive.
+    ///     Handle the first event on this stream and then automatically unregister,
+    ///     without keeping the stream alive.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <param name="handler">The handler to run with the first value this stream fires.</param>
+    /// <param name="handler">
+    ///     The handler to run with the first value this stream
+    ///     fires.
+    /// </param>
     /// <returns>
-    ///     An <see cref="IWeakListener" />. A call to its <see cref="IListener.Unlisten" /> stops the
-    ///     listener before that first event arrives.
+    ///     An <see cref="IWeakListener" />. A call to its
+    ///     <see cref="IListener.Unlisten" /> stops the listener before that first
+    ///     event arrives.
     /// </returns>
     /// <remarks>
-    ///     This does not root the stream, and the listener from this call is the only thing that keeps
-    ///     the handler in memory. Keep it until that first event arrives. Code that discards it compiles,
-    ///     and the handler then runs or does not run, which is dependent on the moment the GC collects.
-    ///     Use <see cref="ListenOnceStrong{T}(Stream{T}, Action{T})" /> where the caller does not keep
-    ///     the listener.
+    ///     This does not root the stream, and the listener from this call is the only
+    ///     thing that keeps the handler in memory. Keep it until that first event
+    ///     arrives. Code that discards it compiles, and the handler then runs or does
+    ///     not run, which is dependent on the moment the GC collects.
+    ///     Use <see cref="ListenOnceStrong{T}(Stream{T}, Action{T})" /> where the
+    ///     caller does not keep the listener.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IWeakListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
 
     /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister, keeping the stream
-    ///     alive until that first event arrives.
+    ///     Handle the first event on this stream and then automatically unregister,
+    ///     keeping the stream alive until that first event arrives.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <param name="handler">The handler to run with the first value this stream fires.</param>
+    /// <param name="handler">
+    ///     The handler to run with the first value this stream
+    ///     fires.
+    /// </param>
     /// <returns>
-    ///     An <see cref="IStrongListener" />. A disposal of it stops the listener before that first event
-    ///     arrives.
+    ///     An <see cref="IStrongListener" />. A disposal of it stops the listener
+    ///     before that first event arrives.
     /// </returns>
     /// <remarks>
-    ///     This roots the stream until that first event arrives. Thus, the handler runs when the caller
-    ///     discards the listener from this call. The root ends with that first event, or with an earlier
-    ///     <see cref="IListener.Unlisten" />. Use <see cref="ListenOnce{T}(Stream{T}, Action{T})" /> where
-    ///     the listener must not extend the lifetime of what it monitors.
+    ///     This roots the stream until that first event arrives. Thus, the handler
+    ///     runs when the caller discards the listener from this call. The root ends
+    ///     with that first event, or with an earlier <see cref="IListener.Unlisten" />
+    ///     . Use <see cref="ListenOnce{T}(Stream{T}, Action{T})" /> where the listener
+    ///     must not extend the lifetime of what it monitors.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static IStrongListener ListenOnceStrong<T>(this Stream<T> s, Action<T> handler) =>
@@ -204,21 +227,22 @@ public static class StreamExtensionMethods
     }
 
     /// <summary>
-    ///     Transforms the values of a stream with the given function. The stream from this call has
-    ///     the value of that function on the value of the input stream.
+    ///     Transforms the values of a stream with the given function. The stream from
+    ///     this call has the value of that function on the value of the input stream.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TResult">The type of values fired by the returned stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="f">
     ///     Function to apply to change the values. It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />, in which case it is equivalent to calling
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the cell. Other than this, the
-    ///     function must be a pure function.
+    ///     <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />, in which case it is
+    ///     equivalent to calling
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the cell.
+    ///     Other than this, the function must be a pure function.
     /// </param>
     /// <returns>
-    ///     A stream which fires values transformed by <paramref name="f" /> for each value fired by this
-    ///     stream.
+    ///     A stream which fires values transformed by <paramref name="f" /> for each
+    ///     value fired by this stream.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Map<T, TResult>(this Stream<T> s, Func<T, TResult> f) => s.MapImpl(f);
@@ -227,96 +251,127 @@ public static class StreamExtensionMethods
     ///     Transform the stream values to the specified constant value.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <typeparam name="TResult">The type of the constant value fired by the returned stream.</typeparam>
+    /// <typeparam name="TResult">
+    ///     The type of the constant value fired by the returned
+    ///     stream.
+    /// </typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="value">
     ///     The constant value to return from this mapping.
     /// </param>
-    /// <returns>A stream which fires the constant value for each value fired by this stream.</returns>
+    /// <returns>
+    ///     A stream which fires the constant value for each value fired by this
+    ///     stream.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> MapTo<T, TResult>(this Stream<T> s, TResult value) => s.MapToImpl(value);
 
     /// <summary>
-    ///     Makes a cell with the given initial value, and the values of this stream update it.
+    ///     Makes a cell with the given initial value, and the values of this stream
+    ///     update it.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="initialValue">The initial value of the cell.</param>
-    /// <returns>A cell with the given initial value, which the values of this stream update.</returns>
+    /// <returns>
+    ///     A cell with the given initial value, which the values of this stream
+    ///     update.
+    /// </returns>
     /// <remarks>
-    ///     There is an implicit interval. State updates from stream event firings do not become
-    ///     available as the current value of the cell to
-    ///     <see cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///     There is an implicit interval. State updates from stream event firings do
+    ///     not become available as the current value of the cell to
+    ///     <see
+    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
     ///     until the next transaction. In different words,
-    ///     <see cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
-    ///     always sees the value of a cell as it was before any state changes from the current transaction.
+    ///     <see
+    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///     always sees the value of a cell as it was before any state changes from the
+    ///     current transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Hold<T>(this Stream<T> s, T initialValue) => s.HoldImpl(initialValue);
 
     /// <summary>
-    ///     Makes a cell with the given lazy initial value, and the values of this stream update it.
+    ///     Makes a cell with the given lazy initial value, and the values of this
+    ///     stream update it.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="initialValue">The lazily initialized initial value of the cell.</param>
-    /// <returns>A cell with the given lazy initial value, which the values of this stream update.</returns>
+    /// <returns>
+    ///     A cell with the given lazy initial value, which the values of this
+    ///     stream update.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> HoldLazy<T>(this Stream<T> s, Lazy<T> initialValue) => s.HoldLazyImpl(initialValue);
 
     /// <summary>
-    ///     Gives a stream that fires the value of the cell at the moment of each firing.
+    ///     Gives a stream that fires the value of the cell at the moment of each
+    ///     firing.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="c">The cell to put together with this one.</param>
-    /// <returns>A stream that fires the value of the cell at the moment of each firing.</returns>
+    /// <returns>
+    ///     A stream that fires the value of the cell at the moment of each
+    ///     firing.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, Cell<TResult> c) => s.SnapshotImpl(c);
 
     /// <summary>
-    ///     Gives a stream that fires the value of the behavior at the moment of each firing.
+    ///     Gives a stream that fires the value of the behavior at the moment of each
+    ///     firing.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="b">The behavior to put together with this one.</param>
-    /// <returns>A stream that fires the value of the behavior at the moment of each firing.</returns>
+    /// <returns>
+    ///     A stream that fires the value of the behavior at the moment of each
+    ///     firing.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, Behavior<TResult> b) => s.SnapshotImpl(b);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the value
-    ///     of the cell.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the value of the cell.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the cell.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="c">The cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell value into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the value of the
-    ///     cell.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the value of the cell.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, TResult>(this Stream<T> s, Cell<T1> c, Func<T, T1, TResult> f) =>
         s.SnapshotImpl(c: c, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the value
-    ///     of the behavior.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the value of the behavior.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the behavior.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="b">The behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior value into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the value of the
-    ///     behavior.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the value of the behavior.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, TResult>(
@@ -326,8 +381,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b: b, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -336,10 +391,13 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="c1">The first cell to put together with this one.</param>
     /// <param name="c2">The second cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
@@ -350,8 +408,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -360,10 +418,13 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="b1">The first behavior to put together with this one.</param>
     /// <param name="b2">The second behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
@@ -374,8 +435,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -386,10 +447,13 @@ public static class StreamExtensionMethods
     /// <param name="c1">The first cell to put together with this one.</param>
     /// <param name="c2">The second cell to put together with this one.</param>
     /// <param name="c3">The third cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
@@ -401,8 +465,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -413,10 +477,13 @@ public static class StreamExtensionMethods
     /// <param name="b1">The first behavior to put together with this one.</param>
     /// <param name="b2">The second behavior to put together with this one.</param>
     /// <param name="b3">The third behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
@@ -428,8 +495,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -442,10 +509,13 @@ public static class StreamExtensionMethods
     /// <param name="c2">The second cell to put together with this one.</param>
     /// <param name="c3">The third cell to put together with this one.</param>
     /// <param name="c4">The fourth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
@@ -458,8 +528,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -472,10 +542,13 @@ public static class StreamExtensionMethods
     /// <param name="b2">The second behavior to put together with this one.</param>
     /// <param name="b3">The third behavior to put together with this one.</param>
     /// <param name="b4">The fourth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
@@ -488,8 +561,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -504,10 +577,13 @@ public static class StreamExtensionMethods
     /// <param name="c3">The third cell to put together with this one.</param>
     /// <param name="c4">The fourth cell to put together with this one.</param>
     /// <param name="c5">The fifth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
@@ -521,8 +597,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -537,10 +613,13 @@ public static class StreamExtensionMethods
     /// <param name="b3">The third behavior to put together with this one.</param>
     /// <param name="b4">The fourth behavior to put together with this one.</param>
     /// <param name="b5">The fifth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
@@ -554,8 +633,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -572,10 +651,13 @@ public static class StreamExtensionMethods
     /// <param name="c4">The fourth cell to put together with this one.</param>
     /// <param name="c5">The fifth cell to put together with this one.</param>
     /// <param name="c6">The sixth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
@@ -590,8 +672,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -608,10 +690,13 @@ public static class StreamExtensionMethods
     /// <param name="b4">The fourth behavior to put together with this one.</param>
     /// <param name="b5">The fifth behavior to put together with this one.</param>
     /// <param name="b6">The sixth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
@@ -626,8 +711,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -646,10 +731,13 @@ public static class StreamExtensionMethods
     /// <param name="c5">The fifth cell to put together with this one.</param>
     /// <param name="c6">The sixth cell to put together with this one.</param>
     /// <param name="c7">The seventh cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -665,8 +753,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -685,10 +773,13 @@ public static class StreamExtensionMethods
     /// <param name="b5">The fifth behavior to put together with this one.</param>
     /// <param name="b6">The sixth behavior to put together with this one.</param>
     /// <param name="b7">The seventh behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -704,8 +795,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -726,10 +817,13 @@ public static class StreamExtensionMethods
     /// <param name="c6">The sixth cell to put together with this one.</param>
     /// <param name="c7">The seventh cell to put together with this one.</param>
     /// <param name="c8">The eighth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the cells.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -746,8 +840,8 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the values
-    ///     of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -768,10 +862,13 @@ public static class StreamExtensionMethods
     /// <param name="b6">The sixth behavior to put together with this one.</param>
     /// <param name="b7">The seventh behavior to put together with this one.</param>
     /// <param name="b8">The eighth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the values of
-    ///     the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the values of the behaviors.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -788,77 +885,98 @@ public static class StreamExtensionMethods
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the latest value of the cell at the moment of each firing.
+    ///     Gives a stream that fires the latest value of the cell at the moment of
+    ///     each firing.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="c">The cell to put together with this one.</param>
     /// <returns>
-    ///     A stream that fires the value of the cell at the end of the transaction of each firing.
+    ///     A stream that fires the value of the cell at the end of the transaction of
+    ///     each firing.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> gives the value of the cell from
-    ///     before the transaction. This gives the new value if the same transaction updates the cell,
-    ///     and the current value if it does not. Only this stream causes the firing. An update of the
-    ///     cell alone does not.
-    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this cannot close a loop.
-    ///     Do not give a cell that the stream from this call updates in the same transaction.
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> gives the
+    ///     value of the cell from before the transaction. This gives the new value if
+    ///     the same transaction updates the cell, and the current value if it does
+    ///     not. Only this stream causes the firing. An update of the cell alone does
+    ///     not.
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this
+    ///     cannot close a loop.
+    ///     Do not give a cell that the stream from this call updates in the same
+    ///     transaction.
     ///     To get the latest values of more than one cell, give a cell from
-    ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
+    ///     <see
+    ///         cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///     .
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Cell<TResult> c) =>
         s.SnapshotLatestImpl(c);
 
     /// <summary>
-    ///     Gives a stream that fires the latest value of the behavior at the moment of each firing.
+    ///     Gives a stream that fires the latest value of the behavior at the moment of
+    ///     each firing.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="b">The behavior to put together with this one.</param>
     /// <returns>
-    ///     A stream that fires the value of the behavior at the end of the transaction of each firing.
+    ///     A stream that fires the value of the behavior at the end of the transaction
+    ///     of each firing.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" /> gives the value of the
-    ///     behavior from before the transaction. This gives the new value if the same transaction updates
-    ///     the behavior, and the current value if it does not. Only this stream causes the firing. An
-    ///     update of the behavior alone does not.
-    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />, this cannot close a
-    ///     loop. Do not give a behavior that the stream from this call updates in the same transaction.
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" /> gives the
+    ///     value of the behavior from before the transaction. This gives the new value
+    ///     if the same transaction updates the behavior, and the current value if it
+    ///     does not. Only this stream causes the firing. An update of the behavior
+    ///     alone does not.
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />,
+    ///     this cannot close a loop. Do not give a behavior that the stream from this
+    ///     call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Behavior<TResult> b) =>
         s.SnapshotLatestImpl(b);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     value of the cell.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest value of the cell.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the cell.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="c">The cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell value into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell value into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     value of the cell.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest value of the cell.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" /> gives the
-    ///     value of the cell from before the transaction. This gives the new value if the same
-    ///     transaction updates the cell, and the current value if it does not. Only this stream causes
-    ///     the firing. An update of the cell alone does not. For example,
-    ///     <c>c1.Values().SnapshotLatest(c2, f)</c> fires when <c>c1</c> changes, with the value that
-    ///     <c>c2</c> has after the same transaction.
-    ///     Unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />, this
-    ///     cannot close a loop. Do not give a cell that the stream from this call updates in the same
+    ///     <see
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />
+    ///     gives the value of the cell from before the transaction. This gives the new
+    ///     value if the same transaction updates the cell, and the current value if it
+    ///     does not. Only this stream causes the firing. An update of the cell alone
+    ///     does not. For example, <c>c1.Values().SnapshotLatest(c2, f)</c> fires when
+    ///     <c>c1</c> changes, with the value that <c>c2</c> has after the same
     ///     transaction.
-    ///     Other overloads accept more than one cell. For more cells than they accept, give a cell from
-    ///     <see cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />.
+    ///     Unlike
+    ///     <see
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />
+    ///     , this cannot close a loop. Do not give a cell that the stream from this
+    ///     call updates in the same transaction.
+    ///     Other overloads accept more than one cell. For more cells than they accept,
+    ///     give a cell from
+    ///     <see
+    ///         cref="CellExtensionMethods.Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///     .
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
@@ -868,27 +986,34 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c: c, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     value of the behavior.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest value of the behavior.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the behavior.</typeparam>
     /// <typeparam name="TResult">The return type.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="b">The behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior value into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior value into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     value of the behavior.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest value of the behavior.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" /> gives
-    ///     the value of the behavior from before the transaction. This gives the new value if the same
-    ///     transaction updates the behavior, and the current value if it does not. Only this stream
-    ///     causes the firing. An update of the behavior alone does not.
-    ///     Unlike <see cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />,
-    ///     this cannot close a loop. Do not give a behavior that the stream from this call updates in the
-    ///     same transaction.
+    ///     <see
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />
+    ///     gives the value of the behavior from before the transaction. This gives the
+    ///     new value if the same transaction updates the behavior, and the current
+    ///     value if it does not. Only this stream causes the firing. An update of the
+    ///     behavior alone does not.
+    ///     Unlike
+    ///     <see
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />
+    ///     , this cannot close a loop. Do not give a behavior that the stream from
+    ///     this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
@@ -898,8 +1023,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b: b, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -908,17 +1033,21 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="c1">The first cell to put together with this one.</param>
     /// <param name="c2">The second cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
@@ -929,8 +1058,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -939,17 +1068,22 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="b1">The first behavior to put together with this one.</param>
     /// <param name="b2">The second behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
@@ -960,8 +1094,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -972,17 +1106,21 @@ public static class StreamExtensionMethods
     /// <param name="c1">The first cell to put together with this one.</param>
     /// <param name="c2">The second cell to put together with this one.</param>
     /// <param name="c3">The third cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
@@ -994,8 +1132,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1006,17 +1144,22 @@ public static class StreamExtensionMethods
     /// <param name="b1">The first behavior to put together with this one.</param>
     /// <param name="b2">The second behavior to put together with this one.</param>
     /// <param name="b3">The third behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
@@ -1028,8 +1171,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -1042,17 +1185,21 @@ public static class StreamExtensionMethods
     /// <param name="c2">The second cell to put together with this one.</param>
     /// <param name="c3">The third cell to put together with this one.</param>
     /// <param name="c4">The fourth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
@@ -1065,8 +1212,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1079,17 +1226,22 @@ public static class StreamExtensionMethods
     /// <param name="b2">The second behavior to put together with this one.</param>
     /// <param name="b3">The third behavior to put together with this one.</param>
     /// <param name="b4">The fourth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
@@ -1102,8 +1254,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -1118,17 +1270,21 @@ public static class StreamExtensionMethods
     /// <param name="c3">The third cell to put together with this one.</param>
     /// <param name="c4">The fourth cell to put together with this one.</param>
     /// <param name="c5">The fifth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
@@ -1142,8 +1298,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1158,17 +1314,22 @@ public static class StreamExtensionMethods
     /// <param name="b3">The third behavior to put together with this one.</param>
     /// <param name="b4">The fourth behavior to put together with this one.</param>
     /// <param name="b5">The fifth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
@@ -1182,8 +1343,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -1200,17 +1361,21 @@ public static class StreamExtensionMethods
     /// <param name="c4">The fourth cell to put together with this one.</param>
     /// <param name="c5">The fifth cell to put together with this one.</param>
     /// <param name="c6">The sixth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
@@ -1225,8 +1390,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1243,17 +1408,22 @@ public static class StreamExtensionMethods
     /// <param name="b4">The fourth behavior to put together with this one.</param>
     /// <param name="b5">The fifth behavior to put together with this one.</param>
     /// <param name="b6">The sixth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
@@ -1268,8 +1438,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -1288,17 +1458,21 @@ public static class StreamExtensionMethods
     /// <param name="c5">The fifth cell to put together with this one.</param>
     /// <param name="c6">The sixth cell to put together with this one.</param>
     /// <param name="c7">The seventh cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -1314,8 +1488,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1334,17 +1508,22 @@ public static class StreamExtensionMethods
     /// <param name="b5">The fifth behavior to put together with this one.</param>
     /// <param name="b6">The sixth behavior to put together with this one.</param>
     /// <param name="b7">The seventh behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -1360,8 +1539,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the cells.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first cell.</typeparam>
@@ -1382,17 +1561,21 @@ public static class StreamExtensionMethods
     /// <param name="c6">The sixth cell to put together with this one.</param>
     /// <param name="c7">The seventh cell to put together with this one.</param>
     /// <param name="c8">The eighth cell to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and cell values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and cell values into a
+    ///     return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the cells.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the cells.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the cells from before the transaction. This gives the new
-    ///     value of each cell that the same transaction updates, and the current value of each cell that it
-    ///     does not update. Only this stream causes the firing. An update of the cells alone does not. This
-    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the stream from this call
-    ///     updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the cells from before the transaction.
+    ///     This gives the new value of each cell that the same transaction updates,
+    ///     and the current value of each cell that it does not update. Only this
+    ///     stream causes the firing. An update of the cells alone does not. This
+    ///     cannot close a loop, as <c>Snapshot</c> can. Do not give a cell that the
+    ///     stream from this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -1409,8 +1592,8 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
 
     /// <summary>
-    ///     Gives a stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     Gives a stream that fires the result of the given function on the fired
+    ///     value and the latest values of the behaviors.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="T1">The type of the first behavior.</typeparam>
@@ -1431,17 +1614,22 @@ public static class StreamExtensionMethods
     /// <param name="b6">The sixth behavior to put together with this one.</param>
     /// <param name="b7">The seventh behavior to put together with this one.</param>
     /// <param name="b8">The eighth behavior to put together with this one.</param>
-    /// <param name="f">A function to change the stream value and behavior values into a return value.</param>
+    /// <param name="f">
+    ///     A function to change the stream value and behavior values into
+    ///     a return value.
+    /// </param>
     /// <returns>
-    ///     A stream that fires the result of the given function on the fired value and the latest
-    ///     values of the behaviors.
+    ///     A stream that fires the result of the given function on the fired value and
+    ///     the latest values of the behaviors.
     /// </returns>
     /// <remarks>
-    ///     <c>Snapshot</c> gives the values of the behaviors from before the transaction. This gives the new
-    ///     value of each behavior that the same transaction updates, and the current value of each behavior
-    ///     that it does not update. Only this stream causes the firing. An update of the behaviors alone does
-    ///     not. This cannot close a loop, as <c>Snapshot</c> can. Do not give a behavior that the stream from
-    ///     this call updates in the same transaction.
+    ///     <c>Snapshot</c> gives the values of the behaviors from before the
+    ///     transaction. This gives the new value of each behavior that the same
+    ///     transaction updates, and the current value of each behavior that it does
+    ///     not update. Only this stream causes the firing. An update of the behaviors
+    ///     alone does not. This cannot close a loop, as <c>Snapshot</c> can. Do not
+    ///     give a behavior that the stream from this call updates in the same
+    ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -1458,81 +1646,87 @@ public static class StreamExtensionMethods
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
 
     /// <summary>
-    ///     Merges this stream with a second stream and drops the value of the second stream when they are
-    ///     simultaneous.
+    ///     Merges this stream with a second stream and drops the value of the second
+    ///     stream when they are simultaneous.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="s2">The stream to merge with.</param>
     /// <returns>
-    ///     A stream from a merge of this stream with a second stream. It drops the value of the second stream
-    ///     when the two are simultaneous.
+    ///     A stream from a merge of this stream with a second stream. It drops the
+    ///     value of the second stream when the two are simultaneous.
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         Where two stream events are simultaneous, which means that the two are in the same
-    ///         transaction, the event value from this stream has precedence. The result drops the event value
-    ///         from <paramref name="s2" />. To specify a custom combining function, use
-    ///         <see cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />.
-    ///         s1.OrElse(s2) is equivalent to s1.Merge(s2, (l, r) =&gt; l).
+    ///         Where two stream events are simultaneous, which means that the two are
+    ///         in the same transaction, the event value from this stream has
+    ///         precedence. The result drops the event value from
+    ///         <paramref name="s2" />. To specify a custom combining function, use
+    ///         <see
+    ///             cref="StreamExtensionMethods.Merge{T}(Stream{T}, Stream{T}, Func{T, T, T})" />
+    ///         . s1.OrElse(s2) is equivalent to s1.Merge(s2, (l, r) =&gt; l).
     ///     </para>
     ///     <para>
-    ///         This has the name OrElse and not Merge, to make it clear that a precaution is necessary,
-    ///         because the result can drop a stream event.
+    ///         This has the name OrElse and not Merge, to make it clear that a
+    ///         precaution is necessary, because the result can drop a stream event.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> OrElse<T>(this Stream<T> s, Stream<T> s2) => s.OrElseImpl(s2);
 
     /// <summary>
-    ///     Merges two streams of the same type into one. An event value on one input goes to the
-    ///     stream from this call.
+    ///     Merges two streams of the same type into one. An event value on one input
+    ///     goes to the stream from this call.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="s2">The stream to merge this stream with.</param>
     /// <param name="f">
     ///     Function to put the values together. It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />. Apart from this the function must be
-    ///     pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />. Apart from this the function
+    ///     must be pure.
     /// </param>
     /// <returns>
-    ///     A stream which is the combination of event values from this stream and stream <paramref name="s2" />.
+    ///     A stream which is the combination of event values from this stream and
+    ///     stream <paramref name="s2" />.
     /// </returns>
     /// <remarks>
-    ///     The events are simultaneous when one event from this stream and one event from
-    ///     <paramref name="s2" /> occur in the same transaction. The given function then puts the two
-    ///     together into one. Thus, the stream from this call always has one event or none in each
-    ///     transaction. The event from this stream goes to the left input of that function. The event
-    ///     from <paramref name="s2" /> goes to the right.
+    ///     The events are simultaneous when one event from this stream and one event
+    ///     from <paramref name="s2" /> occur in the same transaction. The given
+    ///     function then puts the two together into one. Thus, the stream from this
+    ///     call always has one event or none in each transaction. The event from this
+    ///     stream goes to the left input of that function. The event from
+    ///     <paramref name="s2" /> goes to the right.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Merge<T>(this Stream<T> s, Stream<T> s2, Func<T, T, T> f) => s.MergeImpl(s: s2, f: f);
 
     /// <summary>
-    ///     Merges this stream with a stream of a different type. The stream from this call fires in each
-    ///     transaction in which one or more of the streams fire.
+    ///     Merges this stream with a stream of a different type. The stream from this
+    ///     call fires in each transaction in which one or more of the streams fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="s2">The second stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the two streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the two streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>)> Merge<T, T2>(this Stream<T> s, Stream<T2> s2) =>
         s.MergeMaybesImpl(s2: s2, f: static (m1, m2) => (ToMaybe(m1), ToMaybe(m2)));
 
     /// <summary>
-    ///     Merges this stream with two streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the three streams fire.
+    ///     Merges this stream with two streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the three streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1541,13 +1735,14 @@ public static class StreamExtensionMethods
     /// <param name="s2">The second stream to merge with this one.</param>
     /// <param name="s3">The third stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the three streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the three streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>)> Merge<T, T2, T3>(
@@ -1560,8 +1755,9 @@ public static class StreamExtensionMethods
             f: static (m1, m2, m3) => (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3)));
 
     /// <summary>
-    ///     Merges this stream with three streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the four streams fire.
+    ///     Merges this stream with three streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the four streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1572,13 +1768,14 @@ public static class StreamExtensionMethods
     /// <param name="s3">The third stream to merge with this one.</param>
     /// <param name="s4">The fourth stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the four streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the four streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>)> Merge<T, T2, T3, T4>(
@@ -1593,8 +1790,9 @@ public static class StreamExtensionMethods
             f: static (m1, m2, m3, m4) => (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4)));
 
     /// <summary>
-    ///     Merges this stream with four streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the five streams fire.
+    ///     Merges this stream with four streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the five streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1607,13 +1805,14 @@ public static class StreamExtensionMethods
     /// <param name="s4">The fourth stream to merge with this one.</param>
     /// <param name="s5">The fifth stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the five streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the five streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>)> Merge<T, T2, T3, T4, T5>(
@@ -1631,8 +1830,9 @@ public static class StreamExtensionMethods
                 (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5)));
 
     /// <summary>
-    ///     Merges this stream with five streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the six streams fire.
+    ///     Merges this stream with five streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the six streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1647,13 +1847,14 @@ public static class StreamExtensionMethods
     /// <param name="s5">The fifth stream to merge with this one.</param>
     /// <param name="s6">The sixth stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the six streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the six streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>)>
@@ -1674,8 +1875,9 @@ public static class StreamExtensionMethods
                 (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5), ToMaybe(m6)));
 
     /// <summary>
-    ///     Merges this stream with six streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the seven streams fire.
+    ///     Merges this stream with six streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the seven streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1692,13 +1894,14 @@ public static class StreamExtensionMethods
     /// <param name="s6">The sixth stream to merge with this one.</param>
     /// <param name="s7">The seventh stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the seven streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the seven streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>)>
@@ -1721,8 +1924,9 @@ public static class StreamExtensionMethods
                 (ToMaybe(m1), ToMaybe(m2), ToMaybe(m3), ToMaybe(m4), ToMaybe(m5), ToMaybe(m6), ToMaybe(m7)));
 
     /// <summary>
-    ///     Merges this stream with seven streams of other types. The stream from this call fires in each
-    ///     transaction in which one or more of the eight streams fire.
+    ///     Merges this stream with seven streams of other types. The stream from this
+    ///     call fires in each transaction in which one or more of the eight streams
+    ///     fire.
     /// </summary>
     /// <typeparam name="T">The type of this stream.</typeparam>
     /// <typeparam name="T2">The type of the second stream.</typeparam>
@@ -1741,13 +1945,14 @@ public static class StreamExtensionMethods
     /// <param name="s7">The seventh stream to merge with this one.</param>
     /// <param name="s8">The eighth stream to merge with this one.</param>
     /// <returns>
-    ///     A stream of tuples with one element for each of the eight streams, in the sequence of the
-    ///     parameters. An element has the value of its stream if that stream fired in the transaction, and
-    ///     no value if it did not.
+    ///     A stream of tuples with one element for each of the eight streams, in the
+    ///     sequence of the parameters. An element has the value of its stream if that
+    ///     stream fired in the transaction, and no value if it did not.
     /// </returns>
     /// <remarks>
-    ///     One or more elements of each tuple have a value. No input has priority over the other
-    ///     inputs. Thus, the sequence of the parameters changes only the sequence of the elements.
+    ///     One or more elements of each tuple have a value. No input has priority over
+    ///     the other inputs. Thus, the sequence of the parameters changes only the
+    ///     sequence of the elements.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<(Maybe<T>, Maybe<T2>, Maybe<T3>, Maybe<T4>, Maybe<T5>, Maybe<T6>, Maybe<T7>, Maybe<T8>)>
@@ -1783,31 +1988,38 @@ public static class StreamExtensionMethods
         m.TryGetValue(out T value) ? Maybe.Some(value) : Maybe<T>.None;
 
     /// <summary>
-    ///     Return a stream that only outputs events for which the predicate returns <code>true</code>.
+    ///     Return a stream that only outputs events for which the predicate returns
+    ///     <code>true</code>.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="predicate">The predicate used to filter the stream.</param>
-    /// <returns>A stream that only outputs events for which the predicate returns <code>true</code>.</returns>
+    /// <returns>
+    ///     A stream that only outputs events for which the predicate returns
+    ///     <code>true</code>.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Filter<T>(this Stream<T> s, Func<T, bool> predicate) => s.FilterImpl(predicate);
 
     /// <summary>
-    ///     Return a stream that only outputs events from the input stream when the specified cell's value is
+    ///     Return a stream that only outputs events from the input stream when the
+    ///     specified cell's value is
     ///     <code>true</code>.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="c">The cell that acts as a gate.</param>
     /// <returns>
-    ///     A stream that only outputs events from the input stream when the specified cell's value is
+    ///     A stream that only outputs events from the input stream when the specified
+    ///     cell's value is
     ///     <code>true</code>.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Gate<T>(this Stream<T> s, Cell<bool> c) => s.GateImpl(c);
 
     /// <summary>
-    ///     Return a stream that only outputs events from the input stream when the specified behavior's value is
+    ///     Return a stream that only outputs events from the input stream when the
+    ///     specified behavior's value is
     ///     <code>true</code>
     ///     .
     /// </summary>
@@ -1815,44 +2027,61 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="b">The behavior that acts as a gate.</param>
     /// <returns>
-    ///     A stream that only outputs events from the input stream when the specified behavior's value is
+    ///     A stream that only outputs events from the input stream when the specified
+    ///     behavior's value is
     ///     <code>true</code>.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Gate<T>(this Stream<T> s, Behavior<bool> b) => s.GateImpl(b);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than the previous event.
+    ///     Return a stream that only outputs events which have a different value than
+    ///     the previous event.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <returns>A stream that only outputs events which have a different value than the previous event.</returns>
+    /// <returns>
+    ///     A stream that only outputs events which have a different value than
+    ///     the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s) => s.CalmImpl(EqualityComparer<T>.Default.Equals);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than the previous event.
+    ///     Return a stream that only outputs events which have a different value than
+    ///     the previous event.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <param name="comparer">The equality comparer that gives true when two items are equal.</param>
-    /// <returns>A stream that only outputs events which have a different value than the previous event.</returns>
+    /// <param name="comparer">
+    ///     The equality comparer that gives true when two items are
+    ///     equal.
+    /// </param>
+    /// <returns>
+    ///     A stream that only outputs events which have a different value than
+    ///     the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s, IEqualityComparer<T> comparer) => s.CalmImpl(comparer.Equals);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than the previous event.
+    ///     Return a stream that only outputs events which have a different value than
+    ///     the previous event.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="areEqual">The function that gives true when two items are equal.</param>
-    /// <returns>A stream that only outputs events which have a different value than the previous event.</returns>
+    /// <returns>
+    ///     A stream that only outputs events which have a different value than
+    ///     the previous event.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s, Func<T, T, bool> areEqual) => s.CalmImpl(areEqual);
 
     /// <summary>
-    ///     Transform a stream with a generalized state loop (a Mealy machine). This calls the function with
-    ///     the input and the previous state, and the function returns the new state and the output value.
+    ///     Transform a stream with a generalized state loop (a Mealy machine). This
+    ///     calls the function with the input and the previous state, and the function
+    ///     returns the new state and the output value.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TState">The type of the state of the Mealy machine.</typeparam>
@@ -1861,10 +2090,15 @@ public static class StreamExtensionMethods
     /// <param name="initialState">The initial state of the Mealy machine.</param>
     /// <param name="f">
     ///     Function to apply to update the state.  It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
+    ///     to snapshotting the cell with
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     this, the function must be pure.
     /// </param>
-    /// <returns>A stream resulting from the transformation of this stream by the Mealy machine.</returns>
+    /// <returns>
+    ///     A stream resulting from the transformation of this stream by the Mealy
+    ///     machine.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TReturn> Collect<T, TState, TReturn>(
         this Stream<T> s,
@@ -1873,21 +2107,30 @@ public static class StreamExtensionMethods
         s.CollectImpl(initialState: initialState, f: f);
 
     /// <summary>
-    ///     Transform a stream with a generalized state loop (a Mealy machine) using a lazily evaluated
-    ///     initial state. This calls the function with the input and the previous state, and the function
-    ///     returns the new state and the output value.
+    ///     Transform a stream with a generalized state loop (a Mealy machine) using a
+    ///     lazily evaluated initial state. This calls the function with the input and
+    ///     the previous state, and the function returns the new state and the output
+    ///     value.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TState">The type of the state of the Mealy machine.</typeparam>
     /// <typeparam name="TReturn">The type of the return value.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <param name="initialState">The lazily evaluated initial state of the Mealy machine.</param>
+    /// <param name="initialState">
+    ///     The lazily evaluated initial state of the Mealy
+    ///     machine.
+    /// </param>
     /// <param name="f">
     ///     Function to apply to update the state.  It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
+    ///     to snapshotting the cell with
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     this, the function must be pure.
     /// </param>
-    /// <returns>A stream resulting from the transformation of this stream by the Mealy machine.</returns>
+    /// <returns>
+    ///     A stream resulting from the transformation of this stream by the Mealy
+    ///     machine.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TReturn> CollectLazy<T, TState, TReturn>(
         this Stream<T> s,
@@ -1896,7 +2139,8 @@ public static class StreamExtensionMethods
         s.CollectLazyImpl(initialState: initialState, f: f);
 
     /// <summary>
-    ///     Accumulate on this stream, outputting the new state each time an event fires.
+    ///     Accumulate on this stream, outputting the new state each time an event
+    ///     fires.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TReturn">The type of the accumulated state.</typeparam>
@@ -1904,8 +2148,10 @@ public static class StreamExtensionMethods
     /// <param name="initialState">The initial state.</param>
     /// <param name="f">
     ///     Function to apply to update the state.  It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
+    ///     to snapshotting the cell with
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     this, the function must be pure.
     /// </param>
     /// <returns>A cell holding the accumulated state of this stream.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1916,8 +2162,8 @@ public static class StreamExtensionMethods
         s.AccumImpl(initialState: initialState, f: f);
 
     /// <summary>
-    ///     Accumulate on this stream, outputting the new state each time an event fires using a lazily
-    ///     evaluated initial state.
+    ///     Accumulate on this stream, outputting the new state each time an event
+    ///     fires using a lazily evaluated initial state.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TReturn">The type of the accumulated state.</typeparam>
@@ -1925,8 +2171,10 @@ public static class StreamExtensionMethods
     /// <param name="initialState">The lazily evaluated initial state.</param>
     /// <param name="f">
     ///     Function to apply to update the state.  It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from this, the function must be pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
+    ///     to snapshotting the cell with
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     this, the function must be pure.
     /// </param>
     /// <returns>A cell holding the accumulated state of this stream.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -1937,96 +2185,107 @@ public static class StreamExtensionMethods
         s.AccumLazyImpl(initialState: initialState, f: f);
 
     /// <summary>
-    ///     Return a stream that outputs only one value: the next event of the input stream starting from the
-    ///     transaction of this call.
+    ///     Return a stream that outputs only one value: the next event of the input
+    ///     stream starting from the transaction of this call.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <returns>
-    ///     A stream that outputs only one value: the next event of the input stream starting from the
-    ///     transaction of this call.
+    ///     A stream that outputs only one value: the next event of the input stream
+    ///     starting from the transaction of this call.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Once<T>(this Stream<T> s) => s.OnceImpl();
 
     /// <summary>
-    ///     Merges a collection of streams and drops the value of the stream earlier in the collection
-    ///     when they are simultaneous.
+    ///     Merges a collection of streams and drops the value of the stream earlier in
+    ///     the collection when they are simultaneous.
     /// </summary>
     /// <param name="s">The collection of streams to merge.</param>
     /// <returns>
-    ///     A stream from a merge of the collection of streams. It drops the value of the stream
-    ///     earlier in the collection when the two are simultaneous.
+    ///     A stream from a merge of the collection of streams. It drops the value of
+    ///     the stream earlier in the collection when the two are simultaneous.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> OrElse<T>(this IEnumerable<Stream<T>> s) => s.OrElseImpl<T, Stream<T>>();
 
     /// <summary>
-    ///     Merges a collection of streams of the same type into one. An event on each input goes to
-    ///     the stream from this call.
+    ///     Merges a collection of streams of the same type into one. An event on each
+    ///     input goes to the stream from this call.
     /// </summary>
     /// <param name="s">The collection of streams to merge.</param>
     /// <param name="f">
     ///     Function to put the values together. It can make FRP logic or use
-    ///     <see cref="CellExtensionMethods.Sample{T}" />. Apart from this the function must be
-    ///     pure.
+    ///     <see cref="CellExtensionMethods.Sample{T}" />. Apart from this the function
+    ///     must be pure.
     /// </param>
     /// <returns>
-    ///     A stream which is the combination of event values from the collection of streams <paramref name="s" />.
+    ///     A stream which is the combination of event values from the collection of
+    ///     streams <paramref name="s" />.
     /// </returns>
     /// <remarks>
-    ///     The events are simultaneous when more than one stream has an event in the same
-    ///     transaction. The given function then puts them together into one. Thus, the stream from
-    ///     this call always has one event or none in each transaction. The event from the stream
-    ///     earlier in the collection goes to the left input of that function. The event from the
-    ///     stream after it goes to the right.
+    ///     The events are simultaneous when more than one stream has an event in the
+    ///     same transaction. The given function then puts them together into one.
+    ///     Thus, the stream from this call always has one event or none in each
+    ///     transaction. The event from the stream earlier in the collection goes to
+    ///     the left input of that function. The event from the stream after it goes to
+    ///     the right.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Merge<T>(this IEnumerable<Stream<T>> s, Func<T, T, T> f) => s.MergeImpl(f);
 
     /// <summary>
-    ///     Return a stream that only outputs events that have values, removing the <see cref="Maybe{T}" /> wrapper, and
-    ///     discarding <see cref="Maybe.None" /> values.
+    ///     Return a stream that only outputs events that have values, removing the
+    ///     <see cref="Maybe{T}" /> wrapper, and discarding <see cref="Maybe.None" />
+    ///     values.
     /// </summary>
     /// <param name="s">The stream of <see cref="Maybe{T}" /> values to filter.</param>
     /// <returns>
-    ///     A stream that only outputs events that have values, removing the <see cref="Maybe{T}" /> wrapper, and
-    ///     discarding <see cref="Maybe.None" /> values.
+    ///     A stream that only outputs events that have values, removing the
+    ///     <see cref="Maybe{T}" /> wrapper, and discarding <see cref="Maybe.None" />
+    ///     values.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) =>
         s.FilterSomeImpl<T, Maybe<T>>(static (m, a) => m.MatchSome(a));
 
     /// <summary>
-    ///     Transform the stream values with a function which can give no value, and fire only the values it gives.
+    ///     Transform the stream values with a function which can give no value, and
+    ///     fire only the values it gives.
     /// </summary>
     /// <param name="s">The stream to transform.</param>
     /// <param name="f">
-    ///     Function to apply to each value. It can make FRP logic or use <see cref="CellExtensionMethods.Sample{T}" />.
-    ///     Apart
-    ///     from this the function must be pure.
+    ///     Function to apply to each value. It can make FRP logic or use
+    ///     <see cref="CellExtensionMethods.Sample{T}" />. Apart from this the function
+    ///     must be pure.
     /// </param>
     /// <typeparam name="T">The type of the values fired by the stream to transform.</typeparam>
     /// <typeparam name="TResult">The type of the values fired by the returned stream.</typeparam>
     /// <returns>
-    ///     A stream that fires the value from <paramref name="f" />, for each firing of
-    ///     <paramref name="s" /> that gives one. It does not fire for the other firings.
+    ///     A stream that fires the value from <paramref name="f" />, for each firing
+    ///     of <paramref name="s" /> that gives one. It does not fire for the other
+    ///     firings.
     /// </returns>
     /// <remarks>
-    ///     Maps and filters in one step. Use it for the usual condition where a test of an event is
-    ///     the same work as the value that goes through. Examples are a parse, a lookup, and a
-    ///     narrower type. This is <c>s.Map(f).FilterSome()</c>, with the same transaction semantics.
+    ///     Maps and filters in one step. Use it for the usual condition where a test
+    ///     of an event is the same work as the value that goes through. Examples are a
+    ///     parse, a lookup, and a narrower type. This is <c>s.Map(f).FilterSome()</c>,
+    ///     with the same transaction semantics.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
         s.MapImpl(f).FilterSomeImpl<TResult, Maybe<TResult>>(static (m, a) => m.MatchSome(a));
 
     /// <summary>
-    ///     Fires the last value after a time with no other value. Each firing moves the alarm out,
-    ///     thus a sequence of firings with no space between them gives one value.
+    ///     Fires the last value after a time with no other value. Each firing moves
+    ///     the alarm out, thus a sequence of firings with no space between them gives
+    ///     one value.
     /// </summary>
     /// <typeparam name="T">The type of the values fired by the stream.</typeparam>
-    /// <typeparam name="TTime">The type that the timer system uses for a point in time.</typeparam>
+    /// <typeparam name="TTime">
+    ///     The type that the timer system uses for a point in
+    ///     time.
+    /// </typeparam>
     /// <param name="s">The stream to debounce.</param>
     /// <param name="timers">The timer system that gives the clock and the alarms.</param>
     /// <param name="deadline">
@@ -2035,27 +2294,31 @@ public static class StreamExtensionMethods
     ///     <c>static now =&gt; now.AddMilliseconds(300)</c>.
     /// </param>
     /// <returns>
-    ///     A stream that fires the last value of <paramref name="s" />, one time, after a time with
-    ///     no other value.
+    ///     A stream that fires the last value of <paramref name="s" />, one time,
+    ///     after a time with no other value.
     /// </returns>
     /// <remarks>
-    ///     Each value that a quiet time follows fires one time, and the values before it fire never.
-    ///     A search box is the usual position for this: the text of each keystroke goes in, and one
-    ///     search comes out.
+    ///     Each value that a quiet time follows fires one time, and the values before
+    ///     it fire never.
+    ///     A search box is the usual position for this: the text of each keystroke
+    ///     goes in, and one search comes out.
     ///     <para>
-    ///         The result is in a transaction of the alarm and never in the transaction of a firing.
-    ///         Thus, a graph that reads the two sees two instants, which is correct: the values are
-    ///         at two times.
+    ///         The result is in a transaction of the alarm and never in the
+    ///         transaction of a firing.
+    ///         Thus, a graph that reads the two sees two instants, which is correct:
+    ///         the values are at two times.
     ///     </para>
     ///     <para>
-    ///         This does not cancel work that started. Where each value starts an operation, give a
-    ///         strategy to MapAsync that cancels the operation it replaces, and debounce the input
-    ///         also. The first stops the requests that no code wants, and the second stops the
-    ///         requests before they start.
+    ///         This does not cancel work that started. Where each value starts an
+    ///         operation, give a strategy to MapAsync that cancels the operation it
+    ///         replaces, and debounce the input also. The first stops the requests
+    ///         that no code wants, and the second stops the requests before they
+    ///         start.
     ///     </para>
     ///     <para>
-    ///         <paramref name="deadline" /> must give a time after the time that it reads. An
-    ///         earlier time is a time that the clock went by, and it fires at the next transaction.
+    ///         <paramref name="deadline" /> must give a time after the time that it
+    ///         reads. An earlier time is a time that the clock went by, and it fires
+    ///         at the next transaction.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]

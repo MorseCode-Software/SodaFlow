@@ -3,13 +3,15 @@ using System.Collections.Generic;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     One of the arrangements in this sample, from the smallest to the one with input.
+///     One of the arrangements in this sample, from the smallest to the one with
+///     input.
 /// </summary>
 /// <remarks>
-///     This is not <see cref="System.IDisposable" />, and the other samples are. No code here
-///     subscribes to a value. The balls are behaviors, a view reads them with a sample, and the
-///     graph that sets the timers of the simulation holds those timers. There is no subscription
-///     to release, thus there is no code to release one.
+///     This is not <see cref="System.IDisposable" />, and the other samples are.
+///     No code here subscribes to a value. The balls are behaviors, a view reads
+///     them with a sample, and the graph that sets the timers of the simulation
+///     holds those timers. There is no subscription to release, thus there is no
+///     code to release one.
 /// </remarks>
 public interface IScene
 {
@@ -32,9 +34,9 @@ public interface IScene
 ///     A scene that also reacts to the pointer.
 /// </summary>
 /// <remarks>
-///     This is not part of <see cref="IScene" />, thus three empty methods are not necessary for
-///     a scene that does not use the pointer. A view tests the scene that it shows against this
-///     type.
+///     This is not part of <see cref="IScene" />, thus three empty methods are not
+///     necessary for a scene that does not use the pointer. A view tests the scene
+///     that it shows against this type.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 public interface IInteractiveScene : IScene

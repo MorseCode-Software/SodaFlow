@@ -6,17 +6,19 @@ using SodaFlow.Functional;
 namespace SodaFlow.Time;
 
 /// <summary>
-///     A timer system built on an <see cref="ITimerSystemImplementation{T}" />, which supplies the
-///     clock and the wait mechanism. This class gives the FRP.
+///     A timer system built on an <see cref="ITimerSystemImplementation{T}" />,
+///     which supplies the clock and the wait mechanism. This class gives the FRP.
 /// </summary>
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 /// <remarks>
-///     Alarms get to the graph through a <c>Transaction.OnStart</c> handler installed by the
-///     constructor. When a transaction starts, the handler reads the current time, runs any timer that
-///     has come due, and sends the alarms. The handler sends events that became due at the same time
-///     delivered together, and events at different times in different transactions.
-///     Use <see cref="SystemClockTimerSystem" /> or <see cref="SecondsTimerSystem" /> unless you
-///     a different clock is necessary, and then derive from
+///     Alarms get to the graph through a <c>Transaction.OnStart</c> handler
+///     installed by the constructor. When a transaction starts, the handler reads
+///     the current time, runs any timer that has come due, and sends the alarms.
+///     The handler sends events that became due at the same time delivered
+///     together, and events at different times in different transactions.
+///     Use <see cref="SystemClockTimerSystem" /> or
+///     <see cref="SecondsTimerSystem" /> unless you a different clock is
+///     necessary, and then derive from
 ///     <see cref="TimerSystemImplementationBase{T}" /> and give it here.
 /// </remarks>
 [PublicAPI]
@@ -28,17 +30,18 @@ public class TimerSystem<T> : ITimerSystem<T>
     private readonly ITimerSystemImplementation<T> implementation;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="TimerSystem{T}" /> class over the given
-    ///     implementation, starting it immediately.
+    ///     Initializes a new instance of the <see cref="TimerSystem{T}" /> class over
+    ///     the given implementation, starting it immediately.
     /// </summary>
     /// <param name="implementation">The clock and waiting mechanism to build on.</param>
     /// <param name="handleException">
-    ///     Called with each exception from a wait for a timer, and from a timer that fires.
+    ///     Called with each exception from a wait for a timer, and from a timer that
+    ///     fires.
     /// </param>
     /// <remarks>
-    ///     Construction starts the implementation and installs a transaction handler that lives for
-    ///     the lifetime of the process. Thus, make one timer system for the process, and not one for
-    ///     each unit of work.
+    ///     Construction starts the implementation and installs a transaction handler
+    ///     that lives for the lifetime of the process. Thus, make one timer system for
+    ///     the process, and not one for each unit of work.
     /// </remarks>
     public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
     {

@@ -5,25 +5,27 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     Some balls in a box, with gravity. They bounce from the walls, the floor, and the
-///     ceiling.
+///     Some balls in a box, with gravity. They bounce from the walls, the floor,
+///     and the ceiling.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each ball is two axes that operate independently. The horizontal axis has no
-///         acceleration and bounces between the walls. The vertical axis has gravity and bounces
-///         between the ceiling and the floor. One axis knows nothing about the other axis, and one
-///         ball knows nothing about a second ball.
+///         Each ball is two axes that operate independently. The horizontal axis
+///         has no acceleration and bounces between the walls. The vertical axis
+///         has gravity and bounces between the ceiling and the floor. One axis
+///         knows nothing about the other axis, and one ball knows nothing about a
+///         second ball.
 ///     </para>
 ///     <para>
-///         One more ball is one more graph. There is no list of bodies for other code to read, no
-///         shared array of positions, and no sequence for the updates. That is the difference
-///         between a description of the movement and a step of the movement.
+///         One more ball is one more graph. There is no list of bodies for other
+///         code to read, no shared array of positions, and no sequence for the
+///         updates. That is the difference between a description of the movement
+///         and a step of the movement.
 ///     </para>
 ///     <para>
-///         For that cause the damping is one cell for eight axes, and not an adjustment with a
-///         copy in each axis. Each axis reads the cell at the moment of its bounce, and no code
-///         tells an axis about a change.
+///         For that cause the damping is one cell for eight axes, and not an
+///         adjustment with a copy in each axis. Each axis reads the cell at the
+///         moment of its bounce, and no code tells an axis about a change.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -31,10 +33,14 @@ internal sealed class WallsScene : IScene
 {
     /// <param name="timers">The clock for the position of each ball.</param>
     /// <param name="restitution">
-    ///     The multiplier for the speed at a bounce. Each axis of each ball reads it. See
-    ///     <see cref="BounceViewModel" />, which holds the value that the controls write.
+    ///     The multiplier for the speed at a bounce. Each axis of each ball reads it.
+    ///     See <see cref="BounceViewModel" />, which holds the value that the controls
+    ///     write.
     /// </param>
-    /// <param name="restarts">Fires when the tab of this scene becomes the selected tab.</param>
+    /// <param name="restarts">
+    ///     Fires when the tab of this scene becomes the selected
+    ///     tab.
+    /// </param>
     internal WallsScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();

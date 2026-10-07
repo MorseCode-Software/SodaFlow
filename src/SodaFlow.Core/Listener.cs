@@ -6,8 +6,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A listener for stream firings. It does not prevent garbage collection of the stream. Call
-///     <see cref="Unlisten" /> to stop the listener.
+///     A listener for stream firings. It does not prevent garbage collection of
+///     the stream. Call <see cref="Unlisten" /> to stop the listener.
 /// </summary>
 [PublicAPI]
 public interface IListenerWithWeakReference
@@ -22,7 +22,8 @@ public interface IListenerWithWeakReference
 }
 
 /// <summary>
-///     A listener for stream firings. Call <see cref="Unlisten" /> to stop the listener.
+///     A listener for stream firings. Call <see cref="Unlisten" /> to stop the
+///     listener.
 /// </summary>
 [PublicAPI]
 public interface IListener
@@ -39,23 +40,25 @@ public interface IListener
     ///     Gives a view of this listener that does not keep its stream alive.
     /// </summary>
     /// <returns>
-    ///     A listener. You can call <see cref="IListenerWithWeakReference.Unlisten" /> on it, but
-    ///     it does not prevent garbage collection of the stream.
+    ///     A listener. You can call <see cref="IListenerWithWeakReference.Unlisten" />
+    ///     on it, but it does not prevent garbage collection of the stream.
     /// </returns>
     IListenerWithWeakReference GetListenerWithWeakReference();
 }
 
 /// <summary>
 ///     A listener for stream firings. It listens until a caller calls
-///     <see cref="IListener.Unlisten" />. It continues to listen after it goes out of scope.
+///     <see cref="IListener.Unlisten" />. It continues to listen after it goes out
+///     of scope.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IStrongListener : IListener, IDisposable;
 
 /// <summary>
-///     A listener for stream firings. The garbage collector can remove it after it goes out of
-///     scope. A call to <see cref="IListener.Unlisten" /> also stops it.
+///     A listener for stream firings. The garbage collector can remove it after it
+///     goes out of scope. A call to <see cref="IListener.Unlisten" /> also stops
+///     it.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage

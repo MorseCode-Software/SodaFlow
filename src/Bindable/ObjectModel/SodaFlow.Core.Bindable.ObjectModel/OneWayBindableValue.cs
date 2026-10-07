@@ -10,12 +10,13 @@ public static partial class BindableCoreExtensionMethods
     ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
     /// </summary>
     /// <remarks>
-    ///     You can build this on any thread. The building transaction samples the initial value
-    ///     when it closes, and the scheduler moves each subsequent change to the binding
-    ///     thread. Thus, only the binding thread reads the sample and writes the cached
-    ///     value. Only the code that publishes the instance puts the building thread and the
-    ///     binding thread in sequence. That code must do this in all conditions, because
-    ///     <c>comparer</c> and <c>listener</c> are usual fields that a reader needs.
+    ///     You can build this on any thread. The building transaction samples the
+    ///     initial value when it closes, and the scheduler moves each subsequent
+    ///     change to the binding thread. Thus, only the binding thread reads the
+    ///     sample and writes the cached value. Only the code that publishes the
+    ///     instance puts the building thread and the binding thread in sequence. That
+    ///     code must do this in all conditions, because <c>comparer</c> and
+    ///     <c>listener</c> are usual fields that a reader needs.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
@@ -23,20 +24,22 @@ public static partial class BindableCoreExtensionMethods
         private readonly IEqualityComparer<T> comparer;
 
         /// <summary>
-        ///     This field is necessary. The subscription is weak, thus this field keeps it alive.
+        ///     This field is necessary. The subscription is weak, thus this field keeps it
+        ///     alive.
         ///     It also keeps the graph above it alive. Do not make it a local variable.
         /// </summary>
         private readonly IListener listener;
 
         /// <summary>
-        ///     The last value that the binding engine saw. Only the binding thread reads and
-        ///     writes it. Call <see cref="ResolveInitialValue" /> before each use.
+        ///     The last value that the binding engine saw. Only the binding thread reads
+        ///     and writes it. Call <see cref="ResolveInitialValue" /> before each use.
         /// </summary>
         private T cachedValue;
 
         /// <summary>
-        ///     The sample from the constructor, until the first use of the cached value. Then it
-        ///     is null. See <see cref="SampleAtCloseAndListenToUpdates{T}" /> for the cause.
+        ///     The sample from the constructor, until the first use of the cached value.
+        ///     Then it is null. See <see cref="SampleAtCloseAndListenToUpdates{T}" /> for
+        ///     the cause.
         /// </summary>
         private InitialSample<T>? initialValue;
 
@@ -81,8 +84,8 @@ public static partial class BindableCoreExtensionMethods
 
         /// <summary>
         ///     Applies an update. This method always posts and never raises on the calling
-        ///     thread, because the callback runs in a transaction. A binding engine that responds
-        ///     immediately can come back into the graph from a callback.
+        ///     thread, because the callback runs in a transaction. A binding engine that
+        ///     responds immediately can come back into the graph from a callback.
         /// </summary>
         private void OnSourceChanged(T newValue) =>
             this.Scheduler.Post(() =>

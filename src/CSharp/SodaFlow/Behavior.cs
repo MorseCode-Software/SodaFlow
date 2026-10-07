@@ -30,8 +30,8 @@ public static class Behavior
 
     /// <summary>
     ///     Creates a writable behavior that uses the last value if
-    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets more than one call per
-    ///     transaction.
+    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets more than one call
+    ///     per transaction.
     /// </summary>
     /// <param name="initialValue">The initial value of the behavior.</param>
     /// <typeparam name="T">The type of values in the behavior sink.</typeparam>
@@ -39,13 +39,15 @@ public static class Behavior
     public static BehaviorSink<T> CreateSink<T>(T initialValue) => BehaviorInternal.CreateSinkImpl(initialValue);
 
     /// <summary>
-    ///     Creates a writable behavior that uses <paramref name="coalesce" /> to put values together when
-    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets more than one call in one transaction.
+    ///     Creates a writable behavior that uses <paramref name="coalesce" /> to put
+    ///     values together when <see cref="BehaviorSinkExtensionMethods.Send{T}" />
+    ///     gets more than one call in one transaction.
     /// </summary>
     /// <param name="initialValue">The initial value of the behavior.</param>
     /// <param name="coalesce">
-    ///     Function to put values together when <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets a call
-    ///     more than one time per transaction.
+    ///     Function to put values together when
+    ///     <see cref="BehaviorSinkExtensionMethods.Send{T}" /> gets a call more than
+    ///     one time per transaction.
     /// </param>
     /// <typeparam name="T">The type of values in the behavior sink.</typeparam>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -53,7 +55,8 @@ public static class Behavior
         BehaviorInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
     /// <summary>
-    ///     Makes a <see cref="BehaviorLoop{T}" />. A caller must call this and close the loop in one transaction.
+    ///     Makes a <see cref="BehaviorLoop{T}" />. A caller must call this and close
+    ///     the loop in one transaction.
     /// </summary>
     /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
     public static BehaviorLoop<T> CreateLoop<T>() => new();
@@ -74,12 +77,13 @@ public static class Behavior
 public struct BehaviorLooper<T>
 {
     /// <summary>
-    ///     Loop a behavior and return a value tuple containing the resulting behavior and captures.
+    ///     Loop a behavior and return a value tuple containing the resulting behavior
+    ///     and captures.
     /// </summary>
     /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
     /// <param name="f">
-    ///     A function which takes the behavior loop and returns a value tuple containing the resulting behavior
-    ///     and captures.
+    ///     A function which takes the behavior loop and returns a value tuple
+    ///     containing the resulting behavior and captures.
     /// </param>
     /// <returns>A value tuple containing the resulting behavior and captures.</returns>
     [Pure]
@@ -97,7 +101,10 @@ public struct BehaviorLooper<T>
     /// <summary>
     ///     Loop a behavior and return the resulting behavior.
     /// </summary>
-    /// <param name="f">A function which takes the behavior loop and returns the resulting behavior.</param>
+    /// <param name="f">
+    ///     A function which takes the behavior loop and returns the
+    ///     resulting behavior.
+    /// </param>
     /// <returns>The resulting behavior.</returns>
     [Pure]
     public Behavior<T> WithoutCaptures(Func<LoopedBehavior<T>, Behavior<T>> f) =>

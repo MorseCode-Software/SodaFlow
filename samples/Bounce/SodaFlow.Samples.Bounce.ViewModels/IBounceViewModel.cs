@@ -9,20 +9,21 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         XAML binds by name to the data context, at each type of that data context. Thus, a type
-///         for the data context has a value. The type shows the bindable members, gives the
-///         designer and the compiler a target for the binding paths, and keeps the construction of
-///         the view model away from a view.
+///         XAML binds by name to the data context, at each type of that data
+///         context. Thus, a type for the data context has a value. The type shows
+///         the bindable members, gives the designer and the compiler a target for
+///         the binding paths, and keeps the construction of the view model away
+///         from a view.
 ///     </para>
 ///     <para>
-///         For that cause this interface has only the bound members. <c>Create</c> is not on it,
-///         because a view does not build a view model. The interface also has no other member
-///         that a view must not call.
+///         For that cause this interface has only the bound members. <c>Create</c>
+///         is not on it, because a view does not build a view model. The interface
+///         also has no other member that a view must not call.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is here because it is part of the contract and not a part
-///         of the implementation. The code that built one must release it, through this interface
-///         and through the class.
+///         <see cref="IDisposable" /> is here because it is part of the contract
+///         and not a part of the implementation. The code that built one must
+///         release it, through this interface and through the class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -35,9 +36,9 @@ public interface IBounceViewModel : IDisposable
     ///     The scene that shows now.
     /// </summary>
     /// <remarks>
-    ///     This is two-way, thus it is a value and not a property of a control. Bind the selected
-    ///     item of a tab control to <c>SelectedScene.Value</c>, and write that value to change the
-    ///     tab that shows.
+    ///     This is two-way, thus it is a value and not a property of a control. Bind
+    ///     the selected item of a tab control to <c>SelectedScene.Value</c>, and write
+    ///     that value to change the tab that shows.
     /// </remarks>
     ITwoWayBindableValue<IScene> SelectedScene { get; }
 
@@ -48,25 +49,27 @@ public interface IBounceViewModel : IDisposable
     ///     True when damping applies to the selected scene.
     /// </summary>
     /// <remarks>
-    ///     The scene with one ball is elastic, thus the controls show only for the other two
-    ///     scenes. This is a function of the selection, as the summary is.
+    ///     The scene with one ball is elastic, thus the controls show only for the
+    ///     other two scenes. This is a function of the selection, as the summary is.
     /// </remarks>
     IOneWayBindableValue<bool> IsDampingAvailable { get; }
 
     /// <summary>
-    ///     True when a bounce changes the speed and does not keep it. This is two-way, for a
-    ///     checkbox.
+    ///     True when a bounce changes the speed and does not keep it. This is two-way,
+    ///     for a checkbox.
     /// </summary>
     ITwoWayBindableValue<bool> DampingEnabled { get; }
 
     /// <summary>
-    ///     The multiplier for the speed at a bounce while damping is on. This is two-way, for a
-    ///     slider.
+    ///     The multiplier for the speed at a bounce while damping is on. This is
+    ///     two-way, for a slider.
     /// </summary>
     /// <remarks>
-    ///     Below one a body loses speed at each bounce and stops. At one it bounces continuously.
-    ///     Above one it gets speed and goes higher. The code reads this at the moment of each
-    ///     bounce, thus a move of the slider changes the next bounce and not the current flight.
+    ///     Below one a body loses speed at each bounce and stops. At one it bounces
+    ///     continuously.
+    ///     Above one it gets speed and goes higher. The code reads this at the moment
+    ///     of each bounce, thus a move of the slider changes the next bounce and not
+    ///     the current flight.
     /// </remarks>
     ITwoWayBindableValue<double> Damping { get; }
 

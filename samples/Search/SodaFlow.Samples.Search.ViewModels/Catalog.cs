@@ -7,9 +7,10 @@ using System.Threading.Tasks;
 namespace SodaFlow.Samples.Search.ViewModels;
 
 /// <summary>
-///     This replaces the true target of a call: a web server, a database, or a process. It
-///     sleeps, thus a user can see the asynchronous behavior. It also obeys its cancellation
-///     token, thus a cancellation stops the work and does not only discard the result.
+///     This replaces the true target of a call: a web server, a database, or a
+///     process. It sleeps, thus a user can see the asynchronous behavior. It also
+///     obeys its cancellation token, thus a cancellation stops the work and does
+///     not only discard the result.
 /// </summary>
 internal static class Catalog
 {

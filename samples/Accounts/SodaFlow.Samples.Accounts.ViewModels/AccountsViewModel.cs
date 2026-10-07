@@ -29,14 +29,16 @@ internal enum AccountColumn
 /// <summary>The column that the list sorts on, and the direction.</summary>
 /// <remarks>
 ///     <para>
-///         Two of the three orders sort on the identity part of an account, and no edit can
-///         change that part. Thus, with those two orders a deposit changes a balance and cannot
-///         move a row. The order on the balance moves a row. Use the deposit button and change
-///         between the orders to see the difference.
+///         Two of the three orders sort on the identity part of an account, and no
+///         edit can change that part. Thus, with those two orders a deposit
+///         changes a balance and cannot move a row. The order on the balance moves
+///         a row. Use the deposit button and change between the orders to see the
+///         difference.
 ///     </para>
 ///     <para>
-///         This type gives the order, and no code keeps the order in a second field. Thus, the
-///         screen has one item of state, a column and a direction, and the sort comes from it.
+///         This type gives the order, and no code keeps the order in a second
+///         field. Thus, the screen has one item of state, a column and a
+///         direction, and the sort comes from it.
 ///     </para>
 /// </remarks>
 /// <param name="Column">The column that the list sorts on.</param>
@@ -49,23 +51,25 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
     ///     order.
     /// </summary>
     /// <remarks>
-    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new comparer at each
-    ///     read. A sort stage identifies the order that it holds, and the same order in the
-    ///     opposite direction, only when the new order comes from the same selector instance and
-    ///     the same comparer instance. For the opposite direction it sorts again with the holders
-    ///     that it read, and does not read each holder again. A read of the comparer in the call
-    ///     makes the stage read and sort each holder again at each click of the same header. The
+    ///     <see cref="StringComparer.CurrentCultureIgnoreCase" /> builds a new
+    ///     comparer at each read. A sort stage identifies the order that it holds, and
+    ///     the same order in the opposite direction, only when the new order comes
+    ///     from the same selector instance and the same comparer instance. For the
+    ///     opposite direction it sorts again with the holders that it read, and does
+    ///     not read each holder again. A read of the comparer in the call makes the
+    ///     stage read and sort each holder again at each click of the same header. The
     ///     culture is the culture at the first use of this field.
     /// </remarks>
     private static readonly IComparer<string> HolderComparer = StringComparer.CurrentCultureIgnoreCase;
 
     /// <summary>This selection, as an order that the sort stage can hold.</summary>
     /// <remarks>
-    ///     The three orders give sort values of three types: an <c>int</c>, a <c>string</c> and
-    ///     a <c>long</c>. The three orders have the same type here, thus one cell can hold the
-    ///     order that applies. This code names each comparer, because it selects the direction as
-    ///     it operates and does not write the direction into the call. A holder also needs an
-    ///     explicit comparer for each field, and not the default for the type of the column.
+    ///     The three orders give sort values of three types: an <c>int</c>, a
+    ///     <c>string</c> and a <c>long</c>. The three orders have the same type here,
+    ///     thus one cell can hold the order that applies. This code names each
+    ///     comparer, because it selects the direction as it operates and does not
+    ///     write the direction into the call. A holder also needs an explicit comparer
+    ///     for each field, and not the default for the type of the column.
     /// </remarks>
     internal AccountOrder Order =>
         this.Column switch
@@ -94,21 +98,22 @@ internal sealed record SortSelection(AccountColumn Column, bool IsDescending)
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The subject of each operation is the <see cref="Maybe{T}" /> and not the selection in
-///         it. Thus, these are extension methods on the <see cref="Maybe{T}" />, and not methods
-///         on <see cref="SortSelection" />.
+///         The subject of each operation is the <see cref="Maybe{T}" /> and not
+///         the selection in it. Thus, these are extension methods on the
+///         <see cref="Maybe{T}" />, and not methods on
+///         <see cref="SortSelection" />.
 ///     </para>
 ///     <para>
-///         <c>Order</c> gives the largest benefit. Each caller needs the order that applies, and
-///         each caller wrote the two parts of that: a map into the selection, and then a default
-///         of arrival order for a list that no user sorted.
+///         <c>Order</c> gives the largest benefit. Each caller needs the order
+///         that applies, and each caller wrote the two parts of that: a map into
+///         the selection, and then a default of arrival order for a list that no
+///         user sorted.
 ///     </para>
 /// </remarks>
 internal static class SortSelectionExtensions
 {
     /// <summary>
-    ///     The order that applies. It is arrival order until a user clicks a
-    ///     header.
+    ///     The order that applies. It is arrival order until a user clicks a header.
     /// </summary>
     internal static AccountOrder Order(this Maybe<SortSelection> sortSelection) =>
         sortSelection.Map(static selection => selection.Order).ValueOr(AccountOrder.ByArrival);
@@ -118,8 +123,9 @@ internal static class SortSelectionExtensions
     ///     and a different column becomes the sort column.
     /// </summary>
     /// <remarks>
-    ///     A new column starts at the smallest value. The balance starts at the largest
-    ///     value, because a user usually wants a list of balances in that direction.
+    ///     A new column starts at the smallest value. The balance starts at the
+    ///     largest value, because a user usually wants a list of balances in that
+    ///     direction.
     /// </remarks>
     internal static SortSelection UpdateSort(this Maybe<SortSelection> sortSelection, AccountColumn column)
     {
@@ -147,8 +153,8 @@ internal static class SortSelectionExtensions
 }
 
 /// <summary>
-///     One row. It holds the cells that follow one account through the view that shows
-///     it.
+///     One row. It holds the cells that follow one account through the view that
+///     shows it.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AccountRowViewModel : IAccountRowViewModel
@@ -173,8 +179,8 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
     }
 
     /// <summary>
-    ///     The edits that the deposits of this row make. The graph gates them, and the list
-    ///     sends them back in.
+    ///     The edits that the deposits of this row make. The graph gates them, and the
+    ///     list sends them back in.
     /// </summary>
     internal Stream<CollectionEdit<int, AccountIdentity, AccountState>> DepositsStream { get; }
 
@@ -204,21 +210,25 @@ internal sealed class AccountRowViewModel : IAccountRowViewModel
 }
 
 /// <summary>
-///     A paged, filtered, sorted list over a collection of accounts, with a total over all of them.
+///     A paged, filtered, sorted list over a collection of accounts, with a total
+///     over all of them.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Look at the screen. A deposit into an account changes the balance of that row and
-///         nothing else. The other rows do not change, and the list does not build again, but the
-///         sort can move the account. That is the correct operation of the collection: an edit
-///         goes to the rows that show it, and not to the rows near them.
+///         Look at the screen. A deposit into an account changes the balance of
+///         that row and nothing else. The other rows do not change, and the list
+///         does not build again, but the sort can move the account. That is the
+///         correct operation of the collection: an edit goes to the rows that show
+///         it, and not to the rows near them.
 ///     </para>
 ///     <para>
-///         A move to a different page is a change of criteria, and for a slice that change has a
-///         low cost. It moves a window across an order that did not change. A change to the frozen
-///         accounts is also a change of criteria, but that change builds the filter again, which
-///         has a high cost. Each change is one line here, and the code does not show the
-///         difference between them. For that cause the reference page gives the costs.
+///         A move to a different page is a change of criteria, and for a slice
+///         that change has a low cost. It moves a window across an order that did
+///         not change. A change to the frozen accounts is also a change of
+///         criteria, but that change builds the filter again, which has a high
+///         cost. Each change is one line here, and the code does not show the
+///         difference between them. For that cause the reference page gives the
+///         costs.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -341,9 +351,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This code does not name each row. The rows belong to the projection, which is in the
-    ///     list and releases all of them at its disposal. This applies to a row that left the view
-    ///     before now and to a row that stayed until now.
+    ///     This code does not name each row. The rows belong to the projection, which
+    ///     is in the list and releases all of them at its disposal. This applies to a
+    ///     row that left the view before now and to a row that stayed until now.
     /// </remarks>
     public void Dispose()
     {
@@ -538,9 +548,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <summary>One edit that empties all of these accounts.</summary>
     /// <remarks>
-    ///     This is one edit, and not one edit for each account. Thus, the collection changes one
-    ///     time for each drain, at all counts of accounts. Each view sorts one time, and the total
-    ///     folds one delta.
+    ///     This is one edit, and not one edit for each account. Thus, the collection
+    ///     changes one time for each drain, at all counts of accounts. Each view sorts
+    ///     one time, and the total folds one delta.
     /// </remarks>
     private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
         // This is the type of the keys, and not the list interface of that type, because a drain
@@ -567,16 +577,18 @@ public sealed class AccountsViewModel : IAccountsViewModel
 
     /// <summary>The operation of a drain on one account.</summary>
     /// <remarks>
-    ///     This is a static method, thus each update in a drain uses one delegate from the cache.
-    ///     The drain does not allocate a delegate for each of the thousands of accounts.
+    ///     This is a static method, thus each update in a drain uses one delegate from
+    ///     the cache.
+    ///     The drain does not allocate a delegate for each of the thousands of
+    ///     accounts.
     /// </remarks>
     private static AccountState Emptied(AccountState state) => state with { Balance = 0 };
 
     /// <summary>The row for one account, built from the page that shows it.</summary>
     /// <remarks>
-    ///     Each cell here comes from the page and not from the collection, thus a row gives the
-    ///     data of its own view. An account that the page does not hold has no holder, no balance,
-    ///     and no target for a deposit.
+    ///     Each cell here comes from the page and not from the collection, thus a row
+    ///     gives the data of its own view. An account that the page does not hold has
+    ///     no holder, no balance, and no target for a deposit.
     /// </remarks>
     private static AccountRowViewModel Row(
         IBindableFactory bindableFactory,
@@ -632,8 +644,9 @@ public sealed class AccountsViewModel : IAccountsViewModel
     private static string Money(AccountState state) => Money(state.Balance);
 
     /// <remarks>
-    ///     The format is US dollars at each culture of the machine, because the values are
-    ///     dollars. The currency format of the current culture puts a different symbol on them.
+    ///     The format is US dollars at each culture of the machine, because the values
+    ///     are dollars. The currency format of the current culture puts a different
+    ///     symbol on them.
     /// </remarks>
     private static string Money(long cents) => (cents / 100m).ToString(format: "C", provider: UsDollars);
 }

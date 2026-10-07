@@ -14,18 +14,21 @@ namespace SodaFlow.Tests.Memory;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The tests in <see cref="StreamTests" /> cover the same ground but count live objects with
-///         dotMemory, so they are all <c>[Ignore]</c>d and never run in CI. These assert the same invariants
-///         using only weak references and the node's own listener set, so they actually guard the cleanup
+///         The tests in <see cref="StreamTests" /> cover the same ground but count
+///         live objects with dotMemory, so they are all <c>[Ignore]</c>d and never
+///         run in CI. These assert the same invariants using only weak references
+///         and the node's own listener set, so they actually guard the cleanup
 ///         machinery on each build.
 ///     </para>
 ///     <para>
-///         Two things are deliberately not asserted. First, that a node stays connected immediately after a
-///         collection: <see cref="StreamListenerManager" /> unhooks nodes from a background thread, thus that
-///         is a race. Second, which of the two cleanup paths did the work. That is the background thread, or
-///         the lazy prune in <c>Stream.Send</c> when a weak reference of the target died. What matters is
-///         that the node becomes disconnected, thus these tests send a value to force a deterministic outcome
-///         and check that.
+///         Two things are deliberately not asserted. First, that a node stays
+///         connected immediately after a collection:
+///         <see cref="StreamListenerManager" /> unhooks nodes from a background
+///         thread, thus that is a race. Second, which of the two cleanup paths did
+///         the work. That is the background thread, or the lazy prune in
+///         <c>Stream.Send</c> when a weak reference of the target died. What
+///         matters is that the node becomes disconnected, thus these tests send a
+///         value to force a deterministic outcome and check that.
 ///     </para>
 /// </remarks>
 public sealed class GarbageCollectionTests

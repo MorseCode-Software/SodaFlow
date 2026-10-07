@@ -13,33 +13,38 @@ public static class Stream
     /// <summary>
     ///     Creates a stream that never fires.
     /// </summary>
-    /// <typeparam name="T">The type of the values that the stream fires, if it fires values.</typeparam>
+    /// <typeparam name="T">
+    ///     The type of the values that the stream fires, if it fires
+    ///     values.
+    /// </typeparam>
     /// <returns>A stream that never fires.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Never<T>() => StreamInternal.NeverImpl<T>();
 
     /// <summary>
-    ///     Creates a StreamSink that throws an exception if <see cref="Stream{T}.Send" /> gets more than
-    ///     one time per transaction.
+    ///     Creates a StreamSink that throws an exception if
+    ///     <see cref="Stream{T}.Send" /> gets more than one time per transaction.
     /// </summary>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static StreamSink<T> CreateSink<T>() => StreamInternal.CreateSinkImpl<T>();
 
     /// <summary>
-    ///     Makes a StreamSink that uses <paramref name="coalesce" />
-    ///     to put values together when <see cref="Stream{T}.Send" /> gets more than one call in one transaction.
+    ///     Makes a StreamSink that uses <paramref name="coalesce" /> to put values
+    ///     together when <see cref="Stream{T}.Send" /> gets more than one call in one
+    ///     transaction.
     /// </summary>
     /// <param name="coalesce">
-    ///     Function to put values together when <see cref="Stream{T}.Send" /> gets more than one call per
-    ///     transaction.
+    ///     Function to put values together when <see cref="Stream{T}.Send" /> gets
+    ///     more than one call per transaction.
     /// </param>
     /// <typeparam name="T">The type of values fired by the stream sink.</typeparam>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static StreamSink<T> CreateSink<T>(Func<T, T, T> coalesce) => StreamInternal.CreateSinkImpl(coalesce);
 
     /// <summary>
-    ///     Makes a <see cref="StreamLoop{T}" />. A caller must call this and close the loop in one transaction.
+    ///     Makes a <see cref="StreamLoop{T}" />. A caller must call this and close the
+    ///     loop in one transaction.
     /// </summary>
     /// <typeparam name="T">The type of values in the stream loop.</typeparam>
     public static StreamLoop<T> CreateLoop<T>() => new();
@@ -60,12 +65,13 @@ public static class Stream
 public struct StreamLooper<T>
 {
     /// <summary>
-    ///     Loop a stream and return a value tuple containing the resulting stream and captures.
+    ///     Loop a stream and return a value tuple containing the resulting stream and
+    ///     captures.
     /// </summary>
     /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
     /// <param name="f">
-    ///     A function which takes the stream loop and returns a value tuple containing the resulting stream and
-    ///     captures.
+    ///     A function which takes the stream loop and returns a value tuple containing
+    ///     the resulting stream and captures.
     /// </param>
     /// <returns>A value tuple containing the resulting stream and captures.</returns>
     [Pure]
@@ -83,7 +89,10 @@ public struct StreamLooper<T>
     /// <summary>
     ///     Loop a stream and return the resulting stream.
     /// </summary>
-    /// <param name="f">A function which takes the stream loop and returns the resulting stream.</param>
+    /// <param name="f">
+    ///     A function which takes the stream loop and returns the
+    ///     resulting stream.
+    /// </param>
     /// <returns>The resulting stream.</returns>
     [Pure]
     public Stream<T> WithoutCaptures(Func<LoopedStream<T>, Stream<T>> f) =>

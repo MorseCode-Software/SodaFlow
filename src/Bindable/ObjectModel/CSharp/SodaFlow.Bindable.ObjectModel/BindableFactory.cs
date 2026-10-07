@@ -6,10 +6,11 @@ using SodaFlow.Functional;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
-///     The default <see cref="IBindableFactory" />. It holds one scheduler and gives that
-///     scheduler to each object that it creates. Thus, a view model can take the factory through
-///     its constructor, and a test can supply <see cref="BindingScheduler.Immediate" /> without a copy
-///     of the true scheduler.
+///     The default <see cref="IBindableFactory" />. It holds one scheduler and
+///     gives that scheduler to each object that it creates. Thus, a view model can
+///     take the factory through its constructor, and a test can supply
+///     <see cref="BindingScheduler.Immediate" /> without a copy of the true
+///     scheduler.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -21,11 +22,15 @@ public class BindableFactory : IBindableFactory
     ///     Creates an instance that builds bindable objects with the given scheduler.
     /// </summary>
     /// <param name="bindingScheduler">
-    ///     Moves notifications to the binding thread. An application captures it on the UI
-    ///     thread at its start, with <see cref="SynchronizationContextBindingScheduler.Capture" />.
+    ///     Moves notifications to the binding thread. An application captures it on
+    ///     the UI thread at its start, with
+    ///     <see cref="SynchronizationContextBindingScheduler.Capture" />.
     ///     A test supplies <see cref="BindingScheduler.Immediate" />.
     /// </param>
-    /// <exception cref="ArgumentNullException"><paramref name="bindingScheduler" /> is null.</exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="bindingScheduler" /> is
+    ///     null.
+    /// </exception>
     public BindableFactory(IBindingScheduler bindingScheduler) =>
         this.bindingScheduler = bindingScheduler ?? throw new ArgumentNullException(nameof(bindingScheduler));
 

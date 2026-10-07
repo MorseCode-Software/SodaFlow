@@ -4,10 +4,11 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     The last two positions of the pointer, and their times.
 /// </summary>
 /// <remarks>
-///     This is sufficient to give the speed of the pointer at the release, and that speed makes a
-///     correct throw. There are two samples and not one, because a velocity needs a difference.
-///     There are not more samples, because a longer window gives a lower speed than the true speed
-///     of a fast move.
+///     This is sufficient to give the speed of the pointer at the release, and
+///     that speed makes a correct throw. There are two samples and not one,
+///     because a velocity needs a difference.
+///     There are not more samples, because a longer window gives a lower speed
+///     than the true speed of a fast move.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal readonly record struct PointerTrail

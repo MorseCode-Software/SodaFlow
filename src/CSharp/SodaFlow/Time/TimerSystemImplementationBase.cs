@@ -7,14 +7,15 @@ using JetBrains.Annotations;
 namespace SodaFlow.Time;
 
 /// <summary>
-///     A base for timer system implementations which supplies the scheduling, leaving a derived type
-///     to supply only the clock.
+///     A base for timer system implementations which supplies the scheduling,
+///     leaving a derived type to supply only the clock.
 /// </summary>
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 /// <remarks>
-///     Derive from this and write <see cref="Now" /> and <see cref="SubtractTimes" />. The
-///     This type puts the timers in order, waits, and fires them. <see cref="SystemClockTimerSystem" />
-///     and <see cref="SecondsTimerSystem" /> are the two implementations that ship.
+///     Derive from this and write <see cref="Now" /> and
+///     <see cref="SubtractTimes" />. The This type puts the timers in order,
+///     waits, and fires them. <see cref="SystemClockTimerSystem" /> and
+///     <see cref="SecondsTimerSystem" /> are the two implementations that ship.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -86,9 +87,10 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     /// <param name="callback">The callback to run.</param>
     /// <returns>A handle to cancel the timer before it fires.</returns>
     /// <remarks>
-    ///     A time before now fires at the next opportunity, and the timer system does not drop it. The
-    ///     callback runs on the timer thread, or on whichever thread called
-    ///     <see cref="RunTimersTo" />, and never while this instance's internal lock is held.
+    ///     A time before now fires at the next opportunity, and the timer system does
+    ///     not drop it. The callback runs on the timer thread, or on whichever thread
+    ///     called <see cref="RunTimersTo" />, and never while this instance's internal
+    ///     lock is held.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public ITimer SetTimer(T time, Action callback)
@@ -108,12 +110,14 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     }
 
     /// <summary>
-    ///     Fires each timer scheduled at or before <paramref name="now" />, on the calling thread.
+    ///     Fires each timer scheduled at or before <paramref name="now" />, on the
+    ///     calling thread.
     /// </summary>
     /// <param name="now">The point in time to run timers up to.</param>
     /// <remarks>
-    ///     The <c>Transaction.OnStart</c> handler calls this. Thus, alarms can start at a
-    ///     transaction that happens to start rather than only by the timer thread.
+    ///     The <c>Transaction.OnStart</c> handler calls this. Thus, alarms can start
+    ///     at a transaction that happens to start rather than only by the timer
+    ///     thread.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void RunTimersTo(T now) => this.TimeUntilNext(now);
@@ -123,8 +127,8 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     /// </summary>
     /// <value>The current point in time.</value>
     /// <remarks>
-    ///     The timer thread reads this frequently, thus its cost must be low. It must also move
-    ///     forward sufficiently for the clock to get to each scheduled time.
+    ///     The timer thread reads this frequently, thus its cost must be low. It must
+    ///     also move forward sufficiently for the clock to get to each scheduled time.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public abstract T Now { get; }
@@ -174,12 +178,12 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     /// <param name="first">The latter point in time.</param>
     /// <param name="second">The earlier point in time.</param>
     /// <returns>
-    ///     The interval from <paramref name="second" /> to <paramref name="first" />, negative if
-    ///     <paramref name="first" /> is the earlier of the two.
+    ///     The interval from <paramref name="second" /> to <paramref name="first" />,
+    ///     negative if <paramref name="first" /> is the earlier of the two.
     /// </returns>
     /// <remarks>
-    ///     This calculates the wait for the next timer, thus it must return a true interval
-    ///     rather than a compare result.
+    ///     This calculates the wait for the next timer, thus it must return a true
+    ///     interval rather than a compare result.
     /// </remarks>
     protected abstract TimeSpan SubtractTimes(T first, T second);
 

@@ -77,14 +77,15 @@ public class Behavior<T>
     internal IKeepListenersAlive KeepListenersAlive => this.stream.KeepListenersAlive;
 
     /// <summary>
-    ///     Gets or sets the value this behavior reports when sampled not in a transaction.
+    ///     Gets or sets the value this behavior reports when sampled not in a
+    ///     transaction.
     /// </summary>
     /// <value>The current value of the behavior.</value>
     /// <remarks>
-    ///     A set of this property clears <see cref="UsingInitialValue" />, because a behavior
-    ///     with a new value does not use the value from its construction. A derived type must
-    ///     write through this property and not through the backing field, to keep that flag
-    ///     correct.
+    ///     A set of this property clears <see cref="UsingInitialValue" />, because a
+    ///     behavior with a new value does not use the value from its construction. A
+    ///     derived type must write through this property and not through the backing
+    ///     field, to keep that flag correct.
     /// </remarks>
     protected T ValueProperty
     {
@@ -117,13 +118,16 @@ public class Behavior<T>
     }
 
     /// <summary>
-    ///     Records that this behavior no longer depends on the value it was constructed with.
+    ///     Records that this behavior no longer depends on the value it was
+    ///     constructed with.
     /// </summary>
     /// <remarks>
-    ///     SodaFlow calls this when it gives <see cref="ValueProperty" /> a value. A derived type
-    ///     overrides this to release the data that it holds only to make that initial value.
-    ///     For an example, see <see cref="LoopedBehavior{T}" />. It releases its deferred
-    ///     initial value here, thus a closed loop does not keep that value alive.
+    ///     SodaFlow calls this when it gives <see cref="ValueProperty" /> a value. A
+    ///     derived type overrides this to release the data that it holds only to make
+    ///     that initial value.
+    ///     For an example, see <see cref="LoopedBehavior{T}" />. It releases its
+    ///     deferred initial value here, thus a closed loop does not keep that value
+    ///     alive.
     /// </remarks>
     protected virtual void NotUsingInitialValue() => this.UsingInitialValue = false;
 
@@ -150,24 +154,24 @@ public class Behavior<T>
     internal Stream<T> Updates() => this.stream;
 
     /// <summary>
-    ///     The stream of the value of this behavior. It gives the current value in this
-    ///     transaction, and then each update.
+    ///     The stream of the value of this behavior. It gives the current value in
+    ///     this transaction, and then each update.
     /// </summary>
     /// <remarks>
-    ///     The two sources send into one output stream. They do not use a spark stream, a
-    ///     snapshot of it, and a merge, which is four streams where two are sufficient. Value is
-    ///     below Cell.ListenStrong, Apply, and the switch operations, thus it was a large part of
-    ///     the cost of each of them.
-    ///     SodaFlow queues the initial send against a new node of its own, as the spark
-    ///     stream that it replaces did, and for the same cause. A new node ranks below all
-    ///     other nodes, thus SodaFlow supplies the value also when a caller calls Value
-    ///     during a drain. SwitchB does this, because its handler builds a Value for the newly
-    ///     selected behavior in the middle of a transaction. An initial send on the output node
-    ///     makes the switch supply a previous value. The node costs nothing, but the two
-    ///     intermediate streams were expensive.
-    ///     A coalesce operation in which the right value wins keeps an update from this
-    ///     transaction in front of the initial value. A merge with (left, right) =&gt; right
-    ///     gave the same result.
+    ///     The two sources send into one output stream. They do not use a spark
+    ///     stream, a snapshot of it, and a merge, which is four streams where two are
+    ///     sufficient. Value is below Cell.ListenStrong, Apply, and the switch
+    ///     operations, thus it was a large part of the cost of each of them.
+    ///     SodaFlow queues the initial send against a new node of its own, as the
+    ///     spark stream that it replaces did, and for the same cause. A new node ranks
+    ///     below all other nodes, thus SodaFlow supplies the value also when a caller
+    ///     calls Value during a drain. SwitchB does this, because its handler builds a
+    ///     Value for the newly selected behavior in the middle of a transaction. An
+    ///     initial send on the output node makes the switch supply a previous value.
+    ///     The node costs nothing, but the two intermediate streams were expensive.
+    ///     A coalesce operation in which the right value wins keeps an update from
+    ///     this transaction in front of the initial value. A merge with (left, right)
+    ///     =&gt; right gave the same result.
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
@@ -670,16 +674,17 @@ public class Behavior<T>
 
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this
-    ///     transaction, this is the captured value. If it did not, this is the current value of
-    ///     the behavior.
+    ///     transaction, this is the captured value. If it did not, this is the current
+    ///     value of the behavior.
     /// </summary>
     /// <remarks>
-    ///     SodaFlow clears the slot to keep the object clean, and not to make it correct. A slot that
-    ///     keeps its value still gives the applicable answer, because the behavior commits that
-    ///     same value before the next transaction reads the slot. A test of this removed the
-    ///     reset, and no test could find the difference. SodaFlow clears the slot so that the
-    ///     closure does not hold a second reference to the last value of each input for the full
-    ///     life of the lifted behavior.
+    ///     SodaFlow clears the slot to keep the object clean, and not to make it
+    ///     correct. A slot that keeps its value still gives the applicable answer,
+    ///     because the behavior commits that same value before the next transaction
+    ///     reads the slot. A test of this removed the reset, and no test could find
+    ///     the difference. SodaFlow clears the slot so that the closure does not hold
+    ///     a second reference to the last value of each input for the full life of the
+    ///     lifted behavior.
     /// </remarks>
     internal static TInput Take<TInput>(ref MaybeInternal<TInput> pending, Behavior<TInput> input)
     {

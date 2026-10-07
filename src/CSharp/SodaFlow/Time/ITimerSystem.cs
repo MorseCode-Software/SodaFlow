@@ -8,16 +8,16 @@ namespace SodaFlow.Time;
 ///     A source of time, and of streams which fire at times drawn from it.
 /// </summary>
 /// <typeparam name="T">
-///     The type used to express a point in time, such as <see cref="DateTime" /> for
-///     <see cref="SystemClockTimerSystem" /> or <c>double</c> for
+///     The type used to express a point in time, such as <see cref="DateTime" />
+///     for <see cref="SystemClockTimerSystem" /> or <c>double</c> for
 ///     <see cref="SecondsTimerSystem" />.
 /// </typeparam>
 /// <remarks>
 ///     <see cref="TimerSystem{T}" /> is the implementation in this library.
-///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" /> are two that this
-///     library supplies, over the system clock and over the count of seconds. Alarms from
-///     <see cref="At" /> get
-///     to the graph in a transaction of their own, thus other code only has to listen to receive
+///     <see cref="SystemClockTimerSystem" /> and <see cref="SecondsTimerSystem" />
+///     are two that this library supplies, over the system clock and over the
+///     count of seconds. Alarms from <see cref="At" /> get to the graph in a
+///     transaction of their own, thus other code only has to listen to receive
 ///     them beyond listening.
 /// </remarks>
 [PublicAPI]

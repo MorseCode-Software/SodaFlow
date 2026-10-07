@@ -5,22 +5,24 @@ using SodaFlow.Functional;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The part of the C# surface with optional values: the cells for one item, and the lookups
-///     that answer with a <see cref="Maybe{T}" /> and not with a <c>TryGet</c>.
+///     The part of the C# surface with optional values: the cells for one item,
+///     and the lookups that answer with a <see cref="Maybe{T}" /> and not with a
+///     <c>TryGet</c>.
 /// </summary>
 /// <remarks>
-///     These are here and not in SodaFlow.Collections.Core, because <see cref="Maybe{T}" /> is in
-///     SodaFlow.Functional and F# does not use that assembly. F# has <c>option</c>. Thus, the core
-///     answers with a <c>TryGet</c> and with an integer, and each language surface adds its own
-///     optional type above the core. See
+///     These are here and not in SodaFlow.Collections.Core, because
+///     <see cref="Maybe{T}" /> is in SodaFlow.Functional and F# does not use that
+///     assembly. F# has <c>option</c>. Thus, the core answers with a <c>TryGet</c>
+///     and with an integer, and each language surface adds its own optional type
+///     above the core. See
 ///     <see cref="ReactiveCollection{TKey,TIdentity,TState}" />.
 /// </remarks>
 [PublicAPI]
 public static class CollectionExtensionMethods
 {
     /// <summary>
-    ///     A cell that follows the mutable part of one item. It has no value while the store does
-    ///     not have the key.
+    ///     A cell that follows the mutable part of one item. It has no value while the
+    ///     store does not have the key.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -30,21 +32,22 @@ public static class CollectionExtensionMethods
     /// <returns>A cell tracking that key's state.</returns>
     /// <remarks>
     ///     <para>
-    ///         The cost is low, thus code can make one for each bound view. It filters on one hash
-    ///         lookup and does not read the other items. A weak cache holds one for each key, thus
-    ///         N observers of one key share a node, and two views of the same root give the same
-    ///         cell.
+    ///         The cost is low, thus code can make one for each bound view. It filters
+    ///         on one hash lookup and does not read the other items. A weak cache
+    ///         holds one for each key, thus N observers of one key share a node, and
+    ///         two views of the same root give the same cell.
     ///     </para>
     ///     <para>
-    ///         The key can be missing now. A removal sends no value, and a subsequent add with the
-    ///         same key sends a value again. Thus, a view that binds to a key can continue after the
-    ///         item.
+    ///         The key can be missing now. A removal sends no value, and a subsequent
+    ///         add with the same key sends a value again. Thus, a view that binds to a
+    ///         key can continue after the item.
     ///     </para>
     ///     <para>
-    ///         This answers for the store and not for the members of a view. A read of a filtered
-    ///         view for a key that its filter removed gives the state of that item.
-    ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" /> answers for the
-    ///         members.
+    ///         This answers for the store and not for the members of a view. A read of
+    ///         a filtered view for a key that its filter removed gives the state of
+    ///         that item.
+    ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" />
+    ///         answers for the members.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -59,8 +62,8 @@ public static class CollectionExtensionMethods
             onAbsent: static () => Maybe<TState>.None);
 
     /// <summary>
-    ///     A cell that follows the immutable part of one item. It has no value while the key is
-    ///     missing.
+    ///     A cell that follows the immutable part of one item. It has no value while
+    ///     the key is missing.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -81,8 +84,8 @@ public static class CollectionExtensionMethods
             onAbsent: static () => Maybe<TIdentity>.None);
 
     /// <summary>
-    ///     A cell that follows the two parts of one item together. It has no value while the store
-    ///     does not have the key.
+    ///     A cell that follows the two parts of one item together. It has no value
+    ///     while the store does not have the key.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -92,21 +95,22 @@ public static class CollectionExtensionMethods
     /// <returns>A cell tracking that key's item.</returns>
     /// <remarks>
     ///     <para>
-    ///         Use this for a value that reads the identity and the state together. It gives one
-    ///         optional value, and not two. Thus, no code must answer for an identity with no
-    ///         state, or for a state with no identity. The store cannot give those two
-    ///         conditions.
+    ///         Use this for a value that reads the identity and the state together. It
+    ///         gives one optional value, and not two. Thus, no code must answer for an
+    ///         identity with no state, or for a state with no identity. The store
+    ///         cannot give those two conditions.
     ///     </para>
     ///     <para>
     ///         This sends a value at each edit to the state of its key, as
-    ///         <see cref="StateCell{TKey,TIdentity,TState}" /> does. Where one binding reads the
-    ///         identity and a different binding reads the state, use the two cells and not this
-    ///         one. <see cref="IdentityCell{TKey,TIdentity,TState}" /> sleeps through an edit to
-    ///         the state, and a value from this one does not.
+    ///         <see cref="StateCell{TKey,TIdentity,TState}" /> does. Where one binding
+    ///         reads the identity and a different binding reads the state, use the two
+    ///         cells and not this one.
+    ///         <see cref="IdentityCell{TKey,TIdentity,TState}" /> sleeps through an
+    ///         edit to the state, and a value from this one does not.
     ///     </para>
     ///     <para>
-    ///         The cache, the answer for a view, and the behavior at a missing key are those of
-    ///         <see cref="StateCell{TKey,TIdentity,TState}" />.
+    ///         The cache, the answer for a view, and the behavior at a missing key are
+    ///         those of <see cref="StateCell{TKey,TIdentity,TState}" />.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -153,11 +157,11 @@ public static class CollectionExtensionMethods
         states.TryGetState(key: key, state: out TState? state) ? Maybe.Some(state) : Maybe<TState>.None;
 
     /// <summary>
-    ///     The result of a change on one key. The two levels are deliberate and they give
-    ///     different data. The outer <see cref="Maybe{T}" /> gives if the change named the key, and
-    ///     no value means no event for this observer. The inner <see cref="Maybe{T}" /> gives if
-    ///     the collection has the key after the change, thus a removal comes as a value that holds
-    ///     no value.
+    ///     The result of a change on one key. The two levels are deliberate and they
+    ///     give different data. The outer <see cref="Maybe{T}" /> gives if the change
+    ///     named the key, and no value means no event for this observer. The inner
+    ///     <see cref="Maybe{T}" /> gives if the collection has the key after the
+    ///     change, thus a removal comes as a value that holds no value.
     /// </summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -191,10 +195,10 @@ public static class CollectionExtensionMethods
     /// <param name="key">The key to look for.</param>
     /// <returns>Its position, or no value when the key is missing.</returns>
     /// <remarks>
-    ///     The core answers -1 for a missing key, which is the convention of each other
-    ///     <c>IndexOf</c> in the framework, and it keeps that answer private. This is the only
-    ///     <c>IndexOf</c> in the public C# API, and it answers as the other parts of the C# API
-    ///     do.
+    ///     The core answers -1 for a missing key, which is the convention of each
+    ///     other <c>IndexOf</c> in the framework, and it keeps that answer private.
+    ///     This is the only <c>IndexOf</c> in the public C# API, and it answers as the
+    ///     other parts of the C# API do.
     /// </remarks>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -5,24 +5,29 @@ using SodaFlow.Collections;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     A total of one state value across the full collection, the two ways of keeping one.
+///     A total of one state value across the full collection, the two ways of
+///     keeping one.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Unlike a view, an aggregate genuinely depends on each item, so there is no window to hide behind.
-///         There is also no configuration where the answer is cheap to make from scratch. The difference is
-///         if the code makes it from scratch.
+///         Unlike a view, an aggregate genuinely depends on each item, so there is
+///         no window to hide behind. There is also no configuration where the
+///         answer is cheap to make from scratch. The difference is if the code
+///         makes it from scratch.
 ///     </para>
 ///     <para>
-///         The naive shape reads the full store on each edit. That is what a <c>Map</c> over the snapshot
-///         cell gives, and what most readers write first. The incremental shape folds the change stream. An
-///         edit carries the keys that changed and their new states, and the snapshot the transaction started
-///         from holds the previous ones. Thus, the delta costs one subtraction and one sum for each changed
-///         key, at each size of the collection.
+///         The naive shape reads the full store on each edit. That is what a
+///         <c>Map</c> over the snapshot cell gives, and what most readers write
+///         first. The incremental shape folds the change stream. An edit carries
+///         the keys that changed and their new states, and the snapshot the
+///         transaction started from holds the previous ones. Thus, the delta costs
+///         one subtraction and one sum for each changed key, at each size of the
+///         collection.
 ///     </para>
 ///     <para>
-///         The setup checks the two against each other, and again after an edit. A total that drifts is the
-///         defect this shape invites. A total that drifts has no lower cost than a correct one.
+///         The setup checks the two against each other, and again after an edit. A
+///         total that drifts is the defect this shape invites. A total that drifts
+///         has no lower cost than a correct one.
 ///     </para>
 /// </remarks>
 file interface IKeyedAggregateShape
@@ -36,15 +41,19 @@ file interface IKeyedAggregateShape
     void Replace(int key, ItemState state);
 
     /// <summary>
-    ///     Adds an item and removes it again, which is the only thing that exercises the added and
-    ///     removed halves of an incremental fold. Not timed. The setup uses it to check the fold
-    ///     agrees with the sum after a structural change and after a state change.
+    ///     Adds an item and removes it again, which is the only thing that exercises
+    ///     the added and removed halves of an incremental fold. Not timed. The setup
+    ///     uses it to check the fold agrees with the sum after a structural change and
+    ///     after a state change.
     /// </summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
 }
 
-/// <summary>Shared by the two aggregate shapes, thus the benchmark asks them the same question.</summary>
+/// <summary>
+///     Shared by the two aggregate shapes, thus the benchmark asks them the
+///     same question.
+/// </summary>
 file static class AggregateSeed
 {
     /// <summary>The value in the total, from one item.</summary>
@@ -68,7 +77,8 @@ file static class AggregateSeed
 }
 
 /// <summary>
-///     The total recomputed from the full store on each edit, by mapping the snapshot cell.
+///     The total recomputed from the full store on each edit, by mapping the
+///     snapshot cell.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedAggregateShape : IKeyedAggregateShape
@@ -158,10 +168,11 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
 ///     The total folded from the change stream, adjusted by what actually changed.
 /// </summary>
 /// <remarks>
-///     A snapshot of the snapshot cell of the collection gives the previous states. During the
-///     transaction that made the change, that cell holds the version the transaction started from.
-///     That is the trick, and it is why no second copy of the previous values has to be
-///     kept alongside.
+///     A snapshot of the snapshot cell of the collection gives the previous
+///     states. During the transaction that made the change, that cell holds the
+///     version the transaction started from.
+///     That is the trick, and it is why no second copy of the previous values has
+///     to be kept alongside.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
@@ -232,12 +243,14 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
     }
 
     /// <summary>
-    ///     How much the total moved, from the keys that changed and the states they held before.
+    ///     How much the total moved, from the keys that changed and the states they
+    ///     held before.
     /// </summary>
     /// <remarks>
-    ///     An added key has no state in <paramref name="before" />, so it contributes only its new
-    ///     value. A removed key is missing from <c>NewStates</c>, thus it contributes only the negation
-    ///     of its previous one. Nothing special is necessary for the two, more than a look.
+    ///     An added key has no state in <paramref name="before" />, so it contributes
+    ///     only its new value. A removed key is missing from <c>NewStates</c>, thus it
+    ///     contributes only the negation of its previous one. Nothing special is
+    ///     necessary for the two, more than a look.
     /// </remarks>
     private static long DeltaOf(
         ItemChange<int, ItemIdentity, ItemState> change,

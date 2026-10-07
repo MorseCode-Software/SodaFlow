@@ -5,8 +5,8 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     The position of the default limit of a projection. Thus, the two language surfaces name
-///     one value.
+///     The position of the default limit of a projection. Thus, the two language
+///     surfaces name one value.
 /// </summary>
 [PublicAPI]
 public static class MappedItems
@@ -15,33 +15,34 @@ public static class MappedItems
     ///     The default number of keys that left for which a projection keeps objects.
     /// </summary>
     /// <remarks>
-    ///     This value is for the usual shape: a screen with tens of rows and pages across
-    ///     thousands of items. It covers many pages on each side of the current page. It also
-    ///     limits a projection across one hundred thousand items to the rows that a screen showed,
-    ///     and not to the content of the collection.
+    ///     This value is for the usual shape: a screen with tens of rows and pages
+    ///     across thousands of items. It covers many pages on each side of the current
+    ///     page. It also limits a projection across one hundred thousand items to the
+    ///     rows that a screen showed, and not to the content of the collection.
     /// </remarks>
     public const int DefaultRetainedBeyondTheView = 512;
 }
 
 /// <summary>
-///     The result of a projection across a collection: the projected objects, and the path to
-///     release them.
+///     The result of a projection across a collection: the projected objects, and
+///     the path to release them.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the shape of <c>MapAsync</c>. A projection continues after each version of its
-///         input, thus other code must release it and a GC cannot collect it. An object in a
-///         projection can hold resources, and the callback that releases one object at an eviction
-///         does not run for the objects that the projection holds at its end.
+///         This is the shape of <c>MapAsync</c>. A projection continues after each
+///         version of its input, thus other code must release it and a GC cannot
+///         collect it. An object in a projection can hold resources, and the
+///         callback that releases one object at an eviction does not run for the
+///         objects that the projection holds at its end.
 ///     </para>
 ///     <para>
-///         Bind to <see cref="Items" />, and put this object with the other resources of the
-///         caller.
+///         Bind to <see cref="Items" />, and put this object with the other
+///         resources of the caller.
 ///     </para>
 ///     <para>
-///         This is a class, as the status of <c>MapAsync</c> is. A copy of it is the same
-///         projection and not a second handle to dispose, and no default value exists whose
-///         disposal throws.
+///         This is a class, as the status of <c>MapAsync</c> is. A copy of it is
+///         the same projection and not a second handle to dispose, and no default
+///         value exists whose disposal throws.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TResult">What each key is projected to.</typeparam>
@@ -62,38 +63,43 @@ public sealed class MappedItems<TResult> : IDisposable
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Releases each object that the projection holds, which is each object that it built and
-    ///     did not remove. This code calls the eviction callback for each one. Thus, a projection
-    ///     that builds objects with resources releases all of them in one position, at each time of
-    ///     their departure. A second call never releases an object that the first one
-    ///     released, because the first one leaves the projection empty.
+    ///     Releases each object that the projection holds, which is each object that
+    ///     it built and did not remove. This code calls the eviction callback for each
+    ///     one. Thus, a projection that builds objects with resources releases all of
+    ///     them in one position, at each time of their departure. A second call never
+    ///     releases an object that the first one released, because the first one
+    ///     leaves the projection empty.
     /// </remarks>
     public void Dispose() => this.dispose();
 }
 
 /// <summary>
-///     One projected object for each key. This code keeps them, thus a key in the view keeps its
-///     object.
+///     One projected object for each key. This code keeps them, thus a key in the
+///     view keeps its object.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         A screen with a list needs this, and the collection alone does not give it. The
-///         collection has the ordered keys and the cells for one item. Other code must give the
-///         object that a row binds to, and that object must be the same object at the next read,
-///         or the list builds again below the view.
+///         A screen with a list needs this, and the collection alone does not give
+///         it. The collection has the ordered keys and the cells for one item.
+///         Other code must give the object that a row binds to, and that object
+///         must be the same object at the next read, or the list builds again
+///         below the view.
 ///     </para>
 ///     <para>
-///         This has a limit, because a projection across a large collection that keeps each object
-///         holds one object for each key that it showed. The limit applies to the keys that
-///         <i>left</i> the view. This code keeps each key in the view, at each value of the limit.
-///         Without that rule, a limit below the size of the view removes rows that the code reads
-///         again immediately, and a cache is then worse than no cache.
+///         This has a limit, because a projection across a large collection that
+///         keeps each object holds one object for each key that it showed. The
+///         limit applies to the keys that <i>left</i> the view. This code keeps
+///         each key in the view, at each value of the limit.
+///         Without that rule, a limit below the size of the view removes rows that
+///         the code reads again immediately, and a cache is then worse than no
+///         cache.
 ///     </para>
 ///     <para>
-///         The keys that left go out in the sequence of their departure, and the first key to go
-///         out is the key with the longest interval since it left. This code does not use the time
-///         of the projection. A key that leaves and returns moves to the front, and that keeps the
-///         cost of a move between two pages low.
+///         The keys that left go out in the sequence of their departure, and the
+///         first key to go out is the key with the longest interval since it left.
+///         This code does not use the time of the projection. A key that leaves
+///         and returns moves to the front, and that keeps the cost of a move
+///         between two pages low.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -105,8 +111,8 @@ internal sealed class MappedItemCache<TKey, TResult>
     private readonly LinkedList<TKey> departed = new();
 
     /// <summary>
-    ///     The position of each key that left. Thus, a departure and a return each cost
-    ///     <c>O(1)</c>.
+    ///     The position of each key that left. Thus, a departure and a return each
+    ///     cost <c>O(1)</c>.
     /// </summary>
     private readonly Dictionary<TKey, LinkedListNode<TKey>> departedNodes;
 
@@ -116,8 +122,8 @@ internal sealed class MappedItemCache<TKey, TResult>
     private readonly Func<TKey, TResult> project;
 
     /// <summary>
-    ///     Each projected object that an eviction did not remove, in the view and out of
-    ///     it.
+    ///     Each projected object that an eviction did not remove, in the view and out
+    ///     of it.
     /// </summary>
     private readonly Dictionary<TKey, TResult> projected;
 
@@ -187,8 +193,8 @@ internal sealed class MappedItemCache<TKey, TResult>
     }
 
     /// <summary>
-    ///     Removes each object that this code holds, and sends a message for each one as an
-    ///     eviction does.
+    ///     Removes each object that this code holds, and sends a message for each one
+    ///     as an eviction does.
     /// </summary>
     internal void ReleaseAll()
     {

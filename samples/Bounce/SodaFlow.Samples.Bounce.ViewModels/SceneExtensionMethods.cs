@@ -13,14 +13,15 @@ public static class SceneExtensionMethods
     /// <param name="scene">The scene to read.</param>
     /// <remarks>
     ///     <para>
-    ///         There is one transaction for the frame, and not one transaction for each ball. A
-    ///         sample of a behavior opens a transaction when there is no transaction. Thus, four
-    ///         reads give the four balls at four different instants. Such a frame can show one
-    ///         ball after its bounce and a second ball before its bounce.
+    ///         There is one transaction for the frame, and not one transaction for
+    ///         each ball. A sample of a behavior opens a transaction when there is no
+    ///         transaction. Thus, four reads give the four balls at four different
+    ///         instants. Such a frame can show one ball after its bounce and a second
+    ///         ball before its bounce.
     ///     </para>
     ///     <para>
-    ///         A new transaction also runs each timer that is due, thus the frame that draws a
-    ///         bounce is the frame that finds it.
+    ///         A new transaction also runs each timer that is due, thus the frame that
+    ///         draws a bounce is the frame that finds it.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<(double X, double Y)> SamplePositions(this IScene scene) =>

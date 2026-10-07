@@ -5,24 +5,27 @@ using SodaFlow.Samples.Counter.ViewModels;
 namespace SodaFlow.Samples.Counter.Wpf.NetFramework;
 
 /// <summary>
-///     Builds the view model, gives it to the window as its data context, and shows the window.
+///     Builds the view model, gives it to the window as its data context, and
+///     shows the window.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the startup of the .NET 10 head, line for line, and that is the purpose of
-///         this project. No code here knows that the runtime is .NET Framework, because no part of
-///         the view model knows it.
+///         This is the startup of the .NET 10 head, line for line, and that is the
+///         purpose of this project. No code here knows that the runtime is .NET
+///         Framework, because no part of the view model knows it.
 ///     </para>
 ///     <para>
-///         The window does not build its own view model. A view that constructs the object that
-///         it binds to knows the concrete type and the factory that makes it, and a bind to
-///         <see cref="ICounterViewModel" /> prevents that. The window receives the data context,
-///         and this code assembles the sample.
+///         The window does not build its own view model. A view that constructs
+///         the object that it binds to knows the concrete type and the factory
+///         that makes it, and a bind to <see cref="ICounterViewModel" /> prevents
+///         that. The window receives the data context, and this code assembles the
+///         sample.
 ///     </para>
 ///     <para>
-///         This also gives the window its data context before the window shows, and not during
-///         its constructor. For that cause there is no <c>StartupUri</c>. StartupUri constructs the
-///         window and shows it in one step, and gives no position to set the data context.
+///         This also gives the window its data context before the window shows,
+///         and not during its constructor. For that cause there is no
+///         <c>StartupUri</c>. StartupUri constructs the window and shows it in one
+///         step, and gives no position to set the data context.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -44,8 +47,8 @@ internal sealed partial class App
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The view model holds subscriptions into the FRP graph, and the code that built one
-    ///     releases it. That is the sample and not the window.
+    ///     The view model holds subscriptions into the FRP graph, and the code that
+    ///     built one releases it. That is the sample and not the window.
     /// </remarks>
     protected override void OnExit(ExitEventArgs e)
     {

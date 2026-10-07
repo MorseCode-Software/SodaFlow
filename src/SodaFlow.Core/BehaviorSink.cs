@@ -4,9 +4,10 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A behavior that lets a caller send values into it. It connects the world of I/O to the
-///     world of FRP. Code that supplies a <see cref="BehaviorSink{T}" /> for read access only must
-///     downcast it to <see cref="Behavior{T}" />.
+///     A behavior that lets a caller send values into it. It connects the world of
+///     I/O to the world of FRP. Code that supplies a
+///     <see cref="BehaviorSink{T}" /> for read access only must downcast it to
+///     <see cref="Behavior{T}" />.
 /// </summary>
 /// <typeparam name="T">The type of values in the behavior sink.</typeparam>
 [PublicAPI]

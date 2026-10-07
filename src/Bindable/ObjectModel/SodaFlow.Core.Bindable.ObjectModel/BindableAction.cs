@@ -9,15 +9,16 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the stream. A
-    ///     <see cref="Cell{T}" /> of <see cref="bool" /> controls when the command is
-    ///     available.
+    ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the
+    ///     stream. A <see cref="Cell{T}" /> of <see cref="bool" /> controls when the
+    ///     command is available.
     /// </summary>
     /// <remarks>
-    ///     You can build this on any thread. The building transaction samples the availability
-    ///     when it closes, and the binding thread reads that sample. The scheduler moves each
-    ///     subsequent change to the binding thread. <see cref="Dispose" /> can run on any thread,
-    ///     thus only atomic operations change the field that holds the availability.
+    ///     You can build this on any thread. The building transaction samples the
+    ///     availability when it closes, and the binding thread reads that sample. The
+    ///     scheduler moves each subsequent change to the binding thread.
+    ///     <see cref="Dispose" /> can run on any thread, thus only atomic operations
+    ///     change the field that holds the availability.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     internal class BindableAction<T> : IBindableAction<T>
@@ -32,14 +33,15 @@ public static partial class BindableCoreExtensionMethods
         private readonly StreamSink<T> firingsStreamSink;
 
         /// <summary>
-        ///     The sample from the constructor. See <see cref="SampleAtCloseAndListenToUpdates{T}" />
-        ///     for the cause. <see cref="ReadCanExecute" /> reads it one time only.
+        ///     The sample from the constructor. See
+        ///     <see cref="SampleAtCloseAndListenToUpdates{T}" /> for the cause.
+        ///     <see cref="ReadCanExecute" /> reads it one time only.
         /// </summary>
         private readonly InitialSample<bool> initialCanExecute;
 
         /// <summary>
-        ///     This field is necessary. The subscription to the availability cell is weak, thus
-        ///     this field keeps it alive.
+        ///     This field is necessary. The subscription to the availability cell is weak,
+        ///     thus this field keeps it alive.
         /// </summary>
         private readonly IListener listener;
 
@@ -140,13 +142,14 @@ public static partial class BindableCoreExtensionMethods
 
         /// <summary>
         ///     Prevents a binding from the author of the XAML that gives a
-        ///     <c>CommandParameter</c> of an incorrect type. This runs before the send goes into
-        ///     the queue, thus the exception reaches the caller of <see cref="Execute" />.
+        ///     <c>CommandParameter</c> of an incorrect type. This runs before the send
+        ///     goes into the queue, thus the exception reaches the caller of
+        ///     <see cref="Execute" />.
         /// </summary>
         /// <param name="value">The command parameter, as the binding engine supplied it.</param>
         /// <exception cref="InvalidOperationException">
-        ///     <paramref name="value" /> is not a <typeparamref name="T" />, and it is not a null
-        ///     that <typeparamref name="T" /> can hold.
+        ///     <paramref name="value" /> is not a <typeparamref name="T" />, and it is not
+        ///     a null that <typeparamref name="T" /> can hold.
         /// </exception>
         protected virtual void ValidateParameter(object? value)
         {
@@ -159,8 +162,8 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <summary>
-        ///     Sends the parameter into the stream. <see cref="ValidateParameter" /> accepted it
-        ///     before this point, thus the conversion here cannot fail.
+        ///     Sends the parameter into the stream. <see cref="ValidateParameter" />
+        ///     accepted it before this point, thus the conversion here cannot fail.
         /// </summary>
         protected virtual void SendValue(StreamSink<T> streamSink, object? value) =>
             streamSink.SendImpl(
@@ -188,8 +191,8 @@ public static partial class BindableCoreExtensionMethods
             });
 
         /// <summary>
-        ///     Gives the availability, and puts the sample from the constructor into the field
-        ///     on the first read.
+        ///     Gives the availability, and puts the sample from the constructor into the
+        ///     field on the first read.
         /// </summary>
         private bool ReadCanExecute()
         {

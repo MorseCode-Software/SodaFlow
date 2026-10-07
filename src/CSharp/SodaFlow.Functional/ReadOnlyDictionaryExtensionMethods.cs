@@ -8,11 +8,11 @@ namespace SodaFlow.Functional;
 ///     <see cref="Maybe{T}" />.
 /// </summary>
 /// <remarks>
-///     These are on <see cref="IReadOnlyDictionary{TKey,TValue}" /> and not also on
-///     <see cref="IDictionary{TKey,TValue}" /> on purpose. Almost each dictionary implements
-///     the two interfaces, and an overload for each makes each call on a concrete
-///     <see cref="Dictionary{TKey,TValue}" /> ambiguous. Where only an
-///     <see cref="IDictionary{TKey,TValue}" /> is in hand, use
+///     These are on <see cref="IReadOnlyDictionary{TKey,TValue}" /> and not also
+///     on <see cref="IDictionary{TKey,TValue}" /> on purpose. Almost each
+///     dictionary implements the two interfaces, and an overload for each makes
+///     each call on a concrete <see cref="Dictionary{TKey,TValue}" /> ambiguous.
+///     Where only an <see cref="IDictionary{TKey,TValue}" /> is in hand, use
 ///     <see cref="Maybe.FromTryGet{T,TResult}" /> as an alternative.
 /// </remarks>
 [PublicAPI]
@@ -24,20 +24,24 @@ public static class ReadOnlyDictionaryExtensionMethods
     /// <typeparam name="TKey">The type of the keys in the dictionary.</typeparam>
     /// <typeparam name="TValue">The type of the values in the dictionary.</typeparam>
     /// <param name="dictionary">
-    ///     The dictionary to look in. A <see langword="null" /> dictionary counts as empty.
+    ///     The dictionary to look in. A <see langword="null" /> dictionary counts as
+    ///     empty.
     /// </param>
     /// <param name="key">The key to look up.</param>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value stored for <paramref name="key" />, and
-    ///     one containing no value if the dictionary has no entry for it.
+    ///     A <see cref="Maybe{T}" /> containing the value stored for
+    ///     <paramref name="key" />, and one containing no value if the dictionary has
+    ///     no entry for it.
     /// </returns>
     /// <remarks>
-    ///     The same lookup as <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" />, without
-    ///     the output parameter. It also removes the ambiguity where a missing key and a stored
-    ///     default each give the default for the value type.
-    ///     This code gives a <see langword="null" /> key to the dictionary as it is, thus this
-    ///     throws for the implementations which reject one. That is a mistake in the calling code
-    ///     rather than a missing entry, and is not something to answer with no value.
+    ///     The same lookup as
+    ///     <see cref="IReadOnlyDictionary{TKey,TValue}.TryGetValue" />, without the
+    ///     output parameter. It also removes the ambiguity where a missing key and a
+    ///     stored default each give the default for the value type.
+    ///     This code gives a <see langword="null" /> key to the dictionary as it is,
+    ///     thus this throws for the implementations which reject one. That is a
+    ///     mistake in the calling code rather than a missing entry, and is not
+    ///     something to answer with no value.
     /// </remarks>
     [Pure]
     public static Maybe<TValue> TryGetValue<TKey, TValue>(

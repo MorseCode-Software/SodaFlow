@@ -4,13 +4,15 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     Allocations counted on the calling thread only, which is where a Pay and a Drain run.
+///     Allocations counted on the calling thread only, which is where a Pay and a
+///     Drain run.
 /// </summary>
 /// <remarks>
-///     The memory diagnoser of BenchmarkDotNet counts each thread. Thus, tiered JIT compilation on
-///     its background thread is in the numbers and hides a difference of some kilobytes. This
-///     counts only the allocation of the operation, after sufficient warm-up Pays to complete the
-///     tiered compilation.
+///     The memory diagnoser of BenchmarkDotNet counts each thread. Thus, tiered
+///     JIT compilation on its background thread is in the numbers and hides a
+///     difference of some kilobytes. This counts only the allocation of the
+///     operation, after sufficient warm-up Pays to complete the tiered
+///     compilation.
 /// </remarks>
 internal static class Allocations
 {

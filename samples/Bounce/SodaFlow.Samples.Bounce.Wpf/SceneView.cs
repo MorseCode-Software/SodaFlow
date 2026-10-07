@@ -8,20 +8,22 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Wpf;
 
 /// <summary>
-///     Draws a scene one time for each frame, and reads the positions of its balls.
+///     Draws a scene one time for each frame, and reads the positions of its
+///     balls.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The Avalonia head has the same class, and the difference between the two is
-///         important. There a timer selects the time of each draw. Here it is
-///         <see cref="CompositionTarget.Rendering" />, which WPF raises as it composes each frame.
-///         The two selections do not go to the simulation. The difference between the two
-///         frameworks is the time of the read, and the answer is the same for each caller and
-///         each frequency.
+///         The Avalonia head has the same class, and the difference between the
+///         two is important. There a timer selects the time of each draw. Here it
+///         is <see cref="CompositionTarget.Rendering" />, which WPF raises as it
+///         composes each frame.
+///         The two selections do not go to the simulation. The difference between
+///         the two frameworks is the time of the read, and the answer is the same
+///         for each caller and each frequency.
 ///     </para>
 ///     <para>
-///         No code here holds a position, adds a delta, or reads the interval from the last
-///         frame.
+///         No code here holds a position, adds a delta, or reads the interval from
+///         the last frame.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -124,7 +126,10 @@ internal sealed class SceneView : FrameworkElement
         }
     }
 
-    /// <summary>These are frozen, thus the render thread can use them with no marshaling.</summary>
+    /// <summary>
+    ///     These are frozen, thus the render thread can use them with no
+    ///     marshaling.
+    /// </summary>
     private static T Freeze<T>(T freezable)
         where T : Freezable
     {

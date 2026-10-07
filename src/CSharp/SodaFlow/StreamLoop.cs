@@ -5,7 +5,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A forward reference for a <see cref="Stream{T}" /> equivalent to the <see cref="Stream{T}" /> it stands for.
+///     A forward reference for a <see cref="Stream{T}" /> equivalent to the
+///     <see cref="Stream{T}" /> it stands for.
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream loop.</typeparam>
 [PublicAPI]
@@ -17,19 +18,19 @@ public class StreamLoop<T> : LoopedStream<T>
     private TransactionInternal? transaction;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="StreamLoop{T}" /> class, a forward reference to a
-    ///     stream with no definition at this point.
+    ///     Initializes a new instance of the <see cref="StreamLoop{T}" /> class, a
+    ///     forward reference to a stream with no definition at this point.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    ///     Thrown when there is no explicit transaction open, or, at the end of that transaction,
-    ///     if <see cref="Loop" /> was never called on this instance.
+    ///     Thrown when there is no explicit transaction open, or, at the end of that
+    ///     transaction, if <see cref="Loop" /> was never called on this instance.
     /// </exception>
     /// <remarks>
-    ///     A loop only makes sense in a single transaction, thus one must be open - make it
-    ///     with <see cref="Transaction.Run{T}(Func{T})" /> or
+    ///     A loop only makes sense in a single transaction, thus one must be open -
+    ///     make it with <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />. Resolve the loop by calling
-    ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution is a defect, and not
-    ///     a no-op, thus this reports it as a defect.
+    ///     <see cref="Loop" /> before that transaction ends. A loop with no resolution
+    ///     is a defect, and not a no-op, thus this reports it as a defect.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public StreamLoop()
@@ -53,10 +54,11 @@ public class StreamLoop<T> : LoopedStream<T>
     }
 
     /// <summary>
-    ///     Resolve the loop to specify what the <see cref="StreamLoop{T}" /> was a forward reference to.  This method
-    ///     must run in the same transaction as the one that made this <see cref="StreamLoop{T}" />
-    ///     created and used.
-    ///     This needs an explicit transaction from <see cref="Transaction.Run{T}(Func{T})" /> or
+    ///     Resolve the loop to specify what the <see cref="StreamLoop{T}" /> was a
+    ///     forward reference to.  This method must run in the same transaction as the
+    ///     one that made this <see cref="StreamLoop{T}" /> created and used.
+    ///     This needs an explicit transaction from
+    ///     <see cref="Transaction.Run{T}(Func{T})" /> or
     ///     <see cref="Transaction.RunVoid(Action)" />.
     /// </summary>
     /// <param name="stream">The stream of the forward reference.</param>

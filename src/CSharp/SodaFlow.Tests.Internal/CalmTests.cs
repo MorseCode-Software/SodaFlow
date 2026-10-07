@@ -9,12 +9,13 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Internal;
 
 /// <summary>
-///     Covers the state protocol behind Calm rather than its filtering, which StreamTests
-///     exercises. These use the internal Calm(Lazy, areEqual) overload, which gives an instrument on
-///     the initial value. From the public API it always comes from SampleLazy, and no code can see the
-///     moment that forces it.
-///     Calm has no denotational coverage, so this is the only specification-level cover
-///     the protocol has.
+///     Covers the state protocol behind Calm rather than its filtering, which
+///     StreamTests exercises. These use the internal Calm(Lazy, areEqual)
+///     overload, which gives an instrument on the initial value. From the public
+///     API it always comes from SampleLazy, and no code can see the moment that
+///     forces it.
+///     Calm has no denotational coverage, so this is the only specification-level
+///     cover the protocol has.
 /// </summary>
 public sealed class CalmTests
 {
