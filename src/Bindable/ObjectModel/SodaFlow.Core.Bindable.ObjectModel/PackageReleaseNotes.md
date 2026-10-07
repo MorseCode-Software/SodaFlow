@@ -1,3 +1,11 @@
+4.1.0
+
+Fixed: with BindingScheduler.Immediate, a two-way value whose write the graph threw on kept reporting the refused
+value. The write runs in a transaction of its own, and the refresh that corrects the cached value was posted inside
+it, so the failed transaction dropped the refresh along with everything else it held. The refresh is now scheduled by
+the setter after that transaction has closed, so the property reads back the cell's value and announces it. A
+dispatcher scheduler was not affected, because its posts never wait for a transaction.
+
 4.0.1
 
 Fixed: a bindable can be built from a looped cell. Each bindable used to sample its cell in its constructor. Inside a

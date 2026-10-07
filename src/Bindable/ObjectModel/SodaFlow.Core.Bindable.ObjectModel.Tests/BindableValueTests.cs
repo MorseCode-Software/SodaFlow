@@ -244,6 +244,38 @@ public sealed class BindableValueTests
             .Because("announced once, carrying what the graph settled on rather than what was written");
     }
 
+    // A throw from the graph stops the transaction of the write. A refresh that waits in that
+    // transaction stops with it. Thus, the property continues to report the value that the graph
+    // did not accept, and no binding gets the value of the cell.
+    [Test]
+    public async Task TwoWayReconcilesAWriteTheGraphThrowsOn()
+    {
+        InvalidOperationException defect = new("The graph refused the value.");
+        StreamSink<string> edits = Stream.CreateSink<string>();
+        Cell<string> accepted = edits.Map(v => v == "refused" ? throw defect : v).Hold("kept");
+
+        using ITwoWayBindableValue<string> b =
+            accepted.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
+
+        List<string?> names = RecordNotifications(b);
+
+        // The assertion runs the lambda before it returns, thus the lambda cannot have a longer life
+        // than the using block.
+        // ReSharper disable AccessToDisposedClosure
+        Exception? thrown = await Assert.That(() => b.Value = "refused").ThrowsExactly<InvalidOperationException>();
+
+        // ReSharper restore AccessToDisposedClosure
+
+        await Assert.That(thrown).IsSameReferenceAs(defect);
+        await Assert.That(b.Value).IsEqualTo("kept").Because("the cell's value replaces the refused one");
+
+        string?[] expected = ["Value"];
+
+        await Assert.That(names)
+            .IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching)
+            .Because("the view that wrote the refused value gets the cell's value back");
+    }
+
     [Test]
     public async Task TwoWayThrowsOnceDisposed()
     {

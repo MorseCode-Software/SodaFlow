@@ -179,30 +179,37 @@ public static partial class BindableCoreExtensionMethods
 
                 this.cachedValue = value;
 
-                PostWrite(() =>
+                try
                 {
-                    // This code tests again here, and does not depend on the ThrowIfDisposed
-                    // above. PostWrite defers while a transaction is open. Thus, a Dispose
-                    // between the two can let this write reach the graph.
-                    if (this.IsDisposed)
+                    PostWrite(() =>
                     {
-                        return;
-                    }
+                        // This code tests again here, and does not depend on the ThrowIfDisposed
+                        // above. PostWrite defers while a transaction is open. Thus, a Dispose
+                        // between the two can let this write reach the graph.
+                        if (this.IsDisposed)
+                        {
+                            return;
+                        }
 
-                    try
-                    {
                         this.write(value);
-                    }
-                    finally
-                    {
-                        // This runs in a finally block, because the code above wrote the cached
-                        // value optimistically. A write that throws can leave that value with no
-                        // correction, and the equality test in the setter then discards a second
-                        // attempt. That stops the property permanently. A refresh in all
-                        // conditions puts the value of the cell back on the screen.
-                        this.ScheduleRefreshFromCell();
-                    }
-                });
+                    });
+                }
+                finally
+                {
+                    // This runs in a finally block, because the code above wrote the cached value
+                    // optimistically. A write that throws can leave that value with no correction,
+                    // and the equality test in the setter then discards a second attempt. That stops
+                    // the property permanently. A refresh in all conditions puts the value of the
+                    // cell back on the screen.
+                    //
+                    // This runs here, and not in the posted write. When no transaction is open, the
+                    // write runs in a transaction of its own, and a throw from the graph stops that
+                    // transaction. A scheduler that waits for the close of a transaction, such as
+                    // BindingScheduler.Immediate, then loses a refresh that the write posts. This
+                    // code runs after that transaction closes. When a transaction is open, the write
+                    // waits for its close, and the scheduler runs this refresh after the write.
+                    this.ScheduleRefreshFromCell();
+                }
             }
         }
 
