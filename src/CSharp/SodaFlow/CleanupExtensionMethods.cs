@@ -10,7 +10,8 @@ namespace SodaFlow;
 public static class CleanupExtensionMethods
 {
     /// <summary>
-    ///     Forces the cleanup to occur now, and does not wait for a GC to collect this object.
+    ///     Forces the cleanup to occur now, and does not wait for a GC to collect this
+    ///     object.
     /// </summary>
     /// <param name="c">The cleanup object.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]

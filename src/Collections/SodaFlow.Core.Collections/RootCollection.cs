@@ -7,22 +7,24 @@ using System.Threading;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     A large collection with keys, as a flat graph in SodaFlow: one cell that holds the full
-///     snapshot, one stream of resolved changes, and a cell from those changes that sends a value
-///     only at a change of the shape.
+///     A large collection with keys, as a flat graph in SodaFlow: one cell that
+///     holds the full snapshot, one stream of resolved changes, and a cell from
+///     those changes that sends a value only at a change of the shape.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         An observer of one item costs one hash lookup for each active observer and for each
-///         transaction, and that cost does not change with the size of the collection. This code
-///         makes an observer at the first read and keeps it in a weak cache. Thus, only the items
-///         with an observer have graph nodes.
+///         An observer of one item costs one hash lookup for each active observer
+///         and for each transaction, and that cost does not change with the size
+///         of the collection. This code makes an observer at the first read and
+///         keeps it in a weak cache. Thus, only the items with an observer have
+///         graph nodes.
 ///     </para>
 ///     <para>
-///         No cell is in the value of a second cell. A <c>Cell&lt;Collection&gt;</c> whose value
-///         holds its own cell builds graph nodes in the fold that makes each new value. Those are
-///         new nodes for each structural change and for each observer, and only a switch removes
-///         them. One change stream gives the two views here.
+///         No cell is in the value of a second cell. A
+///         <c>Cell&lt;Collection&gt;</c> whose value holds its own cell builds
+///         graph nodes in the fold that makes each new value. Those are new nodes
+///         for each structural change and for each observer, and only a switch
+///         removes them. One change stream gives the two views here.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
@@ -84,13 +86,16 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     internal override RootCollection<TKey, TIdentity, TState> Root => this;
 
     /// <summary>
-    ///     Builds the collection that each public <c>Create</c> factory returns. Those factories
-    ///     are on <see cref="ReactiveCollection{TKey,TIdentity,TState}" /> and on the class beside
-    ///     it that is not generic.
+    ///     Builds the collection that each public <c>Create</c> factory returns. Those
+    ///     factories are on <see cref="ReactiveCollection{TKey,TIdentity,TState}" />
+    ///     and on the class beside it that is not generic.
     /// </summary>
     /// <param name="keySelector">Makes the key of an item from its immutable part.</param>
     /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
-    /// <param name="initialEntries">The initial contents of the collection, read at their first use.</param>
+    /// <param name="initialEntries">
+    ///     The initial contents of the collection, read at
+    ///     their first use.
+    /// </param>
     /// <param name="editStreams">Each stream that edits the collection.</param>
     /// <returns>The collection.</returns>
     internal static ReactiveCollection<TKey, TIdentity, TState> CreateImpl(
@@ -183,15 +188,15 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The cost is low, thus code can make one for each bound view. It filters on one hash
-    ///     lookup and does not read the other items.
-    ///     The key can be missing now. A removal sends <paramref name="onAbsent" />, and a
-    ///     subsequent add with the same key sends <paramref name="onPresent" /> again. Thus, a view
-    ///     that binds to a key can continue after the item.
-    ///     A weak cache holds one for each key, thus N observers of one key share a node, and the
-    ///     node goes out of memory with the last observer. Two projections of the same key are two
-    ///     cells, thus the C# surface and the F# surface never give each other an incorrect
-    ///     cell.
+    ///     The cost is low, thus code can make one for each bound view. It filters on
+    ///     one hash lookup and does not read the other items.
+    ///     The key can be missing now. A removal sends <paramref name="onAbsent" />,
+    ///     and a subsequent add with the same key sends <paramref name="onPresent" />
+    ///     again. Thus, a view that binds to a key can continue after the item.
+    ///     A weak cache holds one for each key, thus N observers of one key share a
+    ///     node, and the node goes out of memory with the last observer. Two
+    ///     projections of the same key are two cells, thus the C# surface and the F#
+    ///     surface never give each other an incorrect cell.
     /// </remarks>
     internal override Cell<TProjected> CreateIdentityCell<TProjected>(
         TKey key,
@@ -209,11 +214,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                                 : onAbsent())));
 
     /// <summary>
-    ///     Merges the input streams into one stream. Edits from different streams in the same
-    ///     transaction become one change event and one cell update.
-    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}.CombineWith" /> refuses an ambiguous
-    ///     condition, and no code resolves it with the sequence of the merge, because SodaFlow does
-    ///     not give that sequence.
+    ///     Merges the input streams into one stream. Edits from different streams in
+    ///     the same transaction become one change event and one cell update.
+    ///     <see cref="CollectionEdit{TKey,TIdentity,TState}.CombineWith" /> refuses an
+    ///     ambiguous condition, and no code resolves it with the sequence of the
+    ///     merge, because SodaFlow does not give that sequence.
     /// </summary>
     private static Stream<CollectionEdit<TKey, TIdentity, TState>> MergeEdits(
         IEnumerable<Stream<CollectionEdit<TKey, TIdentity, TState>>> editStreams) =>
@@ -317,8 +322,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The seed and the stream are those of the state cell, because an item holds the state
-    ///     and moves with it. See the comment in that method for the cause of the lazy seed.
+    ///     The seed and the stream are those of the state cell, because an item holds
+    ///     the state and moves with it. See the comment in that method for the cause
+    ///     of the lazy seed.
     /// </remarks>
     internal override Cell<TProjected> CreateItemCell<TProjected>(
         TKey key,

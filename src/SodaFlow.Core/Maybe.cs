@@ -70,8 +70,8 @@ internal readonly struct MaybeInternal<T>
 
     /// <summary>
     ///     Reads the value and uses no callback. Use this on a frequent path, where
-    ///     <see cref="Match{TResult}" /> and the methods like it allocate a delegate for each
-    ///     call.
+    ///     <see cref="Match{TResult}" /> and the methods like it allocate a delegate
+    ///     for each call.
     /// </summary>
     internal bool TryGetValue(out T v)
     {

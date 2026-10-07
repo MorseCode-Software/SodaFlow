@@ -7,13 +7,14 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.Avalonia;
 
 /// <summary>
-///     Builds the view model and gives it to the window as its data context, before the lifetime
-///     shows the window.
+///     Builds the view model and gives it to the window as its data context,
+///     before the lifetime shows the window.
 /// </summary>
 /// <remarks>
-///     The window does not build its own view model, for the cause that applies to the counter
-///     sample. A view that constructs the object that it binds to knows the concrete type and the
-///     factory that makes it, and a bind to <see cref="IAccountsViewModel" /> prevents that.
+///     The window does not build its own view model, for the cause that applies to
+///     the counter sample. A view that constructs the object that it binds to
+///     knows the concrete type and the factory that makes it, and a bind to
+///     <see cref="IAccountsViewModel" /> prevents that.
 /// </remarks>
 // The namespace is AvaloniaUi and not Avalonia. A namespace with Avalonia as its last segment
 // hides the root namespace of the framework from the code in it, and a usual full name such as

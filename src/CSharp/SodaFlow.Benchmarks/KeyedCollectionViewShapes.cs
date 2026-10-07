@@ -6,27 +6,30 @@ using SodaFlow.Collections;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     The two ways to keep "the top twenty unfrozen accounts by balance" up to date as the collection below
-///     it changes.
+///     The two ways to keep "the top twenty unfrozen accounts by balance" up to
+///     date as the collection below it changes.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Re-derived</b> is what a lift over the full collection gives. It holds each item in one cell,
-///         and maps it through <c>Where</c>, <c>OrderByDescending</c> and <c>Take</c>. It is three lines, it
-///         is obviously correct, and it does all of that work again for each edit. The size of the edit makes
-///         no difference. The version here is the charitable one. The items live in an immutable dictionary,
-///         thus the edit
-///         itself is <c>O(log32 n)</c> and not a copy of the full list. That leaves the re-derivation as the
-///         thing this measures.
+///         <b>Re-derived</b> is what a lift over the full collection gives. It
+///         holds each item in one cell, and maps it through <c>Where</c>,
+///         <c>OrderByDescending</c> and <c>Take</c>. It is three lines, it is
+///         obviously correct, and it does all of that work again for each edit.
+///         The size of the edit makes no difference. The version here is the
+///         charitable one. The items live in an immutable dictionary, thus the
+///         edit itself is <c>O(log32 n)</c> and not a copy of the full list. That
+///         leaves the re-derivation as the thing this measures.
 ///     </para>
 ///     <para>
-///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c>. Each stage keeps
-///         its own ordered key set and uses the operations from the stage above. Thus, an edit files one key
-///         again, and does not sort a collection again.
+///         <b>Chained</b> is <c>Filter</c>, then <c>SortByDescending</c>, then
+///         <c>Take</c>. Each stage keeps its own ordered key set and uses the
+///         operations from the stage above. Thus, an edit files one key again, and
+///         does not sort a collection again.
 ///     </para>
 ///     <para>
-///         The benchmark asks the two for the same answer, and <see cref="IKeyedCollectionViewShape.Keys" />
-///         exists so the benchmark can check in its setup that they give it. A compare between two things
+///         The benchmark asks the two for the same answer, and
+///         <see cref="IKeyedCollectionViewShape.Keys" /> exists so the benchmark
+///         can check in its setup that they give it. A compare between two things
 ///         that give different results is not worth a run.
 ///     </para>
 /// </remarks>
@@ -41,9 +44,9 @@ file interface IKeyedCollectionViewShape
     void Replace(int key, ItemState state);
 
     /// <summary>
-    ///     Adds an item and removes it again, which is two structural edits that keep the collection
-    ///     at the size it started. A benchmark that only adds measures a collection that grows below
-    ///     it.
+    ///     Adds an item and removes it again, which is two structural edits that keep
+    ///     the collection at the size it started. A benchmark that only adds measures
+    ///     a collection that grows below it.
     /// </summary>
     // ReSharper disable once UnusedMemberInSuper.Global - Defines shape expected for implementers
     void AddAndRemove(int key, ItemState state);
@@ -53,10 +56,16 @@ file interface IKeyedCollectionViewShape
     void SetThreshold(int threshold);
 }
 
-/// <summary>Shared by the two view shapes, thus the benchmark asks them the same question.</summary>
+/// <summary>
+///     Shared by the two view shapes, thus the benchmark asks them the same
+///     question.
+/// </summary>
 internal static class ViewSeed
 {
-    /// <summary>How many rows the view keeps — a screenful, as in the other benchmarks.</summary>
+    /// <summary>
+    ///     How many rows the view keeps — a screenful, as in the other
+    ///     benchmarks.
+    /// </summary>
     internal const int Limit = 20;
 
     /// <summary>
@@ -69,8 +78,8 @@ internal static class ViewSeed
 }
 
 /// <summary>
-///     One cell holding each item, mapped through <c>Where</c>, <c>OrderByDescending</c> and
-///     <c>Take</c> — re-derived in full on each edit.
+///     One cell holding each item, mapped through <c>Where</c>,
+///     <c>OrderByDescending</c> and <c>Take</c> — re-derived in full on each edit.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedViewShape : IKeyedCollectionViewShape
@@ -177,15 +186,15 @@ internal enum ChainStyle
     SortByIdentity,
 
     /// <summary>
-    ///     No stage reads the state, thus nothing a state edit carries can get to one of them
-    ///     more than the update they have to forward.
+    ///     No stage reads the state, thus nothing a state edit carries can get to one
+    ///     of them more than the update they have to forward.
     /// </summary>
     ByIdentity,
 
     /// <summary>
-    ///     A filter that keeps half of what it sees, tested against the state, over an identity
-    ///     sort. Paired with <see cref="SelectiveByIdentity" />, which keeps the same half by asking the
-    ///     the identity as an alternative.
+    ///     A filter that keeps half of what it sees, tested against the state, over an
+    ///     identity sort. Paired with <see cref="SelectiveByIdentity" />, which keeps
+    ///     the same half by asking the the identity as an alternative.
     /// </summary>
     SelectiveByState,
 
@@ -194,8 +203,8 @@ internal enum ChainStyle
 }
 
 /// <summary>
-///     <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c> — each stage keeping its own
-///     ordered key set and adjusting it.
+///     <c>Filter</c>, then <c>SortByDescending</c>, then <c>Take</c> — each stage
+///     keeping its own ordered key set and adjusting it.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ChainedViewShape : IKeyedCollectionViewShape
@@ -238,10 +247,11 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 
     /// <param name="itemCount">How many items the collection holds.</param>
     /// <param name="style">
-    ///     Which halves the two stages read. Each configuration holds the same keys in the same
-    ///     places. The seed gives each item a score equal to its number, and the initial threshold
-    ///     admits all of them. Thus, what differs between them is only which half each stage reads,
-    ///     and how much of a state edit it can ignore.
+    ///     Which halves the two stages read. Each configuration holds the same keys in
+    ///     the same places. The seed gives each item a score equal to its number, and
+    ///     the initial threshold admits all of them. Thus, what differs between them
+    ///     is only which half each stage reads, and how much of a state edit it can
+    ///     ignore.
     /// </param>
     internal static ChainedViewShape Build(int itemCount, ChainStyle style)
     {
@@ -305,20 +315,23 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 }
 
 /// <summary>
-///     The collection with no view stages, and a listener on its own change stream. This is the floor that an
-///     edit cannot go below.
+///     The collection with no view stages, and a listener on its own change
+///     stream. This is the floor that an edit cannot go below.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This exists because without it no reader can read the view benchmarks. An edit through a chain
-///         pays for the transaction, the send operation, the trie write to the state map, the snapshot, and
-///         the change object. All of that comes before it reads any stage. At ten thousand items that is 2.8
-///         of the 6.5 microseconds an excluded-key edit costs. Report the 6.5 and a stage-level difference of
-///         a fifth of a microsecond reads as noise. Subtract the floor and the same difference is six percent
-///         of what the chain actually does.
+///         This exists because without it no reader can read the view benchmarks.
+///         An edit through a chain pays for the transaction, the send operation,
+///         the trie write to the state map, the snapshot, and the change object.
+///         All of that comes before it reads any stage. At ten thousand items that
+///         is 2.8 of the 6.5 microseconds an excluded-key edit costs. Report the
+///         6.5 and a stage-level difference of a fifth of a microsecond reads as
+///         noise. Subtract the floor and the same difference is six percent of
+///         what the chain actually does.
 ///     </para>
 ///     <para>
-///         Subtract this from the arms beside it and what is left is what the chain actually costs.
+///         Subtract this from the arms beside it and what is left is what the
+///         chain actually costs.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -396,8 +409,8 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
 
 /// <summary>A page of a sorted collection, the two ways of keeping one.</summary>
 /// <remarks>
-///     The two hold the same page of the same ordering, and the benchmark checks that in its setup
-///     before timing either.
+///     The two hold the same page of the same ordering, and the benchmark checks
+///     that in its setup before timing either.
 /// </remarks>
 file interface IKeyedPagingShape
 {
@@ -415,7 +428,8 @@ file interface IKeyedPagingShape
 }
 
 /// <summary>
-///     One cell holding each item, re-sorted and re-windowed on each page turn and each edit.
+///     One cell holding each item, re-sorted and re-windowed on each page turn and
+///     each edit.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class RederivedPageShape : IKeyedPagingShape
@@ -500,14 +514,15 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
 }
 
 /// <summary>
-///     <c>SortByDescending</c> then <c>Slice</c>, where turning the page changes the slice's offset
-///     cell and nothing else.
+///     <c>SortByDescending</c> then <c>Slice</c>, where turning the page changes
+///     the slice's offset cell and nothing else.
 /// </summary>
 /// <remarks>
-///     A criteria change rebuilds the stage that owns the criteria. For most stages that is the
-///     expensive path, because a filter files each surviving key into a new ordered set. The
-///     rebuild of a slice is a <c>RangeKeys</c> over the ordering it had, which is a lazy view and
-///     costs nothing to make. That is the asymmetry the page-turn benchmarks show.
+///     A criteria change rebuilds the stage that owns the criteria. For most
+///     stages that is the expensive path, because a filter files each surviving
+///     key into a new ordered set. The rebuild of a slice is a <c>RangeKeys</c>
+///     over the ordering it had, which is a lazy view and costs nothing to make.
+///     That is the asymmetry the page-turn benchmarks show.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ChainedPageShape : IKeyedPagingShape

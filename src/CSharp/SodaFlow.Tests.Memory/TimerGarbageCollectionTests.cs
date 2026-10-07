@@ -17,17 +17,19 @@ namespace SodaFlow.Tests.Memory;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         TimerSystem.At builds a stream that no caller connects. It makes an alarm sink, listens
-///         to the cell it gets, and gives the caller that sink alone. No other code can get to
-///         the parts that make the sink fire. Thus, a collection is the event that can break it.
+///         TimerSystem.At builds a stream that no caller connects. It makes an
+///         alarm sink, listens to the cell it gets, and gives the caller that sink
+///         alone. No other code can get to the parts that make the sink fire.
+///         Thus, a collection is the event that can break it.
 ///     </para>
 ///     <para>
-///         The listener that At makes over the cell is weak, and the alarm holds it because At
-///         attaches it. The three tests measure the two directions of that. The alarm keeps its
-///         listener while the caller keeps the alarm, and the cell releases the alarm when the
-///         caller drops it. A strong listener gives the first of those and not the second.
-///         The graph of the cell then holds a listener. That listener holds an alarm which no
-///         code can use.
+///         The listener that At makes over the cell is weak, and the alarm holds
+///         it because At attaches it. The three tests measure the two directions
+///         of that. The alarm keeps its listener while the caller keeps the alarm,
+///         and the cell releases the alarm when the caller drops it. A strong
+///         listener gives the first of those and not the second.
+///         The graph of the cell then holds a listener. That listener holds an
+///         alarm which no code can use.
 ///     </para>
 /// </remarks>
 public sealed class TimerGarbageCollectionTests

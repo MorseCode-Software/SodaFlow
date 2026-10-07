@@ -5,13 +5,14 @@ using SodaFlow.Time;
 namespace SodaFlow.Samples.Bounce.ViewModels;
 
 /// <summary>
-///     The smallest scene that shows the idea: one ball that falls and bounces, on one axis.
+///     The smallest scene that shows the idea: one ball that falls and bounces, on
+///     one axis.
 /// </summary>
 /// <remarks>
-///     Read <see cref="BouncingAxis" /> with this. The height of the ball is an equation, the
-///     code calculates the moment when the ball touches the floor and does not find it after the
-///     event, and the bounce replaces the equation. The larger scenes do this more than one
-///     time.
+///     Read <see cref="BouncingAxis" /> with this. The height of the ball is an
+///     equation, the code calculates the moment when the ball touches the floor
+///     and does not find it after the event, and the bounce replaces the equation.
+///     The larger scenes do this more than one time.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SimpleScene : IScene
@@ -22,7 +23,10 @@ internal sealed class SimpleScene : IScene
     private const double BallRadius = 18.0;
 
     /// <param name="timers">The clock for the position of each ball.</param>
-    /// <param name="restarts">Fires when the tab of this scene becomes the selected tab.</param>
+    /// <param name="restarts">
+    ///     Fires when the tab of this scene becomes the selected
+    ///     tab.
+    /// </param>
     internal SimpleScene(ITimerSystem<double> timers, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();

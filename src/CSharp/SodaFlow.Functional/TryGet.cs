@@ -3,51 +3,54 @@
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A method that gives a value if it can. It reports the result through its return value, and
-///     gives the value through an output parameter.
+///     A method that gives a value if it can. It reports the result through its
+///     return value, and gives the value through an output parameter.
 /// </summary>
 /// <typeparam name="TResult">The type of the value produced.</typeparam>
 /// <param name="result">
-///     Set to the value produced when this returns <see langword="true" />, and left at the
-///     default for its type otherwise.
+///     Set to the value produced when this returns <see langword="true" />, and
+///     left at the default for its type otherwise.
 /// </param>
 /// <returns>
 ///     <see langword="true" /> for a value, and <see langword="false" /> for none.
 /// </returns>
 /// <remarks>
-///     This gives the shape that the framework uses everywhere it has to say "there can be no
-///     answer" with no exception. That name is what lets
+///     This gives the shape that the framework uses everywhere it has to say
+///     "there can be no answer" with no exception. That name is what lets
 ///     <see cref="Maybe.FromTryGet{TResult}" /> change each such method into a
-///     <see cref="Maybe{T}" />, and that includes ones this library knows nothing about.
+///     <see cref="Maybe{T}" />, and that includes ones this library knows nothing
+///     about.
 /// </remarks>
 [PublicAPI]
 public delegate bool TryGet<TResult>(out TResult result);
 
 /// <summary>
-///     A method that gives a value from one input if it can. It reports the result through its
-///     return value, and gives the value through an output parameter.
+///     A method that gives a value from one input if it can. It reports the result
+///     through its return value, and gives the value through an output parameter.
 /// </summary>
 /// <typeparam name="T">The type of the input.</typeparam>
 /// <typeparam name="TResult">The type of the value produced.</typeparam>
 /// <param name="value">The input to give a value from.</param>
 /// <param name="result">
-///     Set to the value produced when this returns <see langword="true" />, and left at the
-///     default for its type otherwise.
+///     Set to the value produced when this returns <see langword="true" />, and
+///     left at the default for its type otherwise.
 /// </param>
 /// <returns>
 ///     <see langword="true" /> for a value, and <see langword="false" /> for none.
 /// </returns>
 /// <remarks>
 ///     <see cref="int.TryParse(string,out int)" /> and
-///     <see cref="System.Collections.Generic.IDictionary{TKey,TValue}.TryGetValue" /> have this
-///     shape. Give one to <see cref="Maybe.FromTryGet{T,TResult}" /> to get a
-///     <see cref="Maybe{T}" /> as a replacement for a flag and an output parameter.
+///     <see cref="System.Collections.Generic.IDictionary{TKey,TValue}.TryGetValue" />
+///     have this shape. Give one to <see cref="Maybe.FromTryGet{T,TResult}" /> to
+///     get a <see cref="Maybe{T}" /> as a replacement for a flag and an output
+///     parameter.
 /// </remarks>
 public delegate bool TryGet<in T, TResult>(T value, out TResult result);
 
 /// <summary>
-///     A method that gives a value from two inputs if it can. It reports the result through its
-///     return value, and gives the value through an output parameter.
+///     A method that gives a value from two inputs if it can. It reports the
+///     result through its return value, and gives the value through an output
+///     parameter.
 /// </summary>
 /// <typeparam name="T1">The type of the first input.</typeparam>
 /// <typeparam name="T2">The type of the second input.</typeparam>
@@ -55,8 +58,8 @@ public delegate bool TryGet<in T, TResult>(T value, out TResult result);
 /// <param name="value1">The first input.</param>
 /// <param name="value2">The second input.</param>
 /// <param name="result">
-///     Set to the value produced when this returns <see langword="true" />, and left at the
-///     default for its type otherwise.
+///     Set to the value produced when this returns <see langword="true" />, and
+///     left at the default for its type otherwise.
 /// </param>
 /// <returns>
 ///     <see langword="true" /> for a value, and <see langword="false" /> for none.
@@ -64,8 +67,9 @@ public delegate bool TryGet<in T, TResult>(T value, out TResult result);
 public delegate bool TryGet<in T1, in T2, TResult>(T1 value1, T2 value2, out TResult result);
 
 /// <summary>
-///     A method that gives a value from three inputs if it can. It reports the result through its
-///     return value, and gives the value through an output parameter.
+///     A method that gives a value from three inputs if it can. It reports the
+///     result through its return value, and gives the value through an output
+///     parameter.
 /// </summary>
 /// <typeparam name="T1">The type of the first input.</typeparam>
 /// <typeparam name="T2">The type of the second input.</typeparam>
@@ -75,14 +79,15 @@ public delegate bool TryGet<in T1, in T2, TResult>(T1 value1, T2 value2, out TRe
 /// <param name="value2">The second input.</param>
 /// <param name="value3">The third input.</param>
 /// <param name="result">
-///     Set to the value produced when this returns <see langword="true" />, and left at the
-///     default for its type otherwise.
+///     Set to the value produced when this returns <see langword="true" />, and
+///     left at the default for its type otherwise.
 /// </param>
 /// <returns>
 ///     <see langword="true" /> for a value, and <see langword="false" /> for none.
 /// </returns>
 /// <remarks>
-///     <see cref="int.TryParse(string,System.Globalization.NumberStyles,System.IFormatProvider,out int)" />
+///     <see
+///         cref="int.TryParse(string,System.Globalization.NumberStyles,System.IFormatProvider,out int)" />
 ///     has this shape.
 /// </remarks>
 public delegate bool TryGet<in T1, in T2, in T3, TResult>(T1 value1, T2 value2, T3 value3, out TResult result);

@@ -11,22 +11,26 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     The behavior of the bindable values with the scheduler and the transaction lock.
+///     The behavior of the bindable values with the scheduler and the transaction
+///     lock.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         These tests are not in <see cref="BindableValueTests" />, because they need a
-///         scheduler that queues and not one that runs at the close of the current transaction.
-///         The two give the same sequence for one write, which is why the other test class uses
-///         the immediate scheduler. The two are different when a second write arrives before SodaFlow
-///         delivers the notifications of the first write. These tests cover that difference.
+///         These tests are not in <see cref="BindableValueTests" />, because they
+///         need a scheduler that queues and not one that runs at the close of the
+///         current transaction.
+///         The two give the same sequence for one write, which is why the other
+///         test class uses the immediate scheduler. The two are different when a
+///         second write arrives before SodaFlow delivers the notifications of the
+///         first write. These tests cover that difference.
 ///     </para>
 ///     <para>
-///         The last two tests failed when someone wrote them. They are the cause of two
-///         changes in the two-way value: it now samples the cell in its update handler, and it
-///         counts the refresh operations in its queue. The two tests show the same error from
-///         different directions. That error is to read the cached value as a fact about the
-///         graph, when it is only a fact about the last test of the two.
+///         The last two tests failed when someone wrote them. They are the cause
+///         of two changes in the two-way value: it now samples the cell in its
+///         update handler, and it counts the refresh operations in its queue. The
+///         two tests show the same error from different directions. That error is
+///         to read the cached value as a fact about the graph, when it is only a
+///         fact about the last test of the two.
 ///     </para>
 /// </remarks>
 public sealed class BindableValueConcurrencyTests
@@ -763,8 +767,8 @@ public sealed class BindableValueConcurrencyTests
     }
 
     /// <summary>
-    ///     Runs <paramref name="body" /> on a different thread and gives the exception that it
-    ///     threw.
+    ///     Runs <paramref name="body" /> on a different thread and gives the exception
+    ///     that it threw.
     /// </summary>
     private static Exception? CaughtOffTheBindingThread<TState>(TState state, Action<TState> body)
     {
@@ -937,9 +941,10 @@ public sealed class BindableValueConcurrencyTests
     }
 
     /// <summary>
-    ///     This takes the place of a dispatcher. It queues work, which is the important part. A
-    ///     real scheduler gives work to the message loop of a different thread and returns. Thus,
-    ///     work that a write posts is in the queue when the setter returns.
+    ///     This takes the place of a dispatcher. It queues work, which is the
+    ///     important part. A real scheduler gives work to the message loop of a
+    ///     different thread and returns. Thus, work that a write posts is in the queue
+    ///     when the setter returns.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueueingScheduler : IBindingScheduler
@@ -953,8 +958,8 @@ public sealed class BindableValueConcurrencyTests
         public void Post(Action action) => this.queue.Enqueue(action);
 
         /// <summary>
-        ///     Runs each action in the queue, and also an action that another action
-        ///     adds while this method runs.
+        ///     Runs each action in the queue, and also an action that another action adds
+        ///     while this method runs.
         /// </summary>
         /// <returns>The number of actions that ran.</returns>
         internal int RunAll()

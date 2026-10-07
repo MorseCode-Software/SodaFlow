@@ -6,12 +6,14 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     Constructors for the <see cref="Either{T1,T2}" /> family with no type argument in the code.
+///     Constructors for the <see cref="Either{T1,T2}" /> family with no type
+///     argument in the code.
 /// </summary>
 /// <remarks>
-///     The name of an either holds all of its cases, thus a construction of one directly repeats
-///     types that the code around it gives. The constructors here give a small value with a mark
-///     for its position. That value changes implicitly into the either that the code needs.
+///     The name of an either holds all of its cases, thus a construction of one
+///     directly repeats types that the code around it gives. The constructors here
+///     give a small value with a mark for its position. That value changes
+///     implicitly into the either that the code needs.
 /// </remarks>
 [PublicAPI]
 public static class Either
@@ -22,14 +24,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose first type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose first type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>First</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>First</c> of the
+    ///     either.
     /// </remarks>
     public static EitherFirst<T> First<T>(T value) => new(value);
 
@@ -39,14 +42,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose second type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose second type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Second</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Second</c> of the
+    ///     either.
     /// </remarks>
     public static EitherSecond<T> Second<T>(T value) => new(value);
 
@@ -56,14 +60,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose third type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose third type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Third</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Third</c> of the
+    ///     either.
     /// </remarks>
     public static EitherThird<T> Third<T>(T value) => new(value);
 
@@ -73,14 +78,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose fourth type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose fourth type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Fourth</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Fourth</c> of the
+    ///     either.
     /// </remarks>
     public static EitherFourth<T> Fourth<T>(T value) => new(value);
 
@@ -90,14 +96,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose fifth type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose fifth type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Fifth</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Fifth</c> of the
+    ///     either.
     /// </remarks>
     public static EitherFifth<T> Fifth<T>(T value) => new(value);
 
@@ -107,14 +114,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose sixth type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose sixth type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Sixth</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Sixth</c> of the
+    ///     either.
     /// </remarks>
     public static EitherSixth<T> Sixth<T>(T value) => new(value);
 
@@ -124,14 +132,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose seventh type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose seventh type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Seventh</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Seventh</c> of
+    ///     the either.
     /// </remarks>
     public static EitherSeventh<T> Seventh<T>(T value) => new(value);
 
@@ -141,14 +150,15 @@ public static class Either
     /// <typeparam name="T">The type of the value.</typeparam>
     /// <param name="value">The value.</param>
     /// <returns>
-    ///     A marked value which changes implicitly into any either whose eighth type argument
-    ///     is <typeparamref name="T" />.
+    ///     A marked value which changes implicitly into any either whose eighth type
+    ///     argument is <typeparamref name="T" />.
     /// </returns>
     /// <remarks>
-    ///     This is what lets code give an either as a result or a value, with no name for all of its
-    ///     type arguments. The marked value carries only the position and the value, and the conversion
-    ///     at the assignment or the return gives the others. Where no such conversion is
-    ///     available, use the <c>Eighth</c> of the either.
+    ///     This is what lets code give an either as a result or a value, with no name
+    ///     for all of its type arguments. The marked value carries only the position
+    ///     and the value, and the conversion at the assignment or the return gives the
+    ///     others. Where no such conversion is available, use the <c>Eighth</c> of the
+    ///     either.
     /// </remarks>
     public static EitherEighth<T> Eighth<T>(T value) => new(value);
 
@@ -158,18 +168,20 @@ public static class Either
     /// </summary>
     /// <typeparam name="T">The type that the cases become.</typeparam>
     /// <returns>
-    ///     A helper whose <c>From</c> overloads have the either as a parameter and do this change.
+    ///     A helper whose <c>From</c> overloads have the either as a parameter and do
+    ///     this change.
     /// </returns>
     /// <remarks>
-    ///     Written in two calls, <c>Either.GetValueAs&lt;TCommon&gt;().From(e)</c>, because C# cannot
-    ///     specify one type argument and infer the others in one call. Type inference also gives the
-    ///     type arguments of the either better than a writer does.
+    ///     Written in two calls, <c>Either.GetValueAs&lt;TCommon&gt;().From(e)</c>,
+    ///     because C# cannot specify one type argument and infer the others in one
+    ///     call. Type inference also gives the type arguments of the either better
+    ///     than a writer does.
     /// </remarks>
     public static GetValueAsHelper<T> GetValueAs<T>() => GetValueAsHelper<T>.Instance;
 
     /// <summary>
-    ///     A value marked as belonging in the first position of an either, as produced by
-    ///     <see cref="Either.First{T}" />.
+    ///     A value marked as belonging in the first position of an either, as produced
+    ///     by <see cref="Either.First{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -185,8 +197,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the second position of an either, as produced by
-    ///     <see cref="Either.Second{T}" />.
+    ///     A value marked as belonging in the second position of an either, as
+    ///     produced by <see cref="Either.Second{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -202,8 +214,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the third position of an either, as produced by
-    ///     <see cref="Either.Third{T}" />.
+    ///     A value marked as belonging in the third position of an either, as produced
+    ///     by <see cref="Either.Third{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -219,8 +231,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the fourth position of an either, as produced by
-    ///     <see cref="Either.Fourth{T}" />.
+    ///     A value marked as belonging in the fourth position of an either, as
+    ///     produced by <see cref="Either.Fourth{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -236,8 +248,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the fifth position of an either, as produced by
-    ///     <see cref="Either.Fifth{T}" />.
+    ///     A value marked as belonging in the fifth position of an either, as produced
+    ///     by <see cref="Either.Fifth{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -253,8 +265,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the sixth position of an either, as produced by
-    ///     <see cref="Either.Sixth{T}" />.
+    ///     A value marked as belonging in the sixth position of an either, as produced
+    ///     by <see cref="Either.Sixth{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -270,8 +282,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the seventh position of an either, as produced by
-    ///     <see cref="Either.Seventh{T}" />.
+    ///     A value marked as belonging in the seventh position of an either, as
+    ///     produced by <see cref="Either.Seventh{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -287,8 +299,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     A value marked as belonging in the eighth position of an either, as produced by
-    ///     <see cref="Either.Eighth{T}" />.
+    ///     A value marked as belonging in the eighth position of an either, as
+    ///     produced by <see cref="Either.Eighth{T}" />.
     /// </summary>
     /// <typeparam name="T">The type of the marked value.</typeparam>
     /// <remarks>
@@ -304,8 +316,8 @@ public static class Either
     }
 
     /// <summary>
-    ///     The second half of <see cref="Either.GetValueAs{T}" />, holding the overloads which
-    ///     do the collapsing.
+    ///     The second half of <see cref="Either.GetValueAs{T}" />, holding the
+    ///     overloads which do the collapsing.
     /// </summary>
     /// <typeparam name="T">The type that each case of the either becomes.</typeparam>
     [PublicAPI]
@@ -320,8 +332,14 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -336,9 +354,18 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -354,10 +381,22 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T4">The type of the fourth case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T4">
+        ///     The type of the fourth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -378,11 +417,26 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T4">The type of the fourth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T5">The type of the fifth case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T4">
+        ///     The type of the fourth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T5">
+        ///     The type of the fifth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -405,12 +459,30 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T4">The type of the fourth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T5">The type of the fifth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T6">The type of the sixth case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T4">
+        ///     The type of the fourth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T5">
+        ///     The type of the fifth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T6">
+        ///     The type of the sixth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -435,13 +507,34 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T4">The type of the fourth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T5">The type of the fifth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T6">The type of the sixth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T7">The type of the seventh case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T4">
+        ///     The type of the fourth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T5">
+        ///     The type of the fifth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T6">
+        ///     The type of the sixth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T7">
+        ///     The type of the seventh case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -468,14 +561,38 @@ public static class Either
         /// <summary>
         ///     Collapses an either into the one type that all of its cases derive from.
         /// </summary>
-        /// <typeparam name="T1">The type of the first case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T2">The type of the second case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T3">The type of the third case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T4">The type of the fourth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T5">The type of the fifth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T6">The type of the sixth case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T7">The type of the seventh case, which must be a <typeparamref name="T" />.</typeparam>
-        /// <typeparam name="T8">The type of the eighth case, which must be a <typeparamref name="T" />.</typeparam>
+        /// <typeparam name="T1">
+        ///     The type of the first case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        ///     The type of the second case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T3">
+        ///     The type of the third case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T4">
+        ///     The type of the fourth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T5">
+        ///     The type of the fifth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T6">
+        ///     The type of the sixth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T7">
+        ///     The type of the seventh case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
+        /// <typeparam name="T8">
+        ///     The type of the eighth case, which must be a
+        ///     <typeparamref name="T" />.
+        /// </typeparam>
         /// <param name="a">The either to change into one type.</param>
         /// <returns>Whichever value the either holds, typed as <typeparamref name="T" />.</returns>
         /// <remarks>
@@ -509,12 +626,13 @@ public static class Either
 /// <typeparam name="T1">The type of the first possibility.</typeparam>
 /// <typeparam name="T2">The type of the second possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the two cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the two cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -539,8 +657,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2> First(T1 value) => new(valueType: 0, value1: value, value2: default);
 
@@ -550,8 +668,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2> Second(T2 value) => new(valueType: 1, value1: default, value2: value);
 
@@ -565,17 +683,17 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the two functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the two functions depending on which case is held, and returns
+    ///     its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -598,16 +716,18 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
         this.Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc());
 
     /// <summary>
-    ///     Runs one of the two asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the two asynchronous functions depending on which case is held,
+    ///     and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -626,15 +746,15 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
         this.MatchAsync(onFirst: onFirst.ToAsyncFunc(), onSecond: onSecond.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -643,15 +763,15 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
         this.Match(onFirst: v1 => Either<T, T2>.First(f(v1)), onSecond: static v2 => Either.Second(v2));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -660,20 +780,22 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
         this.Match(onFirst: Either<T1, T>.First, onSecond: v2 => Either.Second(f(v2)));
 
     /// <summary>
-    ///     Exchanges the two cases. The first case becomes the second, and the second becomes the
-    ///     first.
+    ///     Exchanges the two cases. The first case becomes the second, and the second
+    ///     becomes the first.
     /// </summary>
     /// <returns>
-    ///     An either of the two types in the opposite order, holding the same value in the other
-    ///     position.
+    ///     An either of the two types in the opposite order, holding the same value in
+    ///     the other position.
     /// </returns>
     /// <remarks>
-    ///     Use this to give an either to code that names the same two types in the opposite sequence.
-    ///     Use it also to get to the first case with an operation that only addresses the second, or
-    ///     the opposite. Two exchanges give the initial value again.
-    ///     This exists only here, on the two-case either. With three or more cases there is no one
-    ///     change to make. A change is then a selection of one of some reorderings. The name
-    ///     <c>Swap</c> on one of them makes the others look unavailable, and not unnamed.
+    ///     Use this to give an either to code that names the same two types in the
+    ///     opposite sequence.
+    ///     Use it also to get to the first case with an operation that only addresses
+    ///     the second, or the opposite. Two exchanges give the initial value again.
+    ///     This exists only here, on the two-case either. With three or more cases
+    ///     there is no one change to make. A change is then a selection of one of some
+    ///     reorderings. The name <c>Swap</c> on one of them makes the others look
+    ///     unavailable, and not unnamed.
     /// </remarks>
     [Pure]
     public Either<T2, T1> Swap() => this.Match(onFirst: Either<T2, T1>.Second, onSecond: Either<T2, T1>.First);
@@ -682,8 +804,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() => this.Match(onFirst: Maybe.Some, onSecond: static _ => Maybe.None);
@@ -692,8 +814,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() => this.Match(onFirst: static _ => Maybe.None, onSecond: Maybe.Some);
@@ -702,12 +824,12 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() => this.Match(onFirst: static _ => true, onSecond: static _ => false);
@@ -716,12 +838,12 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() => this.Match(onFirst: static _ => false, onSecond: static _ => true);
@@ -741,22 +863,28 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2>(Either.EitherSecond<T2> value) => Second(value.Value);
 
@@ -766,8 +894,8 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2> x, Either<T1, T2> y) =>
         x.valueType == y.valueType
@@ -778,27 +906,29 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2> x, Either<T1, T2> y) => !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2> e && this == e;
 
@@ -807,12 +937,14 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2> other) => this == other;
@@ -856,12 +988,13 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 /// <typeparam name="T2">The type of the second possibility.</typeparam>
 /// <typeparam name="T3">The type of the third possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the three cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the three cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -888,8 +1021,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> First(T1 value) =>
         new(valueType: 0, value1: value, value2: default, value3: default);
@@ -900,8 +1033,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> Second(T2 value) =>
         new(valueType: 1, value1: default, value2: value, value3: default);
@@ -912,8 +1045,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> Third(T3 value) =>
         new(valueType: 2, value1: default, value2: default, value3: value);
@@ -928,8 +1061,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the three functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the three functions depending on which case is held, and
+    ///     returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -937,9 +1070,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -973,8 +1106,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
         this.Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc(), onThird: onThird.ToFunc());
 
     /// <summary>
-    ///     Runs one of the three asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the three asynchronous functions depending on which case is
+    ///     held, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -982,8 +1115,10 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -1008,15 +1143,15 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
             onThird: onThird.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -1028,15 +1163,15 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
             onThird: static v3 => Either.Third(v3));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -1048,15 +1183,15 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
             onThird: static v3 => Either.Third(v3));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -1071,8 +1206,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -1082,8 +1217,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -1093,8 +1228,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -1104,12 +1239,12 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -1119,12 +1254,12 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -1134,12 +1269,12 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -1171,33 +1306,42 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3>(Either.EitherThird<T3> value) => Third(value.Value);
 
@@ -1207,8 +1351,8 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3> x, Either<T1, T2, T3> y) =>
         x.valueType == y.valueType
@@ -1220,27 +1364,29 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2, T3> x, Either<T1, T2, T3> y) => !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3> e && this == e;
 
@@ -1249,12 +1395,14 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3> other) => this == other;
@@ -1307,12 +1455,13 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
 /// <typeparam name="T3">The type of the third possibility.</typeparam>
 /// <typeparam name="T4">The type of the fourth possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the four cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the four cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1341,8 +1490,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> First(T1 value) =>
         new(valueType: 0, value1: value, value2: default, value3: default, value4: default);
@@ -1353,8 +1502,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Second(T2 value) =>
         new(valueType: 1, value1: default, value2: value, value3: default, value4: default);
@@ -1365,8 +1514,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Third(T3 value) =>
         new(valueType: 2, value1: default, value2: default, value3: value, value4: default);
@@ -1377,8 +1526,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fourth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Fourth(T4 value) =>
         new(valueType: 3, value1: default, value2: default, value3: default, value4: value);
@@ -1401,8 +1550,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the four functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the four functions depending on which case is held, and returns
+    ///     its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -1411,9 +1560,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -1455,8 +1604,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
             onFourth: onFourth.ToFunc());
 
     /// <summary>
-    ///     Runs one of the four asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the four asynchronous functions depending on which case is
+    ///     held, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -1465,8 +1614,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -1495,15 +1646,15 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
             onFourth: onFourth.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -1516,15 +1667,15 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
             onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -1537,15 +1688,15 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
             onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -1558,15 +1709,15 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
             onFourth: static v4 => Either.Fourth(v4));
 
     /// <summary>
-    ///     Transforms the value if this holds the fourth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fourth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fourth case becomes.</typeparam>
     /// <param name="f">The function to transform the fourth case with.</param>
     /// <returns>
-    ///     An either whose fourth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fourth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fourth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the fourth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
@@ -1582,8 +1733,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -1597,8 +1748,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -1612,8 +1763,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -1627,8 +1778,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gets the held value if this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T4> TryGetFourth() =>
@@ -1642,12 +1793,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -1661,12 +1812,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -1680,12 +1831,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -1699,12 +1850,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     Gives true when this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fourth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fourth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFourth() =>
@@ -1751,44 +1902,56 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the fourth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fourth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fourth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fourth</c>.
+    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fourth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4>(Either.EitherFourth<T4> value) => Fourth(value.Value);
 
@@ -1798,8 +1961,8 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4> x, Either<T1, T2, T3, T4> y) =>
         x.valueType == y.valueType
@@ -1812,27 +1975,29 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2, T3, T4> x, Either<T1, T2, T3, T4> y) => !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4> e && this == e;
 
@@ -1841,12 +2006,14 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4> other) => this == other;
@@ -1906,12 +2073,13 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
 /// <typeparam name="T4">The type of the fourth possibility.</typeparam>
 /// <typeparam name="T5">The type of the fifth possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the five cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the five cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1942,8 +2110,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> First(T1 value) =>
         new(
@@ -1960,8 +2128,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Second(T2 value) =>
         new(
@@ -1978,8 +2146,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Third(T3 value) =>
         new(
@@ -1996,8 +2164,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fourth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Fourth(T4 value) =>
         new(
@@ -2014,8 +2182,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fifth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Fifth(T5 value) =>
         new(
@@ -2046,8 +2214,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the five functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the five functions depending on which case is held, and returns
+    ///     its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -2057,9 +2225,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -2106,8 +2274,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: onFifth.ToFunc());
 
     /// <summary>
-    ///     Runs one of the five asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the five asynchronous functions depending on which case is
+    ///     held, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -2117,8 +2285,10 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -2151,15 +2321,15 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: onFifth.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -2173,15 +2343,15 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -2195,15 +2365,15 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -2217,15 +2387,15 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
-    ///     Transforms the value if this holds the fourth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fourth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fourth case becomes.</typeparam>
     /// <param name="f">The function to transform the fourth case with.</param>
     /// <returns>
-    ///     An either whose fourth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fourth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fourth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the fourth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
@@ -2239,15 +2409,15 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
             onFifth: static v5 => Either.Fifth(v5));
 
     /// <summary>
-    ///     Transforms the value if this holds the fifth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fifth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fifth case becomes.</typeparam>
     /// <param name="f">The function to transform the fifth case with.</param>
     /// <returns>
-    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fifth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the fifth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
@@ -2264,8 +2434,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -2280,8 +2450,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -2296,8 +2466,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -2312,8 +2482,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gets the held value if this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T4> TryGetFourth() =>
@@ -2328,8 +2498,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gets the held value if this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T5> TryGetFifth() =>
@@ -2344,12 +2514,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -2364,12 +2534,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -2384,12 +2554,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -2404,12 +2574,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gives true when this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fourth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fourth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFourth() =>
@@ -2424,12 +2594,12 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     Gives true when this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fifth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fifth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFifth() =>
@@ -2483,55 +2653,70 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherSecond<T2> value) => Second(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the fourth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fourth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fourth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fourth</c>.
+    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fourth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFourth<T4> value) => Fourth(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the fifth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fifth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fifth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fifth</c>.
+    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fifth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5>(Either.EitherFifth<T5> value) => Fifth(value.Value);
 
@@ -2541,8 +2726,8 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5> x, Either<T1, T2, T3, T4, T5> y) =>
         x.valueType == y.valueType
@@ -2556,27 +2741,29 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2, T3, T4, T5> x, Either<T1, T2, T3, T4, T5> y) => !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5> e && this == e;
 
@@ -2585,12 +2772,14 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5> other) => this == other;
@@ -2657,12 +2846,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
 /// <typeparam name="T5">The type of the fifth possibility.</typeparam>
 /// <typeparam name="T6">The type of the sixth possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the six cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the six cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -2695,8 +2885,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> First(T1 value) =>
         new(
@@ -2714,8 +2904,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Second(T2 value) =>
         new(
@@ -2733,8 +2923,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Third(T3 value) =>
         new(
@@ -2752,8 +2942,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fourth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Fourth(T4 value) =>
         new(
@@ -2771,8 +2961,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fifth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Fifth(T5 value) =>
         new(
@@ -2790,8 +2980,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its sixth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Sixth(T6 value) =>
         new(
@@ -2825,8 +3015,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the six functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the six functions depending on which case is held, and returns
+    ///     its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -2837,9 +3027,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -2891,8 +3081,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: onSixth.ToFunc());
 
     /// <summary>
-    ///     Runs one of the six asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the six asynchronous functions depending on which case is held,
+    ///     and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -2903,8 +3093,10 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -2947,15 +3139,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: onSixth.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -2970,15 +3162,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -2993,15 +3185,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -3016,15 +3208,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
-    ///     Transforms the value if this holds the fourth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fourth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fourth case becomes.</typeparam>
     /// <param name="f">The function to transform the fourth case with.</param>
     /// <returns>
-    ///     An either whose fourth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fourth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fourth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the fourth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
@@ -3039,15 +3231,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
-    ///     Transforms the value if this holds the fifth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fifth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fifth case becomes.</typeparam>
     /// <param name="f">The function to transform the fifth case with.</param>
     /// <returns>
-    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fifth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the fifth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
@@ -3062,15 +3254,15 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
             onSixth: static v6 => Either.Sixth(v6));
 
     /// <summary>
-    ///     Transforms the value if this holds the sixth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the sixth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the sixth case becomes.</typeparam>
     /// <param name="f">The function to transform the sixth case with.</param>
     /// <returns>
-    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the sixth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the sixth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
@@ -3088,8 +3280,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -3105,8 +3297,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -3122,8 +3314,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -3139,8 +3331,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T4> TryGetFourth() =>
@@ -3156,8 +3348,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T5> TryGetFifth() =>
@@ -3173,8 +3365,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gets the held value if this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T6> TryGetSixth() =>
@@ -3190,12 +3382,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -3211,12 +3403,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -3232,12 +3424,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -3253,12 +3445,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fourth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fourth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFourth() =>
@@ -3274,12 +3466,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fifth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fifth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFifth() =>
@@ -3295,12 +3487,12 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     Gives true when this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the sixth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the sixth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSixth() =>
@@ -3366,22 +3558,28 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFirst<T1> value) => First(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSecond<T2> value) =>
         Second(value.Value);
@@ -3389,22 +3587,28 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherThird<T3> value) => Third(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the fourth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fourth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fourth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fourth</c>.
+    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fourth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFourth<T4> value) =>
         Fourth(value.Value);
@@ -3412,22 +3616,28 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <summary>
     ///     Changes a value marked for the fifth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fifth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fifth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fifth</c>.
+    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fifth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherFifth<T5> value) => Fifth(value.Value);
 
     /// <summary>
     ///     Changes a value marked for the sixth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Sixth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Sixth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement for this type's own
-    ///     <c>Sixth</c>.
+    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement
+    ///     for this type's own <c>Sixth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6>(Either.EitherSixth<T6> value) => Sixth(value.Value);
 
@@ -3437,8 +3647,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5, T6> x, Either<T1, T2, T3, T4, T5, T6> y) =>
         x.valueType == y.valueType
@@ -3453,27 +3663,29 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2, T3, T4, T5, T6> x, Either<T1, T2, T3, T4, T5, T6> y) => !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6> e && this == e;
 
@@ -3482,12 +3694,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6> other) => this == other;
@@ -3561,12 +3775,13 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
 /// <typeparam name="T6">The type of the sixth possibility.</typeparam>
 /// <typeparam name="T7">The type of the seventh possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the seven cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the seven cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -3601,8 +3816,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> First(T1 value) =>
         new(
@@ -3621,8 +3836,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Second(T2 value) =>
         new(
@@ -3641,8 +3856,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Third(T3 value) =>
         new(
@@ -3661,8 +3876,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fourth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Fourth(T4 value) =>
         new(
@@ -3681,8 +3896,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fifth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Fifth(T5 value) =>
         new(
@@ -3701,8 +3916,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its sixth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Sixth(T6 value) =>
         new(
@@ -3721,8 +3936,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its seventh case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Seventh{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Seventh{T}" /> is usually more convenient, since it
+    ///     leaves the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Seventh(T7 value) =>
         new(
@@ -3759,8 +3974,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the seven functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the seven functions depending on which case is held, and
+    ///     returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -3772,9 +3987,9 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -3831,8 +4046,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: onSeventh.ToFunc());
 
     /// <summary>
-    ///     Runs one of the seven asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the seven asynchronous functions depending on which case is
+    ///     held, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -3844,8 +4059,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -3893,15 +4110,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: onSeventh.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -3917,15 +4134,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -3941,15 +4158,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -3965,15 +4182,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the fourth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fourth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fourth case becomes.</typeparam>
     /// <param name="f">The function to transform the fourth case with.</param>
     /// <returns>
-    ///     An either whose fourth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fourth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fourth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the fourth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
@@ -3989,15 +4206,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the fifth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fifth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fifth case becomes.</typeparam>
     /// <param name="f">The function to transform the fifth case with.</param>
     /// <returns>
-    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fifth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the fifth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
@@ -4013,15 +4230,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the sixth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the sixth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the sixth case becomes.</typeparam>
     /// <param name="f">The function to transform the sixth case with.</param>
     /// <returns>
-    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the sixth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the sixth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
@@ -4037,15 +4254,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
             onSeventh: static v7 => Either.Seventh(v7));
 
     /// <summary>
-    ///     Transforms the value if this holds the seventh case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the seventh case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the seventh case becomes.</typeparam>
     /// <param name="f">The function to transform the seventh case with.</param>
     /// <returns>
-    ///     An either whose seventh case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the seventh case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose seventh case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the seventh case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the seventh case.
@@ -4064,8 +4281,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -4082,8 +4299,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -4100,8 +4317,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -4118,8 +4335,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T4> TryGetFourth() =>
@@ -4136,8 +4353,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T5> TryGetFifth() =>
@@ -4154,8 +4371,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T6> TryGetSixth() =>
@@ -4172,8 +4389,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gets the held value if this holds the seventh case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T7> TryGetSeventh() =>
@@ -4190,12 +4407,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -4212,12 +4429,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -4234,12 +4451,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -4256,12 +4473,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fourth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fourth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFourth() =>
@@ -4278,12 +4495,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fifth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fifth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFifth() =>
@@ -4300,12 +4517,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the sixth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the sixth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSixth() =>
@@ -4322,12 +4539,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     Gives true when this holds the seventh case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the seventh case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the seventh case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSeventh" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSeventh" />, or <c>Match</c>
+    ///     to handle each case.
     /// </remarks>
     [Pure]
     public bool IsSeventh() =>
@@ -4400,11 +4617,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFirst<T1> value) =>
         First(value.Value);
@@ -4412,11 +4632,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSecond<T2> value) =>
         Second(value.Value);
@@ -4424,11 +4647,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherThird<T3> value) =>
         Third(value.Value);
@@ -4436,11 +4662,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the fourth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fourth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fourth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fourth</c>.
+    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fourth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFourth<T4> value) =>
         Fourth(value.Value);
@@ -4448,11 +4677,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the fifth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fifth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fifth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fifth</c>.
+    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fifth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherFifth<T5> value) =>
         Fifth(value.Value);
@@ -4460,23 +4692,30 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <summary>
     ///     Changes a value marked for the sixth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Sixth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Sixth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement for this type's own
-    ///     <c>Sixth</c>.
+    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement
+    ///     for this type's own <c>Sixth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSixth<T6> value) =>
         Sixth(value.Value);
 
     /// <summary>
-    ///     Changes a value marked for the seventh position into an either of this type.
+    ///     Changes a value marked for the seventh position into an either of this
+    ///     type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Seventh{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Seventh{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its seventh case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Seventh{T}" /> usable as a replacement for this type's own
-    ///     <c>Seventh</c>.
+    ///     This is what makes <see cref="Either.Seventh{T}" /> usable as a replacement
+    ///     for this type's own <c>Seventh</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7>(Either.EitherSeventh<T7> value) =>
         Seventh(value.Value);
@@ -4487,8 +4726,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(Either<T1, T2, T3, T4, T5, T6, T7> x, Either<T1, T2, T3, T4, T5, T6, T7> y) =>
         x.valueType == y.valueType
@@ -4504,28 +4743,30 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(Either<T1, T2, T3, T4, T5, T6, T7> x, Either<T1, T2, T3, T4, T5, T6, T7> y) =>
         !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7> e && this == e;
 
@@ -4534,12 +4775,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7> other) => this == other;
@@ -4620,12 +4863,13 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
 /// <typeparam name="T7">The type of the seventh possibility.</typeparam>
 /// <typeparam name="T8">The type of the eighth possibility.</typeparam>
 /// <remarks>
-///     A discriminated union. The value is one of the eight cases. Which one it is is part
-///     of the value, and not something the caller must monitor next to it.
+///     A discriminated union. The value is one of the eight cases. Which one it is
+///     is part of the value, and not something the caller must monitor next to it.
 ///     There is no property that hands the value out unchecked. Read it with
-///     <c>Match</c>, or with one of the helpers on it, thus the code must answer each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It holds the
-///     first case, with the default value of <typeparamref name="T1" />.
+///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
+///     each case.
+///     This is a struct, so <see langword="default" /> is a correct instance. It
+///     holds the first case, with the default value of <typeparamref name="T1" />.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -4672,8 +4916,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its first case.</returns>
     /// <remarks>
-    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> First(T1 value) =>
         new(
@@ -4693,8 +4937,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its second case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Second(T2 value) =>
         new(
@@ -4714,8 +4958,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its third case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Third{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Third(T3 value) =>
         new(
@@ -4735,8 +4979,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fourth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fourth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Fourth(T4 value) =>
         new(
@@ -4756,8 +5000,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its fifth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Fifth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Fifth(T5 value) =>
         new(
@@ -4777,8 +5021,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its sixth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Sixth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Sixth(T6 value) =>
         new(
@@ -4798,8 +5042,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its seventh case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Seventh{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Seventh{T}" /> is usually more convenient, since it
+    ///     leaves the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Seventh(T7 value) =>
         new(
@@ -4819,8 +5063,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="value">The value to hold.</param>
     /// <returns>An either holding <paramref name="value" /> as its eighth case.</returns>
     /// <remarks>
-    ///     <see cref="Either.Eighth{T}" /> is usually more convenient, since it leaves the
-    ///     remaining type arguments for the context to supply.
+    ///     <see cref="Either.Eighth{T}" /> is usually more convenient, since it leaves
+    ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Eighth(T8 value) =>
         new(
@@ -4860,8 +5104,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
     /// <summary>
-    ///     Runs one of the eight functions depending on which case is held, and returns its
-    ///     result.
+    ///     Runs one of the eight functions depending on which case is held, and
+    ///     returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions returns.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -4874,9 +5118,9 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each other member
-    ///     here. This calls one function of the set, and it calls that function
-    ///     before this method returns.
+    ///     This is the only member that reads the held value, and it expresses each
+    ///     other member here. This calls one function of the set, and it calls that
+    ///     function before this method returns.
     /// </remarks>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
@@ -4938,8 +5182,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: onEighth.ToFunc());
 
     /// <summary>
-    ///     Runs one of the eight asynchronous functions depending on which case is held, and
-    ///     returns its result.
+    ///     Runs one of the eight asynchronous functions depending on which case is
+    ///     held, and returns its result.
     /// </summary>
     /// <typeparam name="T">The type each of the functions produces.</typeparam>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
@@ -4952,8 +5196,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -5006,15 +5252,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: onEighth.ToAsyncFunc());
 
     /// <summary>
-    ///     Transforms the value if this holds the first case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the first case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the first case becomes.</typeparam>
     /// <param name="f">The function to transform the first case with.</param>
     /// <returns>
-    ///     An either whose first case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the first case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose first case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the first case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the first case.
@@ -5031,15 +5277,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the second case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the second case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the second case becomes.</typeparam>
     /// <param name="f">The function to transform the second case with.</param>
     /// <returns>
-    ///     An either whose second case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the second case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose second case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the second case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the second case.
@@ -5056,15 +5302,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the third case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the third case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the third case becomes.</typeparam>
     /// <param name="f">The function to transform the third case with.</param>
     /// <returns>
-    ///     An either whose third case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the third case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose third case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the third case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the third case.
@@ -5081,15 +5327,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the fourth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fourth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fourth case becomes.</typeparam>
     /// <param name="f">The function to transform the fourth case with.</param>
     /// <returns>
-    ///     An either whose fourth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fourth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fourth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the fourth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
@@ -5106,15 +5352,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the fifth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the fifth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the fifth case becomes.</typeparam>
     /// <param name="f">The function to transform the fifth case with.</param>
     /// <returns>
-    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the fifth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose fifth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the fifth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
@@ -5131,15 +5377,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the sixth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the sixth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the sixth case becomes.</typeparam>
     /// <param name="f">The function to transform the sixth case with.</param>
     /// <returns>
-    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the sixth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose sixth case has type <typeparamref name="T" />. It holds the
+    ///     result of <paramref name="f" /> if this held the sixth case, and otherwise
+    ///     the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
@@ -5156,15 +5402,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the seventh case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the seventh case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the seventh case becomes.</typeparam>
     /// <param name="f">The function to transform the seventh case with.</param>
     /// <returns>
-    ///     An either whose seventh case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the seventh case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose seventh case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the seventh case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the seventh case.
@@ -5181,15 +5427,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             onEighth: static v8 => Either.Eighth(v8));
 
     /// <summary>
-    ///     Transforms the value if this holds the eighth case, and passes each other case
-    ///     through unchanged.
+    ///     Transforms the value if this holds the eighth case, and passes each other
+    ///     case through unchanged.
     /// </summary>
     /// <typeparam name="T">The type that the eighth case becomes.</typeparam>
     /// <param name="f">The function to transform the eighth case with.</param>
     /// <returns>
-    ///     An either whose eighth case has type <typeparamref name="T" />. It holds the result of
-    ///     <paramref name="f" /> if this held the eighth case, and otherwise the same case and
-    ///     value as this.
+    ///     An either whose eighth case has type <typeparamref name="T" />. It holds
+    ///     the result of <paramref name="f" /> if this held the eighth case, and
+    ///     otherwise the same case and value as this.
     /// </returns>
     /// <remarks>
     ///     This calls <paramref name="f" /> only when this holds the eighth case.
@@ -5209,8 +5455,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the first case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the first
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T1> TryGetFirst() =>
@@ -5228,8 +5474,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the second case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the second
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T2> TryGetSecond() =>
@@ -5247,8 +5493,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the third case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the third
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T3> TryGetThird() =>
@@ -5266,8 +5512,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fourth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T4> TryGetFourth() =>
@@ -5285,8 +5531,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the fifth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T5> TryGetFifth() =>
@@ -5304,8 +5550,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the sixth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T6> TryGetSixth() =>
@@ -5323,8 +5569,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the seventh case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the seventh
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T7> TryGetSeventh() =>
@@ -5342,8 +5588,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gets the held value if this holds the eighth case.
     /// </summary>
     /// <returns>
-    ///     A <see cref="Maybe{T}" /> containing the value if this holds the eighth case, and
-    ///     containing nothing otherwise.
+    ///     A <see cref="Maybe{T}" /> containing the value if this holds the eighth
+    ///     case, and containing nothing otherwise.
     /// </returns>
     [Pure]
     public Maybe<T8> TryGetEighth() =>
@@ -5361,12 +5607,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the first case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the first case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the first case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFirst" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFirst() =>
@@ -5384,12 +5630,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the second case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the second case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the second case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSecond" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSecond() =>
@@ -5407,12 +5653,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the third case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the third case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the third case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetThird" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsThird() =>
@@ -5430,12 +5676,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the fourth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fourth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fourth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFourth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFourth() =>
@@ -5453,12 +5699,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the fifth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the fifth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the fifth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetFifth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsFifth() =>
@@ -5476,12 +5722,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the sixth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the sixth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the sixth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSixth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsSixth() =>
@@ -5499,12 +5745,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the seventh case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the seventh case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the seventh case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetSeventh" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetSeventh" />, or <c>Match</c>
+    ///     to handle each case.
     /// </remarks>
     [Pure]
     public bool IsSeventh() =>
@@ -5522,12 +5768,12 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     Gives true when this holds the eighth case.
     /// </summary>
     /// <returns>
-    ///     <see langword="true" /> if the eighth case is held, and <see langword="false" />
-    ///     otherwise.
+    ///     <see langword="true" /> if the eighth case is held, and
+    ///     <see langword="false" /> otherwise.
     /// </returns>
     /// <remarks>
-    ///     To also read the value, use <see cref="TryGetEighth" />, or <c>Match</c> to handle
-    ///     each case.
+    ///     To also read the value, use <see cref="TryGetEighth" />, or <c>Match</c> to
+    ///     handle each case.
     /// </remarks>
     [Pure]
     public bool IsEighth() =>
@@ -5607,11 +5853,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the first position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.First{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.First{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its first case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement for this type's own
-    ///     <c>First</c>.
+    ///     This is what makes <see cref="Either.First{T}" /> usable as a replacement
+    ///     for this type's own <c>First</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFirst<T1> value) =>
         First(value.Value);
@@ -5619,11 +5868,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the second position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Second{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Second{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its second case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement for this type's own
-    ///     <c>Second</c>.
+    ///     This is what makes <see cref="Either.Second{T}" /> usable as a replacement
+    ///     for this type's own <c>Second</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSecond<T2> value) =>
         Second(value.Value);
@@ -5631,11 +5883,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the third position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Third{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Third{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its third case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement for this type's own
-    ///     <c>Third</c>.
+    ///     This is what makes <see cref="Either.Third{T}" /> usable as a replacement
+    ///     for this type's own <c>Third</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherThird<T3> value) =>
         Third(value.Value);
@@ -5643,11 +5898,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the fourth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fourth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fourth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fourth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fourth</c>.
+    ///     This is what makes <see cref="Either.Fourth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fourth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFourth<T4> value) =>
         Fourth(value.Value);
@@ -5655,11 +5913,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the fifth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Fifth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Fifth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its fifth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement for this type's own
-    ///     <c>Fifth</c>.
+    ///     This is what makes <see cref="Either.Fifth{T}" /> usable as a replacement
+    ///     for this type's own <c>Fifth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherFifth<T5> value) =>
         Fifth(value.Value);
@@ -5667,23 +5928,30 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the sixth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Sixth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Sixth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its sixth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement for this type's own
-    ///     <c>Sixth</c>.
+    ///     This is what makes <see cref="Either.Sixth{T}" /> usable as a replacement
+    ///     for this type's own <c>Sixth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSixth<T6> value) =>
         Sixth(value.Value);
 
     /// <summary>
-    ///     Changes a value marked for the seventh position into an either of this type.
+    ///     Changes a value marked for the seventh position into an either of this
+    ///     type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Seventh{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Seventh{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its seventh case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Seventh{T}" /> usable as a replacement for this type's own
-    ///     <c>Seventh</c>.
+    ///     This is what makes <see cref="Either.Seventh{T}" /> usable as a replacement
+    ///     for this type's own <c>Seventh</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherSeventh<T7> value) =>
         Seventh(value.Value);
@@ -5691,11 +5959,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Changes a value marked for the eighth position into an either of this type.
     /// </summary>
-    /// <param name="value">The marked value, as produced by <see cref="Either.Eighth{T}" />.</param>
+    /// <param name="value">
+    ///     The marked value, as produced by
+    ///     <see cref="Either.Eighth{T}" />.
+    /// </param>
     /// <returns>An either holding that value as its eighth case.</returns>
     /// <remarks>
-    ///     This is what makes <see cref="Either.Eighth{T}" /> usable as a replacement for this type's own
-    ///     <c>Eighth</c>.
+    ///     This is what makes <see cref="Either.Eighth{T}" /> usable as a replacement
+    ///     for this type's own <c>Eighth</c>.
     /// </remarks>
     public static implicit operator Either<T1, T2, T3, T4, T5, T6, T7, T8>(Either.EitherEighth<T8> value) =>
         Eighth(value.Value);
@@ -5706,8 +5977,8 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold the same case and the values they hold are
-    ///     equal according to <see cref="EqualityComparer{T}.Default" />.
+    ///     <see langword="true" /> if the two hold the same case and the values they
+    ///     hold are equal according to <see cref="EqualityComparer{T}.Default" />.
     /// </returns>
     public static bool operator ==(
         Either<T1, T2, T3, T4, T5, T6, T7, T8> x,
@@ -5726,13 +5997,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     /// <summary>
-    ///     Gives true when two instances are different. This negates <see cref="op_Equality" />.
+    ///     Gives true when two instances are different. This negates
+    ///     <see cref="op_Equality" />.
     /// </summary>
     /// <param name="x">The first instance.</param>
     /// <param name="y">The second instance.</param>
     /// <returns>
-    ///     <see langword="true" /> if the two hold different cases, or hold the same case with
-    ///     values which are not equal.
+    ///     <see langword="true" /> if the two hold different cases, or hold the same
+    ///     case with values which are not equal.
     /// </returns>
     public static bool operator !=(
         Either<T1, T2, T3, T4, T5, T6, T7, T8> x,
@@ -5740,16 +6012,17 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         !(x == y);
 
     /// <summary>
-    ///     Gives true when the given object is an either of this same type which is equal to
-    ///     this one.
+    ///     Gives true when the given object is an either of this same type which is
+    ///     equal to this one.
     /// </summary>
     /// <param name="obj">The object to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same type which
-    ///     <see cref="op_Equality" /> considers equal to this one.
+    ///     <see langword="true" /> if <paramref name="obj" /> is an either of the same
+    ///     type which <see cref="op_Equality" /> considers equal to this one.
     /// </returns>
     /// <remarks>
-    ///     An either is never equal to the bare value it holds, only to a second either.
+    ///     An either is never equal to the bare value it holds, only to a second
+    ///     either.
     /// </remarks>
     public override bool Equals(object? obj) => obj is Either<T1, T2, T3, T4, T5, T6, T7, T8> e && this == e;
 
@@ -5758,12 +6031,14 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </summary>
     /// <param name="other">The instance to compare against.</param>
     /// <returns>
-    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two equal.
+    ///     <see langword="true" /> if <see cref="op_Equality" /> considers the two
+    ///     equal.
     /// </returns>
     /// <remarks>
     ///     The same compare as <see cref="op_Equality" />, with the name that
-    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of these in a
-    ///     collection does not box the two operands, as <see cref="Equals(object)" /> must.
+    ///     <see cref="EqualityComparer{T}.Default" /> looks for. Thus, a compare of
+    ///     these in a collection does not box the two operands, as
+    ///     <see cref="Equals(object)" /> must.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public bool Equals(Either<T1, T2, T3, T4, T5, T6, T7, T8> other) => this == other;

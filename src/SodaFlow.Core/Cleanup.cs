@@ -19,9 +19,10 @@ public sealed class Cleanup
     /// </summary>
     /// <param name="cleanup">The action to run when this object becomes unreachable.</param>
     /// <remarks>
-    ///     This is finalization and not disposal. The action runs at a time that the garbage
-    ///     collector selects. To run it at a known time, call <c>CleanupNow</c>. For an object
-    ///     that must be released immediately, use <see cref="System.IDisposable" />.
+    ///     This is finalization and not disposal. The action runs at a time that the
+    ///     garbage collector selects. To run it at a known time, call
+    ///     <c>CleanupNow</c>. For an object that must be released immediately, use
+    ///     <see cref="System.IDisposable" />.
     /// </remarks>
     public Cleanup(Action cleanup)
     {

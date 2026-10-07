@@ -530,8 +530,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A predicate cell on the identity names what entered and what left when it changes, and
-    ///     a state edit after that change still does not test the predicate again.
+    ///     A predicate cell on the identity names what entered and what left when it
+    ///     changes, and a state edit after that change still does not test the
+    ///     predicate again.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFollowsAChangingPredicate()
@@ -587,8 +588,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A criteria cell with a predicate on the identity narrows as the criteria change, and a
-    ///     state edit cannot move a key into the view.
+    ///     A criteria cell with a predicate on the identity narrows as the criteria
+    ///     change, and a state edit cannot move a key into the view.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFollowsChangingCriteria()
@@ -660,10 +661,11 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A state edit cannot move a key into an identity filter or out of it, and it can move a
-    ///     key in that filter. The filter keeps the order of its upstream collection, and an
-    ///     upstream that sorts on the state moves keys at a state edit. This stage must follow that
-    ///     move and must report its own positions, and not the positions of the upstream.
+    ///     A state edit cannot move a key into an identity filter or out of it, and it
+    ///     can move a key in that filter. The filter keeps the order of its upstream
+    ///     collection, and an upstream that sorts on the state moves keys at a state
+    ///     edit. This stage must follow that move and must report its own positions,
+    ///     and not the positions of the upstream.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFollowsAMoveInAStateOrderAboveIt()
@@ -774,8 +776,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     An update that moves no key changes the sort value of that key. A filter that only sends
-    ///     the update on keeps the previous value, and sorts the next arrival against it.
+    ///     An update that moves no key changes the sort value of that key. A filter
+    ///     that only sends the update on keeps the previous value, and sorts the next
+    ///     arrival against it.
     /// </summary>
     [Test]
     public async Task FilterByIdentityFilesTheNextArrivalAgainstAnUpdatedSortValue()
@@ -2056,11 +2059,11 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A stage builds again, and does not change its keys incrementally, when a change costs
-    ///     more operations than a new build. The limit needs a minimum value. A limit from the size
-    ///     of the stage alone is zero for an empty stage, and the first operation then causes a new
-    ///     build. For a filter that is a test of the full upstream, and a reset for each stage
-    ///     below.
+    ///     A stage builds again, and does not change its keys incrementally, when a
+    ///     change costs more operations than a new build. The limit needs a minimum
+    ///     value. A limit from the size of the stage alone is zero for an empty stage,
+    ///     and the first operation then causes a new build. For a filter that is a
+    ///     test of the full upstream, and a reset for each stage below.
     /// </summary>
     [Test]
     public async Task OneItemEnteringAnEmptyFilterIsReportedAsAnInsert()
@@ -2106,7 +2109,10 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(highScores)).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
     }
 
-    /// <summary>The same floor, at the other end: the first item ever added to a collection.</summary>
+    /// <summary>
+    ///     The same floor, at the other end: the first item ever added to a
+    ///     collection.
+    /// </summary>
     [Test]
     public async Task TheFirstItemAddedToAnEmptyCollectionIsReportedAsAnInsert()
     {
@@ -2134,8 +2140,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     Five thousand items with the scores 1 to 5,000. Each test of the limit starts from
-    ///     them.
+    ///     Five thousand items with the scores 1 to 5,000. Each test of the limit
+    ///     starts from them.
     /// </summary>
     private static ReactiveCollection<int, ItemIdentity, ItemState> FiveThousand(
         Stream<CollectionEdit<int, ItemIdentity, ItemState>> edits) =>
@@ -2158,7 +2164,10 @@ public sealed class CollectionViewTests
             adds: [],
             removes: []);
 
-    /// <summary>Records if each change from a view is a reset, and records its operations.</summary>
+    /// <summary>
+    ///     Records if each change from a view is a reset, and records its
+    ///     operations.
+    /// </summary>
     private static (List<bool> Resets, List<string> Kinds, IListener Listener) Record(
         ReactiveCollection<int, ItemIdentity, ItemState> view)
     {
@@ -2179,10 +2188,11 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A limit counts the work that a change costs a stage, and not the number of keys in that
-    ///     change. The root uses the order of arrival, and a state edit cannot move a key in that
-    ///     order. Thus, an update costs the root one lookup. Three thousand updates, which is far
-    ///     above its limit of 1,000, come as a list of operations and not as a reset.
+    ///     A limit counts the work that a change costs a stage, and not the number of
+    ///     keys in that change. The root uses the order of arrival, and a state edit
+    ///     cannot move a key in that order. Thus, an update costs the root one lookup.
+    ///     Three thousand updates, which is far above its limit of 1,000, come as a
+    ///     list of operations and not as a reset.
     /// </summary>
     [Test]
     public async Task TheRootListsALargeEditThatOnlyUpdates()
@@ -2206,9 +2216,10 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     This is the condition that causes the rule: a large update to items that a filter does
-    ///     not show. The filter omits each one, thus no change comes to the stages below it. A
-    ///     reset at the root makes each stage below build again.
+    ///     This is the condition that causes the rule: a large update to items that a
+    ///     filter does not show. The filter omits each one, thus no change comes to
+    ///     the stages below it. A reset at the root makes each stage below build
+    ///     again.
     /// </summary>
     [Test]
     public async Task ALargeUpdateToItemsAFilterDoesNotShowReachesNothingBelowIt()
@@ -2240,9 +2251,10 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The order of a filter is the order of its upstream collection, and a state edit cannot
-    ///     move a key in the order of the root. Thus, an update to an item that the filter shows also
-    ///     costs one lookup, and the change comes as a list of operations and not as a reset.
+    ///     The order of a filter is the order of its upstream collection, and a state
+    ///     edit cannot move a key in the order of the root. Thus, an update to an item
+    ///     that the filter shows also costs one lookup, and the change comes as a list
+    ///     of operations and not as a reset.
     /// </summary>
     [Test]
     public async Task AFilterListsALargeUpdateToItemsItShowsInAnOrderThatCannotMoveThem()
@@ -2274,9 +2286,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The same applies to a sort whose own order a state edit cannot move, when the change
-    ///     also holds an add. Such a change does not use the short path of a change with only
-    ///     updates.
+    ///     The same applies to a sort whose own order a state edit cannot move, when
+    ///     the change also holds an add. Such a change does not use the short path of
+    ///     a change with only updates.
     /// </summary>
     [Test]
     public async Task ASortByKeyListsALargeUpdateThatArrivesWithAnInsert()
@@ -2304,9 +2316,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     Where a state edit costs work in a tree, which is a sort in an order that reads the
-    ///     state, the limit applies. A change above that limit causes a new build and not a list of
-    ///     operations.
+    ///     Where a state edit costs work in a tree, which is a sort in an order that
+    ///     reads the state, the limit applies. A change above that limit causes a new
+    ///     build and not a list of operations.
     /// </summary>
     [Test]
     public async Task ASortByStateStillResetsOnALargeUpdateItHasToReFile()
@@ -2332,8 +2344,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     The limit applies. A change whose list of operations costs more than a new build comes
-    ///     as a reset, with no operations to apply.
+    ///     The limit applies. A change whose list of operations costs more than a new
+    ///     build comes as a reset, with no operations to apply.
     /// </summary>
     [Test]
     public async Task AChangeLargerThanTheBudgetIsReportedAsAReset()
@@ -2371,9 +2383,9 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A change of the predicate names the keys that entered and the keys that left, and it is
-    ///     not a reset. Thus, a consumer can move the rows that it has and does not build the list
-    ///     again.
+    ///     A change of the predicate names the keys that entered and the keys that
+    ///     left, and it is not a reset. Thus, a consumer can move the rows that it has
+    ///     and does not build the list again.
     /// </summary>
     [Test]
     public async Task ChangingThePredicateNamesWhatEnteredAndLeft()
@@ -2421,7 +2433,10 @@ public sealed class CollectionViewTests
         l.Unlisten();
     }
 
-    /// <summary>A predicate that gives the same answers for the collection is no change.</summary>
+    /// <summary>
+    ///     A predicate that gives the same answers for the collection is no
+    ///     change.
+    /// </summary>
     [Test]
     public async Task ChangingThePredicateToOneThatChoosesTheSameItemsReportsNothing()
     {
@@ -2455,8 +2470,8 @@ public sealed class CollectionViewTests
     }
 
     /// <summary>
-    ///     A stage below the filter gets the same change: operations to apply, and not a reset that
-    ///     tells it to build again.
+    ///     A stage below the filter gets the same change: operations to apply, and not
+    ///     a reset that tells it to build again.
     /// </summary>
     [Test]
     public async Task AStageBelowAPredicateChangeIsNotResetEither()
@@ -2499,10 +2514,16 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
-    /// <summary>A key with no order of its own, which the collection has to list without comparing.</summary>
+    /// <summary>
+    ///     A key with no order of its own, which the collection has to list
+    ///     without comparing.
+    /// </summary>
     private sealed record Handle(int Number);
 
-    /// <summary>Answers with int.MinValue and int.MaxValue rather than -1 and 1, which is allowed.</summary>
+    /// <summary>
+    ///     Answers with int.MinValue and int.MaxValue rather than -1 and 1, which
+    ///     is allowed.
+    /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class ExtremeComparer : IComparer<int>
     {

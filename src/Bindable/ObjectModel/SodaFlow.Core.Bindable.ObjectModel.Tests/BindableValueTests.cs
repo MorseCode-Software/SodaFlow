@@ -13,9 +13,10 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
 ///     Tests the three bindable values. Each test runs with
-///     <see cref="BindingScheduler.Immediate" />, which shows a notification with no
-///     dispatcher. It gives the same sequence as a scheduler on a dispatcher, because it defers to
-///     the end of the current transaction as that scheduler does.
+///     <see cref="BindingScheduler.Immediate" />, which shows a notification with
+///     no dispatcher. It gives the same sequence as a scheduler on a dispatcher,
+///     because it defers to the end of the current transaction as that scheduler
+///     does.
 /// </summary>
 public sealed class BindableValueTests
 {

@@ -2,7 +2,10 @@ using System.Collections.Generic;
 
 namespace SodaFlow.Collections.Tests;
 
-/// <summary>The immutable part of a test item. The key is its <see cref="Number" />.</summary>
+/// <summary>
+///     The immutable part of a test item. The key is its
+///     <see cref="Number" />.
+/// </summary>
 internal sealed record ItemIdentity(int Number, string Code);
 
 /// <summary>The mutable part of a test item.</summary>
@@ -26,7 +29,10 @@ internal static class TestUtil
     internal static CollectionEdit<int, ItemIdentity, ItemState> Score(int key, int score) =>
         CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: state => state with { Score = score });
 
-    /// <summary>An edit that leaves the sort value alone, so nothing can move because of it.</summary>
+    /// <summary>
+    ///     An edit that leaves the sort value alone, so nothing can move because
+    ///     of it.
+    /// </summary>
     internal static CollectionEdit<int, ItemIdentity, ItemState> Rename(int key, string name) =>
         CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: state => state with { Name = name });
 

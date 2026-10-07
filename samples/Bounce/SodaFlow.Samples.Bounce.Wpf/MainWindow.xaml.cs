@@ -1,9 +1,9 @@
 namespace SodaFlow.Samples.Bounce.Wpf;
 
 /// <summary>
-///     This holds only markup. <see cref="App" /> gives the data context before this window
-///     shows, thus the full WPF part of the sample is the XAML adjacent to this file and
-///     <see cref="SceneView" />.
+///     This holds only markup. <see cref="App" /> gives the data context before
+///     this window shows, thus the full WPF part of the sample is the XAML
+///     adjacent to this file and <see cref="SceneView" />.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed partial class MainWindow

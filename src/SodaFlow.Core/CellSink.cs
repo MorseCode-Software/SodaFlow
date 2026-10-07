@@ -4,9 +4,9 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A cell that lets a caller send values into it. It connects the world of I/O to the world of
-///     FRP. Code that supplies a <see cref="CellSink{T}" /> for read access only must downcast it
-///     to <see cref="Cell{T}" />.
+///     A cell that lets a caller send values into it. It connects the world of I/O
+///     to the world of FRP. Code that supplies a <see cref="CellSink{T}" /> for
+///     read access only must downcast it to <see cref="Cell{T}" />.
 /// </summary>
 /// <typeparam name="T">The type of values in the cell sink.</typeparam>
 [PublicAPI]

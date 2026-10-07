@@ -8,11 +8,12 @@ namespace SodaFlow.Functional;
 ///     Extension methods for basic type conversion helpers.
 /// </summary>
 /// <remarks>
-///     C# splits what is one idea in a functional language into two: <see cref="System.Action" />
-///     and <see cref="System.Func{TResult}" />. Thus, anything with a function parameter
-///     accepts no action. These conversions remove that difference, thus one implementation
-///     taking a function can serve the two - which is how, for instance,
-///     <c>Maybe&lt;T&gt;.Match</c> expresses <c>Maybe&lt;T&gt;.MatchVoid</c>.
+///     C# splits what is one idea in a functional language into two:
+///     <see cref="System.Action" /> and <see cref="System.Func{TResult}" />. Thus,
+///     anything with a function parameter accepts no action. These conversions
+///     remove that difference, thus one implementation taking a function can serve
+///     the two - which is how, for instance, <c>Maybe&lt;T&gt;.Match</c> expresses
+///     <c>Maybe&lt;T&gt;.MatchVoid</c>.
 /// </remarks>
 [PublicAPI]
 public static class UnitExtensionMethods
@@ -24,28 +25,28 @@ public static class UnitExtensionMethods
     /// <param name="o">The value to discard.</param>
     /// <returns><see cref="Unit.Value" />.</returns>
     /// <remarks>
-    ///     For deliberately throwing away a result, where saying so is clearer than letting the
-    ///     expression operate on its own.
+    ///     For deliberately throwing away a result, where saying so is clearer than
+    ///     letting the expression operate on its own.
     /// </remarks>
     public static Unit Ignore<T>(this T o) => Unit.Value;
 
     /// <summary>
-    ///     Gives the value as the given type. This names the target type, where type inference gives
-    ///     the type of the value.
+    ///     Gives the value as the given type. This names the target type, where type
+    ///     inference gives the type of the value.
     /// </summary>
     /// <typeparam name="T">The type to view the value as.</typeparam>
     /// <param name="o">The value.</param>
     /// <returns>The same value, typed as <typeparamref name="T" />.</returns>
     /// <remarks>
-    ///     This changes nothing. It only changes the static type. Used here to get to an explicit
-    ///     interface implementation - <c>this.Upcast&lt;IMaybe&gt;()</c> - without a cast
-    ///     expression and the parentheses that come with it.
+    ///     This changes nothing. It only changes the static type. Used here to get to
+    ///     an explicit interface implementation - <c>this.Upcast&lt;IMaybe&gt;()</c> -
+    ///     without a cast expression and the parentheses that come with it.
     /// </remarks>
     public static T Upcast<T>(this T o) => o;
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <param name="action">The action to change.</param>
     /// <returns>
@@ -53,8 +54,8 @@ public static class UnitExtensionMethods
     ///     <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<Unit> ToFunc(this Action action) =>
         () =>
@@ -64,18 +65,18 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T">The type of the argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its argument and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its argument and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T, Unit> ToFunc<T>(this Action<T> action) =>
         v =>
@@ -85,19 +86,19 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, Unit> ToFunc<T1, T2>(this Action<T1, T2> action) =>
         (v1, v2) =>
@@ -107,20 +108,20 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
     /// <typeparam name="T3">The type of the third argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, Unit> ToFunc<T1, T2, T3>(this Action<T1, T2, T3> action) =>
         (v1, v2, v3) =>
@@ -130,8 +131,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -139,12 +140,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T4">The type of the fourth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, Unit> ToFunc<T1, T2, T3, T4>(this Action<T1, T2, T3, T4> action) =>
         (v1, v2, v3, v4) =>
@@ -154,8 +155,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -164,12 +165,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T5">The type of the fifth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, Unit> ToFunc<T1, T2, T3, T4, T5>(this Action<T1, T2, T3, T4, T5> action) =>
         (v1, v2, v3, v4, v5) =>
@@ -179,8 +180,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -190,12 +191,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T6">The type of the sixth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, Unit> ToFunc<T1, T2, T3, T4, T5, T6>(
         this Action<T1, T2, T3, T4, T5, T6> action) =>
@@ -206,8 +207,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -218,12 +219,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T7">The type of the seventh argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7>(
         this Action<T1, T2, T3, T4, T5, T6, T7> action) =>
@@ -234,8 +235,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -247,12 +248,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T8">The type of the eighth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8>(
         this Action<T1, T2, T3, T4, T5, T6, T7, T8> action) =>
@@ -263,8 +264,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -277,12 +278,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T9">The type of the ninth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
         this Action<T1, T2, T3, T4, T5, T6, T7, T8, T9> action) =>
@@ -293,8 +294,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -308,12 +309,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T10">The type of the tenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8, T9,
         T10>(this Action<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> action) =>
@@ -335,8 +336,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -351,12 +352,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T11">The type of the eleventh argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7, T8,
         T9, T10, T11>(this Action<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> action) =>
@@ -379,8 +380,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -396,12 +397,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T12">The type of the twelfth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, Unit> ToFunc<T1, T2, T3, T4, T5, T6, T7,
         T8, T9, T10, T11, T12>(this Action<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> action) =>
@@ -425,8 +426,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -443,12 +444,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T13">The type of the thirteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, Unit> ToFunc<T1, T2, T3, T4, T5, T6,
         T7, T8, T9, T10, T11, T12, T13>(this Action<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> action) =>
@@ -473,8 +474,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -492,12 +493,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T14">The type of the fourteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, Unit> ToFunc<T1, T2, T3, T4, T5,
         T6, T7, T8, T9, T10, T11, T12, T13, T14>(
@@ -524,8 +525,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -544,12 +545,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T15">The type of the fifteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, Unit> ToFunc<T1, T2, T3,
         T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(
@@ -577,8 +578,8 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an action into a function that returns <see cref="Unit" />. The result can go
-    ///     where a function that returns a value is necessary.
+    ///     Changes an action into a function that returns <see cref="Unit" />. The
+    ///     result can go where a function that returns a value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -598,12 +599,12 @@ public static class UnitExtensionMethods
     /// <typeparam name="T16">The type of the sixteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and returns
-    ///     <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and
+    ///     returns <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing. The function from this call runs <paramref name="action" /> at each
-    ///     it is itself called.
+    ///     This defers nothing. The function from this call runs
+    ///     <paramref name="action" /> at each it is itself called.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, Unit> ToFunc<T1, T2,
         T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16>(
@@ -632,8 +633,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <param name="action">The action to change.</param>
     /// <returns>
@@ -641,9 +643,9 @@ public static class UnitExtensionMethods
     ///     produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<Task<Unit>> ToAsyncFunc(this Func<Task> action) =>
         async () =>
@@ -653,19 +655,20 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T">The type of the argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its argument and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its argument and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T, Task<Unit>> ToAsyncFunc<T>(this Func<T, Task> action) =>
         async v =>
@@ -675,20 +678,21 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, Task<Unit>> ToAsyncFunc<T1, T2>(this Func<T1, T2, Task> action) =>
         async (v1, v2) =>
@@ -698,21 +702,22 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
     /// <typeparam name="T3">The type of the third argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, Task<Unit>> ToAsyncFunc<T1, T2, T3>(this Func<T1, T2, T3, Task> action) =>
         async (v1, v2, v3) =>
@@ -722,8 +727,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -731,13 +737,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T4">The type of the fourth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4>(
         this Func<T1, T2, T3, T4, Task> action) =>
@@ -748,8 +754,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -758,13 +765,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T5">The type of the fifth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5>(
         this Func<T1, T2, T3, T4, T5, Task> action) =>
@@ -775,8 +782,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -786,13 +794,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T6">The type of the sixth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6>(
         this Func<T1, T2, T3, T4, T5, T6, Task> action) =>
@@ -803,8 +811,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -815,13 +824,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T7">The type of the seventh argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7>(
         this Func<T1, T2, T3, T4, T5, T6, T7, Task> action) =>
@@ -832,8 +841,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -845,13 +855,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T8">The type of the eighth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7, T8>(
         this Func<T1, T2, T3, T4, T5, T6, T7, T8, Task> action) =>
@@ -862,8 +872,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -876,13 +887,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T9">The type of the ninth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7, T8,
         T9>(this Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Task> action) =>
@@ -893,8 +904,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -908,13 +920,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T10">The type of the tenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7,
         T8, T9, T10>(this Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Task> action) =>
@@ -936,8 +948,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -952,13 +965,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T11">The type of the eleventh argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4, T5, T6,
         T7, T8, T9, T10, T11>(this Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Task> action) =>
@@ -981,8 +994,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -998,13 +1012,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T12">The type of the twelfth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, Task<Unit>> ToAsyncFunc<T1, T2, T3, T4,
         T5, T6, T7, T8, T9, T10, T11, T12>(this Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, Task> action) =>
@@ -1028,8 +1042,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -1046,13 +1061,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T13">The type of the thirteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, Task<Unit>> ToAsyncFunc<T1, T2, T3,
         T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(
@@ -1078,8 +1093,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -1097,13 +1113,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T14">The type of the fourteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, Task<Unit>> ToAsyncFunc<T1, T2,
         T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(
@@ -1130,8 +1146,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -1150,13 +1167,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T15">The type of the fifteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, Task<Unit>> ToAsyncFunc<T1,
         T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(
@@ -1184,8 +1201,9 @@ public static class UnitExtensionMethods
         };
 
     /// <summary>
-    ///     Changes an asynchronous action into a function that gives <see cref="Unit" />. The result
-    ///     can go where a function that returns a value is necessary.
+    ///     Changes an asynchronous action into a function that gives
+    ///     <see cref="Unit" />. The result can go where a function that returns a
+    ///     value is necessary.
     /// </summary>
     /// <typeparam name="T1">The type of the first argument.</typeparam>
     /// <typeparam name="T2">The type of the second argument.</typeparam>
@@ -1205,13 +1223,13 @@ public static class UnitExtensionMethods
     /// <typeparam name="T16">The type of the sixteenth argument.</typeparam>
     /// <param name="action">The action to change.</param>
     /// <returns>
-    ///     A function which calls <paramref name="action" /> with its arguments and, after it completes,
-    ///     produces <see cref="Unit.Value" />.
+    ///     A function which calls <paramref name="action" /> with its arguments and,
+    ///     after it completes, produces <see cref="Unit.Value" />.
     /// </returns>
     /// <remarks>
-    ///     This defers nothing more than the action defers. The function from this call runs
-    ///     <paramref name="action" /> at each call, and its task completes when that
-    ///     action's does.
+    ///     This defers nothing more than the action defers. The function from this
+    ///     call runs <paramref name="action" /> at each call, and its task completes
+    ///     when that action's does.
     /// </remarks>
     public static Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, Task<Unit>>
         ToAsyncFunc<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16>(

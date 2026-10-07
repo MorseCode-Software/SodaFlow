@@ -10,22 +10,27 @@ using JetBrains.Annotations;
 namespace SodaFlow.Async;
 
 /// <summary>
-///     The work that a MapAsync pipeline does for one value from the source stream. It gives a
-///     <see cref="MapAsyncResult{TResult}" /> and not a result, because the two answers are not
-///     the same: <see cref="ResultFactory{TResult}.FromValue" /> carries a value that the
-///     operation has, and <see cref="ResultFactory{TResult}.Construct" /> carries a function that
-///     the pipeline calls in the transaction that sends the result. Use the second one when the
-///     result contains a cell, a stream, or another part of a SodaFlow graph, because such a part
-///     must come into existence in that transaction.
+///     The work that a MapAsync pipeline does for one value from the source
+///     stream. It gives a <see cref="MapAsyncResult{TResult}" /> and not a result,
+///     because the two answers are not the same:
+///     <see cref="ResultFactory{TResult}.FromValue" /> carries a value that the
+///     operation has, and <see cref="ResultFactory{TResult}.Construct" /> carries
+///     a function that the pipeline calls in the transaction that sends the
+///     result. Use the second one when the result contains a cell, a stream, or
+///     another part of a SodaFlow graph, because such a part must come into
+///     existence in that transaction.
 /// </summary>
 /// <typeparam name="TInput">The type in the source stream.</typeparam>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
-/// <param name="input">The value from the source stream, as the pipeline admitted it.</param>
+/// <param name="input">
+///     The value from the source stream, as the pipeline admitted
+///     it.
+/// </param>
 /// <param name="resultFactory">Makes the two kinds of answer. It has no state.</param>
 /// <param name="token">
-///     Cancels this operation. It combines the cancellation of this item with the cancellation of
-///     the strategy. An operation that does not monitor it runs to its end, and the pipeline then
-///     does not publish its result.
+///     Cancels this operation. It combines the cancellation of this item with the
+///     cancellation of the strategy. An operation that does not monitor it runs to
+///     its end, and the pipeline then does not publish its result.
 /// </param>
 /// <returns>A Task with the value, or with the function that makes the value.</returns>
 [PublicAPI]
@@ -51,13 +56,16 @@ public enum AsyncItemStatus
     Running
 }
 
-/// <summary>An input value that a MapAsync pipeline tracks, and its current status.</summary>
+/// <summary>
+///     An input value that a MapAsync pipeline tracks, and its current
+///     status.
+/// </summary>
 [PublicAPI]
 public readonly struct AsyncItem<TInput>
 {
     /// <summary>
-    ///     Holds an input value with its status. The execution engine builds one for each
-    ///     tracked item.
+    ///     Holds an input value with its status. The execution engine builds one for
+    ///     each tracked item.
     /// </summary>
     /// <param name="value">The initial input value from the source stream.</param>
     /// <param name="status">The status of that value: Queued or Running.</param>
@@ -71,17 +79,16 @@ public readonly struct AsyncItem<TInput>
     public TInput Value { get; }
 
     /// <summary>
-    ///     The status of this value: a wait for a strategy to promote it, or
-    ///     Running.
+    ///     The status of this value: a wait for a strategy to promote it, or Running.
     /// </summary>
     public AsyncItemStatus Status { get; }
 }
 
 /// <summary>
-///     The answer of a <see cref="MapAsyncOperation{TInput,TResult}" />: a result, or a function
-///     that makes one. The pipeline calls such a function in the transaction that sends the
-///     result. Make one with <see cref="ResultFactory{TResult}" />, which the operation
-///     receives.
+///     The answer of a <see cref="MapAsyncOperation{TInput,TResult}" />: a result,
+///     or a function that makes one. The pipeline calls such a function in the
+///     transaction that sends the result. Make one with
+///     <see cref="ResultFactory{TResult}" />, which the operation receives.
 /// </summary>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
@@ -99,8 +106,9 @@ public sealed class MapAsyncResult<TResult>
 }
 
 /// <summary>
-///     Makes the answer of a <see cref="MapAsyncOperation{TInput,TResult}" />. The pipeline gives
-///     one to each call of the operation. It holds no state, and a caller cannot make one.
+///     Makes the answer of a <see cref="MapAsyncOperation{TInput,TResult}" />. The
+///     pipeline gives one to each call of the operation. It holds no state, and a
+///     caller cannot make one.
 /// </summary>
 /// <typeparam name="TResult">The type that the pipeline publishes.</typeparam>
 [PublicAPI]
@@ -113,20 +121,22 @@ public sealed class ResultFactory<TResult>
     }
 
     /// <summary>
-    ///     Carries a result that the operation has. Use this one when the operation makes no part
-    ///     of a SodaFlow graph.
+    ///     Carries a result that the operation has. Use this one when the operation
+    ///     makes no part of a SodaFlow graph.
     /// </summary>
     /// <param name="value">The value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
     public MapAsyncResult<TResult> FromValue(TResult value) => new(value);
 
     /// <summary>
-    ///     Carries a function that makes the result. The pipeline calls it one time, in the
-    ///     transaction that sends the result, which is what a result with a cell or a stream in it
-    ///     must have. Keep the function short, because it holds that transaction while it runs.
-    ///     The pipeline calls it only for an item that it publishes: the strategy decides that
-    ///     first, and this function runs after that decision. Thus, an item that a cancellation
-    ///     stopped, or that a strategy refused, makes no result at all.
+    ///     Carries a function that makes the result. The pipeline calls it one time,
+    ///     in the transaction that sends the result, which is what a result with a
+    ///     cell or a stream in it must have. Keep the function short, because it holds
+    ///     that transaction while it runs.
+    ///     The pipeline calls it only for an item that it publishes: the strategy
+    ///     decides that first, and this function runs after that decision. Thus, an
+    ///     item that a cancellation stopped, or that a strategy refused, makes no
+    ///     result at all.
     /// </summary>
     /// <param name="makeResult">Makes the value to publish.</param>
     /// <returns>The answer to return from the operation.</returns>
@@ -134,14 +144,16 @@ public sealed class ResultFactory<TResult>
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline. It gives the operation of the pipeline, and each input
-///     value that the pipeline tracks now with the status of that value. It is also the only
-///     handle to stop the pipeline. See <see cref="AsyncMapStatus.Dispose" />. This type adds
-///     <see cref="Items" /> to <see cref="AsyncMapStatus" />, which is what makes it generic: a
-///     caller that reads only <see cref="AsyncMapStatus.IsRunning" /> or stops the pipeline can
-///     hold the base type. <see cref="AsyncMapStatus{TInput,TResult}" /> extends this one with
-///     Execute, thus the count of the type parameters a caller keeps selects what that caller
-///     can do.
+///     The status of a MapAsync pipeline. It gives the operation of the pipeline,
+///     and each input value that the pipeline tracks now with the status of that
+///     value. It is also the only handle to stop the pipeline. See
+///     <see cref="AsyncMapStatus.Dispose" />. This type adds <see cref="Items" />
+///     to <see cref="AsyncMapStatus" />, which is what makes it generic: a caller
+///     that reads only <see cref="AsyncMapStatus.IsRunning" /> or stops the
+///     pipeline can hold the base type.
+///     <see cref="AsyncMapStatus{TInput,TResult}" /> extends this one with
+///     Execute, thus the count of the type parameters a caller keeps selects what
+///     that caller can do.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -157,23 +169,25 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
         this.Items = items;
 
     /// <summary>
-    ///     Each value that the pipeline tracks now, Queued or Running. The sequence is not
-    ///     specified, but each update is one snapshot that agrees with itself.
+    ///     Each value that the pipeline tracks now, Queued or Running. The sequence is
+    ///     not specified, but each update is one snapshot that agrees with itself.
     /// </summary>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline, with the Execute methods. MapAsync answers with this
-///     type. A caller that wants only <see cref="AsyncMapStatus.IsRunning" /> and the disposal
-///     holds <see cref="AsyncMapStatus" />. One that also wants
-///     <see cref="AsyncMapStatus{TInput}.Items" /> holds <see cref="AsyncMapStatus{TInput}" />, and
-///     one that also wants an Execute method holds this type. Thus, the count of the type
-///     parameters a caller keeps says what that caller does with the pipeline.
+///     The status of a MapAsync pipeline, with the Execute methods. MapAsync
+///     answers with this type. A caller that wants only
+///     <see cref="AsyncMapStatus.IsRunning" /> and the disposal holds
+///     <see cref="AsyncMapStatus" />. One that also wants
+///     <see cref="AsyncMapStatus{TInput}.Items" /> holds
+///     <see cref="AsyncMapStatus{TInput}" />, and one that also wants an Execute
+///     method holds this type. Thus, the count of the type parameters a caller
+///     keeps says what that caller does with the pipeline.
 ///     <para>
-///         Execute has one purpose. The operation of a MapAsync pipeline calls a second MapAsync
-///         pipeline with it, and waits for the result of that one value. See
-///         <see cref="Execute(TInput)" />.
+///         Execute has one purpose. The operation of a MapAsync pipeline calls a
+///         second MapAsync pipeline with it, and waits for the result of that one
+///         value. See <see cref="Execute(TInput)" />.
 ///     </para>
 /// </summary>
 /// <typeparam name="TInput">The type of the input values.</typeparam>
@@ -201,59 +215,66 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     }
 
     /// <summary>
-    ///     Puts one value into this pipeline and answers with the Task of that value alone.
+    ///     Puts one value into this pipeline and answers with the Task of that value
+    ///     alone.
     ///     <para>
-    ///         This method has one purpose. The operation of a MapAsync pipeline calls a second
-    ///         MapAsync pipeline with it, and waits for the result of that one value. Thus, an
-    ///         operation can be a pipeline of its own, and the strategy of the inner pipeline
-    ///         controls the inner work. An operation is an async method, thus it can await the
-    ///         Task.
+    ///         This method has one purpose. The operation of a MapAsync pipeline calls
+    ///         a second MapAsync pipeline with it, and waits for the result of that
+    ///         one value. Thus, an operation can be a pipeline of its own, and the
+    ///         strategy of the inner pipeline controls the inner work. An operation is
+    ///         an async method, thus it can await the Task.
     ///     </para>
     ///     <para>
-    ///         Other code does not use this method. Code that has a value for a pipeline sends that
-    ///         value on the source stream of the pipeline, and reads the results stream. That is
-    ///         the interface of a pipeline. It keeps the identity of one value out of code that
-    ///         does not use that identity.
+    ///         Other code does not use this method. Code that has a value for a
+    ///         pipeline sends that value on the source stream of the pipeline, and
+    ///         reads the results stream. That is the interface of a pipeline. It keeps
+    ///         the identity of one value out of code that does not use that identity.
     ///     </para>
     ///     <para>
-    ///         The value goes through the strategy as a value from the source stream does, thus the
-    ///         call obeys the concurrency rules of the pipeline. The result reaches the results
-    ///         stream also, and this method gives the same object.
+    ///         The value goes through the strategy as a value from the source stream
+    ///         does, thus the call obeys the concurrency rules of the pipeline. The
+    ///         result reaches the results stream also, and this method gives the same
+    ///         object.
     ///     </para>
     ///     <para>
-    ///         The Task ends one time, in each condition. It gives the result where the operation
-    ///         gives one and the strategy publishes it. That result is the same object that the
-    ///         results stream gets. It carries the exception where the operation throws and the
-    ///         strategy publishes that, and the errors stream gets the same exception.
+    ///         The Task ends one time, in each condition. It gives the result where
+    ///         the operation gives one and the strategy publishes it. That result is
+    ///         the same object that the results stream gets. It carries the exception
+    ///         where the operation throws and the strategy publishes that, and the
+    ///         errors stream gets the same exception.
     ///     </para>
     ///     <para>
-    ///         These conditions cancel the Task. A cancellation that stops the value cancels it. A
-    ///         strategy that refuses the value cancels it. A strategy that does not publish the
-    ///         outcome cancels it also. Such a strategy says that no code wants the result, which
-    ///         is a cancellation at a different moment. A disposal of the pipeline before the
-    ///         admission of the value cancels it.
+    ///         These conditions cancel the Task. A cancellation that stops the value
+    ///         cancels it. A strategy that refuses the value cancels it. A strategy
+    ///         that does not publish the outcome cancels it also. Such a strategy says
+    ///         that no code wants the result, which is a cancellation at a different
+    ///         moment. A disposal of the pipeline before the admission of the value
+    ///         cancels it.
     ///     </para>
     ///     <para>
-    ///         One condition gives no end to the Task, and it is not in the position that this
-    ///         method is for. A strategy that keeps a value in the queue permanently, and does not
-    ///         cancel that value, gives no end for the pipeline to read. Each strategy in this
-    ///         library ends each value. The documented method for a strategy to refuse a value
-    ///         cancels that value, thus that method ends the Task.
+    ///         One condition gives no end to the Task, and it is not in the position
+    ///         that this method is for. A strategy that keeps a value in the queue
+    ///         permanently, and does not cancel that value, gives no end for the
+    ///         pipeline to read. Each strategy in this library ends each value. The
+    ///         documented method for a strategy to refuse a value cancels that value,
+    ///         thus that method ends the Task.
     ///     </para>
     ///     <para>
-    ///         A transaction that fails cancels the Task. Where a transaction is open, this method
-    ///         defers the value into the post queue of that transaction. A throw while that
-    ///         transaction propagates discards that queue, thus the value never enters the
-    ///         pipeline. This method asks the transaction to cancel the Task in that condition. A
-    ///         throw from the body of a transaction is different. That transaction closes, the
-    ///         queue drains, and the pipeline admits the value.
+    ///         A transaction that fails cancels the Task. Where a transaction is open,
+    ///         this method defers the value into the post queue of that transaction. A
+    ///         throw while that transaction propagates discards that queue, thus the
+    ///         value never enters the pipeline. This method asks the transaction to
+    ///         cancel the Task in that condition. A throw from the body of a
+    ///         transaction is different. That transaction closes, the queue drains,
+    ///         and the pipeline admits the value.
     ///     </para>
     ///     <para>
-    ///         A call with a transaction open is legal. The code of an operation before its first
-    ///         await runs in the transaction that started that operation. Thus, a caller of this
-    ///         method can have a transaction open. This method defers the value to a transaction of
-    ///         its own in that condition. The pipeline then admits the value after the transaction
-    ///         of the caller ends.
+    ///         A call with a transaction open is legal. The code of an operation
+    ///         before its first await runs in the transaction that started that
+    ///         operation. Thus, a caller of this method can have a transaction open.
+    ///         This method defers the value to a transaction of its own in that
+    ///         condition. The pipeline then admits the value after the transaction of
+    ///         the caller ends.
     ///     </para>
     /// </summary>
     /// <param name="value">The value to put into the pipeline.</param>
@@ -261,15 +282,16 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     public Task<TResult> Execute(TInput value) => this.execute(value);
 
     /// <summary>
-    ///     Puts the value of a cell into this pipeline and answers with the Task of that value
-    ///     alone. This method reads the cell in the transaction that puts the value in. Thus, the
-    ///     pipeline admits the value that the cell has at that instant. A caller that samples a cell
-    ///     and then calls <see cref="Execute(TInput)" /> has two transactions, and the value of the
-    ///     cell can change between them. A deferral carries the read with it. The read and the send
-    ///     are thus together in each condition.
+    ///     Puts the value of a cell into this pipeline and answers with the Task of
+    ///     that value alone. This method reads the cell in the transaction that puts
+    ///     the value in. Thus, the pipeline admits the value that the cell has at that
+    ///     instant. A caller that samples a cell and then calls
+    ///     <see cref="Execute(TInput)" /> has two transactions, and the value of the
+    ///     cell can change between them. A deferral carries the read with it. The read
+    ///     and the send are thus together in each condition.
     ///     <para>
-    ///         This method has the same one purpose as <see cref="Execute(TInput)" />, and the Task
-    ///         obeys the same rules. Read the remarks of that method.
+    ///         This method has the same one purpose as <see cref="Execute(TInput)" />,
+    ///         and the Task obeys the same rules. Read the remarks of that method.
     ///     </para>
     /// </summary>
     /// <param name="value">The cell to read.</param>
@@ -290,11 +312,12 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
 }
 
 /// <summary>
-///     The status of a MapAsync pipeline, without the part that the input type decides. It gives
-///     the operation of the pipeline, and it is the only handle to stop the pipeline. See
-///     <see cref="Dispose" />. A caller that does not read
-///     <see cref="AsyncMapStatus{TInput}.Items" /> can hold this type and does not have to name
-///     the input type. <see cref="AsyncMapStatus{TInput}" /> is the type that MapAsync returns.
+///     The status of a MapAsync pipeline, without the part that the input type
+///     decides. It gives the operation of the pipeline, and it is the only handle
+///     to stop the pipeline. See <see cref="Dispose" />. A caller that does not
+///     read <see cref="AsyncMapStatus{TInput}.Items" /> can hold this type and
+///     does not have to name the input type. <see cref="AsyncMapStatus{TInput}" />
+///     is the type that MapAsync returns.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -314,24 +337,26 @@ public abstract class AsyncMapStatus : IDisposable
     }
 
     /// <summary>
-    ///     True while one item or more has Status == Running. An item with the Queued status
-    ///     does not count.
+    ///     True while one item or more has Status == Running. An item with the Queued
+    ///     status does not count.
     /// </summary>
     public Cell<bool> IsRunning { get; }
 
     /// <summary>
-    ///     Stops this pipeline. The pipeline admits no more values from the source stream, and it
-    ///     does not queue them or start them. The cancelOnDispose parameter of MapAsync, which is
-    ///     true by default, sets at the setup if a disposal also cancels the tracked items. This
-    ///     method does not make that selection, because this IDisposable.Dispose() has no
-    ///     parameter and is the only path to a disposal. When cancelOnDispose was true, a disposal
-    ///     cancels each tracked item, Queued or Running, as one send on a cancelAll stream does.
+    ///     Stops this pipeline. The pipeline admits no more values from the source
+    ///     stream, and it does not queue them or start them. The cancelOnDispose
+    ///     parameter of MapAsync, which is true by default, sets at the setup if a
+    ///     disposal also cancels the tracked items. This method does not make that
+    ///     selection, because this IDisposable.Dispose() has no parameter and is the
+    ///     only path to a disposal. When cancelOnDispose was true, a disposal cancels
+    ///     each tracked item, Queued or Running, as one send on a cancelAll stream
+    ///     does.
     ///     The same limits apply. A Running operation stops only if it monitors its
-    ///     CancellationToken, and the pipeline removes a Queued item at the time of its promotion,
-    ///     which is not always at the return of this call. This method also does not stop the
-    ///     output. Each operation that runs continues to its end and then publishes its result
-    ///     or its error. A second call is safe, because each call after the first does
-    ///     nothing.
+    ///     CancellationToken, and the pipeline removes a Queued item at the time of
+    ///     its promotion, which is not always at the return of this call. This method
+    ///     also does not stop the output. Each operation that runs continues to its
+    ///     end and then publishes its result or its error. A second call is safe,
+    ///     because each call after the first does nothing.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     public void Dispose()
@@ -392,19 +417,24 @@ internal delegate void ExecuteIfSomeAction<TInput, TResult>(
     Action onNone);
 
 /// <summary>
-///     The shared base of the two parts of a MapAsync pipeline: the strategy
-///     (<see cref="AsyncConcurrencyStrategy{TInput,TState}" />) and the engine that runs
-///     it (<see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />).
-///     Its only purpose is to hold the small data types that the two parts send to each other:
-///     <see cref="AsyncQueuedItem{TInput}" />, <see cref="AsyncToStart{TInput}" />,
-///     <see cref="AsyncOutcome{TResult}" />, and <see cref="AsyncStrategyResult{TInput}" />. They
-///     are nested types here, and not public top-level types. One class is not a subtype of the
-///     other. Without this shared base, one part or the two parts must make these types fully
-///     public to name them. With this base, the two parts get them through usual inheritance, and
-///     the types stay off the public surface of the library. Only code in this assembly, and code
-///     that subclasses <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> to write a
-///     custom strategy, can see them. This base is not generic, because TInput and TResult belong
-///     to the nested types that use them, and not to each user of this base.
+///     The shared base of the two parts of a MapAsync pipeline: the strategy (
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />) and the engine that
+///     runs it (
+///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />).
+///     Its only purpose is to hold the small data types that the two parts send to
+///     each other:
+///     <see cref="AsyncQueuedItem{TInput}" />, <see cref="AsyncToStart{TInput}" />
+///     , <see cref="AsyncOutcome{TResult}" />, and
+///     <see cref="AsyncStrategyResult{TInput}" />. They are nested types here, and
+///     not public top-level types. One class is not a subtype of the other.
+///     Without this shared base, one part or the two parts must make these types
+///     fully public to name them. With this base, the two parts get them through
+///     usual inheritance, and the types stay off the public surface of the
+///     library. Only code in this assembly, and code that subclasses
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> to write a custom
+///     strategy, can see them. This base is not generic, because TInput and
+///     TResult belong to the nested types that use them, and not to each user of
+///     this base.
 /// </summary>
 [PublicAPI]
 public abstract class AsyncMapBase
@@ -418,20 +448,21 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
-    ///     A value that a MapAsync pipeline tracks, from its admission until its promotion, its
-    ///     end, or its cancellation. It is also the one object that identifies the value in
-    ///     <see cref="AsyncToStart{TInput}" /> and in
+    ///     A value that a MapAsync pipeline tracks, from its admission until its
+    ///     promotion, its end, or its cancellation. It is also the one object that
+    ///     identifies the value in <see cref="AsyncToStart{TInput}" /> and in
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />. It is
-    ///     opaque. A strategy can keep one, usually in the state of its call, to promote it after
-    ///     this or to identify it again at its end, and can read its Value. A strategy cannot make
-    ///     one, because the constructor is internal and the class is sealed. Thus,
-    ///     each instance comes from an
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> call. A strategy
-    ///     always receives the same instance that it got before. Thus, ReferenceEquals, or ==, is
-    ///     sufficient to identify an admitted value in its state. An equal
-    ///     <see cref="Id" /> gives the same answer, and it is also correct across the different
-    ///     instances that the execution engine keeps for each admitted value. For that cause the
-    ///     SwitchLatest strategy in the library compares the Id.
+    ///     opaque. A strategy can keep one, usually in the state of its call, to
+    ///     promote it after this or to identify it again at its end, and can read its
+    ///     Value. A strategy cannot make one, because the constructor is internal and
+    ///     the class is sealed. Thus, each instance comes from an
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> call. A
+    ///     strategy always receives the same instance that it got before. Thus,
+    ///     ReferenceEquals, or ==, is sufficient to identify an admitted value in its
+    ///     state. An equal <see cref="Id" /> gives the same answer, and it is also
+    ///     correct across the different instances that the execution engine keeps for
+    ///     each admitted value. For that cause the SwitchLatest strategy in the
+    ///     library compares the Id.
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncQueuedItem<TInput>
@@ -444,11 +475,12 @@ public abstract class AsyncMapBase
         }
 
         /// <summary>
-        ///     The identity of this item. The pipeline assigns it at the admission, and it is the
-        ///     same across the different <see cref="AsyncQueuedItem{TInput}" /> instances that the
-        ///     execution engine keeps for one admitted value. One instance has the type for the
-        ///     strategy, and the other has the type for the public
-        ///     <see cref="AsyncItem{TInput}" /> view. An equal ID means the same tracked value.
+        ///     The identity of this item. The pipeline assigns it at the admission, and it
+        ///     is the same across the different <see cref="AsyncQueuedItem{TInput}" />
+        ///     instances that the execution engine keeps for one admitted value. One
+        ///     instance has the type for the strategy, and the other has the type for the
+        ///     public <see cref="AsyncItem{TInput}" /> view. An equal ID means the same
+        ///     tracked value.
         /// </summary>
         public Guid Id { get; }
 
@@ -456,26 +488,27 @@ public abstract class AsyncMapBase
         public TInput Value { get; }
 
         /// <summary>
-        ///     The source of the cancellation of this item. <see cref="Cancel" /> cancels this
-        ///     source, and the execution engine links it into the token of the operation. It is
-        ///     internal, because a strategy cancels through <see cref="Cancel" /> and does not use
-        ///     this field.
+        ///     The source of the cancellation of this item. <see cref="Cancel" /> cancels
+        ///     this source, and the execution engine links it into the token of the
+        ///     operation. It is internal, because a strategy cancels through
+        ///     <see cref="Cancel" /> and does not use this field.
         /// </summary>
         internal CancellationTokenSource Cancellation { get; }
 
         /// <summary>
-        ///     Cancels this tracked item. It is the mechanism of a cancelAll stream and of a
-        ///     cancelMatching stream, and a strategy can use it for its own schedule. For example,
-        ///     SwitchLatest replaces its previous run with it. It operates on an item with the
-        ///     Queued status and on an item with the Running status. The pipeline does not start a
-        ///     Queued item at its turn, and a Running operation stops only if it monitors the
-        ///     CancellationToken that it got. In each condition the item ends as Canceled, thus
+        ///     Cancels this tracked item. It is the mechanism of a cancelAll stream and of
+        ///     a cancelMatching stream, and a strategy can use it for its own schedule.
+        ///     For example, SwitchLatest replaces its previous run with it. It operates on
+        ///     an item with the Queued status and on an item with the Running status. The
+        ///     pipeline does not start a Queued item at its turn, and a Running operation
+        ///     stops only if it monitors the CancellationToken that it got. In each
+        ///     condition the item ends as Canceled, thus
         ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" /> runs for
         ///     it and can start the next operation.
-        ///     A call on an item that ended, on an item that a previous call canceled, or on an
-        ///     item at its end is safe. Those calls do nothing and are not errors, thus a strategy
-        ///     with a stale reference does not monitor the time when an item stops being
-        ///     cancellable.
+        ///     A call on an item that ended, on an item that a previous call canceled, or
+        ///     on an item at its end is safe. Those calls do nothing and are not errors,
+        ///     thus a strategy with a stale reference does not monitor the time when an
+        ///     item stops being cancellable.
         /// </summary>
         public void Cancel()
         {
@@ -511,18 +544,19 @@ public abstract class AsyncMapBase
         public AsyncQueuedItem<TInput> Item { get; }
 
         /// <summary>
-        ///     An optional second cancellation source to link into this run, with the source of
-        ///     the item. It is not necessary to cancel an item that the strategy controls, because
-        ///     <see cref="AsyncQueuedItem{TInput}.Cancel" /> does that. Use this to attach a run to
-        ///     an external source: a timeout for one operation, an ambient operation token, or a
-        ///     shared token for a batch of work. At each other time, keep the default.
+        ///     An optional second cancellation source to link into this run, with the
+        ///     source of the item. It is not necessary to cancel an item that the strategy
+        ///     controls, because <see cref="AsyncQueuedItem{TInput}.Cancel" /> does that.
+        ///     Use this to attach a run to an external source: a timeout for one
+        ///     operation, an ambient operation token, or a shared token for a batch of
+        ///     work. At each other time, keep the default.
         /// </summary>
         public CancellationToken StrategyToken { get; }
     }
 
     /// <summary>
-    ///     One item that a MapAsync pipeline tracks now, with its status. A strategy reads a list
-    ///     of these for the queue of the pipeline. See
+    ///     One item that a MapAsync pipeline tracks now, with its status. A strategy
+    ///     reads a list of these for the queue of the pipeline. See
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> and
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />.
     /// </summary>
@@ -537,9 +571,9 @@ public abstract class AsyncMapBase
         }
 
         /// <summary>
-        ///     The item, as the strategy received it at its admission. It is the same instance,
-        ///     thus ReferenceEquals recognizes it, Id recognizes it, and Cancel on it cancels this
-        ///     item.
+        ///     The item, as the strategy received it at its admission. It is the same
+        ///     instance, thus ReferenceEquals recognizes it, Id recognizes it, and Cancel
+        ///     on it cancels this item.
         /// </summary>
         public AsyncQueuedItem<TInput> Item { get; }
 
@@ -550,27 +584,28 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
-    ///     How an item ended, which is what a strategy reads. It carries no result value: the
-    ///     pipeline makes the result of a MapAsync operation after the strategy decides, and only
-    ///     for an item that it publishes. See <see cref="ResultFactory{TResult}.Construct" />. A
-    ///     value here thus obliges the pipeline to make each result, also the results that no code
-    ///     reads.
+    ///     How an item ended, which is what a strategy reads. It carries no result
+    ///     value: the pipeline makes the result of a MapAsync operation after the
+    ///     strategy decides, and only for an item that it publishes. See
+    ///     <see cref="ResultFactory{TResult}.Construct" />. A value here thus obliges
+    ///     the pipeline to make each result, also the results that no code reads.
     ///     <para>
-    ///         Succeeded says that the operation returned. The pipeline publishes an error for
-    ///         such an item when the function that makes the result throws.
+    ///         Succeeded says that the operation returned. The pipeline publishes an
+    ///         error for such an item when the function that makes the result throws.
     ///     </para>
     ///     <para>
     ///         A cancellation is not one of these ends. It goes to
-    ///         <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" />, which reads the
-    ///         items alone, because a canceled end carries nothing to read.
+    ///         <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" />,
+    ///         which reads the items alone, because a canceled end carries nothing to
+    ///         read.
     ///     </para>
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncCompletion
     {
         /// <summary>
-        ///     The exception from the operation when <see cref="kind" /> is Failed, and null
-        ///     at each other time.
+        ///     The exception from the operation when <see cref="kind" /> is Failed, and
+        ///     null at each other time.
         /// </summary>
         private readonly Exception? error;
 
@@ -587,7 +622,10 @@ public abstract class AsyncMapBase
         /// <summary>Runs the handler for the end of this item, and returns its value.</summary>
         /// <typeparam name="T">The type that each handler returns.</typeparam>
         /// <param name="onSucceeded">Handles an operation that returned.</param>
-        /// <param name="onFailed">Handles a run with an error, with the exception from the operation.</param>
+        /// <param name="onFailed">
+        ///     Handles a run with an error, with the exception from the
+        ///     operation.
+        /// </param>
         /// <returns>The value that the handler returned.</returns>
         public T Match<T>(
             Func<T> onSucceeded,
@@ -602,12 +640,13 @@ public abstract class AsyncMapBase
             };
 
         /// <summary>
-        ///     Runs the handler for the end of this item. Each handler is optional. Give null for
-        ///     an end with no handler, and this method ignores that end.
+        ///     Runs the handler for the end of this item. Each handler is optional. Give
+        ///     null for an end with no handler, and this method ignores that end.
         /// </summary>
         /// <param name="onSucceeded">Handles an operation that returned. It can be null.</param>
         /// <param name="onFailed">
-        ///     Handles a run with an error, with the exception from the operation. It can be null.
+        ///     Handles a run with an error, with the exception from the operation. It can
+        ///     be null.
         /// </param>
         public void MatchVoid(
             Action? onSucceeded,
@@ -640,20 +679,24 @@ public abstract class AsyncMapBase
             /// <summary>The operation returned.</summary>
             Succeeded,
 
-            /// <summary>The operation threw an exception. See <see cref="AsyncCompletion.error" />.</summary>
+            /// <summary>
+            ///     The operation threw an exception. See
+            ///     <see cref="AsyncCompletion.error" />.
+            /// </summary>
             Failed
         }
     }
 
     /// <summary>
-    ///     The result at the end of an item, which the execution engine holds while it decides
-    ///     what to publish. A strategy reads <see cref="AsyncCompletion" /> and never this type.
+    ///     The result at the end of an item, which the execution engine holds while it
+    ///     decides what to publish. A strategy reads <see cref="AsyncCompletion" />
+    ///     and never this type.
     /// </summary>
     internal sealed class AsyncOutcome<TResult>
     {
         /// <summary>
-        ///     The exception from the operation when <see cref="kind" /> is Failed, and null
-        ///     at each other time.
+        ///     The exception from the operation when <see cref="kind" /> is Failed, and
+        ///     null at each other time.
         /// </summary>
         private readonly Exception? error;
         // There is no Value property, no Error property, and no Kind property. Match is the only
@@ -666,8 +709,8 @@ public abstract class AsyncMapBase
         private readonly AsyncOutcomeKind kind;
 
         /// <summary>
-        ///     The return value of the operation when <see cref="kind" /> is Succeeded, and
-        ///     the default value at each other time.
+        ///     The return value of the operation when <see cref="kind" /> is Succeeded,
+        ///     and the default value at each other time.
         /// </summary>
         private readonly TResult? value;
 
@@ -680,8 +723,14 @@ public abstract class AsyncMapBase
 
         /// <summary>Runs the handler for the end of this item, and returns its value.</summary>
         /// <typeparam name="T">The type that each handler returns.</typeparam>
-        /// <param name="onSucceeded">Handles a run that succeeded, with the value that the operation returned.</param>
-        /// <param name="onFailed">Handles a run with an error, with the exception from the operation.</param>
+        /// <param name="onSucceeded">
+        ///     Handles a run that succeeded, with the value that the
+        ///     operation returned.
+        /// </param>
+        /// <param name="onFailed">
+        ///     Handles a run with an error, with the exception from the
+        ///     operation.
+        /// </param>
         /// <param name="onCanceled">Handles a canceled run, which can have no start.</param>
         /// <returns>The value that the handler returned.</returns>
         public T Match<T>(
@@ -701,17 +750,21 @@ public abstract class AsyncMapBase
             };
 
         /// <summary>
-        ///     Runs the handler for the end of this item. Each handler is optional. Give null for
-        ///     an outcome with no handler, and this method ignores that outcome.
+        ///     Runs the handler for the end of this item. Each handler is optional. Give
+        ///     null for an outcome with no handler, and this method ignores that outcome.
         /// </summary>
         /// <param name="onSucceeded">
-        ///     Handles a run that succeeded, with the value that the operation returned. It can be
-        ///     null.
+        ///     Handles a run that succeeded, with the value that the operation returned.
+        ///     It can be null.
         /// </param>
         /// <param name="onFailed">
-        ///     Handles a run with an error, with the exception from the operation. It can be null.
+        ///     Handles a run with an error, with the exception from the operation. It can
+        ///     be null.
         /// </param>
-        /// <param name="onCanceled">Handles a canceled run, which can have no start. It can be null.</param>
+        /// <param name="onCanceled">
+        ///     Handles a canceled run, which can have no start. It
+        ///     can be null.
+        /// </param>
         public void MatchVoid(
             Action<TResult>? onSucceeded,
             Action<Exception>? onFailed,
@@ -752,16 +805,22 @@ public abstract class AsyncMapBase
         /// <summary>The three ends of an item.</summary>
         private enum AsyncOutcomeKind
         {
-            /// <summary>The operation returned a value. See <see cref="AsyncOutcome{TResult}.value" />.</summary>
+            /// <summary>
+            ///     The operation returned a value. See
+            ///     <see cref="AsyncOutcome{TResult}.value" />.
+            /// </summary>
             Succeeded,
 
-            /// <summary>The operation threw an exception. See <see cref="AsyncOutcome{TResult}.error" />.</summary>
+            /// <summary>
+            ///     The operation threw an exception. See
+            ///     <see cref="AsyncOutcome{TResult}.error" />.
+            /// </summary>
             Failed,
 
             /// <summary>
-            ///     A cancellation stopped the operation, or the operation had no start because a
-            ///     cancellation removed it with the Queued status. The pipeline never publishes
-            ///     this outcome, at each return value of OnCompleted. See
+            ///     A cancellation stopped the operation, or the operation had no start because
+            ///     a cancellation removed it with the Queued status. The pipeline never
+            ///     publishes this outcome, at each return value of OnCompleted. See
             ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" />.
             /// </summary>
             Canceled
@@ -769,11 +828,11 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
-    ///     The answer of a strategy for one end that can send: if the pipeline publishes that
-    ///     outcome, and which items to start next. A cancellation has no such answer, because it
-    ///     publishes nothing. See
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" />, which gives the
-    ///     items to start and nothing else.
+    ///     The answer of a strategy for one end that can send: if the pipeline
+    ///     publishes that outcome, and which items to start next. A cancellation has
+    ///     no such answer, because it publishes nothing. See
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" />, which
+    ///     gives the items to start and nothing else.
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncStrategyResult<TInput>
@@ -783,13 +842,13 @@ public abstract class AsyncMapBase
 
         /// <summary>Builds the answer of a strategy from its two decisions.</summary>
         /// <param name="publish">
-        ///     True when the pipeline sends the outcome that ended now to the results or to the
-        ///     errors. False is the same as a cancellation for a caller: the pipeline sends
-        ///     nothing for that item.
+        ///     True when the pipeline sends the outcome that ended now to the results or
+        ///     to the errors. False is the same as a cancellation for a caller: the
+        ///     pipeline sends nothing for that item.
         /// </param>
         /// <param name="next">
-        ///     Tracked items to start now, or to promote now. Give <see cref="None" /> for no
-        ///     items.
+        ///     Tracked items to start now, or to promote now. Give <see cref="None" /> for
+        ///     no items.
         /// </param>
         /// <exception cref="ArgumentNullException"><paramref name="next" /> is null.</exception>
         public AsyncStrategyResult(bool publish, IReadOnlyList<AsyncToStart<TInput>> next)
@@ -803,15 +862,18 @@ public abstract class AsyncMapBase
         /// <summary>True when the pipeline sends the outcome that ended now.</summary>
         public bool Publish { get; }
 
-        /// <summary>Tracked items to start now, or to promote now, because of this decision.</summary>
+        /// <summary>
+        ///     Tracked items to start now, or to promote now, because of this
+        ///     decision.
+        /// </summary>
         public IReadOnlyList<AsyncToStart<TInput>> Next { get; }
     }
 
     /// <summary>
     ///     Removes the type of the state of a strategy. Thus,
-    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />
-    ///     can hold a strategy with its state, and that class is not generic over the state. That
-    ///     keeps TState out of each MapAsync signature. See
+    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" /> can
+    ///     hold a strategy with its state, and that class is not generic over the
+    ///     state. That keeps TState out of each MapAsync signature. See
     ///     <see cref="StateManager{TInput,TState}" />, which is the only
     ///     implementation.
     /// </summary>
@@ -838,8 +900,8 @@ public abstract class AsyncMapBase
 
         /// <summary>
         ///     Sends the call to
-        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" /> with the state
-        ///     in the closure.
+        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" /> with the
+        ///     state in the closure.
         /// </summary>
         IReadOnlyList<AsyncToStart<TInput>> OnCanceled(
             IReadOnlyList<AsyncQueuedItem<TInput>> canceled,
@@ -847,11 +909,11 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>
-    ///     Holds a strategy instance with the one <typeparamref name="TState" /> for a single
-    ///     MapAsync call. See
-    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateStateManager" />. Thus,
-    ///     the execution engine can call each method of a strategy, and does not know
-    ///     <typeparamref name="TState" />.
+    ///     Holds a strategy instance with the one <typeparamref name="TState" /> for a
+    ///     single MapAsync call. See
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateStateManager" />.
+    ///     Thus, the execution engine can call each method of a strategy, and does not
+    ///     know <typeparamref name="TState" />.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     internal class StateManager<TInput, TState>(
@@ -888,28 +950,30 @@ public abstract class AsyncMapBase
 }
 
 /// <summary>
-///     The one internal entry point for the public MapAsync surface of each language wrapper. It
-///     connects an impure asynchronous operation to the FRP graph. It listens on a
-///     Stream&lt;TInput&gt;, runs an async operation for each send, puts the result into a
-///     StreamSink&lt;TResult&gt;, and gives the Queued items and the Running items. It can also
-///     connect to streams that cancel Queued work and Running work. There is only this one method,
-///     in its most general shape. Each wrapper holds the short overloads that remove the types, or
-///     that connect TInput and TResult to the types of a strategy. Those are AsyncStreamExtensions
-///     in SodaFlow.Async and the mapAsync family in SodaFlow.FSharp.Async. Each language has a
-///     different short shape, and each wrapper has a different type for a value that the strategy
-///     does not use.
+///     The one internal entry point for the public MapAsync surface of each
+///     language wrapper. It connects an impure asynchronous operation to the FRP
+///     graph. It listens on a Stream&lt;TInput&gt;, runs an async operation for
+///     each send, puts the result into a StreamSink&lt;TResult&gt;, and gives the
+///     Queued items and the Running items. It can also connect to streams that
+///     cancel Queued work and Running work. There is only this one method, in its
+///     most general shape. Each wrapper holds the short overloads that remove the
+///     types, or that connect TInput and TResult to the types of a strategy. Those
+///     are AsyncStreamExtensions in SodaFlow.Async and the mapAsync family in
+///     SodaFlow.FSharp.Async. Each language has a different short shape, and each
+///     wrapper has a different type for a value that the strategy does not use.
 /// </summary>
 internal static class AsyncStreamUtility
 {
     /// <summary>
-    ///     Runs <paramref name="operation" /> for each send of <paramref name="source" />. It
-    ///     sends a value that succeeded to <paramref name="results" /> and a value with an error
-    ///     to <paramref name="errors" />. It needs no relation between
-    ///     <typeparamref name="TInput" /> and <typeparamref name="TStrategyInput" />, because the
-    ///     caller gives <paramref name="inputConverter" /> explicitly. Thus, the narrower
-    ///     overloads of each wrapper give their own short shape only with the arguments here: an
-    ///     identity converter where the types agree, and a constant converter where the strategy
-    ///     does not use the value.
+    ///     Runs <paramref name="operation" /> for each send of
+    ///     <paramref name="source" />. It sends a value that succeeded to
+    ///     <paramref name="results" /> and a value with an error to
+    ///     <paramref name="errors" />. It needs no relation between
+    ///     <typeparamref name="TInput" /> and <typeparamref name="TStrategyInput" />,
+    ///     because the caller gives <paramref name="inputConverter" /> explicitly.
+    ///     Thus, the narrower overloads of each wrapper give their own short shape
+    ///     only with the arguments here: an identity converter where the types agree,
+    ///     and a constant converter where the strategy does not use the value.
     /// </summary>
     /// <typeparam name="TInput">
     ///     The type in the source stream. It is the input for each call of
@@ -918,83 +982,94 @@ internal static class AsyncStreamUtility
     ///     <paramref name="cancelMatching" /> compares.
     /// </typeparam>
     /// <typeparam name="TResult">
-    ///     The type that <paramref name="operation" /> gives when it succeeds. The pipeline sends
-    ///     it to <paramref name="results" />.
+    ///     The type that <paramref name="operation" /> gives when it succeeds. The
+    ///     pipeline sends it to <paramref name="results" />.
     /// </typeparam>
     /// <typeparam name="TStrategyInput">
-    ///     The input type of <paramref name="strategy" />. The compiler infers it from the type
-    ///     of <paramref name="strategy" />, and no caller gives it explicitly. It needs no
-    ///     inheritance relation to <typeparamref name="TInput" />, because
-    ///     <paramref name="inputConverter" /> makes it explicitly.
+    ///     The input type of <paramref name="strategy" />. The compiler infers it from
+    ///     the type of <paramref name="strategy" />, and no caller gives it
+    ///     explicitly. It needs no inheritance relation to
+    ///     <typeparamref name="TInput" />, because <paramref name="inputConverter" />
+    ///     makes it explicitly.
     /// </typeparam>
     /// <param name="source">
-    ///     The stream of inputs. The pipeline gives each send to <paramref name="strategy" />,
-    ///     and the strategy starts it immediately or makes it wait. After a disposal of the status,
-    ///     the pipeline ignores each subsequent send.
+    ///     The stream of inputs. The pipeline gives each send to
+    ///     <paramref name="strategy" />, and the strategy starts it immediately or
+    ///     makes it wait. After a disposal of the status, the pipeline ignores each
+    ///     subsequent send.
     /// </param>
     /// <param name="results">
-    ///     This is necessary. The pipeline sends the return value of each operation that
-    ///     succeeded here, in the sequence of their ends and not in the sequence of the inputs.
-    ///     The pipeline does not send a result from a run that a different run replaced, or from a
-    ///     run that a cancellation stopped. See <paramref name="strategy" />.
+    ///     This is necessary. The pipeline sends the return value of each operation
+    ///     that succeeded here, in the sequence of their ends and not in the sequence
+    ///     of the inputs.
+    ///     The pipeline does not send a result from a run that a different run
+    ///     replaced, or from a run that a cancellation stopped. See
+    ///     <paramref name="strategy" />.
     /// </param>
     /// <param name="errors">
-    ///     This is necessary. The pipeline sends each operation with an error here. There is no
-    ///     call of this method with no destination for the errors.
+    ///     This is necessary. The pipeline sends each operation with an error here.
+    ///     There is no call of this method with no destination for the errors.
     /// </param>
     /// <param name="operation">
-    ///     The asynchronous work for each input. The pipeline calls it inline, thus it does not
-    ///     go to a thread pool before its own await. It receives a CancellationToken that combines
-    ///     the cancellation of this item with each token from the strategy. An operation that
-    ///     obeys that token lets <paramref name="cancelAll" />,
-    ///     <paramref name="cancelMatching" />, and <paramref name="cancelOnDispose" /> stop work
-    ///     that started. An operation that ignores the token continues to its end, and the
-    ///     cancellation then only stops the publication of its result. There is no overload with
-    ///     no token.
+    ///     The asynchronous work for each input. The pipeline calls it inline, thus it
+    ///     does not go to a thread pool before its own await. It receives a
+    ///     CancellationToken that combines the cancellation of this item with each
+    ///     token from the strategy. An operation that obeys that token lets
+    ///     <paramref name="cancelAll" />, <paramref name="cancelMatching" />, and
+    ///     <paramref name="cancelOnDispose" /> stop work that started. An operation
+    ///     that ignores the token continues to its end, and the cancellation then only
+    ///     stops the publication of its result. There is no overload with no token.
     /// </param>
     /// <param name="strategy">
-    ///     The control of requests that overlap. A strategy instance holds no state of its own,
-    ///     and more than one MapAsync call can use the same instance safely, at the same time.
-    ///     Each call gets its own new state manager, thus two pipelines never share a scheduling
-    ///     state.
+    ///     The control of requests that overlap. A strategy instance holds no state of
+    ///     its own, and more than one MapAsync call can use the same instance safely,
+    ///     at the same time.
+    ///     Each call gets its own new state manager, thus two pipelines never share a
+    ///     scheduling state.
     /// </param>
     /// <param name="inputConverter">
     ///     Changes each <typeparamref name="TInput" /> value to the
-    ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />, before the
-    ///     admission.
+    ///     <typeparamref name="TStrategyInput" /> of <paramref name="strategy" />,
+    ///     before the admission.
     /// </param>
     /// <param name="cancelAll">
-    ///     This is optional. Each send cancels each tracked operation, Queued or Running. The
-    ///     pipeline does not start a canceled Queued item at its turn. A cancellation stops a
-    ///     Running operation only if that operation monitors its CancellationToken.
+    ///     This is optional. Each send cancels each tracked operation, Queued or
+    ///     Running. The pipeline does not start a canceled Queued item at its turn. A
+    ///     cancellation stops a Running operation only if that operation monitors its
+    ///     CancellationToken.
     /// </param>
     /// <param name="cancelMatching">
-    ///     This is optional. Each send cancels the tracked operations, Queued or Running, whose
-    ///     input value is in the collection of that send. This uses the default equality comparer
-    ///     for TInput. The limits of <paramref name="cancelAll" /> also apply here.
+    ///     This is optional. Each send cancels the tracked operations, Queued or
+    ///     Running, whose input value is in the collection of that send. This uses the
+    ///     default equality comparer for TInput. The limits of
+    ///     <paramref name="cancelAll" /> also apply here.
     /// </param>
     /// <param name="cancelOnDispose">
-    ///     True when a disposal of the <see cref="AsyncMapStatus{TInput}" /> also cancels each
-    ///     item that the pipeline tracks at that time, Queued or Running. The default is true. At
-    ///     each value, a disposal always stops the admission of more values. This code sets the
-    ///     value here, at the setup, and not as a parameter of Dispose, because
-    ///     IDisposable.Dispose() is the only path to a disposal.
-    ///     A disposal does not stop the output. Each operation that runs continues to its end
-    ///     and publishes to <paramref name="results" /> or to <paramref name="errors" /> after the
-    ///     call returns. With true that output is usually not important, because the pipeline
-    ///     never publishes a canceled outcome and an operation that obeys its token makes none. An
-    ///     operation that ignores its token makes one, and with false that output is the
-    ///     purpose.
+    ///     True when a disposal of the <see cref="AsyncMapStatus{TInput}" /> also
+    ///     cancels each item that the pipeline tracks at that time, Queued or Running.
+    ///     The default is true. At each value, a disposal always stops the admission
+    ///     of more values. This code sets the value here, at the setup, and not as a
+    ///     parameter of Dispose, because IDisposable.Dispose() is the only path to a
+    ///     disposal.
+    ///     A disposal does not stop the output. Each operation that runs continues to
+    ///     its end and publishes to <paramref name="results" /> or to
+    ///     <paramref name="errors" /> after the call returns. With true that output is
+    ///     usually not important, because the pipeline never publishes a canceled
+    ///     outcome and an operation that obeys its token makes none. An operation that
+    ///     ignores its token makes one, and with false that output is the purpose.
     /// </param>
     /// <returns>
-    ///     An <see cref="AsyncMapStatus{TInput}" />. IsRunning is a Cell&lt;bool&gt; that is true
-    ///     while one call or more has the Running status, and a Queued item does not make it true.
-    ///     It updates with no glitch, in the transaction of the event that changes it. Items gives
-    ///     each tracked value with its status. A disposal of the status stops the pipeline.
+    ///     An <see cref="AsyncMapStatus{TInput}" />. IsRunning is a Cell&lt;bool&gt;
+    ///     that is true while one call or more has the Running status, and a Queued
+    ///     item does not make it true.
+    ///     It updates with no glitch, in the transaction of the event that changes it.
+    ///     Items gives each tracked value with its status. A disposal of the status
+    ///     stops the pipeline.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     <paramref name="source" />, <paramref name="results" />, <paramref name="errors" />,
-    ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
+    ///     <paramref name="source" />, <paramref name="results" />,
+    ///     <paramref name="errors" />, <paramref name="operation" />, or
+    ///     <paramref name="strategy" /> is null.
     /// </exception>
     internal static AsyncMapStatus<TInput, TResult> MapAsyncImpl<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
@@ -1045,15 +1120,16 @@ internal static class AsyncStreamUtility
 }
 
 /// <summary>
-///     The face of a strategy that is not generic over <c>TState</c>. It is the type that
+///     The face of a strategy that is not generic over <c>TState</c>. It is the
+///     type that
 ///     <see
 ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
-///     and its overloads accept. This keeps the <c>TState</c> of a strategy out of each MapAsync
-///     signature. A caller and the execution engine see only
+///     and its overloads accept. This keeps the <c>TState</c> of a strategy out of
+///     each MapAsync signature. A caller and the execution engine see only
 ///     <see cref="AsyncConcurrencyStrategyBase{TInput}" />, and never
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />. The internal constructor
-///     prevents an external subclass. To write a custom strategy, subclass
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />.
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />. The internal
+///     constructor prevents an external subclass. To write a custom strategy,
+///     subclass <see cref="AsyncConcurrencyStrategy{TInput,TState}" />.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1065,35 +1141,41 @@ public abstract class AsyncConcurrencyStrategyBase<TInput>
     }
 
     /// <summary>
-    ///     Makes the <see cref="AsyncMapBase.IStateManager{TInput}" /> for one MapAsync
-    ///     call. See <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateState" />.
+    ///     Makes the <see cref="AsyncMapBase.IStateManager{TInput}" /> for one
+    ///     MapAsync call. See
+    ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.CreateState" />.
     /// </summary>
     internal abstract IStateManager<TInput> CreateStateManager();
 }
 
 /// <summary>
-///     The base class of a MapAsync scheduling strategy, which is the admission and the sequence
-///     of a stream of async requests. A strategy answers two questions, and each answer is data.
-///     <see cref="Admit" /> answers "which items start now for this new tracked value?" and
-///     <see cref="OnCompleted" /> answers "which items start next for this outcome, and does the
-///     pipeline publish it?". A strategy answers only from a <typeparamref name="TState" /> that
-///     it controls. A strategy instance holds no state of its own, because each value that
-///     changes is in <typeparamref name="TState" />. <see cref="CreateState" /> makes one instance
-///     of that state for each MapAsync call. Thus, more than one MapAsync call can use the same
-///     strategy instance safely, at the same time. The execution engine (see
+///     The base class of a MapAsync scheduling strategy, which is the admission
+///     and the sequence of a stream of async requests. A strategy answers two
+///     questions, and each answer is data.
+///     <see cref="Admit" /> answers "which items start now for this new tracked
+///     value?" and <see cref="OnCompleted" /> answers "which items start next for
+///     this outcome, and does the pipeline publish it?". A strategy answers only
+///     from a <typeparamref name="TState" /> that it controls. A strategy instance
+///     holds no state of its own, because each value that changes is in
+///     <typeparamref name="TState" />. <see cref="CreateState" /> makes one
+///     instance of that state for each MapAsync call. Thus, more than one MapAsync
+///     call can use the same strategy instance safely, at the same time. The
+///     execution engine (see
 ///     <see
 ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
-///     ) holds the
-///     <typeparamref name="TState" /> of each call, and it is the only code that gives that state
-///     back to the strategy. <see cref="Admit" /> and <see cref="OnCompleted" /> cannot use the
-///     result sink, the error sink, or a Task, and cannot start a Task. The two methods give a
-///     description of the necessary operations, and the execution engine does them. The one
-///     imperative operation is <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" />, which
-///     cancels an item that the strategy controls. It publishes nothing and starts nothing. It
-///     goes to the cancellation path of an external cancelAll stream, thus the item ends through
-///     <see cref="OnCompleted" /> as each other item does. The identity of an item at its end is
-///     the item that the strategy got in <see cref="Admit" />. There is no second handle. Keep the
-///     item in <typeparamref name="TState" /> to identify it again after this.
+///     ) holds the <typeparamref name="TState" /> of each call, and it is the only
+///     code that gives that state back to the strategy. <see cref="Admit" /> and
+///     <see cref="OnCompleted" /> cannot use the result sink, the error sink, or a
+///     Task, and cannot start a Task. The two methods give a description of the
+///     necessary operations, and the execution engine does them. The one
+///     imperative operation is
+///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" />, which cancels
+///     an item that the strategy controls. It publishes nothing and starts
+///     nothing. It goes to the cancellation path of an external cancelAll stream,
+///     thus the item ends through <see cref="OnCompleted" /> as each other item
+///     does. The identity of an item at its end is the item that the strategy got
+///     in <see cref="Admit" />. There is no second handle. Keep the item in
+///     <typeparamref name="TState" /> to identify it again after this.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1104,39 +1186,43 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
         new StateManager<TInput, TState>(strategy: this, state: this.CreateState());
 
     /// <summary>
-    ///     Makes a new scheduling state for one MapAsync call. The engine calls this one time for
-    ///     each call. See
+    ///     Makes a new scheduling state for one MapAsync call. The engine calls this
+    ///     one time for each call. See
     ///     <see
     ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
-    ///     Thus, two pipelines with the same strategy instance never read the state of the other,
-    ///     also when the two run at the same time.
+    ///     Thus, two pipelines with the same strategy instance never read the state of
+    ///     the other, also when the two run at the same time.
     /// </summary>
     protected abstract TState CreateState();
 
     /// <summary>
-    ///     Gives the items to start now for a new admitted value. The pipeline tracks that value
-    ///     with the Queued status. See <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. The
-    ///     engine always calls this in a SodaFlow transaction. See
-    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />
-    ///     for the cause that makes a change to <paramref name="state" /> here safe with no
-    ///     explicit lock. Return an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> with
-    ///     <paramref name="incoming" /> to start it immediately. Without that, the item keeps the
-    ///     Queued status. To start a Queued item after this, keep <paramref name="incoming" /> in
-    ///     <paramref name="state" />, and not only its Value. That keeps its identity and its
-    ///     cancellation during the wait, and it is the value that <see cref="OnCompleted" /> gives
-    ///     back. <paramref name="tracked" /> gives the same items, thus a strategy that reads only
-    ///     the queue of the pipeline can keep no queue of its own.
+    ///     Gives the items to start now for a new admitted value. The pipeline tracks
+    ///     that value with the Queued status. See
+    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. The engine always
+    ///     calls this in a SodaFlow transaction. See
+    ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" /> for
+    ///     the cause that makes a change to <paramref name="state" /> here safe with
+    ///     no explicit lock. Return an
+    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> with
+    ///     <paramref name="incoming" /> to start it immediately. Without that, the
+    ///     item keeps the Queued status. To start a Queued item after this, keep
+    ///     <paramref name="incoming" /> in <paramref name="state" />, and not only its
+    ///     Value. That keeps its identity and its cancellation during the wait, and it
+    ///     is the value that <see cref="OnCompleted" /> gives back.
+    ///     <paramref name="tracked" /> gives the same items, thus a strategy that
+    ///     reads only the queue of the pipeline can keep no queue of its own.
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
     /// <param name="incoming">The value that the pipeline admits now.</param>
     /// <param name="tracked">
-    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
-    ///     admissions. It does not hold <paramref name="incoming" />, which the pipeline adds
-    ///     after this call. It holds each other item that the pipeline tracks at this moment, with
-    ///     the status that item has now. An earlier edit of this same transaction is in it. For
-    ///     example, an item that ended in this transaction is gone, and an item that
-    ///     <see cref="OnCompleted" /> started in this transaction is Running. This list does not
-    ///     change while this method runs.
+    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of
+    ///     their admissions. It does not hold <paramref name="incoming" />, which the
+    ///     pipeline adds after this call. It holds each other item that the pipeline
+    ///     tracks at this moment, with the status that item has now. An earlier edit
+    ///     of this same transaction is in it. For example, an item that ended in this
+    ///     transaction is gone, and an item that <see cref="OnCompleted" /> started in
+    ///     this transaction is Running. This list does not change while this method
+    ///     runs.
     /// </param>
     protected internal abstract IReadOnlyList<AsyncToStart<TInput>> Admit(
         TState state,
@@ -1144,38 +1230,42 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
         IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 
     /// <summary>
-    ///     Gives two answers for one item whose operation returned or threw: if the pipeline
-    ///     publishes that outcome, and which tracked items start. For example, the next Queued item
-    ///     can start because of that end. The engine always calls this in a SodaFlow transaction,
-    ///     as it calls <see cref="Admit" />. Each <see cref="AsyncMapBase.AsyncToStart{TInput}" />
-    ///     from this method must contain an <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />
-    ///     from a previous <see cref="Admit" /> call. There is no path for a value with no
-    ///     admission.
+    ///     Gives two answers for one item whose operation returned or threw: if the
+    ///     pipeline publishes that outcome, and which tracked items start. For
+    ///     example, the next Queued item can start because of that end. The engine
+    ///     always calls this in a SodaFlow transaction, as it calls
+    ///     <see cref="Admit" />. Each <see cref="AsyncMapBase.AsyncToStart{TInput}" />
+    ///     from this method must contain an
+    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" /> from a previous
+    ///     <see cref="Admit" /> call. There is no path for a value with no admission.
     ///     <para>
-    ///         One item, and never two. A stream carries one value for each transaction, and the
-    ///         edit of the queue for this end is in the transaction that sends its result. Thus,
-    ///         one such end is the most that a transaction can hold. A cancellation is the one end
-    ///         that comes in a group, and it goes to <see cref="OnCanceled" />.
+    ///         One item, and never two. A stream carries one value for each
+    ///         transaction, and the edit of the queue for this end is in the
+    ///         transaction that sends its result. Thus, one such end is the most that
+    ///         a transaction can hold. A cancellation is the one end that comes in a
+    ///         group, and it goes to <see cref="OnCanceled" />.
     ///     </para>
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
     /// <param name="item">
-    ///     The item that ended. It is the instance that this strategy got for that value in
-    ///     <see cref="Admit" />. It is the same instance, thus ReferenceEquals against an item in
-    ///     <paramref name="state" /> tells you if that item is the current run.
+    ///     The item that ended. It is the instance that this strategy got for that
+    ///     value in <see cref="Admit" />. It is the same instance, thus
+    ///     ReferenceEquals against an item in <paramref name="state" /> tells you if
+    ///     that item is the current run.
     /// </param>
     /// <param name="completion">
-    ///     How the operation ended: it returned, or it threw. A cancellation is not one of these
-    ///     ends. See <see cref="OnCanceled" />.
+    ///     How the operation ended: it returned, or it threw. A cancellation is not
+    ///     one of these ends. See <see cref="OnCanceled" />.
     /// </param>
     /// <param name="tracked">
-    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of their
-    ///     admissions. It holds no <paramref name="item" />: the pipeline removes that item before
-    ///     this call. Thus, a strategy can select the first Queued item with no test against it. It
-    ///     holds each other item that the pipeline tracks at this moment, with the status that item
-    ///     has now, and an earlier edit of this same transaction is in it. An item that this
-    ///     decision starts is Queued in it, and not Running. This list does not change while this
-    ///     method runs.
+    ///     Each item that the pipeline tracks, Queued or Running, in the sequence of
+    ///     their admissions. It holds no <paramref name="item" />: the pipeline
+    ///     removes that item before this call. Thus, a strategy can select the first
+    ///     Queued item with no test against it. It holds each other item that the
+    ///     pipeline tracks at this moment, with the status that item has now, and an
+    ///     earlier edit of this same transaction is in it. An item that this decision
+    ///     starts is Queued in it, and not Running. This list does not change while
+    ///     this method runs.
     /// </param>
     protected internal abstract AsyncStrategyResult<TInput> OnCompleted(
         TState state,
@@ -1184,32 +1274,38 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
         IReadOnlyList<AsyncTrackedItem<TInput>> tracked);
 
     /// <summary>
-    ///     Gives the tracked items to start because a cancellation ended one item or more. There is
-    ///     no publish decision here: a canceled item sends nothing to the results and nothing to
-    ///     the errors. A cancellation is always an expected end with no message. Its source is
-    ///     external code, a strategy that replaces its own previous run, or a Queued item that a
-    ///     cancellation removes before its turn.
+    ///     Gives the tracked items to start because a cancellation ended one item or
+    ///     more. There is no publish decision here: a canceled item sends nothing to
+    ///     the results and nothing to the errors. A cancellation is always an expected
+    ///     end with no message. Its source is external code, a strategy that replaces
+    ///     its own previous run, or a Queued item that a cancellation removes before
+    ///     its turn.
     ///     <para>
-    ///         The engine calls this one time for the cancellations of one transaction. One send of
-    ///         a cancellation stream can end each Queued item and each Running item whose operation
-    ///         observes its token, all at one instant. One call gives one decision over the queue
-    ///         that holds no item of those ends. Thus, a strategy does not start an item that is
-    ///         about to end.
+    ///         The engine calls this one time for the cancellations of one
+    ///         transaction. One send of a cancellation stream can end each Queued item
+    ///         and each Running item whose operation observes its token, all at one
+    ///         instant. One call gives one decision over the queue that holds no item
+    ///         of those ends. Thus, a strategy does not start an item that is about to
+    ///         end.
     ///     </para>
     ///     <para>
-    ///         A strategy that holds a reference to its current run clears that reference here.
-    ///         Otherwise, the last value stays in memory after the pipeline becomes empty.
+    ///         A strategy that holds a reference to its current run clears that
+    ///         reference here.
+    ///         Otherwise, the last value stays in memory after the pipeline becomes
+    ///         empty.
     ///     </para>
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
     /// <param name="canceled">
-    ///     Each item that a cancellation ended now, in the sequence of their admissions. Each one
-    ///     is the instance that this strategy got in <see cref="Admit" />.
+    ///     Each item that a cancellation ended now, in the sequence of their
+    ///     admissions. Each one is the instance that this strategy got in
+    ///     <see cref="Admit" />.
     /// </param>
     /// <param name="tracked">
-    ///     The queue of this pipeline, in the sequence of the admissions. It holds no item of
-    ///     <paramref name="canceled" />: the pipeline removes each of those before this call. The
-    ///     other rules of the <see cref="OnCompleted" /> list hold here also.
+    ///     The queue of this pipeline, in the sequence of the admissions. It holds no
+    ///     item of <paramref name="canceled" />: the pipeline removes each of those
+    ///     before this call. The other rules of the <see cref="OnCompleted" /> list
+    ///     hold here also.
     /// </param>
     /// <returns>
     ///     Tracked items to start now, or to promote now. Give
@@ -1222,27 +1318,32 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
 }
 
 /// <summary>
-///     The container of the strategies in the library: Parallel, Queue, QueuePerGroup, and
-///     SwitchLatest. Each one uses only the schedule, and not the <c>TInput</c> or the
-///     <c>TResult</c> of the call. Thus, each one is generic over a <c>TUnit</c> from the caller.
-///     QueuePerGroup is generic over the input type also, because it calculates a group key from
-///     the input. No strategy has one fixed type for a value that it does not use. Thus, one
-///     shared implementation of the schedule serves each language wrapper, and each wrapper gives
-///     the type that is natural for it as <c>TUnit</c>. The C# wrapper gives
-///     <c>SodaFlow.Functional.Unit</c>, and the F# wrapper gives its own <c>unit</c>. The
-///     alternatives are a public type in Core, which is not possible because Core has no
-///     dependency on SodaFlow.Functional, or the same logic in each wrapper.
-///     This class is internal and not public. Each method here is generic, thus the class does not
-///     be. An internal class lets each language wrapper build its own public interface with its
-///     own types above it, and does not show this generic surface. The wrappers are
-///     SodaFlow.Async and SodaFlow.FSharp.Async, and the two are friend assemblies through IVT.
-///     The name is different from <see cref="AsyncConcurrencyStrategy{TInput,TState}" />,
-///     and this class is not a subclass of that class. F# does not always resolve a bare type
-///     name across two generic arities of the same name, also with a full qualification. The
-///     short hierarchy in the C# wrapper has the same name and is correct, because a type in the
-///     consuming assembly has priority above a type of the same name from a reference. The F#
-///     wrapper has no type of its own for that priority. Thus, this class keeps a name that is not
-///     ambiguous, and does not overload "AsyncConcurrencyStrategy" by arity. The nested
+///     The container of the strategies in the library: Parallel, Queue,
+///     QueuePerGroup, and SwitchLatest. Each one uses only the schedule, and not
+///     the <c>TInput</c> or the <c>TResult</c> of the call. Thus, each one is
+///     generic over a <c>TUnit</c> from the caller. QueuePerGroup is generic over
+///     the input type also, because it calculates a group key from the input. No
+///     strategy has one fixed type for a value that it does not use. Thus, one
+///     shared implementation of the schedule serves each language wrapper, and
+///     each wrapper gives the type that is natural for it as <c>TUnit</c>. The C#
+///     wrapper gives <c>SodaFlow.Functional.Unit</c>, and the F# wrapper gives its
+///     own <c>unit</c>. The alternatives are a public type in Core, which is not
+///     possible because Core has no dependency on SodaFlow.Functional, or the same
+///     logic in each wrapper.
+///     This class is internal and not public. Each method here is generic, thus
+///     the class does not be. An internal class lets each language wrapper build
+///     its own public interface with its own types above it, and does not show
+///     this generic surface. The wrappers are SodaFlow.Async and
+///     SodaFlow.FSharp.Async, and the two are friend assemblies through IVT.
+///     The name is different from
+///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />, and this class is
+///     not a subclass of that class. F# does not always resolve a bare type name
+///     across two generic arities of the same name, also with a full
+///     qualification. The short hierarchy in the C# wrapper has the same name and
+///     is correct, because a type in the consuming assembly has priority above a
+///     type of the same name from a reference. The F# wrapper has no type of its
+///     own for that priority. Thus, this class keeps a name that is not ambiguous,
+///     and does not overload "AsyncConcurrencyStrategy" by arity. The nested
 ///     strategies below never have that ambiguity, because they always name
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> with its three type
 ///     arguments, and that gives the arity at each other use of the name.
@@ -1250,18 +1351,18 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
 internal static class AsyncConcurrencyStrategyFactory
 {
     /// <summary>
-    ///     Each send starts its own operation immediately. The results come in the sequence
-    ///     of their ends.
+    ///     Each send starts its own operation immediately. The results come in the
+    ///     sequence of their ends.
     /// </summary>
     /// <typeparam name="TUnit">
-    ///     The type of the calling wrapper for a value that this strategy does not use. It
-    ///     replaces the input type and the result type. The C# wrapper gives
-    ///     <c>SodaFlow.Functional.Unit</c>, and the F# wrapper gives its own <c>unit</c>. This
-    ///     strategy never reads a value of it.
+    ///     The type of the calling wrapper for a value that this strategy does not
+    ///     use. It replaces the input type and the result type. The C# wrapper gives
+    ///     <c>SodaFlow.Functional.Unit</c>, and the F# wrapper gives its own
+    ///     <c>unit</c>. This strategy never reads a value of it.
     /// </typeparam>
     /// <param name="unitValue">
-    ///     The one value of <typeparamref name="TUnit" />. It is the state of this strategy for
-    ///     each call, and no code reads it.
+    ///     The one value of <typeparamref name="TUnit" />. It is the state of this
+    ///     strategy for each call, and no code reads it.
     /// </param>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
     internal static AsyncConcurrencyStrategyBase<TUnit> Parallel<TUnit>(TUnit unitValue) =>
@@ -1272,28 +1373,30 @@ internal static class AsyncConcurrencyStrategyFactory
     ///     queue, and the queue runs in sequence.
     /// </summary>
     /// <typeparam name="TUnit">
-    ///     The type of the calling wrapper for a value that this strategy does not use. See
-    ///     <see cref="Parallel{TUnit}" />.
+    ///     The type of the calling wrapper for a value that this strategy does not
+    ///     use. See <see cref="Parallel{TUnit}" />.
     /// </typeparam>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
     internal static AsyncConcurrencyStrategyBase<TUnit> Queue<TUnit>() => QueueStrategy<TUnit>.Instance;
 
     /// <summary>
-    ///     Builds a strategy with one queue for each group. <paramref name="getGroup" /> puts
-    ///     each input in a group. In one group, a subsequent send goes behind the sends before it,
-    ///     as <see cref="Queue" /> does. Two different groups do not wait for each other.
+    ///     Builds a strategy with one queue for each group.
+    ///     <paramref name="getGroup" /> puts each input in a group. In one group, a
+    ///     subsequent send goes behind the sends before it, as <see cref="Queue" />
+    ///     does. Two different groups do not wait for each other.
     /// </summary>
     /// <typeparam name="TUnit">
-    ///     The type of the calling wrapper for a value that this strategy does not use. It
-    ///     replaces the result type only, because this strategy uses its input to calculate a
-    ///     group key. See <see cref="Parallel{TUnit}" />.
+    ///     The type of the calling wrapper for a value that this strategy does not
+    ///     use. It replaces the result type only, because this strategy uses its input
+    ///     to calculate a group key. See <see cref="Parallel{TUnit}" />.
     /// </typeparam>
     /// <typeparam name="TInput">The input type of <paramref name="getGroup" />.</typeparam>
     /// <typeparam name="TGroup">The type of the group key.</typeparam>
     /// <param name="getGroup">
-    ///     Calculates the group key of an input value. It must be deterministic, because the
-    ///     strategy calls it at the admission of the value and again at its end. The two calls
-    ///     must agree, or the strategy cannot find the queue of the item.
+    ///     Calculates the group key of an input value. It must be deterministic,
+    ///     because the strategy calls it at the admission of the value and again at
+    ///     its end. The two calls must agree, or the strategy cannot find the queue of
+    ///     the item.
     /// </param>
     /// <param name="groupComparer">
     ///     An optional equality comparer for the group keys. The default is
@@ -1308,8 +1411,8 @@ internal static class AsyncConcurrencyStrategyFactory
 
     /// <summary>A new send cancels the operation that runs and replaces it.</summary>
     /// <typeparam name="TUnit">
-    ///     The type of the calling wrapper for a value that this strategy does not use. See
-    ///     <see cref="Parallel{TUnit}" />.
+    ///     The type of the calling wrapper for a value that this strategy does not
+    ///     use. See <see cref="Parallel{TUnit}" />.
     /// </typeparam>
     /// <returns>A strategy instance with no state, for use by more than one call.</returns>
     internal static AsyncConcurrencyStrategyBase<TUnit> SwitchLatest<TUnit>() => SwitchLatestStrategy<TUnit>.Instance;
@@ -1427,8 +1530,9 @@ internal static class AsyncConcurrencyStrategyFactory
     }
 
     /// <summary>
-    ///     One queue for each group, in the style of <see cref="QueueStrategy{TUnit}" />. Each
-    ///     queue operates independently. A group selector puts each input in a group.
+    ///     One queue for each group, in the style of
+    ///     <see cref="QueueStrategy{TUnit}" />. Each queue operates independently. A
+    ///     group selector puts each input in a group.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueuePerGroupStrategy<TUnit, TInput, TGroup>(
@@ -1556,8 +1660,8 @@ internal static class AsyncConcurrencyStrategyFactory
         }
 
         /// <summary>
-        ///     The comparer for the group keys. This strategy holds no queue: the queue of the
-        ///     pipeline holds each item, and a group is a test on that queue.
+        ///     The comparer for the group keys. This strategy holds no queue: the queue of
+        ///     the pipeline holds each item, and a group is a test on that queue.
         /// </summary>
         public sealed class State(in IEqualityComparer<TGroup>? groupComparer)
         {
@@ -1643,35 +1747,39 @@ internal static class AsyncConcurrencyStrategyFactory
 }
 
 /// <summary>
-///     Runs one MapAsync pipeline. It starts the operations, catches the exceptions, sends the
-///     results and the errors, tracks the Queued items and the Running items, connects the
-///     external cancellation, and controls the transaction limits. The external cancellation
-///     includes a cancellation before a start. A
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> does none of this. A
-///     strategy answers Admit and OnCompleted with data only, and this class does the operations
-///     in that answer. This code makes one instance for each MapAsync call (see
+///     Runs one MapAsync pipeline. It starts the operations, catches the
+///     exceptions, sends the results and the errors, tracks the Queued items and
+///     the Running items, connects the external cancellation, and controls the
+///     transaction limits. The external cancellation includes a cancellation
+///     before a start. A <see cref="AsyncConcurrencyStrategy{TInput,TState}" />
+///     does none of this. A strategy answers Admit and OnCompleted with data only,
+///     and this class does the operations in that answer. This code makes one
+///     instance for each MapAsync call (see
 ///     <see
 ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
-///     ), and that instance holds the one state of the call. This code makes that state at the
-///     start and never shares it between two calls. Thus, more than one call can use the same
-///     strategy instance safely, at the same time. This class and
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> share
-///     <see cref="AsyncMapBase" /> only to get the nested data types of that base, such as
-///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. This class is not a subtype of the
-///     strategy, and the two have no other relation.
+///     ), and that instance holds the one state of the call. This code makes that
+///     state at the start and never shares it between two calls. Thus, more than
+///     one call can use the same strategy instance safely, at the same time. This
+///     class and <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> share
+///     <see cref="AsyncMapBase" /> only to get the nested data types of that base,
+///     such as <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />. This class is
+///     not a subtype of the strategy, and the two have no other relation.
 ///     In this class, each value that the strategy reads has the type
-///     <typeparamref name="TStrategyInput" /> and not <typeparamref name="TInput" />. Those
-///     values are the tracked items and ToStart. Only a <typeparamref name="TInput" /> value
-///     comes in, from <c>source</c>, and only a <typeparamref name="TResult" /> value goes out,
-///     to <c>results</c>. The conversion at the input edge is the work of this class and not of
-///     the strategy: <see cref="inputConverter" />. That converter usually has no inverse, thus
-///     this code never calculates the initial <typeparamref name="TInput" /> value again from the
-///     converted value. It keeps the two values together. See <see cref="Entry" /> and the
-///     <c>value</c> parameter that goes through <see cref="PromoteAndLaunch" /> into
-///     <see cref="StartOperation" />.
-///     The strategy reads no result at all. It reads <see cref="AsyncMapBase.AsyncCompletion" />,
-///     which says how the operation ended, and <see cref="Flush" /> asks it before this class
-///     makes the result. See <see cref="Publish" />.
+///     <typeparamref name="TStrategyInput" /> and not
+///     <typeparamref name="TInput" />. Those values are the tracked items and
+///     ToStart. Only a <typeparamref name="TInput" /> value comes in, from
+///     <c>source</c>, and only a <typeparamref name="TResult" /> value goes out,
+///     to <c>results</c>. The conversion at the input edge is the work of this
+///     class and not of the strategy: <see cref="inputConverter" />. That
+///     converter usually has no inverse, thus this code never calculates the
+///     initial <typeparamref name="TInput" /> value again from the converted
+///     value. It keeps the two values together. See <see cref="Entry" /> and the
+///     <c>value</c> parameter that goes through <see cref="PromoteAndLaunch" />
+///     into <see cref="StartOperation" />.
+///     The strategy reads no result at all. It reads
+///     <see cref="AsyncMapBase.AsyncCompletion" />, which says how the operation
+///     ended, and <see cref="Flush" /> asks it before this class makes the result.
+///     See <see cref="Publish" />.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> : AsyncMapBase
@@ -2264,10 +2372,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     /// <summary>
     ///     Stops this pipeline. See <see cref="AsyncMapStatus.Dispose" /> for the full
-    ///     contract. The cancelOnDispose value at Attach sets the cancellation of the tracked
-    ///     items, and this method has no parameter for it, because IDisposable.Dispose() is the
-    ///     only public path to a disposal. <see cref="disposeState" /> makes this method run one
-    ///     time, because each thread can call it with no SodaFlow transaction open.
+    ///     contract. The cancelOnDispose value at Attach sets the cancellation of the
+    ///     tracked items, and this method has no parameter for it, because
+    ///     IDisposable.Dispose() is the only public path to a disposal.
+    ///     <see cref="disposeState" /> makes this method run one time, because each
+    ///     thread can call it with no SodaFlow transaction open.
     /// </summary>
     private void Dispose()
     {
@@ -2503,37 +2612,43 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     }
 
     /// <summary>
-    ///     The one method that makes the effects of each item at its end. An item with no start,
-    ///     which a cancellation removed with the Queued status, also comes here. This method asks
-    ///     the strategy for one decision over the items that end together. Then, in one atomic
-    ///     SodaFlow transaction, it publishes each outcome that the strategy asks for, removes the
-    ///     entry of each item, promotes each item that the strategy selects, and disposes the
+    ///     The one method that makes the effects of each item at its end. An item with
+    ///     no start, which a cancellation removed with the Queued status, also comes
+    ///     here. This method asks the strategy for one decision over the items that
+    ///     end together. Then, in one atomic SodaFlow transaction, it publishes each
+    ///     outcome that the strategy asks for, removes the entry of each item,
+    ///     promotes each item that the strategy selects, and disposes the
     ///     CancellationTokenSource of each one.
     ///     <para>
-    ///         <paramref name="sends" /> says which method answers. A cancellation can end more than
-    ///         one item at one instant, and no canceled end sends anything. Thus, EndItem gives all
-    ///         of those ends to one call, and OnCanceled makes one decision for them. One edit of
-    ///         the queue then answers one instant, and no observer of the queue sees a state
-    ///         between the ends.
+    ///         <paramref name="sends" /> says which method answers. A cancellation can
+    ///         end more than one item at one instant, and no canceled end sends
+    ///         anything. Thus, EndItem gives all of those ends to one call, and
+    ///         OnCanceled makes one decision for them. One edit of the queue then
+    ///         answers one instant, and no observer of the queue sees a state between
+    ///         the ends.
     ///     </para>
     ///     <para>
-    ///         An end that sends a result or an error is alone in its call, and OnCompleted reads
-    ///         it. One transaction carries one value of a stream, thus one such end is the most
-    ///         that a transaction can hold. The edit of the queue for that end is in this same
-    ///         transaction as its send. Where it is not, a graph that reads the queue and the
-    ///         result together sees two instants where the pipeline made one. A caller that wants
-    ///         results for a batch of inputs asks for that in the types. One MapAsync goes from
-    ///         TInput to a list of inputs, and a second goes from that list to a list of results.
+    ///         An end that sends a result or an error is alone in its call, and
+    ///         OnCompleted reads it. One transaction carries one value of a stream,
+    ///         thus one such end is the most that a transaction can hold. The edit of
+    ///         the queue for that end is in this same transaction as its send. Where
+    ///         it is not, a graph that reads the queue and the result together sees
+    ///         two instants where the pipeline made one. A caller that wants results
+    ///         for a batch of inputs asks for that in the types. One MapAsync goes
+    ///         from TInput to a list of inputs, and a second goes from that list to a
+    ///         list of results.
     ///     </para>
     ///     <para>
-    ///         The removal of an entry and the disposal of its CancellationTokenSource are in the
-    ///         same transaction, thus the Snapshot of a cancellation stream never reads a stale
-    ///         entry. That Snapshot sees the entry from before this transaction, and a cancellation
-    ///         can then remove it, or it does not see the entry at all, from after this transaction.
+    ///         The removal of an entry and the disposal of its CancellationTokenSource
+    ///         are in the same transaction, thus the Snapshot of a cancellation stream
+    ///         never reads a stale entry. That Snapshot sees the entry from before
+    ///         this transaction, and a cancellation can then remove it, or it does not
+    ///         see the entry at all, from after this transaction.
     ///     </para>
     ///     <para>
-    ///         EndItem gives this method each end, and never from a callback. Thus, a long queue
-    ///         with a cancellation on each item does not make a depth of calls.
+    ///         EndItem gives this method each end, and never from a callback. Thus, a
+    ///         long queue with a cancellation on each item does not make a depth of
+    ///         calls.
     ///     </para>
     /// </summary>
     /// <param name="ends">
@@ -2541,8 +2656,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     <paramref name="sends" /> is true.
     /// </param>
     /// <param name="sends">
-    ///     True for the one end that can send a result or an error, which OnCompleted reads. False
-    ///     for the canceled ends of one transaction, which OnCanceled reads.
+    ///     True for the one end that can send a result or an error, which OnCompleted
+    ///     reads. False for the canceled ends of one transaction, which OnCanceled
+    ///     reads.
     /// </param>
     /// <param name="trackedCell">The cell that holds the queue of this pipeline.</param>
     private void Flush(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell) =>
@@ -2730,20 +2846,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         });
 
     /// <summary>
-    ///     Makes the result of an item and sends it. This is the one code that calls the function
-    ///     of a <see cref="MapAsyncResult{TResult}" />, and it runs in the transaction that
-    ///     publishes. Thus, a result that holds a cell or a stream comes into existence in that
-    ///     transaction, and that is the cause for a constructor and not a value.
+    ///     Makes the result of an item and sends it. This is the one code that calls
+    ///     the function of a <see cref="MapAsyncResult{TResult}" />, and it runs in
+    ///     the transaction that publishes. Thus, a result that holds a cell or a
+    ///     stream comes into existence in that transaction, and that is the cause for
+    ///     a constructor and not a value.
     ///     <para>
-    ///         A throw from that function goes to the errors. The strategy saw this item as
-    ///         Succeeded, because the operation did return, and this code then publishes the error
-    ///         of the construction and not a result. A cancellation that the function throws, with
-    ///         the token of this item canceled, publishes nothing, as a cancellation always
-    ///         does.
+    ///         A throw from that function goes to the errors. The strategy saw this
+    ///         item as Succeeded, because the operation did return, and this code then
+    ///         publishes the error of the construction and not a result. A
+    ///         cancellation that the function throws, with the token of this item
+    ///         canceled, publishes nothing, as a cancellation always does.
     ///     </para>
     ///     <para>
-    ///         The send operation is not in the try. A listener that throws is not a failure of
-    ///         this operation, and an error stream that receives such a throw hides its source.
+    ///         The send operation is not in the try. A listener that throws is not a
+    ///         failure of this operation, and an error stream that receives such a
+    ///         throw hides its source.
     ///     </para>
     /// </summary>
     private void Publish(
@@ -2836,10 +2954,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     }
 
     /// <summary>
-    ///     The queue of the pipeline, as a strategy reads it. It holds the array that the tracked
-    ///     cell has now and takes the item of each entry, thus a call of Admit or OnCompleted
-    ///     copies no list. The array is immutable after the transaction that made it, which is
-    ///     what makes this safe to give away.
+    ///     The queue of the pipeline, as a strategy reads it. It holds the array that
+    ///     the tracked cell has now and takes the item of each entry, thus a call of
+    ///     Admit or OnCompleted copies no list. The array is immutable after the
+    ///     transaction that made it, which is what makes this safe to give away.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class TrackedItems(in Entry[] entries) : IReadOnlyList<AsyncTrackedItem<TStrategyInput>>

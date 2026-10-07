@@ -4,8 +4,8 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A stream that allows values to be pushed into it which is meant to be used as the input update stream for a
-///     <see cref="CellSink{T}" />.
+///     A stream that allows values to be pushed into it which is meant to be used
+///     as the input update stream for a <see cref="CellSink{T}" />.
 /// </summary>
 /// <typeparam name="T">The type of values in the cell sink.</typeparam>
 [PublicAPI]

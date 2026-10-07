@@ -10,29 +10,32 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     The rules of a stage for the change that it reports, with a test across a sequence of edits
-///     and not one edit at a time.
+///     The rules of a stage for the change that it reports, with a test across a
+///     sequence of edits and not one edit at a time.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each operation names a position in the list of a consumer, thus this code does not
-///         report a position with no value. The position is a row index, and no code below can use
-///         a value of -1.
+///         Each operation names a position in the list of a consumer, thus this
+///         code does not report a position with no value. The position is a row
+///         index, and no code below can use a value of -1.
 ///     </para>
 ///     <para>
-///         The two flags in a change must agree with its operations. A stage publishes its key
-///         list only when it reports a change to its keys. A sort below it reads a change with no
-///         flag as a change with only updates. Thus, a flag that is below the true change leaves an
-///         previous list in the public cell, or throws an exception one stage below.
+///         The two flags in a change must agree with its operations. A stage
+///         publishes its key list only when it reports a change to its keys. A
+///         sort below it reads a change with no flag as a change with only
+///         updates. Thus, a flag that is below the true change leaves an previous
+///         list in the public cell, or throws an exception one stage below.
 ///     </para>
 ///     <para>
-///         A sort throws an exception for the two conditions that break one of those rules, and
-///         does not report an operation with no position. Those conditions are a key that the stage
-///         does not hold and a key that the snapshot removed. No code can get to one of the two
-///         through the public surface now, because a stage sorts only the keys that it holds and
-///         only for operations that name keys in the snapshot. These tests run each shape of stage
-///         through a set of edits to keep that rule. An edit that reaches one of the two conditions
-///         throws an exception out of <c>Send</c> and fails these tests.
+///         A sort throws an exception for the two conditions that break one of
+///         those rules, and does not report an operation with no position. Those
+///         conditions are a key that the stage does not hold and a key that the
+///         snapshot removed. No code can get to one of the two through the public
+///         surface now, because a stage sorts only the keys that it holds and only
+///         for operations that name keys in the snapshot. These tests run each
+///         shape of stage through a set of edits to keep that rule. An edit that
+///         reaches one of the two conditions throws an exception out of
+///         <c>Send</c> and fails these tests.
 ///     </para>
 /// </remarks>
 public sealed class ViewOperationInvariantTests
@@ -45,7 +48,10 @@ public sealed class ViewOperationInvariantTests
             initialItems: initial,
             edits);
 
-    /// <summary>Every shape of stage, over the same collection, so one run of edits covers them all.</summary>
+    /// <summary>
+    ///     Every shape of stage, over the same collection, so one run of edits
+    ///     covers them all.
+    /// </summary>
     private static List<(string Name, ReactiveCollection<int, ItemIdentity, ItemState> View)> Stages(
         ReactiveCollection<int, ItemIdentity, ItemState> collection)
     {
@@ -84,8 +90,8 @@ public sealed class ViewOperationInvariantTests
     }
 
     /// <summary>
-    ///     A sequence of edits that makes each stage add a key, remove a key, update a key, and
-    ///     sort a key again.
+    ///     A sequence of edits that makes each stage add a key, remove a key, update a
+    ///     key, and sort a key again.
     /// </summary>
     private static void SendEdits(StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits)
     {
@@ -235,9 +241,9 @@ public sealed class ViewOperationInvariantTests
     }
 
     /// <summary>
-    ///     The cost of a flag below the true change. A stage publishes its keys only when it
-    ///     reports a change to them. Thus, the list in the public cell must be the list of the stage
-    ///     after each edit, at each value of the flags.
+    ///     The cost of a flag below the true change. A stage publishes its keys only
+    ///     when it reports a change to them. Thus, the list in the public cell must be
+    ///     the list of the stage after each edit, at each value of the flags.
     /// </summary>
     [Test]
     public async Task EveryStagePublishesTheKeysItsOwnOperationsAddUpTo()
@@ -283,10 +289,10 @@ public sealed class ViewOperationInvariantTests
     }
 
     /// <summary>
-    ///     A new order comes to each stage below it as a reset that reports only a change of order,
-    ///     thus it does not change the shape. It continues to a window, which cannot report that
-    ///     and gives a usual reset. A transaction that also holds an edit is never a change of order
-    ///     alone, at each stage.
+    ///     A new order comes to each stage below it as a reset that reports only a
+    ///     change of order, thus it does not change the shape. It continues to a
+    ///     window, which cannot report that and gives a usual reset. A transaction
+    ///     that also holds an edit is never a change of order alone, at each stage.
     /// </summary>
     [Test]
     public async Task ANewOrderIsReportedAsAReorderDownToAWindow()

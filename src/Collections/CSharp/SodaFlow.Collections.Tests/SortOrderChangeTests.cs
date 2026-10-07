@@ -8,13 +8,18 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     A new order for a sort stage. Where the new order is the previous order in the opposite
-///     direction, the stage can turn the list that it holds and does not sort each key again.
-///     No code reached that path while this class calculated its result and then discarded it.
+///     A new order for a sort stage. Where the new order is the previous order in
+///     the opposite direction, the stage can turn the list that it holds and does
+///     not sort each key again.
+///     No code reached that path while this class calculated its result and then
+///     discarded it.
 /// </summary>
 public sealed class SortOrderChangeTests
 {
-    /// <summary>Shared instances, because reversing is only offered for orders built from the same ones.</summary>
+    /// <summary>
+    ///     Shared instances, because reversing is only offered for orders built
+    ///     from the same ones.
+    /// </summary>
     private static readonly IComparer<int> ScoreComparer = Comparer<int>.Default;
 
     private static readonly IComparer<int> KeyComparer = Comparer<int>.Default;
@@ -71,8 +76,8 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     The key orders from the factories with no comparer share one comparer, thus a cell that
-    ///     moves between them reverses the list that the stage holds.
+    ///     The key orders from the factories with no comparer share one comparer, thus
+    ///     a cell that moves between them reverses the list that the stage holds.
     /// </summary>
     [Test]
     public async Task ReversingAKeyOrderReversesTheView()
@@ -104,10 +109,10 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A stage that gets its order in the opposite direction keeps the items with equal sort
-    ///     values in the order of their keys, as a new descending sort does. It does not turn the
-    ///     list that it held, which also turns those items. An edit after the reversal uses
-    ///     the same rule.
+    ///     A stage that gets its order in the opposite direction keeps the items with
+    ///     equal sort values in the order of their keys, as a new descending sort
+    ///     does. It does not turn the list that it held, which also turns those items.
+    ///     An edit after the reversal uses the same rule.
     /// </summary>
     [Test]
     public async Task ReversingAnOrderKeepsTiedItemsInKeyOrder()
@@ -152,9 +157,10 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A stage that reversed its list must hold the new order, and not the order of its
-    ///     construction. A filter below it builds from the order of its upstream collection, thus
-    ///     that filter shows the error when the stage keeps the previous order.
+    ///     A stage that reversed its list must hold the new order, and not the order
+    ///     of its construction. A filter below it builds from the order of its
+    ///     upstream collection, thus that filter shows the error when the stage keeps
+    ///     the previous order.
     /// </summary>
     [Test]
     public async Task AReversedStageCarriesTheNewOrderDownstream()
@@ -191,14 +197,14 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A new order with the same direction that reads a different value is not the previous
-    ///     order, and the list that the stage holds is not in that new order.
+    ///     A new order with the same direction that reads a different value is not the
+    ///     previous order, and the list that the stage holds is not in that new order.
     /// </summary>
     /// <remarks>
-    ///     This code compares two orders with the selector from the caller, and also with the
-    ///     comparers and the direction. A test of the comparers and the sort key types alone
-    ///     reads two orders with different values through the same comparers as one order, and the
-    ///     stage then reported nothing.
+    ///     This code compares two orders with the selector from the caller, and also
+    ///     with the comparers and the direction. A test of the comparers and the sort
+    ///     key types alone reads two orders with different values through the same
+    ///     comparers as one order, and the stage then reported nothing.
     /// </remarks>
     [Test]
     public async Task AnIdenticallyDirectedOrderOverADifferentValueIsNotTreatedAsTheSameOrder()
@@ -232,14 +238,15 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A new order in the opposite direction that reads a different value is not the previous
-    ///     order in the opposite direction, and a reversal of the list does not put it in that new
-    ///     order.
+    ///     A new order in the opposite direction that reads a different value is not
+    ///     the previous order in the opposite direction, and a reversal of the list
+    ///     does not put it in that new order.
     /// </summary>
     /// <remarks>
-    ///     The reversal has the test of an equivalence: the same selector, the same comparers, the
-    ///     same key equality comparer, and the opposite direction. Without the selector in that
-    ///     test, the stage reversed its list for an order on a different value.
+    ///     The reversal has the test of an equivalence: the same selector, the same
+    ///     comparers, the same key equality comparer, and the opposite direction.
+    ///     Without the selector in that test, the stage reversed its list for an order
+    ///     on a different value.
     /// </remarks>
     [Test]
     public async Task AnOppositeOrderOverADifferentValueIsNotTreatedAsAReversal()
@@ -285,9 +292,9 @@ public sealed class SortOrderChangeTests
             TestUtil.Item(number: 5, name: "five", score: 50));
 
     /// <summary>
-    ///     A new order above a filter changes the positions of its members and does not change the
-    ///     members. Thus, the filter moves its members to the new order and does not test each item
-    ///     above it against its predicate again.
+    ///     A new order above a filter changes the positions of its members and does
+    ///     not change the members. Thus, the filter moves its members to the new order
+    ///     and does not test each item above it against its predicate again.
     /// </summary>
     [Test]
     public async Task AFilterBelowANewOrderDoesNotTestItsPredicateAgain()
@@ -373,9 +380,9 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     Only a transaction that changed the order and nothing else is a change of order. An edit
-    ///     in the same transaction can move items into the filter or out of it, thus the filter must
-    ///     then test again.
+    ///     Only a transaction that changed the order and nothing else is a change of
+    ///     order. An edit in the same transaction can move items into the filter or
+    ///     out of it, thus the filter must then test again.
     /// </summary>
     [Test]
     public async Task AFilterBelowANewOrderStillTestsAnEditInTheSameTransaction()
@@ -403,7 +410,10 @@ public sealed class SortOrderChangeTests
             .IsEquivalentTo(expected: [5, 2, 1, 3], ordering: CollectionOrdering.Matching);
     }
 
-    /// <summary>A filter whose own predicate changes in the same transaction as the order above it.</summary>
+    /// <summary>
+    ///     A filter whose own predicate changes in the same transaction as the
+    ///     order above it.
+    /// </summary>
     [Test]
     public async Task AFilterBelowANewOrderAppliesItsOwnNewPredicateInTheSameTransaction()
     {
@@ -428,10 +438,11 @@ public sealed class SortOrderChangeTests
     }
 
     /// <summary>
-    ///     A change of order continues down the chain, through each stage that it does not change.
-    ///     A second filter also keeps its members, and a sort with its own order keeps its list. It
-    ///     stops at a window, because a change of the order above a window changes the keys in the
-    ///     window.
+    ///     A change of order continues down the chain, through each stage that it does
+    ///     not change.
+    ///     A second filter also keeps its members, and a sort with its own order keeps
+    ///     its list. It stops at a window, because a change of the order above a
+    ///     window changes the keys in the window.
     /// </summary>
     [Test]
     public async Task EveryStageBelowANewOrderHoldsWhatItShould()

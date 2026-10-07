@@ -9,8 +9,9 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     The surface with optional values, which is in the C# wrapper and not in the core. The core
-///     answers with a <c>TryGet</c>, thus F# can add <c>option</c> above it.
+///     The surface with optional values, which is in the C# wrapper and not in the
+///     core. The core answers with a <c>TryGet</c>, thus F# can add <c>option</c>
+///     above it.
 /// </summary>
 public sealed class PerItemCellTests
 {
@@ -367,9 +368,10 @@ public sealed class PerItemCellTests
     }
 
     /// <summary>
-    ///     A state edit that also sorts the row again. The stage reports that sort as a move alone.
-    ///     Thus, a cell for one item that omits a move never gets the new value, and the row moves to
-    ///     its new position and shows the previous value.
+    ///     A state edit that also sorts the row again. The stage reports that sort as
+    ///     a move alone.
+    ///     Thus, a cell for one item that omits a move never gets the new value, and
+    ///     the row moves to its new position and shows the previous value.
     /// </summary>
     [Test]
     public async Task StateCellOnASortedViewSeesAnUpdateThatMovesItsRow()
@@ -405,8 +407,9 @@ public sealed class PerItemCellTests
     }
 
     /// <summary>
-    ///     The same test, one stage below. The filter gets the move from the sort above it and
-    ///     sorts in the same order, thus its own change is also a move alone.
+    ///     The same test, one stage below. The filter gets the move from the sort
+    ///     above it and sorts in the same order, thus its own change is also a move
+    ///     alone.
     /// </summary>
     [Test]
     public async Task StateCellOnAFilterOverASortedViewSeesAnUpdateThatMovesItsRow()

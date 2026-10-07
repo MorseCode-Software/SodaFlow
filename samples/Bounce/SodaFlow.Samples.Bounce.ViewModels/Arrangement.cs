@@ -6,10 +6,10 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///     The box and the balls in it. The two scenes with the same layout read this.
 /// </summary>
 /// <remarks>
-///     This is here because the interactive scene and the plain scene start from the same layout,
-///     and one scene is not a subclass of the other. The two are different in the source of the
-///     position of a ball, and an inheritance relation does not give that difference
-///     correctly.
+///     This is here because the interactive scene and the plain scene start from
+///     the same layout, and one scene is not a subclass of the other. The two are
+///     different in the source of the position of a ball, and an inheritance
+///     relation does not give that difference correctly.
 /// </remarks>
 internal static class Arrangement
 {

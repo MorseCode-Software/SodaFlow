@@ -9,16 +9,18 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the purpose of the switch. The position of a ball is the position of the
-///         pointer or the position from its flight, and <c>SwitchB</c> makes one behavior from the
-///         two. Thus, the position stays continuous at the moment when a user holds the ball, and
-///         no code copies a value between the two.
+///         This is the purpose of the switch. The position of a ball is the
+///         position of the pointer or the position from its flight, and
+///         <c>SwitchB</c> makes one behavior from the two. Thus, the position
+///         stays continuous at the moment when a user holds the ball, and no code
+///         copies a value between the two.
 ///     </para>
 ///     <para>
-///         The throw is a restart. At the release the ball continues from the position of the
-///         pointer, at the speed of the pointer. The trail of the pointer gives the two values.
-///         That trail is an <c>Accum</c> across the movements of the pointer, and not a value in
-///         other code.
+///         The throw is a restart. At the release the ball continues from the
+///         position of the pointer, at the speed of the pointer. The trail of the
+///         pointer gives the two values.
+///         That trail is an <c>Accum</c> across the movements of the pointer, and
+///         not a value in other code.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -32,11 +34,14 @@ internal sealed class GrabScene : IInteractiveScene
 
     /// <param name="timers">The clock for the position of each ball.</param>
     /// <param name="restitution">
-    ///     The multiplier for the speed at a bounce. It is the cell that the scene with more
-    ///     balls reads. See <see cref="BounceViewModel" />, which holds the value that the controls
-    ///     write.
+    ///     The multiplier for the speed at a bounce. It is the cell that the scene
+    ///     with more balls reads. See <see cref="BounceViewModel" />, which holds the
+    ///     value that the controls write.
     /// </param>
-    /// <param name="restarts">Fires when the tab of this scene becomes the selected tab.</param>
+    /// <param name="restarts">
+    ///     Fires when the tab of this scene becomes the selected
+    ///     tab.
+    /// </param>
     internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
     {
         double now = timers.Time.Sample();

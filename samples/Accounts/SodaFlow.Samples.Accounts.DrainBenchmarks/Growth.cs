@@ -5,14 +5,16 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.DrainBenchmarks;
 
 /// <summary>
-///     This tests if the cost of a Pay increases with the number of Pays before it. It measures
-///     the allocation on this thread, the time and the retained memory for each block of Pays, and
-///     the number of changes that the Rows list reported.
+///     This tests if the cost of a Pay increases with the number of Pays before
+///     it. It measures the allocation on this thread, the time and the retained
+///     memory for each block of Pays, and the number of changes that the Rows list
+///     reported.
 /// </summary>
 /// <remarks>
-///     Rows must not change here, because a deposit into the first row in arrival order moves no
-///     row. Thus, a count above zero means that a Pay projects the row list again, and that also
-///     builds the merge of the deposit streams of the rows again.
+///     Rows must not change here, because a deposit into the first row in arrival
+///     order moves no row. Thus, a count above zero means that a Pay projects the
+///     row list again, and that also builds the merge of the deposit streams of
+///     the rows again.
 /// </remarks>
 internal static class Growth
 {

@@ -15,42 +15,46 @@ internal enum ObservationStyle
     OnRoot,
 
     /// <summary>
-    ///     Through a filtered view. Today this hands back the collection's own cell - the same
-    ///     object, not an equal one - thus it measures what <see cref="OnRoot" /> does.
+    ///     Through a filtered view. Today this hands back the collection's own cell -
+    ///     the same object, not an equal one - thus it measures what
+    ///     <see cref="OnRoot" /> does.
     ///     It is here to prove that, and to fail loudly if it ever stops being true.
     /// </summary>
     ThroughView,
 
     /// <summary>
-    ///     Through a filtered view, with the cell lifted against that view's membership so it holds
-    ///     nothing for a key the view does not have.
+    ///     Through a filtered view, with the cell lifted against that view's
+    ///     membership so it holds nothing for a key the view does not have.
     /// </summary>
     /// <remarks>
-    ///     This is not what the library does. It is the result of a view-scoped <c>StateCell</c>, made
-    ///     by hand. It gives the cost of that change before anyone makes a decision about it.
+    ///     This is not what the library does. It is the result of a view-scoped
+    ///     <c>StateCell</c>, made by hand. It gives the cost of that change before
+    ///     anyone makes a decision about it.
     /// </remarks>
     ViewScoped,
 
     /// <summary>
-    ///     The same, with the membership of each observer held as its own value and calmed. Thus, a
-    ///     change to the view that does not move <i>this</i> key stops at the compare
-    ///     that says so.
+    ///     The same, with the membership of each observer held as its own value and
+    ///     calmed. Thus, a change to the view that does not move <i>this</i> key stops
+    ///     at the compare that says so.
     /// </summary>
     /// <remarks>
-    ///     <see cref="ViewScoped" /> is the obvious procedure to write view-scoping and wakes each
-    ///     observer when the view reorders. This is the careful procedure, and the question it answers
-    ///     is how much of that cost was the idea and how much was the writing.
+    ///     <see cref="ViewScoped" /> is the obvious procedure to write view-scoping
+    ///     and wakes each observer when the view reorders. This is the careful
+    ///     procedure, and the question it answers is how much of that cost was the
+    ///     idea and how much was the writing.
     /// </remarks>
     ViewScopedPerKey,
 
     /// <summary>
-    ///     Through a filtered view, with what the library now does. That is the per-item cell of the
-    ///     view, hung off the change stream of the view, and not lifted against its keys.
+    ///     Through a filtered view, with what the library now does. That is the
+    ///     per-item cell of the view, hung off the change stream of the view, and not
+    ///     lifted against its keys.
     /// </summary>
     /// <remarks>
-    ///     This is <see cref="ThroughView" /> after the change, and the two are the same call - the
-    ///     difference is what the library builds behind it. The two are kept because the pair is the
-    ///     before and after.
+    ///     This is <see cref="ThroughView" /> after the change, and the two are the
+    ///     same call - the difference is what the library builds behind it. The two
+    ///     are kept because the pair is the before and after.
     /// </remarks>
     ViewNative,
 
@@ -61,13 +65,14 @@ internal enum ObservationStyle
     IdentityThroughView,
 
     /// <summary>
-    ///     The identity of one item, observed as this library answered it before: a map over the
-    ///     collection's shape cell, per observer, uncached.
+    ///     The identity of one item, observed as this library answered it before: a
+    ///     map over the collection's shape cell, per observer, uncached.
     /// </summary>
     /// <remarks>
-    ///     Kept to give the change a measurement to compare against. A replacement of the shape cell
-    ///     occurs at each structural change. Thus, each add wakes each observer with this construction,
-    ///     and so does each remove anywhere in the collection, and a remove that missed their key.
+    ///     Kept to give the change a measurement to compare against. A replacement of
+    ///     the shape cell occurs at each structural change. Thus, each add wakes each
+    ///     observer with this construction, and so does each remove anywhere in the
+    ///     collection, and a remove that missed their key.
     /// </remarks>
     IdentityShapeMapped
 }
@@ -77,14 +82,16 @@ internal enum ObservationStyle
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The view is a filter over a sort. That is the configuration that makes the question interesting.
-///         Membership can change with no change to an observed item, and the order can change with no change
-///         to the membership. An observer that watches the keys of the view wakes for the two. One that
-///         watches its own item wakes for no key.
+///         The view is a filter over a sort. That is the configuration that makes
+///         the question interesting. Membership can change with no change to an
+///         observed item, and the order can change with no change to the
+///         membership. An observer that watches the keys of the view wakes for the
+///         two. One that watches its own item wakes for no key.
 ///     </para>
 ///     <para>
-///         Each style observes the same keys and each one holds its listeners, because a cell nobody listens
-///         to is never evaluated and measures nothing.
+///         Each style observes the same keys and each one holds its listeners,
+///         because a cell nobody listens to is never evaluated and measures
+///         nothing.
 ///     </para>
 /// </remarks>
 internal sealed class ObservationShape
@@ -110,14 +117,14 @@ internal sealed class ObservationShape
     internal static int UnobservedKeyInView => 2;
 
     /// <summary>
-    ///     An even key, thus the filter keeps it and the view sees the structural change. No observer
-    ///     watches it, and no seeded item uses it.
+    ///     An even key, thus the filter keeps it and the view sees the structural
+    ///     change. No observer watches it, and no seeded item uses it.
     /// </summary>
     internal static int UnobservedStructuralKey => -2;
 
     /// <summary>
-    ///     The filter each view here uses. It keeps the even-numbered items, so the observed keys
-    ///     below are in it and the odd ones out of it.
+    ///     The filter each view here uses. It keeps the even-numbered items, so the
+    ///     observed keys below are in it and the odd ones out of it.
     /// </summary>
     private static bool Passes(ItemIdentity identity) => identity.Number % 2 == 0;
 
@@ -167,14 +174,15 @@ internal sealed class ObservationShape
     }
 
     /// <summary>
-    ///     The keys that observers are bound to: even, thus the filter keeps them, and at a distance
-    ///     from each other.
+    ///     The keys that observers are bound to: even, thus the filter keeps them, and
+    ///     at a distance from each other.
     /// </summary>
     /// <remarks>
     ///     The stride is even for each size this runs at, thus each key is too.
-    ///     <see cref="VerifyPremises" /> checks that, and does not accept it without a test. An
-    ///     this multiplied the stride and took a remainder, which wrapped and gave half as many
-    ///     different keys as it needed. Thus, the benchmark bound ten and reported twenty.
+    ///     <see cref="VerifyPremises" /> checks that, and does not accept it without a
+    ///     test. An this multiplied the stride and took a remainder, which wrapped and
+    ///     gave half as many different keys as it needed. Thus, the benchmark bound
+    ///     ten and reported twenty.
     /// </remarks>
     internal static IReadOnlyList<int> ObservedKeys(int itemCount)
     {
@@ -184,9 +192,10 @@ internal sealed class ObservationShape
     }
 
     /// <summary>
-    ///     Checks the conditions for the arms below. There must be as many different observed keys as
-    ///     observers, and the filter must keep each one of them. An observer through a view must also
-    ///     get the same cell as an observer on the collection.
+    ///     Checks the conditions for the arms below. There must be as many different
+    ///     observed keys as observers, and the filter must keep each one of them. An
+    ///     observer through a view must also get the same cell as an observer on the
+    ///     collection.
     /// </summary>
     /// <exception cref="InvalidOperationException">If any of that stops being true.</exception>
     internal static void VerifyPremises(int itemCount)
@@ -307,7 +316,8 @@ internal sealed class ObservationShape
         this.edits.Send(CollectionEdit<int, ItemIdentity, ItemState>.Update(key: key, transform: _ => state));
 
     /// <summary>
-    ///     Adds an item and removes it again, which is the only thing an identity observer can hear.
+    ///     Adds an item and removes it again, which is the only thing an identity
+    ///     observer can hear.
     ///     Two structural changes that keep the collection at the size it started.
     /// </summary>
     internal void AddAndRemove(int key, ItemState state)

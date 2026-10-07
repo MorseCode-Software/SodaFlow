@@ -5,8 +5,8 @@ using JetBrains.Annotations;
 namespace SodaFlow.Collections;
 
 /// <summary>
-///     An edit from a caller. An update holds a transform and not a value, thus it composes
-///     against the state at the time of the transaction.
+///     An edit from a caller. An update holds a transform and not a value, thus it
+///     composes against the state at the time of the transaction.
 /// </summary>
 /// <typeparam name="TKey">The type of the keys.</typeparam>
 /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
@@ -72,7 +72,8 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
             removes: keys);
 
     /// <summary>
-    ///     Lifts a stream of keyed transforms into edits, for wiring at collection construction.
+    ///     Lifts a stream of keyed transforms into edits, for wiring at collection
+    ///     construction.
     /// </summary>
     /// <param name="updatesStream">The stream of keyed transforms.</param>
     /// <returns>The stream of edits.</returns>
@@ -81,8 +82,8 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
         updatesStream.MapImpl(static update => Update(key: update.Key, transform: update.Transform));
 
     /// <summary>
-    ///     Lifts a stream of transforms for one fixed key into edits — the usual shape when a view
-    ///     drives a single item.
+    ///     Lifts a stream of transforms for one fixed key into edits — the usual shape
+    ///     when a view drives a single item.
     /// </summary>
     /// <param name="key">The key the transforms apply to.</param>
     /// <param name="transformsStream">The stream of transforms.</param>
@@ -115,10 +116,10 @@ public sealed class CollectionEdit<TKey, TIdentity, TState>
         removesStream.MapImpl(static key => Remove(key));
 
     /// <summary>
-    ///     Puts two edits from one transaction together. SodaFlow gives no sequence between them,
-    ///     thus this method refuses an operation that uses a sequence and does not resolve it with
-    ///     no message. Two transforms for one key in one transaction compose in a sequence that
-    ///     SodaFlow does not give.
+    ///     Puts two edits from one transaction together. SodaFlow gives no sequence
+    ///     between them, thus this method refuses an operation that uses a sequence
+    ///     and does not resolve it with no message. Two transforms for one key in one
+    ///     transaction compose in a sequence that SodaFlow does not give.
     /// </summary>
     /// <param name="other">The edit to put with this edit.</param>
     /// <returns>The edit with the two edits in it.</returns>

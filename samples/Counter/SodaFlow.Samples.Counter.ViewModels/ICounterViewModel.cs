@@ -9,19 +9,20 @@ namespace SodaFlow.Samples.Counter.ViewModels;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         XAML binds by name to the data context, at each type of that data context. Thus, a type
-///         for the data context has a value. The type shows the bindable members, gives the
-///         designer and the compiler a target for the binding paths, and keeps the construction of
-///         the view model away from a view.
+///         XAML binds by name to the data context, at each type of that data
+///         context. Thus, a type for the data context has a value. The type shows
+///         the bindable members, gives the designer and the compiler a target for
+///         the binding paths, and keeps the construction of the view model away
+///         from a view.
 ///     </para>
 ///     <para>
-///         For that cause this interface has only the bound members. <c>Create</c> is not on it,
-///         because a view does not build a view model.
+///         For that cause this interface has only the bound members. <c>Create</c>
+///         is not on it, because a view does not build a view model.
 ///     </para>
 ///     <para>
-///         <see cref="IDisposable" /> is here because it is part of the contract and not a part
-///         of the implementation. The code that built one must release it, through this interface
-///         and through the class.
+///         <see cref="IDisposable" /> is here because it is part of the contract
+///         and not a part of the implementation. The code that built one must
+///         release it, through this interface and through the class.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage

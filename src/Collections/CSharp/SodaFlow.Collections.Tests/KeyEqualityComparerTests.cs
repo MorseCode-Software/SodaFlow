@@ -10,8 +10,8 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     The immutable part of an item whose key is a string with a comparer that is not
-///     strict.
+///     The immutable part of an item whose key is a string with a comparer that is
+///     not strict.
 /// </summary>
 internal sealed record NamedIdentity(string Name);
 
@@ -19,9 +19,10 @@ internal sealed record NamedIdentity(string Name);
 internal sealed record NamedState(int Score);
 
 /// <summary>
-///     A collection with its own key equality comparer. Each value with a key in a change must
-///     agree with the store about the identity of a key. Without that agreement, a consumer that
-///     names an item by the key from the collection does not get the change.
+///     A collection with its own key equality comparer. Each value with a key in a
+///     change must agree with the store about the identity of a key. Without that
+///     agreement, a consumer that names an item by the key from the collection
+///     does not get the change.
 /// </summary>
 public sealed class KeyEqualityComparerTests
 {
@@ -65,10 +66,10 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     The delta with keys from a root edit. An update that names one spelling of a key goes
-    ///     into the store at the spelling from the arrival of the item. Thus, the delta must use
-    ///     that spelling, because it is the only spelling that a consumer of the collection
-    ///     reads.
+    ///     The delta with keys from a root edit. An update that names one spelling of
+    ///     a key goes into the store at the spelling from the arrival of the item.
+    ///     Thus, the delta must use that spelling, because it is the only spelling
+    ///     that a consumer of the collection reads.
     /// </summary>
     [Test]
     public async Task ItemChangesMatchKeysWithTheGivenComparer()
@@ -105,11 +106,12 @@ public sealed class KeyEqualityComparerTests
     ///     The same delta, from a view and not from the collection.
     /// </summary>
     /// <remarks>
-    ///     This test reported nothing, and did not report an incorrect key. The construction of the
-    ///     root order did not use the comparer of the collection. Thus, it did not find a key that an
-    ///     edit named in a different spelling, it sent no operation for that key, and a filter
-    ///     removed the empty change before a view read it. The store changed, and each view above it
-    ///     became incorrect.
+    ///     This test reported nothing, and did not report an incorrect key. The
+    ///     construction of the root order did not use the comparer of the collection.
+    ///     Thus, it did not find a key that an edit named in a different spelling, it
+    ///     sent no operation for that key, and a filter removed the empty change
+    ///     before a view read it. The store changed, and each view above it became
+    ///     incorrect.
     /// </remarks>
     [Test]
     public async Task AViewsItemChangesMatchKeysWithTheGivenComparer()
@@ -138,11 +140,11 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     A projection keeps one object for each key, and it does the same with a comparer of the
-    ///     collection. The key of each cache is a key from the view, which is always the spelling
-    ///     in the store. Thus, a comparer that is more strict than the comparer of the store cannot
-    ///     give an incorrect result now. This test holds that rule and does not reproduce a
-    ///     defect.
+    ///     A projection keeps one object for each key, and it does the same with a
+    ///     comparer of the collection. The key of each cache is a key from the view,
+    ///     which is always the spelling in the store. Thus, a comparer that is more
+    ///     strict than the comparer of the store cannot give an incorrect result now.
+    ///     This test holds that rule and does not reproduce a defect.
     /// </summary>
     [Test]
     public async Task AProjectionKeepsOneObjectPerKeyUnderTheGivenComparer()
@@ -178,8 +180,8 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     A cache holds one cell for each key, thus each spelling of a key reads the same cell,
-    ///     and that cell gets an edit that names each spelling.
+    ///     A cache holds one cell for each key, thus each spelling of a key reads the
+    ///     same cell, and that cell gets an edit that names each spelling.
     /// </summary>
     [Test]
     public async Task APerItemCellIsSharedAcrossSpellingsOfOneKey()

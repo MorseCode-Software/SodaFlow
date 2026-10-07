@@ -9,8 +9,8 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Tests the command. It covers availability, firing, the type of the parameter, and
-///     disposal.
+///     Tests the command. It covers availability, firing, the type of the
+///     parameter, and disposal.
 /// </summary>
 public sealed class BindableActionTests
 {

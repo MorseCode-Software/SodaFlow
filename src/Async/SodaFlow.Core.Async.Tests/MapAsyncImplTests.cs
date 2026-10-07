@@ -139,18 +139,21 @@ public sealed class MapAsyncImplTests
 
     /// <summary>
     ///     A test for a defect that came from
-    ///     <see cref="CustomStrategyCanRejectAnIncomingValueOutright" />. A strategy can call
-    ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" /> on <c>incoming</c> and also
-    ///     return it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> in the same
-    ///     <c>Admit</c> call. The contract of that method permits this, and the method to refuse a
-    ///     value above is different, because it cancels the item and never promotes it. This
-    ///     sequence stopped the process. The branch in <c>PromoteAndLaunch</c> for an item that a
-    ///     cancellation removed ended it in the transaction that processes the admission. That end
-    ///     opened a transaction of its own, and the <c>Send</c> in it threw
-    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>.
-    ///     <c>EndItem</c> defers each end where a transaction is open, and one <c>Flush</c> after
-    ///     that transaction gives them to the strategy where a <c>Send</c> is legal. This test
-    ///     fails without that.
+    ///     <see cref="CustomStrategyCanRejectAnIncomingValueOutright" />. A strategy
+    ///     can call <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" /> on
+    ///     <c>incoming</c> and also return it as an
+    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> in the same <c>Admit</c>
+    ///     call. The contract of that method permits this, and the method to refuse a
+    ///     value above is different, because it cancels the item and never promotes
+    ///     it. This sequence stopped the process. The branch in
+    ///     <c>PromoteAndLaunch</c> for an item that a cancellation removed ended it in
+    ///     the transaction that processes the admission. That end opened a transaction
+    ///     of its own, and the <c>Send</c> in it threw
+    ///     <c>InvalidOperationException("Send may not be called inside a callback.")</c>
+    ///     .
+    ///     <c>EndItem</c> defers each end where a transaction is open, and one
+    ///     <c>Flush</c> after that transaction gives them to the strategy where a
+    ///     <c>Send</c> is legal. This test fails without that.
     /// </summary>
     [Test]
     public async Task Admit_CancelingAndPromotingTheSameItemInOneCall_CompletesItAsCanceledInstead()
@@ -412,8 +415,8 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
-    ///     Starts each item immediately and records the converted value of each item at its
-    ///     admission.
+    ///     Starts each item immediately and records the converted value of each item
+    ///     at its admission.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RecordingStrategy<TStrategyInput>
@@ -452,11 +455,12 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
-    ///     Refuses a negative value. It cancels the value at its admission and never promotes it.
-    ///     That is the method that the base class documents to refuse a value, and it leaves the
-    ///     item with the Queued status permanently. The other method cancels the value and also
-    ///     returns it as an <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to start in the same
-    ///     call.
+    ///     Refuses a negative value. It cancels the value at its admission and never
+    ///     promotes it.
+    ///     That is the method that the base class documents to refuse a value, and it
+    ///     leaves the item with the Queued status permanently. The other method
+    ///     cancels the value and also returns it as an
+    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to start in the same call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RejectNegativeStrategy : AsyncConcurrencyStrategy<int, object?>
@@ -493,12 +497,14 @@ public sealed class MapAsyncImplTests
 
     /// <summary>
     ///     Cancels each incoming value and returns it as an
-    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to promote in the same call.
-    ///     <see cref="RejectNegativeStrategy" /> does not return it. This test thus runs the
-    ///     branch in <c>PromoteAndLaunch</c> for an item that a cancellation removed with the
-    ///     Queued status, synchronously, in the transaction of the admission. The usual path to
-    ///     that branch is a subsequent transaction: a send on an external cancelAll stream or
-    ///     cancelMatching stream, or the end of one item that promotes a Queued item.
+    ///     <see cref="AsyncMapBase.AsyncToStart{TInput}" /> to promote in the same
+    ///     call.
+    ///     <see cref="RejectNegativeStrategy" /> does not return it. This test thus
+    ///     runs the branch in <c>PromoteAndLaunch</c> for an item that a cancellation
+    ///     removed with the Queued status, synchronously, in the transaction of the
+    ///     admission. The usual path to that branch is a subsequent transaction: a
+    ///     send on an external cancelAll stream or cancelMatching stream, or the end
+    ///     of one item that promotes a Queued item.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CancelAndPromoteSameItemStrategy : AsyncConcurrencyStrategy<int, object?>

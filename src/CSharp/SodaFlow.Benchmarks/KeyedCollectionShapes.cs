@@ -4,7 +4,10 @@ using SodaFlow.Collections;
 
 namespace SodaFlow.Benchmarks;
 
-/// <summary>The immutable half of a benchmark item. The key is its <see cref="Number" />.</summary>
+/// <summary>
+///     The immutable half of a benchmark item. The key is its
+///     <see cref="Number" />.
+/// </summary>
 internal sealed class ItemIdentity
 {
     internal ItemIdentity(int number, string code)
@@ -16,16 +19,17 @@ internal sealed class ItemIdentity
     internal int Number { get; }
 
     /// <summary>
-    ///     Carried because an identity carries more than its key, and because the three shapes
-    ///     must hold the same value for the compare. Nothing here reads it.
+    ///     Carried because an identity carries more than its key, and because the
+    ///     three shapes must hold the same value for the compare. Nothing here reads
+    ///     it.
     /// </summary>
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     internal string Code { get; }
 }
 
 /// <summary>
-///     The mutable half. Three fields, because "a cell per mutable value" only differs from "a cell
-///     per object" when there is more than one.
+///     The mutable half. Three fields, because "a cell per mutable value" only
+///     differs from "a cell per object" when there is more than one.
 /// </summary>
 internal sealed class ItemState
 {
@@ -44,42 +48,52 @@ internal sealed class ItemState
 }
 
 /// <summary>
-///     The three ways to hold a large keyed collection in an FRP graph. Each one is built to the same
-///     interface, thus a benchmark can give each of them the same three questions.
+///     The three ways to hold a large keyed collection in an FRP graph. Each one
+///     is built to the same interface, thus a benchmark can give each of them the
+///     same three questions.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Sinks per field</b> is the shape that a reader selects first. Each mutable value on each object
-///         gets its own <see cref="CellSink{T}" />, and an edit is a send into the one it concerns. Nothing
-///         fans out, thus an edit is <c>O(1)</c>. It is the quickest thing in these benchmarks by an order of
-///         magnitude. What it costs is <c>items × fields</c> cells held when nothing is watching them.
+///         <b>Sinks per field</b> is the shape that a reader selects first. Each
+///         mutable value on each object gets its own <see cref="CellSink{T}" />,
+///         and an edit is a send into the one it concerns. Nothing fans out, thus
+///         an edit is <c>O(1)</c>. It is the quickest thing in these benchmarks by
+///         an order of magnitude. What it costs is <c>items × fields</c> cells
+///         held when nothing is watching them.
 ///     </para>
 ///     <para>
-///         It is also the shape that is the most difficult to use. You must say that next to the numbers,
-///         because the numbers alone flatter it. A sink is how an event from out of the graph gets in, and
-///         SodaFlow enforces that, and does not only recommend it. <c>Send</c> throws "Send may not be called
-///         inside a callback" when code calls it in a transaction. Thus, this shape holds only while each
-///         mutable value in the collection is one that other code hands over in full. Put any logic between
-///         the source and the value. Examples are a balance from a total, a status from two other fields, and
-///         anything downstream of a different cell. You then cannot send it, and you are in the second shape.
-///         That one costs three milliseconds for each edit at ten thousand items.
+///         It is also the shape that is the most difficult to use. You must say
+///         that next to the numbers, because the numbers alone flatter it. A sink
+///         is how an event from out of the graph gets in, and SodaFlow enforces
+///         that, and does not only recommend it. <c>Send</c> throws "Send may not
+///         be called inside a callback" when code calls it in a transaction. Thus,
+///         this shape holds only while each mutable value in the collection is one
+///         that other code hands over in full. Put any logic between the source
+///         and the value. Examples are a balance from a total, a status from two
+///         other fields, and anything downstream of a different cell. You then
+///         cannot send it, and you are in the second shape. That one costs three
+///         milliseconds for each edit at ten thousand items.
 ///     </para>
 ///     <para>
-///         <b>Cells per field, fed from one edit stream</b> is what that becomes. That occurs when the edits
-///         come as events and not as method calls. Each item filters the shared stream for its own key, and
-///         its field cells hang off that. It composes, and each edit in the collection now evaluates one
-///         filter per item, plus the cells behind whichever one matched. That is the shape this collection
-///         exists to replace, written as charitably as it can be. It has one filter for each item, and not
+///         <b>Cells per field, fed from one edit stream</b> is what that becomes.
+///         That occurs when the edits come as events and not as method calls. Each
+///         item filters the shared stream for its own key, and its field cells
+///         hang off that. It composes, and each edit in the collection now
+///         evaluates one filter per item, plus the cells behind whichever one
+///         matched. That is the shape this collection exists to replace, written
+///         as charitably as it can be. It has one filter for each item, and not
 ///         one for each field, which is what a careful hand writes.
 ///     </para>
 ///     <para>
-///         <b>ReactiveCollection</b> resolves the edit one time against a snapshot and fans out only to the
-///         keys somebody is actually observing.
+///         <b>ReactiveCollection</b> resolves the edit one time against a snapshot
+///         and fans out only to the keys somebody is actually observing.
 ///     </para>
 ///     <para>
-///         The benchmark asks all three to replace the full state of one item, thus the work is the same
-///         work. Observers monitor the full state too. In the first two shapes that means a lift of the three
-///         field cells back together. That is what an object with a cell for each value costs a reader.
+///         The benchmark asks all three to replace the full state of one item,
+///         thus the work is the same work. Observers monitor the full state too.
+///         In the first two shapes that means a lift of the three field cells back
+///         together. That is what an object with a cell for each value costs a
+///         reader.
 ///     </para>
 /// </remarks>
 internal interface IKeyedCollectionShape
@@ -87,7 +101,10 @@ internal interface IKeyedCollectionShape
     /// <summary>Starts to monitor the state of one item, as a bound row does.</summary>
     IListener Observe(int key);
 
-    /// <summary>Replaces the state of one item, which is one edit, at each path into the graph.</summary>
+    /// <summary>
+    ///     Replaces the state of one item, which is one edit, at each path into
+    ///     the graph.
+    /// </summary>
     void Replace(int key, ItemState state);
 }
 
@@ -100,7 +117,10 @@ internal static class ItemSeed
     internal static ItemState State(int number) =>
         new(name: "item " + number.ToString(CultureInfo.InvariantCulture), score: number, isFrozen: false);
 
-    /// <summary>The keys that the benchmarks monitor, at equal distances, thus none of them cluster.</summary>
+    /// <summary>
+    ///     The keys that the benchmarks monitor, at equal distances, thus none of
+    ///     them cluster.
+    /// </summary>
     internal static IReadOnlyList<int> ObservedKeys(int itemCount, int observerCount)
     {
         List<int> keys = new(observerCount);
@@ -115,7 +135,8 @@ internal static class ItemSeed
 }
 
 /// <summary>
-///     A cell sink per mutable value per object, edited by sending straight into them.
+///     A cell sink per mutable value per object, edited by sending straight into
+///     them.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class SinkPerFieldShape : IKeyedCollectionShape
@@ -191,8 +212,9 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
 }
 
 /// <summary>
-///     A cell per mutable value per object, with one filter per object picking that object's edits
-///     out of a shared stream. Each edit evaluates each one of those filters.
+///     A cell per mutable value per object, with one filter per object picking
+///     that object's edits out of a shared stream. Each edit evaluates each one of
+///     those filters.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class StreamFedCellShape : IKeyedCollectionShape
@@ -282,8 +304,8 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
 }
 
 /// <summary>
-///     One snapshot cell, one change stream, and a per-item cell built only for the keys somebody
-///     asks about.
+///     One snapshot cell, one change stream, and a per-item cell built only for
+///     the keys somebody asks about.
 /// </summary>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ReactiveCollectionShape : IKeyedCollectionShape

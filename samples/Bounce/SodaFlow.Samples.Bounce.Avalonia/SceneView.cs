@@ -10,19 +10,22 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
 /// <summary>
-///     Draws a scene one time for each frame, and reads the positions of its balls.
+///     Draws a scene one time for each frame, and reads the positions of its
+///     balls.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the full animation. See the code that it does not contain. It holds no
-///         position, it adds no delta, and it does not use the interval between two frames. The
-///         view reads the positions at the instant of the draw and draws the balls there.
+///         This is the full animation. See the code that it does not contain. It
+///         holds no position, it adds no delta, and it does not use the interval
+///         between two frames. The view reads the positions at the instant of the
+///         draw and draws the balls there.
 ///     </para>
 ///     <para>
-///         The timer selects only the frequency of the read. A lower frequency gives the same
-///         movement with fewer samples. A thread that stops gives the correct positions when it
-///         continues, and the positions are not late by the interval of the stop. That is the
-///         difference between a behavior and a value that other code must keep current.
+///         The timer selects only the frequency of the read. A lower frequency
+///         gives the same movement with fewer samples. A thread that stops gives
+///         the correct positions when it continues, and the positions are not late
+///         by the interval of the stop. That is the difference between a behavior
+///         and a value that other code must keep current.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage

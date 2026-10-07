@@ -9,10 +9,11 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Tests the one rule that <see cref="IBindingScheduler.Post" /> states: an action must not
-///     run immediately while a transaction is open. A scheduler on a dispatcher meets that rule by
-///     its design. The immediate scheduler must be careful, and the tests use it. Thus, each other
-///     test in this assembly depends on it.
+///     Tests the one rule that <see cref="IBindingScheduler.Post" /> states: an
+///     action must not run immediately while a transaction is open. A scheduler on
+///     a dispatcher meets that rule by its design. The immediate scheduler must be
+///     careful, and the tests use it. Thus, each other test in this assembly
+///     depends on it.
 /// </summary>
 public sealed class BindingSchedulerTests
 {

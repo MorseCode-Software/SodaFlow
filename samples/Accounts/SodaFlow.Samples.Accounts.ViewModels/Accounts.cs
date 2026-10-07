@@ -6,9 +6,9 @@ namespace SodaFlow.Samples.Accounts.ViewModels;
 
 /// <summary>The part of an account that does not change: its identity.</summary>
 /// <remarks>
-///     The key comes from this part only. Thus, the collection knows that a state edit cannot move
-///     an item into a view with a key on the identity, and cannot move an item out of such a
-///     view.
+///     The key comes from this part only. Thus, the collection knows that a state
+///     edit cannot move an item into a view with a key on the identity, and cannot
+///     move an item out of such a view.
 /// </remarks>
 /// <param name="Number">The account number, which is the key.</param>
 /// <param name="Holder">The holder of the account.</param>
@@ -21,11 +21,17 @@ internal sealed record AccountIdentity(int Number, string Holder) : IIdentity<in
 
 /// <summary>The part that changes: the current content of the account.</summary>
 /// <remarks>
-///     This is a record, thus an edit is a <c>with</c> expression that names the one field to
-///     change and keeps the other fields.
+///     This is a record, thus an edit is a <c>with</c> expression that names the
+///     one field to change and keeps the other fields.
 /// </remarks>
-/// <param name="Balance">The balance, in cents, thus the sample does not show a rounding error.</param>
-/// <param name="IsFrozen">True when the account is frozen. The view filters on this.</param>
+/// <param name="Balance">
+///     The balance, in cents, thus the sample does not show a
+///     rounding error.
+/// </param>
+/// <param name="IsFrozen">
+///     True when the account is frozen. The view filters on
+///     this.
+/// </param>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed record AccountState(long Balance, bool IsFrozen)
 {
@@ -34,9 +40,10 @@ internal sealed record AccountState(long Balance, bool IsFrozen)
     ///     balance.
     /// </summary>
     /// <remarks>
-    ///     This is a name here, and no code writes it at each use. The two view models are
-    ///     different in the method that finds the drainable accounts, and not in the set of those
-    ///     accounts. One predicate in one position keeps that as the only difference.
+    ///     This is a name here, and no code writes it at each use. The two view models
+    ///     are different in the method that finds the drainable accounts, and not in
+    ///     the set of those accounts. One predicate in one position keeps that as the
+    ///     only difference.
     /// </remarks>
     internal bool IsDrainable => this.IsFrozen && this.Balance != 0;
 }
@@ -44,14 +51,15 @@ internal sealed record AccountState(long Balance, bool IsFrozen)
 /// <summary>The accounts at the start of this sample.</summary>
 /// <remarks>
 ///     <para>
-///         There are one hundred thousand accounts behind a page of six accounts. The collection
-///         has that shape: almost no user sees the items, and an edit must cost the quantity of
-///         the rows on the screen and not the quantity of the collection.
+///         There are one hundred thousand accounts behind a page of six accounts.
+///         The collection has that shape: almost no user sees the items, and an
+///         edit must cost the quantity of the rows on the screen and not the
+///         quantity of the collection.
 ///     </para>
 ///     <para>
-///         This code makes the accounts and does not write them, and it makes the same accounts
-///         at each run. Thus, each run shows the same accounts in the same positions, and a user
-///         can find a number from the screen again.
+///         This code makes the accounts and does not write them, and it makes the
+///         same accounts at each run. Thus, each run shows the same accounts in
+///         the same positions, and a user can find a number from the screen again.
 ///     </para>
 /// </remarks>
 internal static class AccountSeed
@@ -59,7 +67,10 @@ internal static class AccountSeed
     /// <summary>The number of accounts.</summary>
     private const int Count = 100_000;
 
-    /// <summary>The first account number, thus each number on the screen has six digits.</summary>
+    /// <summary>
+    ///     The first account number, thus each number on the screen has six
+    ///     digits.
+    /// </summary>
     private const int FirstNumber = 100_000;
 
     /// <summary>The maximum initial balance, in cents: fifty thousand dollars.</summary>
@@ -179,13 +190,13 @@ internal static class AccountSeed
     }
 
     /// <summary>
-    ///     A hash with a low cost and a constant result, thus the seed is the same at each
-    ///     run and on each runtime.
+    ///     A hash with a low cost and a constant result, thus the seed is the same at
+    ///     each run and on each runtime.
     /// </summary>
     /// <remarks>
-    ///     This code does not use <see cref="System.Random" />. A seeded instance gives the same
-    ///     values, but that is a compatibility statement about a previous algorithm, and this
-    ///     code must not use it.
+    ///     This code does not use <see cref="System.Random" />. A seeded instance
+    ///     gives the same values, but that is a compatibility statement about a
+    ///     previous algorithm, and this code must not use it.
     /// </remarks>
     private static uint Scramble(uint value)
     {

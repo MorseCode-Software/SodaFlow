@@ -7,33 +7,38 @@ using JetBrains.Annotations;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     What a selective filter costs per edit as the collection grows, asked of the state and of the
-///     identity.
+///     What a selective filter costs per edit as the collection grows, asked of
+///     the state and of the identity.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <see cref="KeyedCollectionViewBenchmarks" /> asks the same question at a thousand items and ten
-///         thousand, with everything else it measures. This asks only this question, and up to a million. The
-///         two paths are different by two trie lookups, a trie lookup costs <c>O(log32 n)</c>, and after a
-///         given size no structure stays in cache. If the difference grows with the collection, this is where
-///         it shows.
+///         <see cref="KeyedCollectionViewBenchmarks" /> asks the same question at
+///         a thousand items and ten thousand, with everything else it measures.
+///         This asks only this question, and up to a million. The two paths are
+///         different by two trie lookups, a trie lookup costs <c>O(log32 n)</c>,
+///         and after a given size no structure stays in cache. If the difference
+///         grows with the collection, this is where it shows.
 ///     </para>
 ///     <para>
-///         Two shapes and not the six next door, and that is deliberate. A chain at a million items holds an
-///         ordered key set for each stage, and six of them measure the garbage collector.
+///         Two shapes and not the six next door, and that is deliberate. A chain
+///         at a million items holds an ordered key set for each stage, and six of
+///         them measure the garbage collector.
 ///     </para>
 ///     <para>
-///         The third arm has no chain at all, and it is here because the first run of this benchmark is not
-///         readable without it. An edit pays for the transaction, the send operation, the trie write, and the
-///         change object before it reads any stage. That floor is approximately two fifths of what an
-///         excluded-key edit costs. Against the full number a stage-level difference reads as noise, and the
-///         honest-looking result is that there is none. Against the cost of the chain, the same measurement
-///         is a constant few percent. Subtract the floor before comparing anything.
+///         The third arm has no chain at all, and it is here because the first run
+///         of this benchmark is not readable without it. An edit pays for the
+///         transaction, the send operation, the trie write, and the change object
+///         before it reads any stage. That floor is approximately two fifths of
+///         what an excluded-key edit costs. Against the full number a stage-level
+///         difference reads as noise, and the honest-looking result is that there
+///         is none. Against the cost of the chain, the same measurement is a
+///         constant few percent. Subtract the floor before comparing anything.
 ///     </para>
 ///     <para>
-///         The two filters keep the same half. The seed gives each item a score equal to its number, thus
-///         even scores and even numbers are the same items. The sort below is over the identity in the two,
-///         which leaves the filter as the only thing that is different.
+///         The two filters keep the same half. The seed gives each item a score
+///         equal to its number, thus even scores and even numbers are the same
+///         items. The sort below is over the identity in the two, which leaves the
+///         filter as the only thing that is different.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -64,7 +69,10 @@ public class KeyedCollectionScaleBenchmarks
     /// <summary>An odd key, which no filter keeps.</summary>
     private static int ExcludedKey => 1;
 
-    /// <summary>Builds the two chains, and refuses to run if they keep different items.</summary>
+    /// <summary>
+    ///     Builds the two chains, and refuses to run if they keep different
+    ///     items.
+    /// </summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -81,9 +89,10 @@ public class KeyedCollectionScaleBenchmarks
     }
 
     /// <summary>
-    ///     An edit with no view stages at all, which each arm below pays before it does anything
-    ///     of its own. The baseline, because the difference between the arms is the question here,
-    ///     and this is how much of each of them is not that.
+    ///     An edit with no view stages at all, which each arm below pays before it
+    ///     does anything of its own. The baseline, because the difference between the
+    ///     arms is the question here, and this is how much of each of them is not
+    ///     that.
     /// </summary>
     [Benchmark(Description = "edit, no chain", Baseline = true)]
     public void EditNoChain() => this.rootOnly.Replace(key: InViewKey, state: this.NextInViewState());
@@ -97,22 +106,24 @@ public class KeyedCollectionScaleBenchmarks
     public void EditInViewByIdentity() => this.byIdentity.Replace(key: InViewKey, state: this.NextInViewState());
 
     /// <summary>
-    ///     An edit to an item the filter does not keep, tested against the state. That is a membership
-    ///     test and a predicate test, to conclude that there is nothing to do.
+    ///     An edit to an item the filter does not keep, tested against the state. That
+    ///     is a membership test and a predicate test, to conclude that there is
+    ///     nothing to do.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, state filter")]
     public void EditExcludedByState() => this.byState.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
-    ///     The same edit, against a filter that selects from the identity, which does not change. Thus,
-    ///     one index lookup that misses gives the answer.
+    ///     The same edit, against a filter that selects from the identity, which does
+    ///     not change. Thus, one index lookup that misses gives the answer.
     /// </summary>
     [Benchmark(Description = "edit an excluded item, identity filter")]
     public void EditExcludedByIdentity() => this.byIdentity.Replace(key: ExcludedKey, state: this.NextExcludedState());
 
     /// <summary>
-    ///     Two states, alternating, the two scoring even. Thus, the state filter keeps the item before
-    ///     and after, and this measures that decision, and not a change of mind.
+    ///     Two states, alternating, the two scoring even. Thus, the state filter keeps
+    ///     the item before and after, and this measures that decision, and not a
+    ///     change of mind.
     /// </summary>
     private ItemState NextInViewState()
     {
@@ -122,9 +133,10 @@ public class KeyedCollectionScaleBenchmarks
     }
 
     /// <summary>
-    ///     Two states, alternating, the two scoring odd. With a change to the parity, the state filter
-    ///     admits the item. It then does the full work of a stage, while the identity filter does
-    ///     none. That is a difference in the question, and not in the cost of the question.
+    ///     Two states, alternating, the two scoring odd. With a change to the parity,
+    ///     the state filter admits the item. It then does the full work of a stage,
+    ///     while the identity filter does none. That is a difference in the question,
+    ///     and not in the cost of the question.
     /// </summary>
     private ItemState NextExcludedState()
     {

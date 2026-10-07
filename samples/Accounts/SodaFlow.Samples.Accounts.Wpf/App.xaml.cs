@@ -5,11 +5,13 @@ using SodaFlow.Samples.Accounts.ViewModels;
 namespace SodaFlow.Samples.Accounts.Wpf;
 
 /// <summary>
-///     Builds the view model, gives it to the window as its data context, and shows the window.
+///     Builds the view model, gives it to the window as its data context, and
+///     shows the window.
 /// </summary>
 /// <remarks>
-///     This has the shape of each other sample here. The window receives its data context and
-///     does not build one, and the composition is where this code assembles the sample.
+///     This has the shape of each other sample here. The window receives its data
+///     context and does not build one, and the composition is where this code
+///     assembles the sample.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed partial class App
@@ -32,9 +34,9 @@ internal sealed partial class App
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Disposal of this also releases the row projection, and with it each row bindable that
-    ///     the projection holds. Those are the rows that stayed on the page and thus had no
-    ///     eviction.
+    ///     Disposal of this also releases the row projection, and with it each row
+    ///     bindable that the projection holds. Those are the rows that stayed on the
+    ///     page and thus had no eviction.
     /// </remarks>
     protected override void OnExit(ExitEventArgs e)
     {

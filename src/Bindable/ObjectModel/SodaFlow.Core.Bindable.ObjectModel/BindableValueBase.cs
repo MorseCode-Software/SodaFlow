@@ -7,9 +7,9 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     The shared parts of the implementations that give a notification. It supplies one
-    ///     <c>"Value"</c> property-changed notification, access to the scheduler, and a Dispose
-    ///     method that a caller can call more than one time.
+    ///     The shared parts of the implementations that give a notification. It
+    ///     supplies one <c>"Value"</c> property-changed notification, access to the
+    ///     scheduler, and a Dispose method that a caller can call more than one time.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private abstract class BindableValueBase(in IBindingScheduler scheduler)
@@ -40,7 +40,10 @@ public static partial class BindableCoreExtensionMethods
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        /// <summary>Raises <see cref="PropertyChanged" /> for <c>Value</c>. Call this on the binding thread.</summary>
+        /// <summary>
+        ///     Raises <see cref="PropertyChanged" /> for <c>Value</c>. Call this on
+        ///     the binding thread.
+        /// </summary>
         protected void RaiseValueChanged() => this.PropertyChanged?.Invoke(sender: this, e: ValueChangedEventArgs);
 
         protected void ThrowIfDisposed()

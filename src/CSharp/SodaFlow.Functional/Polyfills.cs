@@ -7,15 +7,17 @@ using JetBrains.Annotations;
 namespace System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-///     Specifies that the parameter is not null when a method returns <see cref="ReturnValue" />,
-///     and that this holds when the type of the parameter permits null.
+///     Specifies that the parameter is not null when a method returns
+///     <see cref="ReturnValue" />, and that this holds when the type of the
+///     parameter permits null.
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
 internal sealed class NotNullWhenAttribute : Attribute
 {
     /// <summary>Initializes the attribute with the specified return value condition.</summary>
     /// <param name="returnValue">
-    ///     The return value condition. If the method returns this value, the parameter is not null.
+    ///     The return value condition. If the method returns this value, the parameter
+    ///     is not null.
     /// </param>
     public NotNullWhenAttribute(bool returnValue) => this.ReturnValue = returnValue;
 

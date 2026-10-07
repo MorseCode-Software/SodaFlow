@@ -8,15 +8,15 @@ using SodaFlow.Samples.Bounce.ViewModels;
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
 /// <summary>
-///     Builds the view model and gives it to the window as its data context, before the lifetime
-///     shows the window.
+///     Builds the view model and gives it to the window as its data context,
+///     before the lifetime shows the window.
 /// </summary>
 /// <remarks>
-///     The window does not build its own view model. A view that constructs the object that it
-///     binds to knows the concrete type and the factory that makes it, and a bind to
-///     <see cref="IBounceViewModel" /> prevents that. The window receives the data context, and
-///     this code does the composition. Compare the WPF head, which does the same operation in
-///     <c>OnStartup</c>.
+///     The window does not build its own view model. A view that constructs the
+///     object that it binds to knows the concrete type and the factory that makes
+///     it, and a bind to <see cref="IBounceViewModel" /> prevents that. The window
+///     receives the data context, and this code does the composition. Compare the
+///     WPF head, which does the same operation in <c>OnStartup</c>.
 /// </remarks>
 // The namespace is AvaloniaUi and not Avalonia. A namespace with Avalonia as its last segment
 // hides the root namespace of the framework from the code in it, and a usual full name such as

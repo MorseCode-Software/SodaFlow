@@ -2016,9 +2016,9 @@ public sealed class MapAsyncExtensionsTests
             .ThrowsExactly<ArgumentNullException>();
 
     /// <summary>
-    ///     Queues each item and starts one at a time, as the Queue strategy in the library does,
-    ///     but with no queue of its own: it reads the queue of the pipeline. It also records what
-    ///     that queue held at each call.
+    ///     Queues each item and starts one at a time, as the Queue strategy in the
+    ///     library does, but with no queue of its own: it reads the queue of the
+    ///     pipeline. It also records what that queue held at each call.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     [Test]
@@ -2117,9 +2117,9 @@ public sealed class MapAsyncExtensionsTests
     }
 
     /// <summary>
-    ///     Refuses each value: it cancels the value and never promotes it, which is the documented
-    ///     method for a strategy to refuse one. The entry then keeps the Queued status permanently,
-    ///     thus no end comes for it.
+    ///     Refuses each value: it cancels the value and never promotes it, which is
+    ///     the documented method for a strategy to refuse one. The entry then keeps
+    ///     the Queued status permanently, thus no end comes for it.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class RefuseEverythingStrategy : AsyncConcurrencyStrategy<Unit>
@@ -2151,8 +2151,9 @@ public sealed class MapAsyncExtensionsTests
     }
 
     /// <summary>
-    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can see and other
-    ///     code cannot. Publish was a bool before this release, thus a null list is a new path.
+    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can
+    ///     see and other code cannot. Publish was a bool before this release, thus a
+    ///     null list is a new path.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
@@ -2188,8 +2189,8 @@ public sealed class MapAsyncExtensionsTests
     private sealed class Dog : Animal;
 
     /// <summary>
-    ///     Starts each item immediately and then refuses to publish its result. It shows
-    ///     that the pipeline makes a result only for an item that it publishes.
+    ///     Starts each item immediately and then refuses to publish its result. It
+    ///     shows that the pipeline makes a result only for an item that it publishes.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class DropEverythingStrategy : AsyncConcurrencyStrategy<Unit>
@@ -2315,9 +2316,10 @@ public sealed class MapAsyncExtensionsTests
     }
 
     /// <summary>
-    ///     Starts each item immediately, as the Parallel strategy in the library does. It
-    ///     operates on each TStrategyInput, and records the value at the admission and how each
-    ///     item ended. Thus, a test can show that a converter ran, and not only that it compiled.
+    ///     Starts each item immediately, as the Parallel strategy in the library does.
+    ///     It operates on each TStrategyInput, and records the value at the admission
+    ///     and how each item ended. Thus, a test can show that a converter ran, and
+    ///     not only that it compiled.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class AlwaysStartStrategy<TStrategyInput> : AsyncConcurrencyStrategy<TStrategyInput, Unit>

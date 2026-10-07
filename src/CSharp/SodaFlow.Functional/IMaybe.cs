@@ -5,34 +5,40 @@ using JetBrains.Annotations;
 namespace SodaFlow.Functional;
 
 /// <summary>
-///     A non-generic view of a <see cref="Maybe{T}" />. Use it in code that must handle a value
-///     that is there, or that has none, with no knowledge of its type.
+///     A non-generic view of a <see cref="Maybe{T}" />. Use it in code that must
+///     handle a value that is there, or that has none, with no knowledge of its
+///     type.
 /// </summary>
 /// <remarks>
-///     Each member mirrors one on <see cref="Maybe{T}" />, with the contained value surfaced as
-///     <see cref="object" />. Prefer <see cref="Maybe{T}" /> itself wherever the type is known: this
-///     interface boxes, and loses the type of the value.
+///     Each member mirrors one on <see cref="Maybe{T}" />, with the contained
+///     value surfaced as <see cref="object" />. Prefer <see cref="Maybe{T}" />
+///     itself wherever the type is known: this interface boxes, and loses the type
+///     of the value.
 /// </remarks>
 [PublicAPI]
 public interface IMaybe
 {
     /// <summary>
-    ///     Runs one function when there is a value, and a different one when there is none.
+    ///     Runs one function when there is a value, and a different one when there is
+    ///     none.
     /// </summary>
     /// <typeparam name="T">The type each of the two functions returns.</typeparam>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This calls one function of the two, and it calls that function before this method returns.
-    ///     This is the primitive that expresses all the other members of the interface.
+    ///     This calls one function of the two, and it calls that function before this
+    ///     method returns.
+    ///     This is the primitive that expresses all the other members of the
+    ///     interface.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onSome,
         [InstantHandle] Func<T> onNone);
 
     /// <summary>
-    ///     Runs one action when there is a value, and a different action when there is none.
+    ///     Runs one action when there is a value, and a different action when there is
+    ///     none.
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
@@ -41,7 +47,8 @@ public interface IMaybe
         [InstantHandle] Action onNone);
 
     /// <summary>
-    ///     Runs an action with the contained value when there is one, and otherwise does nothing.
+    ///     Runs an action with the contained value when there is one, and otherwise
+    ///     does nothing.
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     void MatchSome([InstantHandle] Action<object?> onSome);
@@ -53,23 +60,26 @@ public interface IMaybe
     void MatchNone([InstantHandle] Action onNone);
 
     /// <summary>
-    ///     Runs one asynchronous function when there is a value, and a different one when there is
-    ///     none, and gives the result.
+    ///     Runs one asynchronous function when there is a value, and a different one
+    ///     when there is none, and gives the result.
     /// </summary>
     /// <typeparam name="T">The type each of the two functions produces.</typeparam>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>The task returned by whichever function was run.</returns>
     /// <remarks>
-    ///     Only the selected function runs. The task from this call is its task, and not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from this call.
+    ///     Only the selected function runs. The task from this call is its task, and
+    ///     not a wrapper.
+    ///     Thus, a failure shows as a fault on that task, and not as an exception from
+    ///     this call.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onSome,
         [InstantHandle] Func<Task<T>> onNone);
 
     /// <summary>
-    ///     Runs one asynchronous action when there is a value, and a different one when there is none.
+    ///     Runs one asynchronous action when there is a value, and a different one
+    ///     when there is none.
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <param name="onNone">Run when there is no value.</param>
@@ -79,8 +89,8 @@ public interface IMaybe
         [InstantHandle] Func<Task> onNone);
 
     /// <summary>
-    ///     Runs an asynchronous action with the contained value when there is one, and otherwise
-    ///     does nothing.
+    ///     Runs an asynchronous action with the contained value when there is one, and
+    ///     otherwise does nothing.
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
     /// <returns>
@@ -90,7 +100,8 @@ public interface IMaybe
     Task MatchSomeAsync([InstantHandle] Func<object?, Task> onSome);
 
     /// <summary>
-    ///     Runs an asynchronous action when there is no value, and otherwise does nothing.
+    ///     Runs an asynchronous action when there is no value, and otherwise does
+    ///     nothing.
     /// </summary>
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>

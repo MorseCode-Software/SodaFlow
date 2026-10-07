@@ -8,22 +8,27 @@ using SodaFlow.Functional;
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     The select-all graph. It is a list of objects that each hold a selection cell. Above that is a cell
-///     over the full list, from a lift of theirs, and a tri-state "all selected" that goes back through a
-///     loop. Thus, one toggle drives each element.
+///     The select-all graph. It is a list of objects that each hold a selection
+///     cell. Above that is a cell over the full list, from a lift of theirs, and a
+///     tri-state "all selected" that goes back through a loop. Thus, one toggle
+///     drives each element.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This is the shape the library exists for, and the one that stresses it. It has a loop, a lift over
-///         each element, and a switch that rebuilds the lift when the collection changes. It came from
-///         SodaFlow.Tests.Performance, a console harness deleted after this replaced it. There, a stopwatch
-///         timed the graph around a sequence with twenty-five half-second sleeps. Thus, the number it printed
-///         was mostly sleep, and a read of it meant a run with key presses. This measures one operation at a
-///         time, which is the thing worth a measurement, and the thing to compare between runs.
+///         This is the shape the library exists for, and the one that stresses it.
+///         It has a loop, a lift over each element, and a switch that rebuilds the
+///         lift when the collection changes. It came from
+///         SodaFlow.Tests.Performance, a console harness deleted after this
+///         replaced it. There, a stopwatch timed the graph around a sequence with
+///         twenty-five half-second sleeps. Thus, the number it printed was mostly
+///         sleep, and a read of it meant a run with key presses. This measures one
+///         operation at a time, which is the thing worth a measurement, and the
+///         thing to compare between runs.
 ///     </para>
 ///     <para>
-///         Element count is a parameter because how these scale is the question. A toggle touches each
-///         element. A replacement of the collection rebuilds the lift.
+///         Element count is a parameter because how these scale is the question. A
+///         toggle touches each element. A replacement of the collection rebuilds
+///         the lift.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -44,7 +49,10 @@ public class SelectAllBenchmarks
     [Params(100, 1000)]
     public int ObjectCount { get; [UsedImplicitly] set; }
 
-    /// <summary>Builds a graph of <see cref="ObjectCount" /> objects for the benchmarks to work on.</summary>
+    /// <summary>
+    ///     Builds a graph of <see cref="ObjectCount" /> objects for the
+    ///     benchmarks to work on.
+    /// </summary>
     [GlobalSetup]
     public void Setup() => this.graph = Graph.Build(this.ObjectCount);
 
@@ -52,7 +60,10 @@ public class SelectAllBenchmarks
     [GlobalCleanup]
     public void Cleanup() => this.graph.Listener.Unlisten();
 
-    /// <summary>Builds the graph and fills it, which is what a view model does one time.</summary>
+    /// <summary>
+    ///     Builds the graph and fills it, which is what a view model does one
+    ///     time.
+    /// </summary>
     [Benchmark(Description = "build the graph")]
     public int BuildTheGraph()
     {
@@ -62,11 +73,17 @@ public class SelectAllBenchmarks
         return built.Objects.Sample().Count;
     }
 
-    /// <summary>One toggle, which flips each element and recomputes the tri-state above them.</summary>
+    /// <summary>
+    ///     One toggle, which flips each element and recomputes the tri-state
+    ///     above them.
+    /// </summary>
     [Benchmark(Description = "toggle all selected")]
     public void ToggleAllSelected() => this.graph.ToggleAllSelected.Send(Unit.Value);
 
-    /// <summary>One element changing, which recomputes the lift but touches one source.</summary>
+    /// <summary>
+    ///     One element changing, which recomputes the lift but touches one
+    ///     source.
+    /// </summary>
     [Benchmark(Description = "select one object")]
     public void SelectOneObject()
     {
@@ -78,7 +95,10 @@ public class SelectAllBenchmarks
     [Benchmark(Description = "replace every object")]
     public void ReplaceEveryObject() => this.graph.Objects.Send(this.graph.NewObjects(this.ObjectCount));
 
-    /// <summary>One selectable thing: its own toggle, and the select-all stream folded in.</summary>
+    /// <summary>
+    ///     One selectable thing: its own toggle, and the select-all stream folded
+    ///     in.
+    /// </summary>
     private sealed class TestObject
     {
         internal TestObject(Stream<bool> selectAllStream)
@@ -93,8 +113,8 @@ public class SelectAllBenchmarks
     }
 
     /// <summary>
-    ///     A built graph, so the fields holding one can stay non-nullable across a parameterized
-    ///     setup.
+    ///     A built graph, so the fields holding one can stay non-nullable across a
+    ///     parameterized setup.
     /// </summary>
     private sealed class Graph
     {
@@ -118,7 +138,10 @@ public class SelectAllBenchmarks
 
         internal StreamSink<Unit> ToggleAllSelected { get; }
 
-        /// <summary>Builds the full graph and populates it with <paramref name="count" /> objects.</summary>
+        /// <summary>
+        ///     Builds the full graph and populates it with <paramref name="count" />
+        ///     objects.
+        /// </summary>
         internal static Graph Build(int count)
         {
             (StreamSink<Unit> toggleAllSelected,

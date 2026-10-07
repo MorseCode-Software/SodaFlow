@@ -59,35 +59,43 @@ internal static class StreamExtensionMethodsInternal
         s.FilterSomeImpl<T, MaybeInternal<T>>(static (m, a) => m.MatchSome(a));
 
     /// <summary>
-    ///     Fires the last value of a stream after a time with no other value. Each firing moves the
-    ///     time of the alarm, thus a sequence of firings with no space between them gives one value.
+    ///     Fires the last value of a stream after a time with no other value. Each
+    ///     firing moves the time of the alarm, thus a sequence of firings with no
+    ///     space between them gives one value.
     /// </summary>
     /// <remarks>
-    ///     The deadline is a loop: the alarm reads the cell, and the cell reads the alarm. A firing
-    ///     in the transaction of the alarm arms the deadline again, because <c>arm</c> is the left
-    ///     side of the OrElse. With <c>cleared</c> on the left, that value never fires.
+    ///     The deadline is a loop: the alarm reads the cell, and the cell reads the
+    ///     alarm. A firing in the transaction of the alarm arms the deadline again,
+    ///     because <c>arm</c> is the left side of the OrElse. With <c>cleared</c> on
+    ///     the left, that value never fires.
     ///     <para>
-    ///         The alarm also clears the deadline, and that is a guard and not a necessity. <c>at</c>
-    ///         sets a timer at each change of the cell, thus a deadline that stays fires one time
-    ///         only. The guard is for an <c>arm</c> that gives the same time two times: the cell then
-    ///         changes at each firing, and the alarm comes. No test covers it, because the contract
-    ///         of <c>arm</c> is a time after the time that it reads.
+    ///         The alarm also clears the deadline, and that is a guard and not a
+    ///         necessity. <c>at</c> sets a timer at each change of the cell, thus a
+    ///         deadline that stays fires one time only. The guard is for an <c>arm</c>
+    ///         that gives the same time two times: the cell then changes at each
+    ///         firing, and the alarm comes. No test covers it, because the contract of
+    ///         <c>arm</c> is a time after the time that it reads.
     ///     </para>
     ///     <para>
-    ///         This method holds the time type and the deadline type as parameters, and knows no
-    ///         optional type. Thus, each language surface gives its own: <c>arm</c> makes the
-    ///         deadline that the timer system reads, and <c>disarmed</c> is the value for no alarm.
-    ///         See <c>FilterSomeImpl</c> above, which takes its optional type in the same manner.
+    ///         This method holds the time type and the deadline type as parameters,
+    ///         and knows no optional type. Thus, each language surface gives its own:
+    ///         <c>arm</c> makes the deadline that the timer system reads, and
+    ///         <c>disarmed</c> is the value for no alarm.
+    ///         See <c>FilterSomeImpl</c> above, which takes its optional type in the
+    ///         same manner.
     ///     </para>
     ///     <para>
-    ///         The cell of the last value is behind the stream by one transaction. That costs
-    ///         nothing here, because the alarm comes in a transaction after the firing that set
-    ///         it.
+    ///         The cell of the last value is behind the stream by one transaction.
+    ///         That costs nothing here, because the alarm comes in a transaction after
+    ///         the firing that set it.
     ///     </para>
     /// </remarks>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <typeparam name="TTime">The type of a point in time.</typeparam>
-    /// <typeparam name="TDeadline">The type that the timer system reads, which can hold no time.</typeparam>
+    /// <typeparam name="TDeadline">
+    ///     The type that the timer system reads, which can
+    ///     hold no time.
+    /// </typeparam>
     /// <param name="s">The stream to debounce.</param>
     /// <param name="time">The clock.</param>
     /// <param name="at">Makes a stream that fires at the time in a cell.</param>

@@ -10,34 +10,39 @@ namespace SodaFlow;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each stream registers a <see cref="StreamListeners" /> that holds a weak handle to
-///         that stream. A background thread sweeps the registry. If the garbage collector
-///         removed the stream of an entry, the sweep stops the attached listeners. This
-///         disconnects the node of that stream from the nodes above it.
+///         Each stream registers a <see cref="StreamListeners" /> that holds a
+///         weak handle to that stream. A background thread sweeps the registry. If
+///         the garbage collector removed the stream of an entry, the sweep stops
+///         the attached listeners. This disconnects the node of that stream from
+///         the nodes above it.
 ///     </para>
 ///     <para>
 ///         The garbage collector sets the rate of the sweep, and a timer does not.
-///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the complete process. It
-///         is not one object for each stream, which is the cost that this method prevents. It
-///         starts the sweeper after each collection. It only sends a signal, and the background
-///         thread does the sweep. Thus, no code that takes a node lock runs on the finalizer
-///         thread, where a block would stop finalization across the process. Without this, the
-///         registry kept the data for dead streams until the next cycle of the timer. That
-///         measured approximately 10MB after the release of 22,000 streams.
+///         <see cref="GcSweepTrigger" /> is one object with a finalizer for the
+///         complete process. It is not one object for each stream, which is the
+///         cost that this method prevents. It starts the sweeper after each
+///         collection. It only sends a signal, and the background thread does the
+///         sweep. Thus, no code that takes a node lock runs on the finalizer
+///         thread, where a block would stop finalization across the process.
+///         Without this, the registry kept the data for dead streams until the
+///         next cycle of the timer. That measured approximately 10MB after the
+///         release of 22,000 streams.
 ///     </para>
 ///     <para>
 ///         The handle is a weak <see cref="GCHandle" /> and not a
-///         <see cref="System.WeakReference" />. A WeakReference owns a handle that it must
-///         release in a finalizer. Thus, one WeakReference for each stream costs approximately
-///         the same as the <c>~Stream</c> finalizer that this method replaced. Both measured
-///         approximately 150ns for each stream, against 50ns for the handle. An object with a
-///         finalizer for each stream removes this saving.
+///         <see cref="System.WeakReference" />. A WeakReference owns a handle that
+///         it must release in a finalizer. Thus, one WeakReference for each stream
+///         costs approximately the same as the <c>~Stream</c> finalizer that this
+///         method replaced. Both measured approximately 150ns for each stream,
+///         against 50ns for the handle. An object with a finalizer for each stream
+///         removes this saving.
 ///     </para>
 ///     <para>
 ///         This sweep is not the primary cleanup path and can be slow.
-///         <see cref="Stream{T}.Send" /> removes a target with a dead weak reference as it reads
-///         the listener set. Thus, it disconnects a node that links to a collected stream at the
-///         next firing. The sweep finds the streams that do not fire again.
+///         <see cref="Stream{T}.Send" /> removes a target with a dead weak
+///         reference as it reads the listener set. Thus, it disconnects a node
+///         that links to a collected stream at the next firing. The sweep finds
+///         the streams that do not fire again.
 ///     </para>
 /// </remarks>
 internal static class StreamListenerManager
@@ -66,8 +71,8 @@ internal static class StreamListenerManager
     }
 
     /// <summary>
-    ///     The number of streams in the registry. This is for tests. The number is applicable only
-    ///     immediately after a <see cref="Sweep" />.
+    ///     The number of streams in the registry. This is for tests. The number is
+    ///     applicable only immediately after a <see cref="Sweep" />.
     /// </summary>
     internal static int RegistryCount
     {
@@ -93,8 +98,8 @@ internal static class StreamListenerManager
     }
 
     /// <summary>
-    ///     This member is internal and not private, thus a test can start a sweep directly and
-    ///     does not wait for the interval of the background thread.
+    ///     This member is internal and not private, thus a test can start a sweep
+    ///     directly and does not wait for the interval of the background thread.
     /// </summary>
     internal static void Sweep()
     {
@@ -148,9 +153,9 @@ internal static class StreamListenerManager
     }
 
     /// <summary>
-    ///     Asks the cleanup thread to sweep after each garbage collection. The garbage collector
-    ///     collects this object, and the object then registers again. There is one instance for
-    ///     the complete process.
+    ///     Asks the cleanup thread to sweep after each garbage collection. The garbage
+    ///     collector collects this object, and the object then registers again. There
+    ///     is one instance for the complete process.
     /// </summary>
     private sealed class GcSweepTrigger
     {

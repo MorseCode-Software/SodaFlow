@@ -10,26 +10,31 @@ using SodaFlow.Functional;
 namespace SodaFlow.Samples.Accounts.ViewModels;
 
 /// <summary>
-///     A paged, filtered, sorted list over a collection of accounts, with a total over all of them.
+///     A paged, filtered, sorted list over a collection of accounts, with a total
+///     over all of them.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Look at the screen. A deposit into an account changes the balance of that row and
-///         nothing else. The other rows do not change, and the list does not build again, but the
-///         sort can move the account. That is the correct operation of the collection: an edit
-///         goes to the rows that show it, and not to the rows near them.
+///         Look at the screen. A deposit into an account changes the balance of
+///         that row and nothing else. The other rows do not change, and the list
+///         does not build again, but the sort can move the account. That is the
+///         correct operation of the collection: an edit goes to the rows that show
+///         it, and not to the rows near them.
 ///     </para>
 ///     <para>
-///         A move to a different page is a change of criteria, and for a slice that change has a
-///         low cost. It moves a window across an order that did not change. A change to the frozen
-///         accounts is also a change of criteria, but that change builds the filter again, which
-///         has a high cost. Each change is one line here, and the code does not show the
-///         difference between them. For that cause the reference page gives the costs.
+///         A move to a different page is a change of criteria, and for a slice
+///         that change has a low cost. It moves a window across an order that did
+///         not change. A change to the frozen accounts is also a change of
+///         criteria, but that change builds the filter again, which has a high
+///         cost. Each change is one line here, and the code does not show the
+///         difference between them. For that cause the reference page gives the
+///         costs.
 ///     </para>
 ///     <para>
-///         The graph is the graph of <see cref="AccountsViewModel" /> with one difference. A fold
-///         across the item changes of the collection keeps the accounts to empty as a set of keys,
-///         and there is no second filtered view. The set holds only keys and has no order.
+///         The graph is the graph of <see cref="AccountsViewModel" /> with one
+///         difference. A fold across the item changes of the collection keeps the
+///         accounts to empty as a set of keys, and there is no second filtered
+///         view. The set holds only keys and has no order.
 ///         Measurements show that it costs less to hold and less to drain.
 ///     </para>
 /// </remarks>
@@ -153,9 +158,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This code does not name each row. The rows belong to the projection, which is in the
-    ///     list and releases all of them at its disposal. This applies to a row that left the view
-    ///     before now and to a row that stayed until now.
+    ///     This code does not name each row. The rows belong to the projection, which
+    ///     is in the list and releases all of them at its disposal. This applies to a
+    ///     row that left the view before now and to a row that stayed until now.
     /// </remarks>
     public void Dispose()
     {
@@ -414,9 +419,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     /// <summary>One edit that empties all of these accounts.</summary>
     /// <remarks>
-    ///     This is one edit, and not one edit for each account. Thus, the collection changes one
-    ///     time for each drain, at all counts of accounts. Each view sorts one time, and the total
-    ///     folds one delta.
+    ///     This is one edit, and not one edit for each account. Thus, the collection
+    ///     changes one time for each drain, at all counts of accounts. Each view sorts
+    ///     one time, and the total folds one delta.
     /// </remarks>
     private static CollectionEdit<int, AccountIdentity, AccountState> Drain(
         // This is the type of the set, and not an interface to the set. A foreach through the
@@ -441,16 +446,18 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
     /// <summary>The operation of a drain on one account.</summary>
     /// <remarks>
-    ///     This is a static method, thus each update in a drain uses one delegate from the cache.
-    ///     The drain does not allocate a delegate for each of the thousands of accounts.
+    ///     This is a static method, thus each update in a drain uses one delegate from
+    ///     the cache.
+    ///     The drain does not allocate a delegate for each of the thousands of
+    ///     accounts.
     /// </remarks>
     private static AccountState Emptied(AccountState state) => state with { Balance = 0 };
 
     /// <summary>The row for one account, built from the page that shows it.</summary>
     /// <remarks>
-    ///     Each cell here comes from the page and not from the collection, thus a row gives the
-    ///     data of its own view. An account that the page does not hold has no holder, no balance,
-    ///     and no target for a deposit.
+    ///     Each cell here comes from the page and not from the collection, thus a row
+    ///     gives the data of its own view. An account that the page does not hold has
+    ///     no holder, no balance, and no target for a deposit.
     /// </remarks>
     private static AccountRowViewModel Row(
         IBindableFactory bindableFactory,
@@ -506,8 +513,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
     private static string Money(AccountState state) => Money(state.Balance);
 
     /// <remarks>
-    ///     The format is US dollars at each culture of the machine, because the values are
-    ///     dollars. The currency format of the current culture puts a different symbol on them.
+    ///     The format is US dollars at each culture of the machine, because the values
+    ///     are dollars. The currency format of the current culture puts a different
+    ///     symbol on them.
     /// </remarks>
     private static string Money(long cents) => (cents / 100m).ToString(format: "C", provider: UsDollars);
 }

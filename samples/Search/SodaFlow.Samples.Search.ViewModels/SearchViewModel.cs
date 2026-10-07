@@ -9,23 +9,25 @@ using SodaFlow.Functional;
 namespace SodaFlow.Samples.Search.ViewModels;
 
 /// <summary>
-///     A search at each keystroke. Each keystroke starts a search, a new search replaces the
-///     search in operation, and the results, the busy state, and the error message are functions
-///     of the same graph.
+///     A search at each keystroke. Each keystroke starts a search, a new search
+///     replaces the search in operation, and the results, the busy state, and the
+///     error message are functions of the same graph.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         This condition is difficult to write manually. A user that types faster than Catalog
-///         replies makes some searches operate at the same time. The usual defects are a previous
-///         reply that replaces a new reply, a spinner that does not stop because a canceled search
-///         did not decrease a counter, and a previous error on the screen after a subsequent
-///         search gave results. None of those defects is possible here. SwitchLatest lets only
-///         the newest search publish, the graph calculates IsRunning and does not count it, and
-///         the same stream that starts a search removes the error.
+///         This condition is difficult to write manually. A user that types faster
+///         than Catalog replies makes some searches operate at the same time. The
+///         usual defects are a previous reply that replaces a new reply, a spinner
+///         that does not stop because a canceled search did not decrease a
+///         counter, and a previous error on the screen after a subsequent search
+///         gave results. None of those defects is possible here. SwitchLatest lets
+///         only the newest search publish, the graph calculates IsRunning and does
+///         not count it, and the same stream that starts a search removes the
+///         error.
 ///     </para>
 ///     <para>
-///         Type "fail" to see the error path. Type slowly and then quickly to see a new search
-///         replace a previous search.
+///         Type "fail" to see the error path. Type slowly and then quickly to see
+///         a new search replace a previous search.
 ///     </para>
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
@@ -88,12 +90,13 @@ public sealed class SearchViewModel : ISearchViewModel
 
     /// <inheritdoc />
     /// <remarks>
-    ///     Each entry holds a subscription into the graph, and its disposal releases that
-    ///     subscription.
+    ///     Each entry holds a subscription into the graph, and its disposal releases
+    ///     that subscription.
     ///     <para />
-    ///     The remarks of the counter sample name this condition. The list holds the status of the
-    ///     async pipeline and the bindables, thus its type is <see cref="IDisposable" />. The
-    ///     constructor gives the result of the disposal of the status.
+    ///     The remarks of the counter sample name this condition. The list holds the
+    ///     status of the async pipeline and the bindables, thus its type is
+    ///     <see cref="IDisposable" />. The constructor gives the result of the
+    ///     disposal of the status.
     /// </remarks>
     public void Dispose()
     {

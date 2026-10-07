@@ -8,10 +8,11 @@ namespace SodaFlow.Collections;
 ///     One stage of a chain: its own keys and order, and each value from them.
 /// </summary>
 /// <remarks>
-///     A stage is a collection. Its content, its change, its items, and their identities answer
-///     for this stage and not for the store below it. The only path to the store is
-///     <see cref="ReactiveCollection{TKey,TIdentity,TState}.Root" />, which is internal and is here
-///     for the caches of the cells for one item.
+///     A stage is a collection. Its content, its change, its items, and their
+///     identities answer for this stage and not for the store below it. The only
+///     path to the store is
+///     <see cref="ReactiveCollection{TKey,TIdentity,TState}.Root" />, which is
+///     internal and is here for the caches of the cells for one item.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TKey, TIdentity, TState>
@@ -23,15 +24,16 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     private readonly Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>> shapeCell;
 
     /// <summary>
-    ///     This code builds it at its first use, thus a stage that no code reads has no cost
-    ///     for it.
+    ///     This code builds it at its first use, thus a stage that no code reads has
+    ///     no cost for it.
     /// </summary>
     /// <remarks>
-    ///     Each one of these is one node for each stage, and the graph calculates it again at each
-    ///     transaction. A measurement of the scope on the snapshot, before this code made it lazy,
-    ///     showed approximately one fifth of the cost of an edit across a chain. The same applies
-    ///     to the two below it. Most consumers read the keys, the changes, and the cells for one
-    ///     item, and never read the items of a view together.
+    ///     Each one of these is one node for each stage, and the graph calculates it
+    ///     again at each transaction. A measurement of the scope on the snapshot,
+    ///     before this code made it lazy, showed approximately one fifth of the cost
+    ///     of an edit across a chain. The same applies to the two below it. Most
+    ///     consumers read the keys, the changes, and the cells for one item, and never
+    ///     read the items of a view together.
     /// </remarks>
     private readonly Lazy<Cell<CollectionSnapshot<TKey, TIdentity, TState>>> snapshotCell;
 
@@ -99,12 +101,13 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This comes from the change stream of this stage, and that keeps its cost low. The
-    ///     alternative is a lift of the cell of the collection against the keys of this view. That
-    ///     alternative puts one cell node for each observer in the path of the view, and the graph
-    ///     reads it at each change of the view, with a change of order that names no key of the
-    ///     observer. A measurement showed two times the cost of a usual edit. This stream removes
-    ///     itself, and it measures the same as an observer on the collection.
+    ///     This comes from the change stream of this stage, and that keeps its cost
+    ///     low. The alternative is a lift of the cell of the collection against the
+    ///     keys of this view. That alternative puts one cell node for each observer in
+    ///     the path of the view, and the graph reads it at each change of the view,
+    ///     with a change of order that names no key of the observer. A measurement
+    ///     showed two times the cost of a usual edit. This stream removes itself, and
+    ///     it measures the same as an observer on the collection.
     /// </remarks>
     internal override Cell<TProjected> CreateStateCell<TProjected>(
         TKey key,
@@ -132,8 +135,9 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This comes from the change stream of this stage, as the state cell does, and it takes
-    ///     the same operations. An update and a move thus send a value from one of these.
+    ///     This comes from the change stream of this stage, as the state cell does,
+    ///     and it takes the same operations. An update and a move thus send a value
+    ///     from one of these.
     /// </remarks>
     internal override Cell<TProjected> CreateItemCell<TProjected>(
         TKey key,
@@ -158,9 +162,10 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
     /// <inheritdoc />
     /// <remarks>
-    ///     This comes from the change stream of this stage, as the state cell does. An update and a
-    ///     move never come to it, thus an observer of the identity of one item through a view gets a
-    ///     value only when that key enters the view or leaves it.
+    ///     This comes from the change stream of this stage, as the state cell does. An
+    ///     update and a move never come to it, thus an observer of the identity of one
+    ///     item through a view gets a value only when that key enters the view or
+    ///     leaves it.
     /// </remarks>
     internal override Cell<TProjected> CreateIdentityCell<TProjected>(
         TKey key,
@@ -185,8 +190,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 }
 
 /// <summary>
-///     The inputs from before the transaction. A stage reads them when the event in its current
-///     step has no newer value for them.
+///     The inputs from before the transaction. A stage reads them when the event
+///     in its current step has no newer value for them.
 /// </summary>
 internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
     where TKey : notnull
@@ -210,8 +215,8 @@ internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
 }
 
 /// <summary>
-///     The values that came to a stage in one transaction: a change from above, a new criteria, or
-///     the two together.
+///     The values that came to a stage in one transaction: a change from above, a
+///     new criteria, or the two together.
 /// </summary>
 internal sealed class StageInput<TKey, TIdentity, TState, TCriteria>
     where TKey : notnull
@@ -230,7 +235,10 @@ internal sealed class StageInput<TKey, TIdentity, TState, TCriteria>
     internal MaybeInternal<TCriteria> Criteria { get; }
 }
 
-/// <summary>What a stage produced in one transaction, before it becomes a change event.</summary>
+/// <summary>
+///     What a stage produced in one transaction, before it becomes a change
+///     event.
+/// </summary>
 internal sealed class StageResult<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
@@ -265,25 +273,35 @@ internal sealed class StageResult<TKey, TIdentity, TState>
 
     internal CollectionSnapshot<TKey, TIdentity, TState> After { get; }
 
-    /// <summary>Whether this result changes what the stage holds, or the order it holds it in.</summary>
+    /// <summary>
+    ///     Whether this result changes what the stage holds, or the order it
+    ///     holds it in.
+    /// </summary>
     /// <remarks>
-    ///     Each operation except an update changes this: an add, a removal, a move, or a reset. A
-    ///     result with only updates keeps each key at its position, but its keys can be a new
-    ///     version, because a sort that moved no key builds a version with the new sort value.
+    ///     Each operation except an update changes this: an add, a removal, a move, or
+    ///     a reset. A result with only updates keeps each key at its position, but its
+    ///     keys can be a new version, because a sort that moved no key builds a
+    ///     version with the new sort value.
     /// </remarks>
     internal bool MovesKeys { get; }
 
-    /// <summary>Whether this change alters what the view holds, rather than only where.</summary>
+    /// <summary>
+    ///     Whether this change alters what the view holds, rather than only
+    ///     where.
+    /// </summary>
     /// <remarks>
-    ///     A change of order is not a change of the members, thus a cell on the shape sends no
-    ///     value at one.
+    ///     A change of order is not a change of the members, thus a cell on the shape
+    ///     sends no value at one.
     /// </remarks>
     internal bool ChangesMembership { get; }
 
     /// <summary>
-    ///     True when this is a reset that changed only the order. The stage holds the keys that it
-    ///     held, and no value of those keys changed.
+    ///     True when this is a reset that changed only the order. The stage holds the
+    ///     keys that it held, and no value of those keys changed.
     /// </summary>
-    /// <remarks>See <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.</remarks>
+    /// <remarks>
+    ///     See
+    ///     <see cref="CollectionViewChange{TKey,TIdentity,TState}.ReordersOnly" />.
+    /// </remarks>
     internal bool ReordersOnly { get; }
 }
