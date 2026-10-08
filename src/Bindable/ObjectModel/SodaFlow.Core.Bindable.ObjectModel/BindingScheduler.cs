@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using JetBrains.Annotations;
 
@@ -74,6 +77,19 @@ public interface IBindingScheduler
 ///     in parallel. Its Post() method must not run the SendOrPostCallback delegate
 ///     directly, because that makes this scheduler re-entrant.
 /// </summary>
+/// <remarks>
+///     <para>
+///         All the actions that one transaction posts go to the context as one
+///         item, in the sequence of the posts. Thus, the binding thread gets all the
+///         changes of a transaction in one turn of its message loop, and no other
+///         work runs between them. A control that gets two related values, such as
+///         a list and its selected item, can then apply the two together.
+///     </para>
+///     <para>
+///         An action that SodaFlow posts while no transaction is open goes to the
+///         context as an item of its own.
+///     </para>
+/// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
@@ -84,6 +100,22 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             Action? a = state as Action;
             a?.Invoke();
         };
+
+    private static readonly SendOrPostCallback BatchCallback =
+        static state =>
+        {
+            if (state is List<Action> actions)
+            {
+                RunAll(actions: actions);
+            }
+        };
+
+    // The actions that the open transaction posted, and that transaction. Only a thread in a
+    // transaction reads or writes these two fields, and a transaction holds the lock of the full
+    // process. Thus, they are usual fields.
+    private List<Action>? batch;
+
+    private TransactionInternal? batchTransaction;
 
     // SodaFlow captures this with the context, because the two identify the binding thread in
     // different ways and one alone is not sufficient. It comes from the building thread.
@@ -168,7 +200,77 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             throw new ArgumentNullException(nameof(action));
         }
 
-        this.context.Post(d: Callback, state: action);
+        TransactionInternal? transaction = TransactionInternal.GetCurrentTransaction();
+
+        if (transaction == null)
+        {
+            this.context.Post(d: Callback, state: action);
+
+            return;
+        }
+
+        if (!ReferenceEquals(objA: this.batchTransaction, objB: transaction))
+        {
+            this.batch = [];
+            this.batchTransaction = transaction;
+
+            // The batch goes to the context after the transaction sends all its updates, and
+            // before the work that the transaction posts. That work runs in transactions of its
+            // own, and their batches must come after this one. A transaction that stops does not
+            // run its last actions. Thus, the release of the post below sends the batch then, as
+            // this scheduler sent each action before it made batches.
+            transaction.Last(this.SendBatch);
+            TransactionInternal.PostImpl(action: static () => { }, onFailure: _ => this.SendBatch());
+        }
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - The code above sets the batch with its transaction.
+        this.batch!.Add(action);
+    }
+
+    // Runs each action of one item, also after an action throws. The binding thread then gets each
+    // change of the transaction. The throw leaves the item after that, as the contract on Post
+    // requires.
+    private static void RunAll(List<Action> actions)
+    {
+        List<ExceptionDispatchInfo>? failures = null;
+
+        foreach (Action action in actions)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                (failures ??= []).Add(ExceptionDispatchInfo.Capture(e));
+            }
+        }
+
+        if (failures == null)
+        {
+            return;
+        }
+
+        if (failures.Count == 1)
+        {
+            failures[0].Throw();
+        }
+
+        throw new AggregateException(failures.Select(static failure => failure.SourceException));
+    }
+
+    // Sends the batch of the open transaction to the context. The transaction can call this two
+    // times, from its last actions and from the release of its post. Only the first call sends.
+    private void SendBatch()
+    {
+        List<Action>? actions = this.batch;
+        this.batch = null;
+        this.batchTransaction = null;
+
+        if (actions != null)
+        {
+            this.context.Post(d: BatchCallback, state: actions);
+        }
     }
 
     /// <summary>Captures the synchronization context of the current thread.</summary>
