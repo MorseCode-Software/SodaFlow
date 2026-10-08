@@ -1,3 +1,13 @@
+4.0.2
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Bindable.ObjectModel.Core 4.1.0. In that release, a throw from the graph on a write through a bindable reaches
+the binding thread rather than the binding engine, and a two-way value no longer keeps reporting a value the graph
+refused. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 4.0.1 would go on resolving core 4.0.1. A
+consumer who references the core package directly gets the change either way.
+
 4.0.1
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets
