@@ -1,3 +1,23 @@
+4.2.0
+
+Changed: SynchronizationContextBindingScheduler sends everything one transaction posts to the binding thread as a single
+item. Each bindable used to post its own refresh, so a transaction that changed a list and its selected item reached the
+UI as two dispatcher items, and a control could apply the list before it saw the new selection. Avalonia's ComboBox, for
+one, cleared its selection for the new list and wrote that back through the two-way binding before the selection
+arrived. Now the binding thread gets all of a transaction's changes in one turn of its message loop, in the order they
+were posted, with no other work between them.
+
+The item is sent after every update of the transaction has propagated, and before any work the transaction schedules
+with Transaction.Post, so that work still reaches the binding thread after it. A transaction that fails still delivers
+what it had posted, as before. A post made while no transaction is open is still an item of its own.
+
+Inside the item, every action runs even when one throws. The exception then leaves the item with its original stack
+trace, or, when more than one action threw, as an AggregateException that holds each of them. Before, each throw left
+an item of its own, and the refreshes posted after it still ran, as they still do. An unhandled-exception handler that
+looks for a particular exception type should now also look inside AggregateException.
+
+BindingScheduler.Immediate does not change, and neither does a scheduler you wrote yourself.
+
 4.1.0
 
 Changed: when the graph throws on a write through a two-way or one-way-to-source value, the setter no longer throws.
