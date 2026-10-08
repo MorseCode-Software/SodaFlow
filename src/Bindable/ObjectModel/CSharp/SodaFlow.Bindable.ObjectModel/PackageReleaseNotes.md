@@ -1,3 +1,13 @@
+4.0.3
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Bindable.ObjectModel.Core 4.2.0. In that release, SynchronizationContextBindingScheduler sends everything one
+transaction posts to the binding thread as a single item, so a control gets related values, such as a list and its
+selected item, together. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 4.0.2 would go on resolving core 4.1.0. A
+consumer who references the core package directly gets the change either way.
+
 4.0.2
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets
