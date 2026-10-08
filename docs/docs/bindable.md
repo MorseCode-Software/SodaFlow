@@ -152,6 +152,14 @@ Hand that factory to each view model, through its constructor. A bindable never 
 scheduler for itself, so the thread a view model happens to be built on changes nothing: build
 it on any thread, and its notifications still reach the thread the factory was given.
 
+`SynchronizationContextBindingScheduler` sends everything one transaction posts to the UI thread
+as a single job, in the order it was posted. The UI therefore gets all of a transaction's changes
+in one turn of its message loop, with nothing else running in between. That matters to a control
+whose properties depend on each other. When a transaction changes a combo box's list and its
+selected item together, both arrive in the same job, so the control can apply them as a pair
+instead of reacting to a new list whose selection hasn't arrived yet. If one of the posted actions
+throws, the rest of the job still runs, and the exception is thrown once they have finished.
+
 There is no process-wide default and no fallback. An earlier version captured the constructing
 thread's `SynchronizationContext` and, when there was none, ran handlers inline without a word,
 so a view model built on a background thread raised `PropertyChanged` off the UI thread and the
