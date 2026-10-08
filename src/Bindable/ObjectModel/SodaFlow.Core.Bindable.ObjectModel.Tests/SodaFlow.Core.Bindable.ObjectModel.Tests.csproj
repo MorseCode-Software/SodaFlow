@@ -45,6 +45,7 @@
         <Compile Include="BindableValueConcurrencyTests.cs"/>
         <Compile Include="BindableValueTests.cs"/>
         <Compile Include="BindingSchedulerTests.cs"/>
+        <Compile Include="SynchronizationContextBindingSchedulerTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>
