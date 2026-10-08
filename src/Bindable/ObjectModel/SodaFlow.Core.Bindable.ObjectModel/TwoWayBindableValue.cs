@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
@@ -179,30 +180,57 @@ public static partial class BindableCoreExtensionMethods
 
                 this.cachedValue = value;
 
-                PostWrite(() =>
-                {
-                    // This code tests again here, and does not depend on the ThrowIfDisposed
-                    // above. PostWrite defers while a transaction is open. Thus, a Dispose
-                    // between the two can let this write reach the graph.
-                    if (this.IsDisposed)
-                    {
-                        return;
-                    }
+                // This is null unless the write throws. It is not a Maybe, because this setter is
+                // on the path that BindableRefreshBenchmarks measures.
+                ExceptionDispatchInfo? failure = null;
 
-                    try
+                try
+                {
+                    PostWrite(() =>
                     {
+                        // This code tests again here, and does not depend on the ThrowIfDisposed
+                        // above. PostWrite defers while a transaction is open. Thus, a Dispose
+                        // between the two can let this write reach the graph.
+                        if (this.IsDisposed)
+                        {
+                            return;
+                        }
+
                         this.write(value);
-                    }
-                    finally
-                    {
-                        // This runs in a finally block, because the code above wrote the cached
-                        // value optimistically. A write that throws can leave that value with no
-                        // correction, and the equality test in the setter then discards a second
-                        // attempt. That stops the property permanently. A refresh in all
-                        // conditions puts the value of the cell back on the screen.
-                        this.ScheduleRefreshFromCell();
-                    }
-                });
+                    });
+                }
+                catch (Exception e)
+                {
+                    // A throw arrives here only when no transaction is open, and then the graph
+                    // threw. A binding engine catches a throw from a setter. Avalonia discards it,
+                    // or shows it as a validation error that the refresh below then removes. A throw
+                    // from the graph is a defect and not a validation result. Thus, the scheduler
+                    // throws it on the binding thread, outside the binding engine. When a
+                    // transaction is open, the write waits for its close, and a throw leaves that
+                    // close to the code that opened the transaction.
+                    failure = ExceptionDispatchInfo.Capture(e);
+                }
+
+                // This runs after a write that throws too, because the code above wrote the cached
+                // value optimistically. A write that throws can leave that value with no correction,
+                // and the equality test in the setter then discards a second attempt. That stops the
+                // property permanently. A refresh in all conditions puts the value of the cell back
+                // on the screen.
+                //
+                // This runs here, and not in the posted write. When no transaction is open, the
+                // write runs in a transaction of its own, and a throw from the graph stops that
+                // transaction. A scheduler that waits for the close of a transaction, such as
+                // BindingScheduler.Immediate, then loses a refresh that the write posts. This code
+                // runs after that transaction closes. When a transaction is open, the write waits
+                // for its close, and the scheduler runs this refresh after the write.
+                this.ScheduleRefreshFromCell();
+
+                // The refresh comes first. Thus, the cached value agrees with the cell when the throw
+                // occurs, also on a host that catches the throw and continues.
+                if (failure != null)
+                {
+                    this.Scheduler.Post(failure.Throw);
+                }
             }
         }
 

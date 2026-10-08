@@ -54,6 +54,14 @@ public interface IBindingScheduler
     ///         write yourself, or one on a primitive that sends and waits, must be
     ///         careful.
     ///     </para>
+    ///     <para>
+    ///         An action can throw, and some actions throw by design. A writable value
+    ///         posts the throw of a write that failed, because a binding engine
+    ///         discards a throw from a setter. See
+    ///         <see cref="IWritableBindableValue{T}" />. Let that throw out of the
+    ///         action, as a dispatcher does. A scheduler that catches it and continues
+    ///         hides the defect again.
+    ///     </para>
     /// </remarks>
     void Post(Action action);
 }

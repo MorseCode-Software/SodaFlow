@@ -1,3 +1,24 @@
+4.1.0
+
+Changed: when the graph throws on a write through a two-way or one-way-to-source value, the setter no longer throws.
+It posts the exception to the binding scheduler, which throws it on the binding thread with its original stack trace.
+A binding engine catches whatever a setter throws: Avalonia shows it as a validation error, which the two-way refresh
+clears a moment later, or, where the property has no data validation, discards it without a trace. A throw from the
+graph is a bug in the graph rather than a verdict on the value, so it now reaches the dispatcher, where it stops the
+application or reaches its unhandled-exception handler. The two-way refresh is scheduled first, so the value already
+agrees with the cell when the exception is thrown.
+
+With BindingScheduler.Immediate, which runs a post at once when no transaction is open, the caller of the setter still
+gets the exception, as before. A setter called inside an open transaction is unchanged as well: the write waits for
+that transaction to close, and the exception leaves the close. A scheduler you wrote yourself must let a posted action
+throw rather than catch and continue, or it hides the bug again.
+
+Fixed: with BindingScheduler.Immediate, a two-way value whose write the graph threw on kept reporting the refused
+value. The write runs in a transaction of its own, and the refresh that corrects the cached value was posted inside
+it, so the failed transaction dropped the refresh along with everything else it held. The refresh is now scheduled by
+the setter after that transaction has closed, so the property reads back the cell's value and announces it. A
+dispatcher scheduler was not affected, because its posts never wait for a transaction.
+
 4.0.1
 
 Fixed: a bindable can be built from a looped cell. Each bindable used to sample its cell in its constructor. Inside a

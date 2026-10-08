@@ -101,6 +101,28 @@ The visible consequence is that an input mask which upper-cases text, or a valid
 which discards a value, corrects the view a moment after the keystroke rather than blocking
 it. Setting a value the comparer considers unchanged does nothing at all.
 
+## When the graph throws on a write
+
+A rejected value is something the graph expresses by not accepting it; the refresh above shows
+the result. An exception thrown while the write propagates — a bug in a `Map` lambda, say — is
+different, and the setter does not hand it back to its caller. The caller is the binding engine,
+and binding engines catch what a setter throws. Avalonia turns it into a validation error, which
+the two-way refresh clears a moment later, or, for a property without data validation, discards
+it outright. Either way the bug disappears and the control is left showing a value the graph
+never took.
+
+So the setter posts the exception to the binding scheduler instead, which throws it on the UI
+thread with its original stack trace, outside the binding engine. On a dispatcher it reaches the
+application's unhandled-exception handler, which by default stops the application. A two-way
+value schedules its refresh first, so by then it already shows the cell's value again.
+
+Two cases still throw where they did. With `BindingScheduler.Immediate` the post runs at once, so
+a test that sets `Value` directly gets the exception from the setter. And a setter called inside
+an open transaction only queues its write, so the exception comes out of that transaction's close.
+
+If you write your own `IBindingScheduler`, let a posted action throw. A scheduler that catches it
+and carries on hides the bug again.
+
 ## Commands
 
 `CreateBindableAction` turns a `StreamSink<T>` into an `ICommand`. The `CommandParameter` is
