@@ -53,8 +53,8 @@ public interface IAccountRowViewModel : IDisposable
     /// <remarks>
     ///     A view can hide this for a frozen account, but that is presentation and not
     ///     the rule.
-    ///     The view model gates the deposit, thus no path to the command can pay into
-    ///     a frozen account.
+    ///     The command reads the frozen state again in the transaction of the send.
+    ///     Thus, no call to the command can pay into a frozen account.
     /// </remarks>
     IBindableAction Deposit { get; }
 }
