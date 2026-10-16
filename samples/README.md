@@ -65,9 +65,9 @@ Every sample takes its dependencies from nuget.org, at a pinned version, exactly
 application outside this repository would:
 
 ```xml
-<PackageReference Include="SodaFlow" Version="5.0.0" />
+<PackageReference Include="SodaFlow" Version="5.0.1" />
 <PackageReference Include="SodaFlow.Async" Version="5.0.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="3.0.1" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
 ```
 
 That is Search. Counter and Bounce take the first and the third; Accounts takes those two and
