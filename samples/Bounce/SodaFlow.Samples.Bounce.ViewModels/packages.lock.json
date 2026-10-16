@@ -10,31 +10,31 @@
       },
       "SodaFlow": {
         "type": "Direct",
-        "requested": "[5.0.0, )",
-        "resolved": "5.0.0",
-        "contentHash": "6t16/75AZH8XbhSe/+54kMhBjpsub5gZREVDsZHRZu7rokiPqJYrXzt2n0eFQvkYBMulSOkz/ao4zU8DEsuV2g==",
+        "requested": "[5.0.1, )",
+        "resolved": "5.0.1",
+        "contentHash": "CeQyU53++j6pKk3K/hN4mhpyRSX7vDBtPKl5vPrKK+NwIFsvHkNpcVjxmPNqggHTV6XfAa+s/emmaRTEd9yrzA==",
         "dependencies": {
           "SodaFlow.Core": "[5.0.0, 6.0.0)",
-          "SodaFlow.Functional": "[3.0.1, 4.0.0)",
+          "SodaFlow.Functional": "[3.0.2, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Bindable.ObjectModel": {
         "type": "Direct",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "rtFTmjT49XJfPLPr1S9eUFkXnfgxobeQxKImtRdzw+k1I9rmZ28xPrHOxODCeAIjoQHFnyHOJPRcCuDQgDQjrQ==",
+        "requested": "[4.0.3, )",
+        "resolved": "4.0.3",
+        "contentHash": "ZJmMw7hJkqM7xWt8ziAu6AKuBeWx2IhoIWj9WlKoWjqYFDc347IkCl3H4wNTE78flk5QUCvsQr7tqGFkoIgBpA==",
         "dependencies": {
-          "SodaFlow": "[5.0.0, 6.0.0)",
-          "SodaFlow.Bindable.ObjectModel.Core": "[4.0.0, 5.0.0)",
-          "SodaFlow.Functional": "[3.0.1, 4.0.0)",
+          "SodaFlow": "[5.0.1, 6.0.0)",
+          "SodaFlow.Bindable.ObjectModel.Core": "[4.2.0, 5.0.0)",
+          "SodaFlow.Functional": "[3.0.2, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Bindable.ObjectModel.Core": {
         "type": "Transitive",
-        "resolved": "4.0.0",
-        "contentHash": "nMHa+5uFX2ZYjOCb+hvitsmMeO2VknrOe7nSxfhSlRq5h7h8FUj78k8a4pW4AoI2aMJwxUcaZ0CLmrSsx1tvRQ==",
+        "resolved": "4.2.0",
+        "contentHash": "fTlJwUu0cwruSMfjhlAxN0BzoEaqBVZjPnDmy3dWqgH0a4iYL6bWFdMP1C1CbchaigjWvazLFpEdTldcVAFZ3g==",
         "dependencies": {
           "SodaFlow.Core": "[5.0.0, 6.0.0)",
           "System.ValueTuple": "4.6.2"
@@ -50,8 +50,8 @@
       },
       "SodaFlow.Functional": {
         "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "EmrkuXTuIZ6HB55Yg7ZARNzCVEk4mq9y+2WI/aO6NhJ02uLMGZKK+FLDSCizfA6QRRdqWnMwFy51F1BA2tfkHA=="
+        "resolved": "3.0.2",
+        "contentHash": "KPwRRnnxRodPjPoFXqQ395cym2Je9WT4A907inTAWUIoJaefZaSDNPjadc+74XOi8kLBvBrxOFt5rxbEsgsa7w=="
       },
       "System.ValueTuple": {
         "type": "Transitive",

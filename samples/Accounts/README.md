@@ -107,9 +107,9 @@ Like the others here, this one takes its libraries from nuget.org at a pinned ve
 an application outside this repository would:
 
 ```xml
-<PackageReference Include="SodaFlow" Version="5.0.0" />
+<PackageReference Include="SodaFlow" Version="5.0.1" />
 <PackageReference Include="SodaFlow.Collections" Version="2.0.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.0" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
 ```
 
 It referenced the projects under `src/` until recently, and the reason is worth recording because it
