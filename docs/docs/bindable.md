@@ -130,6 +130,13 @@ carried through to the stream, and enablement comes from an optional `Cell<bool>
 and the command is always enabled. `CanExecuteChanged` is raised for you when that cell
 changes; nothing raises it by hand.
 
+The command checks its enablement twice. `CanExecute` answers from a copy of the cell that the
+binding scheduler carries to the UI thread, so for a moment after the cell changes it can still
+say the command is enabled. When the command fires, it reads the cell again in the transaction
+that sends the parameter, and sends nothing if the cell is false. That is the same check a `Gate`
+on the sink would make, so you don't need to add one with the same cell. The check covers only
+what the command sends: code that sends into the sink directly is not gated.
+
 A disposed action reports `CanExecute` as false, so a torn-down view model cannot be invoked
 through a stale binding.
 

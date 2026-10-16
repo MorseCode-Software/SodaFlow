@@ -1,6 +1,7 @@
 module SodaFlow.Bindable.ObjectModel.Tests.ObjectModelTests
 
 open System.Collections.Generic
+open System.Windows.Input
 open SodaFlow
 open SodaFlow.Bindable.ObjectModel
 open SodaFlow.Tests
@@ -26,6 +27,18 @@ type private RecordingScheduler() =
         /// True throughout, as for the immediate scheduler this delegates to: it runs work on
         /// whichever thread hands it over, so every thread is its binding thread.
         member _.CheckAccess() = true
+
+/// Calls the command and makes the cell false in one transaction. The send runs after that
+/// transaction closes, thus it finds the cell false.
+let private executeThenDisable (command: ICommand) (parameter: obj) (enabled: CellSink<bool>) =
+    Transaction.run (fun () ->
+        command.Execute parameter
+        enabled |> sendC false)
+
+/// Makes the cell true, and then calls the command.
+let private enableThenExecute (command: ICommand) (parameter: obj) (enabled: CellSink<bool>) =
+    enabled |> sendC true
+    command.Execute parameter
 
 type ``Object Model Tests``() =
 
@@ -116,6 +129,46 @@ type ``Object Model Tests``() =
             a.Execute(Some 2)
             a.Execute null
             do! Expect.Sequence([ Some 1; Some 2; None ], fired)
+        }
+
+    // Each type of command from the factory gets Execute from the core command. That Execute
+    // reads the enablement cell when it sends. The three tests below show that each type sends
+    // nothing when the cell is false at the send. Each type sends its parameter when the cell is
+    // true.
+    [<Test>]
+    member _.``a parameterless action sends nothing when its cell is false at the send``() =
+        task {
+            let enabled = sinkC true
+            let fired = List<unit>()
+            use a = immediate.ToBindableAction(sinkS<unit> (), enabled)
+            use _ = a.FiringsStream |> listenStrongS fired.Add
+            executeThenDisable a null enabled
+            enableThenExecute a null enabled
+            do! Expect.Equal(1, fired.Count)
+        }
+
+    [<Test>]
+    member _.``an action with a value sends nothing when its cell is false at the send``() =
+        task {
+            let enabled = sinkC true
+            let fired = List<int>()
+            use a = immediate.ToBindableAction(sinkS<int> (), enabled)
+            use _ = a.FiringsStream |> listenStrongS fired.Add
+            executeThenDisable a 1 enabled
+            enableThenExecute a 2 enabled
+            do! Expect.Sequence([ 2 ], fired)
+        }
+
+    [<Test>]
+    member _.``an option action sends nothing when its cell is false at the send``() =
+        task {
+            let enabled = sinkC true
+            let fired = List<int option>()
+            use a = immediate.ToBindableOptionAction(sinkS<int option> (), enabled)
+            use _ = a.FiringsStream |> listenStrongS fired.Add
+            executeThenDisable a null enabled
+            enableThenExecute a 2 enabled
+            do! Expect.Sequence([ Some 2 ], fired)
         }
 
     [<Test>]

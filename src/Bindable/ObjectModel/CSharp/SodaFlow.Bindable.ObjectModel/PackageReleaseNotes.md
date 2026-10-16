@@ -1,3 +1,12 @@
+4.0.4
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Bindable.ObjectModel.Core 4.3.0. In that release, a command sends nothing when its enablement cell is false at
+the moment it sends, even if CanExecute had not caught up with the cell yet. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 4.0.3 would go on resolving core 4.2.0. A
+consumer who references the core package directly gets the change either way.
+
 4.0.3
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets

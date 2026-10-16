@@ -76,6 +76,93 @@ public sealed class BindableActionTests
         }
     }
 
+    // CanExecute reads a copy of the cell, and the scheduler moves each change of the cell to that
+    // copy. Here the graph disables the command before the binding thread gets the change. Thus,
+    // CanExecute gives true, and only the send can find that the cell is false.
+    [Test]
+    public async Task DoesNotFireWhenTheGraphDisabledItBeforeTheViewKnew()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(true);
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        using IBindableAction<int> a = sink.ToBindableActionImpl(isEnabledCell: enabled, scheduler: scheduler);
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
+        {
+            enabled.Send(false);
+
+            await Assert.That(a.CanExecute(null)).IsTrue().Because("the change of the copy is still in the queue");
+
+            a.Execute(1);
+
+            await Assert.That(fired).IsEmpty().Because("the cell was false in the transaction of the send");
+
+            scheduler.RunAll();
+
+            await Assert.That(a.CanExecute(null)).IsFalse().Because("the copy now agrees with the cell");
+        }
+    }
+
+    // A call in an open transaction sends after that transaction closes. A change of the cell in
+    // that transaction occurs first. Thus, the send must read the cell when it runs, and not when
+    // the call occurs.
+    [Test]
+    public async Task DoesNotFireWhenTheTransactionOfTheCallDisablesIt()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(true);
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
+        {
+            Transaction.RunVoid(() =>
+            {
+                // ReSharper disable once AccessToDisposedClosure - Transaction.RunVoid runs the lambda before the
+                // using disposes a.
+                a.Execute(1);
+                enabled.Send(false);
+            });
+
+            await Assert.That(fired).IsEmpty().Because("the cell was false when the send ran");
+        }
+    }
+
+    // The control for the two tests above: the send reads the cell, and a true cell lets the send occur.
+    [Test]
+    public async Task FiresWhenTheCellIsTrueAtTheSend()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(true);
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
+
+        using (a.FiringsStream.ListenStrong(fired.Add))
+        {
+            Transaction.RunVoid(() =>
+            {
+                // ReSharper disable once AccessToDisposedClosure - Transaction.RunVoid runs the lambda before the
+                // using disposes a.
+                a.Execute(1);
+                enabled.Send(false);
+            });
+
+            enabled.Send(true);
+
+            // ReSharper disable once AccessToDisposedClosure - Transaction.RunVoid runs the lambda before the
+            // using disposes a.
+            Transaction.RunVoid(() => a.Execute(2));
+
+            await Assert.That(fired)
+                .IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching)
+                .Because("only the second call found the cell true");
+        }
+    }
+
     // The test of the type is a diagnostic for the author of the XAML, thus it must occur at the
     // call site. A test in the posted send throws at a point that the author cannot see.
     [Test]

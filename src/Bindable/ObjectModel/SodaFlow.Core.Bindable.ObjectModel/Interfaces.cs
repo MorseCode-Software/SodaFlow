@@ -180,5 +180,13 @@ public interface IBindableAction<T> : IBindable, ICommand
     ///     Fires one time for each accepted call, and carries the command
     ///     parameter.
     /// </summary>
+    /// <remarks>
+    ///     The command accepts a call to <see cref="ICommand.Execute" /> when
+    ///     <see cref="ICommand.CanExecute" /> gives true, and when
+    ///     <see cref="IsEnabledCell" /> is true in the transaction that sends the
+    ///     parameter. The second test is necessary, because CanExecute reads a copy
+    ///     of the cell, and that copy can be older than the cell. A send from other
+    ///     code into the same sink also fires this stream.
+    /// </remarks>
     Stream<T> FiringsStream { get; }
 }
