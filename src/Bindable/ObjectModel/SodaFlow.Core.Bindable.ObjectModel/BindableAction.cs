@@ -98,7 +98,19 @@ public static partial class BindableCoreExtensionMethods
             // this command, and discards the other work in its queue.
             this.ValidateParameter(parameter);
 
-            PostWrite(() => this.SendValue(streamSink: this.firingsStreamSink, value: parameter));
+            PostWrite(() =>
+            {
+                // CanExecute reads a copy of the availability that the scheduler moves to the
+                // binding thread, and that copy can be older than the cell. Thus, the send reads the
+                // cell again in its own transaction, as Gate does, and a disabled command sends
+                // nothing.
+                if (!this.IsEnabledCell.SampleImpl())
+                {
+                    return;
+                }
+
+                this.SendValue(streamSink: this.firingsStreamSink, value: parameter);
+            });
         }
 
         public void Dispose()
