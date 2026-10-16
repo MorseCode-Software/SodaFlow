@@ -1,3 +1,16 @@
+4.3.0
+
+Changed: a command sends nothing when its enablement cell is false at the moment it sends. CanExecute answers from a
+copy of the cell that the binding scheduler carries to the UI thread, so just after the graph disables a command the
+copy can still say it is enabled, and a click in that moment used to go through. So did a call to Execute made inside
+an open transaction that then disabled the command, because the send waits for that transaction to close. The command
+now reads the cell again in the transaction that sends the parameter, which is the check a Gate on the sink with the
+same cell would make. Every graph built on the sink is covered, so a Gate you added only for this reason is no longer
+needed.
+
+This holds for a command with no parameter, with a parameter, and with an optional one. A send into the sink from
+other code is not checked.
+
 4.2.0
 
 Changed: SynchronizationContextBindingScheduler sends everything one transaction posts to the binding thread as a single
