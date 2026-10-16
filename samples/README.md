@@ -70,8 +70,9 @@ application outside this repository would:
 <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
 ```
 
-That is Search. Counter and Bounce take the first and the third; Accounts takes those two and
-`SodaFlow.Collections` 2.0.0 in place of `SodaFlow.Async`.
+That is Search. Counter and Bounce take the first and the third. Accounts takes `SodaFlow` and
+`SodaFlow.Collections` 2.0.0, and `SodaFlow.Bindable.ObjectModel` at 4.0.4, because it relies on
+commands that check their enablement when they send.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API, and it would break in whatever branch

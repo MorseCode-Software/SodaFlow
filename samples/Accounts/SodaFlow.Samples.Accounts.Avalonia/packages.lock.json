@@ -202,19 +202,19 @@
       },
       "SodaFlow.Bindable.ObjectModel": {
         "type": "Transitive",
-        "resolved": "4.0.3",
-        "contentHash": "ZJmMw7hJkqM7xWt8ziAu6AKuBeWx2IhoIWj9WlKoWjqYFDc347IkCl3H4wNTE78flk5QUCvsQr7tqGFkoIgBpA==",
+        "resolved": "4.0.4",
+        "contentHash": "wwfT+RK2/fOTp2k9Flcgk/EbuBeAI3ttV1H2f+KmoSMm99RiWLzbIs+i5TOqsoY8VQIscCgIfNKr7NNgJM+qsA==",
         "dependencies": {
           "SodaFlow": "[5.0.1, 6.0.0)",
-          "SodaFlow.Bindable.ObjectModel.Core": "[4.2.0, 5.0.0)",
+          "SodaFlow.Bindable.ObjectModel.Core": "[4.3.0, 5.0.0)",
           "SodaFlow.Functional": "[3.0.2, 4.0.0)",
           "System.ValueTuple": "4.6.2"
         }
       },
       "SodaFlow.Bindable.ObjectModel.Core": {
         "type": "Transitive",
-        "resolved": "4.2.0",
-        "contentHash": "fTlJwUu0cwruSMfjhlAxN0BzoEaqBVZjPnDmy3dWqgH0a4iYL6bWFdMP1C1CbchaigjWvazLFpEdTldcVAFZ3g==",
+        "resolved": "4.3.0",
+        "contentHash": "EDZCz3ZXK8BZ4Opn5RM6cB1A9n8TgSfIiVEbzZRKYZJHAFy4r5aNYEy/R+N6G2d3iG1MQo9vavQugl/0pn2t4g==",
         "dependencies": {
           "SodaFlow.Core": "[5.0.0, 6.0.0)",
           "System.ValueTuple": "4.6.2"
@@ -267,7 +267,7 @@
         "type": "Project",
         "dependencies": {
           "SodaFlow": "[5.0.1, )",
-          "SodaFlow.Bindable.ObjectModel": "[4.0.3, )",
+          "SodaFlow.Bindable.ObjectModel": "[4.0.4, )",
           "SodaFlow.Collections": "[2.0.0, )"
         }
       }

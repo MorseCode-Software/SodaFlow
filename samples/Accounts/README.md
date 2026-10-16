@@ -46,8 +46,9 @@ which is why the [reference page](../../docs/docs/collections.md) spells the cos
 binds two-way to a cell sink rather than firing a command, because a switch holds its own position.
 
 **Look at a frozen account.** It is greyed out and says *Frozen* where its button would be. That is
-only what the row looks like: the view model gates the deposit on the account not being frozen, so
-nothing that reaches the command — a stale binding, or code calling `Execute` — can pay into one.
+only what the row looks like: the command checks that the account is not frozen again when it
+sends, so nothing that reaches the command — a stale binding, or code calling `Execute` — can pay
+into one.
 
 **Drain the frozen accounts.** Every frozen account's balance goes to zero, about twenty-five
 thousand of them, whether or not they are showing. It is the other end from a deposit: one edit
@@ -88,10 +89,12 @@ Which rows are on the page moves as the page does, so the deposits are themselve
 current rows' deposits, rebuilt from each version of the list and switched to with `SwitchS` as
 well.
 
-The deposit is gated twice, and only one of those is the rule. The command is disabled for a frozen
-account, which is what the view shows; the stream is gated on the same cell with `Gate`, which is
-what the collection sees. A command's enablement is a copy on the binding thread, so it can trail
-the graph — the gate is sampled in the transaction the deposit lands in.
+The deposit's rule is its command's enablement cell, and nothing else enforces it. The view
+disables the button from a copy of that cell on the binding thread, and the copy can trail the
+graph. The command reads the cell itself in the transaction that sends the deposit, so a click
+that lands while the copy is stale pays nothing. That is the check a `Gate` on the same cell would
+make, so the sample does not add one. Commands have done this since
+`SodaFlow.Bindable.ObjectModel.Core` 4.3.0, which `SodaFlow.Bindable.ObjectModel` 4.0.4 requires.
 
 The header row is one piece of state — a column and a direction — and everything else follows
 from it: the order the sort holds, and the caption each header shows with its marker. Three
@@ -109,7 +112,7 @@ an application outside this repository would:
 ```xml
 <PackageReference Include="SodaFlow" Version="5.0.1" />
 <PackageReference Include="SodaFlow.Collections" Version="2.0.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.4" />
 ```
 
 It referenced the projects under `src/` until recently, and the reason is worth recording because it

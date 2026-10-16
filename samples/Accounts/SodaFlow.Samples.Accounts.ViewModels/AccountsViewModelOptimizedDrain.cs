@@ -288,13 +288,11 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                 Cell<bool> canDrain =
                     drainableAccountKeys.Map(static drainableAccountKeys => drainableAccountKeys.Count > 0).Calm();
 
-                // The graph gates this, and the command is also disabled, for the cause that
-                // applies to the deposit of a row. This code reads the keys in the transaction
-                // that receives the edit, thus the drain empties only the accounts that were
-                // frozen and not empty at the time of the click.
+                // The command reads canDrain in the transaction of the send, and sends nothing
+                // when it is false. This code reads the keys in that transaction also. Thus, the
+                // drain empties only the frozen accounts that had money at the time of the click.
                 Stream<CollectionEdit<int, AccountIdentity, AccountState>> drains =
                     drainFrozenAccounts
-                        .Gate(canDrain)
                         .Snapshot(
                             c: drainableAccountKeys,
                             f: static (_, drainableAccountKeys) =>
@@ -493,18 +491,13 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
                     .Map(static current => current.Match(onSome: Money, onNone: static () => string.Empty))),
             isFrozen: bindableFactory.CreateOneWay(isFrozen),
 
-            // A frozen account disables this, and the view shows that...
+            // A frozen account disables this. The view reads a copy of canDeposit, and that copy
+            // can be older than the cell. The command reads the cell again in the transaction of
+            // the send, thus no call to Execute adds to a frozen account.
             deposit: bindableFactory.CreateBindableAction(firingsStreamSink: deposit, isEnabledCell: canDeposit),
-
-            // ...and the graph gates it, which is the rule. The enabled state of a command is a
-            // copy that the graph sends to the binding thread, and the graph can change before the
-            // view receives that copy. Also, each holder of the command can call Execute. The graph
-            // reads the gate in the transaction that receives the deposit, thus no path to this
-            // stream adds to a frozen account.
             depositsStream: CollectionEdit<int, AccountIdentity, AccountState>.FromUpdates(
                 key: key,
                 transformsStream: deposit
-                    .Gate(canDeposit)
                     .MapTo(static (AccountState current) =>
                         current with { Balance = current.Balance + DepositAmount })));
     }
