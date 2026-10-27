@@ -230,6 +230,83 @@ public sealed class GarbageCollectionTests
     }
 
     [Test]
+    public async Task RootableListenerIsCollectedOnceDroppedBeforeRoot()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateRootableListener(s: s, @out: @out, root: false);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("a rootable listener should root nothing until Root");
+
+        s.Send(5);
+
+        await Assert.That(@out).IsEmpty().Because("a collected rootable listener should not fire");
+    }
+
+    [Test]
+    public async Task RootableListenerKeepsFiringOnceDroppedAfterRoot()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateRootableListener(s: s, @out: @out, root: true);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsTrue()
+            .Because("a rooted listener should stay rooted until its first firing");
+
+        s.Send(5);
+        s.Send(6);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching)
+            .Because("a rooted one-shot listener should fire exactly one time");
+    }
+
+    [Test]
+    public async Task RootableListenerReleasesItsRootAfterTheFirstFiring()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateRootableListenerAndFire(s: s, @out: @out);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("a rooted listener should stop rooting itself when it stops listening");
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the one firing should have arrived before the listener stopped");
+    }
+
+    [Test]
+    public async Task RootableListenerIgnoresRootAfterUnlisten()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        // A cancellation can stop the listener before the async roots it. A Root after that
+        // must not put the listener that stopped in the set, because nothing removes it again.
+        WeakReference listener = CreateRootableListenerUnlistenAndRoot(s: s, @out: @out);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("a Root after Unlisten should not root the listener");
+    }
+
+    [Test]
     public async Task ListenOnceAsyncReleasesTheStreamWhenItsTaskCompletes()
     {
         // The token lives longer than the stream. Its registration holds the listener, which holds
@@ -336,6 +413,37 @@ public sealed class GarbageCollectionTests
     {
         IStrongListener listener = s.ListenOnceStrong(@out.Add);
         s.Send(1);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateRootableListener(Stream<int> s, ICollection<int> @out, bool root)
+    {
+        IRootableListener listener = s.ListenOnceRootableImpl(@out.Add);
+
+        if (root)
+        {
+            listener.Root();
+        }
+
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateRootableListenerAndFire(StreamSink<int> s, ICollection<int> @out)
+    {
+        IRootableListener listener = s.ListenOnceRootableImpl(@out.Add);
+        listener.Root();
+        s.Send(1);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateRootableListenerUnlistenAndRoot(Stream<int> s, ICollection<int> @out)
+    {
+        IRootableListener listener = s.ListenOnceRootableImpl(@out.Add);
+        listener.Unlisten();
+        listener.Root();
         return new WeakReference(listener);
     }
 

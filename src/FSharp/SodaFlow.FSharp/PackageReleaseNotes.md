@@ -7,7 +7,8 @@ each new listener. And listenOnce and listenOnceStrong no longer call the handle
 another thread at the moment the listener is attached. That package's notes have the details of both.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
-5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
+5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
+floor is what keeps a consumer from pairing them.
 
 Changed: listenOnceAsync is now built on listenOnceStrong, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The result still arrived only once, but the listener could stay attached until the
@@ -19,7 +20,23 @@ that outlived the stream, the stream could not be collected even after the async
 without a token of its own gets Async.DefaultCancellationToken, which lives as long as the process, so in that common
 case every stream that listenOnceAsync was used on stayed in memory for good. The registration now goes when the async
 completes, and a check with that default token found the stream collected on the first collection after the result
-arrived. The result, and what happens on cancellation, are unchanged.
+arrived. The result is unchanged.
+
+Changed: when its token is canceled before the stream fires, listenOnceAsync now cancels, as its documentation has
+always said. Before, it failed with a TaskCanceledException instead, because Async.AwaitTask turns a canceled task
+into an exception. Async.StartAsTask gave a faulted task rather than a canceled one, and a try ... with around the
+call caught the exception. Now the async ends the way any canceled async does: Async.StartAsTask gives a canceled
+task, a try ... with does not see it, and a try ... finally or a use still runs. Code that caught TaskCanceledException
+from listenOnceAsync to notice the cancellation no longer gets it, and the cancellation reaches whatever started the
+async, as it does for any other async.
+
+Fixed: a listenOnceAsync that never runs no longer leaves its listener on the stream. The listener attaches when you
+call listenOnceAsync, and only the running async removed it. An async can be stopped before it runs: started with a
+token that was already canceled, or reached by a let! after a cancellation, which the let! checks before it starts the
+next async. In those cases the listener stayed on the stream until the stream fired, which for a stream that seldom
+fires was a leak with no end. Now the listener is weak, and held only by the async, until the async runs; when it
+runs, the stream holds it until the first firing or a cancellation, as before. A firing between the call and the start
+of the async still reaches the result, as long as you hold the async.
 
 5.0.1
 

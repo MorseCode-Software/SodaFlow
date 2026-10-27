@@ -40,6 +40,11 @@ OnceImpl loses a branch that could never run. What it does is unchanged.
 
 Removed: the internal NoListener type, which nothing uses any more. No released version of any package here calls it.
 
+Added: the internal IRootableListener and ListenOnceRootableImpl, which gives one. It is a one-shot listener that is
+weak until Root is called and is held by the stream after that, until its first firing or Unlisten. A Root after either
+of those does nothing. SodaFlow.FSharp's listenOnceAsync uses it so that an async that never runs leaves no listener
+behind.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires

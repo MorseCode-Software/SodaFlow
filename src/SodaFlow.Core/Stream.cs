@@ -138,6 +138,18 @@ public class Stream<T>
                     stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false)),
             handler: handler);
 
+    internal IRootableListener ListenOnceRootableImpl(Action<T> handler) =>
+        this.ListenOnce<IRootableListener>(
+            listen: static (stream, trans, action) =>
+                new RootableListener(
+                    stream: stream,
+                    listener: stream.Listen(
+                        target: Node<T>.Null,
+                        trans: trans,
+                        action: action,
+                        suppressEarlierFirings: false)),
+            handler: handler);
+
     // The weak and the strong one-shot listeners do the same thing with a different listener
     // type. The transaction holds the lock until the listener has a value. Thus, no firing on a
     // different thread and no firing that Listen sends again can find the listener without its
@@ -2143,6 +2155,49 @@ public class Stream<T>
             this.listener.GetListenerWithWeakReference();
 
         public void Dispose() => this.Unlisten();
+    }
+
+    // The lock on KeepListenersAlive makes Root and Unlisten atomic. Thus, a Root on one thread and
+    // the first firing on a different thread cannot keep a listener that stopped in the set.
+    private sealed class RootableListener(in Stream<T> stream, in IWeakListener listener) : IRootableListener
+    {
+        private readonly IWeakListener listener = listener;
+        private readonly Stream<T> stream = stream;
+        private bool rooted;
+        private bool stopped;
+
+        public void Root()
+        {
+            lock (this.stream.KeepListenersAlive)
+            {
+                if (this.rooted || this.stopped)
+                {
+                    return;
+                }
+
+                this.rooted = true;
+                this.stream.KeepListenersAlive.KeepListenerAlive(this);
+            }
+        }
+
+        public void Unlisten()
+        {
+            this.listener.Unlisten();
+
+            lock (this.stream.KeepListenersAlive)
+            {
+                this.stopped = true;
+
+                if (this.rooted)
+                {
+                    this.rooted = false;
+                    this.stream.KeepListenersAlive.StopKeepingListenerAlive(this);
+                }
+            }
+        }
+
+        public IListenerWithWeakReference GetListenerWithWeakReference() =>
+            this.listener.GetListenerWithWeakReference();
     }
 
     private sealed class ListenerImplementation(

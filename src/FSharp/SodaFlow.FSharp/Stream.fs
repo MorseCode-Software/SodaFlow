@@ -12,6 +12,7 @@
 module SodaFlow.Stream
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open System.Collections.Generic
 open System.Runtime.CompilerServices
@@ -134,6 +135,23 @@ let listenOnce handler (stream: Stream<_>) =
 let listenOnceStrong handler (stream: Stream<_>) =
     stream.ListenOnceStrongImpl(Action<_> handler)
 
+// Async.AwaitTask sends a canceled task to the exception continuation, thus the async faults. This
+// sends it to the cancellation continuation, thus the async cancels. Only listenOnceAsync completes
+// the task. It gives a value or a cancellation, thus the task cannot fault.
+let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) =
+    Async.FromContinuations(fun (cont, _, ccont) ->
+        task.ContinueWith(
+            (fun (t: Task<_>) ->
+                if t.IsCanceled then
+                    ccont (OperationCanceledException token)
+                else
+                    cont t.Result),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        )
+        |> ignore)
+
 /// <summary>
 ///     Waits asynchronously for the next firing.
 /// </summary>
@@ -143,20 +161,31 @@ let listenOnceStrong handler (stream: Stream<_>) =
 ///     The listener attaches immediately, before the async runs, so a firing between this call
 ///     and the await is not missed.
 ///
+///     Until the async runs, only the async holds the listener. When the async runs, the stream
+///     holds the listener until the first firing or a cancellation. Thus, an async that does not
+///     run keeps no listener on the stream after the garbage collector removes the async. A
+///     cancellation before the async starts is an example.
+///
 ///     A cancellation of the async stops the listener and cancels the result. A thread that is not
 ///     the thread that fired the value gives the value. Thus, an await of this does not run a
 ///     continuation with the transaction lock.
 /// </remarks>
-let listenOnceAsync stream =
+let listenOnceAsync (stream: Stream<_>) =
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
 #else
     let tcs = TaskCompletionSource<_>()
 #endif
-    let listener = stream |> listenOnceStrong (fun a -> tcs.TrySetResult(a) |> ignore)
+    let listener =
+        stream.ListenOnceRootableImpl(Action<_>(fun a -> tcs.TrySetResult(a) |> ignore))
 
     async {
         let! ct = Async.CancellationToken
+
+        // A token that no caller can cancel holds nothing, and then nothing else holds the listener
+        // while the async waits. Thus, the stream must hold it from now on, or the garbage
+        // collector can remove the wait.
+        listener.Root()
 
         // The registration holds the listener, and the listener holds the stream. Thus, remove the
         // registration when the async completes. Otherwise, a token that lives longer than the
@@ -166,11 +195,11 @@ let listenOnceAsync stream =
                 Listener.unlisten listener
                 tcs.TrySetCanceled() |> ignore)
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
-        return! Async.AwaitTask tcs.Task
+        return! awaitValueOrCancellation ct tcs.Task
 #else
         let execute (tcs: TaskCompletionSource<_>) =
             async {
-                let! result = Async.AwaitTask tcs.Task
+                let! result = awaitValueOrCancellation ct tcs.Task
                 do! Utilities.Yield() |> Async.AwaitTask
                 return result
             }
