@@ -49,6 +49,7 @@
         <Compile Include="KeyedCollectionViewShapes.cs"/>
         <Compile Include="ListenOnceBenchmarks.cs"/>
         <Compile Include="Program.cs"/>
+        <Compile Include="RankPropagationBenchmarks.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
     </ItemGroup>
 
