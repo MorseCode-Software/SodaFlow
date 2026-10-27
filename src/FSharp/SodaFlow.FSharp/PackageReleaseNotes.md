@@ -19,7 +19,15 @@ that outlived the stream, the stream could not be collected even after the async
 without a token of its own gets Async.DefaultCancellationToken, which lives as long as the process, so in that common
 case every stream that listenOnceAsync was used on stayed in memory for good. The registration now goes when the async
 completes, and a check with that default token found the stream collected on the first collection after the result
-arrived. The result, and what happens on cancellation, are unchanged.
+arrived. The result is unchanged.
+
+Changed: when its token is canceled before the stream fires, listenOnceAsync now cancels, as its documentation has
+always said. Before, it failed with a TaskCanceledException instead, because Async.AwaitTask turns a canceled task
+into an exception. Async.StartAsTask gave a faulted task rather than a canceled one, and a try ... with around the
+call caught the exception. Now the async ends the way any canceled async does: Async.StartAsTask gives a canceled
+task, a try ... with does not see it, and a try ... finally or a use still runs. Code that caught TaskCanceledException
+from listenOnceAsync to notice the cancellation no longer gets it, and the cancellation reaches whatever started the
+async, as it does for any other async.
 
 5.0.1
 
