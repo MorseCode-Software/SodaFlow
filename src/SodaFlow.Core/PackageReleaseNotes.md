@@ -28,7 +28,10 @@ and it got that handle only after the transaction that attached it had closed an
 another thread in that gap ran the handler but could leave the listener attached, and the next firing ran the handler
 again. A stress test that called ListenOnceStrong over and over on a sink while another thread sent to it saw the
 handler run twice 726 times in 163,783 calls. The listener now gets its handle inside the transaction that attaches it,
-so nothing can fire in between, and the same test saw no double call in 137,524 calls.
+so nothing can fire in between, and the same test saw no double call in 137,524 calls. It also costs less: Listen
+now runs in that one transaction rather than opening a nested one, so each call allocates 112 bytes less on .NET 10
+and 176 to 177 bytes less on .NET Framework 4.7.2, and takes the same time or less. ListenOnceBenchmarks in
+SodaFlow.Benchmarks measures it.
 
 The handler also ignores a second firing in one transaction now, as OnceImpl does. No stream in the public API fires
 twice in one transaction, so that part guards against a defect in this library rather than anything a caller can do.
