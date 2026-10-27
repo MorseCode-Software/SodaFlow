@@ -69,6 +69,16 @@ The stack is one array that every walk reuses, kept only while it holds 1,024 le
 or less allocates nothing for it. RankPropagationBenchmarks in SodaFlow.Benchmarks measures the walk, and a chain of up
 to 1,000 maps costs the same time and memory as before, within the noise of the runs.
 
+Added: the internal TransactionInternal.AfterReleaseImpl. It runs an action on the calling thread once the outermost
+transaction has released the transaction lock, including when that transaction failed. Outside a transaction it runs
+the action at once. Actions that throw do not stop the ones after them, and their exceptions come after the
+transaction's own, so no failure is lost. SodaFlow.Core.Async 5.0.2 uses it to start its operations outside the lock.
+
+Every outermost transaction now checks for such actions as it releases the lock. On .NET 10 that has no measurable
+cost. On .NET Framework 4.7.2, measured back to back against the code before this change, an empty transaction went
+from 92.1 to 100.0 ns and a send to a sink with one listener from 337.2 to 358.6 ns. Allocation is unchanged on both.
+TransactionBenchmarks in SodaFlow.Benchmarks measures it.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires

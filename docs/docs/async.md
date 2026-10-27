@@ -209,10 +209,16 @@ inner work it started. If you need that, cancel the inner pipeline through its o
 `cancelMatching`.
 
 An operation is an `async` method, so it can await the task — and it does not have to worry about
-transactions. The code of an operation before its first `await` actually runs *inside* the
-transaction that started it, so `Execute` cannot demand a caller with no transaction open. When one
-is open it defers the value to a transaction of its own, and the pipeline admits it once the
-caller's transaction ends.
+transactions. An operation starts only after the transaction that started it has finished and
+released its lock, on the same thread, so even the code before its first `await` runs with no
+transaction open, and a call to `Execute` there sends its value at once. `Execute` still accepts a
+caller that has a transaction open: it defers the value to a transaction of its own, and the
+pipeline admits it once the caller's transaction ends.
+
+That ordering matters for any synchronous work at the start of an operation. If it ran inside the
+transaction, it would hold the lock that every thread needs to start a transaction, so slow work
+there would stall all of them, and waiting there on another thread that needs a transaction would
+deadlock. It runs after the lock is released, so neither can happen.
 
 **Everywhere else, do not use it.** Code that has a value for a pipeline sends that value on the
 pipeline's source stream and reads the results stream. That is a pipeline's interface, and it keeps

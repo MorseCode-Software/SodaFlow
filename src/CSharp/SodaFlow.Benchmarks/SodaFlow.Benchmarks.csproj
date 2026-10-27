@@ -52,6 +52,7 @@
         <Compile Include="Program.cs"/>
         <Compile Include="RankPropagationBenchmarks.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
+        <Compile Include="TransactionBenchmarks.cs"/>
     </ItemGroup>
 
     <ItemGroup>

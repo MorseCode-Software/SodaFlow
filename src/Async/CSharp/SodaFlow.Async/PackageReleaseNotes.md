@@ -1,3 +1,13 @@
+5.1.1
+
+No change in API. This release raises the dependency floor, so that a new install gets SodaFlow.Core.Async 5.0.2. In
+that release, an operation starts after the transaction that started it has released the transaction lock, so slow
+synchronous work at the start of an operation no longer stalls every thread's transactions, and waiting there on
+another thread that needs a transaction no longer deadlocks. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving SodaFlow.Core.Async
+5.0.1. A consumer who references SodaFlow.Core.Async directly gets the change either way.
+
 5.1.0
 
 Adds an Execute overload that takes a Cell<Maybe<TInput>> and answers with a Task<Maybe<TResult>>. Where the cell holds

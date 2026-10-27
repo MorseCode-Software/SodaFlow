@@ -29,6 +29,12 @@ internal sealed class TransactionInternal
     private static readonly object TransactionLock = new();
     private static readonly List<Action> OnStartHooks = [];
 
+    // The actions that AfterReleaseImpl holds until the lock is free. Only the thread that holds
+    // TransactionLock reads or writes this, thus the lock guards it. A field on each transaction
+    // cost eight bytes for each transaction. A thread-static list cost a TLS access for each
+    // transaction, and on .NET Framework that measured more than the eight bytes.
+    private static List<Action>? afterReleaseQueue;
+
     private static readonly EntryPriorityQueue PrioritizedQueue = new();
 
     private readonly bool hasParentTransaction;
@@ -91,6 +97,7 @@ internal sealed class TransactionInternal
         T? returnValue = default;
         Exception? exception = null;
         TransactionInternal? newTransaction = transaction;
+        List<Action>? afterRelease = null;
 
         try
         {
@@ -114,31 +121,14 @@ internal sealed class TransactionInternal
 
         try
         {
-            try
+            if (transaction == null)
             {
-                if (transaction == null)
-                {
-                    newTransaction?.Close();
-                }
+                newTransaction?.Close();
             }
-            catch (Exception e)
-            {
-                if (exception == null)
-                {
-                    throw;
-                }
-
-                throw new AggregateException(exception, e);
-            }
-
-            if (exception != null)
-            {
-                ExceptionDispatchInfo.Capture(exception).Throw();
-            }
-
-            // ReSharper disable once NullableWarningSuppressionIsUsed - returnValue must be non-null if exception
-            // is null.
-            return returnValue!;
+        }
+        catch (Exception e)
+        {
+            exception = exception == null ? e : new AggregateException(exception, e);
         }
         finally
         {
@@ -146,12 +136,91 @@ internal sealed class TransactionInternal
             {
                 if (newTransaction is { obtainedLock: true })
                 {
+                    // The queue comes out before the lock is free. After that, a different thread
+                    // can get the lock and add to it.
+                    if (afterReleaseQueue != null)
+                    {
+                        afterRelease = afterReleaseQueue;
+                        afterReleaseQueue = null;
+                    }
+
                     Monitor.Exit(TransactionLock);
                 }
 
                 localTransaction = null;
             }
         }
+
+        if (afterRelease != null)
+        {
+            exception = RunAfterRelease(actions: afterRelease, cause: exception);
+        }
+
+        if (exception != null)
+        {
+            ExceptionDispatchInfo.Capture(exception).Throw();
+        }
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - returnValue must be non-null if exception
+        // is null.
+        return returnValue!;
+    }
+
+    /// <summary>
+    ///     Runs an action on this thread after the transaction that holds the lock
+    ///     releases it.
+    /// </summary>
+    /// <remarks>
+    ///     The action runs also when that transaction fails, because the code that
+    ///     asks for it has run. Where this thread has no open transaction, the action
+    ///     runs now. A throw from an action does not stop the actions after it, and
+    ///     it does not replace an exception of the transaction.
+    /// </remarks>
+    /// <param name="action">The action to run with no transaction open.</param>
+    internal static void AfterReleaseImpl(Action action)
+    {
+        // This thread holds the lock where a transaction is open or start hooks run. A transaction
+        // that a hook opens sees no open transaction, but the transaction of the hook holds the lock.
+        if (localTransaction == null && !runningOnStartHooks)
+        {
+            action();
+            return;
+        }
+
+        (afterReleaseQueue ??= []).Add(action);
+    }
+
+    // Runs the actions that the transaction held, after the lock is free, and answers with the
+    // exception to throw. A throw from an action comes after the exception of the transaction, in
+    // one AggregateException, thus no code loses either one.
+    private static Exception? RunAfterRelease(List<Action> actions, Exception? cause)
+    {
+        List<Exception>? failures = null;
+
+        foreach (Action action in actions)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                (failures ??= []).Add(e);
+            }
+        }
+
+        if (failures == null)
+        {
+            return cause;
+        }
+
+        if (cause != null)
+        {
+            failures.Insert(index: 0, item: cause);
+            return new AggregateException(failures);
+        }
+
+        return failures.Count == 1 ? failures[0] : new AggregateException(failures);
     }
 
     private static void EnsureElevated(TransactionInternal? transaction)
