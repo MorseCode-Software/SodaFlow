@@ -73,6 +73,22 @@ let private listenAndDropWithMap () =
     s |> sendS 7
     out
 
+// The map counts each value that gets to it. A listener that stays on the sink keeps the map alive,
+// thus a send after a collection shows that listener as a count.
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let private listenOnceAsyncOnACountedMap
+    (s: StreamSink<int>)
+    (count: int ref)
+    (start: Stream<int> -> Task<int>)
+    =
+    let mapped =
+        s
+        |> mapS (fun x ->
+            count.Value <- count.Value + 1
+            x)
+
+    start mapped
+
 type ``Stream Tests``() =
 
     [<Test>]
@@ -1219,6 +1235,70 @@ type ``Stream Tests``() =
             s |> sendS 'A'
             let! _ = Task.WhenAny [| t :> Task |]
             do! Expect.Equal(TaskStatus.Canceled, t.Status)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceAsync Started With A Canceled Token Leaves No Listener``() =
+        task {
+            let s = sinkS ()
+            let count = ref 0
+            use cts = new CancellationTokenSource()
+            cts.Cancel()
+
+            let t =
+                listenOnceAsyncOnACountedMap s count (fun mapped ->
+                    Async.StartImmediateAsTask(mapped |> listenOnceAsyncS, cts.Token))
+
+            collect ()
+            s |> sendS 1
+            do! Expect.Equal(TaskStatus.Canceled, t.Status)
+            do! Expect.Equal(0, count.Value)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceAsync In An Async Canceled Before It Runs Leaves No Listener``() =
+        task {
+            let s = sinkS ()
+            let count = ref 0
+            use cts = new CancellationTokenSource()
+
+            // The call attaches the listener. The let! then sees the cancellation and does not
+            // run the async that the call gave.
+            let t =
+                listenOnceAsyncOnACountedMap s count (fun mapped ->
+                    Async.StartImmediateAsTask(
+                        async {
+                            cts.Cancel()
+                            let! x = mapped |> listenOnceAsyncS
+                            return x
+                        },
+                        cts.Token
+                    ))
+
+            collect ()
+            s |> sendS 1
+            do! Expect.Equal(TaskStatus.Canceled, t.Status)
+            do! Expect.Equal(0, count.Value)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceAsync That Waits Is Not Collected``() =
+        task {
+            let s = sinkS ()
+            let count = ref 0
+
+            // A token that a caller can cancel holds the listener through its registration. No
+            // caller can cancel this token, thus only the root that the async makes holds the listener.
+            let t =
+                listenOnceAsyncOnACountedMap s count (fun mapped ->
+                    Async.StartImmediateAsTask(mapped |> listenOnceAsyncS, CancellationToken.None))
+
+            collect ()
+            s |> sendS 5
+            let! _ = Task.WhenAny [| t :> Task; Task.Delay(TimeSpan.FromSeconds 10.0) |]
+            do! Expect.Equal(TaskStatus.RanToCompletion, t.Status)
+            do! Expect.Equal(5, t.Result)
+            do! Expect.Equal(1, count.Value)
         }
 
     [<Test>]

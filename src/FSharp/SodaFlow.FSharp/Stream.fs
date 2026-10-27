@@ -161,20 +161,31 @@ let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) 
 ///     The listener attaches immediately, before the async runs, so a firing between this call
 ///     and the await is not missed.
 ///
+///     Until the async runs, only the async holds the listener. When the async runs, the stream
+///     holds the listener until the first firing or a cancellation. Thus, an async that does not
+///     run keeps no listener on the stream after the garbage collector removes the async. A
+///     cancellation before the async starts is an example.
+///
 ///     A cancellation of the async stops the listener and cancels the result. A thread that is not
 ///     the thread that fired the value gives the value. Thus, an await of this does not run a
 ///     continuation with the transaction lock.
 /// </remarks>
-let listenOnceAsync stream =
+let listenOnceAsync (stream: Stream<_>) =
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
 #else
     let tcs = TaskCompletionSource<_>()
 #endif
-    let listener = stream |> listenOnceStrong (fun a -> tcs.TrySetResult(a) |> ignore)
+    let listener =
+        stream.ListenOnceRootableImpl(Action<_>(fun a -> tcs.TrySetResult(a) |> ignore))
 
     async {
         let! ct = Async.CancellationToken
+
+        // A token that no caller can cancel holds nothing, and then nothing else holds the listener
+        // while the async waits. Thus, the stream must hold it from now on, or the garbage
+        // collector can remove the wait.
+        listener.Root()
 
         // The registration holds the listener, and the listener holds the stream. Thus, remove the
         // registration when the async completes. Otherwise, a token that lives longer than the

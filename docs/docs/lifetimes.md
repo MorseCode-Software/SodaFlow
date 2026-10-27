@@ -42,6 +42,13 @@ fail silently](#the-mistake-that-does-fail-silently), which applies to it exactl
 `CancellationToken`. It is strong, necessarily — you get a task rather than a listener, so
 there is no handle you could hold.
 
+F#'s `listenOnceAsync` returns an `Async`, which might never run, so it splits the
+difference. The listener attaches as soon as you call it, so a firing before you start the
+async is not lost, but until the async runs, the async value itself is the only thing
+holding the listener. Once it runs, the stream holds the listener until the first firing or
+a cancellation. An async that never runs — say, because a cancellation stopped the
+workflow before it got there — leaves nothing behind once it's garbage collected.
+
 > **Upgrading:** `ListenOnce` used to be strong, and `ListenOnceStrong` is new. This is the
 > same swap the two general listen methods went through, with the same failure mode, and it is
 > sharper here because a one-shot subscription is the kind you are most tempted to fire and
