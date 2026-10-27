@@ -112,9 +112,77 @@ public class Stream<T>
         }
     }
 
-    internal IStrongListener ListenStrongImpl(Action<T> handler)
+    internal IStrongListener ListenStrongImpl(Action<T> handler) => this.KeepAlive(this.ListenImpl(handler));
+
+    internal IWeakListener ListenImpl(Action<T> handler) =>
+        this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
+
+    internal Stream<T> AttachListenerInternal(IListener listener)
     {
-        IWeakListener innerListener = this.ListenImpl(handler);
+        lock (this.AttachListenerLock)
+        {
+            return this.UnsafeAttachListener(listener);
+        }
+    }
+
+    internal IWeakListener ListenOnceImpl(Action<T> handler) =>
+        this.ListenOnce(
+            listen: static (stream, trans, action) =>
+                stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false),
+            handler: handler);
+
+    internal IStrongListener ListenOnceStrongImpl(Action<T> handler) =>
+        this.ListenOnce(
+            listen: static (stream, trans, action) =>
+                stream.KeepAlive(
+                    stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false)),
+            handler: handler);
+
+    // The weak and the strong one-shot listeners do the same thing with a different listener
+    // type. The transaction holds the lock until the listener has a value. Thus, no firing on a
+    // different thread and no firing that Listen sends again can find the listener without its
+    // value. The listen function takes that transaction and does not open a nested one. A nested
+    // transaction costs a closure and a delegate for each call.
+    private TListener ListenOnce<TListener>(
+        Func<Stream<T>, TransactionInternal, Action<TransactionInternal, T>, TListener> listen,
+        Action<T> handler)
+        where TListener : class, IListener
+    {
+        TListener? listener = null;
+
+        return TransactionInternal.Apply((trans, _) =>
+        {
+            TListener listenerToReturn =
+                listen(
+                    arg1: this,
+                    arg2: trans,
+                    arg3: (_, a) =>
+                    {
+                        // ReSharper disable once AccessToModifiedClosure - The assignment below
+                        // gives listener its value after listen returns, and this closure must read
+                        // the value it holds at the time the stream fires.
+                        TListener? listenerLocal = listener;
+
+                        // The first firing removes the listener and sets null. Unlisten does not
+                        // stop a firing that is in the queue or in the loop of Listen. Thus, this
+                        // test stops the second value.
+                        if (listenerLocal == null)
+                        {
+                            return;
+                        }
+
+                        listenerLocal.Unlisten();
+                        listener = null;
+                        handler(a);
+                    });
+
+            listener = listenerToReturn;
+            return listenerToReturn;
+        });
+    }
+
+    private StrongListener KeepAlive(IWeakListener innerListener)
+    {
         StrongListener? listener = null;
 
         listener =
@@ -141,70 +209,6 @@ public class Stream<T>
         }
 
         return listener;
-    }
-
-    internal IWeakListener ListenImpl(Action<T> handler) =>
-        this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
-
-    internal Stream<T> AttachListenerInternal(IListener listener)
-    {
-        lock (this.AttachListenerLock)
-        {
-            return this.UnsafeAttachListener(listener);
-        }
-    }
-
-    internal IWeakListener ListenOnceImpl(Action<T> handler) =>
-        ListenOnce(listen: this.ListenImpl, noListener: NoListener.Value, handler: handler);
-
-    internal IStrongListener ListenOnceStrongImpl(Action<T> handler) =>
-        ListenOnce(listen: this.ListenStrongImpl, noListener: NoListener.Value, handler: handler);
-
-    // The weak and the strong one-shot listeners do the same thing with a different listener
-    // type. The listener must stop itself at the first value, but listen makes that listener
-    // and returns it only at the end. Thus, a value that listen sends again arrives before the
-    // variable listener has a value. The boolean records that condition, and the code after
-    // the call stops the new listener and gives the caller a listener that does nothing.
-    private static TListener ListenOnce<TListener>(
-        Func<Action<T>, TListener> listen,
-        TListener noListener,
-        Action<T> handler)
-        where TListener : class, IListener
-    {
-        TListener? listener = null;
-        bool unlistenEarly = false;
-
-        TListener listenerToReturn =
-            listen(a =>
-            {
-                // ReSharper disable once AccessToModifiedClosure - The assignment below gives
-                // listener its value after listen returns, and this closure must read the
-                // value it holds at the time the stream fires.
-                IListener? listenerLocal = listener;
-
-                if (listenerLocal == null)
-                {
-                    unlistenEarly = true;
-                }
-                else
-                {
-                    listenerLocal.Unlisten();
-                    listener = null;
-                }
-
-                handler(a);
-            });
-
-        listener = listenerToReturn;
-
-        if (unlistenEarly)
-        {
-            listenerToReturn.Unlisten();
-            listenerToReturn = noListener;
-            listener = null;
-        }
-
-        return listenerToReturn;
     }
 
     internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) =>
@@ -2013,44 +2017,30 @@ public class Stream<T>
 
     internal Stream<T> OnceImpl()
     {
-        // This code is long, but it is satisfactory, because it removes the listener.
         Stream<T> @out = new(this.KeepListenersAlive);
         IWeakListener? listener = null;
-        bool unlistenEarly = false;
 
         IWeakListener listenerToReturn =
             this.Listen(
                 target: @out.Node,
                 action: (trans, a) =>
                 {
+                    // The first firing removes the listener and sets null. Listen can send the
+                    // earlier firings of a transaction to this handler in one loop, and Unlisten
+                    // does not stop that loop. Thus, this test stops the second value.
                     // ReSharper disable AccessToModifiedClosure
-                    if (listener != null)
+                    if (listener == null)
                     {
-                        @out.Send(trans: trans, a: a);
-
-                        IWeakListener? listenerLocal = listener;
-
-                        if (listenerLocal == null)
-                        {
-                            unlistenEarly = true;
-                        }
-                        else
-                        {
-                            listenerLocal.Unlisten();
-                            listener = null;
-                        }
+                        return;
                     }
+
+                    @out.Send(trans: trans, a: a);
+                    listener.Unlisten();
+                    listener = null;
                     // ReSharper restore AccessToModifiedClosure
                 });
 
         listener = listenerToReturn;
-
-        if (unlistenEarly)
-        {
-            listenerToReturn.Unlisten();
-            listener = null;
-            return @out;
-        }
 
         return @out.UnsafeAttachListener(listenerToReturn);
     }

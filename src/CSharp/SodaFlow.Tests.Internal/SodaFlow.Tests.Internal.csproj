@@ -33,7 +33,9 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="CalmTests.cs"/>
         <Compile Include="CellTests.cs"/>
+        <Compile Include="ListenOnceTests.cs"/>
         <Compile Include="NodeTests.cs"/>
+        <Compile Include="OnceTests.cs"/>
         <Compile Include="TransactionTests.cs"/>
     </ItemGroup>
 

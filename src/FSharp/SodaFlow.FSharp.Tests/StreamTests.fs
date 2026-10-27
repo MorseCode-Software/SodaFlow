@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 open System.Threading
+open System.Threading.Tasks
 open SodaFlow
 open TUnit.Core
 
@@ -1203,6 +1204,28 @@ type ``Stream Tests``() =
             s |> sendS 'C'
             let! r = r'
             do! Expect.Equal('A', r)
+        }
+
+    [<Test>]
+    member _.``Test ListenOnceAsync Cancelled Before The First Firing``() =
+        task {
+            let s = sinkS ()
+            use cts = new CancellationTokenSource()
+
+            // The async runs on this thread until it waits, thus it registers for the cancellation
+            // before Cancel.
+            let t = Async.StartImmediateAsTask(s |> listenOnceAsyncS, cts.Token)
+            cts.Cancel()
+            s |> sendS 'A'
+            let! _ = Task.WhenAny [| t :> Task |]
+
+            // Async.AwaitTask can send the cancellation of the task as an exception. Thus, the task
+            // can have the status Faulted and not Canceled.
+            do!
+                Expect.True(
+                    t.IsCanceled
+                    || t.IsFaulted && (t.Exception.InnerException :? OperationCanceledException)
+                )
         }
 
     [<Test>]

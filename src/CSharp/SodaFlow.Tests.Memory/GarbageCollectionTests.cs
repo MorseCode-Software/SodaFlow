@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
@@ -228,6 +229,36 @@ public sealed class GarbageCollectionTests
             .Because("the one firing should have arrived before the listener stopped");
     }
 
+    [Test]
+    public async Task ListenOnceAsyncReleasesTheStreamWhenItsTaskCompletes()
+    {
+        // The token lives longer than the stream. Its registration holds the listener, which holds
+        // the stream, until the task completes.
+        using CancellationTokenSource cts = new();
+        (WeakReference stream, Task<int> task) = CreateListenOnceAsyncAndFire(cts.Token);
+
+        await Assert.That(await task).IsEqualTo(1);
+
+        // A continuation on the thread pool removes the registration. Thus, the stream can stay
+        // alive for a short time after the task completes.
+        bool collected = false;
+
+        for (int attempt = 0; attempt < 100 && !collected; attempt++)
+        {
+            Collect();
+            collected = !stream.IsAlive;
+
+            if (!collected)
+            {
+                await Task.Delay(millisecondsDelay: 10, cancellationToken: CancellationToken.None);
+            }
+        }
+
+        await Assert.That(collected)
+            .IsTrue()
+            .Because("a cancellation token that lives on should not root the stream after the task completes");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -306,6 +337,15 @@ public sealed class GarbageCollectionTests
         IStrongListener listener = s.ListenOnceStrong(@out.Add);
         s.Send(1);
         return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Stream, Task<int> Task) CreateListenOnceAsyncAndFire(CancellationToken token)
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int> task = s.ListenOnceAsync(token);
+        s.Send(1);
+        return (new WeakReference(s), task);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

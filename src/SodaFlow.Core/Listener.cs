@@ -71,38 +71,6 @@ internal interface IKeepListenersAlive
     void Use(IKeepListenersAlive childKeepListenersAlive);
 }
 
-internal sealed class NoListener : IStrongListener, IWeakListener
-{
-    private static readonly ListenerWithWeakReference ListenerWithWeakReferenceInstance = new();
-
-    public static readonly NoListener Value = new();
-
-    private NoListener()
-    {
-    }
-
-    /// <inheritdoc />
-    public void Unlisten()
-    {
-    }
-
-    /// <inheritdoc />
-    public IListenerWithWeakReference GetListenerWithWeakReference() => ListenerWithWeakReferenceInstance;
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-    }
-
-    private sealed class ListenerWithWeakReference : IListenerWithWeakReference
-    {
-        /// <inheritdoc />
-        public void Unlisten()
-        {
-        }
-    }
-}
-
 internal static class ListenerInternal
 {
     internal static readonly IListener EmptyImpl = EmptyListener.Instance;

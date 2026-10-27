@@ -22,6 +22,24 @@ successful one committed. A transaction that succeeds does exactly what it did b
 Not changed: a listener that ran before the throw has already seen the failed transaction's values, and nothing takes
 them back.
 
+Fixed: ListenOnceImpl and ListenOnceStrongImpl, which the language packages give as ListenOnce and ListenOnceStrong,
+could call the handler twice when the stream fired on another thread. The listener stops itself through its own handle,
+and it got that handle only after the transaction that attached it had closed and released the lock. A firing on
+another thread in that gap ran the handler but could leave the listener attached, and the next firing ran the handler
+again. A stress test that called ListenOnceStrong over and over on a sink while another thread sent to it saw the
+handler run twice 726 times in 163,783 calls. The listener now gets its handle inside the transaction that attaches it,
+so nothing can fire in between, and the same test saw no double call in 137,524 calls. It also costs less: Listen
+now runs in that one transaction rather than opening a nested one, so each call allocates 112 bytes less on .NET 10
+and 176 to 177 bytes less on .NET Framework 4.7.2, and takes the same time or less. ListenOnceBenchmarks in
+SodaFlow.Benchmarks measures it.
+
+The handler also ignores a second firing in one transaction now, as OnceImpl does. No stream in the public API fires
+twice in one transaction, so that part guards against a defect in this library rather than anything a caller can do.
+
+OnceImpl loses a branch that could never run. What it does is unchanged.
+
+Removed: the internal NoListener type, which nothing uses any more. No released version of any package here calls it.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
