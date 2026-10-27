@@ -111,7 +111,7 @@ type ITimerSystemImplementation<'T> =
     abstract member RunTimersTo: 'T -> unit
     abstract member Now: 'T
 
-type private Event<'T> = { Time: 'T; Alarm: StreamSink<'T> }
+type private Event<'T> = { Time: 'T; Seq: int64; Alarm: StreamSink<'T> }
 
 /// <summary>
 ///     A timer system on an <c>ITimerSystemImplementation</c>, which gives the clock and the wait
@@ -129,48 +129,73 @@ type private Event<'T> = { Time: 'T; Alarm: StreamSink<'T> }
 ///     necessary.
 /// </remarks>
 type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplementation, handleException: exn -> unit) =
-    let eventQueue = Queue<Event<'T>>()
+    // In the sequence of the time of each event, and of its arrival for one time. An implementation
+    // runs a callback out of its lock, and it can run timers on more than one thread. Thus, the events
+    // can get to this set in a different sequence from their times.
+    let eventQueue =
+        SortedSet<Event<'T>>(
+            Comparer<Event<'T>>.Create(fun x y ->
+                let timeComparison = compare x.Time y.Time
+
+                if timeComparison <> 0 then
+                    timeComparison
+                else
+                    compare x.Seq y.Seq)
+        )
+
+    // The arrival number of the next event. Only code that holds the lock on eventQueue uses this.
+    let mutable nextEventSeq = 0L
 
     let time =
         (fun () ->
             implementation.Start handleException
-            let timeSink = BehaviorSink.create implementation.Now
+
+            // The last value that the onStart handler sent to Time. Only that handler uses this, and it
+            // runs with the transaction lock.
+            let lastTime = ref implementation.Now
+            let timeSink = BehaviorSink.create lastTime.Value
 
             Transaction.onStart (fun () ->
                 let t = implementation.Now
                 implementation.RunTimersTo t
-                let events = List<Event<'T>>()
 
                 let rec processEvents () =
-                    lock eventQueue (fun () ->
-                        if eventQueue.Count > 0 then
-                            let event = eventQueue.Peek()
+                    // The earliest event at or before t, and each event at the same time. The list is
+                    // complete before a removal, because a SortedSet does not let code change it while
+                    // an enumeration of it continues.
+                    let events =
+                        lock eventQueue (fun () ->
+                            match eventQueue |> Seq.tryHead with
+                            | Some first when first.Time <= t ->
+                                let events =
+                                    eventQueue |> Seq.takeWhile (fun event -> event.Time = first.Time) |> Seq.toList
 
-                            if event.Time <= t then
-                                events.Add(eventQueue.Dequeue())
-                                let timeToCheck = event.Time
+                                events |> List.iter (eventQueue.Remove >> ignore)
+                                events
+                            | _ -> [])
 
-                                let rec findMoreEvents () =
-                                    if eventQueue.Count > 0 then
-                                        let event = eventQueue.Peek()
-
-                                        if event.Time = timeToCheck then
-                                            events.Add(eventQueue.Dequeue())
-                                            findMoreEvents ()
-
-                                findMoreEvents ())
-
-                    if events.Count > 0 then
-                        timeSink |> BehaviorSink.send events[0].Time
+                    match events with
+                    | [] -> ()
+                    | first :: _ ->
+                        // An implementation removes a timer and then runs its callback out of its lock. A
+                        // transaction can start between the two and send a time after the time of the
+                        // event. The event then gets to the set after that time. Its alarm fires at its
+                        // own time, and Time does not go back.
+                        if first.Time >= lastTime.Value then
+                            timeSink |> BehaviorSink.send first.Time
+                            lastTime.Value <- first.Time
 
                         Transaction.run (fun () ->
-                            events |> Seq.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
+                            events |> List.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
 
-                        events.Clear()
                         processEvents ()
 
                 processEvents ()
-                timeSink |> BehaviorSink.send t)
+
+                // The clock itself can go back, for example at the end of daylight saving time. Time
+                // follows the clock then, as the clock is the authority for the current time.
+                timeSink |> BehaviorSink.send t
+                lastTime.Value <- t)
 
             timeSink :> 'T Behavior) ()
 
@@ -190,7 +215,10 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
                         o
                         |> Option.map (fun time ->
                             implementation.SetTimer time (fun () ->
-                                lock eventQueue (fun () -> eventQueue.Enqueue { Time = time; Alarm = alarm })
+                                lock eventQueue (fun () ->
+                                    eventQueue.Add { Time = time; Seq = nextEventSeq; Alarm = alarm } |> ignore
+                                    nextEventSeq <- nextEventSeq + 1L)
+
                                 Transaction.run id)))
 
             alarm.AttachListenerInternal listener

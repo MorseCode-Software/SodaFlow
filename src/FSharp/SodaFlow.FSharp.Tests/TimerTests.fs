@@ -20,11 +20,22 @@ type private ManualTimer(time: int, callback: unit -> unit) =
         member _.Cancel() = canceled <- true
         member _.Dispose() = canceled <- true
 
-type private ManualImplementation() =
+/// fireLatestFirst makes RunTimersTo fire the due timers from the latest to the earliest, as two
+/// threads that fire timers at the same time can. holdBack names the time of a timer that RunTimersTo
+/// does not fire, as an implementation does between the removal of a timer and its callback.
+type private ManualImplementation(fireLatestFirst: bool, holdBack: int option) =
     let timers = List<ManualTimer>()
     let mutable now = 0
 
+    new() = ManualImplementation(false, None)
+
     member _.AdvanceTo value = now <- value
+
+    /// Fires the timer that RunTimersTo kept back, out of any transaction.
+    member _.FireHeldBackTimer() =
+        let timer = timers |> Seq.find (fun timer -> Some timer.Time = holdBack)
+        timers.Remove timer |> ignore
+        timer.Fire()
 
     interface ITimerSystemImplementation<int> with
         member _.Now = now
@@ -39,14 +50,79 @@ type private ManualImplementation() =
             // A copy, because a callback here can set a timer of its own.
             let due =
                 timers
-                |> Seq.filter (fun timer -> not timer.Canceled && timer.Time <= value)
+                |> Seq.filter (fun timer -> not timer.Canceled && timer.Time <= value && Some timer.Time <> holdBack)
                 |> Seq.toList
 
-            for timer in due do
+            for timer in (if fireLatestFirst then List.rev due else due) do
                 timers.Remove timer |> ignore
                 timer.Fire()
 
+/// Moves the clock, and opens a transaction. The timer system reads the clock at the start of a
+/// transaction.
+let private advanceTo (implementation: ManualImplementation) value =
+    implementation.AdvanceTo value
+    Transaction.run (fun () -> ())
+
 type ``Timer Tests``() =
+
+    [<Test>]
+    member _.``Events get to the graph in the sequence of their times``() =
+        task {
+            let implementation = ManualImplementation(true, None)
+            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            let times = List<int>()
+            let alarms = List<int>()
+
+            let l =
+                Transaction.run (fun () ->
+                    StrongListener.fromList
+                        [ timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+                          timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add
+                          timers.At(Cell.constant (Some 11)) |> Stream.listenStrong alarms.Add ])
+
+            advanceTo implementation 12
+            l |> StrongListener.unlisten
+
+            do! Expect.Sequence([ 10; 11 ], alarms)
+            do! Expect.Sequence([ 10; 11; 12 ], times)
+        }
+
+    [<Test>]
+    member _.``An event that arrives late fires its alarm and does not move Time back``() =
+        task {
+            let implementation = ManualImplementation(false, Some 10)
+            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            let times = List<int>()
+            let alarms = List<int>()
+
+            let l =
+                Transaction.run (fun () ->
+                    StrongListener.fromList
+                        [ timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+                          timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add ])
+
+            advanceTo implementation 12
+            implementation.FireHeldBackTimer()
+            l |> StrongListener.unlisten
+
+            do! Expect.Sequence([ 10 ], alarms)
+            do! Expect.Sequence([ 12; 12 ], times)
+        }
+
+    [<Test>]
+    member _.``Time follows a clock that goes back``() =
+        task {
+            let implementation = ManualImplementation()
+            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            let times = List<int>()
+
+            let l = timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+            advanceTo implementation 12
+            advanceTo implementation 5
+            l |> StrongListener.unlisten
+
+            do! Expect.Sequence([ 12; 5 ], times)
+        }
 
     [<Test>]
     member _.``Simultaneous Timer Events``() =

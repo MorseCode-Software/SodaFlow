@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
 using SodaFlow.Functional;
 
@@ -26,8 +27,25 @@ namespace SodaFlow.Time;
 public class TimerSystem<T> : ITimerSystem<T>
     where T : IComparable<T>
 {
-    private readonly Queue<Event> eventQueue = new();
+    // In the sequence of the time of each event, and of its arrival for one time. An implementation
+    // runs a callback out of its lock, and it can run timers on more than one thread. Thus, the
+    // events can get to this set in a different sequence from their times.
+    private readonly SortedSet<Event> eventQueue =
+        new(
+            Comparer<Event>.Create(static (x, y) =>
+            {
+                int timeComparison = x.Time.CompareTo(y.Time);
+                return timeComparison != 0 ? timeComparison : x.Seq.CompareTo(y.Seq);
+            }));
+
     private readonly ITimerSystemImplementation<T> implementation;
+
+    // The last value that the OnStart handler sent to Time. Only that handler uses this, and it
+    // runs with the transaction lock.
+    private T lastTime;
+
+    // The arrival number of the next event. Only code that holds the lock on eventQueue uses this.
+    private long nextEventSeq;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="TimerSystem{T}" /> class over
@@ -47,7 +65,8 @@ public class TimerSystem<T> : ITimerSystem<T>
     {
         this.implementation = implementation;
         this.implementation.Start(handleException);
-        BehaviorSink<T> timeSink = new(this.implementation.Now);
+        this.lastTime = this.implementation.Now;
+        BehaviorSink<T> timeSink = new(this.lastTime);
         this.Time = timeSink;
 
         Transaction.OnStart(() =>
@@ -58,57 +77,55 @@ public class TimerSystem<T> : ITimerSystem<T>
 
             while (true)
             {
-                // Pop all events earlier than t.
+                // Take the earliest event at or before t, and each event at the same time. The set is
+                // in the sequence of time, thus these are the first events of the set.
                 lock (this.eventQueue)
                 {
-                    if (this.eventQueue.Count > 0)
+                    Event? first = this.eventQueue.FirstOrDefault();
+
+                    if (first != null && first.Time.CompareTo(t) <= 0)
                     {
-                        Event tempEvent = this.eventQueue.Peek();
+                        events.AddRange(this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0));
+                    }
 
-                        if (tempEvent.Time.CompareTo(t) <= 0)
-                        {
-                            events.Add(this.eventQueue.Dequeue());
-
-                            T timeToCheck = tempEvent.Time;
-
-                            while (this.eventQueue.Count > 0)
-                            {
-                                tempEvent = this.eventQueue.Peek();
-
-                                if (tempEvent.Time.CompareTo(timeToCheck) == 0)
-                                {
-                                    events.Add(this.eventQueue.Dequeue());
-                                }
-                                else
-                                {
-                                    break;
-                                }
-                            }
-                        }
+                    foreach (Event ev in events)
+                    {
+                        this.eventQueue.Remove(ev);
                     }
                 }
 
-                if (events.Count > 0)
-                {
-                    timeSink.Send(events[0].Time);
-
-                    Transaction.RunVoid(() =>
-                    {
-                        foreach (Event ev in events)
-                        {
-                            ev.Alarm.Send(ev.Time);
-                        }
-                    });
-                }
-                else
+                if (events.Count == 0)
                 {
                     break;
                 }
 
+                T eventTime = events[0].Time;
+
+                // An implementation removes a timer and then runs its callback out of its lock. A
+                // transaction can start between the two and send a time after the time of the event.
+                // The event then gets to the set after that time. Its alarm fires at its own time, and
+                // Time does not go back.
+                if (eventTime.CompareTo(this.lastTime) >= 0)
+                {
+                    timeSink.Send(eventTime);
+                    this.lastTime = eventTime;
+                }
+
+                Transaction.RunVoid(() =>
+                {
+                    foreach (Event ev in events)
+                    {
+                        ev.Alarm.Send(ev.Time);
+                    }
+                });
+
                 events.Clear();
             }
 
+            // The clock itself can go back, for example at the end of daylight saving time. Time
+            // follows the clock then, as the clock is the authority for the current time.
             timeSink.Send(t);
+            this.lastTime = t;
         });
     }
 
@@ -136,7 +153,8 @@ public class TimerSystem<T> : ITimerSystem<T>
                                     {
                                         lock (this.eventQueue)
                                         {
-                                            this.eventQueue.Enqueue(new Event(time: time, alarm: alarm));
+                                            this.eventQueue.Add(
+                                                new Event(time: time, seq: this.nextEventSeq++, alarm: alarm));
                                         }
 
                                         // Open and close a transaction to cause queued
@@ -151,16 +169,12 @@ public class TimerSystem<T> : ITimerSystem<T>
         return alarm.AttachListenerInternal(l);
     }
 
-    private class Event
+    private sealed class Event(in T time, in long seq, in StreamSink<T> alarm)
     {
-        internal readonly StreamSink<T> Alarm;
+        internal readonly StreamSink<T> Alarm = alarm;
 
-        internal readonly T Time;
+        internal readonly long Seq = seq;
 
-        internal Event(T time, StreamSink<T> alarm)
-        {
-            this.Time = time;
-            this.Alarm = alarm;
-        }
+        internal readonly T Time = time;
     }
 }
