@@ -173,44 +173,26 @@ public static class StreamExtensionMethods
             TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
 #endif
 
-        IStrongListener? listener = null;
-        bool unlistenEarly = false;
+        IStrongListener listener = s.ListenOnceStrong(a => tcs.TrySetResult(a));
 
-        IStrongListener listenerToReturn =
-            s.ListenStrong(a =>
-            {
-                // ReSharper disable once AccessToModifiedClosure
-                IStrongListener? listenerLocal = listener;
-
-                if (listenerLocal == null)
-                {
-                    unlistenEarly = true;
-                }
-                else
-                {
-                    listenerLocal.Unlisten();
-                    listener = null;
-                }
-
-                tcs.TrySetResult(a);
-            });
-
-        listener = listenerToReturn;
-
-        if (unlistenEarly)
+        if (token.CanBeCanceled)
         {
-            listenerToReturn.Unlisten();
-            listener = null;
+            // The registration holds the listener, and the listener holds the stream. Thus, remove
+            // the registration when the task completes. Otherwise, a token that lives longer than
+            // the stream keeps the stream alive.
+            CancellationTokenRegistration registration =
+                token.Register(() =>
+                {
+                    listener.Unlisten();
+                    tcs.TrySetCanceled();
+                });
+
+            tcs.Task.ContinueWith(
+                continuationAction: _ => registration.Dispose(),
+                cancellationToken: CancellationToken.None,
+                continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
+                scheduler: TaskScheduler.Default);
         }
-
-        token.Register(() =>
-        {
-            IStrongListener? listenerLocal = listener;
-            listenerLocal?.Unlisten();
-            listener = null;
-
-            tcs.TrySetCanceled();
-        });
 
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         return tcs.Task;

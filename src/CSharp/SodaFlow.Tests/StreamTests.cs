@@ -2049,6 +2049,20 @@ public sealed class StreamTests
     }
 
     [Test]
+    public async Task TestListenOnceAsyncCancelledBeforeTheFirstFiring()
+    {
+        StreamSink<char> s = Stream.CreateSink<char>();
+        using CancellationTokenSource cts = new();
+        Task<char> t = s.ListenOnceAsync(cts.Token);
+
+        // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8,
+        // and this compiles for net472 as well.
+        cts.Cancel();
+        s.Send('A');
+        await Assert.That(t.IsCanceled).IsTrue();
+    }
+
+    [Test]
     public async Task TestListenAsync()
     {
         CellSink<int> a = Cell.CreateSink(1);
