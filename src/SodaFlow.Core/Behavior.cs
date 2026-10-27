@@ -24,11 +24,14 @@ internal static class BehaviorInternal
 [PublicAPI]
 public class Behavior<T>
 {
-    // This captures only this behavior, thus SodaFlow builds it one time and not on each
-    // firing. Only the constructor that takes a stream needs it, because a constant behavior
+    // These capture only this behavior, thus SodaFlow builds them one time and not on each
+    // firing. Only the constructor that takes a stream needs them, because a constant behavior
     // does not update.
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
     private readonly Action? applyValueUpdate;
+
+    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
+    private readonly Action? discardValueUpdate;
     private readonly Stream<T> stream;
 
     // ReSharper disable once NotAccessedField.Local - Used to keep object from being garbage collected
@@ -53,6 +56,7 @@ public class Behavior<T>
         // this transaction made in this transaction. Thus, the handler below can run before the constructor
         // returns.
         this.applyValueUpdate = this.ApplyValueUpdate;
+        this.discardValueUpdate = this.DiscardValueUpdate;
 
         this.streamListener =
             TransactionInternal.Apply((trans1, _) =>
@@ -66,7 +70,7 @@ public class Behavior<T>
                         // necessary closures were a large part of the cost of one Send.
                         if (!this.valueUpdate.HasValue())
                         {
-                            trans2.Last(this.applyValueUpdate);
+                            trans2.Last(commit: this.applyValueUpdate, discard: this.discardValueUpdate);
                         }
 
                         this.valueUpdate = MaybeInternal.Some(a);
@@ -116,6 +120,10 @@ public class Behavior<T>
 
         this.valueUpdate = MaybeInternal<T>.None;
     }
+
+    // A transaction that fails does not apply its update. The update must also go, because the
+    // handler queues the apply action only when it has no update.
+    private void DiscardValueUpdate() => this.valueUpdate = MaybeInternal<T>.None;
 
     /// <summary>
     ///     Records that this behavior no longer depends on the value it was
