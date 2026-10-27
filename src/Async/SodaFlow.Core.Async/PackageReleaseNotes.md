@@ -1,3 +1,20 @@
+5.0.2
+
+Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
+thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
+every thread needs to start a transaction. Slow synchronous work there stalled every thread's transactions for as long
+as it ran, and code there that waited on another thread which needed a transaction, such as a dispatcher call that
+touches the graph, deadlocked. The documentation already said that an operation runs outside any transaction, and now
+all of it does.
+
+The operation still starts inline, without a hop to the thread pool, and an operation that completes synchronously
+still delivers its result. It starts only if the transaction got as far as before, so a transaction that fails earlier
+still starts nothing. A call to Execute from the start of an operation now finds no transaction open and sends its
+value immediately, where it used to defer it.
+
+Requires SodaFlow.Core 5.0.1, which adds the member this release calls. The floor of the dependency is the version of
+SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
+
 5.0.1
 
 No public API change. Adds the internal path that two new Execute overloads use: the one for a Cell<Maybe<TInput>> in
