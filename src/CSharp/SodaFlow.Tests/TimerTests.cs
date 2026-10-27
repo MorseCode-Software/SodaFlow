@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using SodaFlow.Time;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
+using ITimer = SodaFlow.Time.ITimer;
 
 namespace SodaFlow.Tests;
 
@@ -74,5 +77,164 @@ public sealed class TimerTests
         }
 
         await Assert.That(count).IsEqualTo(2);
+    }
+
+    // The clock fires the due timers from the latest to the earliest. Two threads that fire timers at
+    // the same time can give that sequence too.
+    [Test]
+    public async Task EventsGetToTheGraphInTheSequenceOfTheirTimes()
+    {
+        ScriptedClock clock = new() { FireLatestFirst = true };
+        TimerSystem<int> timers = clock.CreateTimerSystem();
+        List<int> times = [];
+        List<int> alarms = [];
+
+        IStrongListener l =
+            Transaction.Run(() =>
+                Listener.CreateStrongComposite(
+                [
+                    Operational.Updates(timers.Time).ListenStrong(times.Add),
+                    timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add),
+                    timers.At(Cell.Constant(Maybe.Some(11))).ListenStrong(alarms.Add)
+                ]));
+
+        clock.AdvanceTo(12);
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [10, 11], ordering: CollectionOrdering.Matching);
+        await Assert.That(times).IsEquivalentTo(expected: [10, 11, 12], ordering: CollectionOrdering.Matching);
+    }
+
+    // The clock keeps the timer back, as an implementation does between the removal of a timer and
+    // its callback. A transaction then sends 12, and the event for 10 arrives after it.
+    [Test]
+    public async Task AnEventThatArrivesLateFiresItsAlarmAndDoesNotMoveTimeBack()
+    {
+        ScriptedClock clock = new() { HoldBack = Maybe.Some(10) };
+        TimerSystem<int> timers = clock.CreateTimerSystem();
+        List<int> times = [];
+        List<int> alarms = [];
+
+        IStrongListener l =
+            Transaction.Run(() =>
+                Listener.CreateStrongComposite(
+                [
+                    Operational.Updates(timers.Time).ListenStrong(times.Add),
+                    timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add)
+                ]));
+
+        clock.AdvanceTo(12);
+        clock.FireHeldBackTimer();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+        await Assert.That(times).IsEquivalentTo(expected: [12, 12], ordering: CollectionOrdering.Matching);
+    }
+
+    // The clock is the authority for the current time. Thus, Time follows a clock that goes back, for
+    // example at the end of daylight saving time.
+    [Test]
+    public async Task TimeFollowsAClockThatGoesBack()
+    {
+        ScriptedClock clock = new();
+        TimerSystem<int> timers = clock.CreateTimerSystem();
+        List<int> times = [];
+
+        IStrongListener l = Operational.Updates(timers.Time).ListenStrong(times.Add);
+        clock.AdvanceTo(12);
+        clock.AdvanceTo(5);
+        l.Unlisten();
+
+        await Assert.That(times).IsEquivalentTo(expected: [12, 5], ordering: CollectionOrdering.Matching);
+    }
+
+    // A clock that a test moves, which fires its timers in a sequence that the test selects.
+    private sealed class ScriptedClock : ITimerSystemImplementation<int>
+    {
+        private readonly List<ScriptedTimer> timers = [];
+
+        public int Now { get; private set; }
+
+        /// <summary>Gets a value that is true when RunTimersTo fires the latest timer first.</summary>
+        internal bool FireLatestFirst { get; init; }
+
+        /// <summary>Gets the time of a timer that RunTimersTo does not fire, or None.</summary>
+        internal Maybe<int> HoldBack { get; init; } = Maybe.None;
+
+        public void Start(Action<Exception> handleException)
+        {
+        }
+
+        public ITimer SetTimer(int time, Action callback)
+        {
+            ScriptedTimer timer = new(time: time, callback: callback);
+            this.timers.Add(timer);
+            return timer;
+        }
+
+        public void RunTimersTo(int now)
+        {
+            ScriptedTimer[] due =
+            [
+                .. this.timers.Where(timer =>
+                    !timer.Canceled && timer.Time <= now && !this.HoldBack.Equals(Maybe.Some(timer.Time)))
+            ];
+
+            if (this.FireLatestFirst)
+            {
+                Array.Reverse(due);
+            }
+
+            foreach (ScriptedTimer timer in due)
+            {
+                this.timers.Remove(timer);
+                timer.Fire();
+            }
+        }
+
+        internal TimerSystem<int> CreateTimerSystem() =>
+            new(
+                implementation: this,
+                handleException: static _ =>
+                {
+                });
+
+        /// <summary>
+        ///     Moves the clock, and opens a transaction. The timer system reads the clock
+        ///     at the start of a transaction.
+        /// </summary>
+        internal void AdvanceTo(int now)
+        {
+            this.Now = now;
+
+            Transaction.RunVoid(static () =>
+            {
+            });
+        }
+
+        /// <summary>Fires the timer that RunTimersTo kept back, out of any transaction.</summary>
+        internal void FireHeldBackTimer()
+        {
+            ScriptedTimer timer = this.timers.Single(t => this.HoldBack.Equals(Maybe.Some(t.Time)));
+            this.timers.Remove(timer);
+            timer.Fire();
+        }
+
+        private sealed class ScriptedTimer(int time, Action callback) : ITimer
+        {
+            // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed
+            // so callback is not captured into a mutable variable.
+            private readonly Action callback = callback;
+
+            public int Time { get; } = time;
+
+            public bool Canceled { get; private set; }
+
+            public void Cancel() => this.Canceled = true;
+
+            public void Dispose() => this.Canceled = true;
+
+            internal void Fire() => this.callback();
+        }
     }
 }

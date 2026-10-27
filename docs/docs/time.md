@@ -142,9 +142,13 @@ into a sink: the deadline cell is defined in terms of the alarm that reads it. S
 period, so the period stays exact; if the process is suspended across a minute of them, the stream
 fires once per missed interval, each in its own transaction, as fast as transactions open.
 
-Reading the clock rather than the alarm's value changes nothing. Inside an alarm's transaction
-`timers.Time` *is* that alarm's time — that is what a behavior means, the value at that instant — so
-snapshotting it gives the same sequence. A repeating timer built on `At` is fixed-rate with
+Reading the clock rather than the alarm's value almost never changes anything. Inside an alarm's
+transaction `timers.Time` is normally that alarm's time — that is what a behavior means, the value at
+that instant — so snapshotting it gives the same sequence. The exception is an alarm that arrives
+late: its timer fired on one thread just as a transaction on another had already moved `Time` past
+it. That alarm still fires, with its own time, but `Time` never goes back to meet it, so inside that
+transaction `Time` reads the later value. Where the exact time matters, use the value the alarm
+fires with. A repeating timer built on `At` is fixed-rate with
 catch-up, and dropping stale ticks is a decision outside the graph: compare a firing's time against
 a clock read in a later transaction.
 
