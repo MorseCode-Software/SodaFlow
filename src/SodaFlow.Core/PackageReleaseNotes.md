@@ -1,3 +1,27 @@
+5.0.1
+
+Fixed: a transaction that fails no longer leaves state behind that breaks the graph after it. A transaction fails when
+something throws while it runs: a listener, a function given to an operation such as Map, or a loop that was never
+looped. Sending twice in one transaction to a sink that has no combining function fails it too. Several operations keep
+state that only the end of a successful transaction resets, and a failure skipped that reset. The state stayed set, and
+from then on:
+
+- A stream that fired in the failed transaction kept the firing. Each listener added after that got it, along with
+  every later firing of the stream, because nothing cleared the list again.
+- A cell, whether a sink, a Hold, a Map, or a Lift, kept the update that the failed transaction was about to apply, and
+  never updated again. Sample went on giving the value from before the failure, whatever was sent to it afterward.
+- Accum, Collect, and Calm stopped committing their state, so each later firing started from the state they had before
+  the failure.
+- A stream sink, and each operation that combines the firings of one transaction into one, such as Merge or Updates,
+  went on treating the failed transaction's value as one it was still combining, and fired nothing more. A sink that
+  had been sent to twice threw "Send was called more than once in a transaction" on every send after that.
+
+Each of these now discards what the failed transaction left, and the next transaction starts from what the last
+successful one committed. A transaction that succeeds does exactly what it did before.
+
+Not changed: a listener that ran before the throw has already seen the failed transaction's values, and nothing takes
+them back.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
