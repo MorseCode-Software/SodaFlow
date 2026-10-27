@@ -1,12 +1,21 @@
 5.0.2
 
-No change in API or behavior. This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1.
-In that release, a transaction that fails no longer leaves state behind that breaks the graph after it: before, a cell
-could stop updating, a sink could throw on every later send, and a stream could replay old firings to each new
-listener. That package's notes have the details.
+This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1. That release fixes two
+things that reach this package. A transaction that fails no longer leaves state behind that breaks the graph after it:
+before, a cell could stop updating, a sink could throw on every later send, and a stream could replay old firings to
+each new listener. And ListenOnce and ListenOnceStrong no longer call the handler twice when the stream fires on
+another thread at the moment the listener is attached. That package's notes have the details of both.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
-5.0.0. A consumer who references SodaFlow.Core directly gets the fix either way.
+5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
+
+Changed: ListenOnceAsync is now built on ListenOnceStrong, so it gets the same fix. It used to carry its own copy of
+that logic, with the same gap. The task still completed only once, but the listener could stay attached until the
+stream fired again.
+
+Fixed: ListenOnceAsync with a CancellationToken that can be canceled now removes its registration from the token when
+the task completes. Before, each call left a registration behind until the token was canceled or collected, so a
+long-lived token gathered one per call. The task, its result, and what happens on cancellation are unchanged.
 
 5.0.1
 

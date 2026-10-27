@@ -1,12 +1,25 @@
 5.0.2
 
-No change in API or behavior. This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1.
-In that release, a transaction that fails no longer leaves state behind that breaks the graph after it: before, a cell
-could stop updating, a sink could throw on every later send, and a stream could replay old firings to each new
-listener. That package's notes have the details.
+This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1. That release fixes two
+things that reach this package. A transaction that fails no longer leaves state behind that breaks the graph after it:
+before, a cell could stop updating, a sink could throw on every later send, and a stream could replay old firings to
+each new listener. And listenOnce and listenOnceStrong no longer call the handler twice when the stream fires on
+another thread at the moment the listener is attached. That package's notes have the details of both.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
-5.0.0. A consumer who references SodaFlow.Core directly gets the fix either way.
+5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
+
+Changed: listenOnceAsync is now built on listenOnceStrong, so it gets the same fix. It used to carry its own copy of
+that logic, with the same gap. The result still arrived only once, but the listener could stay attached until the
+stream fired again.
+
+Fixed: listenOnceAsync no longer keeps the stream alive through its cancellation token. It registered with the token
+of the async and never removed the registration, which held the listener, and through it the stream. With a token
+that outlived the stream, the stream could not be collected even after the async had completed. An async started
+without a token of its own gets Async.DefaultCancellationToken, which lives as long as the process, so in that common
+case every stream that listenOnceAsync was used on stayed in memory for good. The registration now goes when the async
+completes, and a check with that default token found the stream collected on the first collection after the result
+arrived. The result, and what happens on cancellation, are unchanged.
 
 5.0.1
 
