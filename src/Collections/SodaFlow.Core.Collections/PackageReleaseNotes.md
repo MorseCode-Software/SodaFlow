@@ -1,3 +1,17 @@
+2.0.1
+
+Fixed: making a cell for each key of a large collection took time that grew with the square of the number of keys.
+StateCellImpl, IdentityCellImpl, and ItemCellImpl keep each cell they make in a weak cache, and once that cache held 64
+entries, every add first swept all of it for cells the garbage collector had removed. With every cell still in use,
+the sweep found nothing and ran again on the next add. The cache now sweeps again only after it has doubled in size
+since its last sweep, so on average the sweeps cost the same for each add however large the cache gets. A cell the
+garbage collector removed still leaves the cache at the next sweep.
+
+In a benchmark that makes a state cell for each key of a collection and keeps every cell, the cells for 10,000 keys
+took 127 ms where they took 449 ms on .NET 10, and 149 ms where they took 726 ms on .NET Framework 4.7.2. The cost
+per cell still grows somewhat with the number of keys, for a reason not yet found. PerKeyCellBenchmarks in
+SodaFlow.Benchmarks measures it.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

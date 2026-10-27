@@ -29,15 +29,10 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     where TKey : notnull
 {
     /// <summary>
-    ///     The number of entries that this cache holds before a sweep removes the
-    ///     entries with no observer.
+    ///     The smallest number of entries that this cache holds before a sweep
+    ///     removes the entries with no observer.
     /// </summary>
-    /// <remarks>
-    ///     A sweep reads each entry, thus one sweep for each add makes the cost of a
-    ///     full cache quadratic. This code waits for a sufficient number of entries,
-    ///     and that keeps the cost of each add low.
-    /// </remarks>
-    private const int PruneThreshold = 64;
+    private const int MinPruneThreshold = 64;
 
     /// <summary>
     ///     A weak cache holds these, thus the observers of one key share a node and
@@ -45,6 +40,22 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     ///     collection.
     /// </summary>
     private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells = new();
+
+    /// <summary>
+    ///     The number of entries at which the next sweep occurs.
+    /// </summary>
+    /// <remarks>
+    ///     A sweep reads each entry. After a sweep that keeps n entries, the next
+    ///     sweep waits until the cache holds 2n entries. Thus, the adds after a
+    ///     sweep pay for the next sweep. The average cost of an add then does not
+    ///     increase with the size of the cache. A fixed number made each add after
+    ///     it read the full cache while each cell stayed alive. Then n cells cost n²
+    ///     reads.
+    /// </remarks>
+    private int pruneThreshold = MinPruneThreshold;
+
+    /// <summary>The number of entries, with the entries that have no observer.</summary>
+    internal int Count => this.cells.Count;
 
     /// <summary>
     ///     The cell for a key, or <see langword="null" /> when no cell is in
@@ -74,7 +85,7 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     /// <summary>Removes each entry whose cell a GC collected.</summary>
     private void Prune()
     {
-        if (this.cells.Count < PruneThreshold)
+        if (this.cells.Count < this.pruneThreshold)
         {
             return;
         }
@@ -94,5 +105,7 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
         {
             this.cells.Remove(key);
         }
+
+        this.pruneThreshold = Math.Max(val1: MinPruneThreshold, val2: 2 * this.cells.Count);
     }
 }

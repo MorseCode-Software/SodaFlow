@@ -1,3 +1,12 @@
+2.0.1
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Core.Collections 2.0.1. In that release, making a cell for each key of a large collection no longer takes time
+that grows with the square of the number of keys. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 2.0.0 would go on resolving
+SodaFlow.Core.Collections 2.0.0. A consumer who references SodaFlow.Core.Collections directly gets the fix either way.
+
 2.0.0
 
 Adds fold, for a total, a count, or an average that follows the collection. It takes select, zero, add, and subtract,
