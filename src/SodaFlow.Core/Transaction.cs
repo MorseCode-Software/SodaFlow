@@ -36,7 +36,7 @@ internal sealed class TransactionInternal
     internal int InCallback;
 
     private bool isElevated;
-    private Queue<Action>? lastQueue;
+    private Queue<LastEntry>? lastQueue;
     private bool obtainedLock;
     private Queue<PostEntry>? postQueue;
     private HashSet<Entry>? rerankEntriesSet;
@@ -212,6 +212,16 @@ internal sealed class TransactionInternal
     internal void Prioritized(Node node, Action<TransactionInternal> action) =>
         this.Prioritized(new ActionEntry(node: node, action: action));
 
+    /// <summary>
+    ///     Queues an action on a node, and an alternative action for a
+    ///     transaction that fails before the first action runs.
+    /// </summary>
+    /// <remarks>
+    ///     See <see cref="Last(Action, Action)" /> for the cause.
+    /// </remarks>
+    internal void Prioritized(Node node, Action<TransactionInternal> action, Action discard) =>
+        this.Prioritized(new DiscardableActionEntry(node: node, action: action, discard: discard));
+
     // ReSharper disable once MemberCanBeMadeStatic.Global - This is static to discourage this method from being called
     // outside of a transaction.
     internal void Prioritized(Entry e)
@@ -228,7 +238,26 @@ internal sealed class TransactionInternal
     ///     Adds an action that runs after all prioritized actions.
     /// </summary>
     /// <param name="action">The action that runs after all prioritized actions.</param>
-    internal void Last(Action action) => (this.lastQueue ??= new Queue<Action>()).Enqueue(action);
+    internal void Last(Action action) =>
+        (this.lastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: action, discard: null));
+
+    /// <summary>
+    ///     Adds an action that runs after all prioritized actions, and an
+    ///     alternative action for a transaction that fails.
+    /// </summary>
+    /// <remarks>
+    ///     Use this where the first action resets state that tells the code to
+    ///     queue the action again. A transaction that fails does not run the last
+    ///     actions. Without <paramref name="discard" />, that state stays set. Thus,
+    ///     each subsequent transaction finds that the action is in the queue.
+    /// </remarks>
+    /// <param name="commit">The action that runs after all prioritized actions.</param>
+    /// <param name="discard">
+    ///     The action that runs when the transaction fails before
+    ///     <paramref name="commit" /> runs.
+    /// </param>
+    internal void Last(Action commit, Action discard) =>
+        (this.lastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
 
     /// <summary>
     ///     Add an action to run after all last actions.
@@ -393,7 +422,7 @@ internal sealed class TransactionInternal
 
             while (this.lastQueue?.Count > 0)
             {
-                this.lastQueue.Dequeue()();
+                this.lastQueue.Dequeue().Commit();
             }
 
             if (!this.hasParentTransaction)
@@ -527,10 +556,18 @@ internal sealed class TransactionInternal
                 // ReSharper disable once NullableWarningSuppressionIsUsed - PrioritizedQueue.Dequeue() will not
                 // return null if PrioritizedQueue.IsEmpty() is false.
                 Entry e = PrioritizedQueue.Dequeue()!;
+                e.Discard();
                 e.Dispose();
             }
 
             this.sampleQueue = null;
+
+            // A last action that did not run commits nothing. Its discard action resets the state
+            // that the commit resets, thus the next transaction starts as if this one did not occur.
+            while (this.lastQueue?.Count > 0)
+            {
+                this.lastQueue.Dequeue().Discard?.Invoke();
+            }
 
             this.lastQueue = null;
 
@@ -561,6 +598,16 @@ internal sealed class TransactionInternal
         // Null where the caller of Post gave no release. Most posted actions keep no promise to
         // code that waits, thus most entries have none.
         public Action<Exception>? OnFailure { get; } = onFailure;
+    }
+
+    // One last action, with the alternative action for a transaction that fails. A readonly
+    // struct, because a transaction makes one for each last action, and the type is private.
+    private readonly struct LastEntry(Action commit, Action? discard)
+    {
+        public Action Commit { get; } = commit;
+
+        // Null where the last action leaves no state that a failure must reset.
+        public Action? Discard { get; } = discard;
     }
 
     internal abstract class Entry : IDisposable
@@ -619,6 +666,11 @@ internal sealed class TransactionInternal
         // A subclass holds the state that the queued work needs, as fields. Thus, a caller on a
         // frequent path does not allocate a closure and a delegate and also the entry.
         public abstract void Execute(TransactionInternal trans);
+
+        // A transaction that fails calls this, and not Execute, for each entry that did not run.
+        public virtual void Discard()
+        {
+        }
     }
 
     // The general entry. Use it at a call site that runs one time for each construction, or
@@ -632,5 +684,21 @@ internal sealed class TransactionInternal
         private readonly Action<TransactionInternal> action = action;
 
         public override void Execute(TransactionInternal trans) => this.action(trans);
+    }
+
+    private sealed class DiscardableActionEntry(Node node, Action<TransactionInternal> action, Action discard)
+        : Entry(node)
+    {
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
+        // captured into a mutable variable.
+        private readonly Action<TransactionInternal> action = action;
+
+        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so discard is not
+        // captured into a mutable variable.
+        private readonly Action discard = discard;
+
+        public override void Execute(TransactionInternal trans) => this.action(trans);
+
+        public override void Discard() => this.discard();
     }
 }
