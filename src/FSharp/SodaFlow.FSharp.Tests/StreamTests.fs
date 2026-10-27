@@ -1218,14 +1218,7 @@ type ``Stream Tests``() =
             cts.Cancel()
             s |> sendS 'A'
             let! _ = Task.WhenAny [| t :> Task |]
-
-            // Async.AwaitTask can send the cancellation of the task as an exception. Thus, the task
-            // can have the status Faulted and not Canceled.
-            do!
-                Expect.True(
-                    t.IsCanceled
-                    || t.IsFaulted && (t.Exception.InnerException :? OperationCanceledException)
-                )
+            do! Expect.Equal(TaskStatus.Canceled, t.Status)
         }
 
     [<Test>]

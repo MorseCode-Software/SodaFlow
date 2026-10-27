@@ -12,6 +12,7 @@
 module SodaFlow.Stream
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open System.Collections.Generic
 open System.Runtime.CompilerServices
@@ -134,6 +135,23 @@ let listenOnce handler (stream: Stream<_>) =
 let listenOnceStrong handler (stream: Stream<_>) =
     stream.ListenOnceStrongImpl(Action<_> handler)
 
+// Async.AwaitTask sends a canceled task to the exception continuation, thus the async faults. This
+// sends it to the cancellation continuation, thus the async cancels. Only listenOnceAsync completes
+// the task. It gives a value or a cancellation, thus the task cannot fault.
+let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) =
+    Async.FromContinuations(fun (cont, _, ccont) ->
+        task.ContinueWith(
+            (fun (t: Task<_>) ->
+                if t.IsCanceled then
+                    ccont (OperationCanceledException token)
+                else
+                    cont t.Result),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        )
+        |> ignore)
+
 /// <summary>
 ///     Waits asynchronously for the next firing.
 /// </summary>
@@ -166,11 +184,11 @@ let listenOnceAsync stream =
                 Listener.unlisten listener
                 tcs.TrySetCanceled() |> ignore)
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
-        return! Async.AwaitTask tcs.Task
+        return! awaitValueOrCancellation ct tcs.Task
 #else
         let execute (tcs: TaskCompletionSource<_>) =
             async {
-                let! result = Async.AwaitTask tcs.Task
+                let! result = awaitValueOrCancellation ct tcs.Task
                 do! Utilities.Yield() |> Async.AwaitTask
                 return result
             }
