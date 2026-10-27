@@ -189,6 +189,40 @@ public sealed class LoopTests
         await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
+    // The loop closes onto a stream of higher rank than the chain, thus the close increases the rank of
+    // each map in the chain. That walk used one stack frame for each node, and a chain of 10,000 maps
+    // stopped the test process with a stack overflow. This chain is longer, so that a smaller stack
+    // or a smaller frame does not hide a return of that walk.
+    [Test]
+    public async Task FunctionalStreamLoopOverALongChain()
+    {
+        const int length = 50_000;
+        StreamSink<int> s = Stream.CreateSink<int>();
+
+        (_, Stream<int> tail) =
+            Stream.Loop<int>()
+                .WithCaptures(l =>
+                {
+                    Stream<int> chain = l;
+
+                    for (int i = 0; i < length; i++)
+                    {
+                        chain = chain.Map(static v => v + 1);
+                    }
+
+                    return (Stream: s.Map(static v => v), Captures: chain);
+                });
+
+        List<int> @out = [];
+
+        using (tail.ListenStrong(@out.Add))
+        {
+            s.Send(0);
+        }
+
+        await Assert.That(@out).IsEquivalentTo(expected: [length], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task FunctionalStreamLoopWithCaptures()
     {

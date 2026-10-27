@@ -74,6 +74,15 @@ internal abstract class Node
 
     internal static readonly object NodeRanksLock = new();
 
+    // The largest stack that a walk gives back to walkFrames. A chain of this depth or less then
+    // allocates nothing for the stack of the walk. One deeper chain does not keep a large array for
+    // the life of the process.
+    private const int MaxWalkFramesToKeep = 1024;
+
+    // The stack of the walk in EnsureDescendantsBiggerThan. Only code that holds ListenersLock
+    // walks, thus one array serves each walk, and no two walks use it at the same time.
+    private static Frame[] walkFrames = [];
+
     // SodaFlow allocates this on first use. Each stream owns a node, but a node needs this
     // only after SodaFlow queues work against it. The last node of a chain has no such
     // work.
@@ -114,43 +123,81 @@ internal abstract class Node
 
         lock (ListenersLock)
         {
-            foreach (Target t in node.GetListenerTargetsUnsafe())
-            {
-                EnsureBiggerThanRecursive(trans: trans, originalNode: node, node: t.Node, limit: node.Rank);
-            }
+            EnsureDescendantsBiggerThan(trans: trans, originalNode: node);
         }
     }
 
-    // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local
-    private static void EnsureBiggerThanRecursive(
-        TransactionInternal trans,
-        Node originalNode,
-        Node node,
-        int limit)
+    // A walk that goes deep first, with a stack of its own and not a recursion. The recursion used
+    // one stack frame for each node in a chain. A chain of 10,000 nodes then stopped the process
+    // with a stack overflow, and no code can catch that. This walk visits the nodes in the sequence
+    // that the recursion used, and it reads the rank of the parent at the same point. Thus, each node
+    // gets the same rank, and a cycle causes the same exception.
+    private static void EnsureDescendantsBiggerThan(TransactionInternal trans, Node originalNode)
     {
-        if (ReferenceEquals(objA: originalNode, objB: node))
-        {
-            throw new Exception("A dependency cycle was detected.");
-        }
+        Frame root = new(node: originalNode, targets: originalNode.GetListenerTargetsUnsafe().GetEnumerator());
+        Frame[] frames = walkFrames;
+        int depth = 0;
+        int usedFrames = 0;
 
-        if (node.Rank > limit)
+        try
         {
-            return;
-        }
-
-        node.Rank = limit + 1;
-
-        if (node.Entries != null)
-        {
-            foreach (TransactionInternal.Entry e in node.Entries)
+            while (true)
             {
-                trans.AddRerankEntry(e);
+                ref Frame frame = ref depth == 0 ? ref root : ref frames[depth - 1];
+
+                if (!frame.Targets.MoveNext())
+                {
+                    if (depth == 0)
+                    {
+                        return;
+                    }
+
+                    depth--;
+                    continue;
+                }
+
+                Node node = frame.Targets.Current.Node;
+                int limit = frame.Node.Rank;
+
+                if (ReferenceEquals(objA: originalNode, objB: node))
+                {
+                    throw new Exception("A dependency cycle was detected.");
+                }
+
+                if (node.Rank > limit)
+                {
+                    continue;
+                }
+
+                node.Rank = limit + 1;
+
+                if (node.Entries != null)
+                {
+                    foreach (TransactionInternal.Entry e in node.Entries)
+                    {
+                        trans.AddRerankEntry(e);
+                    }
+                }
+
+                if (depth == frames.Length)
+                {
+                    Array.Resize(array: ref frames, newSize: Math.Max(val1: 4, val2: depth * 2));
+                }
+
+                frames[depth] = new Frame(node: node, targets: node.GetListenerTargetsUnsafe().GetEnumerator());
+                depth++;
+                usedFrames = Math.Max(val1: usedFrames, val2: depth);
             }
         }
-
-        foreach (Target t in node.GetListenerTargetsUnsafe())
+        finally
         {
-            EnsureBiggerThanRecursive(trans: trans, originalNode: originalNode, node: t.Node, limit: node.Rank);
+            // A frame refers to a node. Thus, an array that keeps its frames keeps those nodes alive.
+            Array.Clear(array: frames, index: 0, length: usedFrames);
+
+            if (frames.Length <= MaxWalkFramesToKeep)
+            {
+                walkFrames = frames;
+            }
         }
     }
 
@@ -163,10 +210,18 @@ internal abstract class Node
     // tests allocated the same number of bytes. The snapshot has no cost here, because a node
     // with no listeners receives the shared NoListeners array, and a cascade during
     // construction reads only those new nodes. For no saving, that change adds a virtual
-    // call for each node, make EnsureBiggerThanRecursive protected, and make this condition
+    // call for each node, make EnsureDescendantsBiggerThan protected, and make this condition
     // necessary: no code changes the listener set during a cascade. Today the snapshot lets a
     // reader see an older view, and the reader does not throw.
     protected abstract TargetSnapshot<Target> GetListenerTargetsUnsafe();
+
+    // One level of the walk in EnsureDescendantsBiggerThan: a node, and the position in its targets.
+    // The walk moves the enumerator through a ref, thus the field is not readonly.
+    private struct Frame(in Node node, in TargetSnapshot<Target>.Enumerator targets)
+    {
+        public readonly Node Node = node;
+        public TargetSnapshot<Target>.Enumerator Targets = targets;
+    }
 
     public abstract class Target(Node node, bool isActivated)
     {
