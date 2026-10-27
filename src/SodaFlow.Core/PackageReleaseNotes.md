@@ -58,6 +58,17 @@ weak until Root is called and is held by the stream after that, until its first 
 of those does nothing. SodaFlow.FSharp's listenOnceAsync uses it so that an async that never runs leaves no listener
 behind.
 
+Fixed: a long chain of operations could crash the process with a stack overflow. When a link gives a node a higher
+rank, every node downstream of it needs a higher rank too, and the engine walked them with a recursive call per node.
+Closing a loop onto a stream of higher rank does this for the whole loop, and a loop over a chain of 10,000 maps
+overflowed the stack. .NET cannot catch a stack overflow, so the process ended. The walk now keeps its own stack on the
+heap. It visits the nodes in the same order and gives each the same rank as before, and a cycle still throws the same
+exception. A loop over 50,000 maps now closes, and a value sent through it arrives.
+
+The stack is one array that every walk reuses, kept only while it holds 1,024 levels or fewer, so a chain of that depth
+or less allocates nothing for it. RankPropagationBenchmarks in SodaFlow.Benchmarks measures the walk, and a chain of up
+to 1,000 maps costs the same time and memory as before, within the noise of the runs.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
