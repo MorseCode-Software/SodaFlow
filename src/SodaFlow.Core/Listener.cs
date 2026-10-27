@@ -64,6 +64,15 @@ public interface IStrongListener : IListener, IDisposable;
 // ReSharper disable once InheritdocConsiderUsage
 public interface IWeakListener : IListener;
 
+// A one-shot listener that roots nothing until a call to Root. The F# listenOnceAsync uses it. The
+// async holds it until the async runs, and the async roots it when it runs. Thus, an async that does
+// not run does not keep the listener on the stream.
+internal interface IRootableListener : IWeakListener
+{
+    // Keeps the listener alive until it fires or stops. After it fires or stops, this does nothing.
+    void Root();
+}
+
 internal interface IKeepListenersAlive
 {
     void KeepListenerAlive(IListener listener);
