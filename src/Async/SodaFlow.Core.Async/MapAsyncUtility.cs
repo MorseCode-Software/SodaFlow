@@ -269,12 +269,11 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///         and the pipeline admits the value.
     ///     </para>
     ///     <para>
-    ///         A call with a transaction open is legal. The code of an operation
-    ///         before its first await runs in the transaction that started that
-    ///         operation. Thus, a caller of this method can have a transaction open.
-    ///         This method defers the value to a transaction of its own in that
-    ///         condition. The pipeline then admits the value after the transaction of
-    ///         the caller ends.
+    ///         A call with a transaction open is legal. This method defers the value
+    ///         to a transaction of its own in that condition. The pipeline then admits
+    ///         the value after the transaction of the caller ends. An operation runs
+    ///         with no transaction open, also the code before its first await. Thus,
+    ///         a call from an operation sends the value immediately.
     ///     </para>
     /// </summary>
     /// <param name="value">The value to put into the pipeline.</param>
@@ -2345,11 +2344,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // Sends one admission of an Execute call, and never in a transaction that other code opened.
     //
-    // Execute is for a call from the operation of a pipeline, and such an operation begins in the
-    // transaction that started it. StartOperation goes through PostImpl, thus the code before the
-    // first await of an operation runs in that transaction. A caller of Execute can thus have a
-    // transaction open. Execute defers and does not throw, as EndItem does, and the admission gets
-    // a transaction of its own.
+    // Execute is for a call from the operation of a pipeline. An operation starts after the
+    // transaction lock is free, thus such a call has no transaction open. A caller can also have a
+    // transaction of its own open. Execute then defers and does not throw, as EndItem does, and
+    // the admission gets a transaction of its own.
     //
     // `send` makes the value in the transaction of the send and not before it. Thus, an overload
     // that takes a cell reads that cell in the transaction that admits its value. PostImpl gives
@@ -2426,15 +2424,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         // This code defers only the call of the operation. The transaction that promoted the
         // entry gave it the Running status synchronously. Post prevents the start of asynchronous work,
-        // which is a side effect, in the transaction that processes the event. StartOperation is
-        // a usual async Task method. FireAndForget is the one position where this code does not
-        // await its Task, and that is explicit and not a discard in an async void method.
+        // which is a side effect, in the transaction that processes the event. The post then holds
+        // the call until the transaction lock is free. A posted action runs in a transaction, and
+        // the code of an operation before its first await must not run with the lock. Code there
+        // that blocks stops each thread from opening a transaction, and code that waits for a
+        // transaction on a different thread never ends. AfterReleaseImpl runs the call on this
+        // thread, thus the operation starts inline, as before, and not on the thread pool.
+        // StartOperation is a usual async Task method. FireAndForget is the one position where this
+        // code does not await its Task, and that is explicit and not a discard in an async void
+        // method.
         TransactionInternal.PostImpl(() =>
-            FireAndForget(
-                this.StartOperation(
-                    toStart: toStart,
-                    value: value,
-                    trackedCell: trackedCell)));
+            TransactionInternal.AfterReleaseImpl(() =>
+                FireAndForget(
+                    this.StartOperation(
+                        toStart: toStart,
+                        value: value,
+                        trackedCell: trackedCell))));
     }
 
     private async Task StartOperation(

@@ -38,6 +38,46 @@ public sealed class MapAsyncImplTests
         l.Unlisten();
     }
 
+    // The code of an operation before its first await must not run with the transaction lock. Code
+    // there that waits for a transaction on a different thread then ends, and does not wait for the
+    // lock that its own thread holds. The operation gives true if the lock was free.
+    [Test]
+    public async Task AnOperationStartsWithTheTransactionLockFree()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<bool> results = Stream.CreateSink<bool>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<bool> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                operation: static (_, factory, token) =>
+                {
+                    bool lockWasFree =
+                        Task.Run(
+                                action: static () => Transaction.RunVoid(static () =>
+                                {
+                                }),
+                                cancellationToken: token)
+                            .Wait(millisecondsTimeout: 5_000, cancellationToken: token);
+
+                    return Task.FromResult(factory.FromValue(lockWasFree));
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                inputConverter: static v => v);
+
+        source.Send("hello");
+
+        TestUtil.WaitUntil(condition: () => received.Count == 1, timeoutMs: 15_000);
+        await Assert.That(received[0]).IsTrue();
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     [Test]
     public async Task FailedOperationPublishesToErrors()
     {
