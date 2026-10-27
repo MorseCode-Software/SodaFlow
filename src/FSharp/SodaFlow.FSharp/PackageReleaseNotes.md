@@ -10,6 +10,8 @@ reach this package, and its notes have the details of each:
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
   map of a cell from switchC or switchB from running its function a wasted second time when the switch moves to an inner
   cell of higher rank than its output.
+- A long chain of operations no longer crashes the process with a stack overflow when a link raises the rank of every
+  node in it, as closing a loop over a chain of 10,000 maps did.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
