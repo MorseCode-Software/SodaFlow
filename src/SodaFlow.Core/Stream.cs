@@ -2001,44 +2001,30 @@ public class Stream<T>
 
     internal Stream<T> OnceImpl()
     {
-        // This code is long, but it is satisfactory, because it removes the listener.
         Stream<T> @out = new(this.KeepListenersAlive);
         IWeakListener? listener = null;
-        bool unlistenEarly = false;
 
         IWeakListener listenerToReturn =
             this.Listen(
                 target: @out.Node,
                 action: (trans, a) =>
                 {
+                    // The first firing removes the listener and sets null. Listen can send the
+                    // earlier firings of a transaction to this handler in one loop, and Unlisten
+                    // does not stop that loop. Thus, this test stops the second value.
                     // ReSharper disable AccessToModifiedClosure
-                    if (listener != null)
+                    if (listener == null)
                     {
-                        @out.Send(trans: trans, a: a);
-
-                        IWeakListener? listenerLocal = listener;
-
-                        if (listenerLocal == null)
-                        {
-                            unlistenEarly = true;
-                        }
-                        else
-                        {
-                            listenerLocal.Unlisten();
-                            listener = null;
-                        }
+                        return;
                     }
+
+                    @out.Send(trans: trans, a: a);
+                    listener.Unlisten();
+                    listener = null;
                     // ReSharper restore AccessToModifiedClosure
                 });
 
         listener = listenerToReturn;
-
-        if (unlistenEarly)
-        {
-            listenerToReturn.Unlisten();
-            listener = null;
-            return @out;
-        }
 
         return @out.UnsafeAttachListener(listenerToReturn);
     }
