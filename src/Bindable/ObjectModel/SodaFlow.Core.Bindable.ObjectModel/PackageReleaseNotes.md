@@ -1,3 +1,17 @@
+4.3.1
+
+Fixed: with SynchronizationContextBindingScheduler, every transaction that posted to the binding thread ran the
+transaction start hooks a second time. To send its batch of posts even when a transaction fails, the scheduler also
+posted an empty action with a failure handler, and SodaFlow runs each posted action in a transaction of its own, which
+runs the start hooks. An application with a TimerSystem therefore read the clock and sent Time a second time for each
+such transaction, and anything that listened to the updates of Time saw the extra send. The scheduler now asks the
+transaction directly to send the batch if it fails, and posts nothing extra. What reaches the binding thread is
+unchanged. After a transaction that fails, the batch is still sent, now at the point where the transaction discards
+its last actions, which comes after the failure handlers of other posted actions rather than among them.
+
+Requires SodaFlow.Core 5.0.1, which adds the member this release calls. The floor of the dependency is the version of
+SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
+
 4.3.0
 
 Changed: a command sends nothing when its enablement cell is false at the moment it sends. CanExecute answers from a

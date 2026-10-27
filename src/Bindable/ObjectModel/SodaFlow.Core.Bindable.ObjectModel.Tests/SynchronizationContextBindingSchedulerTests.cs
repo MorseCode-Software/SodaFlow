@@ -146,6 +146,33 @@ public sealed class SynchronizationContextBindingSchedulerTests
         await Assert.That(ran).IsTrue().Because("a post that a failed transaction made still reaches the context");
     }
 
+    // The scheduler must not open a transaction of its own for a transaction that posts. Each
+    // transaction runs the start hooks, and a timer system reads its clock and sends its time in one.
+    [Test]
+    public async Task ATransactionThatPostsRunsTheStartHooksOneTime()
+    {
+        QueueingContext context = new();
+        SynchronizationContextBindingScheduler scheduler = new(context);
+        int thread = Environment.CurrentManagedThreadId;
+        int runs = 0;
+
+        // A start hook stays for the life of the process, and other tests open transactions on
+        // other threads. Thus, the hook counts only the transactions of this thread.
+        Transaction.OnStart(() =>
+        {
+            if (Environment.CurrentManagedThreadId == thread)
+            {
+                runs++;
+            }
+        });
+
+        Transaction.RunVoid(() => scheduler.Post(static () => { }));
+        int runsOfThisTransaction = runs;
+        context.RunAll();
+
+        await Assert.That(runsOfThisTransaction).IsEqualTo(1);
+    }
+
     [Test]
     public async Task AThrowFromOneActionDoesNotStopTheOthersInTheItem()
     {

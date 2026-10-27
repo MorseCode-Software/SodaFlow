@@ -217,10 +217,12 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             // The batch goes to the context after the transaction sends all its updates, and
             // before the work that the transaction posts. That work runs in transactions of its
             // own, and their batches must come after this one. A transaction that stops does not
-            // run its last actions. Thus, the release of the post below sends the batch then, as
-            // this scheduler sent each action before it made batches.
-            transaction.Last(this.SendBatch);
-            TransactionInternal.PostImpl(action: static () => { }, onFailure: _ => this.SendBatch());
+            // run its last actions, but it runs their discard actions. Thus, the discard sends the
+            // batch then, as this scheduler sent each action before it made batches. An empty post
+            // with a release did this before. Each post runs in a transaction of its own, which
+            // runs the start hooks a second time.
+            Action send = this.SendBatch;
+            transaction.Last(commit: send, discard: send);
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - The code above sets the batch with its transaction.

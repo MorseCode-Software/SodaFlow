@@ -1,3 +1,13 @@
+4.0.5
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets
+SodaFlow.Bindable.ObjectModel.Core 4.3.1. In that release, a transaction that posts to the binding thread through
+SynchronizationContextBindingScheduler no longer runs the transaction start hooks a second time, which made a
+TimerSystem read its clock and send Time twice. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 4.0.4 would go on resolving core 4.3.0. A
+consumer who references the core package directly gets the fix either way.
+
 4.0.4
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets
