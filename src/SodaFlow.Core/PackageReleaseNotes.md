@@ -22,16 +22,18 @@ successful one committed. A transaction that succeeds does exactly what it did b
 Not changed: a listener that ran before the throw has already seen the failed transaction's values, and nothing takes
 them back.
 
-Fixed: a step of the graph could run twice in one transaction. The engine runs queued steps in order of rank, and took
-a step out of its node's list only after the step had run. A step can raise the rank of its own node, which SwitchC and
-SwitchB do when they switch to an inner cell of higher rank than their output, and a change of rank puts every step in
-the node's list back in the queue, including the one that is running. So it ran again: a Map on the switched cell
-called its function twice, and anything built on the switch's own stream saw two firings. Updates combined the two, so
-a listener on the cell did not see it. A step now leaves the list before it runs.
+Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
+transaction in order of rank, and a step stayed in a list on its node until it had finished, so that a change of the
+node's rank could move it in the queue. A step that threw never finished, so it never left the list. The next time the
+node's rank changed, in any later transaction, that step went back in the queue and ran there, and it could throw again
+and fail a transaction that had nothing to do with it. A node's rank changes when it gets a link from a node of higher
+rank, which a switch or the close of a loop can make. A step now leaves the list before it runs.
 
-The same change fixes a step that threw. It never left its node's list, so the next time that node's rank changed, in
-any later transaction, the step from the failed transaction ran again there, and could throw again and fail a
-transaction that had nothing to do with it.
+The same change removes a wasted step. A step can raise the rank of its own node while it runs, which SwitchC and
+SwitchB do when they switch to an inner cell of higher rank than their output, and that put the running step back in
+the queue, so it ran a second time in the same transaction. A Map on the switched cell called its function twice, with
+the same value both times, and a listener on the cell still saw one update. Only a function with side effects, which a
+Map must not have, could tell.
 
 Fixed: ListenOnceImpl and ListenOnceStrongImpl, which the language packages give as ListenOnce and ListenOnceStrong,
 could call the handler twice when the stream fired on another thread. The listener stops itself through its own handle,
