@@ -22,6 +22,19 @@ successful one committed. A transaction that succeeds does exactly what it did b
 Not changed: a listener that ran before the throw has already seen the failed transaction's values, and nothing takes
 them back.
 
+Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
+transaction in order of rank, and a step stayed in a list on its node until it had finished, so that a change of the
+node's rank could move it in the queue. A step that threw never finished, so it never left the list. The next time the
+node's rank changed, in any later transaction, that step went back in the queue and ran there, and it could throw again
+and fail a transaction that had nothing to do with it. A node's rank changes when it gets a link from a node of higher
+rank, which a switch or the close of a loop can make. A step now leaves the list before it runs.
+
+The same change removes a wasted step. A step can raise the rank of its own node while it runs, which SwitchC and
+SwitchB do when they switch to an inner cell of higher rank than their output, and that put the running step back in
+the queue, so it ran a second time in the same transaction. A Map on the switched cell called its function twice, with
+the same value both times, and a listener on the cell still saw one update. Only a function with side effects, which a
+Map must not have, could tell.
+
 Fixed: ListenOnceImpl and ListenOnceStrongImpl, which the language packages give as ListenOnce and ListenOnceStrong,
 could call the handler twice when the stream fired on another thread. The listener stops itself through its own handle,
 and it got that handle only after the transaction that attached it had closed and released the lock. A firing on

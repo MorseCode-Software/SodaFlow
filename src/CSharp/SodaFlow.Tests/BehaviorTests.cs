@@ -931,6 +931,38 @@ public sealed class BehaviorTests
             .IsEquivalentTo(expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ordering: CollectionOrdering.Matching);
     }
 
+    // The inner cell has a higher rank than the output of the switch. The switch then increases the
+    // rank of its own node while it runs. The function of a Map on the switch must run one time.
+    [Test]
+    public async Task TestSwitchCToACellOfHigherRankRunsAMapOfItOnce()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        Cell<int> deep = Cell.CreateSink(100);
+
+        for (int i = 0; i < 10; i++)
+        {
+            deep = deep.Map(static x => x + 1);
+        }
+
+        CellSink<Cell<int>> selector = Cell.CreateSink<Cell<int>>(a);
+        List<int> calls = [];
+
+        Cell<int> mapped =
+            selector.SwitchC()
+                .Map(x =>
+                {
+                    calls.Add(x);
+                    return x;
+                });
+
+        IListener l = mapped.ListenStrong(static _ => { });
+        calls.Clear();
+        selector.Send(deep);
+        l.Unlisten();
+
+        await Assert.That(calls).IsEquivalentTo(expected: [110], ordering: CollectionOrdering.Matching);
+    }
+
     private sealed class Ss(char a, char b, Maybe<Stream<char>> sw)
     {
         public readonly char A = a;

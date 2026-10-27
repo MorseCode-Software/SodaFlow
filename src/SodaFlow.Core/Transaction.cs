@@ -404,8 +404,13 @@ internal sealed class TransactionInternal
                     // ReSharper disable once NullableWarningSuppressionIsUsed - PrioritizedQueue.Dequeue() will not
                     // return null if PrioritizedQueue.IsEmpty() is false.
                     Entry e = PrioritizedQueue.Dequeue()!;
-                    e.Execute(this);
+
+                    // Remove the entry from its node before it runs. An action can increase the rank
+                    // of its own node, and a change of rank puts each entry of the node in the queue
+                    // again. An action can also throw. The node then holds an entry that did not
+                    // complete, and the next change of rank runs it in a subsequent transaction.
                     e.Dispose();
+                    e.Execute(this);
                 }
 
                 List<Action>? sq = this.sampleQueue;

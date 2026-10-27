@@ -1,10 +1,15 @@
 5.0.2
 
-This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1. That release fixes two
-things that reach this package. A transaction that fails no longer leaves state behind that breaks the graph after it:
-before, a cell could stop updating, a sink could throw on every later send, and a stream could replay old firings to
-each new listener. And ListenOnce and ListenOnceStrong no longer call the handler twice when the stream fires on
-another thread at the moment the listener is attached. That package's notes have the details of both.
+This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1. That release has fixes that
+reach this package, and its notes have the details of each:
+
+- A transaction that fails no longer leaves state behind that breaks the graph after it. Before, a cell could stop
+  updating, a sink could throw on every later send, and a stream could replay old firings to each new listener.
+- ListenOnce and ListenOnceStrong no longer call the handler twice when the stream fires on another thread at the
+  moment the listener is attached.
+- A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
+  map of a cell from SwitchC or SwitchB from running its function a wasted second time when the switch moves to an inner
+  cell of higher rank than its output.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
