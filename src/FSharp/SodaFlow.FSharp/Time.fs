@@ -15,6 +15,7 @@ module SodaFlow.Time
 open System
 open System.Linq
 open System.Collections.Generic
+open System.Diagnostics
 open System.Runtime.CompilerServices
 open System.Threading
 
@@ -440,9 +441,13 @@ type SystemClockTimerSystem(handleException: exn -> unit) =
 
 type private SecondsTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<float>()
-    let startTime = DateTime.Now
+
+    // A Stopwatch, and not two readings of DateTime.Now. DateTime.Now moves with the system clock.
+    // Thus, a change of daylight saving time or a correction of the clock moved this count by the
+    // same quantity. A Stopwatch counts the time that goes by and nothing else.
+    let stopwatch = Stopwatch.StartNew()
     override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
-    override _.Now = (DateTime.Now - startTime).TotalSeconds
+    override _.Now = stopwatch.Elapsed.TotalSeconds
 
 /// <summary>
 ///     A timer system that measures time as the number of seconds after its construction.
