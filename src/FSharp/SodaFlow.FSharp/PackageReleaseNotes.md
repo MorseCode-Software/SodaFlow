@@ -38,6 +38,21 @@ fires was a leak with no end. Now the listener is weak, and held only by the asy
 runs, the stream holds it until the first firing or a cancellation, as before. A firing between the call and the start
 of the async still reaches the result, as long as you hold the async.
 
+Fixed: TimerSystem could send its Time behavior backward. Timers fire on more than one thread, the implementation's
+own and any thread whose transaction start runs the timers that are due, and each one queues its event after it lets
+go of the implementation's lock. The events then reached a first-in, first-out queue out of order, so alarms at 10 and
+11 could arrive as 11 then 10, with Time sent 11 then 10. And a transaction that started between a timer's removal and
+its event sent the current time first, so the event, for an earlier time, then sent Time back. Events are now taken in
+order of time, and an event that arrives after a later Time was sent still fires its alarm, with its own time and in
+its own transaction, but leaves Time where it is. This holds for any implementation, including one you write.
+
+Not changed: Time still follows the clock. If the clock itself goes back, as DateTime.Now does when daylight saving
+time ends, Time goes back with it, as before.
+
+Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
+jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
+counts with a Stopwatch, which only measures time going by.
+
 5.0.1
 
 lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the Core form for their count, as lift6 and
