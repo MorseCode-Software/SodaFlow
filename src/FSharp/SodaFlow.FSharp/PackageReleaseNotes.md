@@ -1,3 +1,13 @@
+5.0.2
+
+No change in API or behavior. This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1.
+In that release, a transaction that fails no longer leaves state behind that breaks the graph after it: before, a cell
+could stop updating, a sink could throw on every later send, and a stream could replay old firings to each new
+listener. That package's notes have the details.
+
+NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
+5.0.0. A consumer who references SodaFlow.Core directly gets the fix either way.
+
 5.0.1
 
 lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the Core form for their count, as lift6 and
