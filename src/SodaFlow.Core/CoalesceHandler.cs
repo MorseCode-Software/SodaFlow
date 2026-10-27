@@ -9,6 +9,18 @@ internal static class CoalesceHandler
         bool accumValid = false;
         T? accum = default;
 
+        // A transaction that fails can stop before the send runs. Then accumValid must go back to
+        // false, because the handler queues the send only when it is false. Otherwise, each
+        // subsequent value goes into the accumulator and the stream does not fire again. This
+        // captures no argument of the handler, thus the handler builds it one time and not in each
+        // transaction.
+        Action discard =
+            () =>
+            {
+                accumValid = false;
+                accum = default;
+            };
+
         return (trans1, a) =>
         {
             if (accumValid)
@@ -30,7 +42,8 @@ internal static class CoalesceHandler
                         @out.Send(trans: trans2, a: accum);
                         accumValid = false;
                         accum = default;
-                    });
+                    },
+                    discard: discard);
             }
         };
     }

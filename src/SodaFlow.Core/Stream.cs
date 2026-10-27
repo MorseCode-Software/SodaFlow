@@ -1953,6 +1953,16 @@ public class Stream<T>
         // fired.
         trans1.Sample(EnsureCommittedIsSet);
 
+        // A transaction that fails does not commit its state, and it must also clear hasPending.
+        // Otherwise, no subsequent transaction queues the commit. This captures no argument of the
+        // handler, thus SodaFlow builds it one time and not in each transaction.
+        Action discard =
+            () =>
+            {
+                hasPending = false;
+                pending = default;
+            };
+
         IListener l =
             this.Listen(
                 target: @out.Node,
@@ -1969,13 +1979,15 @@ public class Stream<T>
                     {
                         hasPending = true;
 
-                        trans2.Last(() =>
-                        {
-                            // ReSharper disable once AccessToModifiedClosure - We want to use the latest value of
-                            // pending here.
-                            committed = pending;
-                            hasPending = false;
-                        });
+                        trans2.Last(
+                            commit: () =>
+                            {
+                                // ReSharper disable once AccessToModifiedClosure - We want to use the latest value of
+                                // pending here.
+                                committed = pending;
+                                hasPending = false;
+                            },
+                            discard: discard);
                     }
 
                     pending = state;
@@ -2058,17 +2070,15 @@ public class Stream<T>
 
     internal void Send(TransactionInternal trans, T a)
     {
-        if (this.firings == null)
-        {
-            this.firings = [];
-            this.clearFirings = this.firings.Clear;
-        }
+        this.firings ??= [];
 
         if (this.firings.Count < 1)
         {
-            // ReSharper disable once NullableWarningSuppressionIsUsed - this.clearFirings will be non-null when
-            // this.firings is non-null.
-            trans.Last(this.clearFirings!);
+            // A transaction that fails must also clear the firings. Otherwise, the count stays above
+            // zero, no subsequent transaction queues the clear, and each subsequent Listen sends the
+            // stale firings.
+            Action clear = this.clearFirings ??= this.firings.Clear;
+            trans.Last(commit: clear, discard: clear);
         }
 
         this.firings.Add(a);
