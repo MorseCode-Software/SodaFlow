@@ -153,30 +153,18 @@ let listenOnceAsync stream =
 #else
     let tcs = TaskCompletionSource<_>()
 #endif
-    let mutable listenerOption = None
-    let mutable unlistenEarly = false
-
-    let listener =
-        stream
-        |> listenStrong (fun a ->
-            match listenerOption with
-            | None -> unlistenEarly <- true
-            | Some listener -> listener |> Listener.unlisten
-
-            tcs.TrySetResult(a) |> ignore)
-
-    listenerOption <- Some listener
-
-    if unlistenEarly then
-        listener |> Listener.unlisten
+    let listener = stream |> listenOnceStrong (fun a -> tcs.TrySetResult(a) |> ignore)
 
     async {
         let! ct = Async.CancellationToken
 
-        ct.Register(fun () ->
-            Listener.unlisten listener
-            tcs.TrySetCanceled() |> ignore)
-        |> ignore
+        // The registration holds the listener, and the listener holds the stream. Thus, remove the
+        // registration when the async completes. Otherwise, a token that lives longer than the
+        // stream keeps the stream alive.
+        use _ =
+            ct.Register(fun () ->
+                Listener.unlisten listener
+                tcs.TrySetCanceled() |> ignore)
 #if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         return! Async.AwaitTask tcs.Task
 #else
