@@ -1493,10 +1493,7 @@ let filterSome (stream: Stream<_>) =
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let choose f (stream: Stream<_>) =
-    StreamExtensionMethodsInternal.FilterSomeImpl(
-        stream.MapImpl(Func<_, _> f),
-        Action<_, _>(fun o a -> o |> Option.iter a.Invoke)
-    )
+    StreamExtensionMethodsInternal.ChooseImpl(stream, Func<_, _> f, Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
 
 /// <summary>
 ///     Lets firings through only while a behavior holds true.

@@ -8,9 +8,21 @@ since its last sweep, so on average the sweeps cost the same for each add howeve
 garbage collector removed still leaves the cache at the next sweep.
 
 In a benchmark that makes a state cell for each key of a collection and keeps every cell, the cells for 10,000 keys
-took 127 ms where they took 449 ms on .NET 10, and 149 ms where they took 726 ms on .NET Framework 4.7.2. The cost
-per cell still grows somewhat with the number of keys, for a reason not yet found. PerKeyCellBenchmarks in
-SodaFlow.Benchmarks measures it.
+took 127 ms where they took 449 ms on .NET 10, and 149 ms where they took 726 ms on .NET Framework 4.7.2.
+PerKeyCellBenchmarks in SodaFlow.Benchmarks measures it.
+
+Changed: each per-key cell, from StateCell, IdentityCell, and ItemCell on a collection or a view, builds one node
+fewer. The cell was a map that projects the change for its key, a filter that drops the changes for other keys, and a
+hold; the map and the filter are now one node. A cell allocates about 930 bytes less, which is 23 percent of what it
+allocated, and in the benchmark above the cells for 10,000 keys take 79 ms where they took 128 ms on .NET 10, and
+104 ms where they took 146 ms on .NET Framework 4.7.2. What a cell fires is unchanged.
+
+The cost per cell in that benchmark looked as if it grew with the number of keys, from about 8 µs at 1,000 keys to
+about 13 µs at 10,000 on .NET 10, and the earlier entry said the reason was not found. It is the garbage collector: the
+benchmark keeps every cell, so every object a cell is made of survives every collection and is copied forward, and
+that copying starts once the cells outgrow the budget of the youngest generation. With collections suppressed, the
+cost is flat at about 4 µs per cell from 2,000 to 20,000 keys, and what a cell allocates is the same at every size.
+Fewer objects per cell is the lever, which is what the change above pulls.
 
 Changed: the per-key cell caches are keyed by the projection that fills them, not by the projected type alone. The
 internal StateCellImpl, IdentityCellImpl, and ItemCellImpl take a CellProjection, which holds the two functions that
