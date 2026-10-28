@@ -1,3 +1,11 @@
+3.0.3
+
+Fixed: Maybe<T>.CompareTo allocated two closures on every call. It was two nested Match calls, and each one captured a
+value. A sort calls it about n log n times, so sorting 100,000 Maybe<int> values on .NET 10 took 45.5 ms and allocated
+396 MB. CompareTo now reads the two fields directly and allocates nothing. The same sort takes 6.1 ms, a little under
+the 6.6 ms that sorting the same values as Nullable<int> takes. On .NET Framework 4.7.2 it went from 46.4 ms and 402 MB
+to 9.4 ms and no allocation. The ordering is unchanged. MaybeCompareBenchmarks in SodaFlow.Benchmarks measures it.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
