@@ -1783,6 +1783,10 @@ internal static class AsyncConcurrencyStrategyFactory
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> : AsyncMapBase
 {
+    // The number of ids up to which EntryIndex and IdSet search an array and make no dictionary or
+    // set.
+    private const int LinearSearchLimit = 8;
+
     private readonly Stream<UnitInternal>? cancelAll;
 
     private readonly Stream<IReadOnlyCollection<TInput>>? cancelMatching;
@@ -1984,6 +1988,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                             Guid[] promote = new Guid[toStart.Count];
                             TInput[] values = new TInput[toStart.Count];
+                            EntryIndex trackedIndex = new(entries: tracked, lookups: toStart.Count);
 
                             for (int i = 0; i < toStart.Count; i++)
                             {
@@ -1995,17 +2000,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 }
                                 else
                                 {
-                                    Guid idToStart = promote[i];
+                                    int position = trackedIndex.IndexOf(promote[i]);
 
-                                    Entry? entry =
-                                        Array.Find(array: tracked, match: e => e.Item.Id == idToStart);
-
-                                    if (entry is null)
+                                    if (position < 0)
                                     {
                                         throw new InvalidOperationException("Could not find item to start.");
                                     }
 
-                                    values[i] = entry.Value;
+                                    values[i] = tracked[position].Value;
                                 }
                             }
 
@@ -2207,13 +2209,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             Entry[] kept = new Entry[list.Length];
             int count = 0;
+            IdSet remove = new(mutation.Remove);
 
             // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Entry e in list)
             {
-                bool remove = mutation.Remove.Any(itemToRemove => e.Item.Id == itemToRemove);
-
-                if (!remove)
+                if (!remove.Contains(e.Item.Id))
                 {
                     kept[count++] = e;
                 }
@@ -2234,14 +2235,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         if (mutation.Promote.Length > 0)
         {
             Entry[]? updated = null;
+            EntryIndex index = new(entries: list, lookups: mutation.Promote.Length);
 
             // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Guid idToPromote in mutation.Promote)
             {
-                int idx =
-                    Array.FindIndex(
-                        array: list,
-                        match: e => e.Item.Id == idToPromote);
+                int idx = index.IndexOf(idToPromote);
 
                 if (idx >= 0 && list[idx].Status != AsyncItemStatus.Running)
                 {
@@ -2682,18 +2681,17 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // in the queue.
             List<ExecuteCompletion<TResult>?> completions = [];
 
-            // ReSharper disable once LoopCanBeConvertedToQuery - Done for performance reasons.
+            EntryIndex queueIndex = new(entries: queue, lookups: ends.Count);
+
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
             for (int i = 0; i < ends.Count; i++)
             {
-                Guid endId = ends[i].Item.Id;
+                int position = queueIndex.IndexOf(ends[i].Item.Id);
 
-                Entry? endEntry = Array.Find(array: queue, match: entry => entry.Item.Id == endId);
-
-                if (endEntry != null)
+                if (position >= 0)
                 {
                     live.Add(ends[i]);
-                    completions.Add(endEntry.Completion);
+                    completions.Add(queue[position].Completion);
                 }
             }
 
@@ -2806,19 +2804,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             Guid[] promote = new Guid[next.Count];
             TInput[] values = new TInput[next.Count];
+            EntryIndex trackedIndex = new(entries: tracked, lookups: next.Count);
 
             for (int i = 0; i < next.Count; i++)
             {
                 Guid id = next[i].Item.Id;
+                int position = trackedIndex.IndexOf(id);
 
-                Entry? entry = Array.Find(array: tracked, match: e => e.Item.Id == id);
-
-                if (entry is null)
+                if (position < 0)
                 {
                     throw new InvalidOperationException("Could not find item to start.");
                 }
 
-                values[i] = entry.Value;
+                values[i] = tracked[position].Value;
                 promote[i] = id;
             }
 
@@ -2986,6 +2984,66 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         public Guid[] Promote { get; } = promote;
 
         public Entry[] Add { get; } = add;
+    }
+
+    // Finds the position of an entry by its id. A search of the array for each id costs the product
+    // of the number of ids and the length of the queue. The cancellation of a full queue searches for
+    // each item, and that cost was quadratic. Thus, for more than a few ids this makes a dictionary
+    // of the queue one time, and each search after it costs a constant. For a few ids, the search
+    // of the array costs less than the dictionary, and it allocates nothing.
+    private readonly struct EntryIndex
+    {
+        private readonly Entry[] entries;
+        private readonly Dictionary<Guid, int>? positions;
+
+        public EntryIndex(Entry[] entries, int lookups)
+        {
+            this.entries = entries;
+
+            if (lookups <= LinearSearchLimit || entries.Length <= LinearSearchLimit)
+            {
+                return;
+            }
+
+            this.positions = new Dictionary<Guid, int>(entries.Length);
+
+            for (int i = 0; i < entries.Length; i++)
+            {
+                this.positions[entries[i].Item.Id] = i;
+            }
+        }
+
+        // The position of the entry with this id, or -1.
+        public int IndexOf(Guid id)
+        {
+            if (this.positions != null)
+            {
+                // ReSharper disable once CanSimplifyDictionaryTryGetValueWithGetValueOrDefault - GetValueOrDefault
+                // does not exist on net472 and netstandard2.0, and this compiles for them as well.
+                return this.positions.TryGetValue(key: id, value: out int position) ? position : -1;
+            }
+
+            for (int i = 0; i < this.entries.Length; i++)
+            {
+                if (this.entries[i].Item.Id == id)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+    }
+
+    // Tells if an id is one of a set of ids. For more than a few ids it uses a HashSet, as EntryIndex
+    // uses a dictionary.
+    private readonly struct IdSet(in Guid[] ids)
+    {
+        private readonly Guid[] ids = ids;
+        private readonly HashSet<Guid>? set = ids.Length > LinearSearchLimit ? [.. ids] : null;
+
+        public bool Contains(Guid id) =>
+            this.set?.Contains(id) ?? Array.IndexOf(array: this.ids, value: id) >= 0;
     }
 }
 

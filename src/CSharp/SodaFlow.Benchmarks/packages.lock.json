@@ -398,6 +398,22 @@
           "System.ValueTuple": "[4.6.2, )"
         }
       },
+      "sodaflow.async": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Async.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Async.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
       "sodaflow.bindable.objectmodel": {
         "type": "Project",
         "dependencies": {
@@ -662,6 +678,22 @@
         "dependencies": {
           "SodaFlow.Core": "[1.0.0, )",
           "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.async": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow": "[1.0.0, )",
+          "SodaFlow.Async.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Async.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
           "System.ValueTuple": "[4.6.2, )"
         }
       },

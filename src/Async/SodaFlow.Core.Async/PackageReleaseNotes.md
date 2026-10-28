@@ -15,6 +15,14 @@ value immediately, where it used to defer it.
 Requires SodaFlow.Core 5.0.1, which adds the member this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
 
+Fixed: canceling many items at once cost time that grew with the square of their number. Each end found its item by
+searching the whole queue, and the removal of the ends searched the list of ends again for every item, with a closure
+for each. A cancelAll or cancelMatching on a long queue ends every item in it together, and with a Queue strategy and
+1,000 waiting items the cancellation alone took 1,850 us on .NET 10 and 5,151 us on .NET Framework 4.7.2. A search for
+more than a few items now builds one dictionary or set and looks each item up in it, and a search for a few still reads
+the queue directly and allocates nothing, so the same cancellation takes 271 us and 543 us. AsyncQueueBenchmarks in
+SodaFlow.Benchmarks measures it. Item ids are still Guids, so nothing about AsyncQueuedItem changes.
+
 5.0.1
 
 No public API change. Adds the internal path that two new Execute overloads use: the one for a Cell<Maybe<TInput>> in

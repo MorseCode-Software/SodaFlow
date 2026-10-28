@@ -326,6 +326,56 @@ public sealed class MapAsyncImplTests
         l.Unlisten();
     }
 
+    // The pipeline finds the items with a dictionary and a set where it ends more than a few items.
+    // This test cancels half of a long queue. Then the release of the item that runs must start the
+    // next item that remains.
+    [Test]
+    public async Task CancelMatchingOnALongQueueEndsTheMatchesAndKeepsTheRestInOrder()
+    {
+        const int count = 20;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<int>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<int>>();
+        ControlledOperation<int, int> op = new();
+        List<int> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v,
+                cancelMatching: cancelMatching);
+
+        for (int i = 0; i < count; i++)
+        {
+            source.Send(i);
+        }
+
+        TestUtil.WaitUntil(() => op.HasStarted(0));
+
+        // The odd values from 1 to 19: ten Queued items.
+        cancelMatching.Send([.. Enumerable.Range(start: 0, count: count / 2).Select(static i => 2 * i + 1)]);
+
+        int[] remaining = [.. status.Items.Sample().Select(static item => item.Value)];
+
+        op.Release(input: 0, result: 0);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+
+        int[] expectedRemaining = [.. Enumerable.Range(start: 0, count: count / 2).Select(static i => 2 * i)];
+        bool anOddValueStarted = Enumerable.Range(start: 0, count: count / 2).Any(i => op.HasStarted(2 * i + 1));
+
+        await Assert.That(remaining).IsEquivalentTo(expected: expectedRemaining, ordering: CollectionOrdering.Matching);
+        await Assert.That(anOddValueStarted).IsFalse();
+        await Assert.That(received).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     [Test]
     public async Task ItemsAndIsRunning_ReflectQueuedAndRunningStatus()
     {
