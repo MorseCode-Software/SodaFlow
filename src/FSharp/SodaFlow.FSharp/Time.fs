@@ -13,7 +13,6 @@
 module SodaFlow.Time
 
 open System
-open System.Linq
 open System.Collections.Generic
 open System.Diagnostics
 open System.Runtime.CompilerServices
@@ -262,7 +261,9 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
                 if timers.Count < 1 then
                     Wait(TimeSpan.FromSeconds(1000.0))
                 else
-                    let timer = timers.First()
+                    // Min is a property of the set. First is the LINQ method, which allocates an
+                    // enumerator at each call, and this runs at each wake of the timer thread.
+                    let timer = timers.Min
                     let waitTime = this.SubtractTimes timer.Time now
 
                     if waitTime <= TimeSpan.Zero then

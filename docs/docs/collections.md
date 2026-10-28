@@ -167,8 +167,9 @@ one again, so a view bound to a key can outlive its item and can be built before
 straight into `IOneWayBindableValue<T>` for the bound row; see [Data binding](bindable.md).
 
 `StateCell` caches weakly per key, so N observers of one key share a node and the node goes
-away when the last observer does. The cache is keyed by the projected type as well as the key,
-so the C# and F# surfaces over one collection cannot be handed each other's cells.
+away when the last observer does. The cache is keyed by the projection as well as the key: each
+language surface holds one projection per cell type, and a cache belongs to the projection that
+filled it, so the C# and F# surfaces over one collection cannot be handed each other's cells.
 
 ## Views
 

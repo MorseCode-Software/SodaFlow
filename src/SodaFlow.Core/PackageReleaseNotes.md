@@ -85,6 +85,28 @@ SodaFlow.Core.Collections use the second, where it takes about a kilobyte off ea
 takes this library's own optional type, no longer allocates a closure for every firing; the FilterSome of each language
 package is unchanged. The internal MaybeInternal.MatchSome, which that closure was the last use of, is removed.
 
+Changed: queuing a step of the graph no longer takes the node rank lock. Every step that an operation queues in a
+transaction, which is one per map, filter, or listener that a firing reaches, took and released that lock, and
+nothing it guarded could be touched by any thread but the one holding the transaction lock: the queue is read, drained,
+and reordered only on that thread, and a rank changes only inside a transaction. Measured back to back against the
+code before this change, a send through a chain of 32 maps went from 3,828 to 3,734 ns on .NET 10 and from 5,415 to
+5,036 ns on .NET Framework 4.7.2, and a send to a sink with one listener from 210 to 201 ns and from 347 to 322 ns.
+Allocation is unchanged. TransactionBenchmarks measures the chain. The lock itself is gone: linking a node to its
+target, the one other place that took it, runs under the transaction lock for the same reason.
+
+Fixed: a start hook can now register a start hook. The hooks ran in a foreach over the list they are registered in,
+and a registration from inside a hook changed that list and threw "Collection was modified". The hooks now run by
+index, up to the count at the start of the run, so a hook registered from inside a hook runs from the next transaction
+on.
+
+Fixed: work queued from a last action no longer leaks into the next transaction. A last action runs after the
+transaction has drained its queues, so a prioritized step it queued had nothing left to run it. The step stayed in the
+engine's queue and ran at the start of the next transaction, whichever thread opened it, and a send or a sample from a
+last action was silently dropped. The transaction now fails with an InvalidOperationException that says so, and the
+failure discards the step, so the next transaction starts clean. Nothing in this library's own last actions does this;
+the check is there to make the mistake loud rather than silent. A last action can still queue a last action, which runs
+in the same drain, and a post, which runs after it.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires

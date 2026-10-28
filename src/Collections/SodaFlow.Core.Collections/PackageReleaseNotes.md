@@ -24,6 +24,14 @@ that copying starts once the cells outgrow the budget of the youngest generation
 cost is flat at about 4 µs per cell from 2,000 to 20,000 keys, and what a cell allocates is the same at every size.
 Fewer objects per cell is the lever, which is what the change above pulls.
 
+Changed: the per-key cell caches are keyed by the projection that fills them, not by the projected type alone. The
+internal StateCellImpl, IdentityCellImpl, and ItemCellImpl take a CellProjection, which holds the two functions that
+make a cell's value and is the key of its cache, instead of the two functions as separate parameters. Before, two
+callers projecting to one type with different functions would have shared a cache, and the second would have got cells
+giving the first's values; no caller did that, and nothing stopped one. The language packages each hold one
+projection per cell type, so what they return is unchanged. Only the internal surface moved, so SodaFlow.Collections
+and SodaFlow.FSharp.Collections need this version of the core, which their dependency range gives them.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
