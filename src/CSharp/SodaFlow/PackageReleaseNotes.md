@@ -27,6 +27,9 @@ Fixed: ListenOnceAsync with a CancellationToken that can be canceled now removes
 the task completes. Before, each call left a registration behind until the token was canceled or collected, so a
 long-lived token gathered one per call. The task, its result, and what happens on cancellation are unchanged.
 
+Changed: Choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
+and costs about half as much to build.
+
 Fixed: TimerSystem could send its Time behavior backward. Timers fire on more than one thread, the implementation's
 own and any thread whose transaction start runs the timers that are due, and each one queues its event after it lets
 go of the implementation's lock. The events then reached a first-in, first-out queue out of order, so alarms at 10 and
@@ -41,6 +44,9 @@ time ends, Time goes back with it, as before.
 Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
 counts with a Stopwatch, which only measures time going by.
+
+Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
+enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
 
 5.0.1
 

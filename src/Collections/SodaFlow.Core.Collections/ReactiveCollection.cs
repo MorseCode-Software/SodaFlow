@@ -54,16 +54,20 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 
     /// <summary>
     ///     This is the same for the identities. It is a second dictionary and not one
-    ///     shared dictionary, because a collection whose identity type and state type
-    ///     are the same type then puts two different values at one key and answers the
-    ///     second with the first.
+    ///     shared dictionary. Thus, a reader sees which part of an item a cache reads,
+    ///     and a projection of a state cannot find a cache of identities.
     /// </summary>
-    private readonly Dictionary<Type, object> identityCaches = new();
+    private readonly Dictionary<CellProjection, object> identityCaches = new();
 
-    private readonly Dictionary<Type, object> itemCaches = new();
+    private readonly Dictionary<CellProjection, object> itemCaches = new();
 
-    /// <summary>One per-key cell cache per projected type, for states.</summary>
-    private readonly Dictionary<Type, object> stateCaches = new();
+    /// <summary>
+    ///     One per-key cell cache per projection, for states. The key is the
+    ///     projection and not its projected type, because two projections to one type
+    ///     make two different cells for one key. See
+    ///     <see cref="CellProjection{TSource,TProjected}" />.
+    /// </summary>
+    private readonly Dictionary<CellProjection, object> stateCaches = new();
 
     /// <summary>
     ///     This is internal, thus only this assembly can make one. The class remarks
@@ -245,23 +249,16 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </remarks>
     /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
     /// <param name="key">The key to monitor.</param>
-    /// <param name="onPresent">
-    ///     Makes the value of the cell while the collection has
-    ///     the key.
-    /// </param>
-    /// <param name="onAbsent">
-    ///     Makes the value of the cell while the collection does
-    ///     not have the key.
+    /// <param name="projection">
+    ///     Makes the value of the cell from the state, and from the absence of the
+    ///     key. The caller holds one instance for each projected type.
     /// </param>
     /// <returns>The cell.</returns>
-    internal Cell<TProjected> StateCellImpl<TProjected>(
-        TKey key,
-        Func<TState, TProjected> onPresent,
-        Func<TProjected> onAbsent)
+    internal Cell<TProjected> StateCellImpl<TProjected>(TKey key, CellProjection<TState, TProjected> projection)
     {
         lock (this.cacheGate)
         {
-            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.stateCaches);
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: this.stateCaches);
             Cell<TProjected>? cached = cache.Get(key);
 
             if (cached is not null)
@@ -269,7 +266,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
                 return cached;
             }
 
-            Cell<TProjected> created = this.CreateStateCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            Cell<TProjected> created =
+                this.CreateStateCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
+
             cache.Set(key: key, cell: created);
 
             return created;
@@ -284,23 +283,20 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </remarks>
     /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
     /// <param name="key">The key to monitor.</param>
-    /// <param name="onPresent">
-    ///     Makes the value of the cell while the collection has
-    ///     the key.
-    /// </param>
-    /// <param name="onAbsent">
-    ///     Makes the value of the cell while the collection does
-    ///     not have the key.
+    /// <param name="projection">
+    ///     Makes the value of the cell from the identity, and from the absence of
+    ///     the key. The caller holds one instance for each projected type.
     /// </param>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> IdentityCellImpl<TProjected>(
         TKey key,
-        Func<TIdentity, TProjected> onPresent,
-        Func<TProjected> onAbsent)
+        CellProjection<TIdentity, TProjected> projection)
     {
         lock (this.cacheGate)
         {
-            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.identityCaches);
+            ProjectedCellCache<TKey, TProjected> cache =
+                CacheFor(projection: projection, caches: this.identityCaches);
+
             Cell<TProjected>? cached = cache.Get(key);
 
             if (cached is not null)
@@ -308,7 +304,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
                 return cached;
             }
 
-            Cell<TProjected> created = this.CreateIdentityCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            Cell<TProjected> created =
+                this.CreateIdentityCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
+
             cache.Set(key: key, cell: created);
 
             return created;
@@ -327,23 +325,18 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </remarks>
     /// <typeparam name="TProjected">The type that the wrapper gives to the cell.</typeparam>
     /// <param name="key">The key to monitor.</param>
-    /// <param name="onPresent">
-    ///     Makes the value of the cell while the collection has
-    ///     the key.
-    /// </param>
-    /// <param name="onAbsent">
-    ///     Makes the value of the cell while the collection does
-    ///     not have the key.
+    /// <param name="projection">
+    ///     Makes the value of the cell from the item, and from the absence of the
+    ///     key. The caller holds one instance for each projected type.
     /// </param>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> ItemCellImpl<TProjected>(
         TKey key,
-        Func<Item<TIdentity, TState>, TProjected> onPresent,
-        Func<TProjected> onAbsent)
+        CellProjection<Item<TIdentity, TState>, TProjected> projection)
     {
         lock (this.cacheGate)
         {
-            ProjectedCellCache<TKey, TProjected> cache = CacheFor<TProjected>(this.itemCaches);
+            ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: this.itemCaches);
             Cell<TProjected>? cached = cache.Get(key);
 
             if (cached is not null)
@@ -351,7 +344,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
                 return cached;
             }
 
-            Cell<TProjected> created = this.CreateItemCell(key: key, onPresent: onPresent, onAbsent: onAbsent);
+            Cell<TProjected> created =
+                this.CreateItemCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
+
             cache.Set(key: key, cell: created);
 
             return created;
@@ -380,26 +375,28 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         Func<TProjected> onAbsent);
 
     /// <summary>
-    ///     The cache for one projected type, created the first time that type is
-    ///     asked for.
+    ///     The cache for one projection, created the first time that projection is
+    ///     given.
     /// </summary>
     /// <remarks>
     ///     This method holds the one cast, and the cast is correct because the key of
-    ///     the dictionary is the type of the cast. Only a call whose <c>TProjected</c>
-    ///     is that type can put an entry at <c>typeof(TProjected)</c>. A dictionary
-    ///     from a type to a value with that type as its parameter is higher-kinded,
-    ///     and C# cannot give that. Thus, this code makes the statement here one time
-    ///     and not at each lookup.
+    ///     the dictionary is the projection, whose type gives <c>TProjected</c>. Only
+    ///     a call with that projection can put an entry at it. A dictionary from a
+    ///     projection to a value with the type of the projection as its parameter is
+    ///     higher-kinded, and C# cannot give that. Thus, this code makes the statement
+    ///     here one time and not at each lookup.
     /// </remarks>
-    private static ProjectedCellCache<TKey, TProjected> CacheFor<TProjected>(Dictionary<Type, object> caches)
+    private static ProjectedCellCache<TKey, TProjected> CacheFor<TSource, TProjected>(
+        CellProjection<TSource, TProjected> projection,
+        Dictionary<CellProjection, object> caches)
     {
-        if (caches.TryGetValue(key: typeof(TProjected), value: out object? existing))
+        if (caches.TryGetValue(key: projection, value: out object? existing))
         {
             return (ProjectedCellCache<TKey, TProjected>)existing;
         }
 
         ProjectedCellCache<TKey, TProjected> created = new();
-        caches[typeof(TProjected)] = created;
+        caches[projection] = created;
 
         return created;
     }

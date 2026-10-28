@@ -204,8 +204,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Func<TProjected> onAbsent) =>
         TransactionInternal.RunImpl(() =>
             this.ItemChangesStream
-                .MapImpl(change => change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .FilterSomeInternal()
+                .ChooseInternal(change =>
+                    change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .HoldLazyImpl(
                     this.SnapshotCell.SampleLazyImpl()
                         .MapImpl(snapshot =>
@@ -332,8 +332,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Func<TProjected> onAbsent) =>
         TransactionInternal.RunImpl(() =>
             this.ItemChangesStream
-                .MapImpl(change => change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .FilterSomeInternal()
+                .ChooseInternal(change =>
+                    change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .HoldLazyImpl(
                     this.SnapshotCell.SampleLazyImpl()
                         .MapImpl(snapshot =>
@@ -360,11 +360,13 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                 // then has no value until the next edit to that key. A lazy sample runs after the
                 // transaction is stable and gives the correct value.
                 //
-                // The projection is in this map and not in a second map after it, thus the
-                // optional type of a wrapper costs no more nodes.
+                // The projection is in this one node and not in a map after it, thus the optional
+                // type of a wrapper costs no more nodes. The node maps and filters together. A cell
+                // for each key of a large collection showed that a second node was a quarter of the
+                // cost of a cell.
                 this.ItemChangesStream
-                    .MapImpl(change => change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                    .FilterSomeInternal()
+                    .ChooseInternal(change =>
+                        change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                     .HoldLazyImpl(
                         this.SnapshotCell.SampleLazyImpl()
                             .MapImpl(snapshot =>

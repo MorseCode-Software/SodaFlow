@@ -122,8 +122,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
         return TransactionInternal.RunImpl(() =>
             this.KeyChangesStream
-                .MapImpl(change => change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .FilterSomeInternal()
+                .ChooseInternal(change =>
+                    change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
@@ -148,8 +148,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
         return TransactionInternal.RunImpl(() =>
             this.KeyChangesStream
-                .MapImpl(change => change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .FilterSomeInternal()
+                .ChooseInternal(change =>
+                    change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>
@@ -176,8 +176,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
 
         return TransactionInternal.RunImpl(() =>
             this.KeyChangesStream
-                .MapImpl(change => change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .FilterSomeInternal()
+                .ChooseInternal(change =>
+                    change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
                 .HoldLazyImpl(
                     this.KeysCell.SampleLazyImpl()
                         .MapImpl(keys =>

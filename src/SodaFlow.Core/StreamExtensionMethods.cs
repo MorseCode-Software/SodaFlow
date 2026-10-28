@@ -55,8 +55,76 @@ internal static class StreamExtensionMethodsInternal
         return @out.UnsafeAttachListener(l);
     }
 
-    internal static Stream<T> FilterSomeInternal<T>(this Stream<MaybeInternal<T>> s) =>
-        s.FilterSomeImpl<T, MaybeInternal<T>>(static (m, a) => m.MatchSome(a));
+    // This does not go through FilterSomeImpl. That method knows no optional type, thus it matches
+    // through a delegate that gets a closure for each firing. MaybeInternal is this assembly's own
+    // type, and TryGetValue reads it with no closure.
+    internal static Stream<T> FilterSomeInternal<T>(this Stream<MaybeInternal<T>> s)
+    {
+        Stream<T> @out = new(s.KeepListenersAlive);
+
+        IListener l =
+            s.Listen(
+                target: @out.Node,
+                action: (trans2, m) =>
+                {
+                    if (m.TryGetValue(out T v))
+                    {
+                        @out.Send(trans: trans2, a: v);
+                    }
+                });
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    /// <summary>
+    ///     Maps and filters in one node. This is <c>s.MapImpl(f).FilterSomeImpl(matchSome)</c>
+    ///     with one stream, one node, and one listener, and not two of each.
+    /// </summary>
+    /// <remarks>
+    ///     A language surface gives its optional type through <paramref name="matchSome" />, as
+    ///     for <see cref="FilterSomeImpl{T,TMaybe}" />.
+    /// </remarks>
+    internal static Stream<TResult> ChooseImpl<T, TResult, TMaybe>(
+        this Stream<T> s,
+        Func<T, TMaybe> f,
+        Action<TMaybe, Action<TResult>> matchSome)
+    {
+        Stream<TResult> @out = new(s.KeepListenersAlive);
+
+        IListener l =
+            s.Listen(
+                target: @out.Node,
+                action: (trans2, a) => matchSome(arg1: f(a), arg2: v => @out.Send(trans: trans2, a: v)));
+
+        return @out.UnsafeAttachListener(l);
+    }
+
+    /// <summary>
+    ///     The same as <see cref="ChooseImpl{T,TResult,TMaybe}" />, for a function that gives a
+    ///     <see cref="MaybeInternal{T}" />. It allocates nothing for a firing that gives no value.
+    /// </summary>
+    /// <remarks>
+    ///     The per-key cells of a collection are a map and then a filter. The map gives a value
+    ///     for one key and no value for each other key. One node for the two makes each such cell
+    ///     allocate approximately one kilobyte less, which is one quarter of its cost.
+    /// </remarks>
+    internal static Stream<TResult> ChooseInternal<T, TResult>(this Stream<T> s, Func<T, MaybeInternal<TResult>> f)
+    {
+        Stream<TResult> @out = new(s.KeepListenersAlive);
+
+        IListener l =
+            s.Listen(
+                target: @out.Node,
+                action: (trans2, a) =>
+                {
+                    if (f(a).TryGetValue(out TResult v))
+                    {
+                        @out.Send(trans: trans2, a: v);
+                    }
+                });
+
+        return @out.UnsafeAttachListener(l);
+    }
 
     /// <summary>
     ///     Fires the last value of a stream after a time with no other value. Each

@@ -280,9 +280,15 @@ internal sealed class TransactionInternal
                 localTransaction = null;
                 runningOnStartHooks = true;
 
-                foreach (Action action in OnStartHooks)
+                // By index, to the count at the start, thus a hook can add a hook. A foreach
+                // throws when the list changes while it runs. A hook that a hook adds runs from
+                // the next transaction. No other thread can add to the list here, because
+                // OnStartImpl takes the transaction lock and this thread holds it.
+                int count = OnStartHooks.Count;
+
+                for (int i = 0; i < count; i++)
                 {
-                    action();
+                    OnStartHooks[i]();
                 }
             }
             finally
@@ -314,13 +320,14 @@ internal sealed class TransactionInternal
 
     // ReSharper disable once MemberCanBeMadeStatic.Global - This is static to discourage this method from being called
     // outside of a transaction.
-    internal void Prioritized(Entry e)
-    {
-        lock (Node.NodeRanksLock)
-        {
-            PrioritizedQueue.Enqueue(e);
-        }
-    }
+    internal void Prioritized(Entry e) =>
+        // No lock. Only the thread that holds the transaction lock touches the queue. This method,
+        // CheckRegen, and the two drains in Close run in a transaction, and a child transaction
+        // runs on the thread of its parent. A change of rank also occurs only in a transaction,
+        // because Link takes one. A lock was here, on a rank lock that Link also took. It cost a
+        // Monitor.Enter and a Monitor.Exit for each entry, and it guarded nothing that the
+        // transaction lock does not guard.
+        PrioritizedQueue.Enqueue(e);
 
     internal void Sample(Action action) => (this.sampleQueue ??= []).Add(action);
 
@@ -518,6 +525,17 @@ internal sealed class TransactionInternal
             while (this.lastQueue?.Count > 0)
             {
                 this.lastQueue.Dequeue().Commit();
+            }
+
+            // A last action runs after the drain, thus work that it queues on this transaction has
+            // no drain to run in. A prioritized entry stayed in the static queue and ran in the
+            // next transaction. That is a different instant, and it can be on a different
+            // thread. A send or a sample did not run. This fails the transaction, and the catch
+            // below discards the entry.
+            if (!PrioritizedQueue.IsEmpty() || this.sendQueue?.Count > 0 || this.sampleQueue?.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "A last action queued work on its transaction. A last action runs after the drain, thus it must not send, sample, or queue a prioritized action.");
             }
 
             if (!this.hasParentTransaction)

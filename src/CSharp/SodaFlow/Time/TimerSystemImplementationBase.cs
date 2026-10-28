@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using JetBrains.Annotations;
 
@@ -148,8 +147,12 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
                 }
                 else
                 {
-                    // How long to the first timer?
-                    SimpleTimer timer = this.timers.First();
+                    // How long to the first timer? Min is a property of the set. First is the
+                    // LINQ method, which allocates an enumerator at each call, and this runs at
+                    // each wake of the timer thread.
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - The set holds at least one timer, thus
+                    // Min is not null.
+                    SimpleTimer timer = this.timers.Min!;
                     waitTime = this.SubtractTimes(first: timer.Time, second: now);
 
                     if (waitTime <= TimeSpan.Zero)

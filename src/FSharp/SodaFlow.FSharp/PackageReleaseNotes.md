@@ -48,6 +48,9 @@ fires was a leak with no end. Now the listener is weak, and held only by the asy
 runs, the stream holds it until the first firing or a cancellation, as before. A firing between the call and the start
 of the async still reaches the result, as long as you hold the async.
 
+Changed: choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
+and costs about half as much to build.
+
 Fixed: TimerSystem could send its Time behavior backward. Timers fire on more than one thread, the implementation's
 own and any thread whose transaction start runs the timers that are due, and each one queues its event after it lets
 go of the implementation's lock. The events then reached a first-in, first-out queue out of order, so alarms at 10 and
@@ -62,6 +65,9 @@ time ends, Time goes back with it, as before.
 Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
 counts with a Stopwatch, which only measures time going by.
+
+Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
+enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
 
 5.0.1
 
