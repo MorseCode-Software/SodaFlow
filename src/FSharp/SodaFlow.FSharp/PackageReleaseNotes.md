@@ -5,6 +5,9 @@ reach this package, and its notes have the details of each:
 
 - A transaction that fails no longer leaves state behind that breaks the graph after it. Before, a cell could stop
   updating, a sink could throw on every later send, and a stream could replay old firings to each new listener.
+- lift, apply, snapshotLatest, and the merge of two streams of different types no longer use a value that an input
+  sent in a transaction that failed. Before, the next update of another input combined it with the uncommitted value,
+  and the result was wrong until the first input updated again.
 - listenOnce and listenOnceStrong no longer call the handler twice when the stream fires on another thread at the
   moment the listener is attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a

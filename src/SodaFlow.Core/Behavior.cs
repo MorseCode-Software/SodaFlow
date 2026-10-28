@@ -232,8 +232,8 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
 
             IListener[] listeners =
             [
@@ -241,21 +241,23 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v))
+                    capture: (t, v) => p2.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                 {
                     TResult result =
-                        f(arg1: Take(pending: ref p1, input: this), arg2: Take(pending: ref p2, input: b2));
+                        f(
+                            arg1: Take(pending: ref p1, input: this, trans: trans2),
+                            arg2: Take(pending: ref p2, input: b2, trans: trans2));
 
                     return result;
                 },
@@ -271,9 +273,9 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
 
             IListener[] listeners =
             [
@@ -281,27 +283,27 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v))
+                    capture: (t, v) => p3.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -319,10 +321,10 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
-            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
+            CaptureSlot<T4> p4 = default;
 
             IListener[] listeners =
             [
@@ -330,33 +332,33 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p3.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b4.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p4 = MaybeInternal.Some(v))
+                    capture: (t, v) => p4.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3),
-                        arg4: Take(pending: ref p4, input: b4)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2),
+                        arg4: Take(pending: ref p4, input: b4, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -376,11 +378,11 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
-            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
-            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
+            CaptureSlot<T4> p4 = default;
+            CaptureSlot<T5> p5 = default;
 
             IListener[] listeners =
             [
@@ -388,39 +390,39 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p3.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b4.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p4 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p4.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b5.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p5 = MaybeInternal.Some(v))
+                    capture: (t, v) => p5.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3),
-                        arg4: Take(pending: ref p4, input: b4),
-                        arg5: Take(pending: ref p5, input: b5)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2),
+                        arg4: Take(pending: ref p4, input: b4, trans: trans2),
+                        arg5: Take(pending: ref p5, input: b5, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -442,12 +444,12 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
-            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
-            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
-            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
+            CaptureSlot<T4> p4 = default;
+            CaptureSlot<T5> p5 = default;
+            CaptureSlot<T6> p6 = default;
 
             IListener[] listeners =
             [
@@ -455,45 +457,45 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p3.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b4.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p4 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p4.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b5.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p5 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p5.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b6.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p6 = MaybeInternal.Some(v))
+                    capture: (t, v) => p6.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3),
-                        arg4: Take(pending: ref p4, input: b4),
-                        arg5: Take(pending: ref p5, input: b5),
-                        arg6: Take(pending: ref p6, input: b6)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2),
+                        arg4: Take(pending: ref p4, input: b4, trans: trans2),
+                        arg5: Take(pending: ref p5, input: b5, trans: trans2),
+                        arg6: Take(pending: ref p6, input: b6, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -517,13 +519,13 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
-            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
-            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
-            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
-            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
+            CaptureSlot<T4> p4 = default;
+            CaptureSlot<T5> p5 = default;
+            CaptureSlot<T6> p6 = default;
+            CaptureSlot<T7> p7 = default;
 
             IListener[] listeners =
             [
@@ -531,51 +533,51 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p3.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b4.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p4 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p4.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b5.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p5 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p5.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b6.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p6 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p6.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b7.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p7 = MaybeInternal.Some(v))
+                    capture: (t, v) => p7.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3),
-                        arg4: Take(pending: ref p4, input: b4),
-                        arg5: Take(pending: ref p5, input: b5),
-                        arg6: Take(pending: ref p6, input: b6),
-                        arg7: Take(pending: ref p7, input: b7)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2),
+                        arg4: Take(pending: ref p4, input: b4, trans: trans2),
+                        arg5: Take(pending: ref p5, input: b5, trans: trans2),
+                        arg6: Take(pending: ref p6, input: b6, trans: trans2),
+                        arg7: Take(pending: ref p7, input: b7, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -601,14 +603,14 @@ public class Behavior<T>
         {
             Stream<UnitInternal> pulse = new(this.stream.KeepListenersAlive);
 
-            MaybeInternal<T> p1 = MaybeInternal<T>.None;
-            MaybeInternal<T2> p2 = MaybeInternal<T2>.None;
-            MaybeInternal<T3> p3 = MaybeInternal<T3>.None;
-            MaybeInternal<T4> p4 = MaybeInternal<T4>.None;
-            MaybeInternal<T5> p5 = MaybeInternal<T5>.None;
-            MaybeInternal<T6> p6 = MaybeInternal<T6>.None;
-            MaybeInternal<T7> p7 = MaybeInternal<T7>.None;
-            MaybeInternal<T8> p8 = MaybeInternal<T8>.None;
+            CaptureSlot<T> p1 = default;
+            CaptureSlot<T2> p2 = default;
+            CaptureSlot<T3> p3 = default;
+            CaptureSlot<T4> p4 = default;
+            CaptureSlot<T5> p5 = default;
+            CaptureSlot<T6> p6 = default;
+            CaptureSlot<T7> p7 = default;
+            CaptureSlot<T8> p8 = default;
 
             IListener[] listeners =
             [
@@ -616,57 +618,57 @@ public class Behavior<T>
                     input: this.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p1 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p1.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b2.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p2 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p2.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b3.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p3 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p3.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b4.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p4 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p4.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b5.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p5 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p5.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b6.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p6 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p6.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b7.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p7 = MaybeInternal.Some(v)),
+                    capture: (t, v) => p7.Set(trans: t, value: v)),
                 StreamInternal.Pulse(
                     input: b8.Updates(),
                     pulse: pulse,
                     trans: trans,
-                    capture: v => p8 = MaybeInternal.Some(v))
+                    capture: (t, v) => p8.Set(trans: t, value: v))
             ];
 
             return HoldLifted(
                 pulse: pulse,
                 trans: trans,
-                recombine: () =>
+                recombine: trans2 =>
                     f(
-                        arg1: Take(pending: ref p1, input: this),
-                        arg2: Take(pending: ref p2, input: b2),
-                        arg3: Take(pending: ref p3, input: b3),
-                        arg4: Take(pending: ref p4, input: b4),
-                        arg5: Take(pending: ref p5, input: b5),
-                        arg6: Take(pending: ref p6, input: b6),
-                        arg7: Take(pending: ref p7, input: b7),
-                        arg8: Take(pending: ref p8, input: b8)),
+                        arg1: Take(pending: ref p1, input: this, trans: trans2),
+                        arg2: Take(pending: ref p2, input: b2, trans: trans2),
+                        arg3: Take(pending: ref p3, input: b3, trans: trans2),
+                        arg4: Take(pending: ref p4, input: b4, trans: trans2),
+                        arg5: Take(pending: ref p5, input: b5, trans: trans2),
+                        arg6: Take(pending: ref p6, input: b6, trans: trans2),
+                        arg7: Take(pending: ref p7, input: b7, trans: trans2),
+                        arg8: Take(pending: ref p8, input: b8, trans: trans2)),
                 initialValue: () =>
                     f(
                         arg1: this.SampleNoTransaction(),
@@ -686,32 +688,41 @@ public class Behavior<T>
     ///     value of the behavior.
     /// </summary>
     /// <remarks>
-    ///     SodaFlow clears the slot to keep the object clean, and not to make it
-    ///     correct. A slot that keeps its value still gives the applicable answer,
-    ///     because the behavior commits that same value before the next transaction
-    ///     reads the slot. A test of this removed the reset, and no test could find
-    ///     the difference. SodaFlow clears the slot so that the closure does not hold
-    ///     a second reference to the last value of each input for the full life of the
-    ///     lifted behavior.
+    ///     The slot gives its value only to the transaction that filled it. A
+    ///     transaction that failed after the capture left a value that the input
+    ///     never committed. The next firing then put the inputs together with it.
+    ///     The current value of the behavior is correct in that case, because a
+    ///     transaction that fails discards the update of the behavior. See
+    ///     <see cref="CaptureSlot{T}" />.
     /// </remarks>
-    internal static TInput Take<TInput>(ref MaybeInternal<TInput> pending, Behavior<TInput> input)
-    {
-        TInput value = pending.TryGetValue(out TInput captured) ? captured : input.SampleNoTransaction();
-        pending = MaybeInternal<TInput>.None;
-        return value;
-    }
+    internal static TInput Take<TInput>(
+        ref CaptureSlot<TInput> pending,
+        Behavior<TInput> input,
+        TransactionInternal trans) =>
+        pending.Take(trans).TryGetValue(out TInput captured) ? captured : input.SampleNoTransaction();
 
     private static Behavior<TResult> HoldLifted<TResult>(
         Stream<UnitInternal> pulse,
         TransactionInternal trans,
-        Func<TResult> recombine,
+        Func<TransactionInternal, TResult> recombine,
         Func<TResult> initialValue,
         // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
         IListener[] listeners)
     {
         // The coalesce operation makes one firing for a transaction that updates more than one
-        // input. SodaFlow captured the new value of each input.
-        Stream<TResult> result = pulse.Coalesce(trans1: trans, f: static (x, _) => x).MapImpl(_ => recombine());
+        // input. SodaFlow captured the new value of each input. This is a map, written out, thus
+        // the step that puts the inputs together gets the transaction, which the slots need.
+        Stream<TResult> @out = new(pulse.KeepListenersAlive);
+
+        IListener recombineListener =
+            pulse.Coalesce(trans1: trans, f: static (x, _) => x)
+                .Listen(
+                    target: @out.Node,
+                    trans: trans,
+                    action: (trans2, _) => @out.Send(trans: trans2, a: recombine(trans2)),
+                    suppressEarlierFirings: false);
+
+        Stream<TResult> result = @out.UnsafeAttachListener(recombineListener);
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
         foreach (IListener listener in listeners)
@@ -736,9 +747,13 @@ public class Behavior<T>
                     action: NoOp,
                     target: outTarget);
 
-            Func<T, TResult>? f = null;
-            T? a = default;
-            bool isASet = false;
+            // Each input goes into a slot. The output reads the slot of an input that updated in this
+            // transaction, and the behavior of one that did not. The slot of a function from a
+            // transaction that failed gave that function to each subsequent update of the value,
+            // because nothing cleared it. The slots stay full after a read. The output runs at the
+            // update of each input, and the second read in one transaction must see the first value.
+            CaptureSlot<Func<T, TResult>> f = default;
+            CaptureSlot<T> a = default;
 
             IListener l1 =
                 bf.Value(trans0)
@@ -747,12 +762,8 @@ public class Behavior<T>
                         trans: trans0,
                         action: (trans1, ff) =>
                         {
-                            f = ff;
-
-                            if (isASet)
-                            {
-                                H(trans1: trans1);
-                            }
+                            f.Set(trans: trans1, value: ff);
+                            H(trans1: trans1);
                         },
                         suppressEarlierFirings: false);
 
@@ -763,13 +774,8 @@ public class Behavior<T>
                         trans: trans0,
                         action: (trans1, aa) =>
                         {
-                            a = aa;
-                            isASet = true;
-
-                            if (f != null)
-                            {
-                                H(trans1: trans1);
-                            }
+                            a.Set(trans: trans1, value: aa);
+                            H(trans1: trans1);
                         },
                         suppressEarlierFirings: false);
 
@@ -785,11 +791,23 @@ public class Behavior<T>
             {
             }
 
-            // ReSharper disable once PossibleNullReferenceException
             void H(TransactionInternal trans1) =>
-                // ReSharper disable once NullableWarningSuppressionIsUsed - Since isASet is checked before H is
-                // called and it is only true when a is non-null, a will be non-null here.
-                trans1.Prioritized(node: @out.Node, action: trans2 => @out.Send(trans: trans2, a: f(a!)));
+                trans1.Prioritized(
+                    node: @out.Node,
+                    action: trans2 =>
+                    {
+                        Func<T, TResult> function =
+                            f.Peek(trans2).TryGetValue(out Func<T, TResult> captured)
+                                ? captured
+                                : bf.SampleNoTransaction();
+
+                        T value =
+                            a.Peek(trans2).TryGetValue(out T capturedValue)
+                                ? capturedValue
+                                : this.SampleNoTransaction();
+
+                        @out.Send(trans: trans2, a: function(value));
+                    });
         });
 
     private sealed class LazySample

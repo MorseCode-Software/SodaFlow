@@ -22,6 +22,23 @@ successful one committed. A transaction that succeeds does exactly what it did b
 Not changed: a listener that ran before the throw has already seen the failed transaction's values, and nothing takes
 them back.
 
+Fixed: Lift, Apply, SnapshotLatest, and the Merge of two streams of different types no longer use a value from a
+transaction that failed. Each of these keeps the value of an input that updated in the current transaction in a slot,
+and the step that puts the inputs together reads the slots and clears them. A transaction that failed between the
+capture and that step never ran it, so the slot kept a value the input never committed, and the next update of another
+input used it: a lift of 1 and 10 that saw 100 arrive in a failed transaction gave 120 at the next update of its other
+input, not 21, and an apply gave the function from the failed transaction to every later value until the function cell
+updated again. A snapshot of the latest values also kept the firing of its own stream from the failed transaction and
+sent it at the next update of a cell alone. Each slot now records the transaction that filled it, and gives nothing to
+any other, so the step reads the committed value of the behavior instead. This is the rest of the failed-transaction
+work in this release: the first part reset the state of each operation at the failure, and this part covers the
+values in flight between two operations.
+
+The record costs 8 bytes per transaction, the id on the transaction object, and no measurable time on .NET 10. On .NET
+Framework 4.7.2, measured back to back against the code before this change, a send to one input of a lift of two cells
+went from 1,241 to 1,265 ns and of six cells from 1,262 to 1,306 ns; a send into a SnapshotLatest or a Merge of two
+types is unchanged within 12 ns. LiftBenchmarks in SodaFlow.Benchmarks measures it.
+
 Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
 transaction in order of rank, and a step stayed in a list on its node until it had finished, so that a change of the
 node's rank could move it in the queue. A step that threw never finished, so it never left the list. The next time the

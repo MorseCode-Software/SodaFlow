@@ -35,6 +35,9 @@ internal sealed class TransactionInternal
     // transaction, and on .NET Framework that measured more than the eight bytes.
     private static List<Action>? afterReleaseQueue;
 
+    // The last id given. Only the thread that holds the transaction lock changes it.
+    private static long nextId;
+
     private static readonly EntryPriorityQueue PrioritizedQueue = new();
 
     private readonly bool hasParentTransaction;
@@ -61,11 +64,22 @@ internal sealed class TransactionInternal
     {
     }
 
+    // A child is made in the Close of its parent, thus this thread holds the transaction lock.
     private TransactionInternal(TransactionInternal deferredOwner)
     {
         this.DeferredOwner = deferredOwner;
         this.hasParentTransaction = true;
+        this.Id = ++nextId;
     }
+
+    /// <summary>
+    ///     A number that no other transaction has. A <see cref="CaptureSlot{T}" />
+    ///     records it, thus a read in a different transaction gives no value. A
+    ///     root transaction gets it when it gets the transaction lock, and a child
+    ///     when its parent makes it. Thus, the count changes only on the thread that
+    ///     holds the lock. It is never zero.
+    /// </summary>
+    internal long Id { get; private set; }
 
     // The root transaction owns the post queue and the split queue. It shares them with the
     // child transactions that it creates as it closes. Thus, work that a deferred action defers
@@ -238,6 +252,13 @@ internal sealed class TransactionInternal
                 }
 
                 RunStartHooks(transaction);
+            }
+
+            // After the lock. A transaction that a start hook opens does not get the lock, but the
+            // transaction of the hook holds it on this thread.
+            if (transaction.Id == 0)
+            {
+                transaction.Id = ++nextId;
             }
         }
     }

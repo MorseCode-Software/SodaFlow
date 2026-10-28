@@ -48,6 +48,7 @@
         <Compile Include="KeyedCollectionShapes.cs"/>
         <Compile Include="KeyedCollectionViewBenchmarks.cs"/>
         <Compile Include="KeyedCollectionViewShapes.cs"/>
+        <Compile Include="LiftBenchmarks.cs"/>
         <Compile Include="ListenOnceBenchmarks.cs"/>
         <Compile Include="MaybeCompareBenchmarks.cs"/>
         <Compile Include="PerKeyCellBenchmarks.cs"/>
