@@ -596,13 +596,21 @@ public struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Maybe<T>>
     ///     what needs an ordering, and a sort uses this method.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    public int CompareTo(Maybe<T> other) =>
-        this.Match(
-            onSome: v =>
-                other.Match(
-                    onSome: otherValue => Comparer<T>.Default.Compare(x: v, y: otherValue),
-                    onNone: static () => 1),
-            onNone: () => other.Match(onSome: static _ => -1, onNone: static () => 0));
+    public int CompareTo(Maybe<T> other)
+    {
+        // This reads the fields and not Match. Match takes two delegates, and each one
+        // here captured a value, thus one call allocated two closures. A sort of n
+        // values makes approximately n log n calls.
+        if (this.hasValue)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - .NET 4.7.2 and .NET Standard 2.0 did not define
+            // these parameters as being nullable as they should have.
+            return other.hasValue ? Comparer<T>.Default.Compare(x: this.value!, y: other.value!) : 1;
+            // ReSharper restore NullableWarningSuppressionIsUsed
+        }
+
+        return other.hasValue ? -1 : 0;
+    }
 
     /// <summary>
     ///     Gives a hash code that agrees with <see cref="op_Equality" />.
