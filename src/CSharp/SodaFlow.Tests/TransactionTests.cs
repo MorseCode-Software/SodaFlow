@@ -359,4 +359,35 @@ public sealed class TransactionTests
 
         await Assert.That(startHooksCount).IsEqualTo(1);
     }
+
+    // The hooks stay in the list for the life of the process, as in each test above. Thus, the
+    // outer hook adds the inner one only one time, and not at each transaction.
+    [Test]
+    public async Task AStartHookCanRegisterAStartHook()
+    {
+        int innerRuns = 0;
+        bool registered = false;
+
+        Transaction.OnStart(() =>
+        {
+            if (!registered)
+            {
+                registered = true;
+                Transaction.OnStart(() => innerRuns++);
+            }
+        });
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        // A hook that a hook adds runs from the next transaction.
+        await Assert.That(innerRuns).IsEqualTo(0);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(innerRuns).IsEqualTo(1);
+    }
 }
