@@ -79,6 +79,19 @@ cost. On .NET Framework 4.7.2, measured back to back against the code before thi
 from 92.1 to 100.0 ns and a send to a sink with one listener from 337.2 to 358.6 ns. Allocation is unchanged on both.
 TransactionBenchmarks in SodaFlow.Benchmarks measures it.
 
+Fixed: a start hook can now register a start hook. The hooks ran in a foreach over the list they are registered in,
+and a registration from inside a hook changed that list and threw "Collection was modified". The hooks now run by
+index, up to the count at the start of the run, so a hook registered from inside a hook runs from the next transaction
+on.
+
+Fixed: work queued from a last action no longer leaks into the next transaction. A last action runs after the
+transaction has drained its queues, so a prioritized step it queued had nothing left to run it. The step stayed in the
+engine's queue and ran at the start of the next transaction, whichever thread opened it, and a send or a sample from a
+last action was silently dropped. The transaction now fails with an InvalidOperationException that says so, and the
+failure discards the step, so the next transaction starts clean. Nothing in this library's own last actions does this;
+the check is there to make the mistake loud rather than silent. A last action can still queue a last action, which runs
+in the same drain, and a post, which runs after it.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
