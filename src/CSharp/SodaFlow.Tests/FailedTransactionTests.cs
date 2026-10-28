@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
@@ -164,6 +165,115 @@ public sealed class FailedTransactionTests
         await Assert.That(afterFailure).IsEqualTo(11);
         await Assert.That(@out).IsEquivalentTo(expected: [21, 23], ordering: CollectionOrdering.Matching);
         await Assert.That(sum.Sample()).IsEqualTo(23);
+    }
+
+    // The throw is in a map of the updates of a, made after the lift. The node of the map and the
+    // pulse node of the lift have the same rank. The queue runs the entries of one rank in the
+    // sequence of their links. Thus, the lift captures the value of a, and then the map throws,
+    // before the lift puts its inputs together. A lift that kept the captured value gives 120 and
+    // not 21 at the next update of b.
+    [Test]
+    public async Task ALiftUsesTheCommittedValuesAfterAFailureBetweenItsCaptureAndItsOutput()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        CellSink<int> b = Cell.CreateSink(10);
+        Cell<int> sum = a.Lift(c2: b, f: static (x, y) => x + y);
+
+        Fail(
+            s: a.Updates().Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+            send: () => a.Send(100));
+
+        List<int> @out = [];
+        IListener l = sum.Updates().ListenStrong(@out.Add);
+        b.Send(20);
+        l.Unlisten();
+
+        await Assert.That(sum.Sample()).IsEqualTo(21);
+        await Assert.That(@out).IsEquivalentTo(expected: [21], ordering: CollectionOrdering.Matching);
+    }
+
+    // The throw comes after the output of the apply. The apply has seen the new function, and the
+    // transaction then discards it from the cell. An apply that kept the function gives 20 and not
+    // 3 at the next update of the value.
+    [Test]
+    public async Task AnApplyUsesTheCommittedFunctionAfterAFailureDownstreamOfIt()
+    {
+        CellSink<Func<int, int>> cf = Cell.CreateSink<Func<int, int>>(static x => x + 1);
+        CellSink<int> ca = Cell.CreateSink(1);
+        Cell<int> applied = ca.Apply(cf);
+        Fail(s: applied.Updates(), send: () => cf.Send(static x => x * 10));
+
+        List<int> @out = [];
+        IListener l = applied.Updates().ListenStrong(@out.Add);
+        ca.Send(2);
+        l.Unlisten();
+
+        await Assert.That(applied.Sample()).IsEqualTo(3);
+        await Assert.That(@out).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same as the lift, for the cell of a SnapshotLatest.
+    [Test]
+    public async Task ASnapshotLatestUsesTheCommittedValueAfterAFailureBetweenItsCaptureAndItsOutput()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(10);
+        Stream<string> latest = s.SnapshotLatest(c: c, f: static (a, v) => $"{a},{v}");
+
+        Fail(
+            s: c.Updates().Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+            send: () => c.Send(100));
+
+        List<string> @out = [];
+        IListener l = latest.ListenStrong(@out.Add);
+        s.Send(1);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: ["1,10"], ordering: CollectionOrdering.Matching);
+    }
+
+    // The stream of a SnapshotLatest keeps its firings until the output runs. A failure between
+    // the two left a firing in that list, and the next update of the cell alone then sent it. The
+    // map that throws stays linked to s, thus this test does not send to s again.
+    [Test]
+    public async Task ASnapshotLatestDoesNotSendTheFiringOfAFailedTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(10);
+        Stream<string> latest = s.SnapshotLatest(c: c, f: static (a, v) => $"{a},{v}");
+
+        Fail(
+            s: s.Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+            send: () => s.Send(7));
+
+        List<string> @out = [];
+        IListener l = latest.ListenStrong(@out.Add);
+        c.Send(20);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEmpty();
+    }
+
+    // The same as the lift, for a merge of two streams of different types. A merge that kept the
+    // captured firing gives (7, 5) and not (none, 5).
+    [Test]
+    public async Task AMergeOfTwoTypesDoesNotKeepTheFiringOfAFailedTransaction()
+    {
+        StreamSink<int> s1 = Stream.CreateSink<int>();
+        StreamSink<int> s2 = Stream.CreateSink<int>();
+        Stream<(Maybe<int>, Maybe<int>)> merged = s1.Merge(s2);
+
+        Fail(
+            s: s1.Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+            send: () => s1.Send(7));
+
+        List<(Maybe<int>, Maybe<int>)> @out = [];
+        IListener l = merged.ListenStrong(@out.Add);
+        s2.Send(5);
+        l.Unlisten();
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [(Maybe<int>.None, Maybe.Some(5))], ordering: CollectionOrdering.Matching);
     }
 
     private static void Fail(StreamSink<int> s, int value) => Fail(s: s, send: () => s.Send(value));
