@@ -39,6 +39,9 @@ Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
 counts with a Stopwatch, which only measures time going by.
 
+Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
+enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
+
 5.0.1
 
 No API change and no change in behavior. The four MutableListener extension methods, SetListener, ClearListener,
