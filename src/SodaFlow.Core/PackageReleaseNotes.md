@@ -79,6 +79,12 @@ cost. On .NET Framework 4.7.2, measured back to back against the code before thi
 from 92.1 to 100.0 ns and a send to a sink with one listener from 337.2 to 358.6 ns. Allocation is unchanged on both.
 TransactionBenchmarks in SodaFlow.Benchmarks measures it.
 
+Added: the internal ChooseImpl and ChooseInternal, which map and filter in one node where a map followed by a
+FilterSome built two. The language packages' Choose and choose use the first, and the per-key cells of
+SodaFlow.Core.Collections use the second, where it takes about a kilobyte off each cell. FilterSomeInternal, which
+takes this library's own optional type, no longer allocates a closure for every firing; the FilterSome of each language
+package is unchanged. The internal MaybeInternal.MatchSome, which that closure was the last use of, is removed.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
