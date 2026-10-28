@@ -21,6 +21,24 @@ namespace SodaFlow.Collections;
 public static class CollectionExtensionMethods
 {
     /// <summary>
+    ///     The one projection of each part of an item to its <see cref="Maybe{T}" />.
+    ///     The core keys its per-key cell caches on the projection instance, thus
+    ///     each call gives the same instance.
+    /// </summary>
+    private static class Projections<TIdentity, TState>
+        where TIdentity : notnull
+    {
+        internal static readonly CellProjection<TState, Maybe<TState>> State =
+            new(onPresent: static state => Maybe.Some(state), onAbsent: static () => Maybe<TState>.None);
+
+        internal static readonly CellProjection<TIdentity, Maybe<TIdentity>> Identity =
+            new(onPresent: static identity => Maybe.Some(identity), onAbsent: static () => Maybe<TIdentity>.None);
+
+        internal static readonly CellProjection<Item<TIdentity, TState>, Maybe<Item<TIdentity, TState>>> Item =
+            new(onPresent: static item => Maybe.Some(item), onAbsent: static () => Maybe<Item<TIdentity, TState>>.None);
+    }
+
+    /// <summary>
     ///     A cell that follows the mutable part of one item. It has no value while the
     ///     store does not have the key.
     /// </summary>
@@ -56,10 +74,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.StateCellImpl(
-            key: key,
-            onPresent: static state => Maybe.Some(state),
-            onAbsent: static () => Maybe<TState>.None);
+        collection.StateCellImpl(key: key, projection: Projections<TIdentity, TState>.State);
 
     /// <summary>
     ///     A cell that follows the immutable part of one item. It has no value while
@@ -78,10 +93,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.IdentityCellImpl(
-            key: key,
-            onPresent: static identity => Maybe.Some(identity),
-            onAbsent: static () => Maybe<TIdentity>.None);
+        collection.IdentityCellImpl(key: key, projection: Projections<TIdentity, TState>.Identity);
 
     /// <summary>
     ///     A cell that follows the two parts of one item together. It has no value
@@ -119,10 +131,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.ItemCellImpl(
-            key: key,
-            onPresent: static item => Maybe.Some(item),
-            onAbsent: static () => Maybe<Item<TIdentity, TState>>.None);
+        collection.ItemCellImpl(key: key, projection: Projections<TIdentity, TState>.Item);
 
     /// <summary>Returns the two parts of the item for a key, when there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>

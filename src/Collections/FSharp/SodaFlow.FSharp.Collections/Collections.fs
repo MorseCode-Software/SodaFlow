@@ -29,6 +29,27 @@ open SodaFlow
 // SodaFlow.Async.
 open SodaFlow.Collections
 
+/// <summary>
+///     The one projection of each part of an item to its optional type. The core keys its per-key cell
+///     caches on the projection instance, thus each call gives the same instance.
+/// </summary>
+type private Projections<'TIdentity, 'TState> private () =
+    // The constructor takes its parameters by in, thus each delegate is a value with an address.
+    static member val State: CellProjection<'TState, 'TState option> =
+        let onPresent = Func<'TState, 'TState option>(Some)
+        let onAbsent = Func<'TState option>(fun () -> None)
+        CellProjection<'TState, 'TState option>(&onPresent, &onAbsent)
+
+    static member val Identity: CellProjection<'TIdentity, 'TIdentity option> =
+        let onPresent = Func<'TIdentity, 'TIdentity option>(Some)
+        let onAbsent = Func<'TIdentity option>(fun () -> None)
+        CellProjection<'TIdentity, 'TIdentity option>(&onPresent, &onAbsent)
+
+    static member val Item: CellProjection<Item<'TIdentity, 'TState>, Item<'TIdentity, 'TState> option> =
+        let onPresent = Func<Item<'TIdentity, 'TState>, Item<'TIdentity, 'TState> option>(Some)
+        let onAbsent = Func<Item<'TIdentity, 'TState> option>(fun () -> None)
+        CellProjection<Item<'TIdentity, 'TState>, Item<'TIdentity, 'TState> option>(&onPresent, &onAbsent)
+
 // --- construction -------------------------------------------------------------------------
 
 /// <summary>
@@ -158,7 +179,7 @@ let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'T
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.StateCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+    collection.StateCellImpl(key, Projections<'TIdentity, 'TState>.State)
 
 /// <summary>The immutable part of the item. It is <c>None</c> while the key is missing.</summary>
 /// <param name="key">The key to monitor.</param>
@@ -168,7 +189,7 @@ let stateCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'T
 /// hold.</remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let identityCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.IdentityCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+    collection.IdentityCellImpl(key, Projections<'TIdentity, 'TState>.Identity)
 
 /// <summary>
 ///     The two parts of the item together. It is <c>None</c> while the store has no such key.
@@ -187,7 +208,7 @@ let identityCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity,
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let itemCell (key: 'TKey) (collection: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    collection.ItemCellImpl(key, Func<_, _> Some, Func<_>(fun () -> None))
+    collection.ItemCellImpl(key, Projections<'TIdentity, 'TState>.Item)
 
 /// <summary>The two parts of the item for a key, when there is one.</summary>
 /// <param name="key">The key to look up.</param>
