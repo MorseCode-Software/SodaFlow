@@ -2256,7 +2256,7 @@ public static class StreamExtensionMethods
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
-        s.MapImpl(f).FilterSomeImpl<TResult, Maybe<TResult>>(static (m, a) => m.MatchSome(a));
+        s.ChooseImpl<T, TResult, Maybe<TResult>>(f: f, matchSome: static (m, a) => m.MatchSome(a));
 
     /// <summary>
     ///     Fires the last value after a time with no other value. Each firing moves
