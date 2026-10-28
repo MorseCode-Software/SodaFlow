@@ -85,7 +85,8 @@ nothing it guarded could be touched by any thread but the one holding the transa
 and reordered only on that thread, and a rank changes only inside a transaction. Measured back to back against the
 code before this change, a send through a chain of 32 maps went from 3,828 to 3,734 ns on .NET 10 and from 5,415 to
 5,036 ns on .NET Framework 4.7.2, and a send to a sink with one listener from 210 to 201 ns and from 347 to 322 ns.
-Allocation is unchanged. TransactionBenchmarks measures the chain.
+Allocation is unchanged. TransactionBenchmarks measures the chain. The lock itself is gone: linking a node to its
+target, the one other place that took it, runs under the transaction lock for the same reason.
 
 5.0.0
 

@@ -297,9 +297,9 @@ internal sealed class TransactionInternal
         // No lock. Only the thread that holds the transaction lock touches the queue. This method,
         // CheckRegen, and the two drains in Close run in a transaction, and a child transaction
         // runs on the thread of its parent. A change of rank also occurs only in a transaction,
-        // because Link takes one. A lock on Node.NodeRanksLock was here. It cost a Monitor.Enter
-        // and a Monitor.Exit for each entry, and it guarded nothing that the transaction lock does
-        // not guard.
+        // because Link takes one. A lock was here, on a rank lock that Link also took. It cost a
+        // Monitor.Enter and a Monitor.Exit for each entry, and it guarded nothing that the
+        // transaction lock does not guard.
         PrioritizedQueue.Enqueue(e);
 
     internal void Sample(Action action) => (this.sampleQueue ??= []).Add(action);
