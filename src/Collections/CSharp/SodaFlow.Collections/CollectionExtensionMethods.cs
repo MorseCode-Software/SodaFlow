@@ -21,21 +21,17 @@ namespace SodaFlow.Collections;
 public static class CollectionExtensionMethods
 {
     /// <summary>
-    ///     The one projection of each part of an item to its <see cref="Maybe{T}" />.
-    ///     The core keys its per-key cell caches on the projection instance, thus
-    ///     each call gives the same instance.
+    ///     The one projection of a value to its <see cref="Maybe{T}" />. The core keys
+    ///     its per-key cell caches on the projection instance, thus each call gives
+    ///     the same instance. The state, the identity, and the item of an item all use
+    ///     this one, each with its own type. Thus, the holder has one type parameter.
+    ///     The three caches of a collection are different dictionaries, thus one
+    ///     instance for the state and the identity of one type is safe.
     /// </summary>
-    private static class Projections<TIdentity, TState>
-        where TIdentity : notnull
+    private static class Projection<T>
     {
-        internal static readonly CellProjection<TState, Maybe<TState>> State =
-            new(onPresent: static state => Maybe.Some(state), onAbsent: static () => Maybe<TState>.None);
-
-        internal static readonly CellProjection<TIdentity, Maybe<TIdentity>> Identity =
-            new(onPresent: static identity => Maybe.Some(identity), onAbsent: static () => Maybe<TIdentity>.None);
-
-        internal static readonly CellProjection<Item<TIdentity, TState>, Maybe<Item<TIdentity, TState>>> Item =
-            new(onPresent: static item => Maybe.Some(item), onAbsent: static () => Maybe<Item<TIdentity, TState>>.None);
+        internal static readonly CellProjection<T, Maybe<T>> Some =
+            new(onPresent: static value => Maybe.Some(value), onAbsent: static () => Maybe<T>.None);
     }
 
     /// <summary>
@@ -74,7 +70,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.StateCellImpl(key: key, projection: Projections<TIdentity, TState>.State);
+        collection.StateCellImpl(key: key, projection: Projection<TState>.Some);
 
     /// <summary>
     ///     A cell that follows the immutable part of one item. It has no value while
@@ -93,7 +89,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.IdentityCellImpl(key: key, projection: Projections<TIdentity, TState>.Identity);
+        collection.IdentityCellImpl(key: key, projection: Projection<TIdentity>.Some);
 
     /// <summary>
     ///     A cell that follows the two parts of one item together. It has no value
@@ -131,7 +127,7 @@ public static class CollectionExtensionMethods
         TKey key)
         where TKey : notnull
         where TIdentity : notnull =>
-        collection.ItemCellImpl(key: key, projection: Projections<TIdentity, TState>.Item);
+        collection.ItemCellImpl(key: key, projection: Projection<Item<TIdentity, TState>>.Some);
 
     /// <summary>Returns the two parts of the item for a key, when there is one.</summary>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
