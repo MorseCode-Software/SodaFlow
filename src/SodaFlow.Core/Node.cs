@@ -72,8 +72,6 @@ internal abstract class Node
     // A small lock. It stops more than one thread from changing the listeners and the nodes.
     protected static readonly object ListenersLock = new();
 
-    internal static readonly object NodeRanksLock = new();
-
     // The largest stack that a walk gives back to walkFrames. A chain of this depth or less then
     // allocates nothing for the stack of the walk. One deeper chain does not keep a large array for
     // the life of the process.
@@ -284,10 +282,11 @@ internal sealed class Node<T> : Node
             this.listenersSnapshot = default;
         }
 
-        lock (NodeRanksLock)
-        {
-            EnsureBiggerThan(trans: trans, node: target, limit: this.Rank);
-        }
+        // No lock on the ranks. Each caller holds a transaction, and a transaction holds the
+        // transaction lock. Thus, no two walks run at the same time, and no code reads a rank on
+        // a different thread. ListenersLock stays, because an unlisten can run with no
+        // transaction open.
+        EnsureBiggerThan(trans: trans, node: target, limit: this.Rank);
 
         return t;
     }
