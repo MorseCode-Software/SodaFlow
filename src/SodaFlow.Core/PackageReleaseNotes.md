@@ -79,6 +79,14 @@ cost. On .NET Framework 4.7.2, measured back to back against the code before thi
 from 92.1 to 100.0 ns and a send to a sink with one listener from 337.2 to 358.6 ns. Allocation is unchanged on both.
 TransactionBenchmarks in SodaFlow.Benchmarks measures it.
 
+Changed: queuing a step of the graph no longer takes the node rank lock. Every step that an operation queues in a
+transaction, which is one per map, filter, or listener that a firing reaches, took and released that lock, and
+nothing it guarded could be touched by any thread but the one holding the transaction lock: the queue is read, drained,
+and reordered only on that thread, and a rank changes only inside a transaction. Measured back to back against the
+code before this change, a send through a chain of 32 maps went from 3,828 to 3,734 ns on .NET 10 and from 5,415 to
+5,036 ns on .NET Framework 4.7.2, and a send to a sink with one listener from 210 to 201 ns and from 347 to 322 ns.
+Allocation is unchanged. TransactionBenchmarks measures the chain.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires
