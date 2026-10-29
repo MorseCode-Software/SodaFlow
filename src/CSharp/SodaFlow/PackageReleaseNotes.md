@@ -8,6 +8,8 @@ reach this package, and its notes have the details of each:
 - Lift, Apply, SnapshotLatest, and the Merge of two streams of different types no longer use a value that an input
   sent in a transaction that failed. Before, the next update of another input combined it with the uncommitted value,
   and the result was wrong until the first input updated again.
+- SwitchB and SwitchC no longer keep a switch that a failed transaction made. Before, the output went on following the
+  behavior the transaction had switched to, although the outer cell still held the one from before the failure.
 - ListenOnce and ListenOnceStrong no longer call the handler twice when the stream fires on another thread at the
   moment the listener is attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
