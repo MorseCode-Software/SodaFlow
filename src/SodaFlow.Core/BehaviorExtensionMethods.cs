@@ -14,6 +14,11 @@ internal static class BehaviorExtensionMethodsInternal
             Stream<T> @out = new(bba.KeepListenersAlive);
             MutableListener currentListener = new();
 
+            // The listener on the inner behavior, from the last commit. The handler reads it, and
+            // the commit of a switch writes it. MutableListener has no getter, thus this closure
+            // keeps its own reference.
+            IListener? inner = null;
+
             IListener l1 =
                 bba.Value(trans1)
                     .Listen(target: @out.Node, trans: trans1, action: H, suppressEarlierFirings: false);
@@ -24,16 +29,35 @@ internal static class BehaviorExtensionMethodsInternal
 
             void H(TransactionInternal trans2, Behavior<T> ba)
             {
-                IListener cl = currentListener;
-                cl.Unlisten();
+                // The new behavior gets its listener now, thus its value goes to the output in
+                // this transaction. The previous listener stays until the commit. A transaction
+                // that fails discards the update of the outer behavior. Thus, it must discard the
+                // switch too: the discard removes the new listener and keeps the previous one.
+                //
+                // The previous listener cannot send a stale value after this point. Its update
+                // chain links into the output node, thus it has a lower rank, and the drain ran it
+                // before this handler. A dependency of an inner behavior on the output is a cycle,
+                // which Link refuses. FailedTransactionTests holds the two cases.
+                // ReSharper disable once AccessToModifiedClosure - The handler reads the listener
+                // that the last commit set.
+                IListener? previous = inner;
 
-                currentListener.SetListenerImpl(
+                IListener next =
                     ba.Value(trans2)
                         .Listen(
                             target: @out.Node,
                             trans: trans2,
                             action: @out.Send,
-                            suppressEarlierFirings: false));
+                            suppressEarlierFirings: false);
+
+                trans2.Last(
+                    commit: () =>
+                    {
+                        previous?.Unlisten();
+                        inner = next;
+                        currentListener.SetListenerImpl(next);
+                    },
+                    discard: next.Unlisten);
             }
         });
 

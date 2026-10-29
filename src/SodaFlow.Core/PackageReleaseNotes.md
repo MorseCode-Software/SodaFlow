@@ -39,6 +39,17 @@ Framework 4.7.2, measured back to back against the code before this change, a se
 went from 1,241 to 1,265 ns and of six cells from 1,262 to 1,306 ns; a send into a SnapshotLatest or a Merge of two
 types is unchanged within 12 ns. LiftBenchmarks in SodaFlow.Benchmarks measures it.
 
+Fixed: SwitchB and SwitchC no longer keep a switch that a failed transaction made. The handler that follows the outer
+behavior moved the inner listener to the new behavior as soon as it ran, with nothing to put it back. A transaction
+that failed after that point discarded the outer behavior's update but not the move, so the switched value went on
+following a behavior the outer one did not hold: with the outer cell still holding c1, an update of c2 reached the
+output and an update of c1 did not. The move now commits with the transaction, as the SwitchS move always did: the
+new listener is added when the handler runs, so the new behavior's value still reaches the output in that
+transaction, and the old listener is removed only when the transaction commits. A failure removes the new listener
+instead and leaves the old one in place. The old listener cannot deliver a stale value in the window between the
+two, because its update chain ranks below the output node and the engine has already run it by the time the handler
+runs; a test pins that ordering too.
+
 Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
 transaction in order of rank, and a step stayed in a list on its node until it had finished, so that a change of the
 node's rank could move it in the queue. A step that threw never finished, so it never left the list. The next time the
