@@ -18,6 +18,47 @@ public sealed class BindableActionTests
         where T : notnull =>
         sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
 
+    // The same rule as the one-way value: with this scheduler, a transaction that fails discards
+    // its posts, and CanExecute answers from the cell's committed value.
+    [Test]
+    public async Task ReportsTheCommittedEnablementAfterATransactionThatFails()
+    {
+        CellSink<bool> isEnabled = Cell.CreateSink(false);
+        StreamSink<int> sink = Stream.CreateSink<int>();
+
+        IBindableAction<int> action =
+            sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
+
+        bool initial = action.CanExecute(null);
+        int notifications = 0;
+        action.CanExecuteChanged += (_, _) => notifications++;
+
+        IListener throws =
+            isEnabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            isEnabled.Send(true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(action.CanExecute(null)).IsFalse();
+        await Assert.That(notifications).IsEqualTo(0);
+
+        isEnabled.Send(true);
+
+        await Assert.That(action.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+        action.Dispose();
+    }
+
     [Test]
     public async Task IsExecutableByDefault()
     {

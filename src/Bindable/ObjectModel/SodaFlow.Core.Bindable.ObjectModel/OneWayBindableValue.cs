@@ -87,7 +87,18 @@ public static partial class BindableCoreExtensionMethods
         ///     thread, because the callback runs in a transaction. A binding engine that
         ///     responds immediately can come back into the graph from a callback.
         /// </summary>
-        private void OnSourceChanged(T newValue) =>
+        /// <remarks>
+        ///     The callback runs while the transaction propagates, and the transaction can
+        ///     fail after it. A failure discards the update of the cell, thus the value
+        ///     here is not the value of the cell then. The posted action asks the
+        ///     transaction for its outcome, which is known when the action runs, and on a
+        ///     failure it reads the cell. On a completed transaction it uses the value
+        ///     here, and reads no cell on the binding thread.
+        /// </remarks>
+        private void OnSourceChanged(T newValue)
+        {
+            TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
+
             this.Scheduler.Post(() =>
             {
                 if (this.IsDisposed)
@@ -96,15 +107,17 @@ public static partial class BindableCoreExtensionMethods
                 }
 
                 this.ResolveInitialValue();
+                T authoritative = outcome.Failed ? this.Cell.SampleImpl() : newValue;
 
-                if (this.comparer.Equals(x: this.cachedValue, y: newValue))
+                if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
                 {
                     return;
                 }
 
-                this.cachedValue = newValue;
+                this.cachedValue = authoritative;
                 this.RaiseValueChanged();
             });
+        }
 
         /// <summary>
         ///     Puts the sample from the constructor into the cached value, one time only.

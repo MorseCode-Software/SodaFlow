@@ -106,6 +106,94 @@ public sealed class SynchronizationContextBindingSchedulerTests
         await Assert.That(order).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
     }
 
+    // The one-way value posts while the transaction propagates, and the batch goes to the context
+    // also when the transaction fails. Thus, the posted action must not put the value it carried on
+    // the screen. The transaction discarded the update of the cell, and the cell holds 1.
+    [Test]
+    public async Task AOneWayValueShowsTheCommittedValueAfterATransactionThatFails()
+    {
+        QueueingContext context = new();
+        SynchronizationContextBindingScheduler scheduler = new(context);
+        CellSink<int> source = Cell.CreateSink(1);
+        IOneWayBindableValue<int> oneWay = source.ToOneWayImpl(scheduler);
+        int initial = oneWay.Value;
+        int notifications = 0;
+        oneWay.PropertyChanged += (_, _) => notifications++;
+
+        // A listener added after the listener of the value, thus it runs after that listener and
+        // after the post.
+        IListener throws = source.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            source.Send(5);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        int items = context.Count;
+        context.RunAll();
+
+        await Assert.That(initial).IsEqualTo(1);
+        await Assert.That(items).IsEqualTo(1).Because("the batch still goes to the context on a failure");
+        await Assert.That(oneWay.Value).IsEqualTo(1);
+        await Assert.That(notifications).IsEqualTo(0);
+
+        source.Send(7);
+        context.RunAll();
+
+        await Assert.That(oneWay.Value).IsEqualTo(7);
+        await Assert.That(notifications).IsEqualTo(1);
+        oneWay.Dispose();
+    }
+
+    // The same for the copy of the enablement that CanExecute answers from.
+    [Test]
+    public async Task ACommandReportsTheCommittedEnablementAfterATransactionThatFails()
+    {
+        QueueingContext context = new();
+        SynchronizationContextBindingScheduler scheduler = new(context);
+        CellSink<bool> enabled = Cell.CreateSink(false);
+        StreamSink<int> firings = Stream.CreateSink<int>();
+        IBindableAction<int> action = firings.ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+        bool initial = action.CanExecute(null);
+        int notifications = 0;
+        action.CanExecuteChanged += (_, _) => notifications++;
+
+        IListener throws =
+            enabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            enabled.Send(true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        context.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(action.CanExecute(null)).IsFalse();
+        await Assert.That(notifications).IsEqualTo(0);
+
+        enabled.Send(true);
+        context.RunAll();
+
+        await Assert.That(action.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+        action.Dispose();
+    }
+
     [Test]
     public async Task ATransactionThatThrowsStillGivesItsPostsToTheContext()
     {

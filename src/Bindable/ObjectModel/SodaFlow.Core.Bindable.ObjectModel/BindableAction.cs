@@ -185,7 +185,13 @@ public static partial class BindableCoreExtensionMethods
                     _ => throw GetInvalidTypeException()
                 });
 
-        private void OnIsEnabledChanged(bool value) =>
+        // The same rule as OneWayBindableValue.OnSourceChanged. A transaction that fails after
+        // this callback discards the update of the cell. Thus, the posted action reads the cell on
+        // a failure, and uses the value here on a completed transaction.
+        private void OnIsEnabledChanged(bool value)
+        {
+            TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
+
             this.scheduler.Post(() =>
             {
                 if (Volatile.Read(ref this.disposed) != 0)
@@ -193,14 +199,17 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                if (this.ReadCanExecute() == value)
+                bool authoritative = outcome.Failed ? this.IsEnabledCell.SampleImpl() : value;
+
+                if (this.ReadCanExecute() == authoritative)
                 {
                     return;
                 }
 
-                Volatile.Write(location: ref this.canExecute, value: value ? Executable : NotExecutable);
+                Volatile.Write(location: ref this.canExecute, value: authoritative ? Executable : NotExecutable);
                 this.CanExecuteChanged?.Invoke(sender: this, e: EventArgs.Empty);
             });
+        }
 
         /// <summary>
         ///     Gives the availability, and puts the sample from the constructor into the
