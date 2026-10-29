@@ -44,9 +44,16 @@ internal sealed class TransactionInternal
     internal bool ActivatedTargets;
     internal int InCallback;
 
+    // The actions that run after the last actions. Only the scheduler of a binding uses this today,
+    // to send its posts after the outcome of the transaction is known.
+    private Queue<LastEntry>? afterLastQueue;
     private bool isElevated;
     private Queue<LastEntry>? lastQueue;
     private bool obtainedLock;
+
+    // SodaFlow allocates this at the first read of Outcome. A transaction that no code asks about
+    // allocates nothing for it.
+    private TransactionOutcome? outcome;
     private Queue<PostEntry>? postQueue;
     private HashSet<Entry>? rerankEntriesSet;
 
@@ -357,6 +364,33 @@ internal sealed class TransactionInternal
         (this.lastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
 
     /// <summary>
+    ///     Adds an action that runs after all last actions, and an alternative
+    ///     action for a transaction that fails, which runs after all discard actions.
+    /// </summary>
+    /// <remarks>
+    ///     Use this where an action gives work to a different thread, and that work
+    ///     reads <see cref="Outcome" />. The outcome is known before these actions
+    ///     run, in each condition. The same rule as for a last action applies: the
+    ///     action must not send, sample, or queue a prioritized action.
+    /// </remarks>
+    internal void AfterLast(Action commit, Action discard) =>
+        (this.afterLastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
+
+    /// <summary>
+    ///     The outcome of this transaction, for code that runs after it on a
+    ///     different thread.
+    /// </summary>
+    internal TransactionOutcome Outcome => this.outcome ??= new TransactionOutcome();
+
+    /// <summary>
+    ///     The outcome of the transaction that is open on this thread.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No transaction is open.</exception>
+    internal static TransactionOutcome CurrentOutcome() =>
+        localTransaction?.Outcome
+        ?? throw new InvalidOperationException("CurrentOutcome must be called from within a transaction.");
+
+    /// <summary>
     ///     Add an action to run after all last actions.
     /// </summary>
     /// <param name="action">The action to run after all last actions.</param>
@@ -527,6 +561,13 @@ internal sealed class TransactionInternal
                 this.lastQueue.Dequeue().Commit();
             }
 
+            // After each last action, thus the outcome is known when these run. The test below
+            // covers these too.
+            while (this.afterLastQueue?.Count > 0)
+            {
+                this.afterLastQueue.Dequeue().Commit();
+            }
+
             // A last action runs after the drain, thus work that it queues on this transaction has
             // no drain to run in. A prioritized entry stayed in the static queue and ran in the
             // next transaction. That is a different instant, and it can be on a different
@@ -633,6 +674,10 @@ internal sealed class TransactionInternal
         }
         catch (Exception transactionException)
         {
+            // Before each release and each discard. Thus, an action that one of those gives to a
+            // different thread reads the correct answer.
+            this.outcome?.MarkFailed();
+
             // The releases come first. Each entry that remains here kept no promise, because this
             // transaction stops before it runs, and the queues below hold that deferred work. An
             // entry that ran, and an entry that threw, are out of the queue and are not here.
@@ -683,6 +728,13 @@ internal sealed class TransactionInternal
             }
 
             this.lastQueue = null;
+
+            while (this.afterLastQueue?.Count > 0)
+            {
+                this.afterLastQueue.Dequeue().Discard?.Invoke();
+            }
+
+            this.afterLastQueue = null;
 
             this.postQueue = null;
 
