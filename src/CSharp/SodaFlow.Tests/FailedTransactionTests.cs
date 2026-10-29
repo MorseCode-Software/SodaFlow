@@ -276,6 +276,60 @@ public sealed class FailedTransactionTests
             .IsEquivalentTo(expected: [(Maybe<int>.None, Maybe.Some(5))], ordering: CollectionOrdering.Matching);
     }
 
+    // The switch ran in the handler, and the throw came after it, in a listener. The transaction
+    // discards the update of the selector, thus the switch must go with it. A switch that stayed
+    // followed c2 and gave 20 at the next update of c2, and ignored the update of c1.
+    [Test]
+    public async Task ASwitchCDoesNotKeepASwitchFromAFailedTransaction()
+    {
+        CellSink<int> c1 = Cell.CreateSink(1);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        CellSink<Cell<int>> selector = Cell.CreateSink<Cell<int>>(c1);
+        Cell<int> switched = selector.SwitchC();
+        Fail(s: switched.Updates(), send: () => selector.Send(c2));
+
+        await Assert.That(ReferenceEquals(objA: selector.Sample(), objB: c1)).IsTrue();
+        await Assert.That(switched.Sample()).IsEqualTo(1);
+
+        List<int> @out = [];
+        IListener l = switched.Updates().ListenStrong(@out.Add);
+        c2.Send(20);
+        c1.Send(2);
+        l.Unlisten();
+
+        await Assert.That(switched.Sample()).IsEqualTo(2);
+        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+    }
+
+    // The previous inner cell keeps its listener until the commit. Thus, an update of that cell
+    // in the switch transaction must not get to the output after the value of the new cell. Its
+    // chain has the lower rank, and the drain runs it first. The chain of maps puts the previous
+    // cell above the selector in rank. That is the sequence that shows a stale value if the rank
+    // order does not hold.
+    [Test]
+    public async Task AnUpdateOfTheOldCellInTheSwitchTransactionDoesNotReachTheOutputLast()
+    {
+        CellSink<int> source = Cell.CreateSink(1);
+        Cell<int> c1 = source.Map(static v => v).Map(static v => v).Map(static v => v).Map(static v => v);
+        CellSink<int> c2 = Cell.CreateSink(10);
+        CellSink<Cell<int>> selector = Cell.CreateSink(c1);
+        Cell<int> switched = selector.SwitchC();
+
+        List<int> @out = [];
+        IListener l = switched.Updates().ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            selector.Send(c2);
+            source.Send(5);
+        });
+
+        l.Unlisten();
+
+        await Assert.That(switched.Sample()).IsEqualTo(10);
+        await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+    }
+
     private static void Fail(StreamSink<int> s, int value) => Fail(s: s, send: () => s.Send(value));
 
     // Sends with a listener that throws, and removes the listener after the failure.
