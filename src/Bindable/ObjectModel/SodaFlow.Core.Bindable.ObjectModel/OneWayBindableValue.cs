@@ -89,11 +89,13 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         /// <remarks>
         ///     The callback runs while the transaction propagates, and the transaction can
-        ///     fail after it. A failure discards the update of the cell, thus the value
-        ///     here is not the value of the cell then. The posted action asks the
-        ///     transaction for its outcome, which is known when the action runs, and on a
-        ///     failure it reads the cell. On a completed transaction it uses the value
-        ///     here, and reads no cell on the binding thread.
+        ///     fail after it. A failure during propagation discards the update of the
+        ///     cell, thus the value here is not the value of the cell then. The posted
+        ///     action asks the transaction for its outcome, which is known when the
+        ///     action runs, and on a failure it reads the cell. On a completed
+        ///     transaction it uses the value here, and reads no cell on the binding
+        ///     thread. See <see cref="TransactionOutcome" /> for why the read is correct
+        ///     in each condition.
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {

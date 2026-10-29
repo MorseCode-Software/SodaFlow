@@ -370,8 +370,10 @@ internal sealed class TransactionInternal
     /// <remarks>
     ///     Use this where an action gives work to a different thread, and that work
     ///     reads <see cref="Outcome" />. The outcome is known before these actions
-    ///     run, in each condition. The same rule as for a last action applies: the
-    ///     action must not send, sample, or queue a prioritized action.
+    ///     run, in each condition. The same rules as for a last action apply: the
+    ///     action must not send, sample, or queue a prioritized action. An action
+    ///     that throws fails the transaction, and the actions after it in the
+    ///     queue do not run. Their discard actions run in the failure path.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
         (this.afterLastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
@@ -380,6 +382,10 @@ internal sealed class TransactionInternal
     ///     The outcome of this transaction, for code that runs after it on a
     ///     different thread.
     /// </summary>
+    /// <remarks>
+    ///     See <see cref="TransactionOutcome" /> for what a failed outcome tells
+    ///     that code to do, and why that is correct in each condition.
+    /// </remarks>
     internal TransactionOutcome Outcome => this.outcome ??= new TransactionOutcome();
 
     /// <summary>

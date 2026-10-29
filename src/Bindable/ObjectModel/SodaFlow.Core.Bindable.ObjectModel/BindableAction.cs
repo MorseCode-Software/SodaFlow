@@ -186,8 +186,8 @@ public static partial class BindableCoreExtensionMethods
                 });
 
         // The same rule as OneWayBindableValue.OnSourceChanged. A transaction that fails after
-        // this callback discards the update of the cell. Thus, the posted action reads the cell on
-        // a failure, and uses the value here on a completed transaction.
+        // this callback can discard the update of the cell. Thus, the posted action reads the cell
+        // on a failure, and uses the value here on a completed transaction.
         private void OnIsEnabledChanged(bool value)
         {
             TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
