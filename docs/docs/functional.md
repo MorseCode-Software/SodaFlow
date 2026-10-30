@@ -269,6 +269,10 @@ string described = e.Match(
 Because every case must be supplied, adding an alternative later is a compile error at each
 consumption site rather than a silent fallthrough.
 
+A `default` Either holds no case. A field that was never assigned, or an array slot that was
+never set, throws `InvalidOperationException` on `Match` rather than matching as the first case
+with a null or zero value. Two defaults are equal to each other and to nothing else.
+
 `TryGetFirst()` through `TryGetEighth()` answer with a `Maybe<T>` for one case, `IsFirst()`
 through `IsEighth()` test which case is held without reaching the value, and `MapFirst(f)`
 through `MapEighth(f)` transform one case and pass the rest through.
