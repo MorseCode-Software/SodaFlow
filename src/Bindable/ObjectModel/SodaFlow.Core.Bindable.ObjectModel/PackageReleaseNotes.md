@@ -1,4 +1,12 @@
-4.3.1
+5.0.0
+
+BREAKING: IOneWayToSourceBindableValue is gone, with the write-only value behind it. That value kept the last value
+the view wrote and had no cell to correct it from. When the graph refused a write, the value went on holding what the
+graph refused, and its equality test then dropped every retry of the same value, so the view was stuck until it wrote
+something else. The two-way value has no such state: it refreshes from its cell after every write, so a refused write
+leaves it showing what the graph holds. A value the view writes and also shows is a two-way value on a CellSink, or
+on a Cell with a StreamSink for the edits. Something the view only sends is a bindable action whose CommandParameter
+carries the value.
 
 Fixed: with SynchronizationContextBindingScheduler, every transaction that posted to the binding thread ran the
 transaction start hooks a second time. To send its batch of posts even when a transaction fails, the scheduler also

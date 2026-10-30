@@ -12,7 +12,7 @@ using TUnit.Core;
 namespace SodaFlow.Bindable.ObjectModel.Tests;
 
 /// <summary>
-///     Tests the three bindable values. Each test runs with
+///     Tests the bindable values. Each test runs with
 ///     <see cref="BindingScheduler.Immediate" />, which shows a notification with
 ///     no dispatcher. It gives the same sequence as a scheduler on a dispatcher,
 ///     because it defers to the end of the current transaction as that scheduler
@@ -366,33 +366,6 @@ public sealed class BindableValueTests
         await Assert.That(() => b.Value = 1).ThrowsExactly<ObjectDisposedException>();
     }
 
-    [Test]
-    public async Task OneWayToSourcePushesWritesIntoTheGraph()
-    {
-        CellSink<int> c = Cell.CreateSink(0);
-
-        using IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate);
-
-        await Assert.That(b.Value).IsEqualTo(0).Because("the getter starts at the sink's value");
-
-        b.Value = 6;
-
-        await Assert.That(c.Sample()).IsEqualTo(6);
-        await Assert.That(b.Value).IsEqualTo(6).Because("the getter reads back what the view wrote");
-    }
-
-    [Test]
-    public async Task OneWayToSourceStopsWritingOnceDisposed()
-    {
-        CellSink<int> c = Cell.CreateSink(0);
-        IOneWayToSourceBindableValue<int> b = c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate);
-
-        b.Dispose();
-        b.Value = 3;
-
-        await Assert.That(c.Sample()).IsEqualTo(0).Because("a disposed sink accepts no further writes");
-    }
-
     // A view model builds its bindable objects on the thread where it runs, and it does not have
     // to know which thread the binding engine uses. These tests build on a different thread,
     // with no SynchronizationContext, and then test that the sampled value is
@@ -471,21 +444,6 @@ public sealed class BindableValueTests
     }
 
     [Test]
-    public async Task OneWayToSourceCanBeConstructedOffTheBindingThread()
-    {
-        CellSink<int> c = Cell.CreateSink(11);
-
-        using IOneWayToSourceBindableValue<int> b =
-            await OnAnotherThread(() => c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate));
-
-        await Assert.That(b.Value).IsEqualTo(11);
-
-        b.Value = 13;
-
-        await Assert.That(c.Sample()).IsEqualTo(13);
-    }
-
-    [Test]
     public async Task ACommandCanBeConstructedOffTheBindingThread()
     {
         CellSink<bool> enabled = Cell.CreateSink(true);
@@ -505,8 +463,7 @@ public sealed class BindableValueTests
     }
 
     // Each bindable has the one interface that makes it disposable. Thus, a view model can
-    // keep all of them in one collection and dispose all of them together. Before, the value that
-    // a caller can only write did not implement that interface.
+    // keep all of them in one collection and dispose all of them together.
     [Test]
     public async Task EveryBindableIsAnIBindable()
     {
@@ -517,7 +474,6 @@ public sealed class BindableValueTests
         [
             OneWay(c),
             TwoWay(c),
-            c.ToOneWayToSourceImpl(scheduler: BindingScheduler.Immediate),
             edits.ToBindableActionImpl(scheduler: BindingScheduler.Immediate)
         ];
 
@@ -526,7 +482,7 @@ public sealed class BindableValueTests
             bindable.Dispose();
         }
 
-        await Assert.That(all.Count).IsEqualTo(4);
+        await Assert.That(all.Count).IsEqualTo(3);
     }
 
     // No bindable selects a scheduler for itself. Without one, a bindable built on a thread with
@@ -543,11 +499,6 @@ public sealed class BindableValueTests
         await Assert.That(() => c.ToTwoWayImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
 
         await Assert.That(() => c.ToTwoWayImpl(editsStreamSink: edits, scheduler: null!))
-            .ThrowsExactly<ArgumentNullException>();
-
-        await Assert.That(() => c.ToOneWayToSourceImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();
-
-        await Assert.That(() => edits.ToOneWayToSourceImpl(initialValue: 0, scheduler: null!))
             .ThrowsExactly<ArgumentNullException>();
 
         await Assert.That(() => edits.ToBindableActionImpl(scheduler: null!)).ThrowsExactly<ArgumentNullException>();

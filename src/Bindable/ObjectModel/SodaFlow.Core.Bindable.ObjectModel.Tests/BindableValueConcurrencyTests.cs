@@ -848,21 +848,6 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(0).Because("and the write never reached the graph");
     }
 
-    // This one had no scheduler before, thus no code tested it.
-    [Test]
-    public async Task WritingOneWayToSourceOffTheBindingThreadThrows()
-    {
-        CellSink<int> c = Cell.CreateSink(0);
-
-        using IOneWayToSourceBindableValue<int> b =
-            c.ToOneWayToSourceImpl(scheduler: AffineScheduler());
-
-        Exception? caught = CaughtOffTheBindingThread(state: b, body: static target => target.Value = 5);
-
-        await Assert.That(caught).IsTypeOf<InvalidOperationException>();
-        await Assert.That(c.Sample()).IsEqualTo(0);
-    }
-
     // A binding engine catches a throw from a setter. Avalonia discards it, or shows it as a
     // validation error that the refresh then removes. A throw from the graph is a defect. Thus, the
     // setter gives it to the scheduler, which throws it outside the binding engine. The refresh
@@ -897,34 +882,6 @@ public sealed class BindableValueConcurrencyTests
             .IsEquivalentTo(expected: ["kept"], ordering: CollectionOrdering.Matching)
             .Because("the refresh ran before the throw");
 
-        await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the throw comes one time");
-    }
-
-    // A one-way-to-source value has no refresh, but a binding engine catches its throw in the same
-    // way.
-    [Test]
-    public async Task OneWayToSourceReportsAThrowFromTheGraphOnTheBindingThread()
-    {
-        InvalidOperationException defect = new("The graph refused the value.");
-        QueueingScheduler scheduler = new();
-        StreamSink<string> edits = Stream.CreateSink<string>();
-        Cell<string> accepted = edits.Map(v => v == "refused" ? throw defect : v).Hold("kept");
-
-        using IOneWayToSourceBindableValue<string> b =
-            edits.ToOneWayToSourceImpl(initialValue: "kept", scheduler: scheduler);
-
-        // Caught runs the lambda before it returns, thus the lambda cannot have a longer life than
-        // the using block.
-        // ReSharper disable AccessToDisposedClosure
-        Exception? caught = Caught(() => b.Value = "refused");
-
-        // ReSharper restore AccessToDisposedClosure
-
-        Exception? thrown = await Assert.That(scheduler.RunAll).ThrowsExactly<InvalidOperationException>();
-
-        await Assert.That(caught).IsNull().Because("the binding engine is not the place to report a defect");
-        await Assert.That(thrown).IsSameReferenceAs(defect);
-        await Assert.That(accepted.Sample()).IsEqualTo("kept");
         await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the throw comes one time");
     }
 
