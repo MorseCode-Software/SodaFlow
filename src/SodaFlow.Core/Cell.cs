@@ -7,7 +7,7 @@ internal static class CellInternal
 {
     internal static Cell<T> ConstantImpl<T>(T value) => new(StreamInternal.NeverImpl<T>().HoldInternal(value));
 
-    internal static Cell<T> ConstantLazyImpl<T>(Lazy<T> value) =>
+    internal static Cell<T> ConstantLazyImpl<T>(LazySample<T> value) =>
         TransactionInternal.Apply((trans, _) =>
             new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)));
 
@@ -73,7 +73,7 @@ public class Cell<T>
 
     internal T SampleImpl() => this.BehaviorImpl.SampleImpl();
 
-    internal Lazy<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
+    internal LazySample<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
 
     internal IStrongListener ListenStrongImpl(Action<T> handler) =>
         TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
@@ -169,8 +169,8 @@ public class Cell<T>
 
     internal Cell<T> CalmImpl(Func<T, T, bool> areEqual)
     {
-        Lazy<T> initA = this.BehaviorImpl.SampleLazyImpl();
-        Lazy<MaybeInternal<T>> mInitA = initA.MapImpl(MaybeInternal.Some);
+        LazySample<T> initA = this.BehaviorImpl.SampleLazyImpl();
+        LazySample<MaybeInternal<T>> mInitA = initA.MapImpl(MaybeInternal.Some);
         return this.UpdatesImpl.Calm(init: mInitA, areEqual: areEqual).HoldLazyImpl(initA);
     }
 }

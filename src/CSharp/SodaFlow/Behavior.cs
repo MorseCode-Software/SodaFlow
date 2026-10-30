@@ -26,7 +26,7 @@ public static class Behavior
     /// <param name="value">The lazily computed value of the behavior.</param>
     /// <returns>A behavior with a lazily computed constant value.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Behavior<T> ConstantLazy<T>(Lazy<T> value) => BehaviorInternal.ConstantLazyImpl(value);
+    public static Behavior<T> ConstantLazy<T>(LazySample<T> value) => BehaviorInternal.ConstantLazyImpl(value);
 
     /// <summary>
     ///     Creates a writable behavior that uses the last value if

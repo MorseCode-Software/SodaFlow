@@ -10,7 +10,7 @@ namespace SodaFlow.Tests.Internal;
 
 /// <summary>
 ///     Covers the state protocol behind Calm rather than its filtering, which
-///     StreamTests exercises. These use the internal Calm(Lazy, areEqual)
+///     StreamTests exercises. These use the internal Calm(LazySample, areEqual)
 ///     overload, which gives an instrument on the initial value. From the public
 ///     API it always comes from SampleLazy, and no code can see the moment that
 ///     forces it.
@@ -19,7 +19,7 @@ namespace SodaFlow.Tests.Internal;
 /// </summary>
 public sealed class CalmTests
 {
-    private static Stream<int> Calm(Stream<int> source, Lazy<MaybeInternal<int>> init) =>
+    private static Stream<int> Calm(Stream<int> source, LazySample<MaybeInternal<int>> init) =>
         source.Calm(init: init, areEqual: static (x, y) => x == y);
 
     // The sample phase forces the initial value when nothing fires, and this matches the
@@ -34,8 +34,8 @@ public sealed class CalmTests
         IListener l =
             TransactionInternal.Apply((_, _) =>
             {
-                Lazy<MaybeInternal<int>> init =
-                    new(() =>
+                LazySample<MaybeInternal<int>> init =
+                    new(_ =>
                     {
                         forceOperations++;
                         return MaybeInternal<int>.None;
@@ -67,8 +67,8 @@ public sealed class CalmTests
         IListener l =
             TransactionInternal.Apply((_, _) =>
             {
-                Lazy<MaybeInternal<int>> init =
-                    new(() =>
+                LazySample<MaybeInternal<int>> init =
+                    new(_ =>
                     {
                         forceOperations++;
                         return MaybeInternal<int>.None;
@@ -105,7 +105,7 @@ public sealed class CalmTests
 
         IListener l =
             TransactionInternal.Apply((_, _) =>
-                Calm(source: s, init: new Lazy<MaybeInternal<int>>(static () => MaybeInternal.Some(7)))
+                Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal.Some(7)))
                     .ListenStrong(@out.Add));
 
         s.Send(7);
@@ -130,7 +130,7 @@ public sealed class CalmTests
 
         IListener l =
             TransactionInternal.Apply((_, _) =>
-                Calm(source: s, init: new Lazy<MaybeInternal<int>>(static () => MaybeInternal<int>.None))
+                Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None))
                     .ListenStrong(@out.Add));
 
         s.Send(1);
@@ -162,7 +162,7 @@ public sealed class CalmTests
 
         Stream<int> calmed =
             TransactionInternal.Apply((_, _) =>
-                Calm(source: s, init: new Lazy<MaybeInternal<int>>(static () => MaybeInternal<int>.None)));
+                Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None)));
 
         IListener good = calmed.ListenStrong(@out.Add);
         IListener boom = calmed.ListenStrong(static _ => throw new InvalidOperationException("abort"));
@@ -194,7 +194,7 @@ public sealed class CalmTests
 
         IListener l =
             TransactionInternal.Apply((_, _) =>
-                Calm(source: merged, init: new Lazy<MaybeInternal<int>>(static () => MaybeInternal<int>.None))
+                Calm(source: merged, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None))
                     .ListenStrong(@out.Add));
 
         Transaction.RunVoid(() =>

@@ -35,6 +35,7 @@
         <Compile Include="CalmTests.cs"/>
         <Compile Include="CellTests.cs"/>
         <Compile Include="LastPhaseTests.cs"/>
+        <Compile Include="LazySampleTests.cs"/>
         <Compile Include="ListenOnceTests.cs"/>
         <Compile Include="NodeTests.cs"/>
         <Compile Include="OnceTests.cs"/>

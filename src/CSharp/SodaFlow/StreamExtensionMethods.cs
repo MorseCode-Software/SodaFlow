@@ -279,13 +279,18 @@ public static class StreamExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
-    /// <param name="initialValue">The lazily initialized initial value of the cell.</param>
+    /// <param name="initialValue">
+    ///     The lazy sample that gives the initial value of the cell.
+    ///     <see cref="CellExtensionMethods.SampleLazy{T}" /> gives one, and so does
+    ///     <see cref="LazySample.Defer{T}" />.
+    /// </param>
     /// <returns>
     ///     A cell with the given lazy initial value, which the values of this
     ///     stream update.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Cell<T> HoldLazy<T>(this Stream<T> s, Lazy<T> initialValue) => s.HoldLazyImpl(initialValue);
+    public static Cell<T> HoldLazy<T>(this Stream<T> s, LazySample<T> initialValue) =>
+        s.HoldLazyImpl(initialValue);
 
     /// <summary>
     ///     Gives a stream that fires the value of the cell at the moment of each
@@ -2116,7 +2121,7 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TReturn> CollectLazy<T, TState, TReturn>(
         this Stream<T> s,
-        Lazy<TState> initialState,
+        LazySample<TState> initialState,
         Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
         s.CollectLazyImpl(initialState: initialState, f: f);
 
@@ -2162,7 +2167,7 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<TReturn> AccumLazy<T, TReturn>(
         this Stream<T> s,
-        Lazy<TReturn> initialState,
+        LazySample<TReturn> initialState,
         Func<T, TReturn, TReturn> f) =>
         s.AccumLazyImpl(initialState: initialState, f: f);
 

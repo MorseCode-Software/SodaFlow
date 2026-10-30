@@ -45,7 +45,7 @@
         <Compile Include="CoalesceHandler.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>
         <Compile Include="LazyBehavior.cs"/>
-        <Compile Include="LazyExtensionMethods.cs"/>
+        <Compile Include="LazySample.cs"/>
         <Compile Include="Listener.cs"/>
         <Compile Include="LoopedBehavior.cs"/>
         <Compile Include="LoopedCell.cs"/>

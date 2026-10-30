@@ -52,9 +52,11 @@ public static partial class BindableCoreExtensionMethods
         internal static InitialSample<T> Take(TransactionInternal transaction, Cell<T> cell)
         {
             InitialSample<T> sample = new(cell);
-            Lazy<T> atClose = cell.SampleLazyImpl();
+            LazySample<T> atClose = cell.SampleLazyImpl();
 
-            transaction.Sample(() => sample.Set(atClose.Value));
+            // A transaction that fails does not run its last actions. Thus, the first value never
+            // comes from a sample that the failure forgets, and Read samples the cell instead.
+            transaction.Last(() => sample.Set(atClose.Force(transaction)));
 
             return sample;
         }
@@ -78,7 +80,7 @@ public static partial class BindableCoreExtensionMethods
 
             T current = this.cell.SampleImpl();
 
-            // A read on a different thread waits in SampleImpl for the close, and the sample
+            // A read on a different thread waits in SampleImpl for the close, and the last
             // phase runs before the close. Thus, the value from that phase can be there now. Use
             // it and not the sample. A different transaction can run after the close and before
             // this read gets the lock. Then the sample is newer than the deliveries in the

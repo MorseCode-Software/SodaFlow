@@ -26,7 +26,7 @@ public static class Cell
     /// <param name="value">The lazy value of the cell.</param>
     /// <returns>A cell with a lazy constant value.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Cell<T> ConstantLazy<T>(Lazy<T> value) => CellInternal.ConstantLazyImpl(value);
+    public static Cell<T> ConstantLazy<T>(LazySample<T> value) => CellInternal.ConstantLazyImpl(value);
 
     /// <summary>
     ///     Makes a writable cell that uses the last value if

@@ -112,6 +112,33 @@ public sealed class BindableValueTests
         oneWay.Dispose();
     }
 
+    // A bindable made in a transaction takes its first value at the end of that transaction.
+    // The transaction can fail after the sample phase took that value, when a lazy initial value
+    // throws in that phase. The bindable must then read its cell, and not show the value from the
+    // transaction that failed.
+    [Test]
+    public async Task OneWayMadeInATransactionThatFailsStartsFromTheCommittedValue()
+    {
+        CellSink<int> cell = Cell.CreateSink(1);
+        IOneWayBindableValue<int>? oneWay = null;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    oneWay = cell.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+                    cell.Send(5);
+
+                    Stream.Never<int>()
+                        .HoldLazy(
+                            LazySample.Defer<int>(
+                                static () => throw new InvalidOperationException("from the sample phase")));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(oneWay?.Value).IsEqualTo(1);
+        oneWay?.Dispose();
+    }
+
     [Test]
     public async Task OneWayStartsAtTheCellsCurrentValue()
     {

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -60,6 +61,46 @@ public sealed class CellProjectionCacheTests
         await Assert.That(ReferenceEquals(objA: length, objB: score)).IsFalse();
         await Assert.That(length.Sample()).IsEqualTo(-3);
         await Assert.That(score.Sample()).IsEqualTo(-1);
+    }
+
+    // A per-key cell made during a transaction seeds from the snapshot that the transaction is
+    // about to commit. The transaction can fail after it took the seed, when a later lazy
+    // initial value throws in the sample phase. The cell stays in the cache, thus it must not
+    // keep a value from the snapshot that the failure discarded.
+    [Test]
+    public async Task APerKeyCellMadeInATransactionThatFailsDoesNotKeepTheDiscardedSnapshot()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [],
+                edits);
+
+        Cell<int>? scoreOfOne = null;
+
+        IListener listener = collection.ItemChangesStream.ListenStrong(_ =>
+        {
+            scoreOfOne = collection.StateCellImpl(key: 1, projection: Score);
+
+            Stream.Never<int>()
+                .HoldLazy(
+                    LazySample.Defer<int>(static () => throw new InvalidOperationException("from the sample phase")));
+        });
+
+        await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10))))
+            .ThrowsExactly<InvalidOperationException>();
+
+        listener.Unlisten();
+
+        await Assert.That(scoreOfOne?.Sample()).IsEqualTo(-1).Because("the add went with the transaction");
+        await Assert.That(collection.StateCellImpl(key: 1, projection: Score).Sample()).IsEqualTo(-1);
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 20)));
+
+        await Assert.That(scoreOfOne?.Sample()).IsEqualTo(20);
     }
 
     private static ReactiveCollection<int, ItemIdentity, ItemState> Empty() =>

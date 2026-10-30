@@ -348,7 +348,7 @@ let inline holdS initialValue stream = Stream.hold initialValue stream
 /// <summary>
 /// Holds the most recently fired value in a cell, with an initial value computed on first use.
 /// </summary>
-/// <param name="initialValue">The lazy value the cell holds until the stream first fires.</param>
+/// <param name="initialValue">The lazy sample the cell holds until the stream first fires.</param>
 /// <param name="stream">The stream to hold.</param>
 /// <returns>A cell holding the last value fired, or <paramref name="initialValue" /> before any.</returns>
 /// <remarks>

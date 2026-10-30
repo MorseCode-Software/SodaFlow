@@ -7,7 +7,7 @@ internal static class BehaviorInternal
 {
     internal static Behavior<T> ConstantImpl<T>(T value) => new(value);
 
-    internal static Behavior<T> ConstantLazyImpl<T>(Lazy<T> value) =>
+    internal static Behavior<T> ConstantLazyImpl<T>(LazySample<T> value) =>
         TransactionInternal.Apply((trans, _) =>
             StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value));
 
@@ -139,22 +139,29 @@ public class Behavior<T>
     /// </remarks>
     protected virtual void NotUsingInitialValue() => this.UsingInitialValue = false;
 
+    /// <summary>
+    ///     Makes this behavior use its initial value again. A transaction that set
+    ///     the value from a lazy sample failed, thus the value is not correct.
+    /// </summary>
+    protected void UseInitialValueAgain() => this.UsingInitialValue = true;
+
     internal T SampleImpl() => TransactionInternal.Apply((_, _) => this.SampleNoTransaction());
 
-    internal Lazy<T> SampleLazyImpl() => TransactionInternal.Apply((trans, _) => this.SampleLazy(trans));
+    internal LazySample<T> SampleLazyImpl() => TransactionInternal.Apply((trans, _) => this.SampleLazy(trans));
 
-    internal Lazy<T> SampleLazy(TransactionInternal trans)
+    internal LazySample<T> SampleLazy(TransactionInternal trans)
     {
-        LazySample s = new(this);
+        LazySample<T> s = new(this);
 
+        // The sample phase runs after each send and each prioritized action. Thus, the pending
+        // update, when this behavior got one, is the value at the end of the transaction. A
+        // transaction that fails discards that update, and the capture goes with it.
         trans.Sample(() =>
-        {
-            s.Value = this.valueUpdate.Match(onSome: static v => v, onNone: this.SampleNoTransaction);
-            s.Behavior = null;
-        });
+            s.Capture(
+                trans: trans,
+                captured: this.valueUpdate.Match(onSome: static v => v, onNone: this.SampleNoTransaction)));
 
-        // ReSharper disable once NullableWarningSuppressionIsUsed - Optimization.  Only sets should be above.
-        return new Lazy<T>(() => s.Behavior == null ? s.Value! : s.Behavior.SampleImpl());
+        return s;
     }
 
     internal virtual T SampleNoTransaction() => this.ValueProperty;
@@ -730,7 +737,7 @@ public class Behavior<T>
             result = result.UnsafeAttachListener(listener);
         }
 
-        return result.HoldLazyInternal(trans: trans, initialValue: new Lazy<TResult>(initialValue));
+        return result.HoldLazyInternal(trans: trans, initialValue: new LazySample<TResult>(_ => initialValue()));
     }
 
     internal Behavior<TResult> ApplyImpl<TResult>(Behavior<Func<T, TResult>> bf) =>
@@ -785,7 +792,7 @@ public class Behavior<T>
                 .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(node: inTarget, target: nodeTarget))
                 .HoldLazyInternal(
                     trans: trans0,
-                    initialValue: new Lazy<TResult>(() => bf.SampleNoTransaction()(this.SampleNoTransaction())));
+                    initialValue: new LazySample<TResult>(_ => bf.SampleNoTransaction()(this.SampleNoTransaction())));
 
             static void NoOp(TransactionInternal _, UnitInternal __)
             {
@@ -809,12 +816,4 @@ public class Behavior<T>
                         @out.Send(trans: trans2, a: function(value));
                     });
         });
-
-    private sealed class LazySample
-    {
-        internal Behavior<T>? Behavior;
-        internal T? Value;
-
-        internal LazySample(Behavior<T> behavior) => this.Behavior = behavior;
-    }
 }

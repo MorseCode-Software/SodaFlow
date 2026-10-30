@@ -63,16 +63,20 @@ public static class CellExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
-    /// <returns>A lazy value that gives the current value of the cell.</returns>
+    /// <returns>
+    ///     A lazy sample of the current value of the cell. Only SodaFlow reads it,
+    ///     at the end of the transaction, and a transaction that fails forgets it.
+    /// </returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the
     ///     <see cref="CellLoop{T}" /> class when no code closed the cell loop.  Use it
     ///     in code that is general sufficient for a <see cref="CellLoop{T}" />
     ///     argument.  See
-    ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
+    ///     <see
+    ///         cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, LazySample{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Lazy<T> SampleLazy<T>(this Cell<T> c) => c.SampleLazyImpl();
+    public static LazySample<T> SampleLazy<T>(this Cell<T> c) => c.SampleLazyImpl();
 
     /// <summary>
     ///     Gets the stream of discrete updates to this cell.
