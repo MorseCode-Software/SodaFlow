@@ -21,6 +21,9 @@ Measured with 10,000 one-way values updated in one transaction and every notific
 the previous release is inside the noise of the runs: 20.2 ms to 19.5 ms on .NET 10 and 23.7 ms to 21.5 ms on .NET
 Framework 4.7.2 for the 10,000 notifications, and 383 ns to 389 ns for one update. A read of the cell on every
 notification, the alternative, measured 26.8 ms and 27.0 ms. OneWayScaleBenchmarks in SodaFlow.Benchmarks measures it.
+A scheduler of your own that hands each action to the binding thread as it arrives can run the action before the
+transaction ends. The value then finds the outcome still unknown and reads the cell, and that read waits for the
+transaction, so the fix holds for any scheduler that keeps the Post contract, not only for the two in this package.
 
 Requires SodaFlow.Core 5.0.1, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
