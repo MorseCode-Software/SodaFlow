@@ -1,4 +1,11 @@
-2.0.1
+3.0.0
+
+Requires SodaFlow.Core 6.x, which ships in the same release. Nothing in this package's API changes, but a consumer
+that moves to this version moves to that SodaFlow.Core, whose SampleLazy and HoldLazy changed shape. In that
+release, a per-key cell made during a transaction that then fails no longer keeps an item from the snapshot the
+failure discarded, which the cache of per-key cells made visible: the cell stayed cached, and each later reader saw
+the phantom item until that key changed again. The seed of the root snapshot now builds its state inside the function
+that SodaFlow can run again after such a failure.
 
 Fixed: a request for a per-key cell from outside a transaction could deadlock with a request from inside one.
 StateCell, IdentityCell, and ItemCell took the gate of their cache first and, on a miss, the transaction lock inside

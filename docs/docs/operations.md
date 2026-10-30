@@ -26,7 +26,7 @@ For full signatures and parameter contracts, follow through to the
 | `Stream.CreateSink<T>()` | `sinkS ()` | A stream you can `Send` into. |
 | `Stream.CreateSink<T>(coalesce)` | `sinkWithCoalesceS f` | As above; `coalesce` combines multiple sends in one transaction. |
 | `Cell.Constant(v)` | `constantC v` | A cell that never changes. |
-| `Cell.ConstantLazy(lazy)` | `constantLazyC v` | As above, computed on demand. |
+| `Cell.ConstantLazy(sample)` | `constantLazyC v` | As above, from a `LazySample<T>`, read when the cell is first sampled. |
 | `Cell.CreateSink(initial)` | `sinkC initial` | A cell you can `Send` into. |
 | `Cell.CreateStreamSink<T>()` | `sinkCS ()` | A stream sink whose firings are treated as cell updates. |
 | `cs.AsStreamSink()` | — | The same object seen as the `StreamSink<T>` it already is, where one is wanted. |
@@ -51,7 +51,7 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `streams.Merge(f)` | `mergeAllS f streams` | Merge a collection of streams. |
 | `streams.OrElse()` | `orElseAllS streams` | Left-biased merge of a collection. |
 | `s.Hold(initial)` | `holdS initial s` | Turn into a cell remembering the latest value. |
-| `s.HoldLazy(lazy)` | `holdLazyS v s` | As above with a lazy initial value. |
+| `s.HoldLazy(sample)` | `holdLazyS v s` | As above with a `LazySample<T>` initial value. |
 | `s.Snapshot(c)` | `snapshotAndTakeC c s` | On each firing, take the cell's value, discarding the stream's. |
 | `s.Snapshot(c, f)` | `snapshotC c f s` | On each firing, combine the stream value with the cell's. |
 | `s.Snapshot(c1, c2, f)` | `snapshot2C c1 c2 f s` | Same, over more cells (up to 8). |
@@ -62,9 +62,9 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
 | `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
-| `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `Lazy<T>` initial state, for a fold whose starting value comes from the graph it is part of. |
+| `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `LazySample<T>` initial state, for a fold whose starting value comes from the graph it is part of. |
 | `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
-| `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `Lazy<T>` initial state. |
+| `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `LazySample<T>` initial state. |
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
 | `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
 | `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
@@ -87,7 +87,10 @@ is already the new one.
 | C# | F# alias | Meaning |
 | --- | --- | --- |
 | `c.Sample()` | `sampleC c` | Read the current value *now*. An imperative escape hatch. |
-| `c.SampleLazy()` | `sampleLazyC c` | Read on demand, for use inside loops. |
+| `c.SampleLazy()` | `sampleLazyC c` | A `LazySample<T>` of the value, read by the library at the end of the transaction; for `HoldLazy` and loops. |
+| `sample.Map(f)` | `LazySample.map f sample` | A `LazySample<T>` of the transformed value. |
+| `a.Lift(b, f)` | `LazySample.lift2 f a b` | A `LazySample<T>` combining two to four samples. |
+| `LazySample.Defer(f)` | `LazySample.defer f` | A `LazySample<T>` from a function, for a starting value that is not a sample of the graph. |
 | `c.Map(f)` | `mapC f c` | Transform the value. |
 | `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads up to 8 cells in both languages. |
 | `cells.Lift()` | `liftAllC id cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. F#'s `liftAllC` always takes a combining function; C# also has `cells.Lift(f)`. |

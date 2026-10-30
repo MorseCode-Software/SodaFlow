@@ -1,11 +1,11 @@
-2.0.1
+3.0.0
 
-No change in API or behavior. This release raises the dependency floor, so that a new install gets
-SodaFlow.Core.Collections 2.0.1. In that release, making a cell for each key of a large collection no longer takes time
-that grows with the square of the number of keys. That package's notes have the details.
-
-NuGet resolves the lowest version a range allows, so a fresh install of 2.0.0 would go on resolving
-SodaFlow.Core.Collections 2.0.0. A consumer who references SodaFlow.Core.Collections directly gets the fix either way.
+No change in this package's API. This release raises the dependency floor, so that a new install gets
+SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
+why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then
+fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside a transaction can no
+longer deadlock with one from inside, and making a cell for each key of a large collection no longer takes time that
+grows with the square of the number of keys. That package's notes have the details.
 
 2.0.0
 

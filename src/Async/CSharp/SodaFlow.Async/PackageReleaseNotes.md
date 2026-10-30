@@ -1,7 +1,9 @@
-5.1.1
+6.0.0
 
-No change in API. This release raises the dependency floor, so that a new install gets SodaFlow.Core.Async 5.0.2. That
-release has changes that reach this package, and its notes have the details of each:
+No change in this package's API. This release raises the dependency floor, so that a new install gets
+SodaFlow.Core.Async 6.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is why
+this is a major version. SodaFlow.Core.Async 6.0.0 has changes that reach this package, and its notes have the details
+of each:
 
 - An operation starts after the transaction that started it has released the transaction lock, so slow synchronous
   work at the start of an operation no longer stalls every thread's transactions, and waiting there on another thread
@@ -9,8 +11,8 @@ release has changes that reach this package, and its notes have the details of e
 - Canceling many items at once, with cancelAll or cancelMatching, no longer takes time that grows with the square of
   their number.
 
-NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving SodaFlow.Core.Async
-5.0.1. A consumer who references SodaFlow.Core.Async directly gets the change either way.
+NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
+SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
 
 5.1.0
 
