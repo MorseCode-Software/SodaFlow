@@ -567,8 +567,11 @@ internal sealed class TransactionInternal
                 this.lastQueue.Dequeue().Commit();
             }
 
-            // After each last action, thus the outcome is known when these run. The test below
-            // covers these too.
+            // The last actions ran, thus the outcome is known from here. The after-last actions,
+            // and the work that they give to other threads, can read it. The test below covers
+            // these actions too.
+            this.outcome?.MarkCommitted();
+
             while (this.afterLastQueue?.Count > 0)
             {
                 this.afterLastQueue.Dequeue().Commit();

@@ -76,12 +76,43 @@ public sealed class LastPhaseTests
     }
 
     [Test]
-    public async Task TheOutcomeOfACompletedTransactionIsNotFailed()
+    public async Task TheOutcomeIsUnknownUntilEachLastActionRan()
     {
-        TransactionOutcome outcome =
-            TransactionInternal.Apply(static (trans, _) => trans.Outcome);
+        bool knownInTheLastAction = true;
+        bool committedInTheAfterLastAction = false;
 
+        TransactionOutcome outcome =
+            TransactionInternal.Apply((trans, _) =>
+            {
+                TransactionOutcome o = trans.Outcome;
+                trans.AfterLast(commit: () => committedInTheAfterLastAction = o.Committed, discard: static () => { });
+                trans.Last(() => knownInTheLastAction = o.Known);
+                return o;
+            });
+
+        await Assert.That(knownInTheLastAction).IsFalse();
+        await Assert.That(committedInTheAfterLastAction).IsTrue();
+        await Assert.That(outcome.Committed).IsTrue();
         await Assert.That(outcome.Failed).IsFalse();
+    }
+
+    [Test]
+    public async Task AFailureAfterTheLastActionsRanReplacesCommittedWithFailed()
+    {
+        TransactionOutcome? outcome = null;
+
+        // The last action queues work, which the check after the after-last actions refuses.
+        await Assert.That(() =>
+                TransactionInternal.Apply<UnitInternal>((trans, _) =>
+                {
+                    outcome = trans.Outcome;
+                    trans.Last(() => trans.Prioritized(node: new Node<int>(), action: static _ => { }));
+                    return UnitInternal.Value;
+                }))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(outcome?.Failed).IsTrue();
+        await Assert.That(outcome?.Committed).IsFalse();
     }
 
     [Test]
