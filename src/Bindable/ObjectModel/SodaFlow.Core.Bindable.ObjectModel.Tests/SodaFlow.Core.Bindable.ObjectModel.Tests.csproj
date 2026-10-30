@@ -47,6 +47,7 @@
         <Compile Include="BindingSchedulerTests.cs"/>
         <Compile Include="QueueingScheduler.cs"/>
         <Compile Include="SynchronizationContextBindingSchedulerTests.cs"/>
+        <Compile Include="ThreadPerActionScheduler.cs"/>
     </ItemGroup>
 
     <ItemGroup>

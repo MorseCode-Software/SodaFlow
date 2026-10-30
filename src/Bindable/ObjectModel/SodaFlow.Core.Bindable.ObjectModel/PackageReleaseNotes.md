@@ -9,7 +9,23 @@ transaction directly to send the batch if it fails, and posts nothing extra. Wha
 unchanged. After a transaction that fails, the batch is still sent, now at the point where the transaction discards
 its last actions, which comes after the failure handlers of other posted actions rather than among them.
 
-Requires SodaFlow.Core 5.0.1, which adds the member this release calls. The floor of the dependency is the version of
+Fixed: a one-way bindable value, and the copy of a command's enablement that CanExecute answers from, no longer show a
+value from a transaction that failed. The value's listener runs while the transaction propagates and posts the value
+it saw; a transaction that failed after that point discarded the cell's update but the batch still reached the
+binding thread, so the screen showed a value the cell never took, until the next update. The two-way value was
+immune because it reads its cell on the binding thread. The posted action now asks the transaction how it ended, which
+SodaFlow.Core 5.0.1 records before any discard runs, and reads the cell only then; a transaction that commits costs
+one more reference in the closure the value already allocates and reads no cell on the binding thread. The
+scheduler sends its batch after every last action and every discard, so the answer is known before the batch leaves.
+Measured with 10,000 one-way values updated in one transaction and every notification delivered, the cost against
+the previous release is inside the noise of the runs: 20.2 ms to 19.5 ms on .NET 10 and 23.7 ms to 21.5 ms on .NET
+Framework 4.7.2 for the 10,000 notifications, and 383 ns to 389 ns for one update. A read of the cell on every
+notification, the alternative, measured 26.8 ms and 27.0 ms. OneWayScaleBenchmarks in SodaFlow.Benchmarks measures it.
+A scheduler of your own that hands each action to the binding thread as it arrives can run the action before the
+transaction ends. The value then finds the outcome still unknown and reads the cell, and that read waits for the
+transaction, so the fix holds for any scheduler that keeps the Post contract, not only for the two in this package.
+
+Requires SodaFlow.Core 5.0.1, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
 
 4.3.0

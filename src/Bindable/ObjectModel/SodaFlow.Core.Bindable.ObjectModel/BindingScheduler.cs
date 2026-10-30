@@ -58,6 +58,13 @@ public interface IBindingScheduler
     ///         careful.
     ///     </para>
     ///     <para>
+    ///         An implementation does not have to hold the action until the
+    ///         transaction ends. A bindable value that runs its action before the
+    ///         transaction ran its last actions reads its cell, and that read waits
+    ///         for the transaction. The schedulers in this package hold the actions
+    ///         of a transaction and send them together after its last actions.
+    ///     </para>
+    ///     <para>
     ///         An action can throw, and some actions throw by design. A writable value
     ///         posts the throw of a write that failed, because a binding engine
     ///         discards a throw from a setter. See
@@ -221,8 +228,13 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             // batch then, as this scheduler sent each action before it made batches. An empty post
             // with a release did this before. Each post runs in a transaction of its own, which
             // runs the start hooks a second time.
+            //
+            // AfterLast and not Last. A posted action can read the outcome of the transaction, and
+            // the outcome is known after each last action and each discard. A Last put the send
+            // before some of those, in the sequence of the listeners. The binding thread can then
+            // run the batch before the transaction knows that it failed.
             Action send = this.SendBatch;
-            transaction.Last(commit: send, discard: send);
+            transaction.AfterLast(commit: send, discard: send);
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - The code above sets the batch with its transaction.

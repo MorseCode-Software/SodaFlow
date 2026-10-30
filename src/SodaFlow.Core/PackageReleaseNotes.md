@@ -50,6 +50,15 @@ instead and leaves the old one in place. The old listener cannot deliver a stale
 two, because its update chain ranks below the output node and the engine has already run it by the time the handler
 runs; a test pins that ordering too.
 
+Added: the internal TransactionInternal.AfterLast and TransactionInternal.Outcome. AfterLast takes an action that runs
+after every last action, with an alternative for a transaction that fails that runs after every discard. Outcome is
+a small object a transaction allocates on first request, with three states: unknown until the transaction has run its
+last actions or started its failure path, committed once the last actions have run, and failed from the start of the
+failure path, before any release or discard runs. Together they let an action that a transaction hands to another
+thread learn, when it runs there, whether the transaction committed, and read the cell when it cannot yet know.
+SodaFlow.Bindable.ObjectModel.Core 4.3.1 uses them so that a one-way bindable value never shows a value from a
+transaction that failed.
+
 Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
 transaction in order of rank, and a step stayed in a list on its node until it had finished, so that a change of the
 node's rank could move it in the queue. A step that threw never finished, so it never left the list. The next time the

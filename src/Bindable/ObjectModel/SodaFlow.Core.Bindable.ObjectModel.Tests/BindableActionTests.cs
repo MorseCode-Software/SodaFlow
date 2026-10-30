@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
@@ -17,6 +18,97 @@ public sealed class BindableActionTests
     private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
         where T : notnull =>
         sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
+
+    // The same rule as the one-way value: with this scheduler, a transaction that fails discards
+    // its posts, and CanExecute answers from the cell's committed value.
+    [Test]
+    public async Task ReportsTheCommittedEnablementAfterATransactionThatFails()
+    {
+        CellSink<bool> isEnabled = Cell.CreateSink(false);
+        StreamSink<int> sink = Stream.CreateSink<int>();
+
+        IBindableAction<int> action =
+            sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
+
+        bool initial = action.CanExecute(null);
+        int notifications = 0;
+        action.CanExecuteChanged += (_, _) => notifications++;
+
+        IListener throws =
+            isEnabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            isEnabled.Send(true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(action.CanExecute(null)).IsFalse();
+        await Assert.That(notifications).IsEqualTo(0);
+
+        isEnabled.Send(true);
+
+        await Assert.That(action.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+        action.Dispose();
+    }
+
+    // The same rule as the one-way value, with a scheduler that runs the action while the
+    // transaction propagates. The action finds the outcome unknown and reads the cell, and that
+    // read waits for the transaction. Thus, the wait in the listener must time out.
+    [Test]
+    public async Task ReportsTheCommittedEnablementWithASchedulerThatRunsDuringPropagation()
+    {
+        CellSink<bool> isEnabled = Cell.CreateSink(false);
+        ThreadPerActionScheduler scheduler = new();
+
+        IBindableAction<int> action =
+            Stream.CreateSink<int>().ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: scheduler);
+
+        int notifications = 0;
+        action.CanExecuteChanged += (_, _) => Interlocked.Increment(ref notifications);
+        bool finishedWhileTheTransactionWasOpen = false;
+
+        // This listener runs after the listener of the command, which posted before it.
+        IListener throws = isEnabled.Updates().Listen(_ =>
+        {
+            scheduler.AnActionStarted.Wait();
+            finishedWhileTheTransactionWasOpen = scheduler.AnActionFinished.Wait(TimeSpan.FromMilliseconds(500));
+            throw new InvalidOperationException("from the graph");
+        });
+
+        try
+        {
+            isEnabled.Send(true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        scheduler.Join();
+
+        await Assert.That(finishedWhileTheTransactionWasOpen).IsFalse();
+        await Assert.That(action.CanExecute(null)).IsFalse();
+        await Assert.That(notifications).IsEqualTo(0);
+
+        isEnabled.Send(true);
+        scheduler.Join();
+
+        await Assert.That(action.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+        action.Dispose();
+    }
 
     [Test]
     public async Task IsExecutableByDefault()

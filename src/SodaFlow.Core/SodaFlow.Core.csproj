@@ -59,6 +59,7 @@
         <Compile Include="StreamListenerManager.cs"/>
         <Compile Include="StreamSink.cs"/>
         <Compile Include="Transaction.cs"/>
+        <Compile Include="TransactionOutcome.cs"/>
         <Compile Include="Unit.cs"/>
     </ItemGroup>
 

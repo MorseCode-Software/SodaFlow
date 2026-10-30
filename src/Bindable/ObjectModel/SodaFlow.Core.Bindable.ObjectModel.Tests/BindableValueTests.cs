@@ -33,6 +33,85 @@ public sealed class BindableValueTests
         return names;
     }
 
+    // With this scheduler, a transaction that fails discards the posts it made. Thus, the value
+    // sees nothing from such a transaction, and holds the value the cell holds.
+    [Test]
+    public async Task OneWayShowsTheCommittedValueAfterATransactionThatFails()
+    {
+        CellSink<int> cell = Cell.CreateSink(1);
+        IOneWayBindableValue<int> oneWay = cell.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
+        int initial = oneWay.Value;
+        int notifications = 0;
+        oneWay.PropertyChanged += (_, _) => notifications++;
+
+        IListener throws = cell.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            cell.Send(5);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        await Assert.That(initial).IsEqualTo(1);
+        await Assert.That(oneWay.Value).IsEqualTo(1);
+        await Assert.That(notifications).IsEqualTo(0);
+
+        cell.Send(7);
+
+        await Assert.That(oneWay.Value).IsEqualTo(7);
+        await Assert.That(notifications).IsEqualTo(1);
+        oneWay.Dispose();
+    }
+
+    [Test]
+    public async Task OneWayShowsTheCommittedValueWithASchedulerThatRunsDuringPropagation()
+    {
+        CellSink<int> cell = Cell.CreateSink(1);
+        ThreadPerActionScheduler scheduler = new();
+        IOneWayBindableValue<int> oneWay = cell.ToOneWayImpl(scheduler: scheduler);
+        bool finishedWhileTheTransactionWasOpen = false;
+
+        // This listener runs after the listener of the value. The value posted, the thread runs
+        // the action, and this transaction then fails. The action reads the cell, because the
+        // outcome is not known, and that read waits for the transaction. Thus, the wait here must
+        // time out.
+        IListener throws = cell.Updates().Listen(_ =>
+        {
+            scheduler.AnActionStarted.Wait();
+            finishedWhileTheTransactionWasOpen = scheduler.AnActionFinished.Wait(TimeSpan.FromMilliseconds(500));
+            throw new InvalidOperationException("from the graph");
+        });
+
+        try
+        {
+            cell.Send(5);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        scheduler.Join();
+
+        await Assert.That(finishedWhileTheTransactionWasOpen).IsFalse();
+        await Assert.That(oneWay.Value).IsEqualTo(1);
+
+        cell.Send(7);
+        scheduler.Join();
+
+        await Assert.That(oneWay.Value).IsEqualTo(7);
+        oneWay.Dispose();
+    }
+
     [Test]
     public async Task OneWayStartsAtTheCellsCurrentValue()
     {
