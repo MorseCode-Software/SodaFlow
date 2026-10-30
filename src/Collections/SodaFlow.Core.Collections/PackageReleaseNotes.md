@@ -1,5 +1,14 @@
 2.0.1
 
+Fixed: a request for a per-key cell from outside a transaction could deadlock with a request from inside one.
+StateCell, IdentityCell, and ItemCell took the gate of their cache first and, on a miss, the transaction lock inside
+the creation of the cell. A projection that runs in a transaction, such as every row that MappedItems builds, holds
+the transaction lock and then waits for the gate. A UI thread asking for a row's cell while an edit propagated on
+another thread could stop both threads for good. A miss now takes the transaction lock first and the gate inside it,
+which is the order a request from a transaction already used, and looks the cache up again under both locks, so one
+key still gets one cell. A hit takes only the gate, as before, and opens no transaction. A test runs the two threads
+against each other and stopped in its first round on the previous code.
+
 Fixed: making a cell for each key of a large collection took time that grew with the square of the number of keys.
 StateCellImpl, IdentityCellImpl, and ItemCellImpl keep each cell they make in a weak cache, and once that cache held 64
 entries, every add first swept all of it for cells the garbage collector had removed. With every cell still in use,
