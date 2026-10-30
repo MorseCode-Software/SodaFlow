@@ -86,6 +86,7 @@ public sealed class EitherTests
         await Assert.That(() => TestIt8(e)).ThrowsExactly<InvalidOperationException>();
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
+
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8>.First(new Test1()))
             .IsFalse();
     }
@@ -164,6 +165,7 @@ public sealed class EitherTests
         await Assert.That(() => TestIt8(e)).ThrowsExactly<InvalidOperationException>();
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
+
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8>.First(new Test1()))
             .IsFalse();
     }
