@@ -51,35 +51,6 @@ public static partial class BindableCoreExtensionMethods
     }
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, and
-    ///     sends the writes of the view into <paramref name="sink" />.
-    /// </summary>
-    internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
-        this CellSink<T> sink,
-        IBindingScheduler scheduler,
-        IEqualityComparer<T>? comparer = null) =>
-        new OneWayToSourceBindableValue<T>(
-            write: sink.SendImpl,
-            initialValue: sink.SampleImpl(),
-            scheduler: scheduler,
-            comparer: comparer);
-
-    /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, and
-    ///     sends the writes of the view into <paramref name="editsStreamSink" />.
-    /// </summary>
-    internal static IOneWayToSourceBindableValue<T> ToOneWayToSourceImpl<T>(
-        this StreamSink<T> editsStreamSink,
-        T initialValue,
-        IBindingScheduler scheduler,
-        IEqualityComparer<T>? comparer = null) =>
-        new OneWayToSourceBindableValue<T>(
-            write: editsStreamSink.SendImpl,
-            initialValue: initialValue,
-            scheduler: scheduler,
-            comparer: comparer);
-
-    /// <summary>
     ///     Shows a sink that exists as a command that carries its
     ///     <c>CommandParameter</c>.
     /// </summary>

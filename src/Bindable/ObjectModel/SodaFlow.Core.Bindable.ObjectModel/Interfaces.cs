@@ -35,10 +35,9 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 }
 
 /// <summary>
-///     A bindable value that the view can write to. This interface gives an
-///     ability and not a direction. <see cref="ITwoWayBindableValue{T}" /> and
-///     <see cref="IOneWayToSourceBindableValue{T}" /> the two supply it. Thus, a
-///     method that only sends a value into the graph can accept each one.
+///     The part of a bindable value that the view can write. This is the analog of
+///     <see cref="IReadableBindableValue{T}" />, and the remarks here apply to each
+///     bindable value.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -148,21 +147,6 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
     /// </remarks>
     new T Value { get; set; }
 }
-
-/// <summary>
-///     A sink for a <c>OneWayToSource</c> binding, which a caller can write but
-///     cannot read. The view sends values in and the FRP graph uses them. This
-///     interface does not implement <see cref="INotifyPropertyChanged" />, because
-///     no value moves back out to the view.
-/// </summary>
-/// <remarks>
-///     This interface has a getter, because WPF and Avalonia both read the source
-///     property when they make a <c>OneWayToSource</c> binding. It gives the last
-///     value that the view wrote.
-/// </remarks>
-[PublicAPI]
-// ReSharper disable once InheritdocConsiderUsage
-public interface IOneWayToSourceBindableValue<T> : IWritableBindableValue<T>;
 
 /// <summary>
 ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the

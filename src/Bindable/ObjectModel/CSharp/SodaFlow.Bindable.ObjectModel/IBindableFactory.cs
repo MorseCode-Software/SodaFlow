@@ -32,23 +32,6 @@ public interface IBindableFactory
     ITwoWayBindableValue<T> CreateTwoWay<T>(CellSink<T> sink, IEqualityComparer<T>? comparer = null);
 
     /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, and
-    ///     sends the writes of the view into <paramref name="editsStreamSink" />.
-    /// </summary>
-    IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
-        StreamSink<T> editsStreamSink,
-        T initialValue,
-        IEqualityComparer<T>? comparer = null);
-
-    /// <summary>
-    ///     Creates a one-way-to-source bindable property with an initial value, and
-    ///     sends the writes of the view into <paramref name="sink" />.
-    /// </summary>
-    IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
-        CellSink<T> sink,
-        IEqualityComparer<T>? comparer = null);
-
-    /// <summary>
     ///     Shows a sink that exists as a command that carries its
     ///     <c>CommandParameter</c>.
     /// </summary>
