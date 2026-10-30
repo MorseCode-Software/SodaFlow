@@ -62,15 +62,6 @@ type ``Object Model Tests``() =
         }
 
     [<Test>]
-    member _.``one way to source pushes writes into the graph``() =
-        task {
-            let c = sinkC 0
-            use b = immediate.ToOneWayToSource c
-            b.Value <- 3
-            do! Expect.Equal(3, c |> sampleC)
-        }
-
-    [<Test>]
     member _.``a parameterless action fires unit and ignores its parameter``() =
         task {
             let sink = sinkS<unit> ()

@@ -1,13 +1,15 @@
-4.0.5
+5.0.0
 
-No change in API or behavior. This release raises the dependency floor, so that a new install gets
-SodaFlow.Bindable.ObjectModel.Core 4.3.1. In that release, a transaction that posts to the binding thread through
-SynchronizationContextBindingScheduler no longer runs the transaction start hooks a second time, which made a
-TimerSystem read its clock and send Time twice. In the same release, a one-way bindable value and a command's
-CanExecute no longer show a value from a transaction that failed. That package's notes have the details of both.
+BREAKING: ToOneWayToSource is gone, in both overloads, with IOneWayToSourceBindableValue behind it. A value the
+view writes and also shows is a two-way value: ToTwoWay on a CellSink, or on a Cell with a StreamSink for the
+edits. Something the view only sends is a bindable action whose CommandParameter carries the value. The core package's
+notes say why the write-only value went.
 
-NuGet resolves the lowest version a range allows, so a fresh install of 4.0.4 would go on resolving core 4.3.0. A
-consumer who references the core package directly gets the fix either way.
+This release also raises the dependency floor, so that a new install gets SodaFlow.Bindable.ObjectModel.Core 5.0.0. In
+that release, a transaction that posts to the binding thread through SynchronizationContextBindingScheduler no longer
+runs the transaction start hooks a second time, which made a TimerSystem read its clock and send Time twice. In the
+same release, a one-way bindable value and a command's CanExecute no longer show a value from a transaction that
+failed. That package's notes have the details of both.
 
 4.0.4
 

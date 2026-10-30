@@ -96,7 +96,6 @@ Every bindable comes from an `IBindableFactory`, which holds the scheduler that 
 | --- | --- | --- |
 | `Cell<T>` | `CreateOneWay` / `ToOneWay` | `IOneWayBindableValue<T>` — read-only |
 | `CellSink<T>`, or a `Cell<T>` plus a `StreamSink<T>` | `CreateTwoWay` / `ToTwoWay` | `ITwoWayBindableValue<T>` — reads and writes |
-| `StreamSink<T>` plus an initial value, or a `CellSink<T>` | `CreateOneWayToSource` / `ToOneWayToSource` | `IOneWayToSourceBindableValue<T>` — write-only |
 | `StreamSink<T>` | `CreateBindableAction` / `ToBindableAction` | `IBindableAction` — an `ICommand` |
 
 Bind to `SomeProperty.Value`, not `SomeProperty`: a bindable value is an object whose `Value`

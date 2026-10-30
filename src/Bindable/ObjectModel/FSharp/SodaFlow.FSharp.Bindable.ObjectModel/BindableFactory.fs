@@ -12,13 +12,6 @@ type IBindableFactory =
 
     abstract ToTwoWay<'T> : sink: CellSink<'T> * ?comparer: IEqualityComparer<'T> -> ITwoWayBindableValue<'T>
 
-    abstract ToOneWayToSource<'T> :
-        editsStreamSink: StreamSink<'T> * initialValue: 'T * ?comparer: IEqualityComparer<'T> ->
-            IOneWayToSourceBindableValue<'T>
-
-    abstract ToOneWayToSource<'T> :
-        sink: CellSink<'T> * ?comparer: IEqualityComparer<'T> -> IOneWayToSourceBindableValue<'T>
-
     abstract ToBindableAction<'T> :
         firingsStreamSink: StreamSink<'T> * ?isEnabledCell: Cell<bool> -> IBindableAction<'T>
 
@@ -51,17 +44,6 @@ type BindableFactory(scheduler: IBindingScheduler) =
 
         member this.ToTwoWay(sink, comparer) =
             BindableCoreExtensionMethods.ToTwoWayImpl(sink, scheduler, comparer |> Option.defaultValue null)
-
-        member this.ToOneWayToSource(editsStreamSink, initialValue, comparer) =
-            BindableCoreExtensionMethods.ToOneWayToSourceImpl(
-                editsStreamSink,
-                initialValue,
-                scheduler,
-                comparer |> Option.defaultValue null
-            )
-
-        member this.ToOneWayToSource(sink, comparer) =
-            BindableCoreExtensionMethods.ToOneWayToSourceImpl(sink, scheduler, comparer |> Option.defaultValue null)
 
         member this.ToBindableAction(firingsStreamSink, isEnabledCell: Cell<bool> option) =
             BindableCoreExtensionMethods.ToBindableActionImpl(

@@ -55,8 +55,6 @@ Every bindable comes from an `IBindableFactory`; there is no other way to build 
 | `Cell<T>` | `CreateOneWay(cell)` | `IOneWayBindableValue<T>` | Graph to view |
 | `CellSink<T>` | `CreateTwoWay(sink)` | `ITwoWayBindableValue<T>` | Both |
 | `Cell<T>` + `StreamSink<T>` | `CreateTwoWay(cell, editsStreamSink)` | `ITwoWayBindableValue<T>` | Both |
-| `StreamSink<T>` + initial value | `CreateOneWayToSource(editsStreamSink, initialValue)` | `IOneWayToSourceBindableValue<T>` | View to graph |
-| `CellSink<T>` | `CreateOneWayToSource(sink)` | `IOneWayToSourceBindableValue<T>` | View to graph |
 | `StreamSink<T>` | `CreateBindableAction(sink)` | `IBindableAction<T>` | An `ICommand` |
 
 Two `CreateTwoWay` overloads exist because there are two situations. A `CellSink<T>` is the simple
@@ -66,6 +64,11 @@ as their own stream — validation, normalization, or any other rule between the
 value.
 
 Each also takes an optional `IEqualityComparer<T>`, used to suppress no-op writes.
+
+There is no write-only bindable. A value that starts in the view, such as a selection or a
+scroll offset, is a two-way value on a `CellSink<T>`: the view writes it, the graph reads it, and
+the view reads back whatever the graph settled on. Something the view only sends, with no value
+to show, is a bindable action whose `CommandParameter` carries it.
 
 Every bindable implements `IBindable`, which is just `IDisposable`. Reading bindables expose
 their backing `Cell<T>`, and bindable actions expose `IsEnabledCell` and `FiringsStream`, so a
@@ -224,8 +227,8 @@ let countBindable = factory.ToOneWay count
 let increment = factory.ToBindableAction incrementSink
 ```
 
-`ToOneWay`, `ToTwoWay`, `ToOneWayToSource` and `ToBindableAction` mirror the C# members and take
-an optional comparer or enablement cell. `ToBindableOptionAction` is the command whose
+`ToOneWay`, `ToTwoWay`, and `ToBindableAction` mirror the C# members and take an optional
+comparer or enablement cell. `ToBindableOptionAction` is the command whose
 `CommandParameter` can be null, a `'T`, or a `'T option`.
 
 > [!NOTE]

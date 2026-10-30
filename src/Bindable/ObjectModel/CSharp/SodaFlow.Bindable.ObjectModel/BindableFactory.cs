@@ -50,22 +50,6 @@ public class BindableFactory : IBindableFactory
         sink.ToTwoWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
-    public IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
-        StreamSink<T> editsStreamSink,
-        T initialValue,
-        IEqualityComparer<T>? comparer = null) =>
-        editsStreamSink.ToOneWayToSourceImpl(
-            initialValue: initialValue,
-            scheduler: this.bindingScheduler,
-            comparer: comparer);
-
-    /// <inheritdoc />
-    public IOneWayToSourceBindableValue<T> CreateOneWayToSource<T>(
-        CellSink<T> sink,
-        IEqualityComparer<T>? comparer = null) =>
-        sink.ToOneWayToSourceImpl(scheduler: this.bindingScheduler, comparer: comparer);
-
-    /// <inheritdoc />
     public IBindableAction<T> CreateBindableAction<T>(
         StreamSink<T> firingsStreamSink,
         Cell<bool>? isEnabledCell = null)
