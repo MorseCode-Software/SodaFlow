@@ -48,7 +48,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
 {
     /// <summary>
     ///     This is a usual object and not a <c>System.Threading.Lock</c>. That type
-    ///     came with .NET 9, and no target framework of this package has it.
+    ///     came with .NET 9, and no target framework of this package has it. Code
+    ///     takes it after the transaction lock and never before. See
+    ///     <see cref="CellFor{TSource,TProjected}" />.
     /// </summary>
     private readonly object cacheGate = new();
 
@@ -254,26 +256,16 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     key. The caller holds one instance for each projected type.
     /// </param>
     /// <returns>The cell.</returns>
-    internal Cell<TProjected> StateCellImpl<TProjected>(TKey key, CellProjection<TState, TProjected> projection)
-    {
-        lock (this.cacheGate)
-        {
-            ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: this.stateCaches);
-            Cell<TProjected>? cached = cache.Get(key);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-
-            Cell<TProjected> created =
-                this.CreateStateCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
-
-            cache.Set(key: key, cell: created);
-
-            return created;
-        }
-    }
+    internal Cell<TProjected> StateCellImpl<TProjected>(TKey key, CellProjection<TState, TProjected> projection) =>
+        this.CellFor(
+            key: key,
+            projection: projection,
+            caches: this.stateCaches,
+            create: static (collection, cellKey, cellProjection) =>
+                collection.CreateStateCell(
+                    key: cellKey,
+                    onPresent: cellProjection.OnPresent,
+                    onAbsent: cellProjection.OnAbsent));
 
     /// <summary>The same for the immutable part of an item.</summary>
     /// <remarks>
@@ -290,28 +282,16 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> IdentityCellImpl<TProjected>(
         TKey key,
-        CellProjection<TIdentity, TProjected> projection)
-    {
-        lock (this.cacheGate)
-        {
-            ProjectedCellCache<TKey, TProjected> cache =
-                CacheFor(projection: projection, caches: this.identityCaches);
-
-            Cell<TProjected>? cached = cache.Get(key);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-
-            Cell<TProjected> created =
-                this.CreateIdentityCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
-
-            cache.Set(key: key, cell: created);
-
-            return created;
-        }
-    }
+        CellProjection<TIdentity, TProjected> projection) =>
+        this.CellFor(
+            key: key,
+            projection: projection,
+            caches: this.identityCaches,
+            create: static (collection, cellKey, cellProjection) =>
+                collection.CreateIdentityCell(
+                    key: cellKey,
+                    onPresent: cellProjection.OnPresent,
+                    onAbsent: cellProjection.OnAbsent));
 
     /// <summary>
     ///     The same for the two parts of an item together.
@@ -332,26 +312,16 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// <returns>The cell.</returns>
     internal Cell<TProjected> ItemCellImpl<TProjected>(
         TKey key,
-        CellProjection<Item<TIdentity, TState>, TProjected> projection)
-    {
-        lock (this.cacheGate)
-        {
-            ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: this.itemCaches);
-            Cell<TProjected>? cached = cache.Get(key);
-
-            if (cached is not null)
-            {
-                return cached;
-            }
-
-            Cell<TProjected> created =
-                this.CreateItemCell(key: key, onPresent: projection.OnPresent, onAbsent: projection.OnAbsent);
-
-            cache.Set(key: key, cell: created);
-
-            return created;
-        }
-    }
+        CellProjection<Item<TIdentity, TState>, TProjected> projection) =>
+        this.CellFor(
+            key: key,
+            projection: projection,
+            caches: this.itemCaches,
+            create: static (collection, cellKey, cellProjection) =>
+                collection.CreateItemCell(
+                    key: cellKey,
+                    onPresent: cellProjection.OnPresent,
+                    onAbsent: cellProjection.OnAbsent));
 
     /// <summary>Builds the cell <see cref="ItemCellImpl{TProjected}" /> will cache.</summary>
     internal abstract Cell<TProjected> CreateItemCell<TProjected>(
@@ -373,6 +343,65 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         TKey key,
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent);
+
+    /// <summary>
+    ///     The cell for one key from one cache, made at the first request for it.
+    /// </summary>
+    /// <remarks>
+    ///     A request can take two locks: the gate of the caches, and the transaction
+    ///     lock, which the creation of a cell takes. A hit takes only the gate. A miss
+    ///     takes the transaction lock first and the gate inside it, which is the order
+    ///     that a request from a transaction already uses. Thus, no two threads take
+    ///     the two locks in opposite orders. Before, a miss took the gate first and
+    ///     then waited for the transaction lock. A request from a transaction on a
+    ///     different thread held that lock and waited for the gate, and the two
+    ///     threads stopped. The second lookup finds a cell that a different thread
+    ///     made between the two locks. Thus, one key still gets one cell.
+    /// </remarks>
+    private Cell<TProjected> CellFor<TSource, TProjected>(
+        TKey key,
+        CellProjection<TSource, TProjected> projection,
+        Dictionary<CellProjection, object> caches,
+        CellFactory<TSource, TProjected> create)
+    {
+        lock (this.cacheGate)
+        {
+            Cell<TProjected>? cached = CacheFor(projection: projection, caches: caches).Get(key);
+
+            if (cached is not null)
+            {
+                return cached;
+            }
+        }
+
+        return TransactionInternal.RunImpl(() =>
+        {
+            lock (this.cacheGate)
+            {
+                ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: caches);
+                Cell<TProjected>? cached = cache.Get(key);
+
+                if (cached is not null)
+                {
+                    return cached;
+                }
+
+                Cell<TProjected> created = create(collection: this, key: key, projection: projection);
+                cache.Set(key: key, cell: created);
+
+                return created;
+            }
+        });
+    }
+
+    /// <summary>
+    ///     Builds the cell that <see cref="CellFor{TSource,TProjected}" /> caches.
+    ///     The delegate is static, thus a hit allocates nothing for it.
+    /// </summary>
+    private delegate Cell<TProjected> CellFactory<TSource, TProjected>(
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        TKey key,
+        CellProjection<TSource, TProjected> projection);
 
     /// <summary>
     ///     The cache for one projection, created the first time that projection is

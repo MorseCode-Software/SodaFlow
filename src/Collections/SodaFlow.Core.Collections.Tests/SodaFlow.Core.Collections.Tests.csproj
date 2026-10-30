@@ -44,6 +44,7 @@
         <Compile Include="..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="CellProjectionCacheTests.cs"/>
+        <Compile Include="PerKeyCellLockOrderTests.cs"/>
         <Compile Include="ProjectedCellCacheTests.cs"/>
         <Compile Include="ReactiveCollectionTests.cs"/>
         <Compile Include="StateMapAndOrderedKeysTests.cs"/>
