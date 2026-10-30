@@ -618,6 +618,13 @@ public static class Either
                 onSeventh: static v7 => v7,
                 onEighth: static v8 => v8);
     }
+
+    /// <summary>
+    ///     The exception for a read of a default instance, which holds no case.
+    /// </summary>
+    internal static InvalidOperationException NoCase() =>
+        new("This Either is a default instance and holds no case. "
+            + "Make a value with First, Second, or one of the other constructors.");
 }
 
 /// <summary>
@@ -631,8 +638,10 @@ public static class Either
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -660,7 +669,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     <see cref="Either.First{T}" /> is usually more convenient, since it leaves
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
-    public static Either<T1, T2> First(T1 value) => new(valueType: 0, value1: value, value2: default);
+    public static Either<T1, T2> First(T1 value) => new(valueType: 1, value1: value, value2: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its second case.
@@ -671,7 +680,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     <see cref="Either.Second{T}" /> is usually more convenient, since it leaves
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
-    public static Either<T1, T2> Second(T2 value) => new(valueType: 1, value1: default, value2: value);
+    public static Either<T1, T2> Second(T2 value) => new(valueType: 2, value1: default, value2: value);
 
     #endregion
 
@@ -695,12 +704,20 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond) =>
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        this.valueType == 0 ? onFirst(this.value1!) : onSecond(this.value2!);
-    // ReSharper restore NullableWarningSuppressionIsUsed
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -993,8 +1010,10 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1025,7 +1044,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> First(T1 value) =>
-        new(valueType: 0, value1: value, value2: default, value3: default);
+        new(valueType: 1, value1: value, value2: default, value3: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its second case.
@@ -1037,7 +1056,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> Second(T2 value) =>
-        new(valueType: 1, value1: default, value2: value, value3: default);
+        new(valueType: 2, value1: default, value2: value, value3: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its third case.
@@ -1049,7 +1068,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3> Third(T3 value) =>
-        new(valueType: 2, value1: default, value2: default, value3: value);
+        new(valueType: 3, value1: default, value2: default, value3: value);
 
     #endregion
 
@@ -1074,6 +1093,9 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -1082,10 +1104,11 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            _ => onThird(this.value3!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion
@@ -1460,8 +1483,10 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -1494,7 +1519,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> First(T1 value) =>
-        new(valueType: 0, value1: value, value2: default, value3: default, value4: default);
+        new(valueType: 1, value1: value, value2: default, value3: default, value4: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its second case.
@@ -1506,7 +1531,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Second(T2 value) =>
-        new(valueType: 1, value1: default, value2: value, value3: default, value4: default);
+        new(valueType: 2, value1: default, value2: value, value3: default, value4: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its third case.
@@ -1518,7 +1543,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Third(T3 value) =>
-        new(valueType: 2, value1: default, value2: default, value3: value, value4: default);
+        new(valueType: 3, value1: default, value2: default, value3: value, value4: default);
 
     /// <summary>
     ///     Creates an either holding the given value as its fourth case.
@@ -1530,7 +1555,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     the remaining type arguments for the context to supply.
     /// </remarks>
     public static Either<T1, T2, T3, T4> Fourth(T4 value) =>
-        new(valueType: 3, value1: default, value2: default, value3: default, value4: value);
+        new(valueType: 4, value1: default, value2: default, value3: default, value4: value);
 
     #endregion
 
@@ -1564,6 +1589,9 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -1573,11 +1601,12 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            2 => onThird(this.value3!),
-            _ => onFourth(this.value4!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
+            4 => onFourth(this.value4!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion
@@ -2078,8 +2107,10 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -2115,7 +2146,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> First(T1 value) =>
         new(
-            valueType: 0,
+            valueType: 1,
             value1: value,
             value2: default,
             value3: default,
@@ -2133,7 +2164,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Second(T2 value) =>
         new(
-            valueType: 1,
+            valueType: 2,
             value1: default,
             value2: value,
             value3: default,
@@ -2151,7 +2182,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Third(T3 value) =>
         new(
-            valueType: 2,
+            valueType: 3,
             value1: default,
             value2: default,
             value3: value,
@@ -2169,7 +2200,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Fourth(T4 value) =>
         new(
-            valueType: 3,
+            valueType: 4,
             value1: default,
             value2: default,
             value3: default,
@@ -2187,7 +2218,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5> Fifth(T5 value) =>
         new(
-            valueType: 4,
+            valueType: 5,
             value1: default,
             value2: default,
             value3: default,
@@ -2229,6 +2260,9 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -2239,12 +2273,13 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            2 => onThird(this.value3!),
-            3 => onFourth(this.value4!),
-            _ => onFifth(this.value5!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
+            4 => onFourth(this.value4!),
+            5 => onFifth(this.value5!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion
@@ -2851,8 +2886,10 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -2890,7 +2927,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> First(T1 value) =>
         new(
-            valueType: 0,
+            valueType: 1,
             value1: value,
             value2: default,
             value3: default,
@@ -2909,7 +2946,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Second(T2 value) =>
         new(
-            valueType: 1,
+            valueType: 2,
             value1: default,
             value2: value,
             value3: default,
@@ -2928,7 +2965,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Third(T3 value) =>
         new(
-            valueType: 2,
+            valueType: 3,
             value1: default,
             value2: default,
             value3: value,
@@ -2947,7 +2984,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Fourth(T4 value) =>
         new(
-            valueType: 3,
+            valueType: 4,
             value1: default,
             value2: default,
             value3: default,
@@ -2966,7 +3003,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Fifth(T5 value) =>
         new(
-            valueType: 4,
+            valueType: 5,
             value1: default,
             value2: default,
             value3: default,
@@ -2985,7 +3022,7 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6> Sixth(T6 value) =>
         new(
-            valueType: 5,
+            valueType: 6,
             value1: default,
             value2: default,
             value3: default,
@@ -3031,6 +3068,9 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -3042,13 +3082,14 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            2 => onThird(this.value3!),
-            3 => onFourth(this.value4!),
-            4 => onFifth(this.value5!),
-            _ => onSixth(this.value6!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
+            4 => onFourth(this.value4!),
+            5 => onFifth(this.value5!),
+            6 => onSixth(this.value6!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion
@@ -3780,8 +3821,10 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -3821,7 +3864,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> First(T1 value) =>
         new(
-            valueType: 0,
+            valueType: 1,
             value1: value,
             value2: default,
             value3: default,
@@ -3841,7 +3884,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Second(T2 value) =>
         new(
-            valueType: 1,
+            valueType: 2,
             value1: default,
             value2: value,
             value3: default,
@@ -3861,7 +3904,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Third(T3 value) =>
         new(
-            valueType: 2,
+            valueType: 3,
             value1: default,
             value2: default,
             value3: value,
@@ -3881,7 +3924,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Fourth(T4 value) =>
         new(
-            valueType: 3,
+            valueType: 4,
             value1: default,
             value2: default,
             value3: default,
@@ -3901,7 +3944,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Fifth(T5 value) =>
         new(
-            valueType: 4,
+            valueType: 5,
             value1: default,
             value2: default,
             value3: default,
@@ -3921,7 +3964,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Sixth(T6 value) =>
         new(
-            valueType: 5,
+            valueType: 6,
             value1: default,
             value2: default,
             value3: default,
@@ -3941,7 +3984,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7> Seventh(T7 value) =>
         new(
-            valueType: 6,
+            valueType: 7,
             value1: default,
             value2: default,
             value3: default,
@@ -3991,6 +4034,9 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -4003,14 +4049,15 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            2 => onThird(this.value3!),
-            3 => onFourth(this.value4!),
-            4 => onFifth(this.value5!),
-            5 => onSixth(this.value6!),
-            _ => onSeventh(this.value7!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
+            4 => onFourth(this.value4!),
+            5 => onFifth(this.value5!),
+            6 => onSixth(this.value6!),
+            7 => onSeventh(this.value7!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion
@@ -4868,8 +4915,10 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
 ///     There is no property that hands the value out unchecked. Read it with
 ///     <c>Match</c>, or with one of the helpers on it, thus the code must answer
 ///     each case.
-///     This is a struct, so <see langword="default" /> is a correct instance. It
-///     holds the first case, with the default value of <typeparamref name="T1" />.
+///     This is a struct, thus <see langword="default" /> exists, but it holds no
+///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
+///     and each member that reads the value goes through <c>Match</c>. A default
+///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
@@ -4921,7 +4970,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> First(T1 value) =>
         new(
-            valueType: 0,
+            valueType: 1,
             value1: value,
             value2: default,
             value3: default,
@@ -4942,7 +4991,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Second(T2 value) =>
         new(
-            valueType: 1,
+            valueType: 2,
             value1: default,
             value2: value,
             value3: default,
@@ -4963,7 +5012,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Third(T3 value) =>
         new(
-            valueType: 2,
+            valueType: 3,
             value1: default,
             value2: default,
             value3: value,
@@ -4984,7 +5033,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Fourth(T4 value) =>
         new(
-            valueType: 3,
+            valueType: 4,
             value1: default,
             value2: default,
             value3: default,
@@ -5005,7 +5054,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Fifth(T5 value) =>
         new(
-            valueType: 4,
+            valueType: 5,
             value1: default,
             value2: default,
             value3: default,
@@ -5026,7 +5075,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Sixth(T6 value) =>
         new(
-            valueType: 5,
+            valueType: 6,
             value1: default,
             value2: default,
             value3: default,
@@ -5047,7 +5096,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Seventh(T7 value) =>
         new(
-            valueType: 6,
+            valueType: 7,
             value1: default,
             value2: default,
             value3: default,
@@ -5068,7 +5117,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public static Either<T1, T2, T3, T4, T5, T6, T7, T8> Eighth(T8 value) =>
         new(
-            valueType: 7,
+            valueType: 8,
             value1: default,
             value2: default,
             value3: default,
@@ -5122,6 +5171,9 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     other member here. This calls one function of the set, and it calls that
     ///     function before this method returns.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
     public T Match<T>(
         [InstantHandle] Func<T1, T> onFirst,
         [InstantHandle] Func<T2, T> onSecond,
@@ -5135,15 +5187,16 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         {
             // ReSharper disable NullableWarningSuppressionIsUsed - valueType determined that the respective field is
             // non-null within its switch expression
-            0 => onFirst(this.value1!),
-            1 => onSecond(this.value2!),
-            2 => onThird(this.value3!),
-            3 => onFourth(this.value4!),
-            4 => onFifth(this.value5!),
-            5 => onSixth(this.value6!),
-            6 => onSeventh(this.value7!),
-            _ => onEighth(this.value8!)
+            1 => onFirst(this.value1!),
+            2 => onSecond(this.value2!),
+            3 => onThird(this.value3!),
+            4 => onFourth(this.value4!),
+            5 => onFifth(this.value5!),
+            6 => onSixth(this.value6!),
+            7 => onSeventh(this.value7!),
+            8 => onEighth(this.value8!),
             // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
         };
 
     #endregion

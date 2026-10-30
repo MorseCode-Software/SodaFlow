@@ -17,10 +17,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt2(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt2(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -28,10 +28,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt3(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt3(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -39,10 +39,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt4(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt4(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -50,10 +50,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt5(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt5(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -61,10 +61,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt6(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt6(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -72,10 +72,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt7(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt7(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -83,10 +83,11 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> e = default;
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt8(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt8(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8>.First(new Test1()))
+            .IsFalse();
     }
 
     [Test]
@@ -94,10 +95,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt2(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt2(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -105,10 +106,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt3(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt3(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -116,10 +117,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt4(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt4(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -127,10 +128,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt5(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt5(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -138,10 +139,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt6(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt6(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -149,10 +150,10 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt7(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt7(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7>.First(new Test1())).IsFalse();
     }
 
     [Test]
@@ -160,10 +161,11 @@ public sealed class EitherTests
     {
         Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8> e = new();
 
-        object? o = e.Upcast<IEither>().GetValueAsObject();
-
-        await Assert.That(TestIt8(e)).IsEqualTo(1);
-        await Assert.That(o).IsNull();
+        await Assert.That(() => TestIt8(e)).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(e == default).IsTrue();
+        await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8>.First(new Test1()))
+            .IsFalse();
     }
 
     [Test]
