@@ -1,4 +1,13 @@
-3.0.3
+4.0.0
+
+BREAKING: a default Either holds no case. Before, default(Either<T1, T2>), and with it an Either that was never
+assigned, such as a field or an array slot, matched as the first case with the default value of T1, which for a
+reference type handed null to onFirst without a warning. The case index is now 1-based, so the zero an unassigned
+struct carries means no case, and Match throws InvalidOperationException for it; every other member that reads the
+value goes through Match, so it throws too. A default instance is equal to a default instance and to nothing else,
+and its hash code is that of no case. Code that read a default on purpose and expected the first case has to make the
+value with First instead. Maybe<T> already had a safe default, None, and the two structs now agree. The tests that
+pinned the old behavior now pin the throw.
 
 Fixed: Maybe<T>.CompareTo allocated two closures on every call. It was two nested Match calls, and each one captured a
 value. A sort calls it about n log n times, so sorting 100,000 Maybe<int> values on .NET 10 took 45.5 ms and allocated
