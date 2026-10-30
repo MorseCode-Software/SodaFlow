@@ -91,11 +91,11 @@ public static partial class BindableCoreExtensionMethods
         ///     The callback runs while the transaction propagates, and the transaction can
         ///     fail after it. A failure during propagation discards the update of the
         ///     cell, thus the value here is not the value of the cell then. The posted
-        ///     action asks the transaction for its outcome, which is known when the
-        ///     action runs, and on a failure it reads the cell. On a completed
-        ///     transaction it uses the value here, and reads no cell on the binding
-        ///     thread. See <see cref="TransactionOutcome" /> for why the read is correct
-        ///     in each condition.
+        ///     action asks the transaction for its outcome, and uses the value here only
+        ///     when the outcome is known as committed. In each other state it reads the
+        ///     cell. See <see cref="TransactionOutcome" /> for why the read is correct in
+        ///     each condition, also where a scheduler runs the action before the
+        ///     transaction ends.
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {
@@ -109,7 +109,7 @@ public static partial class BindableCoreExtensionMethods
                 }
 
                 this.ResolveInitialValue();
-                T authoritative = outcome.Failed ? this.Cell.SampleImpl() : newValue;
+                T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
 
                 if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
                 {

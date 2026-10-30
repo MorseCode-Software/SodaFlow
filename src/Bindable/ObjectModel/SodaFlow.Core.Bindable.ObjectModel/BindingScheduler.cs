@@ -58,6 +58,13 @@ public interface IBindingScheduler
     ///         careful.
     ///     </para>
     ///     <para>
+    ///         An implementation does not have to hold the action until the
+    ///         transaction ends. A bindable value that runs its action before the
+    ///         transaction ran its last actions reads its cell, and that read waits
+    ///         for the transaction. The schedulers in this package hold the actions
+    ///         of a transaction and send them together after its last actions.
+    ///     </para>
+    ///     <para>
     ///         An action can throw, and some actions throw by design. A writable value
     ///         posts the throw of a write that failed, because a binding engine
     ///         discards a throw from a setter. See
