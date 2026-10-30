@@ -35,9 +35,9 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
 }
 
 /// <summary>
-///     A bindable value that the view can write to.
-///     <see cref="ITwoWayBindableValue{T}" /> supplies it, and the remarks here
-///     apply to each bindable value.
+///     The part of a bindable value that the view can write. This is the analog of
+///     <see cref="IReadableBindableValue{T}" />, and the remarks here apply to each
+///     bindable value.
 /// </summary>
 /// <remarks>
 ///     <para>
