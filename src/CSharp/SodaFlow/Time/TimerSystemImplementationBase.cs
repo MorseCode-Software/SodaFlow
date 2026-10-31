@@ -40,6 +40,12 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     // The thread that Start made, for Stop to wait for. Null before Start.
     private Thread? timerThread;
 
+    // True while the set holds a timer. Each change of the set writes it in the lock. RunTimersTo
+    // reads it out of the lock, and skips the lock in a transaction with no timer set, which is
+    // most of them. A timer that a different thread adds at that moment fires from the timer
+    // thread, or at the next transaction.
+    private volatile bool hasTimers;
+
     /// <inheritdoc />
     public void Start(Action<Exception> handleException)
     {
@@ -135,6 +141,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         lock (this.lockObject)
         {
             this.timers.Add(timer);
+            this.hasTimers = true;
 
             // Signaled in the lock, because the timer thread disposes the event in the lock when
             // it ends, and a signal after that throws. The initial code signaled out of the lock,
@@ -160,7 +167,13 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     ///     thread.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    public void RunTimersTo(T now) => this.TimeUntilNext(now);
+    public void RunTimersTo(T now)
+    {
+        if (this.hasTimers)
+        {
+            this.TimeUntilNext(now);
+        }
+    }
 
     /// <summary>
     ///     Gets the current time according to this implementation's clock.
@@ -202,6 +215,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
                         waitTime = TimeSpan.Zero;
                         fired = timer;
                         this.timers.Remove(fired);
+                        this.hasTimers = this.timers.Count > 0;
                     }
                 }
             }
@@ -268,6 +282,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
             lock (this.implementation.lockObject)
             {
                 this.implementation.timers.Remove(this);
+                this.implementation.hasTimers = this.implementation.timers.Count > 0;
             }
         }
 

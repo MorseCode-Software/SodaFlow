@@ -188,6 +188,30 @@ public sealed class TimerTests
         clock.Stop();
     }
 
+    // RunTimersTo fires a due timer on the calling thread, and it fires nothing after a cancel of
+    // the timer. The flag that lets it skip the lock in a transaction with no timer set has to
+    // follow the set through the two.
+    [Test]
+    public async Task RunTimersToFiresADueTimerAndNotACanceledOne()
+    {
+        StopwatchClock clock = new();
+        int fired = 0;
+
+        ITimer first = clock.SetTimer(time: clock.Now - 1, callback: () => fired++);
+        clock.RunTimersTo(clock.Now);
+
+        await Assert.That(fired).IsEqualTo(1);
+
+        ITimer second = clock.SetTimer(time: clock.Now - 1, callback: () => fired++);
+        second.Cancel();
+        clock.RunTimersTo(clock.Now);
+
+        await Assert.That(fired).IsEqualTo(1);
+
+        first.Dispose();
+        second.Dispose();
+    }
+
     // The clock is the authority for the current time. Thus, Time follows a clock that goes back, for
     // example at the end of daylight saving time.
     [Test]

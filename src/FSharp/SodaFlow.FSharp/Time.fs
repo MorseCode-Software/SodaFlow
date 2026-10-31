@@ -298,6 +298,13 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     // The thread that Start made, for Stop to wait for. None before Start.
     let mutable timerThread: Thread option = None
 
+    // True while the set holds a timer. Each change of the set writes it in the lock. RunTimersTo
+    // reads it out of the lock, and skips the lock in a transaction with no timer set, which is most
+    // of them. A timer that a different thread adds at that moment fires from the timer thread, or at
+    // the next transaction.
+    [<VolatileField>]
+    let mutable hasTimers = false
+
     let rec timeUntilNext now =
         let waitOrFire =
             lock lockObject (fun () ->
@@ -312,6 +319,7 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 
                     if waitTime <= TimeSpan.Zero then
                         timers.Remove(timer) |> ignore
+                        hasTimers <- timers.Count > 0
                         Fire timer.Callback
                     else
                         Wait waitTime)
@@ -323,8 +331,12 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             timeUntilNext now
 
     member internal _.LockObject = lockObject
-    member internal _.Timers = timers
     member val internal NextSeq = nextSeq with get, set
+
+    member internal _.RemoveTimer(timer: SimpleTimer<'T>) =
+        lock lockObject (fun () ->
+            timers.Remove timer |> ignore
+            hasTimers <- timers.Count > 0)
 
     /// <summary>
     ///     Returns how much time separates two points on this implementation's clock.
@@ -406,6 +418,7 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 
             lock lockObject (fun () ->
                 timers.Add(timer) |> ignore
+                hasTimers <- true
 
                 // Signaled in the lock, because the timer thread disposes the event in the lock when it
                 // ends, and a signal after that throws. The initial code signaled out of the lock,
@@ -416,7 +429,9 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 
             upcast timer
 
-        member _.RunTimersTo now = timeUntilNext now |> ignore
+        member _.RunTimersTo now =
+            if hasTimers then
+                timeUntilNext now |> ignore
 
         member this.Now = this.Now
 
@@ -453,8 +468,7 @@ and SimpleTimer<'T when 'T: comparison>
     // releases the waiter, and the Set in the SetTimer that replaces this timer latches for the
     // next wait. Thus, one replacement causes the thread to calculate two times, and one time is
     // sufficient.
-    let cancel () =
-        lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
+    let cancel () = implementation.RemoveTimer this
 
     member internal _.Seq = seq
     member internal _.Time = time
