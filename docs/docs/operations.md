@@ -90,7 +90,7 @@ is already the new one.
 | `c.SampleLazy()` | `sampleLazyC c` | A `LazySample<T>` of the value, read by the library at the end of the transaction; for `HoldLazy` and loops. |
 | `sample.Map(f)` | `LazySample.map f sample` | A `LazySample<T>` of the transformed value. |
 | `a.Lift(b, f)` | `LazySample.lift2 f a b` | A `LazySample<T>` combining two to four samples. |
-| `LazySample.Defer(f)` | `LazySample.defer f` | A `LazySample<T>` from a function, for a starting value that is not a sample of the graph. |
+| `LazySample.Defer(f)` | `lazySample f` | A `LazySample<T>` from a function, for a starting value that is not a sample of the graph. |
 | `c.Map(f)` | `mapC f c` | Transform the value. |
 | `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads up to 8 cells in both languages. |
 | `cells.Lift()` | `liftAllC id cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. F#'s `liftAllC` always takes a combining function; C# also has `cells.Lift(f)`. |

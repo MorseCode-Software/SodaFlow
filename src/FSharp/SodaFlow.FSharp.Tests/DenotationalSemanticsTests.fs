@@ -239,7 +239,7 @@ type ``Denotational Semantics Tests``() =
     [<Test>]
     member _.``ConstantLazy: Test Case``() =
         task {
-            let c = constantLazyC (LazySample.defer (fun () -> 'a'))
+            let c = constantLazyC (lazySample (fun () -> 'a'))
             let out = runSimulationWithNoFirings (flip listenStrongC c)
             do! Expect.Sequence([ 'a' ], out)
         }

@@ -136,8 +136,9 @@ A `LazySample<T>` is not a `Lazy<T>`: your code cannot force it. Only the librar
 end of the transaction that asked for it, which is what lets a transaction that fails forget the
 value it took, so a cell built in that transaction starts from the committed value instead.
 `SampleLazy` gives one, `Map` transforms one, `Lift` combines up to four, and `LazySample.Defer`
-makes one from a function when the starting value is not a sample of the graph. A function given
-to any of these can run again after a failed transaction, so keep it pure and do not send from it.
+(`lazySample`) makes one from a function when the starting value is not a sample of the graph. A
+function given to any of these can run again after a failed transaction, so keep it pure and do
+not send from it.
 
 The two go together more often than not, because a fold seeded from the collection it folds over
 needs both:

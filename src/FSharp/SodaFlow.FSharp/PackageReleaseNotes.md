@@ -3,8 +3,8 @@
 BREAKING: sampleLazy returns a LazySample<'T>, and holdLazy, accumLazy, collectLazy, and constantLazy take one, where
 each used a Lazy<'T>, so a lazy expression no longer fits. Only SodaFlow reads a LazySample, which is what lets a
 transaction that fails forget its value; the core notes say why. New: the LazySample module, with defer for one from a
-function, map, and lift2, lift3, and lift4. A function given to any of them can run again after a failed transaction, so
-it must be pure and must not send.
+function, map, and lift2, lift3, and lift4, and the lazySample alias for defer in Shorthand. A function given to any of
+them can run again after a failed transaction, so it must be pure and must not send.
 
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
