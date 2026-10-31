@@ -763,17 +763,14 @@ internal sealed class TransactionInternal
             // that the commit resets, thus the next transaction starts as if this one did not occur.
             while (this.lastQueue?.Count > 0)
             {
-                LastEntry entry = this.lastQueue.Dequeue();
-
-                entry.Discard?.Invoke();
-                entry.Discardable?.Discard();
+                this.lastQueue.Dequeue().Discard();
             }
 
             this.lastQueue = null;
 
             while (this.afterLastQueue?.Count > 0)
             {
-                this.afterLastQueue.Dequeue().Discard?.Invoke();
+                this.afterLastQueue.Dequeue().Discard();
             }
 
             this.afterLastQueue = null;
@@ -809,15 +806,23 @@ internal sealed class TransactionInternal
 
     // One last action, with the alternative action for a transaction that fails. A readonly
     // struct, because a transaction makes one for each last action, and the type is private.
-    private readonly struct LastEntry(Action commit, Action? discard, IDiscardable? discardable)
+    private readonly struct LastEntry(in Action commit, in Action? discard, in IDiscardable? discardable)
     {
-        public Action Commit { get; } = commit;
-
         // Null where the last action leaves no state that a failure must reset.
-        public Action? Discard { get; } = discard;
+        private readonly Action? discard = discard;
 
         // An object that resets itself on failure, where a delegate costs an allocation.
-        public IDiscardable? Discardable { get; } = discardable;
+        private readonly IDiscardable? discardable = discardable;
+
+        public Action Commit { get; } = commit;
+
+        // One method for the two types of entry, thus each queue resets an entry in the same
+        // manner, whichever type it holds.
+        public void Discard()
+        {
+            this.discard?.Invoke();
+            this.discardable?.Discard();
+        }
     }
 
     internal abstract class Entry : IDisposable
