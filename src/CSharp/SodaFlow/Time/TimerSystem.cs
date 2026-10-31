@@ -40,6 +40,9 @@ public class TimerSystem<T> : ITimerSystem<T>
 
     private readonly ITimerSystemImplementation<T> implementation;
 
+    // The transaction hook. Dispose removes it, and the hook then runs in no transaction after that.
+    private readonly IDisposable startHook;
+
     // The last value that the OnStart handler sent to Time. Only that handler uses this, and it
     // runs with the transaction lock.
     private T lastTime;
@@ -57,9 +60,10 @@ public class TimerSystem<T> : ITimerSystem<T>
     ///     fires.
     /// </param>
     /// <remarks>
-    ///     Construction starts the implementation and installs a transaction handler
-    ///     that lives for the lifetime of the process. Thus, make one timer system for
-    ///     the process, and not one for each unit of work.
+    ///     Construction starts the implementation and installs a transaction handler.
+    ///     The handler runs at the start of each transaction in the process until
+    ///     <see cref="Dispose" /> removes it. Thus, make one timer system for the
+    ///     process, or dispose each one when its work is complete.
     /// </remarks>
     public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
     {
@@ -69,7 +73,7 @@ public class TimerSystem<T> : ITimerSystem<T>
         BehaviorSink<T> timeSink = new(this.lastTime);
         this.Time = timeSink;
 
-        Transaction.OnStart(() =>
+        this.startHook = Transaction.OnStart(() =>
         {
             T t = this.implementation.Now;
             this.implementation.RunTimersTo(t);
@@ -109,6 +113,23 @@ public class TimerSystem<T> : ITimerSystem<T>
 
     /// <inheritdoc />
     public Behavior<T> Time { get; }
+
+    /// <summary>
+    ///     Removes the transaction handler, and stops the implementation. After
+    ///     this, <see cref="Time" /> does not move, and no alarm fires.
+    /// </summary>
+    /// <remarks>
+    ///     This drops an event that is due and not sent. A second call does nothing.
+    ///     A call from the listener of an alarm is safe, because the implementation
+    ///     does not wait for its own thread.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    public void Dispose()
+    {
+        this.startHook.Dispose();
+        this.implementation.Stop();
+        GC.SuppressFinalize(this);
+    }
 
     // The earliest events at or before t, which are all at one time, removed from the set. Null
     // where no event is due. The set is in the sequence of time, thus these are its first events.

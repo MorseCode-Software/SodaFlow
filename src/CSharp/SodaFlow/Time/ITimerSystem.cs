@@ -19,9 +19,13 @@ namespace SodaFlow.Time;
 ///     count of seconds. Alarms from <see cref="At" /> get to the graph in a
 ///     transaction of their own, thus other code only has to listen to receive
 ///     them beyond listening.
+///     A timer system holds a transaction hook, and an implementation that waits
+///     holds a thread. A disposal releases the two. After it, <see cref="Time" />
+///     does not move, and no alarm fires.
 /// </remarks>
 [PublicAPI]
-public interface ITimerSystem<T>
+// ReSharper disable once InheritdocConsiderUsage
+public interface ITimerSystem<T> : IDisposable
     where T : IComparable<T>
 {
     /// <summary>

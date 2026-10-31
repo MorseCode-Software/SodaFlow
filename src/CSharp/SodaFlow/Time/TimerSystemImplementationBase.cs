@@ -33,6 +33,13 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
 
     private long nextSeq;
 
+    // Set by Stop, with the lock. The timer thread reads it at each step, out of the lock, thus
+    // it is volatile.
+    private volatile bool stopped;
+
+    // The thread that Start made, for Stop to wait for. Null before Start.
+    private Thread? timerThread;
+
     /// <inheritdoc />
     public void Start(Action<Exception> handleException)
     {
@@ -53,10 +60,10 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         //
         // Pool work cannot starve a background thread, and WaitOne is the timed
         // wait and the wake. StreamListenerManager takes this approach for its sweeper.
-        Thread timerThread =
+        Thread thread =
             new(() =>
             {
-                while (true)
+                while (!this.stopped)
                 {
                     try
                     {
@@ -72,10 +79,39 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
                         handleException(e);
                     }
                 }
-                // ReSharper disable once FunctionNeverReturns - This is a timer loop.  It should run until the application ends.
+
+                // The thread ends the event. SetTimer signals it only in the lock and only before
+                // the stop, thus nothing signals it after this.
+                lock (this.lockObject)
+                {
+                    this.timersChanged.Dispose();
+                }
             }) { Name = "SodaFlow Timer Thread", IsBackground = true };
 
-        timerThread.Start();
+        this.timerThread = thread;
+        thread.Start();
+    }
+
+    /// <inheritdoc />
+    public void Stop()
+    {
+        lock (this.lockObject)
+        {
+            if (this.stopped)
+            {
+                return;
+            }
+
+            this.stopped = true;
+            this.timersChanged.Set();
+        }
+
+        // A wait for the thread, so that no timer fires after this returns. Not from the thread
+        // itself: the listener of an alarm runs on it, and a disposal there must not wait for it.
+        if (this.timerThread is { } thread && thread != Thread.CurrentThread)
+        {
+            thread.Join();
+        }
     }
 
     /// <summary>
@@ -99,12 +135,17 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
         lock (this.lockObject)
         {
             this.timers.Add(timer);
+
+            // Signaled in the lock, because the timer thread disposes the event in the lock when
+            // it ends, and a signal after that throws. The initial code signaled out of the lock,
+            // because its CancellationTokenSource ran its callbacks synchronously. An
+            // AutoResetEvent runs nothing, thus the lock is safe here.
+            if (!this.stopped)
+            {
+                this.timersChanged.Set();
+            }
         }
 
-        // Signaled out of the lock. The initial code canceled the previous token source while it held
-        // it. A cancellation runs its callbacks synchronously. Thus, the wait loop can start again
-        // inline on this thread, and enter TimeUntilNext again while the caller holds the lock.
-        this.timersChanged.Set();
         return timer;
     }
 
@@ -141,7 +182,8 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
 
             lock (this.lockObject)
             {
-                if (this.timers.Count < 1)
+                // A stopped implementation fires nothing, also from RunTimersTo.
+                if (this.stopped || this.timers.Count < 1)
                 {
                     waitTime = TimeSpan.FromSeconds(1000);
                 }

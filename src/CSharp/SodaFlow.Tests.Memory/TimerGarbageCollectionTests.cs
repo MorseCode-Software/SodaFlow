@@ -45,6 +45,10 @@ public sealed class TimerGarbageCollectionTests
                 {
                 });
 
+    /// <summary>Disposes the timer system, which removes its transaction hook.</summary>
+    [After(HookType.Test)]
+    public void Cleanup() => this.timers.Dispose();
+
     [Test]
     public async Task AnAlarmStillFiresAfterACollectionTakesEverythingButTheStream()
     {
@@ -166,6 +170,10 @@ public sealed class TimerGarbageCollectionTests
         public int Now { get; private set; }
 
         public void Start(Action<Exception> handleException)
+        {
+        }
+
+        public void Stop()
         {
         }
 

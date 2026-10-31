@@ -1,6 +1,6 @@
-using System;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using JetBrains.Annotations;
 using SodaFlow.Time;
 
 namespace SodaFlow.Benchmarks;
@@ -14,7 +14,8 @@ namespace SodaFlow.Benchmarks;
 ///     Thus, the empty transaction of <see cref="TransactionBenchmarks" /> costs
 ///     more while a timer system is alive, and this class measures the difference.
 ///     The hook is process-wide. Thus, the timer system lives in the setup of a
-///     class of its own, where it cannot tax the other benchmarks.
+///     class of its own, where it cannot tax the other benchmarks. The row with
+///     <see cref="Disposed" /> true shows that a disposal removes the tax.
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -27,17 +28,28 @@ public class TimerSystemBenchmarks
 {
     private SecondsTimerSystem? timers;
 
-    /// <summary>Makes the timer system, which installs its start hook.</summary>
+    /// <summary>Gets or sets a value that is true where the setup disposes the timer system again.</summary>
+    [Params(false, true)]
+    public bool Disposed { get; [UsedImplicitly] set; }
+
+    /// <summary>Makes the timer system, which installs its start hook, and disposes it where the row asks.</summary>
     [GlobalSetup]
-    public void Setup() =>
+    public void Setup()
+    {
         this.timers =
             new SecondsTimerSystem(static _ =>
             {
             });
 
-    /// <summary>Keeps the timer system alive to the end of the run.</summary>
+        if (this.Disposed)
+        {
+            this.timers.Dispose();
+        }
+    }
+
+    /// <summary>Disposes the timer system.</summary>
     [GlobalCleanup]
-    public void Cleanup() => GC.KeepAlive(this.timers);
+    public void Cleanup() => this.timers?.Dispose();
 
     /// <summary>Opens a transaction that does nothing, and closes it, with the timer system alive.</summary>
     [Benchmark(Description = "empty transaction with a timer system")]

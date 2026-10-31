@@ -49,6 +49,7 @@ let inline runT f = Transaction.run f
 /// Registers an action to run when a transaction starts.
 /// </summary>
 /// <param name="a">The action to run at the start of each transaction.</param>
+/// <returns>A registration. Dispose it to remove the action, from the next transaction on.</returns>
 /// <remarks>
 /// Shorthand for <c>Transaction.onStart</c>. See it for the full contract.
 ///

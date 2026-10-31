@@ -26,10 +26,12 @@ type private ManualTimer(time: int, callback: unit -> unit) =
 type private ManualImplementation(fireLatestFirst: bool, holdBack: int option) =
     let timers = List<ManualTimer>()
     let mutable now = 0
+    let mutable stopped = false
 
     new() = ManualImplementation(false, None)
 
     member _.AdvanceTo value = now <- value
+    member _.Stopped = stopped
 
     /// Fires the timer that RunTimersTo kept back, out of any transaction.
     member _.FireHeldBackTimer() =
@@ -40,6 +42,7 @@ type private ManualImplementation(fireLatestFirst: bool, holdBack: int option) =
     interface ITimerSystemImplementation<int> with
         member _.Now = now
         member _.Start _ = ()
+        member _.Stop() = stopped <- true
 
         member _.SetTimer time callback =
             let timer = new ManualTimer(time, callback)
@@ -69,7 +72,8 @@ type ``Timer Tests``() =
     member _.``Events get to the graph in the sequence of their times``() =
         task {
             let implementation = ManualImplementation(true, None)
-            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
             let times = List<int>()
             let alarms = List<int>()
 
@@ -91,7 +95,8 @@ type ``Timer Tests``() =
     member _.``An event that arrives late fires its alarm and does not move Time back``() =
         task {
             let implementation = ManualImplementation(false, Some 10)
-            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
             let times = List<int>()
             let alarms = List<int>()
 
@@ -109,11 +114,38 @@ type ``Timer Tests``() =
             do! Expect.Sequence([ 12; 12 ], times)
         }
 
+    /// A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
+    /// it had, and an alarm that comes due after the disposal does not fire.
+    [<Test>]
+    member _.``A disposed timer system stops its clock and sends no alarm``() =
+        task {
+            let implementation = ManualImplementation()
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
+            let alarms = List<int>()
+
+            let l =
+                Transaction.run (fun () -> timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add)
+
+            advanceTo implementation 5
+            timers.Dispose()
+            advanceTo implementation 12
+            l |> StrongListener.unlisten
+
+            do! Expect.True implementation.Stopped
+            do! Expect.Equal(5, timers.Time |> Behavior.sample)
+            do! Expect.Equal(0, alarms.Count)
+
+            // A second disposal does nothing.
+            timers.Dispose()
+        }
+
     [<Test>]
     member _.``Time follows a clock that goes back``() =
         task {
             let implementation = ManualImplementation()
-            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
             let times = List<int>()
 
             let l = timers.Time |> Operational.updates |> Stream.listenStrong times.Add
@@ -127,7 +159,8 @@ type ``Timer Tests``() =
     [<Test>]
     member _.``Simultaneous Timer Events``() =
         task {
-            let ts = SystemClockTimerSystem(fun _ -> ()) :> ITimerSystem<DateTime>
+            use timerSystem = new SystemClockTimerSystem(fun _ -> ())
+            let ts = timerSystem :> ITimerSystem<DateTime>
             let time = ts.Time
             let l = List<DateTime>()
 
@@ -165,7 +198,8 @@ type ``Timer Tests``() =
     member _.``debounce fires the last value after a quiet time``() =
         task {
             let implementation = ManualImplementation()
-            let timers = TimerSystem<int>(implementation, (fun _ -> ())) :> ITimerSystem<int>
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
             let keys = StreamSink.create<string> ()
             let seen = List<string>()
 
