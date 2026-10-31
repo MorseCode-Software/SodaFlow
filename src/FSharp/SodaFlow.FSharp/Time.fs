@@ -298,10 +298,12 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     // The thread that Start made, for Stop to wait for. None before Start.
     let mutable timerThread: Thread option = None
 
-    // True while the set holds a timer. Each change of the set writes it in the lock. RunTimersTo
-    // reads it out of the lock, and skips the lock in a transaction with no timer set, which is most
-    // of them. A timer that a different thread adds at that moment fires from the timer thread, or at
-    // the next transaction.
+    // True while the set holds a timer. The flag is a copy of the set's count for the one reader
+    // out of the lock. Code in the lock reads the set, not the flag. Each change of the set writes
+    // the flag in the same lock: SetTimer, timeUntilNext when a timer fires, and RemoveTimer.
+    // RunTimersTo reads the flag out of the lock, and skips the lock in a transaction with no timer
+    // set, which is most of them. A timer that a different thread adds at that moment fires from
+    // the timer thread, or at the next transaction.
     [<VolatileField>]
     let mutable hasTimers = false
 
