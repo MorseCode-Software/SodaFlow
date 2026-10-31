@@ -160,19 +160,28 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
                 implementation.RunTimersTo t
 
                 let rec processEvents () =
-                    // The earliest event at or before t, and each event at the same time. The list is
-                    // complete before a removal, because a SortedSet does not let code change it while
-                    // an enumeration of it continues.
+                    // The earliest events at or before t, which are all at one time. The list is complete
+                    // before a removal, because a SortedSet does not let code change it while an
+                    // enumeration of it continues. This runs at the start of each transaction in the
+                    // process, and most of them have no event due. That path allocates nothing here: Count
+                    // and Min are properties of the set, where Seq.tryHead allocated an enumerator.
                     let events =
                         lock eventQueue (fun () ->
-                            match eventQueue |> Seq.tryHead with
-                            | Some first when first.Time <= t ->
-                                let events =
-                                    eventQueue |> Seq.takeWhile (fun event -> event.Time = first.Time) |> Seq.toList
+                            if eventQueue.Count = 0 then
+                                []
+                            else
+                                let first = eventQueue.Min
 
-                                events |> List.iter (eventQueue.Remove >> ignore)
-                                events
-                            | _ -> [])
+                                if first.Time > t then
+                                    []
+                                else
+                                    let events =
+                                        eventQueue
+                                        |> Seq.takeWhile (fun event -> event.Time = first.Time)
+                                        |> Seq.toList
+
+                                    events |> List.iter (eventQueue.Remove >> ignore)
+                                    events)
 
                     match events with
                     | [] -> ()

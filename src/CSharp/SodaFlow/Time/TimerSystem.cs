@@ -73,32 +73,12 @@ public class TimerSystem<T> : ITimerSystem<T>
         {
             T t = this.implementation.Now;
             this.implementation.RunTimersTo(t);
-            List<Event> events = [];
 
-            while (true)
+            // This runs at the start of each transaction in the process, and most of them have no
+            // event due. That path allocates nothing here: the list exists only when events are
+            // due.
+            while (this.TakeDueEvents(t) is { } events)
             {
-                // Take the earliest event at or before t, and each event at the same time. The set is
-                // in the sequence of time, thus these are the first events of the set.
-                lock (this.eventQueue)
-                {
-                    Event? first = this.eventQueue.FirstOrDefault();
-
-                    if (first != null && first.Time.CompareTo(t) <= 0)
-                    {
-                        events.AddRange(this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0));
-                    }
-
-                    foreach (Event ev in events)
-                    {
-                        this.eventQueue.Remove(ev);
-                    }
-                }
-
-                if (events.Count == 0)
-                {
-                    break;
-                }
-
                 T eventTime = events[0].Time;
 
                 // An implementation removes a timer and then runs its callback out of its lock. A
@@ -118,8 +98,6 @@ public class TimerSystem<T> : ITimerSystem<T>
                         ev.Alarm.Send(ev.Time);
                     }
                 });
-
-                events.Clear();
             }
 
             // The clock itself can go back, for example at the end of daylight saving time. Time
@@ -131,6 +109,40 @@ public class TimerSystem<T> : ITimerSystem<T>
 
     /// <inheritdoc />
     public Behavior<T> Time { get; }
+
+    // The earliest events at or before t, which are all at one time, removed from the set. Null
+    // where no event is due. The set is in the sequence of time, thus these are its first events.
+    // Count and Min are properties of the set. FirstOrDefault is the LINQ method, which boxes the
+    // enumerator of the set at each call, and this runs at each start of a transaction. The LINQ
+    // below runs only when events are due, which is rare.
+    private List<Event>? TakeDueEvents(T t)
+    {
+        lock (this.eventQueue)
+        {
+            if (this.eventQueue.Count == 0)
+            {
+                return null;
+            }
+
+            // ReSharper disable once NullableWarningSuppressionIsUsed - The set holds at least one event, thus
+            // Min is not null.
+            Event first = this.eventQueue.Min!;
+
+            if (first.Time.CompareTo(t) > 0)
+            {
+                return null;
+            }
+
+            List<Event> events = [.. this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0)];
+
+            foreach (Event ev in events)
+            {
+                this.eventQueue.Remove(ev);
+            }
+
+            return events;
+        }
+    }
 
     /// <inheritdoc />
     public Stream<T> At(Cell<Maybe<T>> t)
