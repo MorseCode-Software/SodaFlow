@@ -14,9 +14,10 @@ alarm fires. A custom ITimerSystemImplementation<T> needs a Stop, which can be e
 A caller of OnStart can ignore the registration as before, or dispose it to remove the action.
 
 The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
-and an enumerator on every transaction in the process. Measured on an empty transaction with a SecondsTimerSystem
-alive, .NET 10: 350 to 324 ns and 1157 to 1016 bytes. What remains is mostly the committed send that moves Time, which
-every behavior derived from it depends on.
+and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
+is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
+350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
+behavior derived from it depends on.
 
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:

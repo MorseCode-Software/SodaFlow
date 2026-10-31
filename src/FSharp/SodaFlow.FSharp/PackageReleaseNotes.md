@@ -15,8 +15,8 @@ and ends the thread, and after that Time does not move and no alarm fires. A cus
 needs a Stop, which can be empty for a clock a test moves by hand.
 
 The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
-and an enumerator on every transaction in the process. The C# notes have the measurement; the F# hook has the same
-shape.
+and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
+is set. The C# notes have the measurement; the F# hook has the same shape.
 
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:

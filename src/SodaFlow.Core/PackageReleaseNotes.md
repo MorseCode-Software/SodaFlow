@@ -9,6 +9,11 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
+A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
+with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
+through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
+send to a sink with one listener, .NET 10: 192 to 183 ns and 680 to 544 bytes.
+
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
 after every send and every listener, read the pending update of the cell being sampled, and a lazy initial value was
