@@ -1,4 +1,7 @@
-5.0.2
+6.0.0
+
+Requires SodaFlow.Core 6.x, which ships in the same release. Nothing in this package's API changes, but a consumer
+that moves to this version moves to that SodaFlow.Core, whose SampleLazy and HoldLazy changed shape.
 
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
@@ -12,8 +15,8 @@ still delivers its result. It starts only if the transaction got as far as befor
 still starts nothing. A call to Execute from the start of an operation now finds no transaction open and sends its
 value immediately, where it used to defer it.
 
-Requires SodaFlow.Core 5.0.1, which adds the member this release calls. The floor of the dependency is the version of
-SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
+Requires SodaFlow.Core 6.0.0, which adds the member this release calls. The floor of the dependency is the version of
+SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
 Fixed: canceling many items at once cost time that grew with the square of their number. Each end found its item by
 searching the whole queue, and the removal of the ends searched the list of ends again for every item, with a closure

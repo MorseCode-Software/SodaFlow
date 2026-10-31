@@ -41,6 +41,8 @@
         <Compile Include="CellStreamSinkExtensionMethods.cs"/>
         <Compile Include="CleanupExtensionMethods.cs"/>
         <Compile Include="ForwardReference.cs"/>
+        <Compile Include="LazySample.cs"/>
+        <Compile Include="LazySampleExtensionMethods.cs"/>
         <Compile Include="Listener.cs"/>
         <Compile Include="LoopedBehaviorExtensionMethods.cs"/>
         <Compile Include="LoopedCellExtensionMethods.cs"/>

@@ -239,7 +239,7 @@ type ``Denotational Semantics Tests``() =
     [<Test>]
     member _.``ConstantLazy: Test Case``() =
         task {
-            let c = constantLazyC (lazy 'a')
+            let c = constantLazyC (lazySample (fun () -> 'a'))
             let out = runSimulationWithNoFirings (flip listenStrongC c)
             do! Expect.Sequence([ 'a' ], out)
         }
@@ -363,6 +363,7 @@ type ``Denotational Semantics Tests``() =
             let sample1 = c |> sampleLazyC
             s |> sendS 'b'
             let sample2 = c |> sampleLazyC
-            do! Expect.Equal('a', sample1.Value)
-            do! Expect.Equal('b', sample2.Value)
+            // Only SodaFlow reads a lazy sample. A constant cell made from one gives its value.
+            do! Expect.Equal('a', constantLazyC sample1 |> sampleC)
+            do! Expect.Equal('b', constantLazyC sample2 |> sampleC)
         }

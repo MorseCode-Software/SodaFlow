@@ -8,7 +8,7 @@ open TUnit.Core
 module private Types =
 
     type TestObject(s: Stream<bool>, s1: Stream<int>, s2: Stream<int>) as this =
-        let mutable currentValue = lazy 0
+        let mutable currentValue = constantC 0
 
         let cell, l =
             runT (fun () ->
@@ -33,7 +33,7 @@ module private Types =
                 let _cell7 = createCell ()
                 let _cell8 = createCell ()
                 let _cell9 = createCell ()
-                currentValue <- cell |> sampleLazyC
+                currentValue <- constantLazyC (cell |> sampleLazyC)
                 let l = cell |> updatesC |> listenStrongS (fun v -> this.CurrentValue <- v)
                 (cell, l))
 
@@ -41,8 +41,8 @@ module private Types =
         member _.Cell = cell
 
         member _.CurrentValue
-            with get () = currentValue.Value
-            and set value = currentValue <- lazy value
+            with get () = currentValue |> sampleC
+            and set value = currentValue <- constantC value
 
     type TestObject2(id: int, initialIsSelected: bool, selectAllStream: Stream<bool>) =
         let isSelectedStreamSink = sinkS ()

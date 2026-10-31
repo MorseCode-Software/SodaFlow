@@ -1,4 +1,21 @@
-5.0.1
+6.0.0
+
+BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
+each used a Lazy<T>. Only SodaFlow reads a LazySample, at the end of the transaction that asked for it, so a
+transaction that fails can forget the value the sample took. A Lazy<T> keeps the first value it gives, and that was
+the defect below. Map transforms a LazySample, Lift combines two, three, or four, and LazySample.Defer makes one from
+a function, for an initial value that is not a sample of the graph. A function given to any of them runs once for
+each value, however many cells start from the sample, and runs again after a transaction that failed, so it must be
+pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
+InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
+
+Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
+a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
+after every send and every listener, read the pending update of the cell being sampled, and a lazy initial value was
+forced there. A transaction can still fail after that, when a lazy initial value throws, and the forced value stayed:
+a cell started from a value its source never took, and a per-key cell of a collection, which its cache keeps, showed
+an item from a snapshot the failure had discarded. Each of them now forgets what the failed transaction gave it and
+reads the committed state at the next use.
 
 Fixed: a transaction that fails no longer leaves state behind that breaks the graph after it. A transaction fails when
 something throws while it runs: a listener, a function given to an operation such as Map, or a loop that was never

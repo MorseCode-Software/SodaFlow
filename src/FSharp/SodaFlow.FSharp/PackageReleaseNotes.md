@@ -1,7 +1,16 @@
-5.0.2
+6.0.0
 
-This release raises the dependency floor, so that a new install gets SodaFlow.Core 5.0.1. That release has fixes that
-reach this package, and its notes have the details of each:
+BREAKING: sampleLazy returns a LazySample<'T>, and holdLazy, accumLazy, collectLazy, and constantLazy take one, where
+each used a Lazy<'T>, so a lazy expression no longer fits. Only SodaFlow reads a LazySample, which is what lets a
+transaction that fails forget its value; the core notes say why. New: the LazySample module, with defer for one from a
+function, map, and lift2, lift3, and lift4, and the lazySample alias for defer in Shorthand. A function given to any of
+them can run again after a failed transaction, so it must be pure and must not send.
+
+This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
+that reach this package, and its notes have the details of each:
+
+- A cell with a lazy initial value, a looped cell, the state of a lazy fold, and the first value of a bindable no
+  longer keep a value from a transaction that failed after its sample phase.
 
 - A transaction that fails no longer leaves state behind that breaks the graph after it. Before, a cell could stop
   updating, a sink could throw on every later send, and a stream could replay old firings to each new listener.

@@ -33,8 +33,12 @@ A scheduler of your own that hands each action to the binding thread as it arriv
 transaction ends. The value then finds the outcome still unknown and reads the cell, and that read waits for the
 transaction, so the fix holds for any scheduler that keeps the Post contract, not only for the two in this package.
 
-Requires SodaFlow.Core 5.0.1, which adds the members this release calls. The floor of the dependency is the version of
-SodaFlow.Core the package is built against, so SodaFlow.Core 5.0.1 has to be released first.
+Fixed: a bindable made in a transaction that fails after its sample phase no longer shows the value that the failed
+transaction was about to commit. The first value is now set when the transaction commits, and a bindable whose
+transaction failed reads its cell instead.
+
+Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
+SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
 4.3.0
 

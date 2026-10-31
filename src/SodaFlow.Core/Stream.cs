@@ -283,11 +283,11 @@ public class Stream<T>
 
     internal Behavior<T> HoldInternal(T initialValue) => new(stream: this, initialValue: initialValue);
 
-    internal Cell<T> HoldLazyImpl(Lazy<T> initialValue) =>
+    internal Cell<T> HoldLazyImpl(LazySample<T> initialValue) =>
         TransactionInternal.Apply((trans, _) =>
             new Cell<T>(this.HoldLazyInternal(trans: trans, initialValue: initialValue)));
 
-    internal Behavior<T> HoldLazyInternal(TransactionInternal trans, Lazy<T> initialValue) =>
+    internal Behavior<T> HoldLazyInternal(TransactionInternal trans, LazySample<T> initialValue) =>
         new LazyBehavior<T>(trans: trans, stream: this, lazyInitialValue: initialValue);
 
     internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
@@ -1837,7 +1837,7 @@ public class Stream<T>
             .FilterSomeInternal();
 
     internal Stream<T> CalmImpl(Func<T, T, bool> areEqual) =>
-        this.Calm(init: new Lazy<MaybeInternal<T>>(static () => MaybeInternal<T>.None), areEqual: areEqual);
+        this.Calm(init: new LazySample<MaybeInternal<T>>(static _ => MaybeInternal<T>.None), areEqual: areEqual);
 
     /// <summary>
     ///     Removes a firing that is equal to the last firing that this stream sent.
@@ -1858,7 +1858,7 @@ public class Stream<T>
     ///     None is also a correct initial value. Thus, CarryState needs its own
     ///     initialized flag and must not read an empty state as "not started".
     /// </remarks>
-    internal Stream<T> Calm(Lazy<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
+    internal Stream<T> Calm(LazySample<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
         TransactionInternal.Apply((trans1, _) =>
             this.CarryState(
                 trans1: trans1,
@@ -1875,10 +1875,10 @@ public class Stream<T>
     internal Stream<TReturn> CollectImpl<TState, TReturn>(
         TState initialState,
         Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
-        this.CollectLazyImpl(initialState: new Lazy<TState>(() => initialState), f: f);
+        this.CollectLazyImpl(initialState: new LazySample<TState>(_ => initialState), f: f);
 
     internal Stream<TReturn> CollectLazyImpl<TState, TReturn>(
-        Lazy<TState> initialState,
+        LazySample<TState> initialState,
         Func<T, TState, (TReturn ReturnValue, TState State)> f) =>
         TransactionInternal.Apply((trans, _) =>
             this.CarryState(
@@ -1891,9 +1891,9 @@ public class Stream<T>
                 }));
 
     internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
-        this.AccumLazyImpl(initialState: new Lazy<TReturn>(() => initialState), f: f);
+        this.AccumLazyImpl(initialState: new LazySample<TReturn>(_ => initialState), f: f);
 
-    internal Cell<TReturn> AccumLazyImpl<TReturn>(Lazy<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
+    internal Cell<TReturn> AccumLazyImpl<TReturn>(LazySample<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
         TransactionInternal.Apply((trans, _) =>
             this.CarryState(
                     trans1: trans,
@@ -1936,7 +1936,7 @@ public class Stream<T>
     /// </remarks>
     private Stream<TReturn> CarryState<TState, TReturn>(
         TransactionInternal trans1,
-        Lazy<TState> initialState,
+        LazySample<TState> initialState,
         Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
     {
         Stream<TReturn> @out = new(this.KeepListenersAlive);
@@ -1949,7 +1949,17 @@ public class Stream<T>
         // SodaFlow forces this in the sample phase and also when a caller reads it. The behavior that
         // this code replaced forced its lazy initial value in that phase, also when nothing
         // fired.
-        trans1.Sample(EnsureCommittedIsSet);
+        trans1.Sample(() => EnsureCommittedIsSet(trans1));
+
+        // The construction transaction can fail after its sample phase forced the initial state.
+        // The state then came from a sample that the failure forgets, thus this code forgets it
+        // too, and the next firing forces the sample again. A commit of a firing in that
+        // transaction does not run on failure, thus the state here is still the initial one.
+        trans1.Discard(() =>
+        {
+            committedIsSet = false;
+            committed = default;
+        });
 
         // A transaction that fails does not commit its state, and it must also clear hasPending.
         // Otherwise, no subsequent transaction queues the commit. This captures no argument of the
@@ -1967,7 +1977,7 @@ public class Stream<T>
                 trans: trans1,
                 action: (trans2, a) =>
                 {
-                    EnsureCommittedIsSet();
+                    EnsureCommittedIsSet(trans2);
 
                     // ReSharper disable once NullableWarningSuppressionIsUsed - After EnsureCommittedIsSet() is called
                     // committed will be non-null.
@@ -1999,11 +2009,11 @@ public class Stream<T>
 
         return @out.UnsafeAttachListener(l);
 
-        void EnsureCommittedIsSet()
+        void EnsureCommittedIsSet(TransactionInternal trans)
         {
             if (!committedIsSet)
             {
-                committed = initialState.Value;
+                committed = initialState.Force(trans);
                 committedIsSet = true;
             }
         }

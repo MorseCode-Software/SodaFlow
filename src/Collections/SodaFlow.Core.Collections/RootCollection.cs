@@ -105,20 +105,23 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            ImmutableDictionary<TKey, TIdentity>.Builder identities =
-                ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
-
-            Dictionary<TKey, TState> states = new(keyEqualityComparer);
-
-            // This code gives a number to each item in the sequence of the enumeration, and the
-            // collection lists the items in that sequence.
-            ImmutableDictionary<TKey, long>.Builder arrivals =
-                ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
-
-            Lazy<CollectionSnapshot<TKey, TIdentity, TState>> initial =
+            // The builders live inside the function, because the function can run more than one
+            // time. A transaction that fails after the sample phase forgets the snapshot, and the
+            // next read builds it again. Builders made outside then hold each key two times.
+            LazySample<CollectionSnapshot<TKey, TIdentity, TState>> initial =
                 initialEntries.SampleLazyImpl()
                     .MapImpl(initialEntries =>
                     {
+                        ImmutableDictionary<TKey, TIdentity>.Builder identities =
+                            ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
+
+                        Dictionary<TKey, TState> states = new(keyEqualityComparer);
+
+                        // This code gives a number to each item in the sequence of the enumeration,
+                        // and the collection lists the items in that sequence.
+                        ImmutableDictionary<TKey, long>.Builder arrivals =
+                            ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
+
                         foreach (Item<TIdentity, TState> item in initialEntries)
                         {
                             TKey key = keySelector(item.Identity);

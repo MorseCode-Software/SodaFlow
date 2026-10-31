@@ -213,7 +213,7 @@ public sealed class DenotationalSemanticsTests
     [Test]
     public async Task Test_ConstantLazy_TestCase()
     {
-        Cell<char> c = Cell.ConstantLazy(new Lazy<char>(static () => 'a'));
+        Cell<char> c = Cell.ConstantLazy(LazySample.Defer(static () => 'a'));
         List<char> @out = RunSimulation<char>(c.ListenStrong);
         await Assert.That(@out).IsEquivalentTo(expected: ['a'], ordering: CollectionOrdering.Matching);
     }
@@ -417,11 +417,13 @@ public sealed class DenotationalSemanticsTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold('a');
-        Lazy<char> sample1 = c.SampleLazy();
+        LazySample<char> sample1 = c.SampleLazy();
         s.Send('b');
-        Lazy<char> sample2 = c.SampleLazy();
-        await Assert.That(sample1.Value).IsEqualTo('a');
-        await Assert.That(sample2.Value).IsEqualTo('b');
+        LazySample<char> sample2 = c.SampleLazy();
+
+        // Only SodaFlow reads a lazy sample. A constant cell made from one gives its value.
+        await Assert.That(Cell.ConstantLazy(sample1).Sample()).IsEqualTo('a');
+        await Assert.That(Cell.ConstantLazy(sample2).Sample()).IsEqualTo('b');
     }
 
     private static (Stream<T> Stream, Dictionary<int, Action> Firings) MkStream<T>(Dictionary<int, T> firings)

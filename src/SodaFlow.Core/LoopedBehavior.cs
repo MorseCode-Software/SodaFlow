@@ -14,7 +14,7 @@ public class LoopedBehavior<T> : Behavior<T>
 {
     private readonly LoopedStream<T> streamLoop;
 
-    private Lazy<T>? lazyInitialValue;
+    private LazySample<T>? lazyInitialValue;
 
     internal LoopedBehavior()
         : this(new LoopedStream<T>())
@@ -34,26 +34,6 @@ public class LoopedBehavior<T> : Behavior<T>
         this.lazyInitialValue = b.SampleLazy(trans);
     }
 
-    /// <summary>
-    ///     Releases the deferred initial value when this behavior gets a value of its
-    ///     own.
-    /// </summary>
-    /// <remarks>
-    ///     A looped behavior gets its initial value from the value that closes the
-    ///     loop, and it reads that value only when a caller asks for it. The value
-    ///     that closes the loop is not known when SodaFlow creates the loop. After the
-    ///     behavior gets a value, the deferred value is no longer necessary. Thus,
-    ///     SodaFlow releases it and does not keep it alive for the full life of the
-    ///     behavior.
-    /// </remarks>
-    // ReSharper disable once InheritdocConsiderUsage
-    protected override void NotUsingInitialValue()
-    {
-        base.NotUsingInitialValue();
-
-        this.lazyInitialValue = null;
-    }
-
     internal override T SampleNoTransaction()
     {
         if (!this.streamLoop.IsAssigned)
@@ -66,12 +46,23 @@ public class LoopedBehavior<T> : Behavior<T>
         return this.ValueProperty;
     }
 
+    // The transaction that forces the sample can fail after that, and the value then came from a
+    // sample that the failure forgets. Thus, the force registers a last action: its commit
+    // releases the sample, which the behavior does not need after a value, and its discard makes
+    // the behavior use its initial value again, so the next read forces the sample again.
     private void EnsureValueIsCreated()
     {
-        if (this.UsingInitialValue && this.lazyInitialValue != null)
+        if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
         {
-            this.ValueProperty = this.lazyInitialValue.Value;
-            this.lazyInitialValue = null;
+            return;
         }
+
+        // Each caller runs in a transaction: a read through SampleImpl, or a sample phase.
+        TransactionInternal trans = TransactionInternal.CurrentTransaction();
+
+        this.ValueProperty = sample.Force(trans);
+        trans.Last(commit: this.ReleaseInitialValue, discard: this.UseInitialValueAgain);
     }
+
+    private void ReleaseInitialValue() => this.lazyInitialValue = null;
 }

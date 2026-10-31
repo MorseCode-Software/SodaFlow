@@ -231,7 +231,11 @@ type ``Cell Tests``() =
             do!
                 e
                 |> assertExceptionExists (fun e ->
-                    Expect.Equal("ValueFactory attempted to access the Value property of this instance.", e.Message))
+                    Expect.Equal(
+                        "This lazy sample forces itself. The loop that it samples is not closed, or the initial value "
+                        + "of a cell reads that cell.",
+                        e.Message
+                    ))
         }
 
     [<Test>]
@@ -250,7 +254,7 @@ type ``Cell Tests``() =
                  (innerCell |> sampleC).s |> sendS 5
 
                  innerStreamSink
-                 |> sendS (Inner.create (resultCell |> sampleLazyC |> Lazy.map (fun v -> v - 1)))
+                 |> sendS (Inner.create (resultCell |> sampleLazyC |> LazySample.map (fun v -> v - 1)))
 
                  (innerCell |> sampleC).s |> sendS 7)
 

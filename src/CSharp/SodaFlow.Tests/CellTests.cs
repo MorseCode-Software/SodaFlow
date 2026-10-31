@@ -317,7 +317,9 @@ public sealed class CellTests
         await Assert.That(exception).IsNotNull();
 
         await Assert.That(exception?.Message)
-            .IsEqualTo("ValueFactory attempted to access the Value property of this instance.");
+            .IsEqualTo(
+                "This lazy sample forces itself. The loop that it samples is not closed, or the initial value of a "
+                + "cell reads that cell.");
     }
 
     [Test]
@@ -352,7 +354,7 @@ public sealed class CellTests
 
     private sealed class Inner
     {
-        public Inner(Lazy<int> initialValue)
+        public Inner(LazySample<int> initialValue)
         {
             this.S = Stream.CreateSink<int>();
             this.C = this.S.HoldLazy(initialValue);

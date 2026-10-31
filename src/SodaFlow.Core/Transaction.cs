@@ -109,6 +109,14 @@ internal sealed class TransactionInternal
     /// <returns>The current transaction, or <code>null</code>.</returns>
     internal static TransactionInternal? GetCurrentTransaction() => localTransaction;
 
+    /// <summary>
+    ///     The transaction that is open on this thread, for code that runs only in
+    ///     one and has no reference to it.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No transaction is open on this thread.</exception>
+    internal static TransactionInternal CurrentTransaction() =>
+        localTransaction ?? throw new InvalidOperationException("No transaction is open on this thread.");
+
     internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
 
     internal static T Apply<T>(Func<TransactionInternal, bool, T> code)
@@ -343,7 +351,8 @@ internal sealed class TransactionInternal
     /// </summary>
     /// <param name="action">The action that runs after all prioritized actions.</param>
     internal void Last(Action action) =>
-        (this.lastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: action, discard: null));
+        (this.lastQueue ??= new Queue<LastEntry>())
+            .Enqueue(new LastEntry(commit: action, discard: null, discardable: null));
 
     /// <summary>
     ///     Adds an action that runs after all prioritized actions, and an
@@ -361,7 +370,27 @@ internal sealed class TransactionInternal
     ///     <paramref name="commit" /> runs.
     /// </param>
     internal void Last(Action commit, Action discard) =>
-        (this.lastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
+        (this.lastQueue ??= new Queue<LastEntry>())
+            .Enqueue(new LastEntry(commit: commit, discard: discard, discardable: null));
+
+    /// <summary>
+    ///     Queues an action that runs only when this transaction fails, at the point
+    ///     where the transaction discards its last actions.
+    /// </summary>
+    internal void Discard(Action discard) =>
+        (this.lastQueue ??= new Queue<LastEntry>())
+            .Enqueue(new LastEntry(commit: NoCommit, discard: discard, discardable: null));
+
+    /// <summary>
+    ///     The same for an object that resets itself. This allocates no delegate,
+    ///     which matters for a lazy sample, because each value it takes registers
+    ///     one.
+    /// </summary>
+    internal void Discard(IDiscardable discardable) =>
+        (this.lastQueue ??= new Queue<LastEntry>())
+            .Enqueue(new LastEntry(commit: NoCommit, discard: null, discardable: discardable));
+
+    private static readonly Action NoCommit = static () => { };
 
     /// <summary>
     ///     Adds an action that runs after all last actions, and an alternative
@@ -376,7 +405,8 @@ internal sealed class TransactionInternal
     ///     queue do not run. Their discard actions run in the failure path.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
-        (this.afterLastQueue ??= new Queue<LastEntry>()).Enqueue(new LastEntry(commit: commit, discard: discard));
+        (this.afterLastQueue ??= new Queue<LastEntry>())
+            .Enqueue(new LastEntry(commit: commit, discard: discard, discardable: null));
 
     /// <summary>
     ///     The outcome of this transaction, for code that runs after it on a
@@ -733,14 +763,14 @@ internal sealed class TransactionInternal
             // that the commit resets, thus the next transaction starts as if this one did not occur.
             while (this.lastQueue?.Count > 0)
             {
-                this.lastQueue.Dequeue().Discard?.Invoke();
+                this.lastQueue.Dequeue().Discard();
             }
 
             this.lastQueue = null;
 
             while (this.afterLastQueue?.Count > 0)
             {
-                this.afterLastQueue.Dequeue().Discard?.Invoke();
+                this.afterLastQueue.Dequeue().Discard();
             }
 
             this.afterLastQueue = null;
@@ -776,12 +806,23 @@ internal sealed class TransactionInternal
 
     // One last action, with the alternative action for a transaction that fails. A readonly
     // struct, because a transaction makes one for each last action, and the type is private.
-    private readonly struct LastEntry(Action commit, Action? discard)
+    private readonly struct LastEntry(in Action commit, in Action? discard, in IDiscardable? discardable)
     {
+        // Null where the last action leaves no state that a failure must reset.
+        private readonly Action? discard = discard;
+
+        // An object that resets itself on failure, where a delegate costs an allocation.
+        private readonly IDiscardable? discardable = discardable;
+
         public Action Commit { get; } = commit;
 
-        // Null where the last action leaves no state that a failure must reset.
-        public Action? Discard { get; } = discard;
+        // One method for the two types of entry, thus each queue resets an entry in the same
+        // manner, whichever type it holds.
+        public void Discard()
+        {
+            this.discard?.Invoke();
+            this.discardable?.Discard();
+        }
     }
 
     internal abstract class Entry : IDisposable
@@ -875,4 +916,14 @@ internal sealed class TransactionInternal
 
         public override void Discard() => this.discard();
     }
+}
+
+/// <summary>
+///     An object that a failed transaction resets, registered with
+///     <see cref="TransactionInternal.Discard(IDiscardable)" />.
+/// </summary>
+internal interface IDiscardable
+{
+    /// <summary>Forgets the state that the failed transaction gave this object.</summary>
+    void Discard();
 }

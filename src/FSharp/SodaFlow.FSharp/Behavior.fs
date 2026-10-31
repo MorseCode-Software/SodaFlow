@@ -28,7 +28,7 @@ let constant value = BehaviorInternal.ConstantImpl value
 /// <summary>
 ///     Creates a behavior with a value that never changes, computed on first use.
 /// </summary>
-/// <param name="value">The lazy value the behavior always has.</param>
+/// <param name="value">The lazy sample of the value the behavior always has.</param>
 /// <returns>A behavior whose value is always the value of <paramref name="value" />.</returns>
 /// <remarks>
 ///     For a constant with a high cost, or that is not available when the code builds the graph.
@@ -92,7 +92,10 @@ let sample (behavior: Behavior<_>) = behavior.SampleImpl()
 ///     Gets the current value of a behavior, and does not force it.
 /// </summary>
 /// <param name="behavior">The behavior to sample.</param>
-/// <returns>A lazy value which yields what the behavior held at the moment of this call.</returns>
+/// <returns>
+///     A lazy sample of what the behavior held at the moment of this call. Only SodaFlow reads
+///     it, and a transaction that fails forgets it.
+/// </returns>
 /// <remarks>
 ///     This code sets the value now and calculates it after this. This is necessary for
 ///     <c>Stream.holdLazy</c> and the loop constructs. At the moment that the code closes a loop,

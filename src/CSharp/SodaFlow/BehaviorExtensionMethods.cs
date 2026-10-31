@@ -58,16 +58,20 @@ public static class BehaviorExtensionMethods
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>
     /// <param name="b">The behavior.</param>
-    /// <returns>A lazy value that gives the current value of the behavior.</returns>
+    /// <returns>
+    ///     A lazy sample of the current value of the behavior. Only SodaFlow reads it,
+    ///     at the end of the transaction, and a transaction that fails forgets it.
+    /// </returns>
     /// <remarks>
     ///     This is a variant of <see cref="Sample{T}" /> that works with the
     ///     <see cref="BehaviorLoop{T}" /> class when no code closed the behavior loop.
     ///     Use it in code that is general sufficient for a
     ///     <see cref="BehaviorLoop{T}" /> argument.  See
-    ///     <see cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, Lazy{T})" />.
+    ///     <see
+    ///         cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, LazySample{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Lazy<T> SampleLazy<T>(this Behavior<T> b) => b.SampleLazyImpl();
+    public static LazySample<T> SampleLazy<T>(this Behavior<T> b) => b.SampleLazyImpl();
 
     /// <summary>
     ///     Transforms the values of a behavior with the given function. The behavior

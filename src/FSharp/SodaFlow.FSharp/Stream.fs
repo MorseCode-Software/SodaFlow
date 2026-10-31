@@ -250,12 +250,13 @@ let hold initialValue (stream: Stream<_>) = stream.HoldImpl initialValue
 /// <summary>
 ///     Holds the most recently fired value in a cell, with an initial value computed on first use.
 /// </summary>
-/// <param name="initialValue">The lazy value the cell holds until the stream first fires.</param>
+/// <param name="initialValue">The lazy sample the cell holds until the stream first fires.</param>
 /// <param name="stream">The stream to hold.</param>
 /// <returns>A cell holding the last value fired, or <paramref name="initialValue" /> before any.</returns>
 /// <remarks>
 ///     This is the version that closes a loop. In <c>Cell.loop</c> the initial value comes from the
-///     same cell, thus no code can force it now. <c>Cell.sampleLazy</c> gives what this takes.
+///     same cell, thus no code can force it now. <c>Cell.sampleLazy</c> gives what this takes, and so
+///     does <c>LazySample.defer</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let holdLazy initialValue (stream: Stream<_>) = stream.HoldLazyImpl initialValue

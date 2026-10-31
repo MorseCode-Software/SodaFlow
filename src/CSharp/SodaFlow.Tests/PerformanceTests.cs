@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -148,7 +147,7 @@ public sealed class PerformanceTests
     {
         // ReSharper disable once NotAccessedField.Local
         private readonly IListener l;
-        private Lazy<int> currentValue = new(static () => 0);
+        private Cell<int> currentValue = SodaFlow.Cell.Constant(0);
 
         public TestObject(Stream<bool> s, Stream<int> s1, Stream<int> s2)
         {
@@ -229,7 +228,7 @@ public sealed class PerformanceTests
                                     .Map(static v => v + 1))
                             .Hold(3);
 
-                    this.currentValue = cellLocal.SampleLazy();
+                    this.currentValue = SodaFlow.Cell.ConstantLazy(cellLocal.SampleLazy());
                     IStrongListener lLocal = cellLocal.Updates().ListenStrong(v => this.CurrentValue = v);
 
                     return (cellLocal, lLocal);
@@ -243,8 +242,8 @@ public sealed class PerformanceTests
 
         public int CurrentValue
         {
-            get => this.currentValue.Value;
-            private set => this.currentValue = new Lazy<int>(() => value);
+            get => this.currentValue.Sample();
+            private set => this.currentValue = SodaFlow.Cell.Constant(value);
         }
     }
 

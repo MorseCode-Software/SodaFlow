@@ -28,7 +28,7 @@ let constant value = CellInternal.ConstantImpl value
 /// <summary>
 ///     Creates a cell with a value that never changes, computed on first use.
 /// </summary>
-/// <param name="value">The lazy value the cell always has.</param>
+/// <param name="value">The lazy sample of the value the cell always has.</param>
 /// <returns>A cell whose value is always the value of <paramref name="value" />.</returns>
 /// <remarks>
 ///     For a constant with a high cost, or that is not available when the code builds the graph.
@@ -92,7 +92,10 @@ let sample (cell: Cell<_>) = cell.SampleImpl()
 ///     Gets the current value of a cell, and does not force it.
 /// </summary>
 /// <param name="cell">The cell to sample.</param>
-/// <returns>A lazy value which yields what the cell held at the moment of this call.</returns>
+/// <returns>
+///     A lazy sample of what the cell held at the moment of this call. Only SodaFlow reads
+///     it, and a transaction that fails forgets it.
+/// </returns>
 /// <remarks>
 ///     This code sets the value now and calculates it after this. This is necessary for the loop
 ///     constructs. At the moment that the code closes a loop, the value is not known, but the

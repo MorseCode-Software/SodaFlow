@@ -129,8 +129,16 @@ closed and there is something to read.
 The same reasoning gives every operation that takes a starting value a deferred counterpart, for
 when that starting value is itself read out of the loop: `Hold` has `HoldLazy`, `Accum` has
 `AccumLazy`, `Collect` has `CollectLazy`, and `Cell.Constant` has `Cell.ConstantLazy`. Each takes
-a `Lazy<T>` where the eager one takes a value, and the F# aliases follow the same rule
+a `LazySample<T>` where the eager one takes a value, and the F# aliases follow the same rule
 (`holdLazyS`, `accumLazyS`, `collectLazyS`).
+
+A `LazySample<T>` is not a `Lazy<T>`: your code cannot force it. Only the library reads it, at the
+end of the transaction that asked for it, which is what lets a transaction that fails forget the
+value it took, so a cell built in that transaction starts from the committed value instead.
+`SampleLazy` gives one, `Map` transforms one, `Lift` combines up to four, and `LazySample.Defer`
+(`lazySample`) makes one from a function when the starting value is not a sample of the graph. A
+function given to any of these can run again after a failed transaction, so keep it pure and do
+not send from it.
 
 The two go together more often than not, because a fold seeded from the collection it folds over
 needs both:
