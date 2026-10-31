@@ -339,7 +339,7 @@ public sealed class TransactionTests
     public async Task StartHooksRunOnlyOnce()
     {
         int startHooksCount = 0;
-        Transaction.OnStart(() => startHooksCount++);
+        using IDisposable hook = Transaction.OnStart(() => startHooksCount++);
 
         Transaction.RunVoid(static () =>
             Transaction.RunVoid(static () =>
@@ -354,28 +354,25 @@ public sealed class TransactionTests
     {
         int startHooksCount = 0;
         Cell<int> cell = Cell.Constant(0);
-        Transaction.OnStart(() => startHooksCount++);
+        using IDisposable hook = Transaction.OnStart(() => startHooksCount++);
         Transaction.RunVoid(() => Transaction.RunVoid(() => cell.Sample()));
 
         await Assert.That(startHooksCount).IsEqualTo(1);
     }
 
-    // The hooks stay in the list for the life of the process, as in each test above. Thus, the
-    // outer hook adds the inner one only one time, and not at each transaction.
+    // The outer hook adds the inner one only one time, and not at each transaction, and the test
+    // removes the two at its end.
     [Test]
     public async Task AStartHookCanRegisterAStartHook()
     {
         int innerRuns = 0;
-        bool registered = false;
+        IDisposable?[] inner = new IDisposable?[1];
 
-        Transaction.OnStart(() =>
-        {
-            if (!registered)
+        using IDisposable outer =
+            Transaction.OnStart(() =>
             {
-                registered = true;
-                Transaction.OnStart(() => innerRuns++);
-            }
-        });
+                inner[0] ??= Transaction.OnStart(() => innerRuns++);
+            });
 
         Transaction.RunVoid(static () =>
         {
@@ -389,5 +386,57 @@ public sealed class TransactionTests
         });
 
         await Assert.That(innerRuns).IsEqualTo(1);
+
+        inner[0]?.Dispose();
+    }
+
+    [Test]
+    public async Task ADisposedStartHookDoesNotRun()
+    {
+        int runs = 0;
+        IDisposable hook = Transaction.OnStart(() => runs++);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        hook.Dispose();
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        // A second disposal does nothing.
+        hook.Dispose();
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(runs).IsEqualTo(1);
+    }
+
+    // The hooks of a transaction are those at its start. A hook that removes a hook after it does
+    // not stop that run. The removal holds from the next transaction.
+    [Test]
+    public async Task AStartHookThatAnEarlierHookRemovesStillRunsInThatTransaction()
+    {
+        int runs = 0;
+        IDisposable?[] second = new IDisposable?[1];
+
+        using IDisposable first = Transaction.OnStart(() => second[0]?.Dispose());
+        second[0] = Transaction.OnStart(() => runs++);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(runs).IsEqualTo(1);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(runs).IsEqualTo(1);
     }
 }

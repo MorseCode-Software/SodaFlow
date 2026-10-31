@@ -5,6 +5,20 @@ each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a tran
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two, three,
 or four. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
+the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
+of every transaction in the process, and a real clock starts a thread; before this release nothing could remove
+either, so each timer system made, for example one per test, taxed every later transaction for the life of the
+process. Disposing the timer system removes the hook and ends the thread, and after that Time does not move and no
+alarm fires. A custom ITimerSystemImplementation<T> needs a Stop, which can be empty for a clock a test moves by hand.
+A caller of OnStart can ignore the registration as before, or dispose it to remove the action.
+
+The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
+and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
+is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
+350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
+behavior derived from it depends on.
+
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
 

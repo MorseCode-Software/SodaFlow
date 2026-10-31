@@ -46,8 +46,12 @@ type ITimer =
 /// <remarks>
 ///     <c>TimerSystem</c> is the implementation in this library. Alarms from <c>At</c> get to the
 ///     graph in a transaction of their own, thus other code must only listen.
+///
+///     A timer system holds a transaction hook, and an implementation that waits holds a thread. A
+///     disposal releases the two. After it, <c>Time</c> does not move, and no alarm fires.
 /// </remarks>
 type ITimerSystem<'T when 'T: comparison> =
+    inherit IDisposable
     /// <summary>
     ///     A behavior giving the current clock time.
     /// </summary>
@@ -94,6 +98,17 @@ type ITimerSystemImplementation<'T> =
     /// </remarks>
     abstract member Start: (exn -> unit) -> unit
     /// <summary>
+    ///     Stops the machinery that <c>Start</c> began.
+    /// </summary>
+    /// <remarks>
+    ///     <c>TimerSystem</c> calls this from its disposal. After it, no timer fires: not on the
+    ///     implementation's own thread, and not from <c>RunTimersTo</c>. A timer that <c>SetTimer</c>
+    ///     sets after it never fires. A second call does nothing. An implementation that waits on a
+    ///     thread of its own ends that thread here. It does not wait for that thread when the call
+    ///     comes from the thread itself.
+    /// </remarks>
+    abstract member Stop: unit -> unit
+    /// <summary>
     ///     Schedules a callback to run when the clock reaches the given time.
     /// </summary>
     /// <returns>A handle to cancel the timer before it fires.</returns>
@@ -122,8 +137,11 @@ type private Event<'T> = { Time: 'T; Seq: int64; Alarm: StreamSink<'T> }
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
 ///     The construction of one starts its implementation and installs a <c>Transaction.onStart</c>
-///     handler that stays for the life of the process. Thus, make one of these one time, and not one
-///     for each unit of work.
+///     handler. The handler runs at the start of each transaction in the process until a disposal
+///     removes it. Thus, make one timer system for the process, or dispose each one when its work is
+///     complete. A disposal also stops the implementation. After it, <c>Time</c> does not move, and no
+///     alarm fires. The disposal drops an event that is due and not sent. A second disposal does
+///     nothing, and a disposal from the listener of an alarm is safe.
 ///
 ///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c>, unless a different clock is
 ///     necessary.
@@ -146,7 +164,8 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
     // The arrival number of the next event. Only code that holds the lock on eventQueue uses this.
     let mutable nextEventSeq = 0L
 
-    let time =
+    // The time behavior, and the registration of the transaction hook, which a disposal removes.
+    let time, startHook =
         (fun () ->
             implementation.Start handleException
 
@@ -155,49 +174,65 @@ type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplemen
             let lastTime = ref implementation.Now
             let timeSink = BehaviorSink.create lastTime.Value
 
-            Transaction.onStart (fun () ->
-                let t = implementation.Now
-                implementation.RunTimersTo t
+            let startHook =
+                Transaction.onStart (fun () ->
+                    let t = implementation.Now
+                    implementation.RunTimersTo t
 
-                let rec processEvents () =
-                    // The earliest event at or before t, and each event at the same time. The list is
-                    // complete before a removal, because a SortedSet does not let code change it while
-                    // an enumeration of it continues.
-                    let events =
-                        lock eventQueue (fun () ->
-                            match eventQueue |> Seq.tryHead with
-                            | Some first when first.Time <= t ->
-                                let events =
-                                    eventQueue |> Seq.takeWhile (fun event -> event.Time = first.Time) |> Seq.toList
+                    let rec processEvents () =
+                        // The earliest events at or before t, which are all at one time. The list is
+                        // complete before a removal, because a SortedSet does not let code change it
+                        // while an enumeration of it continues. This runs at the start of each
+                        // transaction in the process, and most of them have no event due. That path
+                        // allocates nothing here: Count and Min are properties of the set, where
+                        // Seq.tryHead allocated an enumerator.
+                        let events =
+                            lock eventQueue (fun () ->
+                                if eventQueue.Count = 0 then
+                                    []
+                                else
+                                    let first = eventQueue.Min
 
-                                events |> List.iter (eventQueue.Remove >> ignore)
-                                events
-                            | _ -> [])
+                                    if first.Time > t then
+                                        []
+                                    else
+                                        let events =
+                                            eventQueue
+                                            |> Seq.takeWhile (fun event -> event.Time = first.Time)
+                                            |> Seq.toList
 
-                    match events with
-                    | [] -> ()
-                    | first :: _ ->
-                        // An implementation removes a timer and then runs its callback out of its lock. A
-                        // transaction can start between the two and send a time after the time of the
-                        // event. The event then gets to the set after that time. Its alarm fires at its
-                        // own time, and Time does not go back.
-                        if first.Time >= lastTime.Value then
-                            timeSink |> BehaviorSink.send first.Time
-                            lastTime.Value <- first.Time
+                                        events |> List.iter (eventQueue.Remove >> ignore)
+                                        events)
 
-                        Transaction.run (fun () ->
-                            events |> List.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
+                        match events with
+                        | [] -> ()
+                        | first :: _ ->
+                            // An implementation removes a timer and then runs its callback out of its
+                            // lock. A transaction can start between the two and send a time after the
+                            // time of the event. The event then gets to the set after that time. Its
+                            // alarm fires at its own time, and Time does not go back.
+                            if first.Time >= lastTime.Value then
+                                timeSink |> BehaviorSink.send first.Time
+                                lastTime.Value <- first.Time
 
-                        processEvents ()
+                            Transaction.run (fun () ->
+                                events |> List.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
 
-                processEvents ()
+                            processEvents ()
 
-                // The clock itself can go back, for example at the end of daylight saving time. Time
-                // follows the clock then, as the clock is the authority for the current time.
-                timeSink |> BehaviorSink.send t
-                lastTime.Value <- t)
+                    processEvents ()
 
-            timeSink :> 'T Behavior) ()
+                    // The clock itself can go back, for example at the end of daylight saving time.
+                    // Time follows the clock then, as the clock is the authority for the current time.
+                    timeSink |> BehaviorSink.send t
+                    lastTime.Value <- t)
+
+            timeSink :> 'T Behavior, startHook) ()
+
+    interface IDisposable with
+        member _.Dispose() =
+            startHook.Dispose()
+            implementation.Stop()
 
     interface 'T ITimerSystem with
         member _.Time = time
@@ -255,10 +290,28 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 
     let mutable nextSeq = 0
 
+    // Set by Stop, with the lock. The timer thread reads it at each step, out of the lock, thus it
+    // is volatile.
+    [<VolatileField>]
+    let mutable stopped = false
+
+    // The thread that Start made, for Stop to wait for. None before Start.
+    let mutable timerThread: Thread option = None
+
+    // True while the set holds a timer. The flag is a copy of the set's count for the one reader
+    // out of the lock. Code in the lock reads the set, not the flag. Each change of the set writes
+    // the flag in the same lock: SetTimer, timeUntilNext when a timer fires, and RemoveTimer.
+    // RunTimersTo reads the flag out of the lock, and skips the lock in a transaction with no timer
+    // set, which is most of them. A timer that a different thread adds at that moment fires from
+    // the timer thread, or at the next transaction.
+    [<VolatileField>]
+    let mutable hasTimers = false
+
     let rec timeUntilNext now =
         let waitOrFire =
             lock lockObject (fun () ->
-                if timers.Count < 1 then
+                // A stopped implementation fires nothing, also from RunTimersTo.
+                if stopped || timers.Count < 1 then
                     Wait(TimeSpan.FromSeconds(1000.0))
                 else
                     // Min is a property of the set. First is the LINQ method, which allocates an
@@ -268,6 +321,7 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 
                     if waitTime <= TimeSpan.Zero then
                         timers.Remove(timer) |> ignore
+                        hasTimers <- timers.Count > 0
                         Fire timer.Callback
                     else
                         Wait waitTime)
@@ -279,8 +333,12 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             timeUntilNext now
 
     member internal _.LockObject = lockObject
-    member internal _.Timers = timers
     member val internal NextSeq = nextSeq with get, set
+
+    member internal _.RemoveTimer(timer: SimpleTimer<'T>) =
+        lock lockObject (fun () ->
+            timers.Remove timer |> ignore
+            hasTimers <- timers.Count > 0)
 
     /// <summary>
     ///     Returns how much time separates two points on this implementation's clock.
@@ -318,35 +376,64 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
         // runs sent zero events after a wait of two seconds. The alarms were one hundred milliseconds in
         // the future. Zero of eight runs gave this result with a pool that was not full.
         member this.Start handleException =
-            let timerThread =
+            let thread =
                 Thread(
                     ThreadStart(fun () ->
-                        while true do
+                        while not stopped do
                             try
                                 let waitTime = timeUntilNext this.Now
 
                                 if waitTime > TimeSpan.Zero then
                                     timersChanged.WaitOne waitTime |> ignore
                             with e ->
-                                handleException e),
+                                handleException e
+
+                        // The thread ends the event. SetTimer signals it only in the lock and only
+                        // before the stop, thus nothing signals it after this.
+                        lock lockObject (fun () -> timersChanged.Dispose())),
                     Name = "SodaFlow Timer Thread",
                     IsBackground = true
                 )
 
-            timerThread.Start()
+            timerThread <- Some thread
+            thread.Start()
+
+        member _.Stop() =
+            let wasStopped =
+                lock lockObject (fun () ->
+                    if stopped then
+                        true
+                    else
+                        stopped <- true
+                        timersChanged.Set() |> ignore
+                        false)
+
+            // A wait for the thread, so that no timer fires after this returns. Not from the thread
+            // itself: the listener of an alarm runs on it, and a disposal there must not wait for it.
+            if not wasStopped then
+                match timerThread with
+                | Some thread when thread <> Thread.CurrentThread -> thread.Join()
+                | _ -> ()
 
         member this.SetTimer time callback =
             let timer = new SimpleTimer<_>(this, time, callback)
-            lock lockObject (fun () -> timers.Add(timer) |> ignore)
 
-            // This signals out of the lock. The initial code canceled the previous token source with the
-            // lock held, and a cancellation runs its callbacks synchronously. Thus, the wait loop can
-            // start again inline on this thread, and enter timeUntilNext again while the caller holds the
-            // lock.
-            timersChanged.Set() |> ignore
+            lock lockObject (fun () ->
+                timers.Add(timer) |> ignore
+                hasTimers <- true
+
+                // Signaled in the lock, because the timer thread disposes the event in the lock when it
+                // ends, and a signal after that throws. The initial code signaled out of the lock,
+                // because its CancellationTokenSource ran its callbacks synchronously. An AutoResetEvent
+                // runs nothing, thus the lock is safe here.
+                if not stopped then
+                    timersChanged.Set() |> ignore)
+
             upcast timer
 
-        member _.RunTimersTo now = timeUntilNext now |> ignore
+        member _.RunTimersTo now =
+            if hasTimers then
+                timeUntilNext now |> ignore
 
         member this.Now = this.Now
 
@@ -383,8 +470,7 @@ and SimpleTimer<'T when 'T: comparison>
     // releases the waiter, and the Set in the SetTimer that replaces this timer latches for the
     // next wait. Thus, one replacement causes the thread to calculate two times, and one time is
     // sufficient.
-    let cancel () =
-        lock implementation.LockObject (fun () -> implementation.Timers.Remove(this) |> ignore)
+    let cancel () = implementation.RemoveTimer this
 
     member internal _.Seq = seq
     member internal _.Time = time

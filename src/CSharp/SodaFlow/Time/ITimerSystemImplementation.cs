@@ -33,6 +33,19 @@ public interface ITimerSystemImplementation<T>
     void Start(Action<Exception> handleException);
 
     /// <summary>
+    ///     Stops the machinery that <see cref="Start" /> began.
+    /// </summary>
+    /// <remarks>
+    ///     Called from <see cref="TimerSystem{T}.Dispose" />. After it, no timer
+    ///     fires: not on the implementation's own thread, and not from
+    ///     <see cref="RunTimersTo" />. A timer that <see cref="SetTimer" /> sets
+    ///     after it never fires. A second call does nothing. An implementation that
+    ///     waits on a thread of its own ends that thread here. It does not wait for
+    ///     that thread when the call comes from the thread itself.
+    /// </remarks>
+    void Stop();
+
+    /// <summary>
     ///     Sets a timer that runs the given callback at the given time.
     /// </summary>
     /// <param name="time">The time to run the callback at.</param>

@@ -51,13 +51,18 @@ let run f = TransactionInternal.RunImpl(Func<_> f)
 ///     Registers an action to run when a transaction starts.
 /// </summary>
 /// <param name="a">The action to run at the start of each transaction.</param>
+/// <returns>
+///     A registration. Dispose it to remove the action, from the next transaction on. A second
+///     disposal does nothing.
+/// </returns>
 /// <remarks>
 ///     The action can start its own transactions, and the hooks do not then run again. This exists
 ///     for implementing a timer system - it is how <c>SodaFlow.Time</c> delivers alarms - and is
-///     rarely what calling code needs.
+///     rarely what calling code needs. A <c>TimerSystem</c> removes its action when code disposes
+///     it.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let onStart a =
+let onStart a : IDisposable =
     TransactionInternal.OnStartImpl(Action a)
 
 /// <summary>
