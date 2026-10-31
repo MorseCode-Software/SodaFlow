@@ -97,7 +97,7 @@ public class Behavior<T>
         set
         {
             this.valueProperty = value;
-            this.NotUsingInitialValue();
+            this.UsingInitialValue = false;
         }
     }
 
@@ -124,20 +124,6 @@ public class Behavior<T>
     // A transaction that fails does not apply its update. The update must also go, because the
     // handler queues the apply action only when it has no update.
     private void DiscardValueUpdate() => this.valueUpdate = MaybeInternal<T>.None;
-
-    /// <summary>
-    ///     Records that this behavior no longer depends on the value it was
-    ///     constructed with.
-    /// </summary>
-    /// <remarks>
-    ///     SodaFlow calls this when it gives <see cref="ValueProperty" /> a value. A
-    ///     derived type overrides this to release the data that it holds only to make
-    ///     that initial value.
-    ///     For an example, see <see cref="LoopedBehavior{T}" />. It releases its
-    ///     deferred initial value here, thus a closed loop does not keep that value
-    ///     alive.
-    /// </remarks>
-    protected virtual void NotUsingInitialValue() => this.UsingInitialValue = false;
 
     /// <summary>
     ///     Makes this behavior use its initial value again. A transaction that set
