@@ -145,7 +145,7 @@ public sealed class LastPhaseTests
         await Assert.That(() =>
                 TransactionInternal.Apply<UnitInternal>((trans, _) =>
                 {
-                    trans.Last(() => trans.Send(_ => ran = true));
+                    trans.Last(() => trans.Send(new FlagEntry(() => ran = true)));
                     return UnitInternal.Value;
                 }))
             .Throws<InvalidOperationException>();
@@ -191,5 +191,13 @@ public sealed class LastPhaseTests
 
         await Assert.That(lastRuns).IsEqualTo(2);
         await Assert.That(posted).IsTrue();
+    }
+
+    // A queued send that runs an action, for the test of a send from a last action.
+    private sealed class FlagEntry(in Action action) : TransactionInternal.SendEntry
+    {
+        private readonly Action action = action;
+
+        internal override void Run(TransactionInternal trans) => this.action();
     }
 }

@@ -67,7 +67,7 @@ internal sealed class TransactionInternal
     // transaction for each send that is not already in one, and most transactions use only two
     // of these fields. Thus, eager allocation of all seven fields, and of the dictionary and the
     // set in particular, was most of the cost of an empty transaction.
-    private List<Action<TransactionInternal>>? sendQueue;
+    private List<SendEntry>? sendQueue;
     private Dictionary<int, Action<TransactionInternal>>? splitQueue;
     private List<Node.Target>? targetsToActivate;
 
@@ -123,11 +123,19 @@ internal sealed class TransactionInternal
 
     internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
 
-    internal static T Apply<T>(Func<TransactionInternal, bool, T> code)
+    internal static T Apply<T>(Func<TransactionInternal, bool, T> code) =>
+        Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
+
+    /// <summary>
+    ///     Runs the code in the open transaction, or in a new one, with a state for
+    ///     the code. A caller with a static lambda then allocates no closure and no
+    ///     delegate, which matters for a send from outside a transaction.
+    /// </summary>
+    internal static TResult Apply<TState, TResult>(Func<TransactionInternal, bool, TState, TResult> code, TState state)
     {
         TransactionInternal? transaction = localTransaction;
 
-        T? returnValue = default;
+        TResult? returnValue = default;
         Exception? exception = null;
         TransactionInternal? newTransaction = transaction;
         List<Action>? afterRelease = null;
@@ -145,7 +153,7 @@ internal sealed class TransactionInternal
 
             EnsureElevated(newTransaction);
 
-            returnValue = code(arg1: newTransaction, arg2: createdNewTransaction);
+            returnValue = code(arg1: newTransaction, arg2: createdNewTransaction, arg3: state);
         }
         catch (Exception e)
         {
@@ -321,7 +329,7 @@ internal sealed class TransactionInternal
         }
     }
 
-    internal void Send(Action<TransactionInternal> action) => (this.sendQueue ??= []).Add(action);
+    internal void Send(SendEntry entry) => (this.sendQueue ??= []).Add(entry);
 
     internal void AddTargetToActivate(Node.Target target) => (this.targetsToActivate ??= []).Add(target);
 
@@ -563,7 +571,7 @@ internal sealed class TransactionInternal
                 // ReSharper disable once ForCanBeConvertedToForeach
                 for (int i = 0; i < this.sendQueue.Count; i++)
                 {
-                    this.sendQueue[i](this);
+                    this.sendQueue[i].Run(this);
                 }
 
                 this.sendQueue.Clear();
@@ -849,6 +857,13 @@ internal sealed class TransactionInternal
                 onStartHooks = hooks;
             }
         }
+    }
+
+    // One queued send, with its values as fields. A closure and a delegate were two objects for
+    // each send from outside a transaction, and this is one.
+    internal abstract class SendEntry
+    {
+        internal abstract void Run(TransactionInternal trans);
     }
 
     // One last action, with the alternative action for a transaction that fails. A readonly
