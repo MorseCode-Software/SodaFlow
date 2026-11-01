@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,13 +16,20 @@ namespace SodaFlow.Tests;
 
 public sealed class TimerTests
 {
+    private IDisposable? timerSystem;
+
+    /// <summary>Disposes the timer system of the test, which removes its transaction hook.</summary>
+    [After(HookType.Test)]
+    public void Cleanup() => this.timerSystem?.Dispose();
+
     [Test]
     public async Task SimultaneousTimerEvents()
     {
         TimerSystem<DateTime> ts =
-            new SystemClockTimerSystem(static _ =>
-            {
-            });
+            this.Keep(
+                new SystemClockTimerSystem(static _ =>
+                {
+                }));
 
         Behavior<DateTime> time = ts.Time;
         List<DateTime> l = [];
@@ -85,7 +93,7 @@ public sealed class TimerTests
     public async Task EventsGetToTheGraphInTheSequenceOfTheirTimes()
     {
         ScriptedClock clock = new() { FireLatestFirst = true };
-        TimerSystem<int> timers = clock.CreateTimerSystem();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         List<int> times = [];
         List<int> alarms = [];
 
@@ -111,7 +119,7 @@ public sealed class TimerTests
     public async Task AnEventThatArrivesLateFiresItsAlarmAndDoesNotMoveTimeBack()
     {
         ScriptedClock clock = new() { HoldBack = Maybe.Some(10) };
-        TimerSystem<int> timers = clock.CreateTimerSystem();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         List<int> times = [];
         List<int> alarms = [];
 
@@ -131,13 +139,86 @@ public sealed class TimerTests
         await Assert.That(times).IsEquivalentTo(expected: [12, 12], ordering: CollectionOrdering.Matching);
     }
 
+    // A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
+    // it had, and an alarm that comes due after the disposal does not fire.
+    [Test]
+    public async Task ADisposedTimerSystemStopsItsClockAndSendsNoAlarm()
+    {
+        ScriptedClock clock = new();
+        TimerSystem<int> timers = clock.CreateTimerSystem();
+        List<int> alarms = [];
+
+        using IStrongListener l = timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add);
+
+        clock.AdvanceTo(5);
+        timers.Dispose();
+        clock.AdvanceTo(12);
+
+        await Assert.That(clock.Stopped).IsTrue();
+        await Assert.That(timers.Time.Sample()).IsEqualTo(5);
+        await Assert.That(alarms).IsEmpty();
+
+        // A second disposal does nothing.
+        timers.Dispose();
+    }
+
+    // Stop ends the timer thread and waits for it. Thus, a timer that is due after the stop does not
+    // fire: not on that thread, and not from RunTimersTo. The wait after the timer is where a live
+    // thread fires it, in a few milliseconds after the signal.
+    [Test]
+    public async Task AStoppedImplementationFiresNoTimer()
+    {
+        StopwatchClock clock = new();
+        bool fired = false;
+
+        clock.Start(static _ =>
+        {
+        });
+
+        clock.Stop();
+
+        using ITimer timer = clock.SetTimer(time: clock.Now - 1, callback: () => fired = true);
+
+        clock.RunTimersTo(clock.Now);
+        await Task.Delay(200);
+
+        await Assert.That(fired).IsFalse();
+
+        // A second stop does nothing.
+        clock.Stop();
+    }
+
+    // RunTimersTo fires a due timer on the calling thread, and it fires nothing after a cancel of
+    // the timer. The flag that lets it skip the lock in a transaction with no timer set has to
+    // follow the set through the two.
+    [Test]
+    public async Task RunTimersToFiresADueTimerAndNotACanceledOne()
+    {
+        StopwatchClock clock = new();
+        int fired = 0;
+
+        ITimer first = clock.SetTimer(time: clock.Now - 1, callback: () => fired++);
+        clock.RunTimersTo(clock.Now);
+
+        await Assert.That(fired).IsEqualTo(1);
+
+        ITimer second = clock.SetTimer(time: clock.Now - 1, callback: () => fired++);
+        second.Cancel();
+        clock.RunTimersTo(clock.Now);
+
+        await Assert.That(fired).IsEqualTo(1);
+
+        first.Dispose();
+        second.Dispose();
+    }
+
     // The clock is the authority for the current time. Thus, Time follows a clock that goes back, for
     // example at the end of daylight saving time.
     [Test]
     public async Task TimeFollowsAClockThatGoesBack()
     {
         ScriptedClock clock = new();
-        TimerSystem<int> timers = clock.CreateTimerSystem();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         List<int> times = [];
 
         IStrongListener l = Operational.Updates(timers.Time).ListenStrong(times.Add);
@@ -146,6 +227,24 @@ public sealed class TimerTests
         l.Unlisten();
 
         await Assert.That(times).IsEquivalentTo(expected: [12, 5], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>Gives the timer system of this test to the cleanup hook, and returns it.</summary>
+    private T Keep<T>(T timers)
+        where T : IDisposable
+    {
+        this.timerSystem = timers;
+        return timers;
+    }
+
+    // A clock on the base, with the thread of the base, for the tests of that thread.
+    private sealed class StopwatchClock : TimerSystemImplementationBase<double>
+    {
+        private readonly Stopwatch stopwatch = Stopwatch.StartNew();
+
+        public override double Now => this.stopwatch.Elapsed.TotalSeconds;
+
+        protected override TimeSpan SubtractTimes(double first, double second) => TimeSpan.FromSeconds(first - second);
     }
 
     // A clock that a test moves, which fires its timers in a sequence that the test selects.
@@ -161,9 +260,14 @@ public sealed class TimerTests
         /// <summary>Gets the time of a timer that RunTimersTo does not fire, or None.</summary>
         internal Maybe<int> HoldBack { get; init; } = Maybe.None;
 
+        /// <summary>Gets a value that is true after Stop.</summary>
+        internal bool Stopped { get; private set; }
+
         public void Start(Action<Exception> handleException)
         {
         }
+
+        public void Stop() => this.Stopped = true;
 
         public ITimer SetTimer(int time, Action callback)
         {

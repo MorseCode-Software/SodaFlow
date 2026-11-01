@@ -8,6 +8,23 @@ open TUnit.Core
 type ``Transaction Tests``() =
 
     [<Test>]
+    member _.``A disposed start hook does not run``() =
+        task {
+            let mutable runs = 0
+            let hook = Transaction.onStart (fun () -> runs <- runs + 1)
+
+            runT ignore
+            hook.Dispose()
+            runT ignore
+
+            // A second disposal does nothing.
+            hook.Dispose()
+            runT ignore
+
+            do! Expect.Equal(1, runs)
+        }
+
+    [<Test>]
     member _.``postWithFailureHandler runs the release where the transaction fails``() =
         task {
             let mutable ran = false

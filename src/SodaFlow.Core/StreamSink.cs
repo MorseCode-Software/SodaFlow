@@ -24,16 +24,29 @@ public class StreamSink<T> : Stream<T>
 
     internal StreamSink(Func<T, T, T> coalesce) => this.coalescer = CoalesceHandler.Create(f: coalesce, @out: this);
 
+    // A static lambda with a state, and an entry with fields: no closure and no delegate for a
+    // send from outside a transaction. The timer system's start hook sends one time in each
+    // transaction in the process, which is where this showed.
     internal void SendImpl(T a) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            if (trans.InCallback > 0)
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
             {
-                throw new InvalidOperationException("Send may not be called inside a callback.");
-            }
+                if (trans.InCallback > 0)
+                {
+                    throw new InvalidOperationException("Send may not be called inside a callback.");
+                }
 
-            trans.Send(t => this.coalescer(arg1: t, arg2: a));
+                trans.Send(new SendEntry(sink: state.Sink, value: state.Value));
 
-            return UnitInternal.Value;
-        });
+                return UnitInternal.Value;
+            },
+            state: (Sink: this, Value: a));
+
+    private sealed class SendEntry(in StreamSink<T> sink, in T value) : TransactionInternal.SendEntry
+    {
+        private readonly StreamSink<T> sink = sink;
+        private readonly T value = value;
+
+        internal override void Run(TransactionInternal trans) => this.sink.coalescer(arg1: trans, arg2: this.value);
+    }
 }

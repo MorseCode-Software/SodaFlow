@@ -40,6 +40,9 @@ public class TimerSystem<T> : ITimerSystem<T>
 
     private readonly ITimerSystemImplementation<T> implementation;
 
+    // The transaction hook. Dispose removes it, and the hook then runs in no transaction after that.
+    private readonly IDisposable startHook;
+
     // The last value that the OnStart handler sent to Time. Only that handler uses this, and it
     // runs with the transaction lock.
     private T lastTime;
@@ -57,9 +60,10 @@ public class TimerSystem<T> : ITimerSystem<T>
     ///     fires.
     /// </param>
     /// <remarks>
-    ///     Construction starts the implementation and installs a transaction handler
-    ///     that lives for the lifetime of the process. Thus, make one timer system for
-    ///     the process, and not one for each unit of work.
+    ///     Construction starts the implementation and installs a transaction handler.
+    ///     The handler runs at the start of each transaction in the process until
+    ///     <see cref="Dispose" /> removes it. Thus, make one timer system for the
+    ///     process, or dispose each one when its work is complete.
     /// </remarks>
     public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
     {
@@ -69,36 +73,16 @@ public class TimerSystem<T> : ITimerSystem<T>
         BehaviorSink<T> timeSink = new(this.lastTime);
         this.Time = timeSink;
 
-        Transaction.OnStart(() =>
+        this.startHook = Transaction.OnStart(() =>
         {
             T t = this.implementation.Now;
             this.implementation.RunTimersTo(t);
-            List<Event> events = [];
 
-            while (true)
+            // This runs at the start of each transaction in the process, and most of them have no
+            // event due. That path allocates nothing here: the list exists only when events are
+            // due.
+            while (this.TakeDueEvents(t) is { } events)
             {
-                // Take the earliest event at or before t, and each event at the same time. The set is
-                // in the sequence of time, thus these are the first events of the set.
-                lock (this.eventQueue)
-                {
-                    Event? first = this.eventQueue.FirstOrDefault();
-
-                    if (first != null && first.Time.CompareTo(t) <= 0)
-                    {
-                        events.AddRange(this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0));
-                    }
-
-                    foreach (Event ev in events)
-                    {
-                        this.eventQueue.Remove(ev);
-                    }
-                }
-
-                if (events.Count == 0)
-                {
-                    break;
-                }
-
                 T eventTime = events[0].Time;
 
                 // An implementation removes a timer and then runs its callback out of its lock. A
@@ -118,8 +102,6 @@ public class TimerSystem<T> : ITimerSystem<T>
                         ev.Alarm.Send(ev.Time);
                     }
                 });
-
-                events.Clear();
             }
 
             // The clock itself can go back, for example at the end of daylight saving time. Time
@@ -131,6 +113,57 @@ public class TimerSystem<T> : ITimerSystem<T>
 
     /// <inheritdoc />
     public Behavior<T> Time { get; }
+
+    /// <summary>
+    ///     Removes the transaction handler, and stops the implementation. After
+    ///     this, <see cref="Time" /> does not move, and no alarm fires.
+    /// </summary>
+    /// <remarks>
+    ///     This drops an event that is due and not sent. A second call does nothing.
+    ///     A call from the listener of an alarm is safe, because the implementation
+    ///     does not wait for its own thread.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    public void Dispose()
+    {
+        this.startHook.Dispose();
+        this.implementation.Stop();
+        GC.SuppressFinalize(this);
+    }
+
+    // The earliest events at or before t, which are all at one time, removed from the set. Null
+    // where no event is due. The set is in the sequence of time, thus these are its first events.
+    // Count and Min are properties of the set. FirstOrDefault is the LINQ method, which boxes the
+    // enumerator of the set at each call, and this runs at each start of a transaction. The LINQ
+    // below runs only when events are due, which is rare.
+    private List<Event>? TakeDueEvents(T t)
+    {
+        lock (this.eventQueue)
+        {
+            if (this.eventQueue.Count == 0)
+            {
+                return null;
+            }
+
+            // ReSharper disable once NullableWarningSuppressionIsUsed - The set holds at least one event, thus
+            // Min is not null.
+            Event first = this.eventQueue.Min!;
+
+            if (first.Time.CompareTo(t) > 0)
+            {
+                return null;
+            }
+
+            List<Event> events = [.. this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0)];
+
+            foreach (Event ev in events)
+            {
+                this.eventQueue.Remove(ev);
+            }
+
+            return events;
+        }
+    }
 
     /// <inheritdoc />
     public Stream<T> At(Cell<Maybe<T>> t)

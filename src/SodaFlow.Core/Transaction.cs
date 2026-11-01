@@ -27,7 +27,11 @@ internal sealed class TransactionInternal
     // that looks like a good correction for contention. The remarks on the public
     // SodaFlow.Transaction class give the guarantee and its results.
     private static readonly object TransactionLock = new();
-    private static readonly List<Action> OnStartHooks = [];
+
+    // Each change replaces the array, and no change writes into it. RunStartHooks reads the field
+    // one time and runs that array. Thus, a hook that adds or removes a hook changes the next
+    // transaction, and not the current run. Each write holds TransactionLock.
+    private static Action[] onStartHooks = [];
 
     // The actions that AfterReleaseImpl holds until the lock is free. Only the thread that holds
     // TransactionLock reads or writes this, thus the lock guards it. A field on each transaction
@@ -63,7 +67,7 @@ internal sealed class TransactionInternal
     // transaction for each send that is not already in one, and most transactions use only two
     // of these fields. Thus, eager allocation of all seven fields, and of the dictionary and the
     // set in particular, was most of the cost of an empty transaction.
-    private List<Action<TransactionInternal>>? sendQueue;
+    private List<SendEntry>? sendQueue;
     private Dictionary<int, Action<TransactionInternal>>? splitQueue;
     private List<Node.Target>? targetsToActivate;
 
@@ -119,11 +123,19 @@ internal sealed class TransactionInternal
 
     internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
 
-    internal static T Apply<T>(Func<TransactionInternal, bool, T> code)
+    internal static T Apply<T>(Func<TransactionInternal, bool, T> code) =>
+        Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
+
+    /// <summary>
+    ///     Runs the code in the open transaction, or in a new one, with a state for
+    ///     the code. A caller with a static lambda then allocates no closure and no
+    ///     delegate, which matters for a send from outside a transaction.
+    /// </summary>
+    internal static TResult Apply<TState, TResult>(Func<TransactionInternal, bool, TState, TResult> code, TState state)
     {
         TransactionInternal? transaction = localTransaction;
 
-        T? returnValue = default;
+        TResult? returnValue = default;
         Exception? exception = null;
         TransactionInternal? newTransaction = transaction;
         List<Action>? afterRelease = null;
@@ -141,7 +153,7 @@ internal sealed class TransactionInternal
 
             EnsureElevated(newTransaction);
 
-            returnValue = code(arg1: newTransaction, arg2: createdNewTransaction);
+            returnValue = code(arg1: newTransaction, arg2: createdNewTransaction, arg3: state);
         }
         catch (Exception e)
         {
@@ -278,32 +290,35 @@ internal sealed class TransactionInternal
         }
     }
 
-    internal static void OnStartImpl(Action action)
+    internal static IDisposable OnStartImpl(Action action)
     {
         lock (TransactionLock)
         {
-            OnStartHooks.Add(action);
+            onStartHooks = [.. onStartHooks, action];
         }
+
+        return new StartHookRegistration(action);
     }
 
     private static void RunStartHooks(TransactionInternal transaction)
     {
-        if (OnStartHooks.Count > 0)
+        Action[] hooks = onStartHooks;
+
+        if (hooks.Length > 0)
         {
             try
             {
                 localTransaction = null;
                 runningOnStartHooks = true;
 
-                // By index, to the count at the start, thus a hook can add a hook. A foreach
-                // throws when the list changes while it runs. A hook that a hook adds runs from
-                // the next transaction. No other thread can add to the list here, because
-                // OnStartImpl takes the transaction lock and this thread holds it.
-                int count = OnStartHooks.Count;
-
-                for (int i = 0; i < count; i++)
+                // The array from the start of the run. A hook that adds a hook replaces the field,
+                // and the new hook runs from the next transaction. A hook that removes a hook does
+                // the same, thus each hook of this array runs one time here. No other thread can
+                // write the field here, because each write takes the transaction lock and this
+                // thread holds it.
+                foreach (Action hook in hooks)
                 {
-                    OnStartHooks[i]();
+                    hook();
                 }
             }
             finally
@@ -314,7 +329,7 @@ internal sealed class TransactionInternal
         }
     }
 
-    internal void Send(Action<TransactionInternal> action) => (this.sendQueue ??= []).Add(action);
+    internal void Send(SendEntry entry) => (this.sendQueue ??= []).Add(entry);
 
     internal void AddTargetToActivate(Node.Target target) => (this.targetsToActivate ??= []).Add(target);
 
@@ -556,7 +571,7 @@ internal sealed class TransactionInternal
                 // ReSharper disable once ForCanBeConvertedToForeach
                 for (int i = 0; i < this.sendQueue.Count; i++)
                 {
-                    this.sendQueue[i](this);
+                    this.sendQueue[i].Run(this);
                 }
 
                 this.sendQueue.Clear();
@@ -802,6 +817,53 @@ internal sealed class TransactionInternal
         // Null where the caller of Post gave no release. Most posted actions keep no promise to
         // code that waits, thus most entries have none.
         public Action<Exception>? OnFailure { get; } = onFailure;
+    }
+
+    // The handle that OnStartImpl gives. A disposal removes the hook from the next transaction
+    // on, and a second disposal does nothing.
+    private sealed class StartHookRegistration(in Action hook) : IDisposable
+    {
+        // Null after the disposal that removed the hook.
+        private Action? hook = hook;
+
+        public void Dispose()
+        {
+            lock (TransactionLock)
+            {
+                if (this.hook is not { } removed)
+                {
+                    return;
+                }
+
+                this.hook = null;
+
+                int index = Array.IndexOf(array: onStartHooks, value: removed);
+                Action[] hooks = new Action[onStartHooks.Length - 1];
+
+                Array.Copy(
+                    sourceArray: onStartHooks,
+                    sourceIndex: 0,
+                    destinationArray: hooks,
+                    destinationIndex: 0,
+                    length: index);
+
+                Array.Copy(
+                    sourceArray: onStartHooks,
+                    sourceIndex: index + 1,
+                    destinationArray: hooks,
+                    destinationIndex: index,
+                    length: hooks.Length - index);
+
+                onStartHooks = hooks;
+            }
+        }
+    }
+
+    // One queued send, with its values as fields. A closure and a delegate were two objects for
+    // each send from outside a transaction, and this is one.
+    internal abstract class SendEntry
+    {
+        internal abstract void Run(TransactionInternal trans);
     }
 
     // One last action, with the alternative action for a transaction that fails. A readonly

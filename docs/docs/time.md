@@ -27,6 +27,12 @@ exception there has nowhere else to go:
 SecondsTimerSystem timers = new SecondsTimerSystem(ex => Log.Error(ex));
 ```
 
+A timer system is `IDisposable`. Its constructor registers a hook that runs at the start of every
+transaction in the process, and a real clock starts a thread; disposing the timer system removes
+the hook and ends the thread. After that `Time` stops moving and no alarm fires. Make one for the
+process, or dispose each one when its work is done. A test that makes one per test should dispose
+it, or every later transaction in the run pays for its hook.
+
 ## `Time`
 
 `Time` is a `Behavior<T>` giving the current time:
@@ -80,7 +86,7 @@ alarm.Send(Maybe.None);
 open SodaFlow
 open SodaFlow.Time
 
-let timers = SecondsTimerSystem (fun ex -> Log.Error ex) :> ITimerSystem<float>
+let timers = new SecondsTimerSystem(fun ex -> Log.Error ex) :> ITimerSystem<float>
 
 // Fire five seconds from now.
 let target = (timers.Time |> sampleB) + 5.0
@@ -206,13 +212,13 @@ it is in the library.
 ## Testing
 
 `TimerSystem<T>` is built on `ITimerSystemImplementation<T>`, whose entire contract is `Now`,
-`Start`, `SetTimer`, and `RunTimersTo`. That is the reason to prefer a timer system over
+`Start`, `Stop`, `SetTimer`, and `RunTimersTo`. That is the reason to prefer a timer system over
 `DateTime.Now` scattered through your logic: supply your own implementation and time becomes a
 value the test controls.
 
 Implement the interface directly for a test. `TimerSystemImplementationBase<T>` is the base for
 a *real* clock — its `Start` spins a background thread that waits out the interval to the next
-alarm — which is the one thing a deterministic test must not do. Four members is the whole job:
+alarm — which is the one thing a deterministic test must not do. This is the whole job:
 
 ```csharp
 internal sealed class ManualClock : ITimerSystemImplementation<double>
@@ -221,8 +227,12 @@ internal sealed class ManualClock : ITimerSystemImplementation<double>
 
     public double Now { get; private set; }
 
-    // Nothing to start: this clock only moves when the test moves it.
+    // Nothing to start, and nothing to stop: this clock only moves when the test moves it.
     public void Start(Action<Exception> handleException)
+    {
+    }
+
+    public void Stop()
     {
     }
 

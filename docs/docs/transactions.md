@@ -156,11 +156,14 @@ be called from inside a handler. If you need that, `Post` it.
 IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
 ```
 
-`Transaction.OnStart(action)` runs an action whenever any transaction begins. Its stated
+`Transaction.OnStart(action)` runs an action whenever any transaction begins, and returns a
+registration; dispose it to remove the action again, from the next transaction on. Its stated
 purpose is implementing a time or alarm system, and that is what `TimerSystem` uses it for:
-the hook is where a clock advances itself in step with transactions. An action registered here
-may start transactions of its own without the hooks recursing. Instrumentation is a reasonable
-secondary use, but this is a low-level integration point rather than a debugging aid.
+the hook is where a clock advances itself in step with transactions, and disposing the timer
+system is what removes it. An action registered here may start transactions of its own without
+the hooks recursing. Instrumentation is a reasonable secondary use, but this is a low-level
+integration point rather than a debugging aid: the hook runs at the start of every transaction
+in the process, so it has a cost, and it stays until something disposes the registration.
 
 `Transaction.IsActive()` reports whether a transaction is currently running, which is
 occasionally useful in library code that must behave differently depending on its caller.

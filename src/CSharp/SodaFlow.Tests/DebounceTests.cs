@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,10 +16,16 @@ namespace SodaFlow.Tests;
 /// </summary>
 public sealed class DebounceTests
 {
+    private readonly ManualClock clock = new();
+
+    /// <summary>Disposes the timer system of the clock, which removes its transaction hook.</summary>
+    [After(HookType.Test)]
+    public void Cleanup() => this.clock.Dispose();
+
     [Test]
     public async Task ASequenceOfFiringsWithNoSpaceGivesTheLastValueOneTime()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
         IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
@@ -45,7 +51,7 @@ public sealed class DebounceTests
     [Test]
     public async Task TheAlarmDoesNotFireASecondTime()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
         IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
@@ -69,7 +75,7 @@ public sealed class DebounceTests
     [Test]
     public async Task AFiringAfterTheQuietArmsTheAlarmAgain()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
         IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
@@ -90,7 +96,7 @@ public sealed class DebounceTests
     [Test]
     public async Task ASpaceBelowTheQuietTimeGivesOneValueAndNotTwo()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
         IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
@@ -120,7 +126,7 @@ public sealed class DebounceTests
     [Test]
     public async Task TheResultIsNotInTheTransactionOfAFiring()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
 
@@ -149,7 +155,7 @@ public sealed class DebounceTests
     [Test]
     public async Task AFiringInTheTransactionOfTheAlarmArmsTheAlarmAgain()
     {
-        ManualClock clock = new();
+        ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
 
@@ -195,7 +201,9 @@ public sealed class DebounceTests
         keys.Debounce(timers: clock.Timers, deadline: static now => now + 10);
 
     /// <summary>A clock that a test moves, with the timer system over it.</summary>
-    private sealed class ManualClock
+    // Disposable, so that a test removes its timer system's transaction hook at its end.
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ManualClock : IDisposable
     {
         private readonly Implementation implementation;
 
@@ -211,7 +219,9 @@ public sealed class DebounceTests
                     });
         }
 
-        internal ITimerSystem<int> Timers { get; }
+        internal TimerSystem<int> Timers { get; }
+
+        public void Dispose() => this.Timers.Dispose();
 
         /// <summary>
         ///     Moves the clock, and opens a transaction. The timer system reads the clock
@@ -234,6 +244,10 @@ public sealed class DebounceTests
             public int Now { get; private set; }
 
             public void Start(Action<Exception> handleException)
+            {
+            }
+
+            public void Stop()
             {
             }
 

@@ -85,13 +85,18 @@ public static class Transaction
     ///     Adds an action that runs at the start of each transaction.
     /// </summary>
     /// <param name="action">The action to run at the start of each transaction.</param>
+    /// <returns>
+    ///     A registration. Dispose it to remove the action, from the next transaction
+    ///     on. A second disposal does nothing.
+    /// </returns>
     /// <remarks>
     ///     The action can start transactions itself, and the hooks do not then run
-    ///     again.
-    ///     The primary use of this is for the implementation of a time/alarm system.
+    ///     again. The primary use of this is for the implementation of a time/alarm
+    ///     system. <see cref="SodaFlow.Time.TimerSystem{T}" /> removes its action when
+    ///     code disposes it.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void OnStart(Action action) => TransactionInternal.OnStartImpl(action);
+    public static IDisposable OnStart(Action action) => TransactionInternal.OnStartImpl(action);
 
     /// <summary>
     ///     Runs an action after the current transaction closes or immediately if there
