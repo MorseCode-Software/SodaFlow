@@ -160,7 +160,7 @@ public static class MaybeExtensionMethods
     [Pure]
     public static T? ToNullable<T>(this Maybe<T> a)
         where T : struct =>
-        a.Match(onSome: static v => (T?)v, onNone: static () => null);
+        a.TryGetValue(out T value) ? value : null;
 
     /// <summary>
     ///     Changes a reference which can be <see langword="null" /> into a
@@ -219,7 +219,7 @@ public static class MaybeExtensionMethods
     /// </remarks>
     [Pure]
     public static T ValueOr<T>(this Maybe<T> a, T defaultValue) =>
-        a.Match(onSome: static v => v, onNone: () => defaultValue);
+        a.TryGetValue(out T value) ? value : defaultValue;
 
     /// <summary>
     ///     Returns the contained value if there is one, and the result of the given
@@ -243,7 +243,7 @@ public static class MaybeExtensionMethods
     public static T ValueOr<T>(
         this Maybe<T> a,
         [InstantHandle] Func<T> defaultValueFactory) =>
-        a.Match(onSome: static v => v, onNone: defaultValueFactory);
+        a.TryGetValue(out T value) ? value : defaultValueFactory();
 
     /// <summary>
     ///     Returns the contained value if there is one, and the default for its type
@@ -262,7 +262,7 @@ public static class MaybeExtensionMethods
     /// </remarks>
     [Pure]
     public static T? ValueOrDefault<T>(this Maybe<T> a) =>
-        a.Match<T?>(onSome: static v => v, onNone: static () => default);
+        a.TryGetValue(out T value) ? value : default;
 
     /// <summary>
     ///     Returns the contained value if there is one, and throws the exception
@@ -285,7 +285,7 @@ public static class MaybeExtensionMethods
     public static T ValueOrThrow<T>(
         this Maybe<T> a,
         [InstantHandle] Func<Exception> onNone) =>
-        a.Match<T>(onSome: static v => v, onNone: () => throw onNone());
+        a.TryGetValue(out T value) ? value : throw onNone();
 
     /// <summary>
     ///     Returns this value if it has one, and the given value otherwise.
@@ -302,7 +302,7 @@ public static class MaybeExtensionMethods
     ///     wins, and the result has no value only when no source had one.
     /// </remarks>
     [Pure]
-    public static Maybe<T> OrElse<T>(this Maybe<T> a, Maybe<T> b) => a.Match(onSome: _ => a, onNone: () => b);
+    public static Maybe<T> OrElse<T>(this Maybe<T> a, Maybe<T> b) => a.HasValue() ? a : b;
 
     /// <summary>
     ///     Returns this value if it has one, and the result of the given function
@@ -327,7 +327,7 @@ public static class MaybeExtensionMethods
     public static Maybe<T> OrElse<T>(
         this Maybe<T> a,
         [InstantHandle] Func<Maybe<T>> b) =>
-        a.Match(onSome: _ => a, onNone: b);
+        a.HasValue() ? a : b();
 
     /// <summary>
     ///     Lift a binary function into values that can be missing, so the result has a
@@ -354,7 +354,7 @@ public static class MaybeExtensionMethods
         this Maybe<T1> a,
         Maybe<T2> b,
         [InstantHandle] Func<T1, T2, TResult> f) =>
-        a.Bind(v1 => b.Map(v2 => f(arg1: v1, arg2: v2)));
+        a.TryGetValue(out T1 v1) && b.TryGetValue(out T2 v2) ? Maybe.Some(f(arg1: v1, arg2: v2)) : Maybe<TResult>.None;
 
     /// <summary>
     ///     Lift a ternary function into values that can be missing, so the result has
@@ -382,7 +382,9 @@ public static class MaybeExtensionMethods
         Maybe<T2> b,
         Maybe<T3> c,
         [InstantHandle] Func<T1, T2, T3, TResult> f) =>
-        a.Bind(v1 => b.Bind(v2 => c.Map(v3 => f(arg1: v1, arg2: v2, arg3: v3))));
+        a.TryGetValue(out T1 v1) && b.TryGetValue(out T2 v2) && c.TryGetValue(out T3 v3)
+            ? Maybe.Some(f(arg1: v1, arg2: v2, arg3: v3))
+            : Maybe<TResult>.None;
 
     /// <summary>
     ///     Lift a quaternary function into values that can be missing, so the result
@@ -411,7 +413,12 @@ public static class MaybeExtensionMethods
         Maybe<T3> c,
         Maybe<T4> d,
         [InstantHandle] Func<T1, T2, T3, T4, TResult> f) =>
-        a.Bind(v1 => b.Bind(v2 => c.Bind(v3 => d.Map(v4 => f(arg1: v1, arg2: v2, arg3: v3, arg4: v4)))));
+        a.TryGetValue(out T1 v1)
+        && b.TryGetValue(out T2 v2)
+        && c.TryGetValue(out T3 v3)
+        && d.TryGetValue(out T4 v4)
+            ? Maybe.Some(f(arg1: v1, arg2: v2, arg3: v3, arg4: v4))
+            : Maybe<TResult>.None;
 
     private struct ValueAndHasValue<T>(T? value, bool hasValue)
     {

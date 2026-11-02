@@ -35,19 +35,8 @@ public static class MaybeMonad
     /// </returns>
     public static Maybe<TResult> Bind<T, TResult>(
         this Maybe<T> value,
-        [InstantHandle] Func<T, Maybe<TResult>> transformation)
-    {
-        Maybe<TResult> result =
-            value.Match(
-                onSome: v =>
-                {
-                    Maybe<TResult> intermediateResult = transformation(v);
-                    return intermediateResult;
-                },
-                onNone: static () => Maybe.None);
-
-        return result;
-    }
+        [InstantHandle] Func<T, Maybe<TResult>> transformation) =>
+        value.TryGetValue(out T v) ? transformation(v) : Maybe<TResult>.None;
 
     /// <summary>
     ///     The return method for the <see cref="Maybe{T}" /> monad, which encapsulates
