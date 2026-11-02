@@ -38,7 +38,7 @@ public interface IBindableFactory
     /// <remarks>
     ///     For a <c>StreamSink&lt;Unit&gt;</c> the compiler selects the overload with
     ///     no type parameter. To get the overload with a parameter for a unit sink,
-    ///     write <c>ToBindableAction&lt;Unit&gt;(...)</c>.
+    ///     write <c>CreateBindableAction&lt;Unit&gt;(...)</c>.
     /// </remarks>
     IBindableAction<T> CreateBindableAction<T>(StreamSink<T> firingsStreamSink, Cell<bool>? isEnabledCell = null)
         where T : notnull;
