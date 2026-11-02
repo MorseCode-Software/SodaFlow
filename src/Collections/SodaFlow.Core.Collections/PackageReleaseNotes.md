@@ -7,6 +7,12 @@ failure discarded, which the cache of per-key cells made visible: the cell staye
 the phantom item until that key changed again. The seed of the root snapshot now builds its state inside the function
 that SodaFlow can run again after such a failure.
 
+Fixed: the cache of per-key cells compares keys as the collection does. It used the default comparer, so on a
+collection keyed with a comparer such as StringComparer.OrdinalIgnoreCase, a key asked for in two spellings got two
+cells, each with its own node chain and subscription; both were correct, since the changes they read use the
+collection's comparer, but the sharing the cache exists to give was lost between the spellings. One key now gives one
+cell, on the collection and on each view of it.
+
 Added: ReactiveCollection.Create, the form that takes the key from an identity that implements IIdentity<TKey>, has an
 overload with an IEqualityComparer<TKey> before the initial entries. The selector forms already had one; the identity
 form had the default comparer only, so an identity that carries its own key forced strict equality on it.
