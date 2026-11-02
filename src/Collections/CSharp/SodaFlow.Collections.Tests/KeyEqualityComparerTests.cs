@@ -86,6 +86,28 @@ public sealed class KeyEqualityComparerTests
             .IsEqualTo(2);
     }
 
+    /// <summary>
+    ///     The cache of per-key cells compares keys as the collection does. Thus, one
+    ///     key in two spellings gives one cell on the collection, and one on a view.
+    /// </summary>
+    [Test]
+    public async Task PerKeyCellsAreSharedAcrossSpellingsOfOneKey()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
+
+        ReactiveCollection<string, NamedIdentity, NamedState> view =
+            collection.SortBy(static (_, state) => state.Score);
+
+        await Assert.That(collection.StateCell("abc")).IsSameReferenceAs(collection.StateCell("ABC"));
+        await Assert.That(collection.IdentityCell("abc")).IsSameReferenceAs(collection.IdentityCell("ABC"));
+        await Assert.That(collection.ItemCell("abc")).IsSameReferenceAs(collection.ItemCell("ABC"));
+        await Assert.That(view.StateCell("abc")).IsSameReferenceAs(view.StateCell("ABC"));
+    }
+
     /// <summary>The store, which is the base that each other value must agree with.</summary>
     [Test]
     public async Task TheStoreMatchesKeysWithTheGivenComparer()

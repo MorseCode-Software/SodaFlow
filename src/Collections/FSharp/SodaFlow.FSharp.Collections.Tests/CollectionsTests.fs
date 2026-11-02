@@ -327,6 +327,26 @@ type ``Collections Tests``() =
             do! Expect.Equal(Some 2, scoreOf "ABC")
         }
 
+    // The cache of per-key cells compares keys as the collection does. Thus, one key in two
+    // spellings gives one cell.
+    [<Test>]
+    member _.``per-key cells are shared across spellings of one key``() =
+        task {
+            let edits = sinkS<CollectionEdit<string, LabeledIdentity, ItemState>> ()
+
+            let collection =
+                createByIdentityWith
+                    StringComparer.OrdinalIgnoreCase
+                    [ ofHalves { Label = "ABC" } { Name = "one"; Score = 1 } ]
+                    [ edits ]
+
+            let sameStateCell = obj.ReferenceEquals(collection |> stateCell "abc", collection |> stateCell "ABC")
+            let sameItemCell = obj.ReferenceEquals(collection |> itemCell "abc", collection |> itemCell "ABC")
+
+            do! Expect.True(sameStateCell, "state cells")
+            do! Expect.True(sameItemCell, "item cells")
+        }
+
     [<Test>]
     member _.``map keeps an object per key and releases them all``() =
         task {
