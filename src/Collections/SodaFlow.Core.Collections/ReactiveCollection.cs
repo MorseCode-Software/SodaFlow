@@ -474,4 +474,28 @@ public static class ReactiveCollection
             keySelector: static identity => identity.Key,
             initialItems: initialEntries,
             editStreams: editStreams);
+
+    /// <summary>
+    ///     Defines a collection from its initial contents and each stream that edits
+    ///     it, with an equality comparer for the keys. This code takes the key of
+    ///     each item from the identity.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+    /// <param name="initialEntries">The collection's initial contents.</param>
+    /// <param name="editStreams">Each stream that edits the collection.</param>
+    /// <returns>The collection.</returns>
+    public static ReactiveCollection<TKey, TIdentity, TState> Create<TKey, TIdentity, TState>(
+        IEqualityComparer<TKey> keyEqualityComparer,
+        IEnumerable<Item<TIdentity, TState>> initialEntries,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
+        where TKey : notnull
+        where TIdentity : IIdentity<TKey> =>
+        ReactiveCollection<TKey, TIdentity, TState>.Create(
+            keySelector: static identity => identity.Key,
+            keyEqualityComparer: keyEqualityComparer,
+            initialItems: initialEntries,
+            editStreams: editStreams);
 }

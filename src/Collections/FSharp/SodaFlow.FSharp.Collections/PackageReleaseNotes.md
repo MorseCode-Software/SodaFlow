@@ -1,6 +1,12 @@
 3.0.0
 
-No change in this package's API. This release raises the dependency floor, so that a new install gets
+Added: createWith and createByIdentityWith, each with an IEqualityComparer<'TKey> as its first argument, in the
+pipeline order the module uses, so a collection can key on case-insensitive strings or on any other equality. The C#
+surface had these overloads and this module did not, so an F# caller had to reach the C# generic class directly, with
+a Func around the selector. createByIdentityWith wraps an overload that is new in SodaFlow.Core.Collections 3.0.0. The
+1.0.0 notes below name createByIdentityWith as if it shipped then; it did not exist until now.
+
+This release also raises the dependency floor, so that a new install gets
 SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
 why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then
 fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside a transaction can no

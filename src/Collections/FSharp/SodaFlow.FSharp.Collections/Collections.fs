@@ -63,6 +63,24 @@ let create
         .Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
 
 /// <summary>
+///     Defines a collection as <c>create</c> does, with an equality comparer for the keys.
+/// </summary>
+/// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+/// <param name="keySelector">Makes the key of an item from its immutable part.</param>
+/// <param name="initialEntries">The collection's initial contents.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createWith
+    (keyEqualityComparer: IEqualityComparer<'TKey>)
+    (keySelector: 'TIdentity -> 'TKey)
+    (initialEntries: seq<Item<'TIdentity, 'TState>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection<'TKey, 'TIdentity, 'TState>
+        .Create(Func<_, _> keySelector, keyEqualityComparer, initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
 ///     Defines a collection whose identities hold their own key, thus a selector is not
 ///     necessary.
 /// </summary>
@@ -75,6 +93,26 @@ let createByIdentity
     (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
     =
     ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
+///     Defines a collection as <c>createByIdentity</c> does, with an equality comparer for the
+///     keys.
+/// </summary>
+/// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+/// <param name="initialEntries">The collection's initial contents.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createByIdentityWith
+    (keyEqualityComparer: IEqualityComparer<'TKey>)
+    (initialEntries: seq<Item<'TIdentity, 'TState>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(
+        keyEqualityComparer,
+        initialEntries,
+        Array.ofSeq editStreams
+    )
 
 /// <summary>An item, from its immutable part and its mutable part.</summary>
 /// <param name="identity">The immutable part, which gives the key.</param>
