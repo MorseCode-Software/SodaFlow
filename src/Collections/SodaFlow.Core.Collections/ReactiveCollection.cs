@@ -366,7 +366,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     {
         lock (this.cacheGate)
         {
-            Cell<TProjected>? cached = CacheFor(projection: projection, caches: caches).Get(key);
+            Cell<TProjected>? cached = this.CacheFor(projection: projection, caches: caches).Get(key);
 
             if (cached is not null)
             {
@@ -378,7 +378,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
         {
             lock (this.cacheGate)
             {
-                ProjectedCellCache<TKey, TProjected> cache = CacheFor(projection: projection, caches: caches);
+                ProjectedCellCache<TKey, TProjected> cache = this.CacheFor(projection: projection, caches: caches);
                 Cell<TProjected>? cached = cache.Get(key);
 
                 if (cached is not null)
@@ -415,7 +415,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     higher-kinded, and C# cannot give that. Thus, this code makes the statement
     ///     here one time and not at each lookup.
     /// </remarks>
-    private static ProjectedCellCache<TKey, TProjected> CacheFor<TSource, TProjected>(
+    private ProjectedCellCache<TKey, TProjected> CacheFor<TSource, TProjected>(
         CellProjection<TSource, TProjected> projection,
         Dictionary<CellProjection, object> caches)
     {
@@ -424,7 +424,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             return (ProjectedCellCache<TKey, TProjected>)existing;
         }
 
-        ProjectedCellCache<TKey, TProjected> created = new();
+        ProjectedCellCache<TKey, TProjected> created = new(this.Root.KeyEqualityComparer);
         caches[projection] = created;
 
         return created;

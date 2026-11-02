@@ -39,7 +39,15 @@ internal sealed class ProjectedCellCache<TKey, TProjected>
     ///     that node goes out of memory with the last observer, and not with the
     ///     collection.
     /// </summary>
-    private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells = new();
+    private readonly Dictionary<TKey, WeakReference<Cell<TProjected>>> cells;
+
+    /// <summary>
+    ///     Makes a cache that compares keys as the collection does. Thus, one key in
+    ///     two spellings that the comparer equates gives one cell. With the default
+    ///     comparer, each spelling got a cell of its own.
+    /// </summary>
+    internal ProjectedCellCache(IEqualityComparer<TKey> keyEqualityComparer) =>
+        this.cells = new Dictionary<TKey, WeakReference<Cell<TProjected>>>(keyEqualityComparer);
 
     /// <summary>
     ///     The number of entries at which the next sweep occurs.

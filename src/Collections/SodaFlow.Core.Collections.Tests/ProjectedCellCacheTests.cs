@@ -19,7 +19,7 @@ public sealed class ProjectedCellCacheTests
     [Test]
     public async Task EachCellThatStaysAliveStaysInTheCache()
     {
-        ProjectedCellCache<int, int> cache = new();
+        ProjectedCellCache<int, int> cache = new(EqualityComparer<int>.Default);
         List<Cell<int>> cells = [];
 
         for (int key = 0; key < CellCount; key++)
@@ -49,7 +49,7 @@ public sealed class ProjectedCellCacheTests
     [Test]
     public async Task TheCacheRemovesTheCellsThatTheGarbageCollectorRemoved()
     {
-        ProjectedCellCache<int, int> cache = new();
+        ProjectedCellCache<int, int> cache = new(EqualityComparer<int>.Default);
 
         AddCellsAndDropThem(cache: cache, firstKey: 0, count: CellCount);
         Collect();
