@@ -61,6 +61,7 @@
         <Compile Include="SelectAllBenchmarks.cs"/>
         <Compile Include="TimerSystemBenchmarks.cs"/>
         <Compile Include="TransactionBenchmarks.cs"/>
+        <Compile Include="ViewChangeProjectionBenchmarks.cs"/>
     </ItemGroup>
 
     <ItemGroup>
