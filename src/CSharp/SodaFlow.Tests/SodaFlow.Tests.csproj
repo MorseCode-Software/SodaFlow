@@ -54,6 +54,7 @@
         <Compile Include="StringExtensionMethodsTests.cs"/>
         <Compile Include="TimerTests.cs"/>
         <Compile Include="TransactionTests.cs"/>
+        <Compile Include="UnitExtensionMethodsTests.cs"/>
     </ItemGroup>
 
     <ItemGroup>
