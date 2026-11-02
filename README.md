@@ -65,7 +65,7 @@ SodaFlow implements Sodium's **denotational semantics** unchanged. The formal
 specification and its executable Haskell reference are vendored under
 `denotational/` (Copyright (c) 2015 Stephen Blackheath, separately licensed —
 see `denotational/LICENSE`), and `DenotationalSemanticsTests` asserts
-conformance with 23 tests in C# and 23 in F#.
+conformance with a matching set of tests in C# and in F#.
 
 Sodium is Copyright (c) 2012-2015 Stephen Blackheath and Anthony Jones. The
 BSD 3-Clause license covering it applies to SodaFlow as well, and the LICENSE

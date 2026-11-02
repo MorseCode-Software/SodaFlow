@@ -1,7 +1,8 @@
 # Search
 
 Search-as-you-type against a deliberately slow service. This is the case that is genuinely awkward
-to write by hand, which is why it is the sample that uses all three libraries.
+to write by hand, which is why it is the sample that uses the core, the async library, and the
+bindable layer together.
 
 Type a city. Type `fail` to see the error path. Type quickly to see one search supersede another.
 
