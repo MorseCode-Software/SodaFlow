@@ -640,7 +640,7 @@ public static class Either
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -687,7 +687,12 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     #region Base Functionality
 
     T IEitherOfTwo.Match<T>(Func<object?, T> onFirst, Func<object?, T> onSecond) =>
-        this.Match(onFirst: v => onFirst(v), onSecond: v => onSecond(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -700,9 +705,10 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -728,9 +734,26 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// </summary>
     /// <param name="onFirst">Run with the value when the first case is held.</param>
     /// <param name="onSecond">Run with the value when the second case is held.</param>
-    public void MatchVoid(Action<T1> onFirst, Action<T2> onSecond) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc());
+    public void MatchVoid(Action<T1> onFirst, Action<T2> onSecond)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the two asynchronous functions depending on which case is held,
@@ -777,7 +800,14 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(onFirst: v1 => Either<T, T2>.First(f(v1)), onSecond: static v2 => Either.Second(v2));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2>.First(f(this.value1!)),
+            2 => Either<T, T2>.Second(this.value2!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -794,7 +824,14 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(onFirst: Either<T1, T>.First, onSecond: v2 => Either.Second(f(v2)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T>.First(this.value1!),
+            2 => Either<T1, T>.Second(f(this.value2!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Exchanges the two cases. The first case becomes the second, and the second
@@ -865,9 +902,24 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     [Pure]
     public bool IsSecond() => this.Match(onFirst: static _ => false, onSecond: static _ => true);
 
-    void IEitherOfTwo.MatchVoid(Action<object?> onFirst, Action<object?> onSecond) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfTwo>().Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc());
+    void IEitherOfTwo.MatchVoid(Action<object?> onFirst, Action<object?> onSecond)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfTwo.MatchAsync<T>(Func<object?, Task<T>> onFirst, Func<object?, Task<T>> onSecond) =>
         this.Upcast<IEitherOfTwo>().Match(onFirst: onFirst, onSecond: onSecond);
@@ -1012,7 +1064,7 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -1075,7 +1127,13 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     #region Base Functionality
 
     T IEitherOfThree.Match<T>(Func<object?, T> onFirst, Func<object?, T> onSecond, Func<object?, T> onThird) =>
-        this.Match(onFirst: v => onFirst(v), onSecond: v => onSecond(v), onThird: v => onThird(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -1089,9 +1147,10 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -1124,9 +1183,31 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     public void MatchVoid(
         [InstantHandle] Action<T1> onFirst,
         [InstantHandle] Action<T2> onSecond,
-        [InstantHandle] Action<T3> onThird) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc(), onThird: onThird.ToFunc());
+        [InstantHandle] Action<T3> onThird)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the three asynchronous functions depending on which case is
@@ -1180,10 +1261,15 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3>.First(f(this.value1!)),
+            2 => Either<T, T2, T3>.Second(this.value2!),
+            3 => Either<T, T2, T3>.Third(this.value3!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -1200,10 +1286,15 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3>.First(this.value1!),
+            2 => Either<T1, T, T3>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3>.Third(this.value3!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -1220,10 +1311,15 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T>.First(this.value1!),
+            2 => Either<T1, T2, T>.Second(this.value2!),
+            3 => Either<T1, T2, T>.Third(f(this.value3!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -1303,10 +1399,29 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     public bool IsThird() =>
         this.Match(onFirst: static _ => false, onSecond: static _ => false, onThird: static _ => true);
 
-    void IEitherOfThree.MatchVoid(Action<object?> onFirst, Action<object?> onSecond, Action<object?> onThird) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfThree>()
-            .Match(onFirst: onFirst.ToFunc(), onSecond: onSecond.ToFunc(), onThird: onThird.ToFunc());
+    void IEitherOfThree.MatchVoid(Action<object?> onFirst, Action<object?> onSecond, Action<object?> onThird)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfThree.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
@@ -1485,7 +1600,7 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -1566,11 +1681,14 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
         Func<object?, T> onSecond,
         Func<object?, T> onThird,
         Func<object?, T> onFourth) =>
-        this.Match(
-            onFirst: v => onFirst(v),
-            onSecond: v => onSecond(v),
-            onThird: v => onThird(v),
-            onFourth: v => onFourth(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            4 => onFourth(this.value4),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -1585,9 +1703,10 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -1624,13 +1743,36 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
         [InstantHandle] Action<T1> onFirst,
         [InstantHandle] Action<T2> onSecond,
         [InstantHandle] Action<T3> onThird,
-        [InstantHandle] Action<T4> onFourth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(
-            onFirst: onFirst.ToFunc(),
-            onSecond: onSecond.ToFunc(),
-            onThird: onThird.ToFunc(),
-            onFourth: onFourth.ToFunc());
+        [InstantHandle] Action<T4> onFourth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(this.value4!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the four asynchronous functions depending on which case is
@@ -1689,11 +1831,16 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3, T4> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3, T4>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3, T4>.First(f(this.value1!)),
+            2 => Either<T, T2, T3, T4>.Second(this.value2!),
+            3 => Either<T, T2, T3, T4>.Third(this.value3!),
+            4 => Either<T, T2, T3, T4>.Fourth(this.value4!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -1710,11 +1857,16 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3, T4> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3, T4>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3, T4>.First(this.value1!),
+            2 => Either<T1, T, T3, T4>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3, T4>.Third(this.value3!),
+            4 => Either<T1, T, T3, T4>.Fourth(this.value4!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -1731,11 +1883,16 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T, T4> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T, T4>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)),
-            onFourth: static v4 => Either.Fourth(v4));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T, T4>.First(this.value1!),
+            2 => Either<T1, T2, T, T4>.Second(this.value2!),
+            3 => Either<T1, T2, T, T4>.Third(f(this.value3!)),
+            4 => Either<T1, T2, T, T4>.Fourth(this.value4!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes each other
@@ -1752,11 +1909,16 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
     /// </remarks>
     public Either<T1, T2, T3, T> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(f(v4)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T>.First(this.value1!),
+            2 => Either<T1, T2, T3, T>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T>.Fourth(f(this.value4!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -1898,14 +2060,34 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
         Action<object?> onFirst,
         Action<object?> onSecond,
         Action<object?> onThird,
-        Action<object?> onFourth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfFour>()
-            .Match(
-                onFirst: onFirst.ToFunc(),
-                onSecond: onSecond.ToFunc(),
-                onThird: onThird.ToFunc(),
-                onFourth: onFourth.ToFunc());
+        Action<object?> onFourth)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            case 4:
+                onFourth(this.value4);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfFour.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
@@ -2109,7 +2291,7 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -2235,12 +2417,15 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
         Func<object?, T> onThird,
         Func<object?, T> onFourth,
         Func<object?, T> onFifth) =>
-        this.Match(
-            onFirst: v => onFirst(v),
-            onSecond: v => onSecond(v),
-            onThird: v => onThird(v),
-            onFourth: v => onFourth(v),
-            onFifth: v => onFifth(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            4 => onFourth(this.value4),
+            5 => onFifth(this.value5),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -2256,9 +2441,10 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -2299,14 +2485,41 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
         [InstantHandle] Action<T2> onSecond,
         [InstantHandle] Action<T3> onThird,
         [InstantHandle] Action<T4> onFourth,
-        [InstantHandle] Action<T5> onFifth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(
-            onFirst: onFirst.ToFunc(),
-            onSecond: onSecond.ToFunc(),
-            onThird: onThird.ToFunc(),
-            onFourth: onFourth.ToFunc(),
-            onFifth: onFifth.ToFunc());
+        [InstantHandle] Action<T5> onFifth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(this.value5!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the five asynchronous functions depending on which case is
@@ -2370,12 +2583,17 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3, T4, T5> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3, T4, T5>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3, T4, T5>.First(f(this.value1!)),
+            2 => Either<T, T2, T3, T4, T5>.Second(this.value2!),
+            3 => Either<T, T2, T3, T4, T5>.Third(this.value3!),
+            4 => Either<T, T2, T3, T4, T5>.Fourth(this.value4!),
+            5 => Either<T, T2, T3, T4, T5>.Fifth(this.value5!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -2392,12 +2610,17 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3, T4, T5> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3, T4, T5>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3, T4, T5>.First(this.value1!),
+            2 => Either<T1, T, T3, T4, T5>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3, T4, T5>.Third(this.value3!),
+            4 => Either<T1, T, T3, T4, T5>.Fourth(this.value4!),
+            5 => Either<T1, T, T3, T4, T5>.Fifth(this.value5!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -2414,12 +2637,17 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T, T4, T5> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T, T4, T5>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T, T4, T5>.First(this.value1!),
+            2 => Either<T1, T2, T, T4, T5>.Second(this.value2!),
+            3 => Either<T1, T2, T, T4, T5>.Third(f(this.value3!)),
+            4 => Either<T1, T2, T, T4, T5>.Fourth(this.value4!),
+            5 => Either<T1, T2, T, T4, T5>.Fifth(this.value5!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes each other
@@ -2436,12 +2664,17 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
     /// </remarks>
     public Either<T1, T2, T3, T, T5> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T, T5>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: static v5 => Either.Fifth(v5));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T, T5>.First(this.value1!),
+            2 => Either<T1, T2, T3, T, T5>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T, T5>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T, T5>.Fourth(f(this.value4!)),
+            5 => Either<T1, T2, T3, T, T5>.Fifth(this.value5!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes each other
@@ -2458,12 +2691,17 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(f(v5)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T>.Fifth(f(this.value5!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -2650,15 +2888,39 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
         Action<object?> onSecond,
         Action<object?> onThird,
         Action<object?> onFourth,
-        Action<object?> onFifth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfFive>()
-            .Match(
-                onFirst: onFirst.ToFunc(),
-                onSecond: onSecond.ToFunc(),
-                onThird: onThird.ToFunc(),
-                onFourth: onFourth.ToFunc(),
-                onFifth: onFifth.ToFunc());
+        Action<object?> onFifth)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            case 4:
+                onFourth(this.value4);
+
+                break;
+
+            case 5:
+                onFifth(this.value5);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfFive.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
@@ -2888,7 +3150,7 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -3041,13 +3303,16 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
         Func<object?, T> onFourth,
         Func<object?, T> onFifth,
         Func<object?, T> onSixth) =>
-        this.Match(
-            onFirst: v => onFirst(v),
-            onSecond: v => onSecond(v),
-            onThird: v => onThird(v),
-            onFourth: v => onFourth(v),
-            onFifth: v => onFifth(v),
-            onSixth: v => onSixth(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            4 => onFourth(this.value4),
+            5 => onFifth(this.value5),
+            6 => onSixth(this.value6),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -3064,9 +3329,10 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -3111,15 +3377,46 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
         [InstantHandle] Action<T3> onThird,
         [InstantHandle] Action<T4> onFourth,
         [InstantHandle] Action<T5> onFifth,
-        [InstantHandle] Action<T6> onSixth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(
-            onFirst: onFirst.ToFunc(),
-            onSecond: onSecond.ToFunc(),
-            onThird: onThird.ToFunc(),
-            onFourth: onFourth.ToFunc(),
-            onFifth: onFifth.ToFunc(),
-            onSixth: onSixth.ToFunc());
+        [InstantHandle] Action<T6> onSixth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(this.value6!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the six asynchronous functions depending on which case is held,
@@ -3194,13 +3491,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3, T4, T5, T6> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3, T4, T5, T6>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3, T4, T5, T6>.First(f(this.value1!)),
+            2 => Either<T, T2, T3, T4, T5, T6>.Second(this.value2!),
+            3 => Either<T, T2, T3, T4, T5, T6>.Third(this.value3!),
+            4 => Either<T, T2, T3, T4, T5, T6>.Fourth(this.value4!),
+            5 => Either<T, T2, T3, T4, T5, T6>.Fifth(this.value5!),
+            6 => Either<T, T2, T3, T4, T5, T6>.Sixth(this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -3217,13 +3519,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3, T4, T5, T6> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3, T4, T5, T6>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3, T4, T5, T6>.First(this.value1!),
+            2 => Either<T1, T, T3, T4, T5, T6>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3, T4, T5, T6>.Third(this.value3!),
+            4 => Either<T1, T, T3, T4, T5, T6>.Fourth(this.value4!),
+            5 => Either<T1, T, T3, T4, T5, T6>.Fifth(this.value5!),
+            6 => Either<T1, T, T3, T4, T5, T6>.Sixth(this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -3240,13 +3547,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T, T4, T5, T6> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T, T4, T5, T6>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T, T4, T5, T6>.First(this.value1!),
+            2 => Either<T1, T2, T, T4, T5, T6>.Second(this.value2!),
+            3 => Either<T1, T2, T, T4, T5, T6>.Third(f(this.value3!)),
+            4 => Either<T1, T2, T, T4, T5, T6>.Fourth(this.value4!),
+            5 => Either<T1, T2, T, T4, T5, T6>.Fifth(this.value5!),
+            6 => Either<T1, T2, T, T4, T5, T6>.Sixth(this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes each other
@@ -3263,13 +3575,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
     /// </remarks>
     public Either<T1, T2, T3, T, T5, T6> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T, T5, T6>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T, T5, T6>.First(this.value1!),
+            2 => Either<T1, T2, T3, T, T5, T6>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T, T5, T6>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T, T5, T6>.Fourth(f(this.value4!)),
+            5 => Either<T1, T2, T3, T, T5, T6>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T, T5, T6>.Sixth(this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes each other
@@ -3286,13 +3603,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T, T6> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T, T6>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: static v6 => Either.Sixth(v6));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T, T6>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T, T6>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T, T6>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T, T6>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T, T6>.Fifth(f(this.value5!)),
+            6 => Either<T1, T2, T3, T4, T, T6>.Sixth(this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes each other
@@ -3309,13 +3631,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(f(v6)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T>.Sixth(f(this.value6!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -3551,16 +3878,44 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
         Action<object?> onThird,
         Action<object?> onFourth,
         Action<object?> onFifth,
-        Action<object?> onSixth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfSix>()
-            .Match(
-                onFirst: onFirst.ToFunc(),
-                onSecond: onSecond.ToFunc(),
-                onThird: onThird.ToFunc(),
-                onFourth: onFourth.ToFunc(),
-                onFifth: onFifth.ToFunc(),
-                onSixth: onSixth.ToFunc());
+        Action<object?> onSixth)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            case 4:
+                onFourth(this.value4);
+
+                break;
+
+            case 5:
+                onFifth(this.value5);
+
+                break;
+
+            case 6:
+                onSixth(this.value6);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfSix.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
@@ -3823,7 +4178,7 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -4006,14 +4361,17 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
         Func<object?, T> onFifth,
         Func<object?, T> onSixth,
         Func<object?, T> onSeventh) =>
-        this.Match(
-            onFirst: v => onFirst(v),
-            onSecond: v => onSecond(v),
-            onThird: v => onThird(v),
-            onFourth: v => onFourth(v),
-            onFifth: v => onFifth(v),
-            onSixth: v => onSixth(v),
-            onSeventh: v => onSeventh(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            4 => onFourth(this.value4),
+            5 => onFifth(this.value5),
+            6 => onSixth(this.value6),
+            7 => onSeventh(this.value7),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -4031,9 +4389,10 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -4082,16 +4441,51 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
         [InstantHandle] Action<T4> onFourth,
         [InstantHandle] Action<T5> onFifth,
         [InstantHandle] Action<T6> onSixth,
-        [InstantHandle] Action<T7> onSeventh) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(
-            onFirst: onFirst.ToFunc(),
-            onSecond: onSecond.ToFunc(),
-            onThird: onThird.ToFunc(),
-            onFourth: onFourth.ToFunc(),
-            onFifth: onFifth.ToFunc(),
-            onSixth: onSixth.ToFunc(),
-            onSeventh: onSeventh.ToFunc());
+        [InstantHandle] Action<T7> onSeventh)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(this.value6!);
+
+                break;
+
+            case 7:
+                onSeventh(this.value7!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the seven asynchronous functions depending on which case is
@@ -4172,14 +4566,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3, T4, T5, T6, T7> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3, T4, T5, T6, T7>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3, T4, T5, T6, T7>.First(f(this.value1!)),
+            2 => Either<T, T2, T3, T4, T5, T6, T7>.Second(this.value2!),
+            3 => Either<T, T2, T3, T4, T5, T6, T7>.Third(this.value3!),
+            4 => Either<T, T2, T3, T4, T5, T6, T7>.Fourth(this.value4!),
+            5 => Either<T, T2, T3, T4, T5, T6, T7>.Fifth(this.value5!),
+            6 => Either<T, T2, T3, T4, T5, T6, T7>.Sixth(this.value6!),
+            7 => Either<T, T2, T3, T4, T5, T6, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -4196,14 +4595,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3, T4, T5, T6, T7> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3, T4, T5, T6, T7>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3, T4, T5, T6, T7>.First(this.value1!),
+            2 => Either<T1, T, T3, T4, T5, T6, T7>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3, T4, T5, T6, T7>.Third(this.value3!),
+            4 => Either<T1, T, T3, T4, T5, T6, T7>.Fourth(this.value4!),
+            5 => Either<T1, T, T3, T4, T5, T6, T7>.Fifth(this.value5!),
+            6 => Either<T1, T, T3, T4, T5, T6, T7>.Sixth(this.value6!),
+            7 => Either<T1, T, T3, T4, T5, T6, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -4220,14 +4624,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T, T4, T5, T6, T7> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T, T4, T5, T6, T7>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T, T4, T5, T6, T7>.First(this.value1!),
+            2 => Either<T1, T2, T, T4, T5, T6, T7>.Second(this.value2!),
+            3 => Either<T1, T2, T, T4, T5, T6, T7>.Third(f(this.value3!)),
+            4 => Either<T1, T2, T, T4, T5, T6, T7>.Fourth(this.value4!),
+            5 => Either<T1, T2, T, T4, T5, T6, T7>.Fifth(this.value5!),
+            6 => Either<T1, T2, T, T4, T5, T6, T7>.Sixth(this.value6!),
+            7 => Either<T1, T2, T, T4, T5, T6, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes each other
@@ -4244,14 +4653,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
     /// </remarks>
     public Either<T1, T2, T3, T, T5, T6, T7> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T, T5, T6, T7>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T, T5, T6, T7>.First(this.value1!),
+            2 => Either<T1, T2, T3, T, T5, T6, T7>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T, T5, T6, T7>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T, T5, T6, T7>.Fourth(f(this.value4!)),
+            5 => Either<T1, T2, T3, T, T5, T6, T7>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T, T5, T6, T7>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T, T5, T6, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes each other
@@ -4268,14 +4682,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T, T6, T7> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T, T6, T7>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T, T6, T7>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T, T6, T7>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T, T6, T7>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T, T6, T7>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T, T6, T7>.Fifth(f(this.value5!)),
+            6 => Either<T1, T2, T3, T4, T, T6, T7>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T4, T, T6, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes each other
@@ -4292,14 +4711,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T, T7> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T, T7>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(f(v6)),
-            onSeventh: static v7 => Either.Seventh(v7));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T, T7>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T, T7>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T, T7>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T, T7>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T, T7>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T, T7>.Sixth(f(this.value6!)),
+            7 => Either<T1, T2, T3, T4, T5, T, T7>.Seventh(this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the seventh case, and passes each other
@@ -4316,14 +4740,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     ///     This calls <paramref name="f" /> only when this holds the seventh case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T6, T> MapSeventh<T>([InstantHandle] Func<T7, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T6, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(f(v7)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T6, T>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T6, T>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T6, T>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T6, T>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T6, T>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T6, T>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T4, T5, T6, T>.Seventh(f(this.value7!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -4612,17 +5041,49 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
         Action<object?> onFourth,
         Action<object?> onFifth,
         Action<object?> onSixth,
-        Action<object?> onSeventh) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfSeven>()
-            .Match(
-                onFirst: onFirst.ToFunc(),
-                onSecond: onSecond.ToFunc(),
-                onThird: onThird.ToFunc(),
-                onFourth: onFourth.ToFunc(),
-                onFifth: onFifth.ToFunc(),
-                onSixth: onSixth.ToFunc(),
-                onSeventh: onSeventh.ToFunc());
+        Action<object?> onSeventh)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            case 4:
+                onFourth(this.value4);
+
+                break;
+
+            case 5:
+                onFifth(this.value5);
+
+                break;
+
+            case 6:
+                onSixth(this.value6);
+
+                break;
+
+            case 7:
+                onSeventh(this.value7);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfSeven.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
@@ -4918,7 +5379,7 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
 ///     each case.
 ///     This is a struct, thus <see langword="default" /> exists, but it holds no
 ///     case. <c>Match</c> throws <see cref="InvalidOperationException" /> for it,
-///     and each member that reads the value goes through <c>Match</c>. A default
+///     and each other member that reads the value throws for it too. A default
 ///     instance is equal to a default instance and to no other.
 /// </remarks>
 [PublicAPI]
@@ -5141,15 +5602,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         Func<object?, T> onSixth,
         Func<object?, T> onSeventh,
         Func<object?, T> onEighth) =>
-        this.Match(
-            onFirst: v => onFirst(v),
-            onSecond: v => onSecond(v),
-            onThird: v => onThird(v),
-            onFourth: v => onFourth(v),
-            onFifth: v => onFifth(v),
-            onSixth: v => onSixth(v),
-            onSeventh: v => onSeventh(v),
-            onEighth: v => onEighth(v));
+        this.valueType switch
+        {
+            1 => onFirst(this.value1),
+            2 => onSecond(this.value2),
+            3 => onThird(this.value3),
+            4 => onFourth(this.value4),
+            5 => onFifth(this.value5),
+            6 => onSixth(this.value6),
+            7 => onSeventh(this.value7),
+            8 => onEighth(this.value8),
+            _ => throw Either.NoCase()
+        };
 
     object IEither.GetValueAsObject() => Either.GetValueAs<object>().From(this);
 
@@ -5168,9 +5632,10 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     This is the member that gives the held value to the caller. The other
+    ///     members read the fields through a switch of the same shape, thus a call
+    ///     to one of them allocates nothing. This calls one function of the set, and
+    ///     it calls that function before this method returns.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///     This instance is a default instance, which holds no case.
@@ -5223,17 +5688,56 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         [InstantHandle] Action<T5> onFifth,
         [InstantHandle] Action<T6> onSixth,
         [InstantHandle] Action<T7> onSeventh,
-        [InstantHandle] Action<T8> onEighth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Match(
-            onFirst: onFirst.ToFunc(),
-            onSecond: onSecond.ToFunc(),
-            onThird: onThird.ToFunc(),
-            onFourth: onFourth.ToFunc(),
-            onFifth: onFifth.ToFunc(),
-            onSixth: onSixth.ToFunc(),
-            onSeventh: onSeventh.ToFunc(),
-            onEighth: onEighth.ToFunc());
+        [InstantHandle] Action<T8> onEighth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            case 1:
+                onFirst(this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(this.value2!);
+
+                break;
+
+            case 3:
+                onThird(this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(this.value6!);
+
+                break;
+
+            case 7:
+                onSeventh(this.value7!);
+
+                break;
+
+            case 8:
+                onEighth(this.value8!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     /// <summary>
     ///     Runs one of the eight asynchronous functions depending on which case is
@@ -5320,15 +5824,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the first case.
     /// </remarks>
     public Either<T, T2, T3, T4, T5, T6, T7, T8> MapFirst<T>([InstantHandle] Func<T1, T> f) =>
-        this.Match(
-            onFirst: v1 => Either<T, T2, T3, T4, T5, T6, T7, T8>.First(f(v1)),
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T, T2, T3, T4, T5, T6, T7, T8>.First(f(this.value1!)),
+            2 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Second(this.value2!),
+            3 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Third(this.value3!),
+            4 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Fourth(this.value4!),
+            5 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Fifth(this.value5!),
+            6 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Sixth(this.value6!),
+            7 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Seventh(this.value7!),
+            8 => Either<T, T2, T3, T4, T5, T6, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the second case, and passes each other
@@ -5345,15 +5854,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the second case.
     /// </remarks>
     public Either<T1, T, T3, T4, T5, T6, T7, T8> MapSecond<T>([InstantHandle] Func<T2, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T, T3, T4, T5, T6, T7, T8>.First,
-            onSecond: v2 => Either.Second(f(v2)),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T, T3, T4, T5, T6, T7, T8>.First(this.value1!),
+            2 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Second(f(this.value2!)),
+            3 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Third(this.value3!),
+            4 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Fourth(this.value4!),
+            5 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Fifth(this.value5!),
+            6 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Sixth(this.value6!),
+            7 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Seventh(this.value7!),
+            8 => Either<T1, T, T3, T4, T5, T6, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the third case, and passes each other
@@ -5370,15 +5884,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the third case.
     /// </remarks>
     public Either<T1, T2, T, T4, T5, T6, T7, T8> MapThird<T>([InstantHandle] Func<T3, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T, T4, T5, T6, T7, T8>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: v3 => Either.Third(f(v3)),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T, T4, T5, T6, T7, T8>.First(this.value1!),
+            2 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Second(this.value2!),
+            3 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Third(f(this.value3!)),
+            4 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Fourth(this.value4!),
+            5 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Fifth(this.value5!),
+            6 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Sixth(this.value6!),
+            7 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Seventh(this.value7!),
+            8 => Either<T1, T2, T, T4, T5, T6, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fourth case, and passes each other
@@ -5395,15 +5914,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the fourth case.
     /// </remarks>
     public Either<T1, T2, T3, T, T5, T6, T7, T8> MapFourth<T>([InstantHandle] Func<T4, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T, T5, T6, T7, T8>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: v4 => Either.Fourth(f(v4)),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T, T5, T6, T7, T8>.First(this.value1!),
+            2 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Fourth(f(this.value4!)),
+            5 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Seventh(this.value7!),
+            8 => Either<T1, T2, T3, T, T5, T6, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the fifth case, and passes each other
@@ -5420,15 +5944,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the fifth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T, T6, T7, T8> MapFifth<T>([InstantHandle] Func<T5, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T, T6, T7, T8>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: v5 => Either.Fifth(f(v5)),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T, T6, T7, T8>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Fifth(f(this.value5!)),
+            6 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Seventh(this.value7!),
+            8 => Either<T1, T2, T3, T4, T, T6, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the sixth case, and passes each other
@@ -5445,15 +5974,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the sixth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T, T7, T8> MapSixth<T>([InstantHandle] Func<T6, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T, T7, T8>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: v6 => Either.Sixth(f(v6)),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T, T7, T8>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Sixth(f(this.value6!)),
+            7 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Seventh(this.value7!),
+            8 => Either<T1, T2, T3, T4, T5, T, T7, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the seventh case, and passes each other
@@ -5470,15 +6004,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the seventh case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T6, T, T8> MapSeventh<T>([InstantHandle] Func<T7, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T6, T, T8>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: v7 => Either.Seventh(f(v7)),
-            onEighth: static v8 => Either.Eighth(v8));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T6, T, T8>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Seventh(f(this.value7!)),
+            8 => Either<T1, T2, T3, T4, T5, T6, T, T8>.Eighth(this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the eighth case, and passes each other
@@ -5495,15 +6034,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     ///     This calls <paramref name="f" /> only when this holds the eighth case.
     /// </remarks>
     public Either<T1, T2, T3, T4, T5, T6, T7, T> MapEighth<T>([InstantHandle] Func<T8, T> f) =>
-        this.Match(
-            onFirst: Either<T1, T2, T3, T4, T5, T6, T7, T>.First,
-            onSecond: static v2 => Either.Second(v2),
-            onThird: static v3 => Either.Third(v3),
-            onFourth: static v4 => Either.Fourth(v4),
-            onFifth: static v5 => Either.Fifth(v5),
-            onSixth: static v6 => Either.Sixth(v6),
-            onSeventh: static v7 => Either.Seventh(v7),
-            onEighth: v8 => Either.Eighth(f(v8)));
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed
+            1 => Either<T1, T2, T3, T4, T5, T6, T7, T>.First(this.value1!),
+            2 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Second(this.value2!),
+            3 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Third(this.value3!),
+            4 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Fourth(this.value4!),
+            5 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Fifth(this.value5!),
+            6 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Sixth(this.value6!),
+            7 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Seventh(this.value7!),
+            8 => Either<T1, T2, T3, T4, T5, T6, T7, T>.Eighth(f(this.value8!)),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Gets the held value if this holds the first case.
@@ -5849,18 +6393,54 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         Action<object?> onFifth,
         Action<object?> onSixth,
         Action<object?> onSeventh,
-        Action<object?> onEighth) =>
-        // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-        this.Upcast<IEitherOfEight>()
-            .Match(
-                onFirst: onFirst.ToFunc(),
-                onSecond: onSecond.ToFunc(),
-                onThird: onThird.ToFunc(),
-                onFourth: onFourth.ToFunc(),
-                onFifth: onFifth.ToFunc(),
-                onSixth: onSixth.ToFunc(),
-                onSeventh: onSeventh.ToFunc(),
-                onEighth: onEighth.ToFunc());
+        Action<object?> onEighth)
+    {
+        switch (this.valueType)
+        {
+            case 1:
+                onFirst(this.value1);
+
+                break;
+
+            case 2:
+                onSecond(this.value2);
+
+                break;
+
+            case 3:
+                onThird(this.value3);
+
+                break;
+
+            case 4:
+                onFourth(this.value4);
+
+                break;
+
+            case 5:
+                onFifth(this.value5);
+
+                break;
+
+            case 6:
+                onSixth(this.value6);
+
+                break;
+
+            case 7:
+                onSeventh(this.value7);
+
+                break;
+
+            case 8:
+                onEighth(this.value8);
+
+                break;
+
+            default:
+                throw Either.NoCase();
+        }
+    }
 
     Task<T> IEitherOfEight.MatchAsync<T>(
         Func<object?, Task<T>> onFirst,
