@@ -44,7 +44,7 @@ transaction](#building-a-result-in-the-transaction).
 ## Concurrency strategies
 
 The interesting decision is what happens when a firing arrives while earlier work is still in
-flight. `AsyncConcurrencyStrategy` offers four answers:
+flight. `AsyncConcurrencyStrategy` offers these answers:
 
 | Strategy | Behavior |
 | --- | --- |
@@ -328,7 +328,7 @@ even though the strategy was told the operation succeeded, because it did. Const
 of publishing, not part of the operation.
 
 > [!NOTE]
-> `MapAsync` has three overloads, differing in whether the strategy reads the input as it stands,
+> `MapAsync` has one overload for each way the strategy can read the input: as it stands,
 > through a converter, or not at all. The generated
 > [API reference](../api/index.md) carries the full parameter contract for each; the canonical
 > one is the overload that takes an `inputConverter`.

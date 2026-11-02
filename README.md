@@ -24,7 +24,7 @@ This means that there are no glitches, no ordering bugs, and no manual subscript
 
 All libraries target `net472`, `net6.0`, and `netstandard2.0`.
 
-NOTE: `Sodium.Functional` is only needed by the C# libraries, as it provides types that are built-in to F#.  Whereas C# uses `Maybe`, `Either`, and `Unit` from this package,
+NOTE: `SodaFlow.Functional` is only needed by the C# libraries, as it provides types that are built-in to F#.  Whereas C# uses `Maybe`, `Either`, and `Unit` from this package,
 the F# libraries simply use the built-in types `option`, discriminated unions, and `unit` respectively.
 
 ## Building
@@ -65,7 +65,7 @@ SodaFlow implements Sodium's **denotational semantics** unchanged. The formal
 specification and its executable Haskell reference are vendored under
 `denotational/` (Copyright (c) 2015 Stephen Blackheath, separately licensed —
 see `denotational/LICENSE`), and `DenotationalSemanticsTests` asserts
-conformance with 23 tests in C# and 23 in F#.
+conformance with a matching set of tests in C# and in F#.
 
 Sodium is Copyright (c) 2012-2015 Stephen Blackheath and Anthony Jones. The
 BSD 3-Clause license covering it applies to SodaFlow as well, and the LICENSE

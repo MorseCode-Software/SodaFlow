@@ -4,7 +4,7 @@ title: Sample applications
 
 # Sample applications
 
-Four applications live in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository, each built twice — once in
+The applications in [`samples/`](https://github.com/MorseCode-Software/SodaFlow/tree/main/samples) in the repository are each built twice — once in
 WPF and once in Avalonia — over one shared view model that knows about neither. Counter is built a
 third time, on .NET Framework.
 
@@ -59,7 +59,7 @@ spinner that never stops because a canceled request never decremented a counter,
 error left on screen after a later search succeeded. See
 [Asynchronous work](async.md) for the mechanism.
 
-**Bounce** is balls bouncing in a box, and the only one of the four about
+**Bounce** is balls bouncing in a box, and the only one about
 [`Behavior<T>`](time.md) rather than about cells and streams. A ball's position is a function of
 time rather than a number something keeps updating, which has two consequences worth seeing: the
 instant it reaches a wall is a root of the quadratic, solved in advance and scheduled with `At`
@@ -84,10 +84,10 @@ incidental. Binding a list of rows to one cell holding the whole list rebuilds e
 edit, which is right for Search, whose results genuinely are one answer that changes as a whole, and
 wrong here, where almost every account is one nobody is looking at.
 
-Sorting shows the other half of the idea. Two of its three orders are projected from the *identity*
+Sorting shows the other half of the idea. All but one of its orders are projected from the *identity*
 half of an account, which no edit can change, so under those a deposit moves a balance and cannot
 move a row — and the collection knows that rather than being told it, because the selector is handed
-the identity and never the state. The third sorts on the balance, which is the half that moves, so
+the identity and never the state. The last sorts on the balance, which is the half that moves, so
 that is where a deposit can re-file a row. Switching between them with the same button is the whole
 demonstration.
 
