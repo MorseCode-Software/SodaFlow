@@ -10,13 +10,15 @@ using TUnit.Core;
 namespace SodaFlow.Collections.Tests;
 
 /// <summary>
-///     Which per-key cells on a view a change wakes, against a query over its
-///     operations as the oracle.
+///     The index that a wide change builds for its per-key cells, against a query
+///     over its operations as the oracle.
 /// </summary>
 /// <remarks>
-///     A per-key cell on a view asks the change for its key at each change. These
-///     tests pin which cells a wide change wakes and which a narrow change wakes,
-///     before a rewrite of the lookup. The oracle is the query that the lookup is.
+///     A change answers its first lookups with a scan of its operations, and then
+///     builds the index. A per-key cell on a view is one lookup at each change.
+///     Each test here holds more cells than the scans. Thus, the answers from the
+///     two paths are in the comparison. The oracle is the query that the scan was
+///     before the index existed.
 /// </remarks>
 public sealed class ViewChangeIndexTests
 {
@@ -73,7 +75,12 @@ public sealed class ViewChangeIndexTests
 
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes.Single();
 
-        // The replaced key is in a removal and then an insert, thus two operations name it.
+        await Assert.That(change.Operations.Count)
+            .IsGreaterThanOrEqualTo(CollectionViewChange<int, ItemIdentity, ItemState>.MinimumOperationsForIndex);
+
+        await Assert.That(change.IsIndexed).IsTrue();
+
+        // The replaced key is in a removal and then an insert, thus the index holds it two times.
         await Assert.That(change.Operations.Count(static operation => operation.Key == ReplacedKey)).IsEqualTo(2);
 
         List<int> named = [.. change.Operations.Select(static operation => operation.Key).Distinct()];
@@ -93,7 +100,16 @@ public sealed class ViewChangeIndexTests
     }
 
     [Test]
-    public async Task ANarrowChangeWakesOneCell()
+    public async Task TheIndexComesAtTheLookupAfterTheScans()
+    {
+        const int scans = CollectionViewChange<int, ItemIdentity, ItemState>.LookupsBeforeIndex;
+
+        await Assert.That(IsIndexedWith(cellCount: scans)).IsFalse();
+        await Assert.That(IsIndexedWith(cellCount: scans + 1)).IsTrue();
+    }
+
+    [Test]
+    public async Task ANarrowChangeNeverBuildsTheIndex()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
@@ -122,7 +138,42 @@ public sealed class ViewChangeIndexTests
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes.Single();
 
         await Assert.That(change.Operations.Count).IsEqualTo(1);
+        await Assert.That(change.IsIndexed).IsFalse();
         await Assert.That(woke).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Any);
+    }
+
+    /// <summary>
+    ///     Sends the wide edit through a view with the given number of state cells, and
+    ///     reads if the change built its index.
+    /// </summary>
+    private static bool IsIndexedWith(int cellCount)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view = View(edits);
+
+        List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
+        List<IListener> listeners = [view.KeyChangesStream.ListenStrong(changes.Add)];
+
+        for (int key = 0; key < cellCount; key++)
+        {
+            listeners.Add(
+                view.StateCellImpl(key: key, projection: Score)
+                    .Updates()
+                    .ListenStrong(static _ =>
+                    {
+                    }));
+        }
+
+        SendWideEdit(edits);
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        return changes.Single().IsIndexed;
     }
 
     /// <summary>
