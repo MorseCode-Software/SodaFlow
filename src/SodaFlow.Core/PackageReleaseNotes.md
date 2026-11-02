@@ -21,6 +21,12 @@ floor is now above the ceiling, and the first entry sets it. Measured on such a 
 100, and 1000 maps, .NET 10: 409, 852, and 4965 ns to 341, 347, and 352 ns. A send to a sink with one listener does
 not change.
 
+Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
+the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
+nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after
+the call runs nothing. The action sits behind a guard that the registry and the Cleanup share, and the guard holds no
+reference to either, so the collected path works as before.
+
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
