@@ -14,6 +14,10 @@ namespace SodaFlow.Functional;
 ///     remove that difference, thus one implementation taking a function can serve
 ///     the two - which is how, for instance, <c>Maybe&lt;T&gt;.Match</c> expresses
 ///     <c>Maybe&lt;T&gt;.MatchVoid</c>.
+///     The functions from <c>ToAsyncFunc</c> do not continue on the calling context.
+///     Their continuation only gives <see cref="Unit.Value" />, thus a hop to the
+///     context costs time and gains nothing. It also deadlocks a caller that blocks
+///     on the task.
 /// </remarks>
 [PublicAPI]
 public static class UnitExtensionMethods
@@ -650,7 +654,7 @@ public static class UnitExtensionMethods
     public static Func<Task<Unit>> ToAsyncFunc(this Func<Task> action) =>
         async () =>
         {
-            await action();
+            await action().ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -673,7 +677,7 @@ public static class UnitExtensionMethods
     public static Func<T, Task<Unit>> ToAsyncFunc<T>(this Func<T, Task> action) =>
         async v =>
         {
-            await action(v);
+            await action(v).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -697,7 +701,7 @@ public static class UnitExtensionMethods
     public static Func<T1, T2, Task<Unit>> ToAsyncFunc<T1, T2>(this Func<T1, T2, Task> action) =>
         async (v1, v2) =>
         {
-            await action(arg1: v1, arg2: v2);
+            await action(arg1: v1, arg2: v2).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -722,7 +726,7 @@ public static class UnitExtensionMethods
     public static Func<T1, T2, T3, Task<Unit>> ToAsyncFunc<T1, T2, T3>(this Func<T1, T2, T3, Task> action) =>
         async (v1, v2, v3) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3);
+            await action(arg1: v1, arg2: v2, arg3: v3).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -749,7 +753,7 @@ public static class UnitExtensionMethods
         this Func<T1, T2, T3, T4, Task> action) =>
         async (v1, v2, v3, v4) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4);
+            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -777,7 +781,7 @@ public static class UnitExtensionMethods
         this Func<T1, T2, T3, T4, T5, Task> action) =>
         async (v1, v2, v3, v4, v5) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5);
+            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -806,7 +810,7 @@ public static class UnitExtensionMethods
         this Func<T1, T2, T3, T4, T5, T6, Task> action) =>
         async (v1, v2, v3, v4, v5, v6) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6);
+            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -836,7 +840,7 @@ public static class UnitExtensionMethods
         this Func<T1, T2, T3, T4, T5, T6, T7, Task> action) =>
         async (v1, v2, v3, v4, v5, v6, v7) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6, arg7: v7);
+            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6, arg7: v7).ConfigureAwait(false);
             return Unit.Value;
         };
 
@@ -867,7 +871,16 @@ public static class UnitExtensionMethods
         this Func<T1, T2, T3, T4, T5, T6, T7, T8, Task> action) =>
         async (v1, v2, v3, v4, v5, v6, v7, v8) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6, arg7: v7, arg8: v8);
+            await action(
+                arg1: v1,
+                arg2: v2,
+                arg3: v3,
+                arg4: v4,
+                arg5: v5,
+                arg6: v6,
+                arg7: v7,
+                arg8: v8).ConfigureAwait(false);
+
             return Unit.Value;
         };
 
@@ -899,7 +912,17 @@ public static class UnitExtensionMethods
         T9>(this Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, Task> action) =>
         async (v1, v2, v3, v4, v5, v6, v7, v8, v9) =>
         {
-            await action(arg1: v1, arg2: v2, arg3: v3, arg4: v4, arg5: v5, arg6: v6, arg7: v7, arg8: v8, arg9: v9);
+            await action(
+                arg1: v1,
+                arg2: v2,
+                arg3: v3,
+                arg4: v4,
+                arg5: v5,
+                arg6: v6,
+                arg7: v7,
+                arg8: v8,
+                arg9: v9).ConfigureAwait(false);
+
             return Unit.Value;
         };
 
@@ -942,7 +965,7 @@ public static class UnitExtensionMethods
                 arg7: v7,
                 arg8: v8,
                 arg9: v9,
-                arg10: v10);
+                arg10: v10).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -988,7 +1011,7 @@ public static class UnitExtensionMethods
                 arg8: v8,
                 arg9: v9,
                 arg10: v10,
-                arg11: v11);
+                arg11: v11).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -1036,7 +1059,7 @@ public static class UnitExtensionMethods
                 arg9: v9,
                 arg10: v10,
                 arg11: v11,
-                arg12: v12);
+                arg12: v12).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -1087,7 +1110,7 @@ public static class UnitExtensionMethods
                 arg10: v10,
                 arg11: v11,
                 arg12: v12,
-                arg13: v13);
+                arg13: v13).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -1140,7 +1163,7 @@ public static class UnitExtensionMethods
                 arg11: v11,
                 arg12: v12,
                 arg13: v13,
-                arg14: v14);
+                arg14: v14).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -1195,7 +1218,7 @@ public static class UnitExtensionMethods
                 arg12: v12,
                 arg13: v13,
                 arg14: v14,
-                arg15: v15);
+                arg15: v15).ConfigureAwait(false);
 
             return Unit.Value;
         };
@@ -1252,7 +1275,7 @@ public static class UnitExtensionMethods
                 arg13: v13,
                 arg14: v14,
                 arg15: v15,
-                arg16: v16);
+                arg16: v16).ConfigureAwait(false);
 
             return Unit.Value;
         };
