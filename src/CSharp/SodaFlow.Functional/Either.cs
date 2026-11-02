@@ -645,7 +645,7 @@ public static class Either
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
+public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -1017,7 +1017,7 @@ public struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>>
+public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -1490,7 +1490,7 @@ public struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1, T2, T3>
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, T3, T4>>
+public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, T3, T4>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -2114,7 +2114,7 @@ public struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either<T1, T2, 
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, T2, T3, T4, T5>>
+public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, T2, T3, T4, T5>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -2893,7 +2893,7 @@ public struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Either<T1, 
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T1, T2, T3, T4, T5, T6>>
+public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T1, T2, T3, T4, T5, T6>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -3828,7 +3828,8 @@ public struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable<Either<T
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7>>
+public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
+    : IEitherOfSeven, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7>>
 {
     private readonly int valueType;
     private readonly T1? value1;
@@ -4922,7 +4923,7 @@ public struct Either<T1, T2, T3, T4, T5, T6, T7> : IEitherOfSeven, IEquatable<Ei
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
+public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     : IEitherOfEight, IEquatable<Either<T1, T2, T3, T4, T5, T6, T7, T8>>
 {
     private readonly int valueType;
