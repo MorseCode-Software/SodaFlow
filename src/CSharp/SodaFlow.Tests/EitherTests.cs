@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
+using Either3 = SodaFlow.Functional.Either<int, int, int>;
+using Either4 = SodaFlow.Functional.Either<int, int, int, int>;
+using Either5 = SodaFlow.Functional.Either<int, int, int, int, int>;
+using Either6 = SodaFlow.Functional.Either<int, int, int, int, int, int>;
+using Either7 = SodaFlow.Functional.Either<int, int, int, int, int, int, int>;
+using Either8 = SodaFlow.Functional.Either<int, int, int, int, int, int, int, int>;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
@@ -697,6 +703,1663 @@ public sealed class EitherTests
             .IsEquivalentTo(
                 expected: new Either<int, string>[] { Either.First(1), Either.Second("a") },
                 ordering: CollectionOrdering.Matching);
+    }
+
+    // The map members, MatchVoid, and the members of the untyped interfaces read the fields. Each
+    // was a call to Match with a lambda for each case. These tests pin what each one does for each
+    // held case and for a default instance. Thus, they test the rewrite against the code it
+    // replaced.
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase2()
+    {
+        List<string> ran = [];
+
+        Either<int, int>.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v));
+
+        Either<int, int>.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either<int, int>).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase2()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either<int, int>.First(1).MapFirst(ten)).IsEqualTo(Either<int, int>.First(10));
+        await Assert.That(Either<int, int>.First(1).MapSecond(ten)).IsEqualTo(Either<int, int>.First(1));
+
+        await Assert.That(Either<int, int>.Second(2).MapFirst(ten)).IsEqualTo(Either<int, int>.Second(2));
+        await Assert.That(Either<int, int>.Second(2).MapSecond(ten)).IsEqualTo(Either<int, int>.Second(20));
+        await Assert.That(calls).IsEqualTo(2);
+
+        await Assert.That(static () => default(Either<int, int>).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either<int, int>).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase2()
+    {
+        List<string> ran = [];
+
+        IEitherOfTwo e1 = Either<int, int>.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v));
+
+        IEitherOfTwo e2 = Either<int, int>.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfTwo d = default(Either<int, int>);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase3()
+    {
+        List<string> ran = [];
+
+        Either3.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v));
+
+        Either3.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v));
+
+        Either3.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either3).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase3()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either3.First(1).MapFirst(ten)).IsEqualTo(Either3.First(10));
+        await Assert.That(Either3.First(1).MapSecond(ten)).IsEqualTo(Either3.First(1));
+        await Assert.That(Either3.First(1).MapThird(ten)).IsEqualTo(Either3.First(1));
+
+        await Assert.That(Either3.Second(2).MapFirst(ten)).IsEqualTo(Either3.Second(2));
+        await Assert.That(Either3.Second(2).MapSecond(ten)).IsEqualTo(Either3.Second(20));
+        await Assert.That(Either3.Second(2).MapThird(ten)).IsEqualTo(Either3.Second(2));
+
+        await Assert.That(Either3.Third(3).MapFirst(ten)).IsEqualTo(Either3.Third(3));
+        await Assert.That(Either3.Third(3).MapSecond(ten)).IsEqualTo(Either3.Third(3));
+        await Assert.That(Either3.Third(3).MapThird(ten)).IsEqualTo(Either3.Third(30));
+        await Assert.That(calls).IsEqualTo(3);
+
+        await Assert.That(static () => default(Either3).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either3).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either3).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase3()
+    {
+        List<string> ran = [];
+
+        IEitherOfThree e1 = Either3.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v));
+
+        IEitherOfThree e2 = Either3.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v));
+
+        IEitherOfThree e3 = Either3.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfThree d = default(Either3);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase4()
+    {
+        List<string> ran = [];
+
+        Either4.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v));
+
+        Either4.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v));
+
+        Either4.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v));
+
+        Either4.Fourth(4).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either4).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { },
+                    onFourth: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase4()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either4.First(1).MapFirst(ten)).IsEqualTo(Either4.First(10));
+        await Assert.That(Either4.First(1).MapSecond(ten)).IsEqualTo(Either4.First(1));
+        await Assert.That(Either4.First(1).MapThird(ten)).IsEqualTo(Either4.First(1));
+        await Assert.That(Either4.First(1).MapFourth(ten)).IsEqualTo(Either4.First(1));
+
+        await Assert.That(Either4.Second(2).MapFirst(ten)).IsEqualTo(Either4.Second(2));
+        await Assert.That(Either4.Second(2).MapSecond(ten)).IsEqualTo(Either4.Second(20));
+        await Assert.That(Either4.Second(2).MapThird(ten)).IsEqualTo(Either4.Second(2));
+        await Assert.That(Either4.Second(2).MapFourth(ten)).IsEqualTo(Either4.Second(2));
+
+        await Assert.That(Either4.Third(3).MapFirst(ten)).IsEqualTo(Either4.Third(3));
+        await Assert.That(Either4.Third(3).MapSecond(ten)).IsEqualTo(Either4.Third(3));
+        await Assert.That(Either4.Third(3).MapThird(ten)).IsEqualTo(Either4.Third(30));
+        await Assert.That(Either4.Third(3).MapFourth(ten)).IsEqualTo(Either4.Third(3));
+
+        await Assert.That(Either4.Fourth(4).MapFirst(ten)).IsEqualTo(Either4.Fourth(4));
+        await Assert.That(Either4.Fourth(4).MapSecond(ten)).IsEqualTo(Either4.Fourth(4));
+        await Assert.That(Either4.Fourth(4).MapThird(ten)).IsEqualTo(Either4.Fourth(4));
+        await Assert.That(Either4.Fourth(4).MapFourth(ten)).IsEqualTo(Either4.Fourth(40));
+        await Assert.That(calls).IsEqualTo(4);
+
+        await Assert.That(static () => default(Either4).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either4).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either4).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either4).MapFourth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase4()
+    {
+        List<string> ran = [];
+
+        IEitherOfFour e1 = Either4.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v));
+
+        IEitherOfFour e2 = Either4.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v));
+
+        IEitherOfFour e3 = Either4.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v));
+
+        IEitherOfFour e4 = Either4.Fourth(4);
+
+        await Assert.That(e4.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v)).IsEqualTo("fourth 4");
+
+        e4.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfFour d = default(Either4);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty,
+                onFourth: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { },
+                onFourth: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase5()
+    {
+        List<string> ran = [];
+
+        Either5.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v));
+
+        Either5.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v));
+
+        Either5.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v));
+
+        Either5.Fourth(4).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v));
+
+        Either5.Fifth(5).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either5).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { },
+                    onFourth: static _ => { },
+                    onFifth: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase5()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either5.First(1).MapFirst(ten)).IsEqualTo(Either5.First(10));
+        await Assert.That(Either5.First(1).MapSecond(ten)).IsEqualTo(Either5.First(1));
+        await Assert.That(Either5.First(1).MapThird(ten)).IsEqualTo(Either5.First(1));
+        await Assert.That(Either5.First(1).MapFourth(ten)).IsEqualTo(Either5.First(1));
+        await Assert.That(Either5.First(1).MapFifth(ten)).IsEqualTo(Either5.First(1));
+
+        await Assert.That(Either5.Second(2).MapFirst(ten)).IsEqualTo(Either5.Second(2));
+        await Assert.That(Either5.Second(2).MapSecond(ten)).IsEqualTo(Either5.Second(20));
+        await Assert.That(Either5.Second(2).MapThird(ten)).IsEqualTo(Either5.Second(2));
+        await Assert.That(Either5.Second(2).MapFourth(ten)).IsEqualTo(Either5.Second(2));
+        await Assert.That(Either5.Second(2).MapFifth(ten)).IsEqualTo(Either5.Second(2));
+
+        await Assert.That(Either5.Third(3).MapFirst(ten)).IsEqualTo(Either5.Third(3));
+        await Assert.That(Either5.Third(3).MapSecond(ten)).IsEqualTo(Either5.Third(3));
+        await Assert.That(Either5.Third(3).MapThird(ten)).IsEqualTo(Either5.Third(30));
+        await Assert.That(Either5.Third(3).MapFourth(ten)).IsEqualTo(Either5.Third(3));
+        await Assert.That(Either5.Third(3).MapFifth(ten)).IsEqualTo(Either5.Third(3));
+
+        await Assert.That(Either5.Fourth(4).MapFirst(ten)).IsEqualTo(Either5.Fourth(4));
+        await Assert.That(Either5.Fourth(4).MapSecond(ten)).IsEqualTo(Either5.Fourth(4));
+        await Assert.That(Either5.Fourth(4).MapThird(ten)).IsEqualTo(Either5.Fourth(4));
+        await Assert.That(Either5.Fourth(4).MapFourth(ten)).IsEqualTo(Either5.Fourth(40));
+        await Assert.That(Either5.Fourth(4).MapFifth(ten)).IsEqualTo(Either5.Fourth(4));
+
+        await Assert.That(Either5.Fifth(5).MapFirst(ten)).IsEqualTo(Either5.Fifth(5));
+        await Assert.That(Either5.Fifth(5).MapSecond(ten)).IsEqualTo(Either5.Fifth(5));
+        await Assert.That(Either5.Fifth(5).MapThird(ten)).IsEqualTo(Either5.Fifth(5));
+        await Assert.That(Either5.Fifth(5).MapFourth(ten)).IsEqualTo(Either5.Fifth(5));
+        await Assert.That(Either5.Fifth(5).MapFifth(ten)).IsEqualTo(Either5.Fifth(50));
+        await Assert.That(calls).IsEqualTo(5);
+
+        await Assert.That(static () => default(Either5).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either5).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either5).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either5).MapFourth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either5).MapFifth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase5()
+    {
+        List<string> ran = [];
+
+        IEitherOfFive e1 = Either5.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v));
+
+        IEitherOfFive e2 = Either5.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v));
+
+        IEitherOfFive e3 = Either5.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v));
+
+        IEitherOfFive e4 = Either5.Fourth(4);
+
+        await Assert.That(e4.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v)).IsEqualTo("fourth 4");
+
+        e4.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v));
+
+        IEitherOfFive e5 = Either5.Fifth(5);
+
+        await Assert.That(e5.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v)).IsEqualTo("fifth 5");
+
+        e5.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfFive d = default(Either5);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty,
+                onFourth: static _ => string.Empty,
+                onFifth: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { },
+                onFourth: static _ => { },
+                onFifth: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase6()
+    {
+        List<string> ran = [];
+
+        Either6.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        Either6.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        Either6.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        Either6.Fourth(4).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        Either6.Fifth(5).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        Either6.Sixth(6).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either6).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { },
+                    onFourth: static _ => { },
+                    onFifth: static _ => { },
+                    onSixth: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase6()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either6.First(1).MapFirst(ten)).IsEqualTo(Either6.First(10));
+        await Assert.That(Either6.First(1).MapSecond(ten)).IsEqualTo(Either6.First(1));
+        await Assert.That(Either6.First(1).MapThird(ten)).IsEqualTo(Either6.First(1));
+        await Assert.That(Either6.First(1).MapFourth(ten)).IsEqualTo(Either6.First(1));
+        await Assert.That(Either6.First(1).MapFifth(ten)).IsEqualTo(Either6.First(1));
+        await Assert.That(Either6.First(1).MapSixth(ten)).IsEqualTo(Either6.First(1));
+
+        await Assert.That(Either6.Second(2).MapFirst(ten)).IsEqualTo(Either6.Second(2));
+        await Assert.That(Either6.Second(2).MapSecond(ten)).IsEqualTo(Either6.Second(20));
+        await Assert.That(Either6.Second(2).MapThird(ten)).IsEqualTo(Either6.Second(2));
+        await Assert.That(Either6.Second(2).MapFourth(ten)).IsEqualTo(Either6.Second(2));
+        await Assert.That(Either6.Second(2).MapFifth(ten)).IsEqualTo(Either6.Second(2));
+        await Assert.That(Either6.Second(2).MapSixth(ten)).IsEqualTo(Either6.Second(2));
+
+        await Assert.That(Either6.Third(3).MapFirst(ten)).IsEqualTo(Either6.Third(3));
+        await Assert.That(Either6.Third(3).MapSecond(ten)).IsEqualTo(Either6.Third(3));
+        await Assert.That(Either6.Third(3).MapThird(ten)).IsEqualTo(Either6.Third(30));
+        await Assert.That(Either6.Third(3).MapFourth(ten)).IsEqualTo(Either6.Third(3));
+        await Assert.That(Either6.Third(3).MapFifth(ten)).IsEqualTo(Either6.Third(3));
+        await Assert.That(Either6.Third(3).MapSixth(ten)).IsEqualTo(Either6.Third(3));
+
+        await Assert.That(Either6.Fourth(4).MapFirst(ten)).IsEqualTo(Either6.Fourth(4));
+        await Assert.That(Either6.Fourth(4).MapSecond(ten)).IsEqualTo(Either6.Fourth(4));
+        await Assert.That(Either6.Fourth(4).MapThird(ten)).IsEqualTo(Either6.Fourth(4));
+        await Assert.That(Either6.Fourth(4).MapFourth(ten)).IsEqualTo(Either6.Fourth(40));
+        await Assert.That(Either6.Fourth(4).MapFifth(ten)).IsEqualTo(Either6.Fourth(4));
+        await Assert.That(Either6.Fourth(4).MapSixth(ten)).IsEqualTo(Either6.Fourth(4));
+
+        await Assert.That(Either6.Fifth(5).MapFirst(ten)).IsEqualTo(Either6.Fifth(5));
+        await Assert.That(Either6.Fifth(5).MapSecond(ten)).IsEqualTo(Either6.Fifth(5));
+        await Assert.That(Either6.Fifth(5).MapThird(ten)).IsEqualTo(Either6.Fifth(5));
+        await Assert.That(Either6.Fifth(5).MapFourth(ten)).IsEqualTo(Either6.Fifth(5));
+        await Assert.That(Either6.Fifth(5).MapFifth(ten)).IsEqualTo(Either6.Fifth(50));
+        await Assert.That(Either6.Fifth(5).MapSixth(ten)).IsEqualTo(Either6.Fifth(5));
+
+        await Assert.That(Either6.Sixth(6).MapFirst(ten)).IsEqualTo(Either6.Sixth(6));
+        await Assert.That(Either6.Sixth(6).MapSecond(ten)).IsEqualTo(Either6.Sixth(6));
+        await Assert.That(Either6.Sixth(6).MapThird(ten)).IsEqualTo(Either6.Sixth(6));
+        await Assert.That(Either6.Sixth(6).MapFourth(ten)).IsEqualTo(Either6.Sixth(6));
+        await Assert.That(Either6.Sixth(6).MapFifth(ten)).IsEqualTo(Either6.Sixth(6));
+        await Assert.That(Either6.Sixth(6).MapSixth(ten)).IsEqualTo(Either6.Sixth(60));
+        await Assert.That(calls).IsEqualTo(6);
+
+        await Assert.That(static () => default(Either6).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either6).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either6).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either6).MapFourth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either6).MapFifth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either6).MapSixth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase6()
+    {
+        List<string> ran = [];
+
+        IEitherOfSix e1 = Either6.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        IEitherOfSix e2 = Either6.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        IEitherOfSix e3 = Either6.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        IEitherOfSix e4 = Either6.Fourth(4);
+
+        await Assert.That(e4.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("fourth 4");
+
+        e4.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        IEitherOfSix e5 = Either6.Fifth(5);
+
+        await Assert.That(e5.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("fifth 5");
+
+        e5.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        IEitherOfSix e6 = Either6.Sixth(6);
+
+        await Assert.That(e6.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v)).IsEqualTo("sixth 6");
+
+        e6.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfSix d = default(Either6);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty,
+                onFourth: static _ => string.Empty,
+                onFifth: static _ => string.Empty,
+                onSixth: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { },
+                onFourth: static _ => { },
+                onFifth: static _ => { },
+                onSixth: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase7()
+    {
+        List<string> ran = [];
+
+        Either7.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Fourth(4).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Fifth(5).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Sixth(6).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        Either7.Seventh(7).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either7).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { },
+                    onFourth: static _ => { },
+                    onFifth: static _ => { },
+                    onSixth: static _ => { },
+                    onSeventh: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase7()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either7.First(1).MapFirst(ten)).IsEqualTo(Either7.First(10));
+        await Assert.That(Either7.First(1).MapSecond(ten)).IsEqualTo(Either7.First(1));
+        await Assert.That(Either7.First(1).MapThird(ten)).IsEqualTo(Either7.First(1));
+        await Assert.That(Either7.First(1).MapFourth(ten)).IsEqualTo(Either7.First(1));
+        await Assert.That(Either7.First(1).MapFifth(ten)).IsEqualTo(Either7.First(1));
+        await Assert.That(Either7.First(1).MapSixth(ten)).IsEqualTo(Either7.First(1));
+        await Assert.That(Either7.First(1).MapSeventh(ten)).IsEqualTo(Either7.First(1));
+
+        await Assert.That(Either7.Second(2).MapFirst(ten)).IsEqualTo(Either7.Second(2));
+        await Assert.That(Either7.Second(2).MapSecond(ten)).IsEqualTo(Either7.Second(20));
+        await Assert.That(Either7.Second(2).MapThird(ten)).IsEqualTo(Either7.Second(2));
+        await Assert.That(Either7.Second(2).MapFourth(ten)).IsEqualTo(Either7.Second(2));
+        await Assert.That(Either7.Second(2).MapFifth(ten)).IsEqualTo(Either7.Second(2));
+        await Assert.That(Either7.Second(2).MapSixth(ten)).IsEqualTo(Either7.Second(2));
+        await Assert.That(Either7.Second(2).MapSeventh(ten)).IsEqualTo(Either7.Second(2));
+
+        await Assert.That(Either7.Third(3).MapFirst(ten)).IsEqualTo(Either7.Third(3));
+        await Assert.That(Either7.Third(3).MapSecond(ten)).IsEqualTo(Either7.Third(3));
+        await Assert.That(Either7.Third(3).MapThird(ten)).IsEqualTo(Either7.Third(30));
+        await Assert.That(Either7.Third(3).MapFourth(ten)).IsEqualTo(Either7.Third(3));
+        await Assert.That(Either7.Third(3).MapFifth(ten)).IsEqualTo(Either7.Third(3));
+        await Assert.That(Either7.Third(3).MapSixth(ten)).IsEqualTo(Either7.Third(3));
+        await Assert.That(Either7.Third(3).MapSeventh(ten)).IsEqualTo(Either7.Third(3));
+
+        await Assert.That(Either7.Fourth(4).MapFirst(ten)).IsEqualTo(Either7.Fourth(4));
+        await Assert.That(Either7.Fourth(4).MapSecond(ten)).IsEqualTo(Either7.Fourth(4));
+        await Assert.That(Either7.Fourth(4).MapThird(ten)).IsEqualTo(Either7.Fourth(4));
+        await Assert.That(Either7.Fourth(4).MapFourth(ten)).IsEqualTo(Either7.Fourth(40));
+        await Assert.That(Either7.Fourth(4).MapFifth(ten)).IsEqualTo(Either7.Fourth(4));
+        await Assert.That(Either7.Fourth(4).MapSixth(ten)).IsEqualTo(Either7.Fourth(4));
+        await Assert.That(Either7.Fourth(4).MapSeventh(ten)).IsEqualTo(Either7.Fourth(4));
+
+        await Assert.That(Either7.Fifth(5).MapFirst(ten)).IsEqualTo(Either7.Fifth(5));
+        await Assert.That(Either7.Fifth(5).MapSecond(ten)).IsEqualTo(Either7.Fifth(5));
+        await Assert.That(Either7.Fifth(5).MapThird(ten)).IsEqualTo(Either7.Fifth(5));
+        await Assert.That(Either7.Fifth(5).MapFourth(ten)).IsEqualTo(Either7.Fifth(5));
+        await Assert.That(Either7.Fifth(5).MapFifth(ten)).IsEqualTo(Either7.Fifth(50));
+        await Assert.That(Either7.Fifth(5).MapSixth(ten)).IsEqualTo(Either7.Fifth(5));
+        await Assert.That(Either7.Fifth(5).MapSeventh(ten)).IsEqualTo(Either7.Fifth(5));
+
+        await Assert.That(Either7.Sixth(6).MapFirst(ten)).IsEqualTo(Either7.Sixth(6));
+        await Assert.That(Either7.Sixth(6).MapSecond(ten)).IsEqualTo(Either7.Sixth(6));
+        await Assert.That(Either7.Sixth(6).MapThird(ten)).IsEqualTo(Either7.Sixth(6));
+        await Assert.That(Either7.Sixth(6).MapFourth(ten)).IsEqualTo(Either7.Sixth(6));
+        await Assert.That(Either7.Sixth(6).MapFifth(ten)).IsEqualTo(Either7.Sixth(6));
+        await Assert.That(Either7.Sixth(6).MapSixth(ten)).IsEqualTo(Either7.Sixth(60));
+        await Assert.That(Either7.Sixth(6).MapSeventh(ten)).IsEqualTo(Either7.Sixth(6));
+
+        await Assert.That(Either7.Seventh(7).MapFirst(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapSecond(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapThird(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapFourth(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapFifth(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapSixth(ten)).IsEqualTo(Either7.Seventh(7));
+        await Assert.That(Either7.Seventh(7).MapSeventh(ten)).IsEqualTo(Either7.Seventh(70));
+        await Assert.That(calls).IsEqualTo(7);
+
+        await Assert.That(static () => default(Either7).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapFourth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapFifth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapSixth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either7).MapSeventh(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase7()
+    {
+        List<string> ran = [];
+
+        IEitherOfSeven e1 = Either7.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e2 = Either7.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e3 = Either7.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e4 = Either7.Fourth(4);
+
+        await Assert.That(e4.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("fourth 4");
+
+        e4.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e5 = Either7.Fifth(5);
+
+        await Assert.That(e5.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("fifth 5");
+
+        e5.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e6 = Either7.Sixth(6);
+
+        await Assert.That(e6.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("sixth 6");
+
+        e6.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        IEitherOfSeven e7 = Either7.Seventh(7);
+
+        await Assert.That(e7.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v)).IsEqualTo("seventh 7");
+
+        e7.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfSeven d = default(Either7);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty,
+                onFourth: static _ => string.Empty,
+                onFifth: static _ => string.Empty,
+                onSixth: static _ => string.Empty,
+                onSeventh: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { },
+                onFourth: static _ => { },
+                onFifth: static _ => { },
+                onSixth: static _ => { },
+                onSeventh: static _ => { })).ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MatchVoidRunsOnlyTheHeldCase8()
+    {
+        List<string> ran = [];
+
+        Either8.First(1).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Second(2).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Third(3).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Fourth(4).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Fifth(5).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Sixth(6).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Seventh(7).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        Either8.Eighth(8).MatchVoid(
+            onFirst: v => ran.Add("first " + v),
+            onSecond: v => ran.Add("second " + v),
+            onThird: v => ran.Add("third " + v),
+            onFourth: v => ran.Add("fourth " + v),
+            onFifth: v => ran.Add("fifth " + v),
+            onSixth: v => ran.Add("sixth " + v),
+            onSeventh: v => ran.Add("seventh " + v),
+            onEighth: v => ran.Add("eighth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7", "eighth 8"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either8).MatchVoid(
+                    onFirst: static _ => { },
+                    onSecond: static _ => { },
+                    onThird: static _ => { },
+                    onFourth: static _ => { },
+                    onFifth: static _ => { },
+                    onSixth: static _ => { },
+                    onSeventh: static _ => { },
+                    onEighth: static _ => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task MapsTransformOnlyTheHeldCase8()
+    {
+        int calls = 0;
+
+        Func<int, int> ten = v =>
+        {
+            calls++;
+            return v * 10;
+        };
+
+        await Assert.That(Either8.First(1).MapFirst(ten)).IsEqualTo(Either8.First(10));
+        await Assert.That(Either8.First(1).MapSecond(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapThird(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapFourth(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapFifth(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapSixth(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapSeventh(ten)).IsEqualTo(Either8.First(1));
+        await Assert.That(Either8.First(1).MapEighth(ten)).IsEqualTo(Either8.First(1));
+
+        await Assert.That(Either8.Second(2).MapFirst(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapSecond(ten)).IsEqualTo(Either8.Second(20));
+        await Assert.That(Either8.Second(2).MapThird(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapFourth(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapFifth(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapSixth(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapSeventh(ten)).IsEqualTo(Either8.Second(2));
+        await Assert.That(Either8.Second(2).MapEighth(ten)).IsEqualTo(Either8.Second(2));
+
+        await Assert.That(Either8.Third(3).MapFirst(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapSecond(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapThird(ten)).IsEqualTo(Either8.Third(30));
+        await Assert.That(Either8.Third(3).MapFourth(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapFifth(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapSixth(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapSeventh(ten)).IsEqualTo(Either8.Third(3));
+        await Assert.That(Either8.Third(3).MapEighth(ten)).IsEqualTo(Either8.Third(3));
+
+        await Assert.That(Either8.Fourth(4).MapFirst(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapSecond(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapThird(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapFourth(ten)).IsEqualTo(Either8.Fourth(40));
+        await Assert.That(Either8.Fourth(4).MapFifth(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapSixth(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapSeventh(ten)).IsEqualTo(Either8.Fourth(4));
+        await Assert.That(Either8.Fourth(4).MapEighth(ten)).IsEqualTo(Either8.Fourth(4));
+
+        await Assert.That(Either8.Fifth(5).MapFirst(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapSecond(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapThird(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapFourth(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapFifth(ten)).IsEqualTo(Either8.Fifth(50));
+        await Assert.That(Either8.Fifth(5).MapSixth(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapSeventh(ten)).IsEqualTo(Either8.Fifth(5));
+        await Assert.That(Either8.Fifth(5).MapEighth(ten)).IsEqualTo(Either8.Fifth(5));
+
+        await Assert.That(Either8.Sixth(6).MapFirst(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapSecond(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapThird(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapFourth(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapFifth(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapSixth(ten)).IsEqualTo(Either8.Sixth(60));
+        await Assert.That(Either8.Sixth(6).MapSeventh(ten)).IsEqualTo(Either8.Sixth(6));
+        await Assert.That(Either8.Sixth(6).MapEighth(ten)).IsEqualTo(Either8.Sixth(6));
+
+        await Assert.That(Either8.Seventh(7).MapFirst(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapSecond(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapThird(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapFourth(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapFifth(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapSixth(ten)).IsEqualTo(Either8.Seventh(7));
+        await Assert.That(Either8.Seventh(7).MapSeventh(ten)).IsEqualTo(Either8.Seventh(70));
+        await Assert.That(Either8.Seventh(7).MapEighth(ten)).IsEqualTo(Either8.Seventh(7));
+
+        await Assert.That(Either8.Eighth(8).MapFirst(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapSecond(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapThird(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapFourth(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapFifth(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapSixth(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapSeventh(ten)).IsEqualTo(Either8.Eighth(8));
+        await Assert.That(Either8.Eighth(8).MapEighth(ten)).IsEqualTo(Either8.Eighth(80));
+        await Assert.That(calls).IsEqualTo(8);
+
+        await Assert.That(static () => default(Either8).MapFirst(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapSecond(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapThird(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapFourth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapFifth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapSixth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapSeventh(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(static () => default(Either8).MapEighth(static v => v))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheHeldCase8()
+    {
+        List<string> ran = [];
+
+        IEitherOfEight e1 = Either8.First(1);
+
+        await Assert.That(e1.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("first 1");
+
+        e1.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e2 = Either8.Second(2);
+
+        await Assert.That(e2.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("second 2");
+
+        e2.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e3 = Either8.Third(3);
+
+        await Assert.That(e3.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("third 3");
+
+        e3.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e4 = Either8.Fourth(4);
+
+        await Assert.That(e4.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("fourth 4");
+
+        e4.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e5 = Either8.Fifth(5);
+
+        await Assert.That(e5.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("fifth 5");
+
+        e5.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e6 = Either8.Sixth(6);
+
+        await Assert.That(e6.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("sixth 6");
+
+        e6.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e7 = Either8.Seventh(7);
+
+        await Assert.That(e7.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("seventh 7");
+
+        e7.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        IEitherOfEight e8 = Either8.Eighth(8);
+
+        await Assert.That(e8.Match(
+                onFirst: static v => "first " + v,
+                onSecond: static v => "second " + v,
+                onThird: static v => "third " + v,
+                onFourth: static v => "fourth " + v,
+                onFifth: static v => "fifth " + v,
+                onSixth: static v => "sixth " + v,
+                onSeventh: static v => "seventh " + v,
+                onEighth: static v => "eighth " + v)).IsEqualTo("eighth 8");
+
+        e8.MatchVoid(
+                onFirst: v => ran.Add("first " + v),
+                onSecond: v => ran.Add("second " + v),
+                onThird: v => ran.Add("third " + v),
+                onFourth: v => ran.Add("fourth " + v),
+                onFifth: v => ran.Add("fifth " + v),
+                onSixth: v => ran.Add("sixth " + v),
+                onSeventh: v => ran.Add("seventh " + v),
+                onEighth: v => ran.Add("eighth " + v));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7", "eighth 8"],
+                ordering: CollectionOrdering.Matching);
+
+        IEitherOfEight d = default(Either8);
+
+        await Assert.That(() => d.Match(
+                onFirst: static _ => string.Empty,
+                onSecond: static _ => string.Empty,
+                onThird: static _ => string.Empty,
+                onFourth: static _ => string.Empty,
+                onFifth: static _ => string.Empty,
+                onSixth: static _ => string.Empty,
+                onSeventh: static _ => string.Empty,
+                onEighth: static _ => string.Empty)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(() => d.MatchVoid(
+                onFirst: static _ => { },
+                onSecond: static _ => { },
+                onThird: static _ => { },
+                onFourth: static _ => { },
+                onFifth: static _ => { },
+                onSixth: static _ => { },
+                onSeventh: static _ => { },
+                onEighth: static _ => { })).ThrowsExactly<InvalidOperationException>();
     }
 
     private sealed class Test1;

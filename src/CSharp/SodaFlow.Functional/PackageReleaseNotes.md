@@ -28,6 +28,21 @@ SodaFlow.Benchmarks measures them. Maybe<T> is also a readonly struct now, as Un
 readonly field or on None no longer copies the value first. The members read the same fields in the same order, so a
 contained null still reaches the function, and a function for the other case still does not run.
 
+Fixed: the action and map members of every Either allocated on every call, and the untyped interface members did too.
+MatchVoid wrapped each action in a closure, one per case, so a call on an Either of eight allocated eight; each
+MapFirst through MapEighth captured its function in a closure; and IEitherOfTwo.Match through IEitherOfEight.MatchVoid
+wrapped each function or action again. Each of them is now a switch on the case index, the shape Match already had,
+with the no-case throw in its default arm, so a default instance still throws from every member. Match, Swap, IsFirst,
+TryGetFirst, and ToString were already free. MatchAsyncVoid and the untyped MatchAsyncVoid keep their ToAsyncFunc
+wrappers, because those turn a synchronous throw into a faulted task. Every Either is also a readonly struct now, as
+Maybe<T> is, so a call on a readonly field or a static readonly value no longer copies the struct, which for an Either
+of eight is nine fields. Measured on an Either holding its first case, .NET 10: MatchVoid of two 22.6 ns and 176 bytes
+to 0.5 ns and nothing; MapFirst of two 7.3 ns and 24 bytes to 1.2 ns and nothing; MatchVoid of eight 82.0 ns and 704
+bytes to 43.6 ns and 512 bytes, where the bytes that remain are the benchmark's own eight delegates for lambdas that
+capture a counter; MapFirst of eight 16.8 ns and 88 bytes to 5.3 ns and nothing. On .NET Framework 4.7.2, MatchVoid of
+eight 130.3 ns and 1220 bytes to 41.4 ns and 514 bytes, and MapFirst of eight 32.8 ns and 88 bytes to 15.0 ns and
+nothing. EitherBenchmarks in SodaFlow.Benchmarks measures them.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
