@@ -78,6 +78,53 @@ public sealed class PrioritizedTests
         await Assert.That(runs).IsEqualTo(1);
     }
 
+    // The queue starts each transaction empty. Its minimum rank is then above its maximum rank,
+    // and the first entry sets the minimum rank. A second entry below the first lowers it. Thus,
+    // the two run in rank order and not in queue order.
+    [Test]
+    public async Task EntriesQueuedDeepFirstRunInRankOrder()
+    {
+        List<int> order = [];
+
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Node<int> deep = Chain(trans: trans, length: 5);
+            Node<int> shallow = Chain(trans: trans, length: 2);
+            trans.Prioritized(node: deep, action: _ => order.Add(5));
+            trans.Prioritized(node: shallow, action: _ => order.Add(2));
+            return UnitInternal.Value;
+        });
+
+        await Assert.That(order).IsEquivalentTo(expected: [2, 5], ordering: CollectionOrdering.Matching);
+    }
+
+    // The queue empties when the only entry runs, and the entry then queues one below its own
+    // rank. The queue resets before the action runs, thus the new entry sets the minimum rank
+    // again, and runs in the same transaction.
+    [Test]
+    public async Task AnEntryThatEmptiesTheQueueCanQueueAnEntryBelowItsRank()
+    {
+        List<int> order = [];
+
+        TransactionInternal.Apply((trans, _) =>
+        {
+            Node<int> deep = Chain(trans: trans, length: 5);
+            Node<int> shallow = Chain(trans: trans, length: 2);
+
+            trans.Prioritized(
+                node: deep,
+                action: t =>
+                {
+                    order.Add(5);
+                    t.Prioritized(node: shallow, action: _ => order.Add(2));
+                });
+
+            return UnitInternal.Value;
+        });
+
+        await Assert.That(order).IsEquivalentTo(expected: [5, 2], ordering: CollectionOrdering.Matching);
+    }
+
     // The raw stream of the switch shows each firing. Cell.Updates combines the firings of one
     // transaction, thus it does not show a second one.
     [Test]

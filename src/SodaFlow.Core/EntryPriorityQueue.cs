@@ -13,7 +13,13 @@ internal sealed class EntryPriorityQueue
     private int entriesSize = 1000;
     private int maxRank = -1;
 
-    private int minRank;
+    // The minimum rank in the queue, or int.MaxValue when the queue is empty. Dequeue walks the
+    // buckets from this rank to the first entry. Each transaction starts with an empty queue.
+    // Thus, with zero as the empty value, a transaction whose first entry had a deep rank walked
+    // each bucket below it. With int.MaxValue, the test in Enqueue that lowers this rank sets
+    // it at the first entry, and the walk starts there. An entry with NullRank goes to the last
+    // list and does not touch this rank.
+    private int minRank = int.MaxValue;
 
     private void CheckQueue()
     {
@@ -62,7 +68,7 @@ internal sealed class EntryPriorityQueue
             return false;
         }
 
-        this.minRank = 0;
+        this.minRank = int.MaxValue;
         this.maxRank = -1;
         return this.last.Head == null;
     }
@@ -179,7 +185,7 @@ internal sealed class EntryPriorityQueue
         {
             if (this.minRank > this.maxRank)
             {
-                this.minRank = 0;
+                this.minRank = int.MaxValue;
                 this.maxRank = -1;
 
                 if (this.last.Head != null)
@@ -222,7 +228,7 @@ internal sealed class EntryPriorityQueue
 
                     if (this.minRank > this.maxRank)
                     {
-                        this.minRank = 0;
+                        this.minRank = int.MaxValue;
                         this.maxRank = -1;
                         break;
                     }

@@ -14,6 +14,13 @@ with the sink and the value as fields, where it held a closure and a delegate, a
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
 send to a sink with one listener, .NET 10: 192 to 183 ns and 680 to 544 bytes.
 
+A transaction whose first entry in the priority queue has a deep rank no longer walks every empty bucket below that
+rank. The queue starts each transaction empty with its floor at zero, so a send whose only listener sat at rank one
+thousand, as the second source of a merge with a deep stream does, walked a thousand buckets before it ran. The empty
+floor is now above the ceiling, and the first entry sets it. Measured on such a send with the merge's chain at 10,
+100, and 1000 maps, .NET 10: 409, 852, and 4965 ns to 341, 347, and 352 ns. A send to a sink with one listener does
+not change.
+
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
 after every send and every listener, read the pending update of the cell being sampled, and a lazy initial value was
