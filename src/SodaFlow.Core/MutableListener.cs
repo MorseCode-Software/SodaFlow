@@ -23,16 +23,30 @@ public class MutableListener : IListener
     void IListener.Unlisten() => this.listener?.Unlisten();
     IListenerWithWeakReference IListener.GetListenerWithWeakReference() => this.weakMutableListener;
 
+    // The previous target stops after this code sets the new target. Thus, a reader of this
+    // listener never finds it with no target between the two. A set of the target that this
+    // listener holds now stops nothing. Otherwise, a second set of one listener stops it with no
+    // message.
     internal void SetListenerImpl(IListener listener)
     {
+        IListener? previous = this.listener;
+
+        if (ReferenceEquals(objA: previous, objB: listener))
+        {
+            return;
+        }
+
         this.listener = listener;
         this.weakMutableListener.WeakListener = listener.GetListenerWithWeakReference();
+        previous?.Unlisten();
     }
 
     internal void ClearListenerImpl()
     {
+        IListener? previous = this.listener;
         this.listener = null;
         this.weakMutableListener.WeakListener = null;
+        previous?.Unlisten();
     }
 
     private class WeakMutableListener : IListenerWithWeakReference

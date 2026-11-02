@@ -14,11 +14,6 @@ internal static class BehaviorExtensionMethodsInternal
             Stream<T> @out = new(bba.KeepListenersAlive);
             MutableListener currentListener = new();
 
-            // The listener on the inner behavior, from the last commit. The handler reads it, and
-            // the commit of a switch writes it. MutableListener has no getter, thus this closure
-            // keeps its own reference.
-            IListener? inner = null;
-
             IListener l1 =
                 bba.Value(trans1)
                     .Listen(target: @out.Node, trans: trans1, action: H, suppressEarlierFirings: false);
@@ -38,10 +33,6 @@ internal static class BehaviorExtensionMethodsInternal
                 // chain links into the output node, thus it has a lower rank, and the drain ran it
                 // before this handler. A dependency of an inner behavior on the output is a cycle,
                 // which Link refuses. FailedTransactionTests holds the two cases.
-                // ReSharper disable once AccessToModifiedClosure - The handler reads the listener
-                // that the last commit set.
-                IListener? previous = inner;
-
                 IListener next =
                     ba.Value(trans2)
                         .Listen(
@@ -50,14 +41,8 @@ internal static class BehaviorExtensionMethodsInternal
                             action: @out.Send,
                             suppressEarlierFirings: false);
 
-                trans2.Last(
-                    commit: () =>
-                    {
-                        previous?.Unlisten();
-                        inner = next;
-                        currentListener.SetListenerImpl(next);
-                    },
-                    discard: next.Unlisten);
+                // The set stops the previous listener, which the mutable listener holds.
+                trans2.Last(commit: () => currentListener.SetListenerImpl(next), discard: next.Unlisten);
             }
         });
 
@@ -82,28 +67,19 @@ internal static class BehaviorExtensionMethodsInternal
 
             return @out.UnsafeAttachListener(l1).UnsafeAttachListener(currentListener);
 
-            void HInitial(TransactionInternal trans2, Stream<T> sa)
-            {
-                IListener cl = currentListener;
-                cl.Unlisten();
-
+            // Each set stops the previous listener, which the mutable listener holds.
+            void HInitial(TransactionInternal trans2, Stream<T> sa) =>
                 currentListener.SetListenerImpl(
                     sa.Listen(target: @out.Node, trans: trans2, action: @out.Send, suppressEarlierFirings: false));
-            }
 
             void H(TransactionInternal trans2, Stream<T> sa) =>
                 trans2.Last(() =>
-                {
-                    IListener cl = currentListener;
-                    cl.Unlisten();
-
                     currentListener.SetListenerImpl(
                         sa.Listen(
                             target: @out.Node,
                             trans: trans2,
                             action: @out.Send,
-                            suppressEarlierFirings: true));
-                });
+                            suppressEarlierFirings: true)));
         });
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(

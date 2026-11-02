@@ -822,6 +822,45 @@ type ``Behavior Tests``() =
             do! Expect.Sequence([ 0; 1; 2; 3; 4; 5; 6; 7; 8; 9 ], out)
         }
 
+    // A switch stops the listener on the stream it leaves. The switch keeps one mutable listener
+    // and points it at the new stream, and that set is what stops the old one.
+    [<Test>]
+    member _.``a stream switched away from does not reach the output``() =
+        task {
+            let first = sinkS ()
+            let second = sinkS ()
+            let selected = sinkC (first :> Stream<int>)
+            let out = List<_>()
+            let l = selected |> switchS |> listenStrongS out.Add
+
+            first |> sendS 1
+            selected |> sendC second
+            first |> sendS 2
+            second |> sendS 3
+            l |> unlistenStrongL
+
+            do! Expect.Sequence([ 1; 3 ], out)
+        }
+
+    // The same for a cell. switchC goes through switchB, whose commit points the mutable listener
+    // at the new behavior.
+    [<Test>]
+    member _.``a cell switched away from does not reach the output``() =
+        task {
+            let first = sinkC 1
+            let second = sinkC 10
+            let selected = sinkC (first :> Cell<int>)
+            let out = List<_>()
+            let l = selected |> switchC |> listenStrongC out.Add
+
+            selected |> sendC second
+            first |> sendC 2
+            second |> sendC 11
+            l |> unlistenStrongL
+
+            do! Expect.Sequence([ 1; 10; 11 ], out)
+        }
+
     [<Test>]
     member _.``Test SwitchS``() =
         task {
