@@ -313,7 +313,9 @@ Stream<Unit> anyChange = changes.MapTo(Unit.Value);
 
 Where an `Action` has to become a function — because the API you are handing it to returns a
 value — `ToFunc` and `ToAsyncFunc` wrap one so that it answers `Unit`. Neither defers anything
-beyond what the action already defers; they call it and return `Unit.Value`.
+beyond what the action already defers; they call it and return `Unit.Value`. The task from
+`ToAsyncFunc` does not come back to the caller's synchronization context, so a caller that blocks
+on it does not deadlock.
 
 ```csharp
 Func<Unit> f = someAction.ToFunc();

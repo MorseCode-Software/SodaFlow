@@ -43,6 +43,13 @@ capture a counter; MapFirst of eight 16.8 ns and 88 bytes to 5.3 ns and nothing.
 eight 130.3 ns and 1220 bytes to 41.4 ns and 514 bytes, and MapFirst of eight 32.8 ns and 88 bytes to 15.0 ns and
 nothing. EitherBenchmarks in SodaFlow.Benchmarks measures them.
 
+Fixed: the ToAsyncFunc overloads awaited the action without ConfigureAwait(false), so the continuation that gives
+Unit.Value went back to the caller's synchronization context. A caller on a single-threaded context, such as a UI
+thread, that blocked on the task from MatchAsyncVoid, or from a wrapper of its own, with an action that completed on
+another thread, never got that continuation and hung. The wrappers now stay off the caller's context, as the rest of
+this package already did. A caller that awaits the task sees no change, because its own await decides where it
+continues. The build now fails on an unconfigured await in library code, so the omission cannot come back.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
