@@ -32,6 +32,23 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     where TKey : notnull
     where TIdentity : notnull
 {
+    /// <summary>
+    ///     The fewest operations that the index is for. A scan of fewer costs less
+    ///     than one read of a dictionary.
+    /// </summary>
+    internal const int MinimumOperationsForIndex = 8;
+
+    /// <summary>
+    ///     How many lookups a change answers with a scan before it builds the index.
+    ///     An index costs one write for each operation, and one observer does not get
+    ///     that back. The scans before the index cost at most this many times the
+    ///     cost of the index, whatever the number of observers.
+    /// </summary>
+    internal const int LookupsBeforeIndex = 8;
+
+    private Dictionary<TKey, bool>? index;
+    private int lookups;
+
     internal CollectionViewChange(
         CollectionSnapshot<TKey, TIdentity, TState> before,
         CollectionSnapshot<TKey, TIdentity, TState> after,
@@ -134,6 +151,9 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
 
     internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
 
+    /// <summary>True when the change built its index. The tests read this.</summary>
+    internal bool IsIndexed => this.index is not null;
+
     /// <summary>
     ///     The result of this change for one key, or nothing when the change has no
     ///     result for it.
@@ -153,6 +173,19 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
     ///         Thus, this code calculates the answer again from the store, and only
     ///         for a key that one of the two sides holds.
     ///     </para>
+    ///     <para>
+    ///         A change answers its first lookups with a scan of its operations. A
+    ///         small change costs one comparison for each operation, which is less
+    ///         than one read of a dictionary. A wide change with many observers costs
+    ///         the product of the two, and almost each comparison finds nothing. Thus,
+    ///         a change with <see cref="MinimumOperationsForIndex" /> operations or
+    ///         more builds a dictionary from each key to a flag, at its first lookup
+    ///         after <see cref="LookupsBeforeIndex" /> scans. The flag says if an
+    ///         insert or a removal names the key, which is what the identity
+    ///         projection asks. Each lookup after that is one read of the
+    ///         dictionary. The three projections share the count and the
+    ///         dictionary.
+    ///     </para>
     /// </remarks>
     internal MaybeInternal<TProjected> ProjectChangeFor<TProjected>(
         TKey key,
@@ -166,20 +199,9 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                 : MaybeInternal<TProjected>.None;
         }
 
-        // This code uses an index and not an enumeration. Operations has an interface type, thus
-        // a foreach boxes an enumerator one time for each observer and for each change. This method
-        // keeps that cost low. A LINQ query also boxes one.
-        // ReSharper disable once ForCanBeConvertedToForeach
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        for (int index = 0; index < this.Operations.Count; index++)
-        {
-            if (this.KeyEqualityComparer.Equals(x: this.Operations[index].Key, y: key))
-            {
-                return this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent);
-            }
-        }
-
-        return MaybeInternal<TProjected>.None;
+        return this.Names(key: key, membershipOnly: false)
+            ? this.Project(key: key, onPresent: onPresent, onAbsent: onAbsent)
+            : MaybeInternal<TProjected>.None;
     }
 
     /// <summary>
@@ -205,24 +227,9 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                 : MaybeInternal<TProjected>.None;
         }
 
-        // This code uses an index and not an enumeration, for the cause in the projection
-        // above.
-        // ReSharper disable once ForCanBeConvertedToForeach
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        for (int index = 0; index < this.Operations.Count; index++)
-        {
-            ViewOperation<TKey> operation = this.Operations[index];
-
-            if (operation is ViewUpdate<TKey> or ViewMove<TKey>
-                || !this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
-            {
-                continue;
-            }
-
-            return this.ProjectIdentity(key: key, onPresent: onPresent, onAbsent: onAbsent);
-        }
-
-        return MaybeInternal<TProjected>.None;
+        return this.Names(key: key, membershipOnly: true)
+            ? this.ProjectIdentity(key: key, onPresent: onPresent, onAbsent: onAbsent)
+            : MaybeInternal<TProjected>.None;
     }
 
     /// <summary>
@@ -247,18 +254,82 @@ public sealed class CollectionViewChange<TKey, TIdentity, TState>
                 : MaybeInternal<TProjected>.None;
         }
 
-        // This code uses an index and not an enumeration, for the cause in the projection above.
+        return this.Names(key: key, membershipOnly: false)
+            ? this.ProjectItem(key: key, onPresent: onPresent, onAbsent: onAbsent)
+            : MaybeInternal<TProjected>.None;
+    }
+
+    /// <summary>
+    ///     True when an operation names the key. With
+    ///     <paramref name="membershipOnly" />, only an insert or a removal counts.
+    /// </summary>
+    /// <remarks>
+    ///     The lookups run in the transaction that sends the change, on the thread
+    ///     that runs it. Thus, no lock is necessary for the count or the index.
+    /// </remarks>
+    private bool Names(TKey key, bool membershipOnly)
+    {
+        if (this.index is null)
+        {
+            this.lookups++;
+
+            if (this.Operations.Count < MinimumOperationsForIndex || this.lookups <= LookupsBeforeIndex)
+            {
+                return this.Scan(key: key, membershipOnly: membershipOnly);
+            }
+
+            this.index = this.BuildIndex();
+        }
+
+        return this.index.TryGetValue(key: key, value: out bool changesMembership)
+            && (changesMembership || !membershipOnly);
+    }
+
+    private bool Scan(TKey key, bool membershipOnly)
+    {
+        // This code uses an index and not an enumeration. Operations has an interface type, thus
+        // a foreach boxes an enumerator one time for each observer and for each change. This method
+        // keeps that cost low. A LINQ query also boxes one.
         // ReSharper disable once ForCanBeConvertedToForeach
         // ReSharper disable once LoopCanBeConvertedToQuery
         for (int index = 0; index < this.Operations.Count; index++)
         {
-            if (this.KeyEqualityComparer.Equals(x: this.Operations[index].Key, y: key))
+            ViewOperation<TKey> operation = this.Operations[index];
+
+            if (membershipOnly && operation is ViewUpdate<TKey> or ViewMove<TKey>)
             {
-                return this.ProjectItem(key: key, onPresent: onPresent, onAbsent: onAbsent);
+                continue;
+            }
+
+            if (this.KeyEqualityComparer.Equals(x: operation.Key, y: key))
+            {
+                return true;
             }
         }
 
-        return MaybeInternal<TProjected>.None;
+        return false;
+    }
+
+    /// <summary>
+    ///     Each key that an operation names, with a flag that says if an insert or a
+    ///     removal names it. A key can be in two operations of one change, as in a
+    ///     removal and then an insert. Thus, the flag is true when one of them counts.
+    /// </summary>
+    private Dictionary<TKey, bool> BuildIndex()
+    {
+        Dictionary<TKey, bool> index = new(capacity: this.Operations.Count, comparer: this.KeyEqualityComparer);
+
+        // ReSharper disable once ForCanBeConvertedToForeach
+        for (int position = 0; position < this.Operations.Count; position++)
+        {
+            ViewOperation<TKey> operation = this.Operations[position];
+            bool changesMembership = operation is ViewInsert<TKey> or ViewRemove<TKey>;
+
+            index[operation.Key] =
+                changesMembership || (index.TryGetValue(key: operation.Key, value: out bool before) && before);
+        }
+
+        return index;
     }
 
     /// <summary>The key's two parts as this change left them, or their absence.</summary>
