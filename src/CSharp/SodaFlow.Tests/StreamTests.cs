@@ -291,6 +291,40 @@ public sealed class StreamTests
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9, 8], ordering: CollectionOrdering.Matching);
     }
 
+    // A merge of a list folds the simultaneous values from the first stream in the list, whatever
+    // the sequence of the sends. A function that is not associative shows the sequence.
+    [Test]
+    public async Task TestMergeListFoldsInListOrder()
+    {
+        StreamSink<string> a = Stream.CreateSink<string>();
+        StreamSink<string> b = Stream.CreateSink<string>();
+        StreamSink<string> c = Stream.CreateSink<string>();
+        List<string> @out = [];
+
+        IListener l =
+            new[] { a.AsStream(), b.AsStream(), c.AsStream() }
+                .Merge(static (left, right) => left + "," + right)
+                .ListenStrong(@out.Add);
+
+        Transaction.RunVoid(() =>
+        {
+            c.Send("c");
+            a.Send("a");
+            b.Send("b");
+        });
+
+        Transaction.RunVoid(() =>
+        {
+            c.Send("c");
+            a.Send("a");
+        });
+
+        b.Send("b");
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: ["a,b,c", "a,c", "b"], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task TestMergeSimultaneous()
     {
