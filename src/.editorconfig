@@ -8,3 +8,17 @@ dotnet_diagnostic.CA1859.severity = suggestion
 # to see it throw, the benchmark method that has to be an instance method.
 dotnet_diagnostic.CA1806.severity = none
 dotnet_diagnostic.CA1822.severity = none
+
+# Every await in library code here is only there to put a result in a task again. None of them runs
+# caller code on its continuation, so a continuation on a captured context costs a hop and gains
+# nothing, and it deadlocks a caller that blocks on the task from a single-threaded context - which
+# the ToAsyncFunc wrappers did, with the rest of SodaFlow.Functional already configured. The
+# analyzer is what keeps the next async member from leaving it off: with -warnaserror, an
+# unconfigured await in library code is a red build. A library await that has to keep its context,
+# of which there is none today, takes a pragma with its reason beside it.
+dotnet_diagnostic.CA2007.severity = warning
+
+# A test or a benchmark is the caller, and the context its await resumes on is the one the test
+# host gave it. Configuring those awaits would say something false about the code.
+[{**/*.Tests,**/*.Tests.*,**/*.Benchmarks}/**.cs]
+dotnet_diagnostic.CA2007.severity = none
