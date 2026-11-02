@@ -96,8 +96,9 @@ ReactiveCollection<Guid, AccountId, AccountState> accounts =
 `TKey` is inferred from the edit streams rather than from the interface, because C# type
 inference does not read constraints — so a collection created with no edit streams at all has to
 name its three type arguments, or use the selector overloads. F# has `createByIdentity` and
-`createByIdentityWith` for the same thing. Neither is required: the selector overloads stay the way to
-do this when the identity cannot or should not implement an interface.
+`createByIdentityWith` for the same thing; the second takes a key comparer first, as `createWith`
+does beside `create`. Neither is required: the selector overloads stay the way to do this when the
+identity cannot or should not implement an interface.
 
 Sinks still belong at the edge of the program — that is how UI events and I/O enter the graph
 at all — but they are the caller's, created at the boundary and passed in here as streams. If
