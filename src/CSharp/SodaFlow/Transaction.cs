@@ -58,6 +58,11 @@ public static class Transaction
     ///     Usually this is not necessary, because each primitive opens its own
     ///     transaction automatically.
     ///     It is useful to run more than one reactive operation atomically.
+    ///     A throw from <paramref name="action" /> fails the transaction that this
+    ///     call opened. No send made before the throw reaches the graph, each cell
+    ///     keeps its previous value, and the throw continues to the caller. In an
+    ///     open transaction, the throw reaches the code that opened it, with the
+    ///     same result.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static void RunVoid(Action action) =>
@@ -77,6 +82,11 @@ public static class Transaction
     ///     Usually this is not necessary, because each primitive opens its own
     ///     transaction automatically.
     ///     It is useful to run more than one reactive operation atomically.
+    ///     A throw from <paramref name="f" /> fails the transaction that this call
+    ///     opened. No send made before the throw reaches the graph, each cell keeps
+    ///     its previous value, and the throw continues to the caller. In an open
+    ///     transaction, the throw reaches the code that opened it, with the same
+    ///     result.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static T Run<T>(Func<T> f) => TransactionInternal.RunImpl(f);
