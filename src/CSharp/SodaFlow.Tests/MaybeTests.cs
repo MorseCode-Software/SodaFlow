@@ -335,4 +335,193 @@ public sealed class MaybeTests
             }
         }
     }
+
+    // The members below read the fields, where each was a call to Match with a lambda. These tests
+    // pin what each one does with a value, with no value, and with a contained null. Thus, they
+    // test the rewrite against the code it replaced.
+    [Test]
+    public async Task MapTransformsAValueAndSkipsNone()
+    {
+        int calls = 0;
+
+        Maybe<int> mapped = Maybe.Some(2).Map(v => v * 2 + calls++);
+        Maybe<int> none = Maybe<int>.None.Map(v => v * 2 + calls++);
+
+        await Assert.That(mapped).IsEqualTo(Maybe.Some(4));
+        await Assert.That(none).IsEqualTo(Maybe<int>.None);
+        await Assert.That(calls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task MapGivesAContainedNullToTheFunction()
+    {
+        Maybe<bool> isNull = Maybe.Some<string?>(null).Map(static v => v is null);
+
+        await Assert.That(isNull).IsEqualTo(Maybe.Some(true));
+    }
+
+    [Test]
+    public async Task BindGivesTheFunctionsResultAndSkipsNone()
+    {
+        int calls = 0;
+
+        Maybe<int> some = Maybe.Some(2).Bind(v => Maybe.Some(v + 1 + calls++));
+        Maybe<int> toNone = Maybe.Some(2).Bind(static _ => Maybe<int>.None);
+        Maybe<int> none = Maybe<int>.None.Bind(v => Maybe.Some(v + calls++));
+
+        await Assert.That(some).IsEqualTo(Maybe.Some(3));
+        await Assert.That(toNone).IsEqualTo(Maybe<int>.None);
+        await Assert.That(none).IsEqualTo(Maybe<int>.None);
+        await Assert.That(calls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task MatchVoidRunsExactlyOneAction()
+    {
+        List<string> ran = [];
+
+        Maybe.Some(2).MatchVoid(onSome: v => ran.Add($"some {v}"), onNone: () => ran.Add("none"));
+        Maybe<int>.None.MatchVoid(onSome: v => ran.Add($"some {v}"), onNone: () => ran.Add("none"));
+        Maybe.Some<string?>(null).MatchVoid(onSome: v => ran.Add($"some {v ?? "null"}"), onNone: () => ran.Add("none"));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(expected: ["some 2", "none", "some null"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task MatchSomeRunsOnlyWithAValue()
+    {
+        List<int> ran = [];
+
+        Maybe.Some(2).MatchSome(ran.Add);
+        Maybe<int>.None.MatchSome(ran.Add);
+
+        await Assert.That(ran).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task MatchNoneRunsOnlyWithoutAValue()
+    {
+        int ran = 0;
+
+        Maybe.Some(2).MatchNone(() => ran++);
+        Maybe<int>.None.MatchNone(() => ran++);
+
+        await Assert.That(ran).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ValueOrGivesTheValueOrTheDefault()
+    {
+        int factoryCalls = 0;
+
+        await Assert.That(Maybe.Some(2).ValueOr(7)).IsEqualTo(2);
+        await Assert.That(Maybe<int>.None.ValueOr(7)).IsEqualTo(7);
+        await Assert.That(Maybe.Some(2).ValueOr(() => 7 + factoryCalls++)).IsEqualTo(2);
+        await Assert.That(Maybe<int>.None.ValueOr(() => 7 + factoryCalls++)).IsEqualTo(7);
+        await Assert.That(factoryCalls).IsEqualTo(1);
+        await Assert.That(Maybe.Some<string?>(null).ValueOr("default")).IsNull();
+    }
+
+    [Test]
+    public async Task ValueOrDefaultGivesTheDefaultForNone()
+    {
+        await Assert.That(Maybe.Some(2).ValueOrDefault()).IsEqualTo(2);
+        await Assert.That(Maybe<int>.None.ValueOrDefault()).IsEqualTo(0);
+        await Assert.That(Maybe<string>.None.ValueOrDefault()).IsNull();
+    }
+
+    [Test]
+    public async Task ValueOrThrowThrowsOnlyForNone()
+    {
+        int calls = 0;
+
+        await Assert.That(Maybe.Some(2).ValueOrThrow(() => new InvalidOperationException($"{calls++}"))).IsEqualTo(2);
+        await Assert.That(calls).IsEqualTo(0);
+
+        await Assert.That(static () => Maybe<int>.None.ValueOrThrow(static () => new InvalidOperationException("none")))
+            .Throws<InvalidOperationException>()
+            .WithMessage("none");
+    }
+
+    [Test]
+    public async Task OrElseKeepsAValueAndTakesTheOtherForNone()
+    {
+        int calls = 0;
+
+        await Assert.That(Maybe.Some(2).OrElse(Maybe.Some(7))).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Maybe<int>.None.OrElse(Maybe.Some(7))).IsEqualTo(Maybe.Some(7));
+        await Assert.That(Maybe<int>.None.OrElse(Maybe<int>.None)).IsEqualTo(Maybe<int>.None);
+        await Assert.That(Maybe.Some(2).OrElse(() => Maybe.Some(7 + calls++))).IsEqualTo(Maybe.Some(2));
+        await Assert.That(Maybe<int>.None.OrElse(() => Maybe.Some(7 + calls++))).IsEqualTo(Maybe.Some(7));
+        await Assert.That(calls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ToNullableFollowsTheValue()
+    {
+        await Assert.That(Maybe.Some(2).ToNullable()).IsEqualTo(2);
+        await Assert.That(Maybe<int>.None.ToNullable()).IsNull();
+    }
+
+    [Test]
+    public async Task LiftCombinesValuesAndSkipsWhenAnyIsNone()
+    {
+        int calls = 0;
+        Maybe<int> none = Maybe<int>.None;
+
+        await Assert.That(Maybe.Some(1).Lift(b: Maybe.Some(2), f: Add2)).IsEqualTo(Maybe.Some(3));
+        await Assert.That(Maybe.Some(1).Lift(b: none, f: Add2)).IsEqualTo(none);
+        await Assert.That(none.Lift(b: Maybe.Some(2), f: Add2)).IsEqualTo(none);
+        await Assert.That(Maybe.Some(1).Lift(b: Maybe.Some(2), c: Maybe.Some(3), f: Add3)).IsEqualTo(Maybe.Some(6));
+        await Assert.That(Maybe.Some(1).Lift(b: Maybe.Some(2), c: none, f: Add3)).IsEqualTo(none);
+
+        await Assert.That(Maybe.Some(1).Lift(b: Maybe.Some(2), c: Maybe.Some(3), d: Maybe.Some(4), f: Add4))
+            .IsEqualTo(Maybe.Some(10));
+
+        await Assert.That(Maybe.Some(1).Lift(b: Maybe.Some(2), c: Maybe.Some(3), d: none, f: Add4)).IsEqualTo(none);
+        await Assert.That(calls).IsEqualTo(3);
+        return;
+
+        int Add2(int a, int b)
+        {
+            calls++;
+            return a + b;
+        }
+
+        int Add3(int a, int b, int c)
+        {
+            calls++;
+            return a + b + c;
+        }
+
+        int Add4(int a, int b, int c, int d)
+        {
+            calls++;
+            return a + b + c + d;
+        }
+    }
+
+    [Test]
+    public async Task UntypedMembersReadTheValueAsAnObject()
+    {
+        List<string> ran = [];
+        IMaybe some = Maybe.Some(2);
+        IMaybe none = Maybe<int>.None;
+
+        await Assert.That(some.Match(onSome: static v => $"some {v}", onNone: static () => "none")).IsEqualTo("some 2");
+        await Assert.That(none.Match(onSome: static v => $"some {v}", onNone: static () => "none")).IsEqualTo("none");
+
+        some.MatchVoid(onSome: v => ran.Add($"void some {v}"), onNone: () => ran.Add("void none"));
+        none.MatchVoid(onSome: v => ran.Add($"void some {v}"), onNone: () => ran.Add("void none"));
+        some.MatchSome(v => ran.Add($"some {v}"));
+        none.MatchSome(v => ran.Add($"some {v}"));
+        some.MatchNone(() => ran.Add("none"));
+        none.MatchNone(() => ran.Add("none"));
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["void some 2", "void none", "some 2", "none"],
+                ordering: CollectionOrdering.Matching);
+    }
 }
