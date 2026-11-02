@@ -970,6 +970,45 @@ public sealed class BehaviorTests
         public readonly Maybe<Stream<char>> Sw = sw;
     }
 
+    // A switch stops the listener on the stream it leaves. The switch keeps one mutable listener
+    // and points it at the new stream, and that set is what stops the old one.
+    [Test]
+    public async Task AStreamSwitchedAwayFromDoesNotReachTheOutput()
+    {
+        StreamSink<int> first = Stream.CreateSink<int>();
+        StreamSink<int> second = Stream.CreateSink<int>();
+        CellSink<Stream<int>> selected = Cell.CreateSink(first.AsStream());
+        List<int> @out = [];
+        IListener l = selected.SwitchS().ListenStrong(@out.Add);
+
+        first.Send(1);
+        selected.Send(second);
+        first.Send(2);
+        second.Send(3);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same for a cell. SwitchC goes through SwitchB, whose commit points the mutable listener
+    // at the new behavior.
+    [Test]
+    public async Task ACellSwitchedAwayFromDoesNotReachTheOutput()
+    {
+        CellSink<int> first = Cell.CreateSink(1);
+        CellSink<int> second = Cell.CreateSink(10);
+        CellSink<Cell<int>> selected = Cell.CreateSink(first.AsCell());
+        List<int> @out = [];
+        IListener l = selected.SwitchC().ListenStrong(@out.Add);
+
+        selected.Send(second);
+        first.Send(2);
+        second.Send(11);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [1, 10, 11], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task TestSwitchS()
     {
