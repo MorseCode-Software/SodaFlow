@@ -38,6 +38,7 @@
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
         <Compile Include="DeepFirstEntryBenchmarks.cs"/>
+        <Compile Include="EitherBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateShapes.cs"/>
         <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
