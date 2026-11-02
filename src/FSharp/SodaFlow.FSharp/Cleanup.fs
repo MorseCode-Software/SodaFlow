@@ -6,12 +6,13 @@ module SodaFlow.Cleanup
 open System.Runtime.CompilerServices
 
 /// <summary>
-///     Runs the cleanup action now, rather than waiting for the object to be garbage collected.
+///     Runs the cleanup action now, on this thread, and does not wait for a GC to collect the
+///     object.
 /// </summary>
 /// <param name="cleanup">The cleanup object.</param>
 /// <remarks>
-///     A <c>Cleanup</c> otherwise runs its action from a finalizer, at a time the collector
-///     chooses. Use this where the moment matters.
+///     The action runs one time. A second call does nothing, and the collection of the object
+///     after this call runs nothing.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let cleanupNow (cleanup: Cleanup) = cleanup.CleanupNowImpl()

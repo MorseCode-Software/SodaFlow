@@ -10,10 +10,14 @@ namespace SodaFlow;
 public static class CleanupExtensionMethods
 {
     /// <summary>
-    ///     Forces the cleanup to occur now, and does not wait for a GC to collect this
-    ///     object.
+    ///     Runs the cleanup action now, on this thread, and does not wait for a GC to
+    ///     collect this object.
     /// </summary>
     /// <param name="c">The cleanup object.</param>
+    /// <remarks>
+    ///     The action runs one time. A second call does nothing, and the collection
+    ///     of the object after this call runs nothing.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static void CleanupNow(this Cleanup c) => c.CleanupNowImpl();
 }
