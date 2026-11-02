@@ -18,6 +18,14 @@ internal sealed record NamedIdentity(string Name);
 /// <summary>The mutable part of such an item.</summary>
 internal sealed record NamedState(int Score);
 
+/// <summary>The same immutable part, with its own key, for the form with no selector.</summary>
+// ReSharper disable once InheritdocConsiderUsage - the summary says what this identity is for, and the
+// interface's summary does not.
+file sealed record SelfNamedIdentity(string Name) : IIdentity<string>
+{
+    public string Key => this.Name;
+}
+
 /// <summary>
 ///     A collection with its own key equality comparer. Each value with a key in a
 ///     change must agree with the store about the identity of a key. Without that
@@ -43,6 +51,40 @@ public sealed class KeyEqualityComparerTests
             key: key,
             // ReSharper disable once WithExpressionModifiesAllMembers
             transform: state => state with { Score = score });
+
+    /// <summary>
+    ///     The form with no selector takes the comparer too, thus an identity that
+    ///     holds its own key does not force a strict comparer.
+    /// </summary>
+    [Test]
+    public async Task TheIdentityFormMatchesKeysWithTheGivenComparer()
+    {
+        StreamSink<CollectionEdit<string, SelfNamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, SelfNamedIdentity, NamedState>>();
+
+        Item<SelfNamedIdentity, NamedState> initial =
+            new(identity: new SelfNamedIdentity("ABC"), state: new NamedState(1));
+
+        ReactiveCollection<string, SelfNamedIdentity, NamedState> collection =
+            ReactiveCollection.Create(
+                keyEqualityComparer: StringComparer.OrdinalIgnoreCase,
+                initialEntries: [initial],
+                edits);
+
+        await Assert.That(collection.SnapshotCell.Sample().ContainsKey("abc")).IsTrue();
+
+        edits.Send(
+            CollectionEdit<string, SelfNamedIdentity, NamedState>.Update(
+                key: "abc",
+                // ReSharper disable once WithExpressionModifiesAllMembers
+                transform: static state => state with { Score = 2 }));
+
+        await Assert.That(
+                collection.SnapshotCell.Sample().States.TryGetState(key: "ABC", state: out NamedState? state)
+                    ? state.Score
+                    : -1)
+            .IsEqualTo(2);
+    }
 
     /// <summary>The store, which is the base that each other value must agree with.</summary>
     [Test]
