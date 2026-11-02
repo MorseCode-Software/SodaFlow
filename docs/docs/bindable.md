@@ -144,9 +144,10 @@ A disposed action reports `CanExecute` as false, so a torn-down view model canno
 through a stale binding.
 
 For a `StreamSink<Unit>` the parameterless overload wins overload resolution and yields the
-non-generic `IBindableAction`. Write `CreateBindableAction<Unit>(...)` explicitly if you want the
-parameterized form for a unit sink. A `StreamSink<Maybe<T>>` gives a command whose
-`CommandParameter` can be null, a `T`, or a `Maybe<T>`.
+non-generic `IBindableAction`, whose command ignores its `CommandParameter`. That is the one you
+want: `IBindableAction` is already an `IBindableAction<Unit>`, and the generic form with `Unit`
+would accept only a `Unit` as the parameter, which no binding supplies. A `StreamSink<Maybe<T>>`
+gives a command whose `CommandParameter` can be null, a `T`, or a `Maybe<T>`.
 
 ## The binding scheduler
 
