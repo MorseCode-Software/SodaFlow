@@ -298,8 +298,23 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
 
     #region Base Functionality
 
+    /// <summary>
+    ///     Reads the value and uses no callback. The members here read the fields
+    ///     through this, thus a call to one of them allocates nothing. This stays
+    ///     internal, and a caller answers the two cases through
+    ///     <see cref="Match{TResult}" />. That is the member that gives the value to
+    ///     code in a different package.
+    /// </summary>
+    internal bool TryGetValue(out T value)
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed - The value is null only when hasValue is false,
+        // and a caller reads it only when this returns true.
+        value = this.value!;
+        return this.hasValue;
+    }
+
     T1 IMaybe.Match<T1>(Func<object?, T1> onSome, Func<T1> onNone) =>
-        this.Match(onSome: v => onSome(v), onNone: onNone);
+        this.hasValue ? onSome(this.value) : onNone();
 
     /// <summary>
     ///     Runs one function when there is a value, and a different one when there is
@@ -310,9 +325,9 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     /// <param name="onNone">Run when there is no value.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the contained value, and it expresses
-    ///     each other member here. This calls one function of the two, before this
-    ///     method returns.
+    ///     This is the member that gives the contained value to the caller. The
+    ///     other members read the fields, thus a call to one of them allocates
+    ///     nothing. This calls one function of the two, before this method returns.
     /// </remarks>
     public TResult Match<TResult>(Func<T, TResult> onSome, Func<TResult> onNone) =>
         // ReSharper disable once NullableWarningSuppressionIsUsed - If hasValue is true, then value will have a
@@ -323,7 +338,6 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
 
     #region Helper Methods
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
     ///     Runs one action when there is a value, and a different action when there is
     ///     none.
@@ -332,33 +346,42 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     /// <param name="onNone">Run when there is no value.</param>
     public void MatchVoid(
         [InstantHandle] Action<T> onSome,
-        [InstantHandle] Action onNone) =>
-        this.Match(onSome: onSome.ToFunc(), onNone: onNone.ToFunc());
+        [InstantHandle] Action onNone)
+    {
+        if (this.TryGetValue(out T value))
+        {
+            onSome(value);
+        }
+        else
+        {
+            onNone();
+        }
+    }
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
     ///     Runs an action with the contained value when there is one, and otherwise
     ///     does nothing.
     /// </summary>
     /// <param name="onSome">Run with the contained value when there is one.</param>
-    public void MatchSome([InstantHandle] Action<T> onSome) =>
-        this.MatchVoid(
-            onSome: onSome,
-            onNone: static () =>
-            {
-            });
+    public void MatchSome([InstantHandle] Action<T> onSome)
+    {
+        if (this.TryGetValue(out T value))
+        {
+            onSome(value);
+        }
+    }
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
     /// <summary>
     ///     Runs an action when there is no value, and otherwise does nothing.
     /// </summary>
     /// <param name="onNone">Run when there is no value.</param>
-    public void MatchNone([InstantHandle] Action onNone) =>
-        this.MatchVoid(
-            onSome: static _ =>
-            {
-            },
-            onNone: onNone);
+    public void MatchNone([InstantHandle] Action onNone)
+    {
+        if (!this.hasValue)
+        {
+            onNone();
+        }
+    }
 
     /// <summary>
     ///     Runs one asynchronous function when there is a value, and a different one
@@ -425,7 +448,8 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     ///     The <see cref="Maybe{TResult}" /> which results from transforming this
     ///     <see cref="Maybe{T}" /> using <paramref name="f" />.
     /// </returns>
-    public Maybe<TResult> Map<TResult>([InstantHandle] Func<T, TResult> f) => this.Bind(v => Maybe.Some(f(v)));
+    public Maybe<TResult> Map<TResult>([InstantHandle] Func<T, TResult> f) =>
+        this.TryGetValue(out T value) ? Maybe.Some(f(value)) : Maybe<TResult>.None;
 
     /// <summary>
     ///     Gives true when there is a value.
@@ -441,29 +465,35 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     ///     two cases.
     /// </remarks>
     [Pure]
-    public bool HasValue() => this.Match(onSome: static _ => true, onNone: static () => false);
+    public bool HasValue() => this.hasValue;
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-    void IMaybe.MatchVoid(Action<object?> onSome, Action onNone) =>
-        this.Upcast<IMaybe>().Match(onSome: onSome.ToFunc(), onNone: onNone.ToFunc());
+    void IMaybe.MatchVoid(Action<object?> onSome, Action onNone)
+    {
+        if (this.hasValue)
+        {
+            onSome(this.value);
+        }
+        else
+        {
+            onNone();
+        }
+    }
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-    void IMaybe.MatchSome(Action<object?> onSome) =>
-        this.Upcast<IMaybe>()
-            .MatchVoid(
-                onSome: onSome,
-                onNone: static () =>
-                {
-                });
+    void IMaybe.MatchSome(Action<object?> onSome)
+    {
+        if (this.hasValue)
+        {
+            onSome(this.value);
+        }
+    }
 
-    // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
-    void IMaybe.MatchNone(Action onNone) =>
-        this.Upcast<IMaybe>()
-            .MatchVoid(
-                onSome: static _ =>
-                {
-                },
-                onNone: onNone);
+    void IMaybe.MatchNone(Action onNone)
+    {
+        if (!this.hasValue)
+        {
+            onNone();
+        }
+    }
 
     Task<TResult> IMaybe.MatchAsync<TResult>(Func<object?, Task<TResult>> onSome, Func<Task<TResult>> onNone) =>
         this.Upcast<IMaybe>().Match(onSome: onSome, onNone: onNone);

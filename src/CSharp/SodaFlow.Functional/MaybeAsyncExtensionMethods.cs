@@ -57,7 +57,7 @@ public static class MaybeAsyncExtensionMethods
     public static Task<Maybe<TResult>> MapAsync<T, TResult>(
         this Maybe<T> a,
         [InstantHandle] Func<T, Task<TResult>> f) =>
-        a.Match(onSome: v => WrapAsync(f(v)), onNone: NoneTask<TResult>);
+        a.TryGetValue(out T value) ? WrapAsync(f(value)) : NoneTask<TResult>();
 
     /// <summary>
     ///     Transforms the contained value into a second <see cref="Maybe{T}" /> with
@@ -80,7 +80,7 @@ public static class MaybeAsyncExtensionMethods
     public static Task<Maybe<TResult>> BindAsync<T, TResult>(
         this Maybe<T> a,
         [InstantHandle] Func<T, Task<Maybe<TResult>>> f) =>
-        a.Match(onSome: f, onNone: NoneTask<TResult>);
+        a.TryGetValue(out T value) ? f(value) : NoneTask<TResult>();
 
     /// <summary>
     ///     Keeps the contained value only if it satisfies an asynchronous predicate.
@@ -96,7 +96,7 @@ public static class MaybeAsyncExtensionMethods
     public static Task<Maybe<T>> WhereAsync<T>(
         this Maybe<T> a,
         [InstantHandle] Func<T, Task<bool>> predicate) =>
-        a.Match(onSome: v => KeepIfAsync(value: v, keep: predicate(v)), onNone: NoneTask<T>);
+        a.TryGetValue(out T value) ? KeepIfAsync(value: value, keep: predicate(value)) : NoneTask<T>();
 
     /// <summary>
     ///     Transforms the value the task will give, if it gives one.
