@@ -347,4 +347,77 @@ public sealed class FailedTransactionTests
 
         boom.Unlisten();
     }
+
+    // A throw from the body of a transaction fails it, as a throw from a listener does. The
+    // sends before the throw do not reach the graph, and the next transaction works.
+    [Test]
+    public async Task AThrowFromTheBodyDiscardsTheSendsBeforeIt()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Cell<int> held = s.Hold(0);
+        List<int> @out = [];
+        IListener l = s.ListenStrong(@out.Add);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    throw new InvalidOperationException("body");
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("body");
+
+        await Assert.That(@out).IsEmpty();
+        await Assert.That(held.Sample()).IsEqualTo(0);
+
+        s.Send(2);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+        await Assert.That(held.Sample()).IsEqualTo(2);
+    }
+
+    // A nested Run that throws reaches the body of the root transaction, and the root fails.
+    [Test]
+    public async Task AThrowFromANestedRunDiscardsTheSendsOfTheRoot()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<int> @out = [];
+        IListener l = s.ListenStrong(@out.Add);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    Transaction.RunVoid(static () => throw new InvalidOperationException("nested"));
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("nested");
+
+        l.Unlisten();
+
+        await Assert.That(@out).IsEmpty();
+    }
+
+    // A post with a release, queued before the throw, gets its release with the cause, and the
+    // posted action does not run.
+    [Test]
+    public async Task AThrowFromTheBodyReleasesThePostsBeforeIt()
+    {
+        bool ran = false;
+        Exception? cause = null;
+        InvalidOperationException thrown = new("body");
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(action: () => ran = true, onFailure: e => cause = e);
+                    throw thrown;
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("body");
+
+        await Assert.That(ran).IsFalse();
+        await Assert.That(cause).IsSameReferenceAs(thrown);
+    }
 }

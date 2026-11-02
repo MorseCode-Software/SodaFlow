@@ -1,6 +1,7 @@
 ﻿module SodaFlow.Tests.Transaction
 
 open System
+open System.Collections.Generic
 open System.Threading
 open SodaFlow
 open TUnit.Core
@@ -196,4 +197,35 @@ type ``Transaction Tests``() =
             do! Expect.True(getAssertIsTrueValue threadIsActive3)
             do! Expect.True(getAssertIsTrueValue threadIsActive4)
             do! Expect.False(getAssertIsFalseValue threadIsActive5)
+        }
+
+    // A throw from the body of a transaction fails it, as a throw from a listener does. The sends
+    // before the throw do not reach the graph, and the next transaction works.
+    [<Test>]
+    member _.``a throw from the body discards the sends before it``() =
+        task {
+            let s = sinkS ()
+            let held = s |> holdS 0
+            let out = List<int>()
+            let l = s |> listenStrongS out.Add
+
+            let thrown =
+                try
+                    runT (fun () ->
+                        s |> sendS 1
+                        raise (InvalidOperationException "body"))
+
+                    None
+                with :? InvalidOperationException as e ->
+                    Some e
+
+            do! Expect.Equal(Some "body", thrown |> Option.map (fun e -> e.Message))
+            do! Expect.Equal(0, out.Count)
+            do! Expect.Equal(0, held |> sampleC)
+
+            s |> sendS 2
+            l |> unlistenStrongL
+
+            do! Expect.Sequence([ 2 ], out)
+            do! Expect.Equal(2, held |> sampleC)
         }

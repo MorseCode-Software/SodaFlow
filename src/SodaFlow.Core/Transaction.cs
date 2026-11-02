@@ -162,9 +162,19 @@ internal sealed class TransactionInternal
 
         try
         {
-            if (transaction == null)
+            if (transaction == null && newTransaction != null)
             {
-                newTransaction?.Close();
+                if (exception == null)
+                {
+                    newTransaction.Close();
+                }
+                else
+                {
+                    // A throw from the body fails the transaction. No send that the body made
+                    // runs, and the discards run as they do when a listener throws. See
+                    // Discard.
+                    exception = newTransaction.Discard(exception);
+                }
             }
         }
         catch (Exception e)
@@ -728,84 +738,108 @@ internal sealed class TransactionInternal
         }
         catch (Exception transactionException)
         {
-            // Before each release and each discard. Thus, an action that one of those gives to a
-            // different thread reads the correct answer.
-            this.outcome?.MarkFailed();
+            Exception toThrow = this.Discard(transactionException);
 
-            // The releases come first. Each entry that remains here kept no promise, because this
-            // transaction stops before it runs, and the queues below hold that deferred work. An
-            // entry that ran, and an entry that threw, are out of the queue and are not here.
-            List<Exception>? failureExceptions = null;
-
-            while (this.postQueue?.Count > 0)
-            {
-                Action<Exception>? onFailure = this.postQueue.Dequeue().OnFailure;
-
-                if (onFailure == null)
-                {
-                    continue;
-                }
-
-                Exception? release = RunRelease(onFailure: onFailure, cause: transactionException);
-
-                if (release != null)
-                {
-                    (failureExceptions ??= []).Add(release);
-                }
-            }
-
-            // All of these become null and SodaFlow does not call Clear. The transaction
-            // stops here, thus this releases the queues and not to empty them for a
-            // second use. Clear keeps the list or the queue, and its backing array, at the
-            // capacity that the failed transaction made. The scope of the parent holds a nested
-            // transaction until the parent completes. Null is already the correct empty state,
-            // because SodaFlow allocates each of these on first use and each reader tests
-            // for null. Thus, no later code can fail on it.
-            this.sendQueue = null;
-
-            while (!PrioritizedQueue.IsEmpty())
-            {
-                // ReSharper disable once NullableWarningSuppressionIsUsed - PrioritizedQueue.Dequeue() will not
-                // return null if PrioritizedQueue.IsEmpty() is false.
-                Entry e = PrioritizedQueue.Dequeue()!;
-                e.Discard();
-                e.Dispose();
-            }
-
-            this.sampleQueue = null;
-
-            // A last action that did not run commits nothing. Its discard action resets the state
-            // that the commit resets, thus the next transaction starts as if this one did not occur.
-            while (this.lastQueue?.Count > 0)
-            {
-                this.lastQueue.Dequeue().Discard();
-            }
-
-            this.lastQueue = null;
-
-            while (this.afterLastQueue?.Count > 0)
-            {
-                this.afterLastQueue.Dequeue().Discard();
-            }
-
-            this.afterLastQueue = null;
-
-            this.postQueue = null;
-
-            this.splitQueue = null;
-
-            if (failureExceptions == null)
+            if (ReferenceEquals(objA: toThrow, objB: transactionException))
             {
                 throw;
             }
 
-            // The exception of the transaction comes first, because it is the failure that the
-            // caller asked about. A throw from a failure action comes after it, and no code loses
-            // it.
-            failureExceptions.Insert(index: 0, item: transactionException);
-
-            throw new AggregateException(failureExceptions);
+            throw toThrow;
         }
+    }
+
+    /// <summary>
+    ///     The failure path. Runs the releases and the discards, and forgets the
+    ///     work of this transaction. Gives the exception to throw: the cause, or an
+    ///     <see cref="AggregateException" /> with the cause first when a release
+    ///     threw.
+    /// </summary>
+    /// <remarks>
+    ///     Close comes here when a step of the transaction throws, and Apply comes
+    ///     here when the body of the transaction throws. The two give the same
+    ///     result: no send of the transaction reaches the graph, and each cell holds
+    ///     its previous value.
+    /// </remarks>
+    private Exception Discard(Exception transactionException)
+    {
+        // Before each release and each discard. Thus, an action that one of those gives to a
+        // different thread reads the correct answer.
+        this.outcome?.MarkFailed();
+
+        // The releases come first. Each entry that remains here kept no promise, because this
+        // transaction stops before it runs, and the queues below hold that deferred work. An
+        // entry that ran, and an entry that threw, are out of the queue and are not here.
+        List<Exception>? failureExceptions = null;
+
+        while (this.postQueue?.Count > 0)
+        {
+            Action<Exception>? onFailure = this.postQueue.Dequeue().OnFailure;
+
+            if (onFailure == null)
+            {
+                continue;
+            }
+
+            Exception? release = RunRelease(onFailure: onFailure, cause: transactionException);
+
+            if (release != null)
+            {
+                (failureExceptions ??= []).Add(release);
+            }
+        }
+
+        // All of these become null and SodaFlow does not call Clear. The transaction
+        // stops here, thus this releases the queues and not to empty them for a
+        // second use. Clear keeps the list or the queue, and its backing array, at the
+        // capacity that the failed transaction made. The scope of the parent holds a nested
+        // transaction until the parent completes. Null is already the correct empty state,
+        // because SodaFlow allocates each of these on first use and each reader tests
+        // for null. Thus, no later code can fail on it.
+        this.sendQueue = null;
+
+        while (!PrioritizedQueue.IsEmpty())
+        {
+            // ReSharper disable once NullableWarningSuppressionIsUsed - PrioritizedQueue.Dequeue() will not
+            // return null if PrioritizedQueue.IsEmpty() is false.
+            Entry e = PrioritizedQueue.Dequeue()!;
+            e.Discard();
+            e.Dispose();
+        }
+
+        this.sampleQueue = null;
+
+        // A last action that did not run commits nothing. Its discard action resets the state
+        // that the commit resets, thus the next transaction starts as if this one did not occur.
+        while (this.lastQueue?.Count > 0)
+        {
+            this.lastQueue.Dequeue().Discard();
+        }
+
+        this.lastQueue = null;
+
+        while (this.afterLastQueue?.Count > 0)
+        {
+            this.afterLastQueue.Dequeue().Discard();
+        }
+
+        this.afterLastQueue = null;
+
+        this.postQueue = null;
+
+        this.splitQueue = null;
+
+        if (failureExceptions == null)
+        {
+            return transactionException;
+        }
+
+        // The exception of the transaction comes first, because it is the failure that the
+        // caller asked about. A throw from a failure action comes after it, and no code loses
+        // it.
+        failureExceptions.Insert(index: 0, item: transactionException);
+
+        return new AggregateException(failureExceptions);
     }
 
     // One posted action, with the action to run where the posted one keeps no promise. A readonly
