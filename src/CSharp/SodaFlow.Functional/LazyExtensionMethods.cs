@@ -27,11 +27,6 @@ public static class LazyExtensionMethods
     /// </returns>
     public static Lazy<TResult> Map<T, TResult>(this Lazy<T> a, Func<T, TResult> f) => new(() => f(a.Value));
 
-    //      /**
-    //     * Lift a binary function into lazy values. The Lazy from this call has the value of the
-    //     * function on the values of the input Lazy values.
-    //  */
-
     /// <summary>
     ///     Lifts a function into lazy input values. The Lazy from this call has the
     ///     value of that function on the values of the lazy inputs.
