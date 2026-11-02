@@ -19,6 +19,10 @@ is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with 
 350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
 behavior derived from it depends on.
 
+FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with SodaFlow.Functional 4.0.0. They call
+MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.
+Nothing in this package changed for it.
+
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
 

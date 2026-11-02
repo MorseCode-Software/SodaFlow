@@ -15,6 +15,19 @@ value. A sort calls it about n log n times, so sorting 100,000 Maybe<int> values
 the 6.6 ms that sorting the same values as Nullable<int> takes. On .NET Framework 4.7.2 it went from 46.4 ms and 402 MB
 to 9.4 ms and no allocation. The ordering is unchanged. MaybeCompareBenchmarks in SodaFlow.Benchmarks measures it.
 
+Fixed: the other members of Maybe<T> that took a lambda allocated on every call. Map, Bind, MatchVoid, MatchSome,
+MatchNone, ValueOr with a value, ValueOrThrow, both OrElse, the three Lift, MapAsync, WhereAsync, and the IMaybe
+members each went through Match with a lambda that captured an argument, so each call allocated a closure and a
+delegate, and Map, the action members, and Lift allocated two or more. Every member now reads the fields through one
+internal TryGetValue, and allocates nothing. Match is unchanged, and the public surface does not change: there is
+still no way to read the value without answering both cases. Measured on a Maybe<int> with a value, .NET 10: Map 13.0
+ns and 112 bytes to 0.6 ns and nothing, MatchSome 13.2 ns and 112 bytes to 0.1 ns and nothing, MatchVoid 18.2 ns and
+176 bytes to 0.4 ns and nothing, Lift of two 38.3 ns and 328 bytes to 1.7 ns and nothing. On .NET Framework 4.7.2, Map
+26.2 ns and 177 bytes to 5.2 ns and nothing, and Lift 65.1 ns and 457 bytes to 9.8 ns and nothing. MaybeBenchmarks in
+SodaFlow.Benchmarks measures them. Maybe<T> is also a readonly struct now, as Unit already was, so a call on a
+readonly field or on None no longer copies the value first. The members read the same fields in the same order, so a
+contained null still reaches the function, and a function for the other case still does not run.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
