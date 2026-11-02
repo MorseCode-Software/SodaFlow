@@ -213,6 +213,14 @@ neither. A view's per-item cell hangs off the view's own change stream, exactly 
 collection's hangs off its item change stream, so an observer whose key was not named filters
 itself out and propagates no further.
 
+An edit of many keys in one transaction is the other case. Every observer asks the change whether
+an operation names its key, and the change used to answer by scanning its operations, so a wide
+edit against many observers paid for every observer against every operation, with almost every
+comparison finding nothing. A change with more than a few operations now builds a dictionary of
+its keys once it has answered more than a few observers, so a wide edit through a view costs
+close to the same edit on the collection, where the item change always answered from a
+dictionary.
+
 `ItemCell` gives both parts as one `Maybe<Item<TIdentity, TState>>`. Reach for it when a value
 needs the identity *and* the state — a label built from an account number and its balance, say.
 Lifting `IdentityCell` and `StateCell` together does the same job, but hands you two optionals and

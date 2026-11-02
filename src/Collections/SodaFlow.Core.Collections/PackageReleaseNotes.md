@@ -48,6 +48,22 @@ giving the first's values; no caller did that, and nothing stopped one. The lang
 projection per cell type, so what they return is unchanged. Only the internal surface moved, so SodaFlow.Collections
 and SodaFlow.FSharp.Collections need this version of the core, which their dependency range gives them.
 
+Changed: an edit of many keys in one transaction, with many per-key cells on a view, no longer costs every cell a scan
+of every operation. A per-key cell on a view asks the change at each transaction whether an operation names its key,
+and the change answered with a linear scan of its operations, so n updated keys against m cells cost n × m key
+comparisons, almost all of which found nothing. A single-key edit is one comparison per cell, and a change too wide
+for a list of operations is a reset, which answers from the store; the cost lived between the two. A change with eight
+or more operations now builds a dictionary from each key to whether an insert or a removal names it, at its first
+lookup after eight scans, and the three projections answer from it after that. One observer on a wide change still
+pays a scan, and nothing pays more than a constant multiple of the cheaper path. The lookups run in the transaction
+that sends the change, so the index needs no lock. Nothing public changes.
+
+In a new benchmark, ViewChangeProjectionBenchmarks, an edit of 1,000 keys in one transaction through a filter with 100
+state cells on it takes 731 µs where it took 868 µs on .NET 10, against 690 µs for the same cells on the collection;
+on .NET Framework 4.7.2 it takes 1,402 µs where it took 1,903 µs, against 1,361 µs on the collection. At 100 keys and
+100 cells it takes 80 µs where it took 97 µs on .NET 10, equal to the collection; and at 10 keys the two arms measure
+the same as before. The index costs about 22 KB for a change of 1,000 operations.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
