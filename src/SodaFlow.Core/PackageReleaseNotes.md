@@ -21,6 +21,16 @@ floor is now above the ceiling, and the first entry sets it. Measured on such a 
 100, and 1000 maps, .NET 10: 409, 852, and 4965 ns to 341, 347, and 352 ns. A send to a sink with one listener does
 not change.
 
+Merge and OrElse on a list of streams, and mergeAll and orElseAll in F#, now go through one node. Each input keeps
+its value of the transaction in a slot of its own, and one action at the output, queued when the first value of the
+transaction arrives, folds the slots in list order and sends once. Before, the list became a balanced tree of pairwise
+merges, each a coalesce node, so a value crossed about log2 n nodes on its way out. The rule for simultaneous values
+does not change: the value from the stream earlier in the list is the left argument of the function, whatever the
+order the inputs fired in, and a stream that fires more than once in a transaction folds its own firings first, in
+their order. Measured on an edit through the first of 1, 2, 8, and 32 edit streams of a collection, which merges them
+this way from SodaFlow.Core.Collections 3.0.0, .NET 10: 1.52, 1.71, 2.10, and 2.58 µs with the tree, and 1.51, 1.65,
+1.70, and 1.67 µs with the node.
+
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
 exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous
