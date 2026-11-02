@@ -1,5 +1,6 @@
 module SodaFlow.Collections.Tests.CollectionsTests
 
+open System
 open System.Collections.Generic
 open SodaFlow
 open SodaFlow.Collections
@@ -23,6 +24,13 @@ type SelfKeyedItemIdentity =
 
     interface IIdentity<int> with
         member this.Key = this.SelfNumber
+
+/// An identity whose key is a string, for the variants of `create` that take a comparer.
+type LabeledIdentity =
+    { Label: string }
+
+    interface IIdentity<string> with
+        member this.Key = this.Label
 
 let private keyOf (identity: ItemIdentity) = identity.Number
 
@@ -273,6 +281,50 @@ type ``Collections Tests``() =
             edits |> sendS (addEdit [ selfKeyedItem 3 "three" 30 ])
 
             do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
+        }
+
+    [<Test>]
+    member _.``createWith matches keys with the given comparer``() =
+        task {
+            let edits = sinkS<CollectionEdit<string, LabeledIdentity, ItemState>> ()
+
+            let collection =
+                createWith
+                    StringComparer.OrdinalIgnoreCase
+                    (fun (identity: LabeledIdentity) -> identity.Label)
+                    [ ofHalves { Label = "ABC" } { Name = "one"; Score = 1 } ]
+                    [ edits ]
+
+            let scoreOf key =
+                collection |> stateCell key |> sampleC |> Option.map (fun state -> state.Score)
+
+            do! Expect.Equal(Some 1, scoreOf "abc")
+
+            // The update names another spelling, and the store keeps the spelling of the arrival.
+            edits |> sendS (updateEdit "aBc" (fun state -> { state with Score = 2 }))
+
+            do! Expect.Equal(Some 2, scoreOf "ABC")
+        }
+
+    [<Test>]
+    member _.``createByIdentityWith takes the key from the identity and matches it with the comparer``() =
+        task {
+            let edits = sinkS<CollectionEdit<string, LabeledIdentity, ItemState>> ()
+
+            let collection =
+                createByIdentityWith
+                    StringComparer.OrdinalIgnoreCase
+                    [ ofHalves { Label = "ABC" } { Name = "one"; Score = 1 } ]
+                    [ edits ]
+
+            let scoreOf key =
+                collection |> stateCell key |> sampleC |> Option.map (fun state -> state.Score)
+
+            do! Expect.Equal(Some 1, scoreOf "abc")
+
+            edits |> sendS (updateEdit "aBc" (fun state -> { state with Score = 2 }))
+
+            do! Expect.Equal(Some 2, scoreOf "ABC")
         }
 
     [<Test>]
