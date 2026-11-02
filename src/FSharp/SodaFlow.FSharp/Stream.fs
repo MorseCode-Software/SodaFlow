@@ -171,11 +171,7 @@ let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) 
 ///     continuation with the transaction lock.
 /// </remarks>
 let listenOnceAsync (stream: Stream<_>) =
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
-#else
-    let tcs = TaskCompletionSource<_>()
-#endif
     let listener =
         stream.ListenOnceRootableImpl(Action<_>(fun a -> tcs.TrySetResult(a) |> ignore))
 
@@ -194,18 +190,7 @@ let listenOnceAsync (stream: Stream<_>) =
             ct.Register(fun () ->
                 Listener.unlisten listener
                 tcs.TrySetCanceled() |> ignore)
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         return! awaitValueOrCancellation ct tcs.Task
-#else
-        let execute (tcs: TaskCompletionSource<_>) =
-            async {
-                let! result = awaitValueOrCancellation ct tcs.Task
-                do! Utilities.Yield() |> Async.AwaitTask
-                return result
-            }
-
-        return! execute tcs
-#endif
     }
 
 /// <summary>

@@ -167,11 +167,7 @@ public static class StreamExtensionMethods
     /// <returns>A task that completes at the next firing of this stream.</returns>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s, CancellationToken token)
     {
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         TaskCompletionSource<T> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-#else
-            TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
-#endif
 
         IStrongListener listener = s.ListenOnceStrong(a => tcs.TrySetResult(a));
 
@@ -194,18 +190,7 @@ public static class StreamExtensionMethods
                 scheduler: TaskScheduler.Default);
         }
 
-#if NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER || NET
         return tcs.Task;
-#else
-            async Task<T> Execute(TaskCompletionSource<T> tcs2)
-            {
-                T result = await tcs2.Task;
-                await Task.Yield();
-                return result;
-            }
-
-            return Execute(tcs);
-#endif
     }
 
     /// <summary>
