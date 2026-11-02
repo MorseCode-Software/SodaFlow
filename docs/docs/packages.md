@@ -81,7 +81,7 @@ up applied one layer down — nothing that installs the F# collections package a
 
 The one member where this could have cost something is `StateCell`, which caches its per-key
 cells weakly so that N observers of one key share a node. The cache stays in the core and
-takes the projection from the wrapper, keyed by the projected type as well as the key, so
+takes the projection from the wrapper, keyed by the projection as well as the key, so
 neither surface pays for an extra graph node and neither can be handed the other's cells.
 
 ## The bindable object model
