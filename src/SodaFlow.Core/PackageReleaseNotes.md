@@ -21,6 +21,15 @@ floor is now above the ceiling, and the first entry sets it. Measured on such a 
 100, and 1000 maps, .NET 10: 409, 852, and 4965 ns to 341, 347, and 352 ns. A send to a sink with one listener does
 not change.
 
+Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
+transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
+exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous
+value, a Post with a release queued before the throw gets its release with the exception as the cause, and the throw
+continues to the caller. A throw from a nested Run reaches the body of the root transaction and gives the same
+result. This is the behavior that a throw from a listener during propagation already had, and the one that "atomic"
+promises; code that relied on the partial commit has to send before the code that can throw, in a transaction of its
+own.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after

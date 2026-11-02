@@ -75,6 +75,12 @@ Anything lifted from both cells now fires exactly once, with both new values. Th
 whenever a pair of values must never be observed half-changed — coordinates, ranges,
 credentials, a selection and its context.
 
+The atomicity holds on the way out too. If the block throws, the transaction fails: nothing it
+sent reaches the graph, every cell keeps its previous value, and the exception continues to the
+caller. A throw from a listener during propagation fails the transaction the same way. So a
+block that sends twice and then throws leaves the graph as it found it, rather than with the
+first send applied and the second lost.
+
 ### Building a graph that must be observed from its first moment
 
 Build the graph **and attach its listeners inside one `Transaction.Run`**. A graph assembled

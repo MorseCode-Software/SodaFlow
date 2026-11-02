@@ -43,6 +43,11 @@ let isActive () =
 ///     important with <c>Cell.values</c>, which always fires immediately. It is also necessary for
 ///     <c>Stream.loop</c>, <c>Cell.loop</c> and <c>Behavior.loop</c>. The code must make and close
 ///     each of these in one transaction.
+///
+///     A throw from <paramref name="f" /> fails the transaction that this call opened. No send
+///     made before the throw reaches the graph, each cell keeps its previous value, and the throw
+///     continues to the caller. In an open transaction, the throw reaches the code that opened
+///     it, with the same result.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let run f = TransactionInternal.RunImpl(Func<_> f)
