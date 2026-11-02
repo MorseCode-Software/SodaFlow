@@ -21,6 +21,12 @@ floor is now above the ceiling, and the first entry sets it. Measured on such a 
 100, and 1000 maps, .NET 10: 409, 852, and 4965 ns to 341, 347, and 352 ns. A send to a sink with one listener does
 not change.
 
+Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
+documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
+the documentation kept every listener it replaced, and the only code that did not leak was the library's own
+SwitchB and SwitchS, which stopped the old listener by hand. A set of the listener that is already the target stops
+nothing. Unlisten is unchanged.
+
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
 after every send and every listener, read the pending update of the cell being sampled, and a lazy initial value was
