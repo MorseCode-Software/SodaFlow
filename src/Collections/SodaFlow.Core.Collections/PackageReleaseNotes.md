@@ -98,6 +98,16 @@ a read of every key, which is what a bound list does at a reset, took 19.5 ms be
 and 34.3 ms before and 11.0 ms after on .NET Framework, so the walk through the runs costs less than the copy it
 replaced even for a consumer that reads the whole list.
 
+An order with more than one level now takes the same path when every level changes direction, and setting such an
+order again is now a no-op. Before, two orders built with `ThenBy` were never recognized as the same order or as each
+other's reverse, because the combined comparer was a new instance at each construction, so a toggle of every level
+sorted every key again and a repeat of an equal order rebuilt the stage. An order now keeps the selector, the comparer,
+and the direction of each level and compares them level by level: all the same is the same order, all opposite is the
+reverse, and anything else, such as one level of two flipped, is a different order and builds again, as it must,
+because keys tied on the first level keep their second-level sequence. Measured in the same benchmark on a two-level
+order over 100,000 items: the toggle took 84.5 ms and allocated 13.7 MB before and takes 2.3 µs and 4.2 KB after on
+.NET 10, and took 182.3 ms before and takes 4.0 µs after on .NET Framework 4.7.2.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
