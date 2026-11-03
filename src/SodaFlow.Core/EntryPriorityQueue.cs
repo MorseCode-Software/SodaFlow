@@ -1,11 +1,10 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace SodaFlow;
 
 internal sealed class EntryPriorityQueue
 {
-    private const bool SanityChecks = false;
-
     private readonly HeadAndTail last = new(head: null, tail: null);
 
     private HeadAndTail?[] entries = new HeadAndTail?[1000];
@@ -21,6 +20,10 @@ internal sealed class EntryPriorityQueue
     // list and does not touch this rank.
     private int minRank = int.MaxValue;
 
+    // The checks below run in a debug build only. A release build removes each call, thus the
+    // hot path pays nothing for them. Before, a false constant guarded them, and no build ran
+    // them.
+    [Conditional("DEBUG")]
     private void CheckQueue()
     {
         for (int i = 0; i < this.entries.Length; i++)
@@ -134,14 +137,7 @@ internal sealed class EntryPriorityQueue
             {
                 this.entries[e.PqRank] = new HeadAndTail(head: e, tail: e);
 
-                if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-                    // ReSharper disable HeuristicUnreachableCode
-                {
-                    this.CheckQueue();
-                }
-                // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+                this.CheckQueue();
 
                 return;
             }
@@ -151,14 +147,7 @@ internal sealed class EntryPriorityQueue
         {
             entry.Head = entry.Tail = e;
 
-            if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-                // ReSharper disable HeuristicUnreachableCode
-            {
-                this.CheckQueue();
-            }
-            // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+            this.CheckQueue();
 
             return;
         }
@@ -169,14 +158,7 @@ internal sealed class EntryPriorityQueue
         e.PqPrev = entry.Tail;
         entry.Tail = e;
 
-        if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-            // ReSharper disable HeuristicUnreachableCode
-        {
-            this.CheckQueue();
-        }
-        // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+        this.CheckQueue();
     }
 
     public TransactionInternal.Entry? Dequeue()
@@ -195,14 +177,7 @@ internal sealed class EntryPriorityQueue
                     return result1;
                 }
 
-                if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-                    // ReSharper disable HeuristicUnreachableCode
-                {
-                    this.CheckQueue();
-                }
-                // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+                this.CheckQueue();
 
                 return null;
             }
@@ -239,35 +214,7 @@ internal sealed class EntryPriorityQueue
                 break;
             }
 
-            if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-                // ReSharper disable HeuristicUnreachableCode
-            {
-                // A test. Find an entry with a smaller rank.
-                // ReSharper disable once LoopCanBePartlyConvertedToQuery
-                foreach (HeadAndTail entry2 in this.entries)
-                {
-                    if (entry2 != null)
-                    {
-                        TransactionInternal.Entry current = entry2.Head;
-
-                        while (current != null)
-                        {
-                            if (current.PqRank < result.PqRank)
-                            {
-                                throw new InvalidOperationException(
-                                    "Priority queue contains less than the expected number of elements.");
-                            }
-
-                            current = current.PqNext;
-                        }
-                    }
-                }
-
-                this.CheckQueue();
-            }
-            // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+            this.CheckNoSmallerRankThan(result);
 
             return result;
         }
@@ -307,26 +254,55 @@ internal sealed class EntryPriorityQueue
         e.PqNext = null;
         e.PqPrev = null;
 
-        if (SanityChecks)
-#pragma warning disable CS0162 // Unreachable code detected
-            // ReSharper disable HeuristicUnreachableCode
-        {
-            this.CheckQueue();
+        this.CheckBucketIsInQueue(entry);
+    }
 
-            TransactionInternal.Entry current = entry.Head;
+    // The entry that Dequeue selected has the smallest rank in the queue.
+    [Conditional("DEBUG")]
+    private void CheckNoSmallerRankThan(TransactionInternal.Entry result)
+    {
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery
+        foreach (HeadAndTail? bucket in this.entries)
+        {
+            if (bucket == null)
+            {
+                continue;
+            }
+
+            TransactionInternal.Entry? current = bucket.Head;
 
             while (current != null)
             {
-                if (!current.InPq)
+                if (current.PqRank < result.PqRank)
                 {
-                    throw new InvalidOperationException("Entry was expected to be in the priority queue.");
+                    throw new InvalidOperationException(
+                        "Priority queue contains less than the expected number of elements.");
                 }
 
                 current = current.PqNext;
             }
         }
-        // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore CS0162 // Unreachable code detected
+
+        this.CheckQueue();
+    }
+
+    // After a removal, each entry left in the bucket is still marked as in the queue.
+    [Conditional("DEBUG")]
+    private void CheckBucketIsInQueue(HeadAndTail entry)
+    {
+        this.CheckQueue();
+
+        TransactionInternal.Entry? current = entry.Head;
+
+        while (current != null)
+        {
+            if (!current.InPq)
+            {
+                throw new InvalidOperationException("Entry was expected to be in the priority queue.");
+            }
+
+            current = current.PqNext;
+        }
     }
 
     public void ChangeRank(TransactionInternal.Entry e, int newRank)
