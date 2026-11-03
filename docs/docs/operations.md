@@ -88,7 +88,7 @@ is already the new one.
 | --- | --- | --- |
 | `c.Sample()` | `sampleC c` | Read the current value *now*. An imperative escape hatch. |
 | `c.SampleLazy()` | `sampleLazyC c` | A `LazySample<T>` of the value, read by the library at the end of the transaction; for `HoldLazy` and loops. |
-| `l.Close()` | `closeLC l` | A `Cell<T>` from a `LoopedCell<T>` once its loop has closed; throws while the loop is open. The way back after a loop block. |
+| `closer.Close(l)` | `closeLC closer l` | A `Cell<T>` from a `LoopedCell<T>`, with the `LoopCloser` a loop hands out when it closes: to the second function of `WithCaptures`, or from `Loop` in the explicit form. The way back for a capture. |
 | `l.AsCell()` | `asCellLC l` | The same with no check: the assertion that nothing reads the value before the close, for a placeholder handed to a constructor. |
 | `sample.Map(f)` | `LazySample.map f sample` | A `LazySample<T>` of the transformed value. |
 | `a.Lift(b, f)` | `LazySample.lift2 f a b` | A `LazySample<T>` combining two to four samples. |

@@ -79,12 +79,13 @@ compile error, where it used to be an exception at run time. In F# the same oper
 `LoopedCell` and `LoopedBehavior` modules, with the `LC` and `LB` shorthand suffixes: `mapLC`,
 `lift2LC`, `switchCLB`.
 
-Two conversions go back. `Close()` (`closeLC`, `closeLB`) checks that every loop the value depends
-on has closed and gives the plain type — the one to reach for after a block returns, as the next
-section shows. `AsCell()` and `AsBehavior()` (`asCellLC`, `asBehaviorLB`) assert the same thing
-without the check, for a placeholder handed to code that stores it and reads it later, such as a
-constructor; the types cannot see when a stored field is read, so that assertion is yours, and a
-read before the close still throws.
+Two conversions go back. The first is the closer: a loop hands out a `LoopCloser` when it closes,
+and `closer.Close(l)` (`closeLC closer l`, `closeLB closer b`) gives the plain type. The block form
+passes the closer to a second function that converts the captures, as the next section shows, and
+`Loop` in the explicit form returns it. The second is `AsCell()` and `AsBehavior()` (`asCellLC`,
+`asBehaviorLB`), which assert the same thing with no closer in hand, for a placeholder handed to
+code that stores it and reads it later, such as a constructor; the types cannot see when a stored
+field is read, so that assertion is yours, and a read before the close still throws.
 
 ## Capturing extra values
 
@@ -104,20 +105,37 @@ StreamSink<int> s = Stream.CreateSink<int>();
 equivalent is `loopS`, which returns a struct tuple of the looped value and the captures, while
 `loopWithNoCapturesS` is the shorthand when there is nothing extra.
 
-A capture that is derived from the placeholder is a `LoopedCell` inside the block, and the loop has
-closed by the time `WithCaptures` returns. When that one cell is the whole capture, an overload of
-`WithCaptures` on `Cell.Loop`, `Behavior.Loop` and `ForwardReference` hands it back as a plain
-`Cell<T>` or `Behavior<T>`:
+A capture that is derived from the placeholder is a `LoopedCell` inside the block, and it has no
+reason to stay one once the loop has closed. `WithCaptures` on `Cell.Loop`, `Behavior.Loop` and
+`ForwardReference` takes a second function for that. It runs after the loop has closed, and it is
+handed the captures and a `LoopCloser`, the one object that converts a looped value back:
+
+# [C#](#tab/csharp)
 
 ```csharp
-(Cell<int> total, Cell<int> doubled) = Cell.Loop<int>()
-    .WithCaptures(l => (
-        Cell: s.Snapshot(l, (n, o) => n + o).Hold(0),
-        Captures: l.Map(v => 2 * v)));
+(Cell<int> total, (Cell<int> doubled, string label)) = Cell.Loop<int>()
+    .WithCaptures(
+        f: l => (
+            Cell: s.Snapshot(l, (n, o) => n + o).Hold(0),
+            Captures: (Doubled: l.Map(v => 2 * v), Label: "doubled")),
+        close: (captures, closer) => (closer.Close(captures.Doubled), captures.Label));
 ```
 
-A tuple of captures comes back as written, and each looped member is converted with `Close()`,
-which throws if a loop it depends on is still open.
+# [F#](#tab/fsharp)
+
+```fsharp
+let struct (total, struct (doubled, label)) =
+    loopWithLoopedCapturesC
+        (fun l -> struct (s |> snapshotC l (+) |> holdS 0, struct (l |> mapLC ((*) 2), "doubled")))
+        (fun (struct (d, label)) closer -> struct (d |> closeLC closer, label))
+```
+
+---
+
+The closer exists only once the loop has closed, which is what makes the conversion sound: there is
+no call that can come too early. It converts the captures of its own loop. A capture that also
+depends on an enclosing loop that is still open stays guarded the way every looped value is, and a
+read of it before that loop closes throws.
 
 ## The explicit form
 
@@ -125,8 +143,9 @@ which throws if a loop it depends on is still open.
 through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. Each is the
 placeholder with the one member that closes it, `Loop`: `StreamLoop<T>` derives from
 `LoopedStream<T>`, and `CellLoop<T>` and `BehaviorLoop<T>` are the objects the block form makes
-and hands to you as a `LoopedCell<T>` or `LoopedBehavior<T>`, the type without `Loop`. You will
-meet them in older code and in the book's examples:
+and hands to you as a `LoopedCell<T>` or `LoopedBehavior<T>`, the type without `Loop`. On those
+two, `Loop` returns the `LoopCloser`, because closing the loop is what makes the conversion back
+possible. You will meet them in older code and in the book's examples:
 
 ```csharp
 Transaction.RunVoid(() =>

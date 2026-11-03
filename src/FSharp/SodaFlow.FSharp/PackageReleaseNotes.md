@@ -4,8 +4,12 @@ BREAKING: the looped types are the base types of Cell<'T> and Behavior<'T>; the 
 LoopedCell and LoopedBehavior modules, with asCell and asBehavior, close, map, apply, lift2 to lift8, liftAll,
 switchB, and switchC, and the Shorthand aliases with the LC and LB suffixes: mapLC, lift2LB, closeLC. The functions in
 Cell and Behavior take the plain type, so a looped value needs the new modules, while snapshot, gate, updates, values,
-listen, listenStrong, switchS, and At take the looped type. A placeholder passed where a Cell<'T> is wanted now needs
-asCellLC to assert that the read comes after the close, or closeLC to have that checked.
+listen, listenStrong, switchS, and At take the looped type. New: Cell.loopWithLoopedCaptures,
+Behavior.loopWithLoopedCaptures, and ForwardReference.createWithLoopedCaptures, with the aliases
+loopWithLoopedCapturesC, loopWithLoopedCapturesB, and forwardReferenceWithLoopedCaptures. Each takes a second function,
+which runs after the loop closes and gets the captures and the LoopCloser, and closeLC closer converts a looped capture
+with it. A placeholder passed where a Cell<'T> is wanted now needs asCellLC to assert that the read comes after the
+close.
 
 BREAKING: sampleLazy returns a LazySample<'T>, and holdLazy, accumLazy, collectLazy, and constantLazy take one, where
 each used a Lazy<'T>, so a lazy expression no longer fits. Only SodaFlow reads a LazySample, which is what lets a
