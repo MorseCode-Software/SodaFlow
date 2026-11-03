@@ -327,6 +327,107 @@ type ``Collections Tests``() =
             do! Expect.Equal(Some 2, scoreOf "ABC")
         }
 
+    // Each variant with the C suffix takes its initial contents from a cell. The transaction that
+    // builds the collection samples the cell at its close. Thus, a send to the cell in that
+    // transaction is in the initial contents, and a send after it is not.
+    [<Test>]
+    member _.``createC reads its initial items from a cell at the close of the transaction``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+            let initialEntries = sinkC (Seq.ofList [ item 1 "one" 10 ])
+
+            let collection =
+                runT (fun () ->
+                    let built = createC keyOf initialEntries [ edits ]
+                    initialEntries |> sendC (Seq.ofList [ item 1 "one" 10; item 2 "two" 20 ])
+                    built)
+
+            do! Expect.Sequence([ 1; 2 ], keysOf collection)
+
+            initialEntries |> sendC (Seq.ofList [ item 9 "nine" 90 ])
+            edits |> sendS (addEdit [ item 3 "three" 30 ])
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
+        }
+
+    [<Test>]
+    member _.``createWithC reads its initial items from a cell and matches keys with the comparer``() =
+        task {
+            let edits = sinkS<CollectionEdit<string, LabeledIdentity, ItemState>> ()
+            let initialEntries = sinkC (Seq.ofList [])
+
+            let collection =
+                runT (fun () ->
+                    let built =
+                        createWithC
+                            StringComparer.OrdinalIgnoreCase
+                            (fun (identity: LabeledIdentity) -> identity.Label)
+                            initialEntries
+                            [ edits ]
+
+                    initialEntries
+                    |> sendC (Seq.ofList [ ofHalves { Label = "ABC" } { Name = "one"; Score = 1 } ])
+
+                    built)
+
+            let scoreOf key =
+                collection |> stateCell key |> sampleC |> Option.map (fun state -> state.Score)
+
+            do! Expect.Equal(Some 1, scoreOf "abc")
+
+            edits |> sendS (updateEdit "aBc" (fun state -> { state with Score = 2 }))
+
+            do! Expect.Equal(Some 2, scoreOf "ABC")
+        }
+
+    [<Test>]
+    member _.``createByIdentityC reads its initial items from a cell and takes the key from the identity``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> ()
+            let initialEntries = sinkC (Seq.ofList [ selfKeyedItem 1 "one" 10 ])
+
+            let collection =
+                runT (fun () ->
+                    let built = createByIdentityC initialEntries [ edits ]
+
+                    initialEntries
+                    |> sendC (Seq.ofList [ selfKeyedItem 1 "one" 10; selfKeyedItem 2 "two" 20 ])
+
+                    built)
+
+            do! Expect.Sequence([ 1; 2 ], keysOf collection)
+
+            edits |> sendS (addEdit [ selfKeyedItem 3 "three" 30 ])
+
+            do! Expect.Sequence([ 1; 2; 3 ], keysOf collection)
+        }
+
+    [<Test>]
+    member _.``createByIdentityWithC reads its initial items from a cell and matches keys with the comparer``() =
+        task {
+            let edits = sinkS<CollectionEdit<string, LabeledIdentity, ItemState>> ()
+            let initialEntries = sinkC (Seq.ofList [])
+
+            let collection =
+                runT (fun () ->
+                    let built =
+                        createByIdentityWithC StringComparer.OrdinalIgnoreCase initialEntries [ edits ]
+
+                    initialEntries
+                    |> sendC (Seq.ofList [ ofHalves { Label = "ABC" } { Name = "one"; Score = 1 } ])
+
+                    built)
+
+            let scoreOf key =
+                collection |> stateCell key |> sampleC |> Option.map (fun state -> state.Score)
+
+            do! Expect.Equal(Some 1, scoreOf "abc")
+
+            edits |> sendS (updateEdit "aBc" (fun state -> { state with Score = 2 }))
+
+            do! Expect.Equal(Some 2, scoreOf "ABC")
+        }
+
     // The cache of per-key cells compares keys as the collection does. Thus, one key in two
     // spellings gives one cell.
     [<Test>]
