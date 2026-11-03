@@ -70,7 +70,7 @@ public sealed class IssueTests
             actual = e;
         }
 
-        await Assert.That(actual).IsNotNull();
+        await Assert.That(actual).IsTypeOf<DependencyCycleException>();
         await Assert.That(actual?.Message).IsEqualTo("A dependency cycle was detected.");
     }
 

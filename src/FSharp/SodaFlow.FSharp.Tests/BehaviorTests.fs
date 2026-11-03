@@ -332,12 +332,12 @@ type ``Behavior Tests``() =
                 with
                 | :? AggregateException as e ->
                     e.InnerExceptions
-                    |> Seq.tryFind (fun e -> e.Message = "A dependency cycle was detected.")
+                    |> Seq.tryFind (fun e -> e :? DependencyCycleException)
                 | e -> Some e
 
             do!
                 actual
-                |> assertExceptionExists (fun e -> Expect.Equal("A dependency cycle was detected.", e.Message))
+                |> assertExceptionExists (fun e -> Expect.True((e :? DependencyCycleException), e.GetType().Name))
         }
 
     [<Test>]

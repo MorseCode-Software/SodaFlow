@@ -34,12 +34,12 @@ internal sealed class EntryPriorityQueue
 
             if (e.Head?.PqPrev != null)
             {
-                throw new Exception("Head cannot have a previous entry.");
+                throw new InvalidOperationException("Head cannot have a previous entry.");
             }
 
             if (e.Tail?.PqNext != null)
             {
-                throw new Exception("Tail cannot have a next entry.");
+                throw new InvalidOperationException("Tail cannot have a next entry.");
             }
 
             TransactionInternal.Entry? current = e.Head;
@@ -48,12 +48,12 @@ internal sealed class EntryPriorityQueue
             {
                 if (current.PqRank != i)
                 {
-                    throw new Exception("Rank was not the expected value.");
+                    throw new InvalidOperationException("Rank was not the expected value.");
                 }
 
                 if (!current.InPq)
                 {
-                    throw new Exception("Entry was not marked as being in a priority queue.");
+                    throw new InvalidOperationException("Entry was not marked as being in a priority queue.");
                 }
 
                 current = current.PqNext;
@@ -77,7 +77,7 @@ internal sealed class EntryPriorityQueue
     {
         if (e.PqRank != e.Node.Rank)
         {
-            throw new Exception("Enqueue requires ranks to agree.");
+            throw new InvalidOperationException("Enqueue requires ranks to agree.");
         }
 
         // A rank is an index into the entries array. Thus, the array must be longer than the
@@ -255,7 +255,7 @@ internal sealed class EntryPriorityQueue
                         {
                             if (current.PqRank < result.PqRank)
                             {
-                                throw new Exception(
+                                throw new InvalidOperationException(
                                     "Priority queue contains less than the expected number of elements.");
                             }
 
@@ -319,7 +319,7 @@ internal sealed class EntryPriorityQueue
             {
                 if (!current.InPq)
                 {
-                    throw new Exception("Entry was expected to be in the priority queue.");
+                    throw new InvalidOperationException("Entry was expected to be in the priority queue.");
                 }
 
                 current = current.PqNext;

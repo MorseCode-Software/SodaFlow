@@ -724,15 +724,14 @@ public sealed class LoopTests
             }
             catch (AggregateException e)
             {
-                actual =
-                    e.InnerExceptions.FirstOrDefault(static ex => ex.Message == "A dependency cycle was detected.");
+                actual = e.InnerExceptions.OfType<DependencyCycleException>().FirstOrDefault();
             }
             catch (Exception e)
             {
                 actual = e;
             }
 
-            await Assert.That(actual).IsNotNull();
+            await Assert.That(actual).IsTypeOf<DependencyCycleException>();
             await Assert.That(actual?.Message).IsEqualTo("A dependency cycle was detected.");
         }
 
