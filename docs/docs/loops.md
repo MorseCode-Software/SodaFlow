@@ -62,8 +62,29 @@ Read the C# version inside out: `l` is the placeholder for the very stream being
 into a cell of the running total starting at zero, and each firing of `s` snapshots that cell and
 adds to it. The result *is* `l`, which is what `WithoutCaptures` resolves.
 
-Where a placeholder has to be passed somewhere that wants the plain type, `AsStream`, `AsCell` and
-`AsBehavior` say so without a cast.
+## What a looped type lets you do
+
+A looped stream is a `Stream<T>`, because a stream has no current value and so nothing can read it
+too early. `AsStream` is the no-cast spelling where a `Stream<T>` is wanted.
+
+A looped cell or behavior is the other way around. `LoopedCell<T>` and `LoopedBehavior<T>` are the
+*base* types of `Cell<T>` and `Behavior<T>`: they carry every operation except `Sample`, because
+the value does not exist until the loop closes, and the type is how the library says so. The
+operators keep that fact: `l.Map(f)`, `c.Lift(l, f)`, `l.Calm()` and `l.SwitchC()` all give a
+`LoopedCell`, while anything that gives a stream, or a cell whose initial value you supply such as
+`l.Updates().Hold(0)`, gives the plain type. A plain cell converts to the looped type implicitly,
+so a looped cell goes anywhere the library only listens or snapshots — `Snapshot`, `Gate`,
+`Listen`, `Values`, `timers.At`, the bindable factory. Reading a looped value before the close is a
+compile error, where it used to be an exception at run time. In F# the same operators live in the
+`LoopedCell` and `LoopedBehavior` modules, with the `LC` and `LB` shorthand suffixes: `mapLC`,
+`lift2LC`, `switchCLB`.
+
+Two conversions go back. `Close()` (`closeLC`, `closeLB`) checks that every loop the value depends
+on has closed and gives the plain type — the one to reach for after a block returns, as the next
+section shows. `AsCell()` and `AsBehavior()` (`asCellLC`, `asBehaviorLB`) assert the same thing
+without the check, for a placeholder handed to code that stores it and reads it later, such as a
+constructor; the types cannot see when a stored field is read, so that assertion is yours, and a
+read before the close still throws.
 
 ## Capturing extra values
 
@@ -83,13 +104,29 @@ StreamSink<int> s = Stream.CreateSink<int>();
 equivalent is `loopS`, which returns a struct tuple of the looped value and the captures, while
 `loopWithNoCapturesS` is the shorthand when there is nothing extra.
 
+A capture that is derived from the placeholder is a `LoopedCell` inside the block, and the loop has
+closed by the time `WithCaptures` returns. When that one cell is the whole capture, an overload of
+`WithCaptures` on `Cell.Loop`, `Behavior.Loop` and `ForwardReference` hands it back as a plain
+`Cell<T>` or `Behavior<T>`:
+
+```csharp
+(Cell<int> total, Cell<int> doubled) = Cell.Loop<int>()
+    .WithCaptures(l => (
+        Cell: s.Snapshot(l, (n, o) => n + o).Hold(0),
+        Captures: l.Map(v => 2 * v)));
+```
+
+A tuple of captures comes back as written, and each looped member is converted with `Close()`,
+which throws if a loop it depends on is still open.
+
 ## The explicit form
 
 `StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism, reached
-through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. Each derives
-from the placeholder the block form hands out — `StreamLoop<T>` is a `LoopedStream<T>` — and adds
-the one member that closes it, `Loop`. You will meet them in older code and in the book's
-examples:
+through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. Each is the
+placeholder with the one member that closes it, `Loop`: `StreamLoop<T>` derives from
+`LoopedStream<T>`, and `CellLoop<T>` and `BehaviorLoop<T>` are the objects the block form makes
+and hands to you as a `LoopedCell<T>` or `LoopedBehavior<T>`, the type without `Loop`. You will
+meet them in older code and in the book's examples:
 
 ```csharp
 Transaction.RunVoid(() =>
@@ -122,8 +159,8 @@ one of those cases; see below.
 
 ## `Sample` inside a loop
 
-Calling `Sample` on a looped cell while still constructing the loop asks for a value that does
-not exist yet. Use `SampleLazy` (`sampleLazyC`) instead — it defers the read until the loop has
+A looped cell has no `Sample`: its value does not exist yet, and the type says so, so the call
+does not compile. Use `SampleLazy` (`sampleLazyC`) instead — it defers the read until the loop has
 closed and there is something to read.
 
 The same reasoning gives every operation that takes a starting value a deferred counterpart, for
@@ -170,14 +207,16 @@ Node node = ForwardReference<Node>.WithoutCaptures(
 # [F#](#tab/fsharp)
 
 ```fsharp
-let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child reference))
+let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child (asCellLC reference)))
 ```
 
 ---
 
 The block is handed a `LoopedCell<Node>`, and `AsCell` passes it on as the `Cell<Node>` the
 child wants — a cell that means nothing until the call returns and holds the finished node from
-then on. It unties the knot two objects make when each needs the other at
+then on. `AsCell` is the assertion that the child only reads it after that; the types cannot see
+when a constructor's field is read, so this is the one place the check is yours rather than the
+compiler's. It unties the knot two objects make when each needs the other at
 construction, which otherwise forces one of them to be built half-formed and completed
 afterward — with a settable member that has no business being settable once the graph is up.
 
@@ -221,7 +260,8 @@ does not allow only some of a method's type arguments to be given. F# needs none
 types are inferred from the function, so neither is ever written.
 
 Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
-reading the reference during construction asks a question that has no answer yet, and throws.
+the reference has no `Sample`, and a read through `AsCell` during construction asks a question
+that has no answer yet, and throws.
 
 ## Where this shows up
 

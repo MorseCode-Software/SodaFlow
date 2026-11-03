@@ -1,5 +1,8 @@
 5.0.0
 
+Changed: ToOneWay, ToTwoWay, and ToBindableAction take a LoopedCell<'T> or a LoopedCell<bool>, which a Cell converts
+to, so a value built inside a loop block binds without asCellLC. The core package notes say why that is sound.
+
 BREAKING: ToOneWayToSource is gone, in both overloads, with IOneWayToSourceBindableValue behind it. A value the
 view writes and also shows is a two-way value: ToTwoWay on a CellSink, or on a Cell with a StreamSink for the
 edits. Something the view only sends is a bindable action whose CommandParameter carries the value. The core package's

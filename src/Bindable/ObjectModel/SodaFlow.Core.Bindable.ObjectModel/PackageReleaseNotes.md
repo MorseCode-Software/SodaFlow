@@ -1,5 +1,10 @@
 5.0.0
 
+Changed: the cell behind a one-way or two-way value, and the enablement cell of a bindable action, are a LoopedCell<T>
+and a LoopedCell<bool>, which a Cell converts to, so a view model can bind a cell derived from its forward reference.
+The first read happens at the end of the construction transaction, after the loop has closed, as before. The Cell and
+IsEnabledCell properties stay Cell<T> and Cell<bool>.
+
 BREAKING: IOneWayToSourceBindableValue is gone, with the write-only value behind it. That value kept the last value
 the view wrote and had no cell to correct it from. When the graph refused a write, the value went on holding what the
 graph refused, and its equality test then dropped every retry of the same value, so the view was stuck until it wrote
