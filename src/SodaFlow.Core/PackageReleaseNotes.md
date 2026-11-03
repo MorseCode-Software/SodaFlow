@@ -91,7 +91,9 @@ A lift allocates less. Each input of a lift, a snapshot of the latest values, or
 and two delegates between its stream and the shared gate; it now has one object that holds its slot and is its own
 listener action. A lift's output is built through one object in place of three delegates, an array, and a second
 lambda for the lazy initial value. GraphBuildBenchmarks, per thousand two-cell lifts, .NET 10: 3.81 ms and 2,998 KB
-before, 3.61 ms and 2,688 KB after; .NET Framework 4.7.2: 5.27 to 4.61 ms and 3,036 to 2,721 KB.
+before, 3.61 ms and 2,688 KB after; .NET Framework 4.7.2: 5.27 to 4.61 ms and 3,036 to 2,721 KB. A lift of six
+cells, which the benchmark now has an arm for, gains more: 11.15 ms and 5,010 KB to 10.27 ms and 4,470 KB on .NET 10,
+and 12.91 to 11.88 ms on .NET Framework 4.7.2.
 
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
