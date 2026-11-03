@@ -737,6 +737,56 @@ public sealed class LoopTests
     }
 
     [Test]
+    public async Task TheCloserThrowsForACaptureOfALoopThatIsStillOpen()
+    {
+        InvalidOperationException? actual = null;
+
+        try
+        {
+            // The inner loop is closed when its closer runs, but the capture also reads the outer
+            // placeholder, which is not. The closer reads the value, thus the call throws.
+            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+            Cell.Loop<int>()
+                .WithoutCaptures(static outer =>
+                    Cell.Loop<int>()
+                        .WithCaptures(
+                            f: inner =>
+                                (Cell: Cell.Constant(1), Captures: inner.Lift(c2: outer, f: static (a, b) => a + b)),
+                            close: static (sum, closer) => closer.Close(sum))
+                        .Cell);
+        }
+        catch (InvalidOperationException e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual?.Message).IsEqualTo("BehaviorLoop was sampled before it was looped.");
+    }
+
+    [Test]
+    public async Task TheCloserOfTheLastLoopConvertsACaptureOfBoth()
+    {
+        // The same capture, converted with the closer of the outer loop, which is the last loop it
+        // depends on.
+        (Cell<int> outerResult, Cell<int> sum) =
+            Cell.Loop<int>()
+                .WithCaptures(
+                    f: static outer =>
+                    {
+                        (Cell<int> innerResult, LoopedCell<int> sumLoop) =
+                            Cell.Loop<int>()
+                                .WithCaptures(inner =>
+                                    (Cell: Cell.Constant(1), Captures: inner.Lift(c2: outer, f: static (a, b) => a + b)));
+
+                        return (Cell: innerResult.Map(static v => v + 1), Captures: sumLoop);
+                    },
+                    close: static (sumLoop, closer) => closer.Close(sumLoop));
+
+        await Assert.That(outerResult.Sample()).IsEqualTo(2);
+        await Assert.That(sum.Sample()).IsEqualTo(3);
+    }
+
+    [Test]
     public async Task AsCellReadBeforeTheCloseThrows()
     {
         InvalidOperationException? actual = null;

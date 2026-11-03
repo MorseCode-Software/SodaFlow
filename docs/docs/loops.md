@@ -133,9 +133,9 @@ let struct (total, struct (doubled, label)) =
 ---
 
 The closer exists only once the loop has closed, which is what makes the conversion sound: there is
-no call that can come too early. It converts the captures of its own loop. A capture that also
-depends on an enclosing loop that is still open stays guarded the way every looped value is, and a
-read of it before that loop closes throws.
+no call that can come too early. It also reads the value it converts, so a capture that depends on
+an enclosing loop that is still open throws at the call, with the message a read would give, rather
+than at some later read. Convert that capture with the closer of the outer loop instead.
 
 ## The explicit form
 

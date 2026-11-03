@@ -157,6 +157,39 @@ type ``Loop Tests``() =
         }
 
     [<Test>]
+    member _.``The Closer Throws For A Capture Of A Loop That Is Still Open``() =
+        task {
+            // The inner loop is closed when its closer runs, but the capture also reads the outer
+            // placeholder, which is not. The closer reads the value, thus the call throws.
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    loopWithNoCapturesC (fun outer ->
+                        let struct (cell, _) =
+                            loopWithLoopedCapturesC
+                                (fun inner -> struct (constantC 1, lift2LC (+) (inner, outer)))
+                                (fun sum closer -> sum |> closeLC closer)
+
+                        cell)
+                    |> ignore)
+        }
+
+    [<Test>]
+    member _.``The Closer Of The Last Loop Converts A Capture Of Both``() =
+        task {
+            let struct (outerResult, sum) =
+                loopWithLoopedCapturesC
+                    (fun outer ->
+                        let struct (innerResult, sumLoop) =
+                            loopC (fun inner -> struct (constantC 1, lift2LC (+) (inner, outer)))
+
+                        struct (innerResult |> mapC ((+) 1), sumLoop))
+                    (fun sumLoop closer -> sumLoop |> closeLC closer)
+
+            do! Expect.Equal(2, outerResult |> sampleC)
+            do! Expect.Equal(3, sum |> sampleC)
+        }
+
+    [<Test>]
     member _.``As Cell Read Before The Close Throws``() =
         task {
             do!
