@@ -55,6 +55,11 @@ public class Stream<T>
     // receive a call to AttachListenerInternal. Thus, eager allocation of all three fields was
     // most of the cost to construct a stream.
 
+    // The first attached listener sits in a field, because a stream in a chain has exactly one.
+    // The list is for the second and later.
+    // ReSharper disable once NotAccessedField.Local
+    private IListener? attachedListener;
+
     // ReSharper disable once CollectionNeverQueried.Local
     private List<IListener>? attachedListeners;
 
@@ -1987,8 +1992,16 @@ public class Stream<T>
     //    share the object.
     internal Stream<T> UnsafeAttachListener(IListener cleanup)
     {
-        this.attachedListeners ??= [];
-        this.attachedListeners.Add(cleanup);
+        if (this.attachedListener == null)
+        {
+            this.attachedListener = cleanup;
+        }
+        else
+        {
+            this.attachedListeners ??= [];
+            this.attachedListeners.Add(cleanup);
+        }
+
         this.trackedListeners.AddListener(cleanup.GetListenerWithWeakReference());
         return this;
     }
