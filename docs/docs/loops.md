@@ -137,6 +137,37 @@ no call that can come too early. It also reads the value it converts, so a captu
 an enclosing loop that is still open throws at the call, with the message a read would give, rather
 than at some later read. Convert that capture with the closer of the outer loop instead.
 
+### A cell or stream of looped values
+
+The closer converts one value. It has no overload for a `Cell<LoopedCell<T>>` or a
+`Stream<LoopedCell<T>>`, because there is no sound way to retype a container without visiting its
+elements: `Cell<T>` is a class, so it has no variance; the conversion goes from the base type to the
+derived one, which is a downcast of every value the container will ever hold; and a bare placeholder
+is not a `Cell<T>` at run time, so a reinterpreted reference to one would be wrong rather than
+late. Visiting the elements is a `Map`, with a node of its own.
+
+Such a container is almost always a sign that the placeholder was reached for from inside a lambda,
+which puts the pending type on the inside:
+
+```csharp
+Cell<LoopedCell<int>> cells = plain.Map(v => l.Map(x => f(v, x)));   // inner cells read l
+```
+
+Build it the other way round and the pending type is on the outside, where the close function
+converts it as the same object:
+
+```csharp
+LoopedCell<int> cell = l.Lift(plain, (x, v) => f(v, x));             // one cell, no container
+LoopedCell<Cell<int>> cells = l.Map(x => plain.Map(v => f(v, x)));   // inner cells built from x
+```
+
+Where the inner cells are there to be followed, `SwitchC` on a `LoopedCell<LoopedCell<T>>`
+collapses them to one `LoopedCell<T>` inside the block. The case that cannot be restructured is an
+object that stores a cell, such as a row view model built inside a `ForwardReference` block; there
+the field is yours, and `AsCell()` at the point of construction is the assertion that it is read
+only after the close, as [Forward references to a single value](#forward-references-to-a-single-value)
+describes.
+
 ## The explicit form
 
 `StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism, reached
