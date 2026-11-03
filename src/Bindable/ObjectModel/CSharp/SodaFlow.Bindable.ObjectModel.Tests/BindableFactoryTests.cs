@@ -211,6 +211,56 @@ public sealed class BindableFactoryTests
         command.Execute(parameter);
     }
 
+    // Plain in, plain out: a bindable built from a Cell<T> gives that cell back as a Cell<T>, the
+    // same object, through the plain interface and through the base.
+    [Test]
+    public async Task APlainCellGivesABindableWithThePlainCell()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+        BindableFactory factory = new(BindingScheduler.Immediate);
+
+        using IOneWayBindableValue<int> oneWay = factory.CreateOneWay(c);
+        using ITwoWayBindableValue<int> twoWay = factory.CreateTwoWay(c);
+
+        using IBindableAction action =
+            factory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: c.Map(static n => n > 0));
+
+        await Assert.That(oneWay.Cell).IsSameReferenceAs(c);
+        await Assert.That(twoWay.Cell).IsSameReferenceAs(c);
+        await Assert.That(((ILoopedOneWayBindableValue<int>)oneWay).Cell).IsSameReferenceAs(c);
+        await Assert.That(action.IsEnabledCell.Sample()).IsFalse();
+    }
+
+    // Looped in, looped out: a bindable built in a loop block from a looped cell is the base
+    // interface, whose cell is the looped one, and it is not the plain interface, also through a
+    // cast. Thus, nothing can get a Cell<T> from it that the block must not read.
+    [Test]
+    public async Task ALoopedCellGivesABindableWithTheLoopedCell()
+    {
+        BindableFactory factory = new(BindingScheduler.Immediate);
+        StreamSink<Unit> firings = Stream.CreateSink<Unit>();
+
+        (_, (ILoopedOneWayBindableValue<int> oneWay, ILoopedBindableAction action)) =
+            Cell.Loop<int>()
+                .WithCaptures(l =>
+                    (Cell: Cell.Constant(4),
+                        Captures: (
+                            factory.CreateOneWay(l.Map(static n => n + 1)),
+                            factory.CreateBindableAction(
+                                firingsStreamSink: firings,
+                                isEnabledCell: l.Map(static n => n > 0)))));
+
+        using (oneWay)
+        using (action)
+        {
+            await Assert.That(oneWay.Value).IsEqualTo(5);
+            await Assert.That(oneWay.Cell.AsCell().Sample()).IsEqualTo(5);
+            await Assert.That(action.CanExecute(null)).IsTrue();
+            await Assert.That(oneWay is IOneWayBindableValue<int>).IsFalse();
+            await Assert.That(action is IBindableAction).IsFalse();
+        }
+    }
+
     /// <summary>
     ///     Keeps a record that the code asked it, and then operates as the immediate
     ///     scheduler.

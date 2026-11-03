@@ -35,11 +35,22 @@ public class BindableFactory : IBindableFactory
         this.bindingScheduler = bindingScheduler ?? throw new ArgumentNullException(nameof(bindingScheduler));
 
     /// <inheritdoc />
-    public IOneWayBindableValue<T> CreateOneWay<T>(LoopedCell<T> cell, IEqualityComparer<T>? comparer = null) =>
+    public IOneWayBindableValue<T> CreateOneWay<T>(Cell<T> cell, IEqualityComparer<T>? comparer = null) =>
+        cell.ToOneWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
+
+    /// <inheritdoc />
+    public ILoopedOneWayBindableValue<T> CreateOneWay<T>(LoopedCell<T> cell, IEqualityComparer<T>? comparer = null) =>
         cell.ToOneWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
     public ITwoWayBindableValue<T> CreateTwoWay<T>(
+        Cell<T> cell,
+        StreamSink<T> editsStreamSink,
+        IEqualityComparer<T>? comparer = null) =>
+        cell.ToTwoWayImpl(editsStreamSink: editsStreamSink, scheduler: this.bindingScheduler, comparer: comparer);
+
+    /// <inheritdoc />
+    public ILoopedTwoWayBindableValue<T> CreateTwoWay<T>(
         LoopedCell<T> cell,
         StreamSink<T> editsStreamSink,
         IEqualityComparer<T>? comparer = null) =>
@@ -50,17 +61,27 @@ public class BindableFactory : IBindableFactory
         sink.ToTwoWayImpl(scheduler: this.bindingScheduler, comparer: comparer);
 
     /// <inheritdoc />
-    public IBindableAction<T> CreateBindableAction<T>(
-        StreamSink<T> firingsStreamSink,
-        LoopedCell<bool>? isEnabledCell = null)
+    public IBindableAction<T> CreateBindableAction<T>(StreamSink<T> firingsStreamSink, Cell<bool>? isEnabledCell = null)
         where T : notnull =>
         firingsStreamSink.ToBindableActionImpl(scheduler: this.bindingScheduler, isEnabledCell: isEnabledCell);
 
     /// <inheritdoc />
-    public IBindableAction CreateBindableAction(
-        StreamSink<Unit> firingsStreamSink,
-        LoopedCell<bool>? isEnabledCell = null) =>
+    public ILoopedBindableAction<T> CreateBindableAction<T>(
+        StreamSink<T> firingsStreamSink,
+        LoopedCell<bool> isEnabledCell)
+        where T : notnull =>
+        firingsStreamSink.ToBindableActionImpl(scheduler: this.bindingScheduler, isEnabledCell: isEnabledCell);
+
+    /// <inheritdoc />
+    public IBindableAction CreateBindableAction(StreamSink<Unit> firingsStreamSink, Cell<bool>? isEnabledCell = null) =>
         new BindableActions.BindableAction(
+            firingsStreamSink: firingsStreamSink,
+            isEnabledCell: isEnabledCell ?? Cell.Constant(true),
+            scheduler: this.bindingScheduler);
+
+    /// <inheritdoc />
+    public ILoopedBindableAction CreateBindableAction(StreamSink<Unit> firingsStreamSink, LoopedCell<bool> isEnabledCell) =>
+        new BindableActions.LoopedBindableAction(
             firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
             scheduler: this.bindingScheduler);
@@ -68,10 +89,24 @@ public class BindableFactory : IBindableFactory
     /// <inheritdoc />
     public IBindableAction<Maybe<T>> CreateBindableAction<T>(
         StreamSink<Maybe<T>> firingsStreamSink,
-        LoopedCell<bool>? isEnabledCell = null)
+        Cell<bool>? isEnabledCell = null)
         where T : notnull =>
-        new BindableActions.BindableMaybeAction<T>(
+        new BindableCoreExtensionMethods.BindableAction<Maybe<T>>(
+            firingsStreamSink: firingsStreamSink,
+            isEnabledCell: isEnabledCell ?? Cell.Constant(true),
+            scheduler: this.bindingScheduler,
+            validateParameter: BindableActions.MaybeParameter<T>.Validate,
+            convertParameter: BindableActions.MaybeParameter<T>.Convert);
+
+    /// <inheritdoc />
+    public ILoopedBindableAction<Maybe<T>> CreateBindableAction<T>(
+        StreamSink<Maybe<T>> firingsStreamSink,
+        LoopedCell<bool> isEnabledCell)
+        where T : notnull =>
+        new BindableCoreExtensionMethods.LoopedBindableAction<Maybe<T>>(
             firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
-            scheduler: this.bindingScheduler);
+            scheduler: this.bindingScheduler,
+            validateParameter: BindableActions.MaybeParameter<T>.Validate,
+            convertParameter: BindableActions.MaybeParameter<T>.Convert);
 }

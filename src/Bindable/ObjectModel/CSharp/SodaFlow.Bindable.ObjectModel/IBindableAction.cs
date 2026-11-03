@@ -5,10 +5,19 @@ using SodaFlow.Functional;
 namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
+///     An <see cref="ICommand" /> that supplies its calls as a stream. A cell of
+///     <see cref="bool" /> controls when the command is available, and that cell
+///     can be in a loop that is not closed.
+/// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public interface ILoopedBindableAction : ILoopedBindableAction<Unit>;
+
+/// <summary>
 ///     An <see cref="ICommand" /> that supplies its calls as a stream. A
 ///     <see cref="Cell{T}" /> of <see cref="bool" /> controls when the command is
 ///     available.
 /// </summary>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IBindableAction : IBindableAction<Unit>;
+public interface IBindableAction : IBindableAction<Unit>, ILoopedBindableAction;

@@ -4,37 +4,50 @@ open System
 open SodaFlow
 open SodaFlow.Bindable.ObjectModel
 
+/// A command with no parameter, whose enablement cell can be in a loop that is not closed.
+type ILoopedBindableAction =
+    inherit ILoopedBindableAction<unit>
+
+/// A command with no parameter, built from a Cell<bool>, which it gives back as one.
 type IBindableAction =
     inherit IBindableAction<unit>
+    inherit ILoopedBindableAction
 
 /// The commands that the factory builds for the F# surface.
 module internal Bindable =
-    type internal BindableAction
-        (firingsStreamSink, isEnabledCell: LoopedCell<bool> option, scheduler: IBindingScheduler) =
+    /// A parameterless command ignores its parameter, so nothing can be mistyped.
+    let acceptAnyParameter (_: obj) = ()
+
+    let unitParameter (_: obj) = ()
+
+    type internal LoopedBindableAction(firingsStreamSink, isEnabledCell: LoopedCell<bool>, scheduler: IBindingScheduler)
+        =
+        inherit
+            BindableCoreExtensionMethods.LoopedBindableAction<unit>(
+                firingsStreamSink,
+                isEnabledCell,
+                scheduler,
+                acceptAnyParameter,
+                unitParameter
+            )
+
+        interface ILoopedBindableAction
+
+    type internal BindableAction(firingsStreamSink, isEnabledCell: Cell<bool>, scheduler: IBindingScheduler) =
         inherit
             BindableCoreExtensionMethods.BindableAction<unit>(
                 firingsStreamSink,
-                isEnabledCell |> Option.defaultValue null,
-                scheduler
+                isEnabledCell,
+                scheduler,
+                acceptAnyParameter,
+                unitParameter
             )
-
-        // A parameterless command ignores its parameter, so nothing can be mistyped.
-        override this.ValidateParameter _ = ()
-
-        override this.SendValue(streamSink, _) = streamSink.SendImpl()
 
         interface IBindableAction
 
-    type internal BindableOptionAction<'T>
-        (firingsStreamSink, isEnabledCell: LoopedCell<bool> option, scheduler: IBindingScheduler) =
-        inherit
-            BindableCoreExtensionMethods.BindableAction<'T option>(
-                firingsStreamSink,
-                isEnabledCell |> Option.defaultValue null,
-                scheduler
-            )
-
-        static member private GetInvalidTypeException() =
+    /// The rule for a command whose CommandParameter can be null, a 'T, or a 'T option.
+    module OptionParameter =
+        let private getInvalidTypeException<'T> () =
             InvalidOperationException(
                 "The command parameter must be of type "
                 + typeof<'T>.FullName
@@ -43,18 +56,16 @@ module internal Bindable =
                 + ", or null."
             )
 
-        override this.ValidateParameter value =
+        let validate<'T> (value: obj) =
             match value with
             | null
             | :? 'T
             | :? ('T option) -> ()
-            | _ -> BindableOptionAction<'T>.GetInvalidTypeException() |> raise
+            | _ -> getInvalidTypeException<'T> () |> raise
 
-        override this.SendValue(streamSink, value) =
-            streamSink.SendImpl(
-                match value with
-                | null -> None
-                | :? 'T as value -> Some value
-                | :? ('T option) as value -> value
-                | _ -> BindableOptionAction<'T>.GetInvalidTypeException() |> raise
-            )
+        let convert<'T> (value: obj) : 'T option =
+            match value with
+            | null -> None
+            | :? 'T as value -> Some value
+            | :? ('T option) as value -> value
+            | _ -> getInvalidTypeException<'T> () |> raise

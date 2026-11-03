@@ -10,8 +10,8 @@ public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
     ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the
-    ///     stream. A <see cref="Cell{T}" /> of <see cref="bool" /> controls when the
-    ///     command is available.
+    ///     stream. A <see cref="LoopedCell{T}" /> of <see cref="bool" /> controls when
+    ///     the command is available.
     /// </summary>
     /// <remarks>
     ///     You can build this on any thread. The building transaction samples the
@@ -19,9 +19,15 @@ public static partial class BindableCoreExtensionMethods
     ///     scheduler moves each subsequent change to the binding thread.
     ///     <see cref="Dispose" /> can run on any thread, thus only atomic operations
     ///     change the field that holds the availability.
+    ///     The two functions say what a <c>CommandParameter</c> can be, and how it
+    ///     becomes a value of the stream. A command with no parameter accepts each
+    ///     parameter and sends a unit. A command with an optional parameter accepts a
+    ///     null. Thus, the two language surfaces give functions and not derived
+    ///     classes. This class is the one command for a looped cell and for a plain
+    ///     one.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    internal class BindableAction<T> : IBindableAction<T>
+    internal class LoopedBindableAction<T> : ILoopedBindableAction<T>
         where T : notnull
     {
         private const int NotSampled = 0;
@@ -29,6 +35,8 @@ public static partial class BindableCoreExtensionMethods
         private const int NotExecutable = 1;
 
         private const int Executable = 2;
+
+        private readonly Func<object?, T> convertParameter;
 
         private readonly StreamSink<T> firingsStreamSink;
 
@@ -47,6 +55,8 @@ public static partial class BindableCoreExtensionMethods
 
         private readonly IBindingScheduler scheduler;
 
+        private readonly Action<object?> validateParameter;
+
         /// <summary>
         ///     <see cref="NotSampled" />, <see cref="NotExecutable" />, or
         ///     <see cref="Executable" />. Read it with <see cref="ReadCanExecute" />.
@@ -55,23 +65,36 @@ public static partial class BindableCoreExtensionMethods
 
         private int disposed;
 
-        internal BindableAction(
+        /// <param name="firingsStreamSink">The sink that each accepted call sends to.</param>
+        /// <param name="isEnabledCell">The cell that controls availability.</param>
+        /// <param name="scheduler">Moves notifications to the binding thread.</param>
+        /// <param name="validateParameter">
+        ///     Throws when the <c>CommandParameter</c> is not acceptable. This runs
+        ///     before the send goes into the queue, thus the exception reaches the caller
+        ///     of <see cref="Execute" />.
+        /// </param>
+        /// <param name="convertParameter">
+        ///     Gives the value to send for a <c>CommandParameter</c> that
+        ///     <paramref name="validateParameter" /> accepted.
+        /// </param>
+        internal LoopedBindableAction(
             StreamSink<T> firingsStreamSink,
-            LoopedCell<bool>? isEnabledCell,
-            IBindingScheduler scheduler)
+            LoopedCell<bool> isEnabledCell,
+            IBindingScheduler scheduler,
+            Action<object?> validateParameter,
+            Func<object?, T> convertParameter)
         {
             this.firingsStreamSink =
                 firingsStreamSink
                 ?? throw new ArgumentNullException(nameof(firingsStreamSink));
 
             this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-
-            LoopedCell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
+            this.validateParameter = validateParameter ?? throw new ArgumentNullException(nameof(validateParameter));
+            this.convertParameter = convertParameter ?? throw new ArgumentNullException(nameof(convertParameter));
+            this.IsEnabledCell = isEnabledCell ?? throw new ArgumentNullException(nameof(isEnabledCell));
 
             (this.initialCanExecute, this.listener) =
-                SampleAtCloseAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
-
-            this.IsEnabledCell = resolvedIsEnabledCell.AsCellImpl();
+                SampleAtCloseAndListenToUpdates(cell: isEnabledCell, handler: this.OnIsEnabledChanged);
         }
 
         public event EventHandler? CanExecuteChanged;
@@ -80,7 +103,7 @@ public static partial class BindableCoreExtensionMethods
         public Stream<T> FiringsStream => this.firingsStreamSink;
 
         /// <inheritdoc />
-        public Cell<bool> IsEnabledCell { get; }
+        public LoopedCell<bool> IsEnabledCell { get; }
 
         public bool CanExecute(object? parameter) => Volatile.Read(ref this.disposed) == 0 && this.ReadCanExecute();
 
@@ -96,7 +119,7 @@ public static partial class BindableCoreExtensionMethods
             // see it. When a transaction is open, PostWrite defers, and a throw from the deferred
             // action leaves Transaction.Close. That stops a transaction that has no connection to
             // this command, and discards the other work in its queue.
-            this.ValidateParameter(parameter);
+            this.validateParameter(parameter);
 
             PostWrite(() =>
             {
@@ -109,7 +132,7 @@ public static partial class BindableCoreExtensionMethods
                     return;
                 }
 
-                this.SendValue(streamSink: this.firingsStreamSink, value: parameter);
+                this.firingsStreamSink.SendImpl(this.convertParameter(parameter));
             });
         }
 
@@ -149,21 +172,15 @@ public static partial class BindableCoreExtensionMethods
             this.scheduler.Post(() => handler(sender: this, e: EventArgs.Empty));
         }
 
-        private static InvalidOperationException GetInvalidTypeException() =>
-            new("The command parameter must be of type " + typeof(T).FullName + ".");
-
         /// <summary>
-        ///     Prevents a binding from the author of the XAML that gives a
-        ///     <c>CommandParameter</c> of an incorrect type. This runs before the send
-        ///     goes into the queue, thus the exception reaches the caller of
-        ///     <see cref="Execute" />.
+        ///     The rule for a command whose parameter is a <typeparamref name="T" />:
+        ///     throws for a <c>CommandParameter</c> of a different type.
         /// </summary>
-        /// <param name="value">The command parameter, as the binding engine supplied it.</param>
         /// <exception cref="InvalidOperationException">
         ///     <paramref name="value" /> is not a <typeparamref name="T" />, and it is not
         ///     a null that <typeparamref name="T" /> can hold.
         /// </exception>
-        protected virtual void ValidateParameter(object? value)
+        internal static void ValidateTyped(object? value)
         {
             if (value is T)
             {
@@ -174,20 +191,24 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <summary>
-        ///     Sends the parameter into the stream. <see cref="ValidateParameter" />
-        ///     accepted it before this point, thus the conversion here cannot fail.
+        ///     The conversion for a command whose parameter is a
+        ///     <typeparamref name="T" />. <see cref="ValidateTyped" /> accepted the value
+        ///     before this point, thus the conversion cannot fail.
         /// </summary>
-        protected virtual void SendValue(StreamSink<T> streamSink, object? value) =>
-            streamSink.SendImpl(
-                value switch
-                {
-                    T typedValue => typedValue,
-                    _ => throw GetInvalidTypeException()
-                });
+        internal static T ConvertTyped(object? value) =>
+            value switch
+            {
+                T typedValue => typedValue,
+                _ => throw GetInvalidTypeException()
+            };
 
-        // The same rule as OneWayBindableValue.OnSourceChanged. A transaction that fails after
-        // this callback can discard the update of the cell. Thus, the posted action uses the value
-        // here only when the outcome is known as committed, and reads the cell in each other state.
+        private static InvalidOperationException GetInvalidTypeException() =>
+            new("The command parameter must be of type " + typeof(T).FullName + ".");
+
+        // The same rule as LoopedOneWayBindableValue.OnSourceChanged. A transaction that fails
+        // after this callback can discard the update of the cell. Thus, the posted action uses the
+        // value here only when the outcome is known as committed, and reads the cell in each other
+        // state.
         private void OnIsEnabledChanged(bool value)
         {
             TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
@@ -233,5 +254,35 @@ public static partial class BindableCoreExtensionMethods
 
             return state == Executable;
         }
+    }
+
+    /// <summary>
+    ///     A <see cref="LoopedBindableAction{T}" /> for a <see cref="Cell{T}" /> of
+    ///     <see cref="bool" />, which gives the cell back as one.
+    /// </summary>
+    /// <remarks>
+    ///     This is a different class, and not a flag. Thus, a command built from a
+    ///     looped cell is not an <see cref="IBindableAction{T}" />, also through a cast.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    internal class BindableAction<T> : LoopedBindableAction<T>, IBindableAction<T>
+        where T : notnull
+    {
+        internal BindableAction(
+            StreamSink<T> firingsStreamSink,
+            Cell<bool> isEnabledCell,
+            IBindingScheduler scheduler,
+            Action<object?> validateParameter,
+            Func<object?, T> convertParameter)
+            : base(
+                firingsStreamSink: firingsStreamSink,
+                isEnabledCell: isEnabledCell,
+                scheduler: scheduler,
+                validateParameter: validateParameter,
+                convertParameter: convertParameter) =>
+            this.IsEnabledCell = isEnabledCell;
+
+        /// <inheritdoc />
+        public new Cell<bool> IsEnabledCell { get; }
     }
 }

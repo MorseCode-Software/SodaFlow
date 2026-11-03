@@ -6,7 +6,7 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     Projects a <see cref="Cell{T}" /> onto
+    ///     Projects a <see cref="LoopedCell{T}" /> onto
     ///     <see cref="System.ComponentModel.INotifyPropertyChanged" />.
     /// </summary>
     /// <remarks>
@@ -17,9 +17,12 @@ public static partial class BindableCoreExtensionMethods
     ///     instance puts the building thread and the binding thread in sequence. That
     ///     code must do this in all conditions, because <c>comparer</c> and
     ///     <c>listener</c> are usual fields that a reader needs.
+    ///     The cell can be in a loop that is not closed, because the sample at the
+    ///     close is the first read. See <see cref="OneWayBindableValue{T}" /> for a
+    ///     <see cref="Cell{T}" />.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
+    private class LoopedOneWayBindableValue<T> : BindableValueBase, ILoopedOneWayBindableValue<T>
     {
         private readonly IEqualityComparer<T> comparer;
 
@@ -43,13 +46,13 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         private InitialSample<T>? initialValue;
 
-        internal OneWayBindableValue(
+        internal LoopedOneWayBindableValue(
             LoopedCell<T> cell,
             IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
             : base(scheduler)
         {
-            this.Cell = (cell ?? throw new ArgumentNullException(nameof(cell))).AsCellImpl();
+            this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 
             // ReSharper disable once NullableWarningSuppressionIsUsed - Never read. ResolveInitialValue
@@ -68,7 +71,7 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <inheritdoc />
-        public Cell<T> Cell { get; }
+        public LoopedCell<T> Cell { get; }
 
         /// <inheritdoc />
         public T Value
@@ -136,5 +139,24 @@ public static partial class BindableCoreExtensionMethods
         }
 
         protected override void DisposeCore() => this.listener.Unlisten();
+    }
+
+    /// <summary>
+    ///     A <see cref="LoopedOneWayBindableValue{T}" /> for a <see cref="Cell{T}" />,
+    ///     which gives the cell back as one.
+    /// </summary>
+    /// <remarks>
+    ///     This is a different class, and not a flag. Thus, a value built from a looped
+    ///     cell is not an <see cref="IOneWayBindableValue{T}" />, also through a cast.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class OneWayBindableValue<T> : LoopedOneWayBindableValue<T>, IOneWayBindableValue<T>
+    {
+        internal OneWayBindableValue(Cell<T> cell, IBindingScheduler scheduler, IEqualityComparer<T>? comparer)
+            : base(cell: cell, scheduler: scheduler, comparer: comparer) =>
+            this.Cell = cell;
+
+        /// <inheritdoc />
+        public new Cell<T> Cell { get; }
     }
 }

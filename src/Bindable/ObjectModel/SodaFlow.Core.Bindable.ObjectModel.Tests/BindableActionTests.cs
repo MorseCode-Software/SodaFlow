@@ -15,7 +15,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 /// </summary>
 public sealed class BindableActionTests
 {
-    private static IBindableAction<T> Action<T>(StreamSink<T> sink, LoopedCell<bool>? isEnabled = null)
+    private static IBindableAction<T> Action<T>(StreamSink<T> sink, Cell<bool>? isEnabled = null)
         where T : notnull =>
         sink.ToBindableActionImpl(isEnabledCell: isEnabled, scheduler: BindingScheduler.Immediate);
 

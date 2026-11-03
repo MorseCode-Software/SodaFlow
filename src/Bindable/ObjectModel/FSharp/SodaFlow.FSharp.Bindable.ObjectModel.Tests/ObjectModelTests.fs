@@ -162,6 +162,34 @@ type ``Object Model Tests``() =
             do! Expect.Sequence([ Some 2 ], fired)
         }
 
+    // Plain in, plain out, and looped in, looped out: the overload is selected by the type of the
+    // cell, and a bindable built from a looped cell is not the plain interface.
+    [<Test>]
+    member _.``a looped cell gives the looped interface and a plain cell the plain one``() =
+        task {
+            let struct (_, struct (looped, plain)) =
+                loopC (fun l ->
+                    struct (constantC 4, struct (immediate.ToOneWay(l |> mapLC ((+) 1)), immediate.ToOneWay(constantC 1))))
+
+            use looped = looped
+            use plain = plain
+            do! Expect.Equal(5, looped.Value)
+            do! Expect.Equal(5, looped.Cell |> asCellLC |> sampleC)
+            do! Expect.Equal(1, plain.Cell |> sampleC)
+            do! Expect.True(not (box looped :? IOneWayBindableValue<int>))
+        }
+
+    [<Test>]
+    member _.``a command built from a looped cell is the looped interface``() =
+        task {
+            let struct (_, action) =
+                loopC (fun l -> struct (constantC true, immediate.ToBindableAction(sinkS<unit> (), l)))
+
+            use action = action
+            do! Expect.True(action.CanExecute null)
+            do! Expect.True(not (box action :? IBindableAction))
+        }
+
     [<Test>]
     member _.``the factory rejects a null scheduler``() =
         task {
