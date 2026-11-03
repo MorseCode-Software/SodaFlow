@@ -1,7 +1,11 @@
 5.0.0
 
-Changed: ToOneWay, ToTwoWay, and ToBindableAction take a LoopedCell<'T> or a LoopedCell<bool>, which a Cell converts
-to, so a value built inside a loop block binds without asCellLC. The core package notes say why that is sound.
+BREAKING: ToOneWay, ToTwoWay, ToBindableAction, and ToBindableOptionAction each have an overload for a Cell<'T> or
+Cell<bool> and one for a LoopedCell<'T> or LoopedCell<bool>. The plain one returns the interfaces it did; the looped one
+returns their base interfaces ILoopedOneWayBindableValue<'T>, ILoopedTwoWayBindableValue<'T>, ILoopedBindableAction<'T>,
+or the new ILoopedBindableAction, whose cell is the looped one. The enablement cell of a command is no longer an optional
+parameter, because F# cannot select between an optional Cell<bool> and a LoopedCell<bool>: ToBindableAction sink is the
+command that is always enabled, and the two-argument overloads take the cell. The core package notes say why.
 
 BREAKING: ToOneWayToSource is gone, in both overloads, with IOneWayToSourceBindableValue behind it. A value the
 view writes and also shows is a two-way value: ToTwoWay on a CellSink, or on a Cell with a StreamSink for the

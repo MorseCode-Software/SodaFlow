@@ -1,7 +1,11 @@
 5.0.0
 
-Changed: CreateOneWay, CreateTwoWay, and CreateBindableAction take a LoopedCell<T> or a LoopedCell<bool>, which a Cell
-converts to, so a value built inside a loop block binds without AsCell. The core package notes say why that is sound.
+BREAKING: CreateOneWay, CreateTwoWay, and CreateBindableAction each have an overload for a Cell<T> or Cell<bool> and one
+for a LoopedCell<T> or LoopedCell<bool>. The plain one returns IOneWayBindableValue<T>, ITwoWayBindableValue<T>,
+IBindableAction<T>, or IBindableAction, as before; the looped one returns their base interfaces
+ILoopedOneWayBindableValue<T>, ILoopedTwoWayBindableValue<T>, ILoopedBindableAction<T>, or the new ILoopedBindableAction,
+whose cell is the looped one. A view model that builds a bindable inside a loop block from a cell off its forward
+reference names the looped interface, and one built from a plain cell does not change. The core package notes say why.
 
 BREAKING: CreateOneWayToSource is gone, in both overloads, with IOneWayToSourceBindableValue behind it. A value the
 view writes and also shows is a two-way value: CreateTwoWay on a CellSink, or on a Cell with a StreamSink for the

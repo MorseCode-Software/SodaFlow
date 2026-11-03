@@ -331,7 +331,8 @@ internal sealed class Row
         this.Amount = amount;
         this.Share = share;
 
-        // The factory takes the looped type: a bindable reads its cell only after the transaction.
+        // The factory takes the looped type and gives the looped interface. The view binds it
+        // the same way; see the bindable page.
         this.ShareText = factory.CreateOneWay(share.Map(s => $"{s:P0}"));
     }
 
@@ -341,7 +342,7 @@ internal sealed class Row
 
     public LoopedCell<decimal> Share { get; }
 
-    public IOneWayBindableValue<string> ShareText { get; }
+    public ILoopedOneWayBindableValue<string> ShareText { get; }
 }
 
 // Inside the ForwardReference block, where viewModelLoop is the LoopedCell<ViewModel>:
