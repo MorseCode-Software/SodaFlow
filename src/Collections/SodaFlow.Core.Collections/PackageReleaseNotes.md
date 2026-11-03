@@ -83,6 +83,21 @@ of 1, 2, 8, and 32 edit streams, 1.71, 1.95, 3.12, and 7.92 µs before and 1.51,
 the last stream, which the chain served in one hop, 1.76, 1.74, 1.69, and 1.72 µs before and 1.52, 1.65, 1.71, and
 1.69 µs after.
 
+A change of direction on a sort no longer copies the sorted set. A sort stage that receives the same sort value in the
+opposite direction did not sort every key again, but it did copy the set it held into a new sorted set, which sorted
+the entries once more and allocated a node for each. The stage now reads the set it holds from its end through a view
+that costs nothing to make, and a change back to the original direction drops the view. The view keeps the documented
+rule for ties: the key still breaks a tie in ascending order in both directions, so a run of keys with equal sort
+values keeps its sequence, as a fresh build in the new order would have it. A read of one position through the view
+costs O(log² n) rather than O(log n), because it has to find the ends of the run that holds the position; a read of
+all the keys stays O(n), and an edit after the change costs what it cost before plus one small object. Measured in a
+new benchmark, SortReverseBenchmarks, on a collection of 100,000 items sorted by an order cell with a listener on the
+view, .NET 10: the toggle took 13.3 ms and allocated 6.7 MB before, of which the copy alone was 11.3 ms, and takes
+2.1 µs and 4.2 KB after. On .NET Framework 4.7.2 it took 25.7 ms before and takes 4.0 µs after. The toggle followed by
+a read of every key, which is what a bound list does at a reset, took 19.5 ms before and takes 4.5 ms after on .NET 10,
+and 34.3 ms before and 11.0 ms after on .NET Framework, so the walk through the runs costs less than the copy it
+replaced even for a consumer that reads the whole list.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
