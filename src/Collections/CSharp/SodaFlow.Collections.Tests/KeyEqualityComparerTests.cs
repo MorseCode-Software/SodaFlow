@@ -87,6 +87,51 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
+    ///     The identity form with a comparer also takes its initial contents from a
+    ///     cell, which the transaction that builds the collection samples at its
+    ///     close.
+    /// </summary>
+    [Test]
+    public async Task TheIdentityFormWithAComparerReadsItsInitialEntriesFromACell()
+    {
+        StreamSink<CollectionEdit<string, SelfNamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, SelfNamedIdentity, NamedState>>();
+
+        CellSink<IEnumerable<Item<SelfNamedIdentity, NamedState>>> initialEntries =
+            Cell.CreateSink<IEnumerable<Item<SelfNamedIdentity, NamedState>>>([]);
+
+        ReactiveCollection<string, SelfNamedIdentity, NamedState> collection =
+            Transaction.Run(() =>
+            {
+                ReactiveCollection<string, SelfNamedIdentity, NamedState> built =
+                    ReactiveCollection.Create(
+                        keyEqualityComparer: StringComparer.OrdinalIgnoreCase,
+                        initialEntries: initialEntries,
+                        edits);
+
+                initialEntries.Send([new Item<SelfNamedIdentity, NamedState>(
+                    identity: new SelfNamedIdentity("ABC"),
+                    state: new NamedState(1))]);
+
+                return built;
+            });
+
+        await Assert.That(collection.SnapshotCell.Sample().ContainsKey("abc")).IsTrue();
+
+        edits.Send(
+            CollectionEdit<string, SelfNamedIdentity, NamedState>.Update(
+                key: "abc",
+                // ReSharper disable once WithExpressionModifiesAllMembers
+                transform: static state => state with { Score = 2 }));
+
+        await Assert.That(
+                collection.SnapshotCell.Sample().States.TryGetState(key: "ABC", state: out NamedState? state)
+                    ? state.Score
+                    : -1)
+            .IsEqualTo(2);
+    }
+
+    /// <summary>
     ///     The cache of per-key cells compares keys as the collection does. Thus, one
     ///     key in two spellings gives one cell on the collection, and one on a view.
     /// </summary>
