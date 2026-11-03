@@ -13,14 +13,23 @@ moment.
 
 ## Choosing a timer system
 
-Two implementations ship in `SodaFlow`:
+These implementations ship in `SodaFlow`:
 
 | Type | Time is | Use when |
 | --- | --- | --- |
 | `SecondsTimerSystem` | `double`, seconds since the system was created | Simulations, animation, anything relative. |
-| `SystemClockTimerSystem` | `DateTime`, from `DateTime.Now` | Scheduling against real calendar times. |
+| `UtcClockTimerSystem` | `DateTime`, from `DateTime.UtcNow` | Waits and deadlines against real calendar times. |
+| `SystemClockTimerSystem` | `DateTime`, from `DateTime.Now` or your own clock | A screen's time; a test's clock. |
 
-Both take an exception handler, because timer callbacks run outside your call stack and an
+Local time moves with the machine's clock. Across the autumn daylight saving change a timer set
+five minutes ahead on `SystemClockTimerSystem` waits sixty-five, and across the spring change it
+fires an hour early, because the time it was given is on the wall clock that just moved. UTC does
+not move, so `UtcClockTimerSystem` is the one to wait on; convert a value from its `Time` with
+`ToLocalTime` when a screen shows it. `SystemClockTimerSystem` also has a constructor that takes a
+`Func<DateTime>`, which is the shortest way to put a clock a test moves by hand under a real
+`TimerSystem<DateTime>`.
+
+All of them take an exception handler, because timer callbacks run outside your call stack and an
 exception there has nowhere else to go:
 
 ```csharp
@@ -301,4 +310,4 @@ the processor can walk the graph. `TimerGarbageCollectionTests` in `SodaFlow.Tes
 exactly this shape.
 
 The F# implementation mirrors all of this in `SodaFlow.Time` — `TimerSystem<'T>`,
-`SecondsTimerSystem`, `SystemClockTimerSystem`, and the same interfaces.
+`SecondsTimerSystem`, `SystemClockTimerSystem`, `UtcClockTimerSystem`, and the same interfaces.
