@@ -81,6 +81,18 @@ ms and 488 KB after; a map with a hold 2.23 ms and 1,442 KB to 1.90 ms and 1,200
 moves in proportion: the chain 1.52 to 1.25 ms over the node and the Listen change alone. The benchmark has an arm for
 each common shape, so a later change to construction can be measured against this one.
 
+A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
+the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
+957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never
+stream at the first ask, in the transaction: 12 µs and 102 KB per thousand. Nothing observable changes; a constant's
+Updates is still a stream that never fires.
+
+A lift allocates less. Each input of a lift, a snapshot of the latest values, or a merge of maybes had two closures
+and two delegates between its stream and the shared gate; it now has one object that holds its slot and is its own
+listener action. A lift's output is built through one object in place of three delegates, an array, and a second
+lambda for the lazy initial value. GraphBuildBenchmarks, per thousand two-cell lifts, .NET 10: 3.81 ms and 2,998 KB
+before, 3.61 ms and 2,688 KB after; .NET Framework 4.7.2: 5.27 to 4.61 ms and 3,036 to 2,721 KB.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after
