@@ -74,7 +74,7 @@ type ITimerSystem<'T when 'T: comparison> =
     ///     again, and how it cancels a timer. A time before now fires at the next opportunity, and the
     ///     timer system does not drop it.
     /// </remarks>
-    abstract member At: Cell<'T option> -> Stream<'T>
+    abstract member At: LoopedCell<'T option> -> Stream<'T>
 
 /// <summary>
 ///     The clock and the waiting behind a <c>TimerSystem</c>.
@@ -603,7 +603,7 @@ let debounce (timers: ITimerSystem<'T>) (deadline: 'T -> 'T) (stream: Stream<'A>
     StreamExtensionMethodsInternal.DebounceImpl(
         stream,
         timers.Time,
-        Func<Cell<'T option>, Stream<'T>>(timers.At),
+        Func<LoopedCell<'T option>, Stream<'T>>(timers.At),
         Func<'T, 'T option>(fun now -> Some(deadline now)),
         None
     )

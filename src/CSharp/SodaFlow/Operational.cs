@@ -27,7 +27,7 @@ public static class Operational
     ///     the caller see the behavior updates.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Updates<T>(Behavior<T> b) => OperationalInternal.UpdatesImpl(b);
+    public static Stream<T> Updates<T>(LoopedBehavior<T> b) => OperationalInternal.UpdatesImpl(b);
 
     /// <summary>
     ///     A stream that always fires one time at the start of the listener. That
@@ -48,7 +48,7 @@ public static class Operational
     ///     the caller see the behavior updates.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Value<T>(Behavior<T> b) => OperationalInternal.ValueImpl(b);
+    public static Stream<T> Value<T>(LoopedBehavior<T> b) => OperationalInternal.ValueImpl(b);
 
     /// <summary>
     ///     Push each stream event onto a new transaction guaranteed to come before the

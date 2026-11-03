@@ -480,7 +480,7 @@ type ``Stream Tests``() =
 
             let struct (cb, cc) =
                 loopC (fun cb ->
-                    let cc = (ca |> mapC (flip (%) 10), cb) |> lift2C (*)
+                    let cc = (ca |> mapC (flip (%) 10), cb) |> lift2LC (*)
                     let cb = ca |> mapC (flip (/) 10)
                     struct (cb, cc))
 

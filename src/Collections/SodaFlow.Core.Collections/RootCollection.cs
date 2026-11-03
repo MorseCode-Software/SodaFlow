@@ -151,7 +151,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
             // The resolution of an edit uses the state that it resolves against, and the
             // resolution of the edits makes that state. Thus, this code has an explicit loop.
-            LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
+            CellLoop<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
             Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
                 editsStream

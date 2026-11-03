@@ -142,8 +142,8 @@ module Issue138 =
                             loopWithNoCapturesC (fun cell ->
                                 (streamSink |> mapS (fun v _ -> v),
                                  cell
-                                 |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
-                                 |> switchC
+                                 |> mapLC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                                 |> switchCLC
                                  |> updatesC
                                  |> filterS (flip (<) 50)
                                  |> mapToS (List.append (List.singleton <| TestObject.create ())))
@@ -176,7 +176,7 @@ module Issue138 =
                     loopWithNoCapturesC (fun cell ->
                         (streamSink |> mapS (fun v _ -> v),
                          cell
-                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum >> valuesC)
+                         |> mapLC (Seq.map TestObject.output >> liftAllC Seq.sum >> valuesC)
                          |> switchS
                          |> filterS (flip (<) 50)
                          |> mapToS (List.append (List.singleton <| TestObject.create ())))
@@ -222,8 +222,8 @@ module Issue138 =
                     loopWithNoCapturesC (fun cell ->
                         (streamSink,
                          cell
-                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
-                         |> switchC
+                         |> mapLC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                         |> switchCLC
                          |> valuesC
                          |> Operational.defer
                          |> filterS (flip (<) 50)
@@ -270,7 +270,7 @@ module Issue138 =
             // compilation of the state machine. F# then uses a dynamic implementation with a lower speed,
             // and does not report an error.
             let switchCWithDeferredValues cell =
-                cell |> switchC |> valuesC |> Operational.defer
+                cell |> switchCLC |> valuesC |> Operational.defer
 
             task {
                 let streamSink = sinkCS ()
@@ -279,7 +279,7 @@ module Issue138 =
                     loopWithNoCapturesC (fun cell ->
                         (streamSink,
                          cell
-                         |> mapC (Seq.map TestObject.output >> liftAllC Seq.sum)
+                         |> mapLC (Seq.map TestObject.output >> liftAllC Seq.sum)
                          |> switchCWithDeferredValues
                          |> filterS (flip (<) 50)
                          |> mapToS (List.append (List.singleton <| TestObject.create ()))

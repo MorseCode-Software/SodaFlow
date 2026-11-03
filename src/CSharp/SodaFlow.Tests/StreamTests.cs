@@ -513,10 +513,10 @@ public sealed class StreamTests
             Transaction.Run(() =>
             {
                 CellLoop<int> cbLocal = Cell.CreateLoop<int>();
-                Cell<int> ccLocal = ca.Map(static x => x % 10).Lift(c2: cbLocal, f: static (x, y) => x * y);
+                LoopedCell<int> ccLocal = ca.Map(static x => x % 10).Lift(c2: cbLocal, f: static (x, y) => x * y);
                 Cell<int> cbOut = ca.Map(static x => x / 10);
                 cbLocal.Loop(cbOut);
-                return (cbLocal, cbOut, ccLocal);
+                return (cbLocal, cbOut, ccLocal.Close());
             });
 
         List<int> @out = [];

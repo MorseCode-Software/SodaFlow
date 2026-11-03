@@ -74,6 +74,30 @@ public static class ForwardReference<T>
             .Captures;
 
     /// <summary>
+    ///     Constructs a value which can refer to itself, along with one cell that
+    ///     depends on the reference.
+    /// </summary>
+    /// <typeparam name="TCaptures">The type of the value in the captured cell.</typeparam>
+    /// <param name="f">
+    ///     A function which takes a forward reference to the value it is producing,
+    ///     and returns that value along with a cell that depends on the reference.
+    /// </param>
+    /// <returns>A value tuple containing the constructed value and the captured cell.</returns>
+    /// <remarks>
+    ///     The reference has its value when this returns, thus the captured cell is a
+    ///     <see cref="Cell{T}" /> and not a <see cref="LoopedCell{T}" />. A capture
+    ///     that depends on a different loop, which is not closed, throws an exception.
+    /// </remarks>
+    [Pure]
+    public static (T Value, Cell<TCaptures> Captures) WithCaptures<TCaptures>(
+        Func<LoopedCell<T>, (T Value, LoopedCell<TCaptures> Captures)> f)
+    {
+        (T value, LoopedCell<TCaptures> captures) = WithCaptures<LoopedCell<TCaptures>>(f);
+
+        return (value, captures.CloseImpl());
+    }
+
+    /// <summary>
     ///     Constructs a value which can refer to itself.
     /// </summary>
     /// <param name="f">

@@ -122,11 +122,36 @@ public struct CellLooper<T>
         Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            LoopedCell<T> loop = new();
+            CellLoop<T> loop = new();
             (Cell<T> Cell, TCaptures Captures) result = f(loop);
             loop.Loop(trans: trans, c: result.Cell);
             return result;
         });
+
+    /// <summary>
+    ///     Loop a cell and return a value tuple containing the resulting cell and one
+    ///     captured cell, which the loop closes with the resulting cell.
+    /// </summary>
+    /// <typeparam name="TCaptures">The type of the value in the captured cell.</typeparam>
+    /// <param name="f">
+    ///     A function which takes the cell loop and returns a value tuple containing
+    ///     the resulting cell and a cell that depends on the loop.
+    /// </param>
+    /// <returns>A value tuple containing the resulting cell and the captured cell.</returns>
+    /// <remarks>
+    ///     The loop is closed when this returns, thus the captured cell is a
+    ///     <see cref="Cell{T}" /> and not a <see cref="LoopedCell{T}" />. A capture
+    ///     that depends on a different loop, which is not closed, throws an exception.
+    /// </remarks>
+    [Pure]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public (Cell<T> Cell, Cell<TCaptures> Captures) WithCaptures<TCaptures>(
+        Func<LoopedCell<T>, (Cell<T> Cell, LoopedCell<TCaptures> Captures)> f)
+    {
+        (Cell<T> cell, LoopedCell<TCaptures> captures) = this.WithCaptures<LoopedCell<TCaptures>>(f);
+
+        return (cell, captures.CloseImpl());
+    }
 
     /// <summary>
     ///     Loop a cell and return the resulting cell.

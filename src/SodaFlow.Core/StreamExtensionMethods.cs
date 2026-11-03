@@ -239,12 +239,12 @@ internal static class StreamExtensionMethodsInternal
     internal static Stream<T> DebounceImpl<T, TTime, TDeadline>(
         this Stream<T> s,
         Behavior<TTime> time,
-        Func<Cell<TDeadline>, Stream<TTime>> at,
+        Func<LoopedCell<TDeadline>, Stream<TTime>> at,
         Func<TTime, TDeadline> arm,
         TDeadline disarmed) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            LoopedCell<TDeadline> deadline = new();
+            CellLoop<TDeadline> deadline = new();
             Stream<TTime> alarm = at(deadline);
 
             // The value of each firing, for the alarm to read. This holds MaybeInternal and not

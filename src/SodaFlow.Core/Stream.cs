@@ -290,15 +290,15 @@ public class Stream<T>
     internal Behavior<T> HoldLazyInternal(TransactionInternal trans, LazySample<T> initialValue) =>
         new LazyBehavior<T>(trans: trans, stream: this, lazyInitialValue: initialValue);
 
-    internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
+    internal Stream<TResult> SnapshotImpl<TResult>(LoopedCell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
 
-    internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) =>
+    internal Stream<TResult> SnapshotImpl<TResult>(LoopedBehavior<TResult> b) =>
         this.SnapshotImpl(b: b, f: static (_, a) => a);
 
-    internal Stream<TResult> SnapshotImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
+    internal Stream<TResult> SnapshotImpl<T1, TResult>(LoopedCell<T1> c, Func<T, T1, TResult> f) =>
         this.SnapshotImpl(b: c.BehaviorImpl, f: f);
 
-    internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
+    internal Stream<TResult> SnapshotImpl<T1, TResult>(LoopedBehavior<T1> b, Func<T, T1, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
@@ -311,14 +311,14 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
         this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
         Func<T, T1, T2, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -335,16 +335,16 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
         this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -365,18 +365,18 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, b4: c4.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -398,11 +398,11 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         this.SnapshotImpl(
             b1: c1.BehaviorImpl,
@@ -413,11 +413,11 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
         Func<T, T1, T2, T3, T4, T5, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -440,12 +440,12 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         this.SnapshotImpl(
             b1: c1.BehaviorImpl,
@@ -457,12 +457,12 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -486,13 +486,13 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         this.SnapshotImpl(
             b1: c1.BehaviorImpl,
@@ -505,13 +505,13 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -536,14 +536,14 @@ public class Stream<T>
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        LoopedCell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         this.SnapshotImpl(
             b1: c1.BehaviorImpl,
@@ -557,14 +557,14 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
-        Behavior<T8> b8,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        LoopedBehavior<T8> b8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
@@ -589,15 +589,16 @@ public class Stream<T>
         return @out.UnsafeAttachListener(l);
     }
 
-    internal Stream<TResult> SnapshotLatestImpl<TResult>(Cell<TResult> c) => this.SnapshotLatestImpl(c.BehaviorImpl);
+    internal Stream<TResult> SnapshotLatestImpl<TResult>(LoopedCell<TResult> c) =>
+        this.SnapshotLatestImpl(c.BehaviorImpl);
 
-    internal Stream<TResult> SnapshotLatestImpl<TResult>(Behavior<TResult> b) =>
+    internal Stream<TResult> SnapshotLatestImpl<TResult>(LoopedBehavior<TResult> b) =>
         this.SnapshotLatestImpl(b: b, f: static (_, a) => a);
 
-    internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
+    internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(LoopedCell<T1> c, Func<T, T1, TResult> f) =>
         this.SnapshotLatestImpl(b: c.BehaviorImpl, f: f);
 
-    internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
+    internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(LoopedBehavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
             CaptureSlot<T1> p1 = default;
@@ -612,19 +613,19 @@ public class Stream<T>
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v))
                 ],
-                take: trans2 => Behavior<T1>.Take(pending: ref p1, input: b, trans: trans2),
+                take: trans2 => LoopedBehavior<T1>.Take(pending: ref p1, input: b, trans: trans2),
                 f: f);
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
         this.SnapshotLatestImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
         Func<T, T1, T2, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -648,22 +649,22 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2));
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
         this.SnapshotLatestImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -693,17 +694,17 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3));
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         this.SnapshotLatestImpl(
             b1: c1.BehaviorImpl,
@@ -713,10 +714,10 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -752,19 +753,19 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
-                    Behavior<T4>.Take(pending: ref p4, input: b4, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
+                    LoopedBehavior<T4>.Take(pending: ref p4, input: b4, trans: trans2)),
                 f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4));
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         this.SnapshotLatestImpl(
             b1: c1.BehaviorImpl,
@@ -775,11 +776,11 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -821,22 +822,22 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
-                    Behavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
-                    Behavior<T5>.Take(pending: ref p5, input: b5, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
+                    LoopedBehavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
+                    LoopedBehavior<T5>.Take(pending: ref p5, input: b5, trans: trans2)),
                 f: (a, v) =>
                     f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4, arg6: v.Item5));
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         this.SnapshotLatestImpl(
             b1: c1.BehaviorImpl,
@@ -848,12 +849,12 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -901,12 +902,12 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
-                    Behavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
-                    Behavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
-                    Behavior<T6>.Take(pending: ref p6, input: b6, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
+                    LoopedBehavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
+                    LoopedBehavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
+                    LoopedBehavior<T6>.Take(pending: ref p6, input: b6, trans: trans2)),
                 f: (a, v) =>
                     f(
                         arg1: a,
@@ -919,13 +920,13 @@ public class Stream<T>
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         this.SnapshotLatestImpl(
             b1: c1.BehaviorImpl,
@@ -938,13 +939,13 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -998,13 +999,13 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
-                    Behavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
-                    Behavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
-                    Behavior<T6>.Take(pending: ref p6, input: b6, trans: trans2),
-                    Behavior<T7>.Take(pending: ref p7, input: b7, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
+                    LoopedBehavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
+                    LoopedBehavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
+                    LoopedBehavior<T6>.Take(pending: ref p6, input: b6, trans: trans2),
+                    LoopedBehavior<T7>.Take(pending: ref p7, input: b7, trans: trans2)),
                 f: (a, v) =>
                     f(
                         arg1: a,
@@ -1018,14 +1019,14 @@ public class Stream<T>
         });
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        LoopedCell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         this.SnapshotLatestImpl(
             b1: c1.BehaviorImpl,
@@ -1039,14 +1040,14 @@ public class Stream<T>
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
-        Behavior<T8> b8,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        LoopedBehavior<T8> b8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
@@ -1106,14 +1107,14 @@ public class Stream<T>
                 ],
                 take: trans2 =>
                 (
-                    Behavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
-                    Behavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
-                    Behavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
-                    Behavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
-                    Behavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
-                    Behavior<T6>.Take(pending: ref p6, input: b6, trans: trans2),
-                    Behavior<T7>.Take(pending: ref p7, input: b7, trans: trans2),
-                    Behavior<T8>.Take(pending: ref p8, input: b8, trans: trans2)),
+                    LoopedBehavior<T1>.Take(pending: ref p1, input: b1, trans: trans2),
+                    LoopedBehavior<T2>.Take(pending: ref p2, input: b2, trans: trans2),
+                    LoopedBehavior<T3>.Take(pending: ref p3, input: b3, trans: trans2),
+                    LoopedBehavior<T4>.Take(pending: ref p4, input: b4, trans: trans2),
+                    LoopedBehavior<T5>.Take(pending: ref p5, input: b5, trans: trans2),
+                    LoopedBehavior<T6>.Take(pending: ref p6, input: b6, trans: trans2),
+                    LoopedBehavior<T7>.Take(pending: ref p7, input: b7, trans: trans2),
+                    LoopedBehavior<T8>.Take(pending: ref p8, input: b8, trans: trans2)),
                 f: (a, v) =>
                     f(
                         arg1: a,
@@ -1761,9 +1762,9 @@ public class Stream<T>
         return @out.UnsafeAttachListener(l);
     }
 
-    internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
+    internal Stream<T> GateImpl(LoopedCell<bool> c) => this.GateImpl(c.BehaviorImpl);
 
-    internal Stream<T> GateImpl(Behavior<bool> b) =>
+    internal Stream<T> GateImpl(LoopedBehavior<bool> b) =>
         this.SnapshotImpl(b: b, f: static (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal<T>.None)
             .FilterSomeInternal();
 

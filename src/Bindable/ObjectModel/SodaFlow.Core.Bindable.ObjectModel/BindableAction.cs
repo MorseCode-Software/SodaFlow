@@ -57,7 +57,7 @@ public static partial class BindableCoreExtensionMethods
 
         internal BindableAction(
             StreamSink<T> firingsStreamSink,
-            Cell<bool>? isEnabledCell,
+            LoopedCell<bool>? isEnabledCell,
             IBindingScheduler scheduler)
         {
             this.firingsStreamSink =
@@ -66,12 +66,12 @@ public static partial class BindableCoreExtensionMethods
 
             this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
-            Cell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
+            LoopedCell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
 
             (this.initialCanExecute, this.listener) =
                 SampleAtCloseAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
 
-            this.IsEnabledCell = resolvedIsEnabledCell;
+            this.IsEnabledCell = resolvedIsEnabledCell.AsCellImpl();
         }
 
         public event EventHandler? CanExecuteChanged;

@@ -18,6 +18,9 @@ internal sealed class LazyBehavior<T> : Behavior<T>
     {
         this.lazyInitialValue = lazyInitialValue;
 
+        // The initial value reads the loops that the sample reads.
+        this.Roots = lazyInitialValue.Roots;
+
         trans.Sample(this.EnsureValueIsCreated);
     }
 

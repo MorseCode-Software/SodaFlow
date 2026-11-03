@@ -1,5 +1,6 @@
 module SodaFlow.Tests.Loop
 
+open System
 open System.Collections.Generic
 open SodaFlow
 open TUnit.Core
@@ -119,4 +120,49 @@ type ``Loop Tests``() =
 
             do! Expect.Sequence([ 0; 1; 3; 6 ], out)
             do! Expect.Sequence([ 0; 2; 4; 6 ], out2)
+        }
+
+    [<Test>]
+    member _.``Close Gives The Cell After The Loop Closes``() =
+        task {
+            let s = sinkC 0
+
+            // The capture reads the placeholder, thus it is a looped cell. closeLC gives it back as a
+            // cell, because the loop is closed when the block returns.
+            let struct (result, plusOne) =
+                loopC (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+
+            let closed = plusOne |> closeLC
+            s |> sendC 5
+
+            do! Expect.Equal(6, closed |> sampleC)
+            do! Expect.Equal(5, result |> sampleC)
+        }
+
+    [<Test>]
+    member _.``Close Throws While The Loop Is Open``() =
+        task {
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    loopWithNoCapturesC (fun l ->
+                        l |> mapLC ((+) 1) |> closeLC |> ignore
+                        constantC 0)
+                    |> ignore)
+        }
+
+    [<Test>]
+    member _.``As Cell Read Before The Close Throws``() =
+        task {
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    loopWithNoCapturesC (fun l -> constantC (l |> asCellLC |> sampleC)) |> ignore)
+        }
+
+    [<Test>]
+    member _.``As Cell Read After The Close Gives The Value``() =
+        task {
+            let struct (result, asserted) = loopC (fun l -> struct (constantC 4, l |> asCellLC))
+
+            do! Expect.Equal(4, asserted |> sampleC)
+            do! Expect.Equal(4, result |> sampleC)
         }

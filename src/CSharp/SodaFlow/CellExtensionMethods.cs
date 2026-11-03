@@ -33,7 +33,7 @@ public static class CellExtensionMethods
     ///             cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />
     ///         , where a call here is the same as a snapshot of the cell,
     ///         <see
-    ///             cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///             cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, LoopedCell{T2}, Func{T, T2, TResult})" />
     ///         ,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />
     ///         , and
@@ -42,7 +42,7 @@ public static class CellExtensionMethods
     ///         .
     ///     </para>
     ///     <para>
-    ///         Usually, use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> as a
+    ///         Usually, use <see cref="ListenStrong{T}(LoopedCell{T}, Action{T})" /> as a
     ///         replacement, thus the code keeps each update. But this method is
     ///         correct in many conditions.
     ///     </para>
@@ -76,7 +76,7 @@ public static class CellExtensionMethods
     ///         cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, LazySample{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LazySample<T> SampleLazy<T>(this Cell<T> c) => c.SampleLazyImpl();
+    public static LazySample<T> SampleLazy<T>(this LoopedCell<T> c) => c.SampleLazyImpl();
 
     /// <summary>
     ///     Gets the stream of discrete updates to this cell.
@@ -87,7 +87,7 @@ public static class CellExtensionMethods
     ///     The stream of discrete updates to this cell.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Updates<T>(this Cell<T> c) => c.UpdatesImpl;
+    public static Stream<T> Updates<T>(this LoopedCell<T> c) => c.UpdatesImpl;
 
     /// <summary>
     ///     Gets the stream of values of this cell.
@@ -99,13 +99,13 @@ public static class CellExtensionMethods
     /// </returns>
     /// <remarks>
     ///     This stream is the same as the stream from
-    ///     <see cref="Updates{T}(Cell{T})" />, but it also fires during the
+    ///     <see cref="Updates{T}(LoopedCell{T})" />, but it also fires during the
     ///     transaction that gave it.
     ///     To see the first value, read this property and use it in the same explicit
     ///     transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Values<T>(this Cell<T> c) => c.ValuesImpl;
+    public static Stream<T> Values<T>(this LoopedCell<T> c) => c.ValuesImpl;
 
     /// <summary>
     ///     Return a reference to this <see cref="Cell{T}" /> as a
@@ -118,7 +118,7 @@ public static class CellExtensionMethods
     ///     <see cref="Behavior{T}" />.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c.BehaviorImpl;
+    public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c.PlainBehaviorImpl;
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as
@@ -149,11 +149,12 @@ public static class CellExtensionMethods
     ///     <para>
     ///         This roots the cell, thus a GC cannot collect the graph behind it while
     ///         the listener from this call is reachable. Use
-    ///         <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
+    ///         <see cref="Listen{T}(LoopedCell{T}, Action{T})" /> where that is not wanted.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IStrongListener ListenStrong<T>(this Cell<T> c, Action<T> handler) => c.ListenStrongImpl(handler);
+    public static IStrongListener ListenStrong<T>(this LoopedCell<T> c, Action<T> handler) =>
+        c.ListenStrongImpl(handler);
 
     /// <summary>
     ///     Listen for updates to the value of this cell, without keeping the cell
@@ -188,12 +189,12 @@ public static class CellExtensionMethods
     ///         This does not root the cell. Nothing here keeps the monitored graph in
     ///         memory, thus the listener stops when a GC collects the cell. Keep the
     ///         listener from this call where that matters, or use
-    ///         <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> to keep the cell in
+    ///         <see cref="ListenStrong{T}(LoopedCell{T}, Action{T})" /> to keep the cell in
     ///         memory.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IWeakListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
+    public static IWeakListener Listen<T>(this LoopedCell<T> c, Action<T> handler) => c.ListenImpl(handler);
 
     /// <summary>
     ///     Transforms the values of a cell with the given function. The cell from this
@@ -512,7 +513,7 @@ public static class CellExtensionMethods
     /// <param name="csa">The cell containing the stream.</param>
     /// <returns>The unwrapped stream.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> SwitchS<T>(this Cell<Stream<T>> csa) => csa.SwitchSImpl<T, Stream<T>>();
+    public static Stream<T> SwitchS<T>(this LoopedCell<Stream<T>> csa) => csa.SwitchSImpl<T, Stream<T>>();
 
     /// <summary>
     ///     Lift a function into a collection of cells, so the returned cell always
@@ -571,4 +572,244 @@ public static class CellExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<IReadOnlyList<T>> Lift<T>(this IReadOnlyCollection<Cell<T>> c) =>
         c.LiftCellsImpl<T, Cell<T>, IReadOnlyList<T>>(static v => v);
+
+    // The operations below are the same operations on a LoopedCell. The initial value of each
+    // result reads the current value of its input, which is not available before the loop closes.
+    // Thus, the result is a LoopedCell. The overloads above are better matches when each input
+    // is a Cell, thus a plain cell gets a plain result.
+
+    /// <inheritdoc cref="AsBehavior{T}(Cell{T})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the behavior is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<T> AsBehavior<T>(this LoopedCell<T> c) => c.BehaviorImpl;
+
+    /// <inheritdoc cref="Map{T, TResult}(Cell{T}, Func{T, TResult})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Map<T, TResult>(this LoopedCell<T> c, Func<T, TResult> f) => c.MapImpl(f);
+
+    /// <inheritdoc cref="Lift{T, T2, TResult}(Cell{T}, Cell{T2}, Func{T, T2, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        Func<T, T2, TResult> f) =>
+        c.LiftImpl(b2: c2, f: f);
+
+    /// <inheritdoc cref="Lift{T, T2, T3, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Func{T, T2, T3, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        Func<T, T2, T3, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Cell{T4}, Func{T, T2, T3, T4, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, T4, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        Func<T, T2, T3, T4, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Cell{T4}, Cell{T5}, Func{T, T2, T3, T4, T5, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, T4, T5, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        Func<T, T2, T3, T4, T5, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Cell{T4}, Cell{T5}, Cell{T6}, Func{T, T2, T3, T4, T5, T6, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, T4, T5, T6, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        Func<T, T2, T3, T4, T5, T6, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, T7, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Cell{T4}, Cell{T5}, Cell{T6}, Cell{T7}, Func{T, T2, T3, T4, T5, T6, T7, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, T4, T5, T6, T7, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, T7, T8, TResult}(Cell{T}, Cell{T2}, Cell{T3}, Cell{T4}, Cell{T5}, Cell{T6}, Cell{T7}, Cell{T8}, Func{T, T2, T3, T4, T5, T6, T7, T8, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this LoopedCell<T> c,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        LoopedCell<T8> c8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        c.LiftImpl(b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, b8: c8, f: f);
+
+    /// <inheritdoc cref="Apply{T, TResult}(Cell{T}, Cell{Func{T, TResult}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Apply<T, TResult>(this LoopedCell<T> c, LoopedCell<Func<T, TResult>> cf) =>
+        c.ApplyImpl(cf);
+
+    /// <inheritdoc cref="Calm{T}(Cell{T})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> Calm<T>(this LoopedCell<T> c) => c.CalmImpl(EqualityComparer<T>.Default.Equals);
+
+    /// <inheritdoc cref="Calm{T}(Cell{T}, IEqualityComparer{T})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> Calm<T>(this LoopedCell<T> c, IEqualityComparer<T> comparer) =>
+        c.CalmImpl(comparer.Equals);
+
+    /// <inheritdoc cref="Calm{T}(Cell{T}, Func{T, T, bool})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> Calm<T>(this LoopedCell<T> c, Func<T, T, bool> areEqual) => c.CalmImpl(areEqual);
+
+    /// <inheritdoc cref="SwitchB{T}(Cell{Behavior{T}})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<T> SwitchB<T>(this LoopedCell<Behavior<T>> cba) =>
+        cba.SwitchBImpl<T, Behavior<T>>();
+
+    /// <inheritdoc cref="SwitchB{T}(Cell{Behavior{T}})" />
+    /// <remarks>
+    ///     The behavior in the cell is in a loop that is not closed, thus the result is
+    ///     too. See <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<T> SwitchB<T>(this LoopedCell<LoopedBehavior<T>> cba) =>
+        cba.SwitchBImpl<T, LoopedBehavior<T>>();
+
+    /// <inheritdoc cref="SwitchC{T}(Cell{Cell{T}})" />
+    /// <remarks>
+    ///     The cell is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> SwitchC<T>(this LoopedCell<Cell<T>> cca) => cca.SwitchCImpl<T, Cell<T>>();
+
+    /// <inheritdoc cref="SwitchC{T}(Cell{Cell{T}})" />
+    /// <remarks>
+    ///     The cell in the cell is in a loop that is not closed, thus the result is
+    ///     too. See <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> SwitchC<T>(this LoopedCell<LoopedCell<T>> cca) =>
+        cca.SwitchCImpl<T, LoopedCell<T>>();
+
+    /// <inheritdoc cref="Lift{T, TResult}(IEnumerable{Cell{T}}, Func{IReadOnlyList{T}, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, TResult>(
+        this IEnumerable<LoopedCell<T>> c,
+        Func<IReadOnlyList<T>, TResult> f) =>
+        c.LiftCellsImpl(f);
+
+    /// <inheritdoc cref="Lift{T, TResult}(IReadOnlyCollection{Cell{T}}, Func{IReadOnlyList{T}, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<TResult> Lift<T, TResult>(
+        this IReadOnlyCollection<LoopedCell<T>> c,
+        Func<IReadOnlyList<T>, TResult> f) =>
+        c.LiftCellsImpl(f);
+
+    /// <inheritdoc cref="Lift{T}(IEnumerable{Cell{T}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<IReadOnlyList<T>> Lift<T>(this IEnumerable<LoopedCell<T>> c) =>
+        c.LiftCellsImpl<T, LoopedCell<T>, IReadOnlyList<T>>(static v => v);
+
+    /// <inheritdoc cref="Lift{T}(IReadOnlyCollection{Cell{T}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedCell{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<IReadOnlyList<T>> Lift<T>(this IReadOnlyCollection<LoopedCell<T>> c) =>
+        c.LiftCellsImpl<T, LoopedCell<T>, IReadOnlyList<T>>(static v => v);
 }

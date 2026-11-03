@@ -58,7 +58,7 @@ let constantLazy value = BehaviorInternal.ConstantLazyImpl value
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let loop f =
     TransactionInternal.Apply(fun transaction _ ->
-        let l = LoopedBehavior()
+        let l = BehaviorLoop()
         let struct (s, r) = f l
         l.Loop(transaction, s)
         struct (s, r))
@@ -102,7 +102,7 @@ let sample (behavior: Behavior<_>) = behavior.SampleImpl()
 ///     the value is not known, but the moment of the value is known.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sampleLazy (behavior: Behavior<_>) = behavior.SampleLazyImpl()
+let sampleLazy (behavior: LoopedBehavior<_>) = behavior.SampleLazyImpl()
 
 /// <summary>
 ///     Transforms a behavior with a function.
@@ -153,7 +153,7 @@ let apply f (behavior: Behavior<_>) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 f (behavior: Behavior<_>, behavior2) =
+let lift2 f (behavior: Behavior<_>, behavior2: Behavior<_>) =
     behavior.LiftImpl(behavior2, Func<_, _, _> f)
 
 /// <summary>
@@ -172,7 +172,7 @@ let lift2 f (behavior: Behavior<_>, behavior2) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift3 f (behavior: Behavior<_>, behavior2, behavior3) =
+let lift3 f (behavior: Behavior<_>, behavior2: Behavior<_>, behavior3: Behavior<_>) =
     behavior.LiftImpl(behavior2, behavior3, Func<_, _, _, _> f)
 
 /// <summary>
@@ -192,7 +192,7 @@ let lift3 f (behavior: Behavior<_>, behavior2, behavior3) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift4 f (behavior: Behavior<_>, behavior2, behavior3, behavior4) =
+let lift4 f (behavior: Behavior<_>, behavior2: Behavior<_>, behavior3: Behavior<_>, behavior4: Behavior<_>) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, Func<_, _, _, _, _> f)
 
 /// <summary>
@@ -213,7 +213,13 @@ let lift4 f (behavior: Behavior<_>, behavior2, behavior3, behavior4) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift5 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5) =
+let lift5
+    f
+    (behavior: Behavior<_>,
+     behavior2: Behavior<_>,
+     behavior3: Behavior<_>,
+     behavior4: Behavior<_>,
+     behavior5: Behavior<_>) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, Func<_, _, _, _, _, _> f)
 
 /// <summary>
@@ -235,7 +241,14 @@ let lift5 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5) 
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift6 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6) =
+let lift6
+    f
+    (behavior: Behavior<_>,
+     behavior2: Behavior<_>,
+     behavior3: Behavior<_>,
+     behavior4: Behavior<_>,
+     behavior5: Behavior<_>,
+     behavior6: Behavior<_>) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, behavior6, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -258,7 +271,15 @@ let lift6 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, 
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift7 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
+let lift7
+    f
+    (behavior: Behavior<_>,
+     behavior2: Behavior<_>,
+     behavior3: Behavior<_>,
+     behavior4: Behavior<_>,
+     behavior5: Behavior<_>,
+     behavior6: Behavior<_>,
+     behavior7: Behavior<_>) =
     behavior.LiftImpl(behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -282,7 +303,16 @@ let lift7 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, 
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift8 f (behavior: Behavior<_>, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
+let lift8
+    f
+    (behavior: Behavior<_>,
+     behavior2: Behavior<_>,
+     behavior3: Behavior<_>,
+     behavior4: Behavior<_>,
+     behavior5: Behavior<_>,
+     behavior6: Behavior<_>,
+     behavior7: Behavior<_>,
+     behavior8: Behavior<_>) =
     behavior.LiftImpl(
         behavior2,
         behavior3,
@@ -313,7 +343,10 @@ let private liftAllSeq f (behaviors: seq<'Behavior>) =
 ///     in the same manner. At each count of the inputs that change in one transaction, the result
 ///     updates one time.
 /// </remarks>
-let liftAll f (behaviors: seq<'Behavior>) =
+let liftAll<'T, 'TResult, 'Behavior when 'Behavior :> Behavior<'T>>
+    (f: IReadOnlyList<'T> -> 'TResult)
+    (behaviors: seq<'Behavior>)
+    =
     match behaviors with
     | :? IReadOnlyCollection<'Behavior> as behaviors -> liftAllCollection f behaviors
     | behaviors -> liftAllSeq f behaviors
@@ -328,7 +361,7 @@ let liftAll f (behaviors: seq<'Behavior>) =
 ///     internal behavior to follow.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchB behavior =
+let switchB (behavior: Behavior<_>) =
     BehaviorExtensionMethodsInternal.SwitchBImpl behavior
 
 /// <summary>
@@ -337,7 +370,7 @@ let switchB behavior =
 /// <param name="behavior">The behavior holding a cell.</param>
 /// <returns>A cell whose value is the current value of the currently held cell.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchC behavior =
+let switchC (behavior: Behavior<_>) =
     BehaviorExtensionMethodsInternal.SwitchCImpl behavior
 
 /// <summary>
@@ -350,5 +383,5 @@ let switchC behavior =
 ///     at the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchS behavior =
+let switchS (behavior: LoopedBehavior<_>) =
     BehaviorExtensionMethodsInternal.SwitchSImpl behavior

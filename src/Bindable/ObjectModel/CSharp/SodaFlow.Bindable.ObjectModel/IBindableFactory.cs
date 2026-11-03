@@ -13,14 +13,14 @@ namespace SodaFlow.Bindable.ObjectModel;
 public interface IBindableFactory
 {
     /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
-    IOneWayBindableValue<T> CreateOneWay<T>(Cell<T> cell, IEqualityComparer<T>? comparer = null);
+    IOneWayBindableValue<T> CreateOneWay<T>(LoopedCell<T> cell, IEqualityComparer<T>? comparer = null);
 
     /// <summary>
     ///     Shows a cell as a two-way bindable property, and sends the writes of the
     ///     view into <paramref name="editsStreamSink" />.
     /// </summary>
     ITwoWayBindableValue<T> CreateTwoWay<T>(
-        Cell<T> cell,
+        LoopedCell<T> cell,
         StreamSink<T> editsStreamSink,
         IEqualityComparer<T>? comparer = null);
 
@@ -42,14 +42,14 @@ public interface IBindableFactory
     ///     <typeparamref name="T" /> accepts only a <c>Unit</c> as its parameter, and
     ///     no binding supplies one.
     /// </remarks>
-    IBindableAction<T> CreateBindableAction<T>(StreamSink<T> firingsStreamSink, Cell<bool>? isEnabledCell = null)
+    IBindableAction<T> CreateBindableAction<T>(StreamSink<T> firingsStreamSink, LoopedCell<bool>? isEnabledCell = null)
         where T : notnull;
 
     /// <summary>
     ///     Shows a sink that exists as a command with no parameter. Use this when you
     ///     build the graph on the sink and then attach the command to it.
     /// </summary>
-    IBindableAction CreateBindableAction(StreamSink<Unit> firingsStreamSink, Cell<bool>? isEnabledCell = null);
+    IBindableAction CreateBindableAction(StreamSink<Unit> firingsStreamSink, LoopedCell<bool>? isEnabledCell = null);
 
     /// <summary>
     ///     Shows a sink that exists as a command with an optional parameter. The
@@ -58,6 +58,6 @@ public interface IBindableFactory
     /// </summary>
     IBindableAction<Maybe<T>> CreateBindableAction<T>(
         StreamSink<Maybe<T>> firingsStreamSink,
-        Cell<bool>? isEnabledCell = null)
+        LoopedCell<bool>? isEnabledCell = null)
         where T : notnull;
 }

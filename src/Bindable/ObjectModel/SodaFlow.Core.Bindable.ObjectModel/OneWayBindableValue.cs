@@ -44,12 +44,12 @@ public static partial class BindableCoreExtensionMethods
         private InitialSample<T>? initialValue;
 
         internal OneWayBindableValue(
-            Cell<T> cell,
+            LoopedCell<T> cell,
             IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
             : base(scheduler)
         {
-            this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
+            this.Cell = (cell ?? throw new ArgumentNullException(nameof(cell))).AsCellImpl();
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 
             // ReSharper disable once NullableWarningSuppressionIsUsed - Never read. ResolveInitialValue

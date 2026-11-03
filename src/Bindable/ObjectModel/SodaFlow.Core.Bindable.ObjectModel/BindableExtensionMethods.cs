@@ -12,7 +12,7 @@ public static partial class BindableCoreExtensionMethods
 {
     /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
     internal static IOneWayBindableValue<T> ToOneWayImpl<T>(
-        this Cell<T> cell,
+        this LoopedCell<T> cell,
         IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayBindableValue<T>(cell: cell, scheduler: scheduler, comparer: comparer);
@@ -33,7 +33,7 @@ public static partial class BindableCoreExtensionMethods
     ///     view into <paramref name="editsStreamSink" />.
     /// </summary>
     internal static ITwoWayBindableValue<T> ToTwoWayImpl<T>(
-        this Cell<T> cell,
+        this LoopedCell<T> cell,
         StreamSink<T> editsStreamSink,
         IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null)
@@ -57,7 +57,7 @@ public static partial class BindableCoreExtensionMethods
     internal static IBindableAction<T> ToBindableActionImpl<T>(
         this StreamSink<T> firingsStreamSink,
         IBindingScheduler scheduler,
-        Cell<bool>? isEnabledCell = null)
+        LoopedCell<bool>? isEnabledCell = null)
         where T : notnull =>
         new BindableAction<T>(
             firingsStreamSink: firingsStreamSink,
@@ -80,7 +80,7 @@ public static partial class BindableCoreExtensionMethods
     ///     references the stream that it listens to, and that stream keeps the objects
     ///     above it alive.
     /// </remarks>
-    private static IListener ListenToUpdates<T>(Cell<T> cell, Action<T> handler) =>
+    private static IListener ListenToUpdates<T>(LoopedCell<T> cell, Action<T> handler) =>
         cell.UpdatesImpl.ListenImpl(handler);
 
     /// <summary>
@@ -96,7 +96,7 @@ public static partial class BindableCoreExtensionMethods
     ///     before the close.
     /// </remarks>
     private static (InitialSample<T> InitialValue, IListener Listener) SampleAtCloseAndListenToUpdates<T>(
-        Cell<T> cell,
+        LoopedCell<T> cell,
         Action<T> handler) =>
         TransactionInternal.Apply((transaction, _) =>
             (InitialSample<T>.Take(transaction: transaction, cell: cell),

@@ -204,7 +204,7 @@ public static class StreamExtensionMethods
     ///     Function to apply to change the values. It can make FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}(Cell{T})" />, in which case it is
     ///     equivalent to calling
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> on the cell.
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, LoopedCell{TResult})" /> on the cell.
     ///     Other than this, the function must be a pure function.
     /// </param>
     /// <returns>
@@ -248,10 +248,10 @@ public static class StreamExtensionMethods
     ///     There is an implicit interval. State updates from stream event firings do
     ///     not become available as the current value of the cell to
     ///     <see
-    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, LoopedCell{T2}, Func{T, T2, TResult})" />
     ///     until the next transaction. In different words,
     ///     <see
-    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Cell{T2}, Func{T, T2, TResult})" />
+    ///         cref="StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, LoopedCell{T2}, Func{T, T2, TResult})" />
     ///     always sees the value of a cell as it was before any state changes from the
     ///     current transaction.
     /// </remarks>
@@ -290,7 +290,7 @@ public static class StreamExtensionMethods
     ///     firing.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, Cell<TResult> c) => s.SnapshotImpl(c);
+    public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, LoopedCell<TResult> c) => s.SnapshotImpl(c);
 
     /// <summary>
     ///     Gives a stream that fires the value of the behavior at the moment of each
@@ -305,7 +305,8 @@ public static class StreamExtensionMethods
     ///     firing.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, Behavior<TResult> b) => s.SnapshotImpl(b);
+    public static Stream<TResult> Snapshot<T, TResult>(this Stream<T> s, LoopedBehavior<TResult> b) =>
+        s.SnapshotImpl(b);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -325,7 +326,10 @@ public static class StreamExtensionMethods
     ///     the value of the cell.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> Snapshot<T, T1, TResult>(this Stream<T> s, Cell<T1> c, Func<T, T1, TResult> f) =>
+    public static Stream<TResult> Snapshot<T, T1, TResult>(
+        this Stream<T> s,
+        LoopedCell<T1> c,
+        Func<T, T1, TResult> f) =>
         s.SnapshotImpl(c: c, f: f);
 
     /// <summary>
@@ -348,7 +352,7 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, TResult>(
         this Stream<T> s,
-        Behavior<T1> b,
+        LoopedBehavior<T1> b,
         Func<T, T1, TResult> f) =>
         s.SnapshotImpl(b: b, f: f);
 
@@ -374,8 +378,8 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, f: f);
 
@@ -401,8 +405,8 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
         Func<T, T1, T2, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, f: f);
 
@@ -430,9 +434,9 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
 
@@ -460,9 +464,9 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, f: f);
 
@@ -492,10 +496,10 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
 
@@ -525,10 +529,10 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
@@ -560,11 +564,11 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
 
@@ -596,11 +600,11 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
@@ -634,12 +638,12 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
 
@@ -673,12 +677,12 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
@@ -714,13 +718,13 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
 
@@ -756,13 +760,13 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
 
@@ -800,14 +804,14 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        LoopedCell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
 
@@ -845,14 +849,14 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
-        Behavior<T8> b8,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        LoopedBehavior<T8> b8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         s.SnapshotImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
 
@@ -869,12 +873,12 @@ public static class StreamExtensionMethods
     ///     each firing.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" /> gives the
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, LoopedCell{TResult})" /> gives the
     ///     value of the cell from before the transaction. This gives the new value if
     ///     the same transaction updates the cell, and the current value if it does
     ///     not. Only this stream causes the firing. An update of the cell alone does
     ///     not.
-    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Cell{TResult})" />, this
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, LoopedCell{TResult})" />, this
     ///     cannot close a loop.
     ///     Do not give a cell that the stream from this call updates in the same
     ///     transaction.
@@ -884,7 +888,7 @@ public static class StreamExtensionMethods
     ///     .
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Cell<TResult> c) =>
+    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, LoopedCell<TResult> c) =>
         s.SnapshotLatestImpl(c);
 
     /// <summary>
@@ -900,17 +904,17 @@ public static class StreamExtensionMethods
     ///     of each firing.
     /// </returns>
     /// <remarks>
-    ///     <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" /> gives the
+    ///     <see cref="Snapshot{T, TResult}(Stream{T}, LoopedBehavior{TResult})" /> gives the
     ///     value of the behavior from before the transaction. This gives the new value
     ///     if the same transaction updates the behavior, and the current value if it
     ///     does not. Only this stream causes the firing. An update of the behavior
     ///     alone does not.
-    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, Behavior{TResult})" />,
+    ///     Unlike <see cref="Snapshot{T, TResult}(Stream{T}, LoopedBehavior{TResult})" />,
     ///     this cannot close a loop. Do not give a behavior that the stream from this
     ///     call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, Behavior<TResult> b) =>
+    public static Stream<TResult> SnapshotLatest<T, TResult>(this Stream<T> s, LoopedBehavior<TResult> b) =>
         s.SnapshotLatestImpl(b);
 
     /// <summary>
@@ -932,7 +936,7 @@ public static class StreamExtensionMethods
     /// </returns>
     /// <remarks>
     ///     <see
-    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, LoopedCell{T1}, Func{T, T1, TResult})" />
     ///     gives the value of the cell from before the transaction. This gives the new
     ///     value if the same transaction updates the cell, and the current value if it
     ///     does not. Only this stream causes the firing. An update of the cell alone
@@ -941,7 +945,7 @@ public static class StreamExtensionMethods
     ///     transaction.
     ///     Unlike
     ///     <see
-    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Cell{T1}, Func{T, T1, TResult})" />
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, LoopedCell{T1}, Func{T, T1, TResult})" />
     ///     , this cannot close a loop. Do not give a cell that the stream from this
     ///     call updates in the same transaction.
     ///     Other overloads accept more than one cell. For more cells than they accept,
@@ -953,7 +957,7 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
         this Stream<T> s,
-        Cell<T1> c,
+        LoopedCell<T1> c,
         Func<T, T1, TResult> f) =>
         s.SnapshotLatestImpl(c: c, f: f);
 
@@ -976,21 +980,21 @@ public static class StreamExtensionMethods
     /// </returns>
     /// <remarks>
     ///     <see
-    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, LoopedBehavior{T1}, Func{T, T1, TResult})" />
     ///     gives the value of the behavior from before the transaction. This gives the
     ///     new value if the same transaction updates the behavior, and the current
     ///     value if it does not. Only this stream causes the firing. An update of the
     ///     behavior alone does not.
     ///     Unlike
     ///     <see
-    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, Behavior{T1}, Func{T, T1, TResult})" />
+    ///         cref="Snapshot{T, T1, TResult}(Stream{T}, LoopedBehavior{T1}, Func{T, T1, TResult})" />
     ///     , this cannot close a loop. Do not give a behavior that the stream from
     ///     this call updates in the same transaction.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, TResult>(
         this Stream<T> s,
-        Behavior<T1> b,
+        LoopedBehavior<T1> b,
         Func<T, T1, TResult> f) =>
         s.SnapshotLatestImpl(b: b, f: f);
 
@@ -1024,8 +1028,8 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, f: f);
 
@@ -1060,8 +1064,8 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
         Func<T, T1, T2, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, f: f);
 
@@ -1097,9 +1101,9 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, f: f);
 
@@ -1136,9 +1140,9 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, f: f);
 
@@ -1176,10 +1180,10 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
 
@@ -1218,10 +1222,10 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, f: f);
 
@@ -1261,11 +1265,11 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
 
@@ -1306,11 +1310,11 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
@@ -1352,12 +1356,12 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
 
@@ -1400,12 +1404,12 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
 
@@ -1449,13 +1453,13 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
 
@@ -1500,13 +1504,13 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
 
@@ -1552,14 +1556,14 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         this Stream<T> s,
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
+        LoopedCell<T1> c1,
+        LoopedCell<T2> c2,
+        LoopedCell<T3> c3,
+        LoopedCell<T4> c4,
+        LoopedCell<T5> c5,
+        LoopedCell<T6> c6,
+        LoopedCell<T7> c7,
+        LoopedCell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
 
@@ -1606,14 +1610,14 @@ public static class StreamExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> SnapshotLatest<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         this Stream<T> s,
-        Behavior<T1> b1,
-        Behavior<T2> b2,
-        Behavior<T3> b3,
-        Behavior<T4> b4,
-        Behavior<T5> b5,
-        Behavior<T6> b6,
-        Behavior<T7> b7,
-        Behavior<T8> b8,
+        LoopedBehavior<T1> b1,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        LoopedBehavior<T8> b8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         s.SnapshotLatestImpl(b1: b1, b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
 
@@ -1987,7 +1991,7 @@ public static class StreamExtensionMethods
     ///     <code>true</code>.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Gate<T>(this Stream<T> s, Cell<bool> c) => s.GateImpl(c);
+    public static Stream<T> Gate<T>(this Stream<T> s, LoopedCell<bool> c) => s.GateImpl(c);
 
     /// <summary>
     ///     Return a stream that only outputs events from the input stream when the
@@ -2004,7 +2008,7 @@ public static class StreamExtensionMethods
     ///     <code>true</code>.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> Gate<T>(this Stream<T> s, Behavior<bool> b) => s.GateImpl(b);
+    public static Stream<T> Gate<T>(this Stream<T> s, LoopedBehavior<bool> b) => s.GateImpl(b);
 
     /// <summary>
     ///     Return a stream that only outputs events which have a different value than
@@ -2064,7 +2068,7 @@ public static class StreamExtensionMethods
     ///     Function to apply to update the state.  It can make FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
     ///     to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, LoopedCell{TReturn})" />.  Apart from
     ///     this, the function must be pure.
     /// </param>
     /// <returns>
@@ -2096,7 +2100,7 @@ public static class StreamExtensionMethods
     ///     Function to apply to update the state.  It can make FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
     ///     to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, LoopedCell{TReturn})" />.  Apart from
     ///     this, the function must be pure.
     /// </param>
     /// <returns>
@@ -2122,7 +2126,7 @@ public static class StreamExtensionMethods
     ///     Function to apply to update the state.  It can make FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
     ///     to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, LoopedCell{TReturn})" />.  Apart from
     ///     this, the function must be pure.
     /// </param>
     /// <returns>A cell holding the accumulated state of this stream.</returns>
@@ -2145,7 +2149,7 @@ public static class StreamExtensionMethods
     ///     Function to apply to update the state.  It can make FRP logic or use
     ///     <see cref="CellExtensionMethods.Sample{T}" />, and this is then equivalent
     ///     to snapshotting the cell with
-    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, Cell{TReturn})" />.  Apart from
+    ///     <see cref="Snapshot{T, TReturn}(Stream{T}, LoopedCell{TReturn})" />.  Apart from
     ///     this, the function must be pure.
     /// </param>
     /// <returns>A cell holding the accumulated state of this stream.</returns>

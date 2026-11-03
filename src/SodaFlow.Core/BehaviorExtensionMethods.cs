@@ -6,8 +6,8 @@ namespace SodaFlow;
 
 internal static class BehaviorExtensionMethodsInternal
 {
-    internal static Behavior<T> SwitchBImpl<T, T2>(this Behavior<T2> bba)
-        where T2 : Behavior<T> =>
+    internal static Behavior<T> SwitchBImpl<T, T2>(this LoopedBehavior<T2> bba)
+        where T2 : LoopedBehavior<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
             LazySample<T> za = bba.SampleLazyImpl().MapImpl(static ba => ba.SampleImpl());
@@ -22,7 +22,7 @@ internal static class BehaviorExtensionMethodsInternal
                 .UnsafeAttachListener(currentListener)
                 .HoldLazyInternal(trans: trans1, initialValue: za);
 
-            void H(TransactionInternal trans2, Behavior<T> ba)
+            void H(TransactionInternal trans2, LoopedBehavior<T> ba)
             {
                 // The new behavior gets its listener now, thus its value goes to the output in
                 // this transaction. The previous listener stays until the commit. A transaction
@@ -46,11 +46,11 @@ internal static class BehaviorExtensionMethodsInternal
             }
         });
 
-    internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca)
-        where T2 : Cell<T> =>
-        new(bca.MapImpl(static c => c.BehaviorImpl).SwitchBImpl<T, Behavior<T>>());
+    internal static Cell<T> SwitchCImpl<T, T2>(this LoopedBehavior<T2> bca)
+        where T2 : LoopedCell<T> =>
+        new(bca.MapImpl(static c => c.BehaviorImpl).SwitchBImpl<T, LoopedBehavior<T>>());
 
-    internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa)
+    internal static Stream<T> SwitchSImpl<T, T2>(this LoopedBehavior<T2> bsa)
         where T2 : Stream<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
@@ -85,13 +85,13 @@ internal static class BehaviorExtensionMethodsInternal
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         this IEnumerable<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T> =>
+        where T2 : LoopedBehavior<T> =>
         b.ToArray().LiftBehaviorsImpl(f);
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T> =>
+        where T2 : LoopedBehavior<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
             T2[] inputs = [.. b];
@@ -99,8 +99,18 @@ internal static class BehaviorExtensionMethodsInternal
             Stream<TResult> @out =
                 new(new FanOutKeepListenersAlive(inputs.Select(static behavior => behavior.KeepListenersAlive)));
 
+            ILoopRoot[]? roots = null;
+
+            // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
+            foreach (T2 input in inputs)
+            {
+                roots = LoopRoots.Union(a: roots, b: input.Roots);
+            }
+
             LazySample<TResult> initialValue =
-                new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
+                new(
+                    compute: _ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]),
+                    roots: roots);
 
             // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before,
             // each update sent a closure that wrote its index, a coalesce operation added the
@@ -117,7 +127,7 @@ internal static class BehaviorExtensionMethodsInternal
 
                         for (int i = 0; i < inputs.Length; i++)
                         {
-                            values[i] = Behavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
+                            values[i] = LoopedBehavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
                         }
 
                         @out.Send(trans: trans2, a: f(values));

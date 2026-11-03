@@ -6,27 +6,27 @@ namespace SodaFlow;
 
 internal static class CellExtensionMethodsInternal
 {
-    internal static Behavior<T> SwitchBImpl<T, T2>(this Cell<T2> cba)
-        where T2 : Behavior<T> =>
+    internal static Behavior<T> SwitchBImpl<T, T2>(this LoopedCell<T2> cba)
+        where T2 : LoopedBehavior<T> =>
         cba.BehaviorImpl.SwitchBImpl<T, T2>();
 
-    internal static Cell<T> SwitchCImpl<T, T2>(this Cell<T2> cca)
-        where T2 : Cell<T> =>
+    internal static Cell<T> SwitchCImpl<T, T2>(this LoopedCell<T2> cca)
+        where T2 : LoopedCell<T> =>
         cca.BehaviorImpl.SwitchCImpl<T, T2>();
 
-    internal static Stream<T> SwitchSImpl<T, T2>(this Cell<T2> csa)
+    internal static Stream<T> SwitchSImpl<T, T2>(this LoopedCell<T2> csa)
         where T2 : Stream<T> =>
         csa.BehaviorImpl.SwitchSImpl<T, T2>();
 
     internal static Cell<TResult> LiftCellsImpl<T, T2, TResult>(
         this IEnumerable<T2> c,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Cell<T> =>
+        where T2 : LoopedCell<T> =>
         new(c.Select(static i => i.BehaviorImpl).ToArray().LiftBehaviorsImpl(f));
 
     internal static Cell<TResult> LiftCellsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> c,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Cell<T> =>
+        where T2 : LoopedCell<T> =>
         c.AsEnumerable().LiftCellsImpl(f);
 }

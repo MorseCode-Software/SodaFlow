@@ -9,7 +9,8 @@ type IBindableAction =
 
 /// The commands that the factory builds for the F# surface.
 module internal Bindable =
-    type internal BindableAction(firingsStreamSink, isEnabledCell: Cell<bool> option, scheduler: IBindingScheduler) =
+    type internal BindableAction
+        (firingsStreamSink, isEnabledCell: LoopedCell<bool> option, scheduler: IBindingScheduler) =
         inherit
             BindableCoreExtensionMethods.BindableAction<unit>(
                 firingsStreamSink,
@@ -25,7 +26,7 @@ module internal Bindable =
         interface IBindableAction
 
     type internal BindableOptionAction<'T>
-        (firingsStreamSink, isEnabledCell: Cell<bool> option, scheduler: IBindingScheduler) =
+        (firingsStreamSink, isEnabledCell: LoopedCell<bool> option, scheduler: IBindingScheduler) =
         inherit
             BindableCoreExtensionMethods.BindableAction<'T option>(
                 firingsStreamSink,

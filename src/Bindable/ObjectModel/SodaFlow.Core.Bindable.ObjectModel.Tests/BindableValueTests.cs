@@ -20,7 +20,7 @@ namespace SodaFlow.Bindable.ObjectModel.Tests;
 /// </summary>
 public sealed class BindableValueTests
 {
-    private static IOneWayBindableValue<T> OneWay<T>(Cell<T> cell) =>
+    private static IOneWayBindableValue<T> OneWay<T>(LoopedCell<T> cell) =>
         cell.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
     private static ITwoWayBindableValue<T> TwoWay<T>(CellSink<T> sink) =>

@@ -48,7 +48,9 @@
         <Compile Include="CellSink.fs"/>
         <Compile Include="LazySample.fs"/>
         <Compile Include="Behavior.fs"/>
+        <Compile Include="LoopedBehavior.fs"/>
         <Compile Include="Cell.fs"/>
+        <Compile Include="LoopedCell.fs"/>
         <Compile Include="ForwardReference.fs"/>
         <Compile Include="Stream.fs"/>
         <Compile Include="Operational.fs"/>

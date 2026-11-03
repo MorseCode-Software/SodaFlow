@@ -348,7 +348,7 @@ type ``Behavior Tests``() =
             let cell: Cell<TestObject[]> =
                 loopWithNoCapturesC (fun cell ->
                     (cell
-                     |> mapC (Seq.map (fun o -> o.RemoveStream |> mapToS [| o |]) >> mergeAllS Array.append)
+                     |> mapLC (Seq.map (fun o -> o.RemoveStream |> mapToS [| o |]) >> mergeAllS Array.append)
                      |> switchS
                      |> mapS Array.except,
                      (addStreamSink |> mapS Array.singleton |> mapS Array.append))
@@ -993,7 +993,7 @@ type ``Behavior Tests``() =
                                                             let s5 = sinkC 1
 
                                                             struct (s5,
-                                                                    ([| c1; c2; c3; c4; c5 |] |> liftAllC Seq.sum,
+                                                                    ([| c1; c2; c3; c4; c5 |] |> liftAllLC Seq.sum,
                                                                      s5)))
 
                                                     struct (s4, (c, [| s; s4 |])))
@@ -1099,7 +1099,7 @@ type ``Behavior Tests``() =
                 loopC (fun cl ->
                     let c1 = sinkC 1
                     let c2 = sinkC 11
-                    let c = cl |> switchC
+                    let c = cl |> switchCLC
                     let s = sinkC (c1 :> Cell<_>)
                     struct (s, (c, c1, c2, s)))
 

@@ -58,7 +58,7 @@ let constantLazy value = CellInternal.ConstantLazyImpl value
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let loop f =
     TransactionInternal.Apply(fun transaction _ ->
-        let l = LoopedCell()
+        let l = CellLoop()
         let struct (s, r) = f l
         l.Loop(transaction, s)
         struct (s, r))
@@ -102,7 +102,7 @@ let sample (cell: Cell<_>) = cell.SampleImpl()
 ///     moment of the value is known.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let sampleLazy (cell: Cell<_>) = cell.SampleLazyImpl()
+let sampleLazy (cell: LoopedCell<_>) = cell.SampleLazyImpl()
 
 /// <summary>
 ///     Gets a stream firing the new value of a cell each time it changes.
@@ -114,7 +114,7 @@ let sampleLazy (cell: Cell<_>) = cell.SampleLazyImpl()
 ///     get that initial value as a firing too.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let updates (cell: Cell<_>) = cell.UpdatesImpl
+let updates (cell: LoopedCell<_>) = cell.UpdatesImpl
 
 /// <summary>
 ///     Gets a stream firing the current value of the cell immediately, and its new value on each change.
@@ -131,7 +131,7 @@ let updates (cell: Cell<_>) = cell.UpdatesImpl
 ///     graph in a transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let values (cell: Cell<_>) = cell.ValuesImpl
+let values (cell: LoopedCell<_>) = cell.ValuesImpl
 
 /// <summary>
 ///     Views a cell as a behavior.
@@ -143,7 +143,7 @@ let values (cell: Cell<_>) = cell.ValuesImpl
 ///     this to give a cell to code that takes a <c>Behavior</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let asBehavior (cell: Cell<_>) = cell.BehaviorImpl
+let asBehavior (cell: Cell<_>) = cell.PlainBehaviorImpl
 
 /// <summary>
 ///     Listens for changes without keeping the cell alive.
@@ -160,7 +160,7 @@ let asBehavior (cell: Cell<_>) = cell.BehaviorImpl
 ///     Fires the current value immediately, in the transaction of this call.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (cell: Cell<_>) = cell.ListenImpl(Action<_> handler)
+let listen handler (cell: LoopedCell<_>) = cell.ListenImpl(Action<_> handler)
 
 /// <summary>
 ///     Listens for changes, keeping the cell alive while the listener lives.
@@ -179,7 +179,7 @@ let listen handler (cell: Cell<_>) = cell.ListenImpl(Action<_> handler)
 ///     with the transaction lock held, thus it must return quickly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (cell: Cell<_>) =
+let listenStrong handler (cell: LoopedCell<_>) =
     cell.ListenStrongImpl(Action<_> handler)
 
 /// <summary>
@@ -228,7 +228,7 @@ let apply f (cell: Cell<_>) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 f (cell: Cell<_>, cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
+let lift2 f (cell: Cell<_>, cell2: Cell<_>) = cell.LiftImpl(cell2, Func<_, _, _> f)
 
 /// <summary>
 ///     Combines three cells into one whose value is a function of all of theirs.
@@ -246,7 +246,7 @@ let lift2 f (cell: Cell<_>, cell2) = cell.LiftImpl(cell2, Func<_, _, _> f)
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift3 f (cell: Cell<_>, cell2, cell3) =
+let lift3 f (cell: Cell<_>, cell2: Cell<_>, cell3: Cell<_>) =
     cell.LiftImpl(cell2, cell3, Func<_, _, _, _> f)
 
 /// <summary>
@@ -266,7 +266,7 @@ let lift3 f (cell: Cell<_>, cell2, cell3) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift4 f (cell: Cell<_>, cell2, cell3, cell4) =
+let lift4 f (cell: Cell<_>, cell2: Cell<_>, cell3: Cell<_>, cell4: Cell<_>) =
     cell.LiftImpl(cell2, cell3, cell4, Func<_, _, _, _, _> f)
 
 /// <summary>
@@ -287,7 +287,7 @@ let lift4 f (cell: Cell<_>, cell2, cell3, cell4) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift5 f (cell: Cell<_>, cell2, cell3, cell4, cell5) =
+let lift5 f (cell: Cell<_>, cell2: Cell<_>, cell3: Cell<_>, cell4: Cell<_>, cell5: Cell<_>) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, Func<_, _, _, _, _, _> f)
 
 /// <summary>
@@ -309,7 +309,7 @@ let lift5 f (cell: Cell<_>, cell2, cell3, cell4, cell5) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift6 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6) =
+let lift6 f (cell: Cell<_>, cell2: Cell<_>, cell3: Cell<_>, cell4: Cell<_>, cell5: Cell<_>, cell6: Cell<_>) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -332,7 +332,9 @@ let lift6 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift7 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7) =
+let lift7
+    f
+    (cell: Cell<_>, cell2: Cell<_>, cell3: Cell<_>, cell4: Cell<_>, cell5: Cell<_>, cell6: Cell<_>, cell7: Cell<_>) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, cell7, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -356,7 +358,16 @@ let lift7 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7) =
 ///     time, with each new value, and not one time for each input.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift8 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
+let lift8
+    f
+    (cell: Cell<_>,
+     cell2: Cell<_>,
+     cell3: Cell<_>,
+     cell4: Cell<_>,
+     cell5: Cell<_>,
+     cell6: Cell<_>,
+     cell7: Cell<_>,
+     cell8: Cell<_>) =
     cell.LiftImpl(cell2, cell3, cell4, cell5, cell6, cell7, cell8, Func<_, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -422,7 +433,7 @@ let private liftAllSeq f (cells: seq<'Cell>) =
 ///     in the same manner. At each count of the inputs that change in one transaction, the result
 ///     updates one time.
 /// </remarks>
-let liftAll f (cells: seq<'Cell>) =
+let liftAll<'T, 'TResult, 'Cell when 'Cell :> Cell<'T>> (f: IReadOnlyList<'T> -> 'TResult) (cells: seq<'Cell>) =
     match cells with
     | :? IReadOnlyCollection<'Cell> as cells -> liftAllCollection f cells
     | cells -> liftAllSeq f cells
@@ -433,7 +444,7 @@ let liftAll f (cells: seq<'Cell>) =
 /// <param name="cell">The cell holding a behavior.</param>
 /// <returns>A behavior whose value is the current value of the currently held behavior.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchB cell =
+let switchB (cell: Cell<_>) =
     CellExtensionMethodsInternal.SwitchBImpl cell
 
 /// <summary>
@@ -446,7 +457,7 @@ let switchB cell =
 ///     cell to follow.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchC cell =
+let switchC (cell: Cell<_>) =
     CellExtensionMethodsInternal.SwitchCImpl cell
 
 /// <summary>
@@ -459,5 +470,5 @@ let switchC cell =
 ///     the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchS cell =
+let switchS (cell: LoopedCell<_>) =
     CellExtensionMethodsInternal.SwitchSImpl cell

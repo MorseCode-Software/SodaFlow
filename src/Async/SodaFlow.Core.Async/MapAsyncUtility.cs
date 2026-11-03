@@ -1922,7 +1922,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             {
                 // CurrentQueue reads this cell at the first edit of each transaction. The loop is
                 // necessary because the transform below is upstream of the cell and reads it.
-                LoopedCell<Entry[]> trackedCellLoop = new();
+                CellLoop<Entry[]> trackedCellLoop = new();
 
                 // Map runs as usual transaction code and is not a registered listener callback.
                 // Thus, it runs in the transaction of the source. It must not Send. The
@@ -2182,7 +2182,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // The transform in Attach is the one caller, and it always runs in a transaction. The test for
     // a transaction records that. It changes no answer, because a call with no transaction finds
     // no owner that is equal, and reads the cell.
-    private Entry[] CurrentQueue(Cell<Entry[]> trackedCell)
+    private Entry[] CurrentQueue(LoopedCell<Entry[]> trackedCell)
     {
         if (this.completedQueueAndOwner != null)
         {
@@ -2402,7 +2402,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void PromoteAndLaunch(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Entry[]> trackedCell)
+        LoopedCell<Entry[]> trackedCell)
     {
         if (toStart.Item.Cancellation.IsCancellationRequested)
         {
@@ -2444,7 +2444,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private async Task StartOperation(
         AsyncToStart<TStrategyInput> toStart,
         TInput value,
-        Cell<Entry[]> trackedCell)
+        LoopedCell<Entry[]> trackedCell)
     {
         // The operation monitors the token of the strategy, when there is one, such as an
         // external timeout, and also the cancellation of this item. The two are linked.
@@ -2511,7 +2511,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // that holds no item of those ends.
     private void CancelTracked(
         IEnumerable<Entry> entries,
-        Cell<Entry[]> trackedCell,
+        LoopedCell<Entry[]> trackedCell,
         Func<Entry, bool>? shouldCancel = null)
     {
         // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
@@ -2552,7 +2552,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private void EndItem(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
-        Cell<Entry[]> trackedCell,
+        LoopedCell<Entry[]> trackedCell,
         CancellationToken? tokenToCheck)
     {
         // A cancellation that arrived while the operation ran makes the item Canceled, also when
@@ -2665,7 +2665,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     reads.
     /// </param>
     /// <param name="trackedCell">The cell that holds the queue of this pipeline.</param>
-    private void Flush(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell) =>
+    private void Flush(IReadOnlyList<PendingEnd> ends, bool sends, LoopedCell<Entry[]> trackedCell) =>
         TransactionInternal.Apply((transaction, _) =>
         {
             Entry[] queue = this.CurrentQueue(trackedCell);

@@ -1233,7 +1233,7 @@ public sealed class BehaviorTests
                     .. Enumerable.Range(start: 0, count: 50).Select(static _ => Cell.CreateLoop<int>())
                 ];
 
-                Cell<int> sum = cellLoops.Lift().Map(static v => v.Sum());
+                LoopedCell<int> sum = cellLoops.Lift().Map(static v => v.Sum());
 
                 IReadOnlyList<CellSink<int>> cellSinks =
                 [
@@ -1245,7 +1245,7 @@ public sealed class BehaviorTests
                     cellLoops[i].Loop(cellSinks[i]);
                 }
 
-                return (sum, cellSinks);
+                return (sum.Close(), cellSinks);
             });
 
         List<int> @out = [];
@@ -1371,10 +1371,10 @@ public sealed class BehaviorTests
                 CellLoop<Cell<int>> loop = Cell.CreateLoop<Cell<int>>();
                 CellSink<int> c1Local = Cell.CreateSink(1);
                 CellSink<int> c2Local = Cell.CreateSink(11);
-                Cell<int> cLocal = loop.SwitchC();
+                LoopedCell<int> cLocal = loop.SwitchC();
                 CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
                 loop.Loop(sLocal);
-                return (cLocal, c1Local, c2Local, sLocal);
+                return (cLocal.Close(), c1Local, c2Local, sLocal);
             });
 
         List<int> output = [];

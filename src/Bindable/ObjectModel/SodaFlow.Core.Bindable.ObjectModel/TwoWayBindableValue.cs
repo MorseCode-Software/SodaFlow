@@ -113,13 +113,13 @@ public static partial class BindableCoreExtensionMethods
         /// </param>
         // ReSharper disable once InheritdocConsiderUsage - The base is a primary constructor, and its only documentation is the summary of BindableValueBase, which does not describe these parameters.
         internal TwoWayBindableValue(
-            Cell<T> cell,
+            LoopedCell<T> cell,
             Action<T> write,
             IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
             : base(scheduler)
         {
-            this.Cell = cell ?? throw new ArgumentNullException(nameof(cell));
+            this.Cell = (cell ?? throw new ArgumentNullException(nameof(cell))).AsCellImpl();
             this.write = write ?? throw new ArgumentNullException(nameof(write));
             this.comparer = comparer ?? EqualityComparer<T>.Default;
 

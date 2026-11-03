@@ -10,7 +10,7 @@ internal static class BindableActions
     {
         internal BindableAction(
             StreamSink<Unit> firingsStreamSink,
-            Cell<bool>? isEnabledCell,
+            LoopedCell<bool>? isEnabledCell,
             IBindingScheduler scheduler)
             : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
         {
@@ -35,7 +35,7 @@ internal static class BindableActions
     {
         internal BindableMaybeAction(
             StreamSink<Maybe<T>> firingsStreamSink,
-            Cell<bool>? isEnabledCell,
+            LoopedCell<bool>? isEnabledCell,
             IBindingScheduler scheduler)
             : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
         {

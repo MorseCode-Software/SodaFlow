@@ -105,12 +105,12 @@ public sealed class LazySampleTests
                     cell.Send(5);
 
                     LoopedCell<int> placeholderNow = placeholder;
-                    Stream.Never<int>().HoldLazy(LazySample.Defer(placeholderNow.Sample));
+                    Stream.Never<int>().HoldLazy(LazySample.Defer(placeholderNow.AsCell().Sample));
                     FailInTheSamplePhase();
                 }))
             .ThrowsExactly<InvalidOperationException>();
 
-        await Assert.That(placeholder?.Sample()).IsEqualTo(1);
+        await Assert.That(placeholder?.Close().Sample()).IsEqualTo(1);
     }
 
     [Test]

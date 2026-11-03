@@ -5,21 +5,22 @@ open System.Collections.Generic
 open SodaFlow
 
 type IBindableFactory =
-    abstract ToOneWay<'T> : cell: Cell<'T> * ?comparer: IEqualityComparer<'T> -> IOneWayBindableValue<'T>
+    abstract ToOneWay<'T> : cell: LoopedCell<'T> * ?comparer: IEqualityComparer<'T> -> IOneWayBindableValue<'T>
 
     abstract ToTwoWay<'T> :
-        cell: Cell<'T> * editsStreamSink: StreamSink<'T> * ?comparer: IEqualityComparer<'T> -> ITwoWayBindableValue<'T>
+        cell: LoopedCell<'T> * editsStreamSink: StreamSink<'T> * ?comparer: IEqualityComparer<'T> ->
+            ITwoWayBindableValue<'T>
 
     abstract ToTwoWay<'T> : sink: CellSink<'T> * ?comparer: IEqualityComparer<'T> -> ITwoWayBindableValue<'T>
 
     abstract ToBindableAction<'T> :
-        firingsStreamSink: StreamSink<'T> * ?isEnabledCell: Cell<bool> -> IBindableAction<'T>
+        firingsStreamSink: StreamSink<'T> * ?isEnabledCell: LoopedCell<bool> -> IBindableAction<'T>
 
-    abstract ToBindableAction: firingsStreamSink: StreamSink<unit> * ?isEnabledCell: Cell<bool> -> IBindableAction
+    abstract ToBindableAction: firingsStreamSink: StreamSink<unit> * ?isEnabledCell: LoopedCell<bool> -> IBindableAction
 
     /// A command whose CommandParameter can be null, a 'T, or a 'T option.
     abstract ToBindableOptionAction<'T> :
-        firingsStreamSink: StreamSink<'T option> * ?isEnabledCell: Cell<bool> -> IBindableAction<'T option>
+        firingsStreamSink: StreamSink<'T option> * ?isEnabledCell: LoopedCell<bool> -> IBindableAction<'T option>
 
 /// The one way to build a bindable. It holds one scheduler and gives that scheduler to each
 /// object that it creates. An application captures the scheduler on the UI thread at its start,
@@ -45,15 +46,15 @@ type BindableFactory(scheduler: IBindingScheduler) =
         member this.ToTwoWay(sink, comparer) =
             BindableCoreExtensionMethods.ToTwoWayImpl(sink, scheduler, comparer |> Option.defaultValue null)
 
-        member this.ToBindableAction(firingsStreamSink, isEnabledCell: Cell<bool> option) =
+        member this.ToBindableAction(firingsStreamSink, isEnabledCell: LoopedCell<bool> option) =
             BindableCoreExtensionMethods.ToBindableActionImpl(
                 firingsStreamSink,
                 scheduler,
                 isEnabledCell |> Option.defaultValue null
             )
 
-        member this.ToBindableAction(firingsStreamSink, isEnabledCell: Cell<bool> option) : IBindableAction =
+        member this.ToBindableAction(firingsStreamSink, isEnabledCell: LoopedCell<bool> option) : IBindableAction =
             new Bindable.BindableAction(firingsStreamSink, isEnabledCell, scheduler)
 
-        member this.ToBindableOptionAction(firingsStreamSink, isEnabledCell: Cell<bool> option) =
+        member this.ToBindableOptionAction(firingsStreamSink, isEnabledCell: LoopedCell<bool> option) =
             new Bindable.BindableOptionAction<_>(firingsStreamSink, isEnabledCell, scheduler)

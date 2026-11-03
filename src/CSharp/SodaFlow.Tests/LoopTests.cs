@@ -668,6 +668,152 @@ public sealed class LoopTests
         await Assert.That(out2).IsEquivalentTo(expected: [0, 2, 4, 6], ordering: CollectionOrdering.Matching);
     }
 
+    [Test]
+    public async Task FunctionalCellLoopWithOneLoopedCaptureClosesIt()
+    {
+        CellSink<int> s = Cell.CreateSink(0);
+
+        // The capture reads the placeholder, thus it is a LoopedCell in the block. The overload for
+        // one looped capture gives it back as a Cell, because the loop is closed when it returns.
+        (Cell<int> result, Cell<int> doubled) =
+            Cell.Loop<int>()
+                .WithCaptures(l =>
+                    (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                        Captures: l.Map(static v => 2 * v)));
+
+        List<int> @out = [];
+
+        using (Transaction.Run(() => doubled.ListenStrong(@out.Add)))
+        {
+            s.Send(1);
+            s.Send(2);
+            s.Send(3);
+        }
+
+        await Assert.That(result.Sample()).IsEqualTo(6);
+        await Assert.That(@out).IsEquivalentTo(expected: [0, 2, 6, 12], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task CloseGivesTheCellAfterTheLoopCloses()
+    {
+        CellSink<int> s = Cell.CreateSink(0);
+
+        // Two captures take the general overload, thus the type stays looped after the block.
+        (Cell<int> result, (LoopedCell<int> plusOne, int tag)) =
+            Cell.Loop<int>()
+                .WithCaptures(l =>
+                    (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                        Captures: (l.Map(static v => v + 1), 7)));
+
+        Cell<int> closed = plusOne.Close();
+        s.Send(5);
+
+        await Assert.That(tag).IsEqualTo(7);
+        await Assert.That(closed.Sample()).IsEqualTo(6);
+        await Assert.That(result.Sample()).IsEqualTo(5);
+    }
+
+    [Test]
+    public async Task CloseThrowsWhileTheLoopIsOpen()
+    {
+        InvalidOperationException? actual = null;
+
+        try
+        {
+            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+            Cell.Loop<int>()
+                .WithoutCaptures(static l =>
+                {
+                    l.Map(static v => v + 1).Close();
+
+                    return Cell.Constant(0);
+                });
+        }
+        catch (InvalidOperationException e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual?.Message)
+            .IsEqualTo(
+                "The loop that this value depends on is not closed. Close the loop before this conversion, or assert "
+                + "the conversion with AsCell or AsBehavior.");
+    }
+
+    [Test]
+    public async Task AsCellReadBeforeTheCloseThrows()
+    {
+        InvalidOperationException? actual = null;
+
+        try
+        {
+            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+            Cell.Loop<int>().WithoutCaptures(static l => Cell.Constant(l.AsCell().Sample()));
+        }
+        catch (InvalidOperationException e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual?.Message).IsEqualTo("BehaviorLoop was sampled before it was looped.");
+    }
+
+    [Test]
+    public async Task AsCellReadAfterTheCloseGivesTheValue()
+    {
+        (Cell<int> result, (Cell<int> asserted, int tag)) =
+            Cell.Loop<int>().WithCaptures(static l => (Cell: Cell.Constant(4), Captures: (l.AsCell(), 1)));
+
+        await Assert.That(asserted.Sample()).IsEqualTo(4);
+        await Assert.That(result.Sample()).IsEqualTo(4);
+        await Assert.That(tag).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task FunctionalBehaviorLoopWithOneLoopedCaptureClosesIt()
+    {
+        BehaviorSink<int> s = Behavior.CreateSink(1);
+
+        (Behavior<int> result, Behavior<int> doubled) =
+            Behavior.Loop<int>()
+                .WithCaptures(l =>
+                    (Behavior: Operational.Updates(s).Snapshot(b: l, f: static (n, o) => n + o).Hold(0).AsBehavior(),
+                        Captures: l.Map(static v => 2 * v)));
+
+        s.Send(2);
+
+        await Assert.That(result.Sample()).IsEqualTo(2);
+        await Assert.That(doubled.Sample()).IsEqualTo(4);
+    }
+
+    [Test]
+    public async Task CloseOnABehaviorThrowsWhileTheLoopIsOpen()
+    {
+        InvalidOperationException? actual = null;
+
+        try
+        {
+            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+            Behavior.Loop<int>()
+                .WithoutCaptures(static l =>
+                {
+                    l.Map(static v => v + 1).Close();
+
+                    return Behavior.Constant(0);
+                });
+        }
+        catch (InvalidOperationException e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual?.Message)
+            .IsEqualTo(
+                "The loop that this value depends on is not closed. Close the loop before this conversion, or assert "
+                + "the conversion with AsCell or AsBehavior.");
+    }
+
     // Desired behavior:
     //A list of items of type TestObject are held in a cell.  TestObject contains a cell of type int named Output, which
     //comes from other values. At each new TestObject, it has the values for the cells from
@@ -921,6 +1067,6 @@ public sealed class LoopTests
 
 file static class TestExtensions
 {
-    public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca) =>
+    public static Stream<T> SwitchCWithDeferredValues<T>(this LoopedCell<Cell<T>> cca) =>
         Operational.Defer(cca.SwitchC().Values());
 }

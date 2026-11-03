@@ -19,10 +19,10 @@ public sealed class CellTests
             Transaction.Run(static () =>
             {
                 CellLoop<int> loop = Cell.CreateLoop<int>();
-                Cell<int> cLocal = loop.Map(static v => v * 5);
+                LoopedCell<int> cLocal = loop.Map(static v => v * 5);
                 CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
                 loop.Loop(sLocal.Hold(3));
-                return (cLocal, sLocal);
+                return (cLocal.Close(), sLocal);
             });
 
         List<int> output1 = [];

@@ -34,23 +34,27 @@
     <ItemGroup>
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="Behavior.cs"/>
+        <Compile Include="BehaviorLoop.cs"/>
         <Compile Include="CaptureSlot.cs"/>
         <Compile Include="BehaviorExtensionMethods.cs"/>
         <Compile Include="BehaviorSink.cs"/>
         <Compile Include="Cell.cs"/>
         <Compile Include="CellExtensionMethods.cs"/>
+        <Compile Include="CellLoop.cs"/>
         <Compile Include="CellSink.cs"/>
         <Compile Include="CellStreamSink.cs"/>
         <Compile Include="Cleanup.cs"/>
         <Compile Include="CoalesceHandler.cs"/>
         <Compile Include="DependencyCycleException.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>
+        <Compile Include="ILoopRoot.cs"/>
         <Compile Include="LazyBehavior.cs"/>
         <Compile Include="LazySample.cs"/>
         <Compile Include="Listener.cs"/>
         <Compile Include="LoopedBehavior.cs"/>
         <Compile Include="LoopedCell.cs"/>
         <Compile Include="LoopedStream.cs"/>
+        <Compile Include="LoopRoots.cs"/>
         <Compile Include="Maybe.cs"/>
         <Compile Include="MutableListener.cs"/>
         <Compile Include="Node.cs"/>

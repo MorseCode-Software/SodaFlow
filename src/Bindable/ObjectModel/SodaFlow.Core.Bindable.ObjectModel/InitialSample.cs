@@ -27,9 +27,9 @@ public static partial class BindableCoreExtensionMethods
     ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class InitialSample<T>(in Cell<T> cell)
+    private sealed class InitialSample<T>(in LoopedCell<T> cell)
     {
-        private readonly Cell<T> cell = cell;
+        private readonly LoopedCell<T> cell = cell;
 
         /// <summary>
         ///     This becomes true after <see cref="value" /> has its value. It is volatile,
@@ -49,7 +49,7 @@ public static partial class BindableCoreExtensionMethods
         ///     takes in this transaction and not the previous value. Thus, an update in
         ///     the building transaction needs no correction, and causes no notification.
         /// </remarks>
-        internal static InitialSample<T> Take(TransactionInternal transaction, Cell<T> cell)
+        internal static InitialSample<T> Take(TransactionInternal transaction, LoopedCell<T> cell)
         {
             InitialSample<T> sample = new(cell);
             LazySample<T> atClose = cell.SampleLazyImpl();
