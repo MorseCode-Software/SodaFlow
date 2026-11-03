@@ -228,9 +228,17 @@ public class Stream<T>
         return listener;
     }
 
+    // A static lambda with a state: no closure and no delegate for the call that each
+    // single-input operator makes. See SendImpl in StreamSink.
     internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) =>
-        TransactionInternal.Apply((trans1, _) =>
-            this.Listen(target: target, trans: trans1, action: action, suppressEarlierFirings: false));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Stream.Listen(
+                    target: state.Target,
+                    trans: trans,
+                    action: state.Action,
+                    suppressEarlierFirings: false),
+            state: (Stream: this, Target: target, Action: action));
 
     internal IWeakListener Listen(
         Node target,
