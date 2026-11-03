@@ -40,6 +40,7 @@
         <Compile Include="DeepFirstEntryBenchmarks.cs"/>
         <Compile Include="EditStreamMergeBenchmarks.cs"/>
         <Compile Include="EitherBenchmarks.cs"/>
+        <Compile Include="GraphBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateShapes.cs"/>
         <Compile Include="KeyedCollectionBuildBenchmarks.cs"/>
