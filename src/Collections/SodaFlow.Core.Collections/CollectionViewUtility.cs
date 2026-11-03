@@ -308,14 +308,70 @@ internal static class CollectionViewUtility
         SliceImpl(upstream: upstream, offsetCell: CellInternal.ConstantImpl(0), limitCell: limitCell);
 
     /// <summary>
+    ///     The first <paramref name="limit" /> keys, for a limit that does not change.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="limit" /> is negative. See
+    ///     <see cref="SliceImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},int,int)" />.
+    /// </exception>
+    internal static ReactiveCollection<TKey, TIdentity, TState> TakeImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
+        int limit)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        SliceImpl(upstream: upstream, offset: 0, limit: limit);
+
+    /// <summary>
+    ///     A window of <paramref name="limit" /> keys that starts at
+    ///     <paramref name="offset" />, for ends that do not change.
+    /// </summary>
+    /// <remarks>
+    ///     A negative value is an error in the arithmetic of the caller. A constant
+    ///     comes from the code that builds the view, thus this overload throws at that
+    ///     point. The cell overload counts a negative value as zero, because a cell
+    ///     moves in a transaction, and a throw there fails that transaction.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="offset" /> or <paramref name="limit" /> is negative.
+    /// </exception>
+    internal static ReactiveCollection<TKey, TIdentity, TState> SliceImpl<TKey, TIdentity, TState>(
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
+        int offset,
+        int limit)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName: nameof(offset),
+                actualValue: offset,
+                message: "The offset of a slice cannot be negative.");
+        }
+
+        if (limit < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName: nameof(limit),
+                actualValue: limit,
+                message: "The limit of a window cannot be negative.");
+        }
+
+        return SliceImpl(
+            upstream: upstream,
+            offsetCell: CellInternal.ConstantImpl(offset),
+            limitCell: CellInternal.ConstantImpl(limit));
+    }
+
+    /// <summary>
     ///     A window of <c>limit</c> keys that starts at <c>offset</c>, which is a page
     ///     of the order and the filter above this stage.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         This stage is the base of
-    ///         <see cref="TakeImpl{TKey,TIdentity,TState}" />, and a <c>TakeImpl</c>
-    ///         is a window with an offset of zero.
+    ///         <see cref="TakeImpl{TKey,TIdentity,TState}(ReactiveCollection{TKey,TIdentity,TState},Cell{int})" />,
+    ///         and a <c>TakeImpl</c> is a window with an offset of zero.
     ///     </para>
     ///     <para>
     ///         There is no skip. This stage compares its previous window against its
@@ -328,6 +384,10 @@ internal static class CollectionViewUtility
     ///         it. A skip alone also gives a view whose size follows the collection,
     ///         and this rule prevents that. A page needs the two ends, and this stage
     ///         gives them.
+    ///     </para>
+    ///     <para>
+    ///         A negative offset or limit in a cell counts as zero. The overload for
+    ///         constants throws instead, and says why.
     ///     </para>
     /// </remarks>
     internal static ReactiveCollection<TKey, TIdentity, TState> SliceImpl<TKey, TIdentity, TState>(

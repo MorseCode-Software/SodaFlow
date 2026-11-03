@@ -7,6 +7,12 @@ failure discarded, which the cache of per-key cells made visible: the cell staye
 the phantom item until that key changed again. The seed of the root snapshot now builds its state inside the function
 that SodaFlow can run again after such a failure.
 
+BREAKING: Take(int) and Slice(int, int) throw ArgumentOutOfRangeException for a negative count or offset, where
+before they clamped it to zero and gave an empty or shifted view with nothing to show for the error. A negative
+constant is almost always an arithmetic slip in the caller, and the view is built where the slip is. The Cell<int>
+overloads still clamp, because a throw there would fail whichever transaction moved the cell; the documentation now
+says so. An offset past the end still gives an empty page on both.
+
 Fixed: the cache of per-key cells compares keys as the collection does. It used the default comparer, so on a
 collection keyed with a comparer such as StringComparer.OrdinalIgnoreCase, a key asked for in two spellings got two
 cells, each with its own node chain and subscription; both were correct, since the changes they read use the

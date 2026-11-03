@@ -715,3 +715,41 @@ type ``Collections Tests``() =
             // where that result is important.
             do! Expect.Same(passing |> stateCell 2, passing |> stateCell 2)
         }
+
+    [<Test>]
+    member _.``a negative constant count or offset throws``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+
+            // A negative count or offset is an error in the arithmetic of the caller. The constant
+            // functions throw at the call, where the clamp hid it.
+            do! Expect.Throws<ArgumentOutOfRangeException>(fun () -> collection |> take (-1) |> ignore)
+            do! Expect.Throws<ArgumentOutOfRangeException>(fun () -> collection |> slice (-1) 1 |> ignore)
+            do! Expect.Throws<ArgumentOutOfRangeException>(fun () -> collection |> slice 0 (-1) |> ignore)
+
+            // Zero is a window with nothing in it, and not an error.
+            do! Expect.Sequence(([]: int list), keysOf (collection |> take 0))
+        }
+
+    [<Test>]
+    member _.``a negative count or offset in a cell counts as zero``() =
+        task {
+            let edits = sinkS<CollectionEdit<int, ItemIdentity, ItemState>> ()
+            let collection = create keyOf [ item 1 "one" 10; item 2 "two" 20 ] [ edits ]
+            let limit = sinkC 1
+            let offset = sinkC 1
+            let window = collection |> takeC limit
+            let page = collection |> sliceC offset (Cell.constant 1)
+
+            do! Expect.Sequence([ 1 ], keysOf window)
+            do! Expect.Sequence([ 2 ], keysOf page)
+
+            // A cell can move to a negative value in a transaction, and a throw there fails that
+            // transaction. Thus, the cell functions count a negative value as zero.
+            limit |> sendC (-1)
+            offset |> sendC (-1)
+
+            do! Expect.Sequence(([]: int list), keysOf window)
+            do! Expect.Sequence([ 1 ], keysOf page)
+        }

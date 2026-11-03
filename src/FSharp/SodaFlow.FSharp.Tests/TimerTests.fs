@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open System.Diagnostics
 open System.Threading
 open SodaFlow
 open SodaFlow.Time
@@ -59,6 +60,13 @@ type private ManualImplementation(fireLatestFirst: bool, holdBack: int option) =
             for timer in (if fireLatestFirst then List.rev due else due) do
                 timers.Remove timer |> ignore
                 timer.Fire()
+
+/// A clock over a stopwatch, for the behavior of the base implementation itself after a stop.
+type private StopwatchClock() =
+    inherit TimerSystemImplementationBase<float>()
+    let stopwatch = Stopwatch.StartNew()
+    override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
+    override _.Now = stopwatch.Elapsed.TotalSeconds
 
 /// Moves the clock, and opens a transaction. The timer system reads the clock at the start of a
 /// transaction.
@@ -275,4 +283,44 @@ type ``System Clock Timer System Tests``() =
 
             do! Expect.Equal(DateTimeKind.Utc, (Behavior.sample utc.Time).Kind)
             do! Expect.Equal(DateTimeKind.Local, (Behavior.sample local.Time).Kind)
+        }
+
+    // Stop ends the timer thread and waits for it. Thus, a timer set before the stop does not fire
+    // after it. A timer set after the stop never fires, and a handle for it tells the caller
+    // nothing. Thus, SetTimer throws instead.
+    [<Test>]
+    member _.``A stopped implementation refuses a timer and fires none``() =
+        task {
+            let clock = StopwatchClock() :> ITimerSystemImplementation<float>
+            let fired = ref false
+            clock.Start(fun _ -> ())
+            use _timer = clock.SetTimer (clock.Now + 1000.0) (fun () -> fired.Value <- true)
+            clock.Stop()
+
+            do!
+                Expect.Throws<ObjectDisposedException>(fun () ->
+                    clock.SetTimer (clock.Now - 1.0) (fun () -> fired.Value <- true) |> ignore)
+
+            clock.RunTimersTo(clock.Now + 2000.0)
+            do! Expect.False fired.Value
+
+            // A second stop does nothing.
+            clock.Stop()
+        }
+
+    // At sets its timer in the transaction that gives the cell a time. Thus, that transaction fails
+    // with the exception of the stopped implementation. That is the construction when the cell
+    // holds a time, and the later send that gives it one.
+    [<Test>]
+    member _.``A disposed timer system refuses an alarm``() =
+        task {
+            let timerSystem = new TimerSystem<float>(StopwatchClock(), (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<float>
+            timers.Dispose()
+
+            do! Expect.Throws<ObjectDisposedException>(fun () -> timers.At(Cell.constant (Some 1.0)) |> ignore)
+
+            let alarm = sinkC None
+            let _at = timers.At alarm
+            do! Expect.Throws<ObjectDisposedException>(fun () -> alarm |> sendC (Some 1.0))
         }

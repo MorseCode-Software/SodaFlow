@@ -14,6 +14,12 @@ one per test, taxed every later transaction for the life of the process. Disposi
 and ends the thread, and after that Time does not move and no alarm fires. A custom ITimerSystemImplementation<'T>
 needs a Stop, which can be empty for a clock a test moves by hand.
 
+BREAKING: a stopped TimerSystemImplementationBase<'T> throws ObjectDisposedException from SetTimer, and so At on a
+disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
+or a later send. Before, the timer was accepted and never fired, and the caller held a handle for an alarm that
+could not come. A cell with no time sets nothing and passes as before. A custom ITimerSystemImplementation<'T>
+should do the same after its Stop.
+
 The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. The C# notes have the measurement; the F# hook has the same shape.
