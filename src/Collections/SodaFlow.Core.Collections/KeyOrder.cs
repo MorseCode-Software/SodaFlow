@@ -86,8 +86,8 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
 
     /// <summary>
     ///     The keys in this order, when this order is their order in the opposite
-    ///     direction. This code then reads the set that holds them from its end, and
-    ///     does not sort them or make each sort value again.
+    ///     direction at each level. This code then reads the set that holds them from
+    ///     its end, and does not sort them or make each sort value again.
     /// </summary>
     /// <param name="keys">
     ///     Keys in an order, which can be this order in the opposite
@@ -320,6 +320,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         this.Then(
             nextSelector: (_, identity, state) => selector(arg1: identity, arg2: state),
             nextIdentitySelector: null,
+            nextSelectorReference: selector,
             nextComparer: sortComparer,
             nextIsDescending: isDescending);
 
@@ -377,6 +378,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         this.Then(
             nextSelector: null,
             nextIdentitySelector: (_, identity) => selector(identity),
+            nextSelectorReference: selector,
             nextComparer: sortComparer,
             nextIsDescending: isDescending);
 
@@ -392,6 +394,10 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     ///     Makes it from the key and the identity only,
     ///     or null.
     /// </param>
+    /// <param name="nextSelectorReference">
+    ///     The selector from the caller. This code compares two orders with it, level
+    ///     by level.
+    /// </param>
     /// <param name="nextComparer">Compares two sort values of the level.</param>
     /// <param name="nextIsDescending">True when the level uses the opposite direction.</param>
     /// <returns>The refined order.</returns>
@@ -406,6 +412,7 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     internal abstract KeyOrder<TKey, TIdentity, TState> Then<TNext>(
         Func<TKey, TIdentity, TState, TNext>? nextSelector,
         Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        object nextSelectorReference,
         IComparer<TNext> nextComparer,
         bool nextIsDescending);
 

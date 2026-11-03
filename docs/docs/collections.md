@@ -284,8 +284,10 @@ A new order is a criteria change like any other: it rebuilds that stage and repo
 the cost the table below gives for a sort's rebuild. Three cases are cheaper than that:
 
 - **An order equivalent to the one already held** is no change at all, and reports nothing.
-- **The same order reversed** re-sorts with the sort values the stage already holds, rather than
-  filing every key again. It still reports `IsReset`.
+- **The same order reversed** reads the set the stage already holds from its end, through a view
+  that costs nothing to make, rather than filing or sorting any key again. An order with more than
+  one level counts as reversed when every level changes direction; flipping one level of several is
+  a new order. It still reports `IsReset`.
 - **A reorder with nothing else in the transaction** lets the stages *below* do less than
   rebuild. A filter already holds the right members, because its predicate reads nothing that
   changed, so it files them under the new order without walking the stage above or testing a
