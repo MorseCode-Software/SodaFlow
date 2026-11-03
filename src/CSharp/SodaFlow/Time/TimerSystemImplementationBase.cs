@@ -9,17 +9,21 @@ namespace SodaFlow.Time;
 ///     A base for timer system implementations which supplies the scheduling,
 ///     leaving a derived type to supply only the clock.
 /// </summary>
-/// <typeparam name="T">The type used to express a point in time.</typeparam>
+/// <typeparam name="T">
+///     The type used to express a point in time. The constraint is the generic
+///     <see cref="IComparable{T}" />, as on <see cref="TimerSystem{T}" />, thus a
+///     comparison of two times boxes nothing.
+/// </typeparam>
 /// <remarks>
 ///     Derive from this and write <see cref="Now" /> and
-///     <see cref="SubtractTimes" />. The This type puts the timers in order,
-///     waits, and fires them. <see cref="SystemClockTimerSystem" /> and
+///     <see cref="SubtractTimes" />. This type puts the timers in order, waits,
+///     and fires them. <see cref="SystemClockTimerSystem" /> and
 ///     <see cref="SecondsTimerSystem" /> are the two implementations that ship.
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementation<T>
-    where T : IComparable
+    where T : IComparable<T>
 {
     private readonly object lockObject = new();
     private readonly SortedSet<SimpleTimer> timers = [];

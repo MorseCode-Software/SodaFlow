@@ -13,6 +13,16 @@ process. Disposing the timer system removes the hook and ends the thread, and af
 alarm fires. A custom ITimerSystemImplementation<T> needs a Stop, which can be empty for a clock a test moves by hand.
 A caller of OnStart can ignore the registration as before, or dispose it to remove the action.
 
+BREAKING: TimerSystemImplementationBase<T> constrains T to IComparable<T>, where it constrained it to the non-generic
+IComparable. TimerSystem<T> and ITimerSystem<T> already required the generic interface, and the F# package uses
+comparison, so the three now agree; double and DateTime implement both, and only a time type that implements the
+non-generic interface alone stops compiling. The old constraint made every comparison in the base's sorted set go
+through CompareTo(object), which boxed a time at each add, cancel, and fire. Measured in a new benchmark,
+TimerSchedulingBenchmarks, with 1,000 timers waiting: setting a timer and canceling it took 345 ns and 648 bytes on
+.NET 10 and takes 269 ns and 96 bytes, the 96 bytes being the timer itself; setting one and firing it took 350 ns and
+600 bytes and takes 313 ns and 96 bytes. On .NET Framework 4.7.2 the same arms go from 571 ns to 496 ns and from
+762 ns to 708 ns.
+
 The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
