@@ -69,6 +69,14 @@ change waited sixty-five, and one set across the spring change fired an hour ear
 UTC does not move, so a wait or a deadline belongs on the UTC one and the local one is for a time a screen shows.
 The clock constructor is also the shortest way to put a clock a test moves by hand under a real TimerSystem<DateTime>.
 
+Building a graph costs less. A stream kept two lists from its construction, one of the listeners attached to it and
+one in the cleanup registry, and a stream in a chain has exactly one of each; both now hold the first listener in a
+field and make the list only at the second. Measured in a new benchmark, GraphBuildBenchmarks, per thousand nodes
+built in one transaction, .NET 10: a chain of maps 1.61 ms and 909 KB before, 1.36 ms and 757 KB after; a map with a
+hold 2.28 ms and 1,443 KB before, 1.92 ms and 1,290 KB after; a sink alone 423 to 393 µs. .NET Framework 4.7.2: the
+chain 1.77 to 1.56 ms. The benchmark has an arm for each common shape, so a later change to construction can be
+measured against this one.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after
