@@ -159,7 +159,7 @@ internal abstract class Node
 
                 if (ReferenceEquals(objA: originalNode, objB: node))
                 {
-                    throw new Exception("A dependency cycle was detected.");
+                    throw new DependencyCycleException();
                 }
 
                 if (node.Rank > limit)

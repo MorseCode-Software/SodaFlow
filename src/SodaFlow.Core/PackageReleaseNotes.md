@@ -56,6 +56,12 @@ result. This is the behavior that a throw from a listener during propagation alr
 promises; code that relied on the partial commit has to send before the code that can throw, in a transaction of its
 own.
 
+Added: DependencyCycleException, an InvalidOperationException, is what a loop that closes on itself without a delay
+throws, where before it threw a bare System.Exception with the same message, which a caller could not catch apart from
+anything else and a test could only match by its text. The message is unchanged. The internal priority queue's
+invariant checks, which no caller can reach, throw InvalidOperationException for the same reason; nothing in the
+library throws a bare Exception any more.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after
