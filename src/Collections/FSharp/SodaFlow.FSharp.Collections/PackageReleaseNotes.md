@@ -1,5 +1,10 @@
 3.0.0
 
+BREAKING: take and slice throw ArgumentOutOfRangeException for a negative count or offset, through
+SodaFlow.Core.Collections 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
+to show for the error. The takeC and sliceC still clamp, because a throw there would fail whichever transaction moved
+the cell.
+
 Added: createWith and createByIdentityWith, each with an IEqualityComparer<'TKey> as its first argument, in the
 pipeline order the module uses, so a collection can key on case-insensitive strings or on any other equality. The C#
 surface had these overloads and this module did not, so an F# caller had to reach the C# generic class directly, with

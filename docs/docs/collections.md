@@ -441,6 +441,11 @@ ReactiveCollection<Guid, AccountId, AccountState> rows = accounts
 pageNumber.Send(1);
 ```
 
+A negative offset or count on the constant overloads throws `ArgumentOutOfRangeException` when the
+view is built. It is almost always an arithmetic slip in the caller, and clamping it silently hid
+that. The `Cell<int>` overloads clamp a negative value to zero instead, because a throw there would
+fail whichever transaction moved the cell. An offset past the end gives an empty page on both.
+
 There is no `Skip`, and the omission is deliberate rather than an oversight. This stage keeps
 its window current by diffing the old one against the new one rather than by translating the
 operations it is handed, which is what holds it to O(limit) per transaction and what makes a
