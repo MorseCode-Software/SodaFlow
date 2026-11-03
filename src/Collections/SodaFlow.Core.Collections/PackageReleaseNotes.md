@@ -17,6 +17,10 @@ Added: ReactiveCollection.Create, the form that takes the key from an identity t
 overload with an IEqualityComparer<TKey> before the initial entries. The selector forms already had one; the identity
 form had the default comparer only, so an identity that carries its own key forced strict equality on it.
 
+Added: the same identity form has two overloads that take the initial entries as a Cell<IEnumerable<Item<TIdentity,
+TState>>>, with and without a comparer, as the selector form already did. The transaction that builds the collection
+samples the cell at its close.
+
 Fixed: a request for a per-key cell from outside a transaction could deadlock with a request from inside one.
 StateCell, IdentityCell, and ItemCell took the gate of their cache first and, on a miss, the transaction lock inside
 the creation of the cell. A projection that runs in a transaction, such as every row that MappedItems builds, holds

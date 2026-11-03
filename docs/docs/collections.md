@@ -100,6 +100,12 @@ name its three type arguments, or use the selector overloads. F# has `createById
 does beside `create`. Neither is required: the selector overloads stay the way to do this when the
 identity cannot or should not implement an interface.
 
+Both forms also take the initial contents as a `Cell<IEnumerable<Item<TIdentity, TState>>>`
+instead of a sequence, with or without a comparer. The transaction that builds the collection
+samples the cell at its close, so a collection can be seeded from another part of the graph
+without a `Sample` at the call site. F# names those variants with its usual `C` suffix: `createC`,
+`createWithC`, `createByIdentityC`, and `createByIdentityWithC`.
+
 Sinks still belong at the edge of the program — that is how UI events and I/O enter the graph
 at all — but they are the caller's, created at the boundary and passed in here as streams. If
 an edit stream depends on something derived from the collection, close the circle with

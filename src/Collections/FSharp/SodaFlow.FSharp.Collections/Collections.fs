@@ -114,6 +114,75 @@ let createByIdentityWith
         Array.ofSeq editStreams
     )
 
+/// <summary>
+///     Defines a collection as <c>create</c> does, with the initial contents from a cell. The
+///     transaction that builds the collection samples the cell at its close.
+/// </summary>
+/// <param name="keySelector">Makes the key of an item from its immutable part.</param>
+/// <param name="initialEntries">The collection's initial contents, sampled lazily.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createC
+    (keySelector: 'TIdentity -> 'TKey)
+    (initialEntries: Cell<seq<Item<'TIdentity, 'TState>>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection<'TKey, 'TIdentity, 'TState>
+        .Create(Func<_, _> keySelector, initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
+///     Defines a collection as <c>createWith</c> does, with the initial contents from a cell.
+/// </summary>
+/// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+/// <param name="keySelector">Makes the key of an item from its immutable part.</param>
+/// <param name="initialEntries">The collection's initial contents, sampled lazily.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createWithC
+    (keyEqualityComparer: IEqualityComparer<'TKey>)
+    (keySelector: 'TIdentity -> 'TKey)
+    (initialEntries: Cell<seq<Item<'TIdentity, 'TState>>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection<'TKey, 'TIdentity, 'TState>
+        .Create(Func<_, _> keySelector, keyEqualityComparer, initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
+///     Defines a collection as <c>createByIdentity</c> does, with the initial contents from a
+///     cell.
+/// </summary>
+/// <param name="initialEntries">The collection's initial contents, sampled lazily.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createByIdentityC
+    (initialEntries: Cell<seq<Item<'TIdentity, 'TState>>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(initialEntries, Array.ofSeq editStreams)
+
+/// <summary>
+///     Defines a collection as <c>createByIdentityWith</c> does, with the initial contents from
+///     a cell.
+/// </summary>
+/// <param name="keyEqualityComparer">The equality comparer for keys.</param>
+/// <param name="initialEntries">The collection's initial contents, sampled lazily.</param>
+/// <param name="editStreams">Each stream that edits the collection.</param>
+/// <returns>The collection.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createByIdentityWithC
+    (keyEqualityComparer: IEqualityComparer<'TKey>)
+    (initialEntries: Cell<seq<Item<'TIdentity, 'TState>>>)
+    (editStreams: seq<Stream<CollectionEdit<'TKey, 'TIdentity, 'TState>>>)
+    =
+    ReactiveCollection.Create<'TKey, 'TIdentity, 'TState>(
+        keyEqualityComparer,
+        initialEntries,
+        Array.ofSeq editStreams
+    )
+
 /// <summary>An item, from its immutable part and its mutable part.</summary>
 /// <param name="identity">The immutable part, which gives the key.</param>
 /// <param name="state">The mutable part.</param>

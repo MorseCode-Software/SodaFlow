@@ -307,6 +307,50 @@ public sealed class ReactiveCollectionTests
             .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     The identity form also takes its initial contents from a cell. The
+    ///     transaction that builds the collection samples the cell at its close.
+    ///     Thus, a send to the cell in that transaction is in the initial contents,
+    ///     and a send after it is not.
+    /// </summary>
+    [Test]
+    public async Task TheIdentityFormReadsItsInitialEntriesFromACellAtTheCloseOfTheTransaction()
+    {
+        StreamSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, SelfKeyedItemIdentity, ItemState>>();
+
+        CellSink<IEnumerable<Item<SelfKeyedItemIdentity, ItemState>>> initialEntries =
+            Cell.CreateSink<IEnumerable<Item<SelfKeyedItemIdentity, ItemState>>>(
+                [TestUtil.SelfKeyedItem(number: 1, name: "one", score: 10)]);
+
+        ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> collection =
+            Transaction.Run(() =>
+            {
+                ReactiveCollection<int, SelfKeyedItemIdentity, ItemState> built =
+                    ReactiveCollection.Create(initialEntries: initialEntries, edits);
+
+                initialEntries.Send(
+                [
+                    TestUtil.SelfKeyedItem(number: 1, name: "one", score: 10),
+                    TestUtil.SelfKeyedItem(number: 2, name: "two", score: 20)
+                ]);
+
+                return built;
+            });
+
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
+
+        initialEntries.Send([TestUtil.SelfKeyedItem(number: 9, name: "nine", score: 90)]);
+
+        edits.Send(
+            CollectionEdit<int, SelfKeyedItemIdentity, ItemState>.Add(
+                TestUtil.SelfKeyedItem(number: 3, name: "three", score: 30)));
+
+        await Assert.That(TestUtil.Keys(collection.KeysCell.Sample()))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task AChangeCarriesTheStoreOnBothSidesOfIt()
     {

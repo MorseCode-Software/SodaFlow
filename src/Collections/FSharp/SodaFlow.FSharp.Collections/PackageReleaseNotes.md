@@ -6,6 +6,11 @@ surface had these overloads and this module did not, so an F# caller had to reac
 a Func around the selector. createByIdentityWith wraps an overload that is new in SodaFlow.Core.Collections 3.0.0. The
 1.0.0 notes below name createByIdentityWith as if it shipped then; it did not exist until now.
 
+Added: createC, createWithC, createByIdentityC, and createByIdentityWithC, each the function without the suffix with
+the initial contents from a Cell<seq<Item<'TIdentity, 'TState>>> instead of a seq, following the module's convention
+that a C suffix names the variant that takes a cell. The transaction that builds the collection samples the cell at
+its close. The two identity variants wrap overloads that are new in SodaFlow.Core.Collections 3.0.0.
+
 This release also raises the dependency floor, so that a new install gets
 SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
 why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then
