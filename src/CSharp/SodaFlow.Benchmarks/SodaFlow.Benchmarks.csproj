@@ -60,6 +60,7 @@
         <Compile Include="Program.cs"/>
         <Compile Include="RankPropagationBenchmarks.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
+        <Compile Include="SortReverseBenchmarks.cs"/>
         <Compile Include="TimerSystemBenchmarks.cs"/>
         <Compile Include="TransactionBenchmarks.cs"/>
         <Compile Include="ViewChangeProjectionBenchmarks.cs"/>

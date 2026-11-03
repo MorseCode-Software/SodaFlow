@@ -232,6 +232,33 @@ file sealed class SortPairComparer<TFirst, TSecond> : IComparer<SortPair<TFirst,
 }
 
 /// <summary>
+///     One level of an order, as the references of its construction. Two orders
+///     are the same order, or the reverse of each other, when their levels agree.
+/// </summary>
+/// <remarks>
+///     An order with more than one level has a comparer that is a new instance at
+///     each construction. Thus, a comparison of the comparers cannot identify two
+///     such orders. A level holds the comparer and the selector that the caller
+///     gave, and those are the same instances at each construction from the same
+///     code.
+/// </remarks>
+internal sealed class SortLevel
+{
+    internal SortLevel(object selector, object comparer, bool isDescending)
+    {
+        this.Selector = selector;
+        this.Comparer = comparer;
+        this.IsDescending = isDescending;
+    }
+
+    internal object Selector { get; }
+
+    internal object Comparer { get; }
+
+    internal bool IsDescending { get; }
+}
+
+/// <summary>
 ///     An order that puts each key at a sort value that it makes for that key from
 ///     a snapshot.
 /// </summary>
@@ -366,6 +393,7 @@ internal sealed class ArrivalOrder<TKey, TIdentity, TState> : ProjectedKeyOrder<
     internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
         Func<TKey, TIdentity, TState, TNext>? nextSelector,
         Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        object nextSelectorReference,
         IComparer<TNext> nextComparer,
         bool nextIsDescending) =>
         this;
@@ -437,18 +465,20 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     private readonly Func<TKey, TIdentity, TSortKey>? identitySelector;
 
     /// <summary>
-    ///     The selector from the caller, before this code changed it to the shape of
-    ///     the field above. It is null for an order with no single selector.
+    ///     The levels of this order, as the references from the caller. Each level
+    ///     holds the selector and the comparer that the caller gave, and its
+    ///     direction.
     /// </summary>
     /// <remarks>
     ///     <see cref="IsEquivalentTo" /> and <see cref="TryReverse" /> compare two
-    ///     orders with this field. The changed selector is a new delegate at each
+    ///     orders with these levels. The changed selector is a new delegate at each
     ///     construction of an order, thus two of them are never equal. The selector
     ///     from the caller is the same instance at each construction from the same
-    ///     lambda. An order that combines two orders has no such selector, and this
-    ///     code never reads it as equivalent to a different order.
+    ///     lambda. The comparer from the caller is also the same instance. An order
+    ///     with more than one level has a combined comparer that is new at each
+    ///     construction. Thus, its levels identify it and that comparer does not.
     /// </remarks>
-    private readonly object? originalSelectorReference;
+    private readonly ImmutableArray<SortLevel> levels;
 
     /// <summary>
     ///     One of these two fields has a value, and <see cref="DependsOnState" />
@@ -484,7 +514,8 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         : this(
             selector: selector,
             identitySelector: null,
-            originalSelectorReference: originalSelectorReference,
+            levels:
+            [new SortLevel(selector: originalSelectorReference, comparer: sortComparer, isDescending: isDescending)],
             entryComparer: new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
@@ -527,7 +558,8 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         : this(
             selector: null,
             identitySelector: selector,
-            originalSelectorReference: originalSelectorReference,
+            levels:
+            [new SortLevel(selector: originalSelectorReference, comparer: sortComparer, isDescending: isDescending)],
             entryComparer: new SortedEntryComparer<TKey, TSortKey>(
                 sortComparer: sortComparer,
                 keyComparer: keyComparer,
@@ -539,14 +571,14 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     private SortKeyOrder(
         Func<TKey, TIdentity, TState, TSortKey>? selector,
         Func<TKey, TIdentity, TSortKey>? identitySelector,
-        object? originalSelectorReference,
+        ImmutableArray<SortLevel> levels,
         SortedEntryComparer<TKey, TSortKey> entryComparer,
         IEqualityComparer<TKey> keyEqualityComparer)
         : base(keyEqualityComparer)
     {
         this.selector = selector;
         this.identitySelector = identitySelector;
-        this.originalSelectorReference = originalSelectorReference;
+        this.levels = levels;
         this.EntryComparer = entryComparer;
     }
 
@@ -557,40 +589,68 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     protected internal override SortedEntryComparer<TKey, TSortKey> EntryComparer { get; }
 
     /// <summary>
-    ///     True when <paramref name="other" /> sorts on the same value with the same
-    ///     comparers, at each direction of the two orders.
+    ///     True when <paramref name="other" /> sorts on the same values with the same
+    ///     comparers at each level. The direction is the same at each level, or it is
+    ///     the opposite at each level.
     /// </summary>
     /// <param name="other">The order to compare against.</param>
     /// <param name="isSameDirection">
-    ///     True when the two orders have the same direction. It has a value only when
-    ///     the two orders agree.
+    ///     True when each level of the two orders has the same direction. It has a
+    ///     value only when the two orders agree.
     /// </param>
     /// <returns>True when the direction is the only difference between the two orders.</returns>
     /// <remarks>
-    ///     This code compares references only. It does not identify two orders that
-    ///     use two equal comparers with different instances, or two lambdas that read
-    ///     the same field. That costs one build that the stage can omit, and it never
-    ///     puts a list in an incorrect order.
+    ///     <para>
+    ///         This code compares references only. It does not identify two orders
+    ///         that use two equal comparers with different instances, or two lambdas
+    ///         that read the same field. That costs one build that the stage can
+    ///         omit, and it never puts a list in an incorrect order.
+    ///     </para>
+    ///     <para>
+    ///         Two orders whose levels change direction one by one are different
+    ///         orders. The keys that one level ranks equal keep their sequence from
+    ///         the next level. No read of the set from its end gives that sequence.
+    ///     </para>
     /// </remarks>
     private bool SortsTheSameValueAs(KeyOrder<TKey, TIdentity, TState> other, out bool isSameDirection)
     {
-        if (other is SortKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped)
-        {
-            isSameDirection = this.EntryComparer.IsDescending == otherTyped.EntryComparer.IsDescending;
-
-            return ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer)
-                   && ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer)
-                   && ReferenceEquals(
-                       objA: this.EntryComparer.SortComparer,
-                       objB: otherTyped.EntryComparer.SortComparer)
-                   && this.originalSelectorReference is not null
-                   && otherTyped.originalSelectorReference is not null
-                   && ReferenceEquals(objA: this.originalSelectorReference, objB: otherTyped.originalSelectorReference);
-        }
-
         isSameDirection = false;
 
-        return false;
+        if (other is not SortKeyOrder<TKey, TIdentity, TState, TSortKey> otherTyped
+            || !ReferenceEquals(objA: this.KeyEqualityComparer, objB: otherTyped.KeyEqualityComparer)
+            || !ReferenceEquals(objA: this.EntryComparer.KeyComparer, objB: otherTyped.EntryComparer.KeyComparer)
+            || this.levels.Length != otherTyped.levels.Length)
+        {
+            return false;
+        }
+
+        bool isEachSame = true;
+        bool isEachOpposite = true;
+
+        for (int index = 0; index < this.levels.Length; index++)
+        {
+            SortLevel level = this.levels[index];
+            SortLevel otherLevel = otherTyped.levels[index];
+
+            if (!ReferenceEquals(objA: level.Selector, objB: otherLevel.Selector)
+                || !ReferenceEquals(objA: level.Comparer, objB: otherLevel.Comparer))
+            {
+                return false;
+            }
+
+            if (level.IsDescending == otherLevel.IsDescending)
+            {
+                isEachOpposite = false;
+            }
+            else
+            {
+                isEachSame = false;
+            }
+        }
+
+        isSameDirection = isEachSame;
+
+        return isEachSame || isEachOpposite;
     }
 
     /// <inheritdoc />
@@ -603,11 +663,21 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         [NotNullWhen(true)] out OrderedKeys<TKey, TIdentity, TState>? reversedKeys)
     {
         if (this.SortsTheSameValueAs(other: keys.Order, isSameDirection: out bool isSameDirection)
-            && !isSameDirection
-            && keys is SortedKeys<TKey, TIdentity, TState, TSortKey> sortedKeys)
+            && !isSameDirection)
         {
-            reversedKeys = sortedKeys.Reverse(this);
-            return true;
+            // This code reads a set in its own direction from its end. A set that it reads from its
+            // end goes back to its own direction. Neither copies the set.
+            switch (keys)
+            {
+                case SortedKeys<TKey, TIdentity, TState, TSortKey> sortedKeys:
+                    reversedKeys =
+                        new ReversedKeys<TKey, TIdentity, TState, TSortKey>(source: sortedKeys, order: this);
+
+                    return true;
+                case ReversedKeys<TKey, TIdentity, TState, TSortKey> reversedSortedKeys:
+                    reversedKeys = reversedSortedKeys.Source.WithOrder(this);
+                    return true;
+            }
         }
 
         reversedKeys = null;
@@ -618,9 +688,14 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
     internal override KeyOrder<TKey, TIdentity, TState> Then<TNext>(
         Func<TKey, TIdentity, TState, TNext>? nextSelector,
         Func<TKey, TIdentity, TNext>? nextIdentitySelector,
+        object nextSelectorReference,
         IComparer<TNext> nextComparer,
         bool nextIsDescending)
     {
+        ImmutableArray<SortLevel> levels =
+            this.levels.Add(
+                new SortLevel(selector: nextSelectorReference, comparer: nextComparer, isDescending: nextIsDescending));
+
         // The pair holds the direction of each of the two levels, thus the entry comparer above it
         // compares in the ascending direction. The key is the last level, with the comparer from
         // the construction of this order. One more level refines the order and does not change the
@@ -641,7 +716,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
 
             return new SortKeyOrder<TKey, TIdentity, TState, SortPair<TSortKey, TNext>>(
                 selector: null,
-                originalSelectorReference: null,
+                levels: levels,
                 identitySelector: (key, identity) =>
                     new SortPair<TSortKey, TNext>(
                         first: firstIdentity(arg1: key, arg2: identity),
@@ -665,7 +740,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
                     first: firstWhole(arg1: key, arg2: identity, arg3: state),
                     second: nextWhole(arg1: key, arg2: identity, arg3: state)),
             identitySelector: null,
-            originalSelectorReference: null,
+            levels: levels,
             entryComparer: new SortedEntryComparer<TKey, SortPair<TSortKey, TNext>>(
                 sortComparer: pairComparer,
                 keyComparer: this.EntryComparer.KeyComparer,
@@ -678,7 +753,7 @@ internal sealed class SortKeyOrder<TKey, TIdentity, TState, TSortKey>
         new SortKeyOrder<TKey, TIdentity, TState, TSortKey>(
             selector: this.selector,
             identitySelector: this.identitySelector,
-            originalSelectorReference: this.originalSelectorReference,
+            levels: this.levels,
             entryComparer: this.EntryComparer,
             keyEqualityComparer: keyEqualityComparer);
 
@@ -779,6 +854,41 @@ file sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TK
 
     internal override OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        this.AddSorted(key: key, snapshot: snapshot);
+
+    internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key) => this.RemoveSorted(key);
+
+    public override IEnumerator<TKey> GetEnumerator() => this.entries.Select(static entry => entry.Key).GetEnumerator();
+
+    /// <summary>
+    ///     Compares two sort values. A set read from its end uses this to find the
+    ///     two ends of a run of equal sort values.
+    /// </summary>
+    internal IComparer<TSortKey> SortComparer => this.order.EntryComparer.SortComparer;
+
+    /// <summary>The entry at a position, at a cost of <c>O(log n)</c>.</summary>
+    internal SortedEntry<TKey, TSortKey> EntryAt(int index) => this.entries[index];
+
+    /// <summary>The entries from the last to the first, with no copy.</summary>
+    internal IEnumerable<SortedEntry<TKey, TSortKey>> EntriesFromEnd() => this.entries.Reverse();
+
+    /// <summary>
+    ///     This set with a different order. The order must put the entries in the
+    ///     sequence that they have, because the entries keep the comparer of their
+    ///     construction. A set read from its end and then from its start again gets
+    ///     the order of that second change through this method.
+    /// </summary>
+    internal SortedKeys<TKey, TIdentity, TState, TSortKey> WithOrder(
+        ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order) =>
+        new(order: order, entries: this.entries, byKey: this.byKey);
+
+    /// <summary>
+    ///     <see cref="Add" />, with the result as this type. A set read from its end
+    ///     adds through this method and keeps the result as its source.
+    /// </summary>
+    internal SortedKeys<TKey, TIdentity, TState, TSortKey> AddSorted(
+        TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
     {
         // This throws an exception for a key that the snapshot does not hold. See
@@ -802,21 +912,194 @@ file sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TK
             byKey: this.byKey.SetItem(key: key, value: entry));
     }
 
-    internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
+    /// <summary><see cref="Remove" />, with the result as this type.</summary>
+    internal SortedKeys<TKey, TIdentity, TState, TSortKey> RemoveSorted(TKey key) =>
         this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey>? entry)
             ? new SortedKeys<TKey, TIdentity, TState, TSortKey>(
                 order: this.order,
                 entries: this.entries.Remove(entry),
                 byKey: this.byKey.Remove(key))
             : this;
+}
 
-    public override IEnumerator<TKey> GetEnumerator() => this.entries.Select(static entry => entry.Key).GetEnumerator();
+/// <summary>
+///     A sorted set read from its end to its start, with no copy of that set. A
+///     sort stage holds one of these when its order becomes the same order in the
+///     opposite direction. The stage then sorts no key again.
+/// </summary>
+/// <remarks>
+///     <para>
+///         This is not the inner set in the opposite sequence. The key breaks a
+///         tie in ascending order at each direction of a sort. Thus, two keys with
+///         equal sort values keep their sequence when the direction changes. This
+///         set reads the runs of equal sort values from the last run to the first,
+///         and reads each run from its start. A build of the set in the new order
+///         gives the same sequence, and the tests compare the two.
+///     </para>
+///     <para>
+///         A position in this set maps to a position in the inner set through the
+///         run that holds it. The inner set gives the entry at a position at a cost
+///         of <c>O(log n)</c>. This code finds the two ends of a run with a binary
+///         search over the positions. Thus, a read of one position costs
+///         <c>O(log² n)</c>, and a read of all the keys costs <c>O(n)</c>. Before,
+///         the stage copied the set into a new sorted set at each change of
+///         direction. That cost <c>O(n log n)</c> and one allocation for each key.
+///     </para>
+/// </remarks>
+// ReSharper disable once InheritdocConsiderUsage
+file sealed class ReversedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TKey, TIdentity, TState>
+    where TKey : notnull
+    where TIdentity : notnull
+{
+    private readonly ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order;
 
-    internal OrderedKeys<TKey, TIdentity, TState> Reverse(ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order) =>
-        new SortedKeys<TKey, TIdentity, TState, TSortKey>(
-            order: order,
-            entries: this.entries.ToBuilder().Reverse().ToImmutableSortedSet(order.EntryComparer),
-            byKey: this.byKey);
+    internal ReversedKeys(
+        SortedKeys<TKey, TIdentity, TState, TSortKey> source,
+        ProjectedKeyOrder<TKey, TIdentity, TState, TSortKey> order)
+    {
+        this.Source = source;
+        this.order = order;
+    }
+
+    /// <summary>The set in its own direction.</summary>
+    internal SortedKeys<TKey, TIdentity, TState, TSortKey> Source { get; }
+
+    internal override KeyOrder<TKey, TIdentity, TState> Order => this.order;
+
+    public override int Count => this.Source.Count;
+
+    public override TKey this[int index]
+    {
+        get
+        {
+            if (index < 0 || index >= this.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            // The runs mirror as blocks, thus the entry at the mirrored position is in the run that
+            // holds the answer. The answer is at the same distance from the start of that run as
+            // this index is from the start of the mirrored block.
+            (int first, int last) = this.RunAround(this.Count - 1 - index);
+
+            return this.Source.EntryAt(first + index - (this.Count - 1 - last)).Key;
+        }
+    }
+
+    public override bool Contains(TKey key) => this.Source.Contains(key);
+
+    internal override int IndexOfInternal(TKey key)
+    {
+        int index = this.Source.IndexOfInternal(key);
+
+        if (index < 0)
+        {
+            return -1;
+        }
+
+        (int first, int last) = this.RunAround(index);
+
+        return this.Count - 1 - last + index - first;
+    }
+
+    internal override OrderedKeys<TKey, TIdentity, TState> Add(
+        TKey key,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        new ReversedKeys<TKey, TIdentity, TState, TSortKey>(
+            source: this.Source.AddSorted(key: key, snapshot: snapshot),
+            order: this.order);
+
+    internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key)
+    {
+        SortedKeys<TKey, TIdentity, TState, TSortKey> source = this.Source.RemoveSorted(key);
+
+        return ReferenceEquals(objA: source, objB: this.Source)
+            ? this
+            : new ReversedKeys<TKey, TIdentity, TState, TSortKey>(source: source, order: this.order);
+    }
+
+    public override IEnumerator<TKey> GetEnumerator()
+    {
+        // The inner set gives its entries from its end. This code collects one run, and gives the
+        // run from its start when the next entry has a different sort value.
+        List<TKey> run = [];
+        SortedEntry<TKey, TSortKey>? previous = null;
+
+        foreach (SortedEntry<TKey, TSortKey> entry in this.Source.EntriesFromEnd())
+        {
+            if (previous is not null
+                && this.Source.SortComparer.Compare(x: entry.SortValue, y: previous.SortValue) != 0)
+            {
+                for (int index = run.Count - 1; index >= 0; index--)
+                {
+                    yield return run[index];
+                }
+
+                run.Clear();
+            }
+
+            run.Add(entry.Key);
+            previous = entry;
+        }
+
+        for (int index = run.Count - 1; index >= 0; index--)
+        {
+            yield return run[index];
+        }
+    }
+
+    /// <summary>
+    ///     The first and the last position of the run of equal sort values that holds
+    ///     a position of the inner set.
+    /// </summary>
+    /// <remarks>
+    ///     Two binary searches over the positions, because the inner set can find an
+    ///     entry and cannot find the ends of a run. Each probe reads one entry at a
+    ///     cost of <c>O(log n)</c>.
+    /// </remarks>
+    private (int First, int Last) RunAround(int index)
+    {
+        IComparer<TSortKey> comparer = this.Source.SortComparer;
+        TSortKey value = this.Source.EntryAt(index).SortValue;
+
+        int low = 0;
+        int high = index;
+
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+
+            if (comparer.Compare(x: this.Source.EntryAt(middle).SortValue, y: value) == 0)
+            {
+                high = middle;
+            }
+            else
+            {
+                low = middle + 1;
+            }
+        }
+
+        int first = low;
+
+        low = index;
+        high = this.Count - 1;
+
+        while (low < high)
+        {
+            int middle = low + (high - low + 1) / 2;
+
+            if (comparer.Compare(x: this.Source.EntryAt(middle).SortValue, y: value) == 0)
+            {
+                low = middle;
+            }
+            else
+            {
+                high = middle - 1;
+            }
+        }
+
+        return (first, low);
+    }
 }
 
 /// <summary>
