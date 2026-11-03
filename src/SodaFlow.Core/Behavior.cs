@@ -32,7 +32,12 @@ public class Behavior<T>
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
     private readonly Action? discardValueUpdate;
-    private readonly Stream<T> stream;
+
+    // A constant behavior has no stream until a caller asks for its updates, and most
+    // constants are only sampled or lifted. Updates makes the stream in the transaction, as
+    // Cell.updates does, and the field is volatile for the same cause: a reader must not see
+    // the reference before the state of the stream. See the comment on that field.
+    private volatile Stream<T>? stream;
 
     // ReSharper disable once NotAccessedField.Local - Used to keep object from being garbage collected
     private readonly IListener? streamListener;
@@ -40,11 +45,7 @@ public class Behavior<T>
     private T valueProperty;
     private MaybeInternal<T> valueUpdate;
 
-    internal Behavior(T value)
-    {
-        this.stream = new Stream<T>();
-        this.valueProperty = value;
-    }
+    internal Behavior(T value) => this.valueProperty = value;
 
     internal Behavior(Stream<T> stream, T initialValue)
     {
@@ -78,7 +79,7 @@ public class Behavior<T>
                     suppressEarlierFirings: false));
     }
 
-    internal IKeepListenersAlive KeepListenersAlive => this.stream.KeepListenersAlive;
+    internal IKeepListenersAlive KeepListenersAlive => this.Updates().KeepListenersAlive;
 
     /// <summary>
     ///     Gets or sets the value this behavior reports when sampled not in a
@@ -152,7 +153,18 @@ public class Behavior<T>
 
     internal virtual T SampleNoTransaction() => this.ValueProperty;
 
-    internal Stream<T> Updates() => this.stream;
+    // A constant makes its never stream here, at the first ask. SodaFlow creates it in the
+    // transaction. Thus, the test and the set are safe while they hold no lock of their own.
+    // The library runs one transaction at a time across the process, thus only one thread can
+    // be here. See the remarks on SodaFlow.Transaction.
+    internal Stream<T> Updates() =>
+        this.stream
+        ?? TransactionInternal.Apply(
+            code: static (_, _, behavior) =>
+                // ReSharper disable once NonAtomicCompoundOperator - This is fine since the stream field is only
+                // set within a Transaction.
+                behavior.stream ??= new Stream<T>(),
+            state: this);
 
     /// <summary>
     ///     The stream of the value of this behavior. It gives the current value in
@@ -176,7 +188,7 @@ public class Behavior<T>
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
-        Stream<T> @out = new(this.stream.KeepListenersAlive);
+        Stream<T> @out = new(this.Updates().KeepListenersAlive);
 
         // This always runs first, because its Rank is 0.
         trans1.Prioritized(
@@ -228,7 +240,7 @@ public class Behavior<T>
             CaptureSlot<T2> p2 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                 {
@@ -266,7 +278,7 @@ public class Behavior<T>
             CaptureSlot<T3> p3 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
@@ -311,7 +323,7 @@ public class Behavior<T>
             CaptureSlot<T4> p4 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
@@ -365,7 +377,7 @@ public class Behavior<T>
             CaptureSlot<T5> p5 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
@@ -428,7 +440,7 @@ public class Behavior<T>
             CaptureSlot<T6> p6 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
@@ -500,7 +512,7 @@ public class Behavior<T>
             CaptureSlot<T7> p7 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
@@ -581,7 +593,7 @@ public class Behavior<T>
             CaptureSlot<T8> p8 = default;
 
             return HoldLifted(
-                keepListenersAlive: this.stream.KeepListenersAlive,
+                keepListenersAlive: this.Updates().KeepListenersAlive,
                 trans: trans,
                 recombine: trans2 =>
                     f(
