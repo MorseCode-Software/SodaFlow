@@ -5,7 +5,7 @@ namespace SodaFlow;
 
 internal static class CellInternal
 {
-    internal static Cell<T> ConstantImpl<T>(T value) => new(StreamInternal.NeverImpl<T>().HoldInternal(value));
+    internal static Cell<T> ConstantImpl<T>(T value) => new(BehaviorInternal.ConstantImpl(value));
 
     internal static Cell<T> ConstantLazyImpl<T>(LazySample<T> value) =>
         TransactionInternal.Apply((trans, _) =>

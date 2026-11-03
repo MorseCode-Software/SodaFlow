@@ -112,6 +112,36 @@ public class GraphBuildBenchmarks
         return keep;
     }
 
+    /// <summary>Lifts of the same six cells.</summary>
+    [Benchmark(Description = "lift of six cells")]
+    public List<Cell<int>> LiftOfSix()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        CellSink<int> b = Cell.CreateSink(2);
+        CellSink<int> c = Cell.CreateSink(3);
+        CellSink<int> d = Cell.CreateSink(4);
+        CellSink<int> e = Cell.CreateSink(5);
+        CellSink<int> f = Cell.CreateSink(6);
+        List<Cell<int>> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(
+                    a.Lift(
+                        c2: b,
+                        c3: c,
+                        c4: d,
+                        c5: e,
+                        c6: f,
+                        f: static (v1, v2, v3, v4, v5, v6) => v1 + v2 + v3 + v4 + v5 + v6));
+            }
+        });
+
+        return keep;
+    }
+
     /// <summary>Strong listeners on one sink.</summary>
     [Benchmark(Description = "ListenStrong on one stream")]
     public List<IListener> ListenStrongOnOneStream()
