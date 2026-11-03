@@ -288,7 +288,7 @@ There is no `Swap` beyond two cases. With three or more there is no single excha
 naming one of the several reorderings `Swap` would make the others look unavailable rather than
 unnamed.
 
-The shape is entirely regular across all eight arities, so the
+The shape is entirely regular across every arity, so the
 [API reference](../api/index.md) is the place to go for the full member list.
 
 ## `Unit`
