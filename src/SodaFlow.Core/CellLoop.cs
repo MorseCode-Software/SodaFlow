@@ -56,9 +56,13 @@ public class CellLoop<T> : LoopedCell<T>
     ///     <c>Transaction.RunVoid</c>.
     /// </summary>
     /// <param name="c">The cell of the forward reference.</param>
+    /// <returns>
+    ///     The <see cref="LoopCloser" />, which converts a value that depends on this
+    ///     loop to the plain type.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public void Loop(Cell<T> c) => this.behaviorLoop.Loop(c.PlainBehaviorImpl);
+    public LoopCloser Loop(Cell<T> c) => this.behaviorLoop.Loop(c.PlainBehaviorImpl);
 
-    internal void Loop(TransactionInternal trans, Cell<T> c) =>
+    internal LoopCloser Loop(TransactionInternal trans, Cell<T> c) =>
         this.behaviorLoop.Loop(trans: trans, b: c.PlainBehaviorImpl);
 }

@@ -515,8 +515,8 @@ public sealed class StreamTests
                 CellLoop<int> cbLocal = Cell.CreateLoop<int>();
                 LoopedCell<int> ccLocal = ca.Map(static x => x % 10).Lift(c2: cbLocal, f: static (x, y) => x * y);
                 Cell<int> cbOut = ca.Map(static x => x / 10);
-                cbLocal.Loop(cbOut);
-                return (cbLocal, cbOut, ccLocal.Close());
+                LoopCloser closer = cbLocal.Loop(cbOut);
+                return (cbLocal, cbOut, closer.Close(ccLocal));
             });
 
         List<int> @out = [];

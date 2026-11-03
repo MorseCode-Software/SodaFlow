@@ -9,8 +9,8 @@
 ///     looped cell that has a value now. The operations that give a stream are in <c>Cell</c> and
 ///     <c>Stream</c>, and they take a looped cell.
 ///
-///     <c>close</c> gives the cell back when the loop is closed, with a check. <c>asCell</c>
-///     asserts it before the close.
+///     <c>close</c> gives the cell back, with the closer that the loop gives when it closes.
+///     <c>asCell</c> asserts it before the close.
 /// </remarks>
 module SodaFlow.LoopedCell
 
@@ -26,25 +26,24 @@ open System.Runtime.CompilerServices
 /// <remarks>
 ///     Use this to give a placeholder to code that keeps the cell and reads it after the close. The types
 ///     cannot see that the read comes after the close, thus this call is the assertion. A read
-///     before the close throws an exception. Where the loop is closed, use <c>close</c>, which
-///     checks it.
+///     before the close throws an exception. For a capture of a loop, use <c>close</c> with the
+///     closer that the loop gives.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let asCell (cell: LoopedCell<_>) = cell.AsCellImpl()
 
 /// <summary>
-///     Gives the looped cell as a cell, after a check that each loop it depends on is closed.
+///     Gives the looped cell as a cell, with the closer of its loop.
 /// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
 /// <param name="cell">The looped cell.</param>
 /// <returns>The same value as a cell.</returns>
-/// <exception cref="InvalidOperationException">A loop is not closed.</exception>
 /// <remarks>
-///     A loop block returns a looped cell in its captures, and the type stays looped after
-///     the block returns and the loop closes. This gives the cell back, with a check and not the
-///     assertion that <c>asCell</c> makes.
+///     <c>Cell.loopWithLoopedCaptures</c> gives the closer to the function that converts the
+///     captures, and <c>CellLoop.Loop</c> returns it. Thus, the conversion comes after the close.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let close (cell: LoopedCell<_>) = cell.CloseImpl()
+let close (closer: LoopCloser) (cell: LoopedCell<_>) = closer.Close(cell)
 
 /// <summary>
 ///     Transforms a looped cell with a function.

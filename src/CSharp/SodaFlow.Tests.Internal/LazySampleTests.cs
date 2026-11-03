@@ -110,7 +110,7 @@ public sealed class LazySampleTests
                 }))
             .ThrowsExactly<InvalidOperationException>();
 
-        await Assert.That(placeholder?.Close().Sample()).IsEqualTo(1);
+        await Assert.That(placeholder?.AsCell().Sample()).IsEqualTo(1);
     }
 
     [Test]

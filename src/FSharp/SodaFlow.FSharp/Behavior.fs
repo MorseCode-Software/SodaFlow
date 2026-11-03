@@ -38,6 +38,33 @@ let constant value = BehaviorInternal.ConstantImpl value
 let constantLazy value = BehaviorInternal.ConstantLazyImpl value
 
 /// <summary>
+///     Builds a behavior which refers to itself, and converts the captures after the loop closes.
+/// </summary>
+/// <param name="f">
+///     Given the forward reference, returns a struct tuple of the behavior it stands for and the
+///     captures, which can be looped behaviors.
+/// </param>
+/// <param name="close">
+///     Given the captures and the <c>LoopCloser</c> of the loop, returns the captures with each
+///     looped value converted.
+/// </param>
+/// <returns>
+///     A struct tuple of the behavior that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+///     <c>loop</c> for a capture that reads the placeholder, and thus is a looped behavior. The loop
+///     is closed when <paramref name="close" /> runs, thus <c>LoopedBehavior.close</c> can give the
+///     capture as a behavior.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let loopWithLoopedCaptures f close =
+    TransactionInternal.Apply(fun transaction _ ->
+        let l = BehaviorLoop()
+        let struct (s, r) = f l
+        let closer = l.Loop(transaction, s)
+        struct (s, close r closer))
+
+/// <summary>
 ///     Builds a behavior which refers to itself, closing the loop in one transaction.
 /// </summary>
 /// <param name="f">
@@ -53,15 +80,10 @@ let constantLazy value = BehaviorInternal.ConstantLazyImpl value
 ///     before the value that it refers to. The reference and its resolution must occur in one
 ///     transaction, which this opens when no transaction is open.
 ///
-///     Use <c>loopWithNoCaptures</c> where the caller needs only the behavior.
+///     Use <c>loopWithNoCaptures</c> where the caller needs only the behavior, and
+///     <c>loopWithLoopedCaptures</c> where a capture reads the placeholder.
 /// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let loop f =
-    TransactionInternal.Apply(fun transaction _ ->
-        let l = BehaviorLoop()
-        let struct (s, r) = f l
-        l.Loop(transaction, s)
-        struct (s, r))
+let loop f = loopWithLoopedCaptures f (fun r _ -> r)
 
 /// <summary>
 ///     Builds a self-referential behavior where the caller needs only the behavior.

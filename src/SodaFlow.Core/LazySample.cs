@@ -14,9 +14,7 @@ internal static class LazySampleInternal
         Func<T1, T2, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(
-                compute: trans => f(arg1: a.Force(trans), arg2: b.Force(trans)),
-                roots: LoopRoots.Union(a: a.Roots, b: b.Roots));
+            : new LazySample<TResult>(trans => f(arg1: a.Force(trans), arg2: b.Force(trans)));
 
     internal static LazySample<TResult> LiftImpl<T1, T2, T3, TResult>(
         LazySample<T1> a,
@@ -25,9 +23,7 @@ internal static class LazySampleInternal
         Func<T1, T2, T3, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(
-                compute: trans => f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans)),
-                roots: LoopRoots.Union(a: LoopRoots.Union(a: a.Roots, b: b.Roots), b: c.Roots));
+            : new LazySample<TResult>(trans => f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans)));
 
     internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, TResult>(
         LazySample<T1> a,
@@ -37,12 +33,8 @@ internal static class LazySampleInternal
         Func<T1, T2, T3, T4, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(
-                compute: trans =>
-                    f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans), arg4: d.Force(trans)),
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(a: LoopRoots.Union(a: a.Roots, b: b.Roots), b: c.Roots),
-                    b: d.Roots));
+            : new LazySample<TResult>(trans =>
+                f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans), arg4: d.Force(trans)));
 }
 
 /// <summary>
@@ -86,19 +78,11 @@ public sealed class LazySample<T> : IDiscardable
     private T value = default!;
 
     internal LazySample(LoopedBehavior<T> behavior)
-        : this(compute: _ => behavior.SampleNoTransaction(), roots: behavior.Roots)
+        : this(_ => behavior.SampleNoTransaction())
     {
     }
 
-    internal LazySample(Func<TransactionInternal, T> compute, ILoopRoot[]? roots = null)
-    {
-        this.compute = compute;
-        this.Roots = roots;
-    }
-
-    // The loops that a force of this sample reads. A cell that starts from the sample takes
-    // them, thus a conversion of that cell to a plain type can check that each loop is closed.
-    internal ILoopRoot[]? Roots { get; }
+    internal LazySample(Func<TransactionInternal, T> compute) => this.compute = compute;
 
     /// <summary>
     ///     Gives the value, in a transaction of its own or in the one that is open on
@@ -173,5 +157,5 @@ public sealed class LazySample<T> : IDiscardable
     internal LazySample<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(compute: trans => f(this.Force(trans)), roots: this.Roots);
+            : new LazySample<TResult>(trans => f(this.Force(trans)));
 }

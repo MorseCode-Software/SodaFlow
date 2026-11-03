@@ -120,38 +120,44 @@ public struct CellLooper<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
         Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            CellLoop<T> loop = new();
-            (Cell<T> Cell, TCaptures Captures) result = f(loop);
-            loop.Loop(trans: trans, c: result.Cell);
-            return result;
-        });
+        this.WithCaptures(f: f, close: static (captures, _) => captures);
 
     /// <summary>
-    ///     Loop a cell and return a value tuple containing the resulting cell and one
-    ///     captured cell, which the loop closes with the resulting cell.
+    ///     Loop a cell and return a value tuple containing the resulting cell and the
+    ///     captures, which a second function converts after the loop closes.
     /// </summary>
-    /// <typeparam name="TCaptures">The type of the value in the captured cell.</typeparam>
+    /// <typeparam name="TLoopedCaptures">
+    ///     The type of the captures that <paramref name="f" /> returns.
+    /// </typeparam>
+    /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
     /// <param name="f">
     ///     A function which takes the cell loop and returns a value tuple containing
-    ///     the resulting cell and a cell that depends on the loop.
+    ///     the resulting cell and captures.
     /// </param>
-    /// <returns>A value tuple containing the resulting cell and the captured cell.</returns>
+    /// <param name="close">
+    ///     A function which takes the captures and the <see cref="LoopCloser" /> of
+    ///     the loop, and returns the captures with each looped value converted.
+    /// </param>
+    /// <returns>
+    ///     A value tuple containing the resulting cell and the converted captures.
+    /// </returns>
     /// <remarks>
-    ///     The loop is closed when this returns, thus the captured cell is a
-    ///     <see cref="Cell{T}" /> and not a <see cref="LoopedCell{T}" />. A capture
-    ///     that depends on a different loop, which is not closed, throws an exception.
+    ///     A capture that reads the placeholder is a <see cref="LoopedCell{T}" /> in
+    ///     <paramref name="f" />. The loop is closed when <paramref name="close" />
+    ///     runs, thus the closer can give it as a <see cref="Cell{T}" />.
     /// </remarks>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public (Cell<T> Cell, Cell<TCaptures> Captures) WithCaptures<TCaptures>(
-        Func<LoopedCell<T>, (Cell<T> Cell, LoopedCell<TCaptures> Captures)> f)
-    {
-        (Cell<T> cell, LoopedCell<TCaptures> captures) = this.WithCaptures<LoopedCell<TCaptures>>(f);
-
-        return (cell, captures.CloseImpl());
-    }
+    public (Cell<T> Cell, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        Func<LoopedCell<T>, (Cell<T> Cell, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            CellLoop<T> loop = new();
+            (Cell<T> Cell, TLoopedCaptures Captures) result = f(loop);
+            LoopCloser closer = loop.Loop(trans: trans, c: result.Cell);
+            return (result.Cell, close(arg1: result.Captures, arg2: closer));
+        });
 
     /// <summary>
     ///     Loop a cell and return the resulting cell.

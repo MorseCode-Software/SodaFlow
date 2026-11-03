@@ -90,43 +90,46 @@ public struct BehaviorLooper<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
         Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            BehaviorLoop<T> loop = new();
-            (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
-            loop.Loop(trans: trans, b: result.Behavior);
-            return result;
-        });
+        this.WithCaptures(f: f, close: static (captures, _) => captures);
 
     /// <summary>
     ///     Loop a behavior and return a value tuple containing the resulting behavior
-    ///     and one captured behavior, which the loop closes with the resulting
-    ///     behavior.
+    ///     and the captures, which a second function converts after the loop closes.
     /// </summary>
-    /// <typeparam name="TCaptures">The type of the value in the captured behavior.</typeparam>
+    /// <typeparam name="TLoopedCaptures">
+    ///     The type of the captures that <paramref name="f" /> returns.
+    /// </typeparam>
+    /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
     /// <param name="f">
     ///     A function which takes the behavior loop and returns a value tuple
-    ///     containing the resulting behavior and a behavior that depends on the loop.
+    ///     containing the resulting behavior and captures.
+    /// </param>
+    /// <param name="close">
+    ///     A function which takes the captures and the <see cref="LoopCloser" /> of
+    ///     the loop, and returns the captures with each looped value converted.
     /// </param>
     /// <returns>
-    ///     A value tuple containing the resulting behavior and the captured
-    ///     behavior.
+    ///     A value tuple containing the resulting behavior and the converted
+    ///     captures.
     /// </returns>
     /// <remarks>
-    ///     The loop is closed when this returns, thus the captured behavior is a
-    ///     <see cref="Behavior{T}" /> and not a <see cref="LoopedBehavior{T}" />. A
-    ///     capture that depends on a different loop, which is not closed, throws an
-    ///     exception.
+    ///     A capture that reads the placeholder is a
+    ///     <see cref="LoopedBehavior{T}" /> in <paramref name="f" />. The loop is
+    ///     closed when <paramref name="close" /> runs, thus the closer can give it as
+    ///     a <see cref="Behavior{T}" />.
     /// </remarks>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public (Behavior<T> Behavior, Behavior<TCaptures> Captures) WithCaptures<TCaptures>(
-        Func<LoopedBehavior<T>, (Behavior<T> Behavior, LoopedBehavior<TCaptures> Captures)> f)
-    {
-        (Behavior<T> behavior, LoopedBehavior<TCaptures> captures) = this.WithCaptures<LoopedBehavior<TCaptures>>(f);
-
-        return (behavior, captures.CloseImpl());
-    }
+    public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
+        TransactionInternal.Apply((trans, _) =>
+        {
+            BehaviorLoop<T> loop = new();
+            (Behavior<T> Behavior, TLoopedCaptures Captures) result = f(loop);
+            LoopCloser closer = loop.Loop(trans: trans, b: result.Behavior);
+            return (result.Behavior, close(arg1: result.Captures, arg2: closer));
+        });
 
     /// <summary>
     ///     Loop a behavior and return the resulting behavior.

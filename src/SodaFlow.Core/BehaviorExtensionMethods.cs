@@ -99,18 +99,8 @@ internal static class BehaviorExtensionMethodsInternal
             Stream<TResult> @out =
                 new(new FanOutKeepListenersAlive(inputs.Select(static behavior => behavior.KeepListenersAlive)));
 
-            ILoopRoot[]? roots = null;
-
-            // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-            foreach (T2 input in inputs)
-            {
-                roots = LoopRoots.Union(a: roots, b: input.Roots);
-            }
-
             LazySample<TResult> initialValue =
-                new(
-                    compute: _ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]),
-                    roots: roots);
+                new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
 
             // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before,
             // each update sent a closure that wrote its index, a coalesce operation added the

@@ -1684,9 +1684,32 @@ let inline sendB a behaviorSink = BehaviorSink.send a behaviorSink
 /// before the value that it refers to. The reference and its resolution must occur in one
 /// transaction, which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where the caller needs only the behavior.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the behavior, and
+/// <c>loopWithLoopedCaptures</c> where a capture reads the placeholder.
 /// </remarks>
 let inline loopB f = Behavior.loop f
+
+/// <summary>
+/// Builds a behavior which refers to itself, and converts the captures after the loop closes.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the behavior it stands for and the
+/// captures, which can be looped behaviors.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the loop, returns the captures with each looped
+/// value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the behavior that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Behavior.loopWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The loop is closed when <paramref name="close" /> runs, thus <c>closeLB</c> can give a
+/// capture as a behavior.
+/// </remarks>
+let inline loopWithLoopedCapturesB f close = Behavior.loopWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a self-referential behavior where the caller needs only the behavior.
@@ -2045,9 +2068,32 @@ let inline sendC a cellSink = CellSink.send a cellSink
 /// the value that it refers to. The reference and its resolution must occur in one transaction,
 /// which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where the caller needs only the cell.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the cell, and
+/// <c>loopWithLoopedCaptures</c> where a capture reads the placeholder.
 /// </remarks>
 let inline loopC f = Cell.loop f
+
+/// <summary>
+/// Builds a cell which refers to itself, and converts the captures after the loop closes.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the cell it stands for and the
+/// captures, which can be looped cells.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the loop, returns the captures with each looped
+/// value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the cell that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Cell.loopWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The loop is closed when <paramref name="close" /> runs, thus <c>closeLC</c> can give a
+/// capture as a cell.
+/// </remarks>
+let inline loopWithLoopedCapturesC f close = Cell.loopWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a self-referential cell where the caller needs only the cell.
@@ -2079,9 +2125,34 @@ let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 /// The cell loop with one value. A constant cell closes the loop that <paramref name="f" />
 /// gets, thus the reference resolves to that value and never changes.
 ///
-/// Use <c>forwardReferenceWithNoCaptures</c> where the caller needs only the value.
+/// Use <c>forwardReferenceWithNoCaptures</c> where the caller needs only the value, and
+/// <c>forwardReferenceWithLoopedCaptures</c> where a capture reads the reference.
 /// </remarks>
 let inline forwardReference f = ForwardReference.create f
+
+/// <summary>
+/// Builds a value which can refer to itself, along with captures that a second function converts
+/// after the reference has its value.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the value it stands for and the
+/// captures, which can be looped cells.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the reference, returns the captures with each
+/// looped value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the value that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.createWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The reference has its value when <paramref name="close" /> runs, thus <c>closeLC</c> can give a
+/// capture as a cell.
+/// </remarks>
+let inline forwardReferenceWithLoopedCaptures f close =
+    ForwardReference.createWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a value which can refer to itself, where the caller needs only the value.
@@ -2495,20 +2566,21 @@ let inline switchS cell = Cell.switchS cell
 /// <remarks>
 /// Shorthand for <c>LoopedCell.asCell</c>. See it for the full contract.
 ///
-/// The types cannot see that a read comes after the close, thus this call is the assertion. Where
-/// the loop is closed, use <c>closeLC</c>, which checks it.
+/// The types cannot see that a read comes after the close, thus this call is the assertion. For a
+/// capture of a loop, use <c>closeLC</c> with the closer that the loop gives.
 /// </remarks>
 let inline asCellLC cell = LoopedCell.asCell cell
 
 /// <summary>
-/// Gives the looped cell as a cell, after a check that each loop it depends on is closed.
+/// Gives the looped cell as a cell, with the closer of its loop.
 /// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
 /// <param name="cell">The looped cell.</param>
 /// <returns>The same value as a cell.</returns>
 /// <remarks>
 /// Shorthand for <c>LoopedCell.close</c>. See it for the full contract.
 /// </remarks>
-let inline closeLC cell = LoopedCell.close cell
+let inline closeLC closer cell = LoopedCell.close closer cell
 
 /// <summary>
 /// Transforms a looped cell with a function.
@@ -2718,20 +2790,21 @@ let inline switchCLC cell = LoopedCell.switchC cell
 /// <remarks>
 /// Shorthand for <c>LoopedBehavior.asBehavior</c>. See it for the full contract.
 ///
-/// The types cannot see that a read comes after the close, thus this call is the assertion. Where
-/// the loop is closed, use <c>closeLB</c>, which checks it.
+/// The types cannot see that a read comes after the close, thus this call is the assertion. For a
+/// capture of a loop, use <c>closeLB</c> with the closer that the loop gives.
 /// </remarks>
 let inline asBehaviorLB behavior = LoopedBehavior.asBehavior behavior
 
 /// <summary>
-/// Gives the looped behavior as a behavior, after a check that each loop it depends on is closed.
+/// Gives the looped behavior as a behavior, with the closer of its loop.
 /// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
 /// <param name="behavior">The looped behavior.</param>
 /// <returns>The same value as a behavior.</returns>
 /// <remarks>
 /// Shorthand for <c>LoopedBehavior.close</c>. See it for the full contract.
 /// </remarks>
-let inline closeLB behavior = LoopedBehavior.close behavior
+let inline closeLB closer behavior = LoopedBehavior.close closer behavior
 
 /// <summary>
 /// Transforms a looped behavior with a function.

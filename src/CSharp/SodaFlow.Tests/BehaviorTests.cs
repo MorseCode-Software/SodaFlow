@@ -1245,7 +1245,8 @@ public sealed class BehaviorTests
                     cellLoops[i].Loop(cellSinks[i]);
                 }
 
-                return (sum.Close(), cellSinks);
+                // Each loop is closed now, and the closer of each one is the same conversion.
+                return (sum.AsCell(), cellSinks);
             });
 
         List<int> @out = [];
@@ -1373,8 +1374,8 @@ public sealed class BehaviorTests
                 CellSink<int> c2Local = Cell.CreateSink(11);
                 LoopedCell<int> cLocal = loop.SwitchC();
                 CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
-                loop.Loop(sLocal);
-                return (cLocal.Close(), c1Local, c2Local, sLocal);
+                LoopCloser closer = loop.Loop(sLocal);
+                return (closer.Close(cLocal), c1Local, c2Local, sLocal);
             });
 
         List<int> output = [];

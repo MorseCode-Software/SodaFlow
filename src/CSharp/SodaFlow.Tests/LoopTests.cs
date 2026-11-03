@@ -669,17 +669,20 @@ public sealed class LoopTests
     }
 
     [Test]
-    public async Task FunctionalCellLoopWithOneLoopedCaptureClosesIt()
+    public async Task FunctionalCellLoopClosesALoopedCaptureWithTheCloser()
     {
         CellSink<int> s = Cell.CreateSink(0);
 
-        // The capture reads the placeholder, thus it is a LoopedCell in the block. The overload for
-        // one looped capture gives it back as a Cell, because the loop is closed when it returns.
+        // The capture reads the placeholder, thus it is a LoopedCell in the block. The second
+        // function runs when the loop is closed, and the closer it gets gives the capture back as a
+        // Cell.
         (Cell<int> result, Cell<int> doubled) =
             Cell.Loop<int>()
-                .WithCaptures(l =>
-                    (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
-                        Captures: l.Map(static v => 2 * v)));
+                .WithCaptures(
+                    f: l =>
+                        (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                            Captures: l.Map(static v => 2 * v)),
+                    close: static (doubledLoop, closer) => closer.Close(doubledLoop));
 
         List<int> @out = [];
 
@@ -695,50 +698,42 @@ public sealed class LoopTests
     }
 
     [Test]
-    public async Task CloseGivesTheCellAfterTheLoopCloses()
+    public async Task TheCloserConvertsEachLoopedMemberOfTheCaptures()
     {
         CellSink<int> s = Cell.CreateSink(0);
 
-        // Two captures take the general overload, thus the type stays looped after the block.
-        (Cell<int> result, (LoopedCell<int> plusOne, int tag)) =
+        (Cell<int> result, (Cell<int> plusOne, int tag)) =
             Cell.Loop<int>()
-                .WithCaptures(l =>
-                    (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
-                        Captures: (l.Map(static v => v + 1), 7)));
+                .WithCaptures(
+                    f: l =>
+                        (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                            Captures: (PlusOne: l.Map(static v => v + 1), Tag: 7)),
+                    close: static (captures, closer) => (closer.Close(captures.PlusOne), captures.Tag));
 
-        Cell<int> closed = plusOne.Close();
         s.Send(5);
 
         await Assert.That(tag).IsEqualTo(7);
-        await Assert.That(closed.Sample()).IsEqualTo(6);
+        await Assert.That(plusOne.Sample()).IsEqualTo(6);
         await Assert.That(result.Sample()).IsEqualTo(5);
     }
 
     [Test]
-    public async Task CloseThrowsWhileTheLoopIsOpen()
+    public async Task TheCloseFunctionRunsAfterTheLoopIsClosed()
     {
-        InvalidOperationException? actual = null;
+        CellSink<int> s = Cell.CreateSink(3);
 
-        try
-        {
-            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
+        // A read of the converted capture in the close function has an answer, which shows that
+        // the loop is closed when the function runs.
+        (Cell<int> result, int readInClose) =
             Cell.Loop<int>()
-                .WithoutCaptures(static l =>
-                {
-                    l.Map(static v => v + 1).Close();
+                .WithCaptures(
+                    f: l =>
+                        (Cell: s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                            Captures: l.Map(static v => v + 1)),
+                    close: static (plusOne, closer) => closer.Close(plusOne).Sample());
 
-                    return Cell.Constant(0);
-                });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual?.Message)
-            .IsEqualTo(
-                "The loop that this value depends on is not closed. Close the loop before this conversion, or assert "
-                + "the conversion with AsCell or AsBehavior.");
+        await Assert.That(readInClose).IsEqualTo(1);
+        await Assert.That(result.Sample()).IsEqualTo(0);
     }
 
     [Test]
@@ -771,47 +766,25 @@ public sealed class LoopTests
     }
 
     [Test]
-    public async Task FunctionalBehaviorLoopWithOneLoopedCaptureClosesIt()
+    public async Task FunctionalBehaviorLoopClosesALoopedCaptureWithTheCloser()
     {
         BehaviorSink<int> s = Behavior.CreateSink(1);
 
         (Behavior<int> result, Behavior<int> doubled) =
             Behavior.Loop<int>()
-                .WithCaptures(l =>
-                    (Behavior: Operational.Updates(s).Snapshot(b: l, f: static (n, o) => n + o).Hold(0).AsBehavior(),
-                        Captures: l.Map(static v => 2 * v)));
+                .WithCaptures(
+                    f: l =>
+                        (Behavior: Operational.Updates(s)
+                                .Snapshot(b: l, f: static (n, o) => n + o)
+                                .Hold(0)
+                                .AsBehavior(),
+                            Captures: l.Map(static v => 2 * v)),
+                    close: static (doubledLoop, closer) => closer.Close(doubledLoop));
 
         s.Send(2);
 
         await Assert.That(result.Sample()).IsEqualTo(2);
         await Assert.That(doubled.Sample()).IsEqualTo(4);
-    }
-
-    [Test]
-    public async Task CloseOnABehaviorThrowsWhileTheLoopIsOpen()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-            Behavior.Loop<int>()
-                .WithoutCaptures(static l =>
-                {
-                    l.Map(static v => v + 1).Close();
-
-                    return Behavior.Constant(0);
-                });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual?.Message)
-            .IsEqualTo(
-                "The loop that this value depends on is not closed. Close the loop before this conversion, or assert "
-                + "the conversion with AsCell or AsBehavior.");
     }
 
     // Desired behavior:

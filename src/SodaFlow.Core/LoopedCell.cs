@@ -20,8 +20,8 @@ namespace SodaFlow;
 ///     </para>
 ///     <para>
 ///         A <see cref="Cell{T}" /> is a looped cell that has a value now, and it adds
-///         the read. When the loop is closed, <c>Close</c> gives the cell back, and
-///         <c>AsCell</c> asserts it before the close.
+///         the read. The <see cref="LoopCloser" /> that a loop gives when it closes
+///         gives the cell back, and <c>AsCell</c> asserts it before the close.
 ///     </para>
 /// </remarks>
 [PublicAPI]
@@ -90,18 +90,6 @@ public class LoopedCell<T>
     ///     this makes a cell over the same value.
     /// </remarks>
     internal Cell<T> AsCellImpl() => this as Cell<T> ?? new Cell<T>(this.BehaviorImpl.AsBehaviorImpl());
-
-    /// <summary>
-    ///     Gives this cell as a <see cref="Cell{T}" />, after a check that each loop it
-    ///     depends on is closed.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">A loop is not closed.</exception>
-    internal Cell<T> CloseImpl()
-    {
-        LoopRoots.ThrowIfOpen(this.BehaviorImpl.Roots);
-
-        return this.AsCellImpl();
-    }
 
     internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) => new(this.BehaviorImpl.MapImpl(f));
 

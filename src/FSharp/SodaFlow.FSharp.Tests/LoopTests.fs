@@ -123,31 +123,37 @@ type ``Loop Tests``() =
         }
 
     [<Test>]
-    member _.``Close Gives The Cell After The Loop Closes``() =
+    member _.``The Closer Gives A Looped Capture As A Cell``() =
         task {
             let s = sinkC 0
 
-            // The capture reads the placeholder, thus it is a looped cell. closeLC gives it back as a
-            // cell, because the loop is closed when the block returns.
+            // The capture reads the placeholder, thus it is a looped cell. The second function runs
+            // when the loop is closed, and the closer it gets gives the capture back as a cell.
             let struct (result, plusOne) =
-                loopC (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+                loopWithLoopedCapturesC
+                    (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+                    (fun plusOne closer -> plusOne |> closeLC closer)
 
-            let closed = plusOne |> closeLC
             s |> sendC 5
 
-            do! Expect.Equal(6, closed |> sampleC)
+            do! Expect.Equal(6, plusOne |> sampleC)
             do! Expect.Equal(5, result |> sampleC)
         }
 
     [<Test>]
-    member _.``Close Throws While The Loop Is Open``() =
+    member _.``The Close Function Runs After The Loop Is Closed``() =
         task {
-            do!
-                Expect.Throws<InvalidOperationException>(fun () ->
-                    loopWithNoCapturesC (fun l ->
-                        l |> mapLC ((+) 1) |> closeLC |> ignore
-                        constantC 0)
-                    |> ignore)
+            let s = sinkC 3
+
+            // A read of the converted capture in the close function has an answer, which shows that
+            // the loop is closed when the function runs.
+            let struct (result, readInClose) =
+                loopWithLoopedCapturesC
+                    (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+                    (fun plusOne closer -> plusOne |> closeLC closer |> sampleC)
+
+            do! Expect.Equal(1, readInClose)
+            do! Expect.Equal(0, result |> sampleC)
         }
 
     [<Test>]

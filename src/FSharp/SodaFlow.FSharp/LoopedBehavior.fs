@@ -8,7 +8,7 @@
 ///     closes, thus the result is a looped behavior too. The functions in <c>Behavior</c> take a
 ///     <c>Behavior</c>, which is a looped behavior that has a value now.
 ///
-///     <c>close</c> gives the behavior back when the loop is closed, with a check.
+///     <c>close</c> gives the behavior back, with the closer that the loop gives when it closes.
 ///     <c>asBehavior</c> asserts it before the close.
 /// </remarks>
 module SodaFlow.LoopedBehavior
@@ -26,26 +26,24 @@ open System.Runtime.CompilerServices
 /// <remarks>
 ///     Use this to give a placeholder to code that keeps the behavior and reads it after the close. The
 ///     types cannot see that the read comes after the close, thus this call is the assertion. A
-///     read before the close throws an exception. Where the loop is closed, use <c>close</c>,
-///     which checks it.
+///     read before the close throws an exception. For a capture of a loop, use <c>close</c> with
+///     the closer that the loop gives.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let asBehavior (behavior: LoopedBehavior<_>) = behavior.AsBehaviorImpl()
 
 /// <summary>
-///     Gives the looped behavior as a behavior, after a check that each loop it depends on has
-///     closed.
+///     Gives the looped behavior as a behavior, with the closer of its loop.
 /// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
 /// <param name="behavior">The looped behavior.</param>
 /// <returns>The same value as a behavior.</returns>
-/// <exception cref="InvalidOperationException">A loop is not closed.</exception>
 /// <remarks>
-///     A loop block returns a looped behavior in its captures, and the type stays looped
-///     after the block returns and the loop closes. This gives the behavior back, with a check and
-///     not the assertion that <c>asBehavior</c> makes.
+///     <c>Behavior.loopWithLoopedCaptures</c> gives the closer to the function that converts the
+///     captures, and <c>BehaviorLoop.Loop</c> returns it. Thus, the conversion comes after the close.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let close (behavior: LoopedBehavior<_>) = behavior.CloseImpl()
+let close (closer: LoopCloser) (behavior: LoopedBehavior<_>) = closer.Close(behavior)
 
 /// <summary>
 ///     Transforms a looped behavior with a function.

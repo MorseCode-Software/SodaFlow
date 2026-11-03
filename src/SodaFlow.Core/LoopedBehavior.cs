@@ -18,8 +18,9 @@ namespace SodaFlow;
 ///     </para>
 ///     <para>
 ///         A <see cref="Behavior{T}" /> is a looped behavior that has a value now,
-///         and it adds the read. When the loop is closed, <c>Close</c> gives the
-///         behavior back, and <c>AsBehavior</c> asserts it before the close.
+///         and it adds the read. The <see cref="LoopCloser" /> that a loop gives
+///         when it closes gives the behavior back, and <c>AsBehavior</c> asserts it
+///         before the close.
 ///     </para>
 /// </remarks>
 [PublicAPI]
@@ -80,12 +81,6 @@ public class LoopedBehavior<T>
     }
 
     internal IKeepListenersAlive KeepListenersAlive => this.stream.KeepListenersAlive;
-
-    // The loops that this behavior depends on, or null when there is none. A placeholder holds
-    // itself, and an operation gives its result the roots of its inputs. A conversion to a
-    // plain type reads them to know that each loop is closed. Most behaviors have no loop, thus a
-    // behavior with no loop pays one field and no array.
-    internal ILoopRoot[]? Roots { get; private protected set; }
 
     /// <summary>
     ///     Gets or sets the value this behavior reports when sampled not in a
@@ -220,18 +215,6 @@ public class LoopedBehavior<T>
         ?? TransactionInternal.Apply((trans, _) =>
             this.Updates().HoldLazyInternal(trans: trans, initialValue: this.SampleLazy(trans)));
 
-    /// <summary>
-    ///     Gives this behavior as a <see cref="Behavior{T}" />, after a check that each
-    ///     loop it depends on is closed.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">A loop is not closed.</exception>
-    internal Behavior<T> CloseImpl()
-    {
-        LoopRoots.ThrowIfOpen(this.Roots);
-
-        return this.AsBehaviorImpl();
-    }
-
     internal Behavior<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
             this.Updates()
@@ -264,7 +247,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(a: this.Roots, b: b2.Roots),
                 recombine: trans2 =>
                 {
                     TResult result =
@@ -303,7 +285,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -349,9 +330,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
-                    b: b4.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -406,11 +384,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(
-                        a: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
-                        b: b4.Roots),
-                    b: b5.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -474,13 +447,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(
-                        a: LoopRoots.Union(
-                            a: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
-                            b: b4.Roots),
-                        b: b5.Roots),
-                    b: b6.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -553,15 +519,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(
-                        a: LoopRoots.Union(
-                            a: LoopRoots.Union(
-                                a: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
-                                b: b4.Roots),
-                            b: b5.Roots),
-                        b: b6.Roots),
-                    b: b7.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -643,17 +600,6 @@ public class LoopedBehavior<T>
             return HoldLifted(
                 keepListenersAlive: this.stream.KeepListenersAlive,
                 trans: trans,
-                roots: LoopRoots.Union(
-                    a: LoopRoots.Union(
-                        a: LoopRoots.Union(
-                            a: LoopRoots.Union(
-                                a: LoopRoots.Union(
-                                    a: LoopRoots.Union(a: LoopRoots.Union(a: this.Roots, b: b2.Roots), b: b3.Roots),
-                                    b: b4.Roots),
-                                b: b5.Roots),
-                            b: b6.Roots),
-                        b: b7.Roots),
-                    b: b8.Roots),
                 recombine: trans2 =>
                     f(
                         arg1: Take(pending: ref p1, input: this, trans: trans2),
@@ -741,7 +687,6 @@ public class LoopedBehavior<T>
     private static Behavior<TResult> HoldLifted<TResult>(
         IKeepListenersAlive keepListenersAlive,
         TransactionInternal trans,
-        ILoopRoot[]? roots,
         Func<TransactionInternal, TResult> recombine,
         Func<TResult> initialValue,
         Func<OnceGate, IListener[]> listeners)
@@ -759,9 +704,7 @@ public class LoopedBehavior<T>
             result = result.UnsafeAttachListener(listener);
         }
 
-        return result.HoldLazyInternal(
-            trans: trans,
-            initialValue: new LazySample<TResult>(compute: _ => initialValue(), roots: roots));
+        return result.HoldLazyInternal(trans: trans, initialValue: new LazySample<TResult>(_ => initialValue()));
     }
 
     // A lift of the function and the argument. Before, each input came in through Value, which

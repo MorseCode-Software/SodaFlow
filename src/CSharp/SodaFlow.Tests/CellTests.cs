@@ -21,8 +21,8 @@ public sealed class CellTests
                 CellLoop<int> loop = Cell.CreateLoop<int>();
                 LoopedCell<int> cLocal = loop.Map(static v => v * 5);
                 CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
-                loop.Loop(sLocal.Hold(3));
-                return (cLocal.Close(), sLocal);
+                LoopCloser closer = loop.Loop(sLocal.Hold(3));
+                return (closer.Close(cLocal), sLocal);
             });
 
         List<int> output1 = [];

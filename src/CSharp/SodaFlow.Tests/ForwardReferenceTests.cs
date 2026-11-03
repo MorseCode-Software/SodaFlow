@@ -118,13 +118,15 @@ public sealed class ForwardReferenceTests
     }
 
     [Test]
-    public async Task TestWithOneLoopedCaptureGivesItAsACell()
+    public async Task TestWithLoopedCapturesClosesThemWithTheCloser()
     {
-        // The capture reads the reference, thus it is a LoopedCell in the block. It is a Cell after
-        // the call, because the reference has its value then.
+        // The capture reads the reference, thus it is a LoopedCell in the block. The close function
+        // runs when the reference has its value, and the closer gives the capture as a Cell.
         (Node node, Cell<Child> child) =
-            ForwardReference<Node>.WithCaptures(static reference =>
-                (Value: Node.WithChildHolding(reference.AsCell()), Captures: reference.Map(static n => n.Child)));
+            ForwardReference<Node>.WithCaptures(
+                f: static reference =>
+                    (Value: Node.WithChildHolding(reference.AsCell()), Captures: reference.Map(static n => n.Child)),
+                close: static (childLoop, closer) => closer.Close(childLoop));
 
         await Assert.That(child.Sample()).IsSameReferenceAs(node.Child);
     }

@@ -18,7 +18,7 @@ namespace SodaFlow;
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public class BehaviorLoop<T> : LoopedBehavior<T>, ILoopRoot
+public class BehaviorLoop<T> : LoopedBehavior<T>
 {
     private readonly object isLoopedLock = new();
     private readonly LoopedStream<T> streamLoop;
@@ -68,14 +68,8 @@ public class BehaviorLoop<T> : LoopedBehavior<T>, ILoopRoot
         // ReSharper disable once NullableWarningSuppressionIsUsed - initialValue is assigned to valueProperty on
         // the base class. Only SampleNoTransaction() reads that value, and this class overrides
         // that method to make sure that the value is set before the return.
-        : base(stream: streamLoop, initialValue: default!)
-    {
+        : base(stream: streamLoop, initialValue: default!) =>
         this.streamLoop = streamLoop;
-        this.Roots = [this];
-    }
-
-    /// <inheritdoc />
-    bool ILoopRoot.IsClosed => this.streamLoop.IsAssigned;
 
     /// <summary>
     ///     Resolve the loop to specify what the <see cref="BehaviorLoop{T}" /> was a
@@ -85,8 +79,12 @@ public class BehaviorLoop<T> : LoopedBehavior<T>, ILoopRoot
     ///     <c>Transaction.RunVoid</c>.
     /// </summary>
     /// <param name="b">The behavior of the forward reference.</param>
+    /// <returns>
+    ///     The <see cref="LoopCloser" />, which converts a value that depends on this
+    ///     loop to the plain type.
+    /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public void Loop(Behavior<T> b) =>
+    public LoopCloser Loop(Behavior<T> b) =>
         TransactionInternal.Apply((trans, _) =>
         {
             lock (this.isLoopedLock)
@@ -105,15 +103,13 @@ public class BehaviorLoop<T> : LoopedBehavior<T>, ILoopRoot
                     "Loop must be looped in the same transaction that it was created in.");
             }
 
-            this.Loop(trans: trans, b: b);
-
-            return UnitInternal.Value;
+            return this.Loop(trans: trans, b: b);
         });
 
     // A loop block closes the loop through this, in the transaction that made it. Thus, it
     // needs none of the checks above, but it marks the loop closed so that the check at the end
     // of the transaction passes.
-    internal void Loop(TransactionInternal trans, Behavior<T> b)
+    internal LoopCloser Loop(TransactionInternal trans, Behavior<T> b)
     {
         lock (this.isLoopedLock)
         {
@@ -128,6 +124,8 @@ public class BehaviorLoop<T> : LoopedBehavior<T>, ILoopRoot
         this.transaction = null;
         this.streamLoop.Loop(trans: trans, stream: b.Updates());
         this.lazyInitialValue = b.SampleLazy(trans);
+
+        return LoopCloser.Instance;
     }
 
     internal override T SampleNoTransaction()
