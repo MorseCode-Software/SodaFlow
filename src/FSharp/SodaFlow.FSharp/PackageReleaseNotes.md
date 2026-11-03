@@ -18,6 +18,12 @@ The timer system's hook also allocates nothing in a transaction with no alarm du
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. The C# notes have the measurement; the F# hook has the same shape.
 
+Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
+takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local
+time moves with the machine's clock at a daylight saving change, and a wait across that change waits for the wrong
+time, so a wait or a deadline belongs on the UTC one and the local one is for a time a screen shows. The clock
+constructor is also the shortest way to put a clock a test moves by hand under a real TimerSystem<DateTime>.
+
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
 

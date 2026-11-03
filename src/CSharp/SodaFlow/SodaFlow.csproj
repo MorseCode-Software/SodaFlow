@@ -61,6 +61,7 @@
         <Compile Include="Time\SystemClockTimerSystem.cs"/>
         <Compile Include="Time\TimerSystem.cs"/>
         <Compile Include="Time\TimerSystemImplementationBase.cs"/>
+        <Compile Include="Time\UtcClockTimerSystem.cs"/>
     </ItemGroup>
 
     <ItemGroup>

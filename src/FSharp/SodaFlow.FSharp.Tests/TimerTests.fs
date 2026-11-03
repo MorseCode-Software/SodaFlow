@@ -233,3 +233,46 @@ type ``Timer Tests``() =
 
             l |> StrongListener.unlisten
         }
+
+type ``System Clock Timer System Tests``() =
+
+    /// The system clock timer system takes any clock. Time follows that clock, and a transaction
+    /// that starts after the clock passes a timer fires it.
+    [<Test>]
+    member _.``the system clock timer system takes its clock``() =
+        task {
+            let mutable now = DateTime(2026, 3, 29, 0, 0, 0, DateTimeKind.Utc)
+            use timerSystem = new SystemClockTimerSystem((fun () -> now), (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<DateTime>
+            let alarms = List<DateTime>()
+
+            let listener =
+                timers.At(Cell.constant (Some(now.AddMinutes 5.0))) |> Stream.listenStrong alarms.Add
+
+            Transaction.run (fun () -> ())
+
+            do! Expect.Equal(now, Behavior.sample timers.Time)
+            do! Expect.Equal(0, alarms.Count)
+
+            now <- now.AddMinutes 5.0
+            Transaction.run (fun () -> ())
+            listener.Unlisten()
+
+            do! Expect.Equal(now, Behavior.sample timers.Time)
+            do! Expect.Sequence([ now ], alarms)
+        }
+
+    /// The UTC timer system measures time in UTC, and the default system clock timer system in
+    /// local time. Each value of Time says which.
+    [<Test>]
+    member _.``the UTC clock timer system counts in UTC and the system clock one in local time``() =
+        task {
+            use utcSystem = new UtcClockTimerSystem(fun _ -> ())
+            use localSystem = new SystemClockTimerSystem(fun _ -> ())
+            let utc = utcSystem :> ITimerSystem<DateTime>
+            let local = localSystem :> ITimerSystem<DateTime>
+            Transaction.run (fun () -> ())
+
+            do! Expect.Equal(DateTimeKind.Utc, (Behavior.sample utc.Time).Kind)
+            do! Expect.Equal(DateTimeKind.Local, (Behavior.sample local.Time).Kind)
+        }

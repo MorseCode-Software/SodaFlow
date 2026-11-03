@@ -62,6 +62,13 @@ anything else and a test could only match by its text. The message is unchanged.
 invariant checks, which no caller can reach, throw InvalidOperationException for the same reason; nothing in the
 library throws a bare Exception any more.
 
+Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
+takes the clock as a Func<DateTime>; the existing constructor still reads DateTime.Now. SystemClockTimerSystem counts
+in local time, which moves with the machine's clock: a timer set five minutes ahead across the autumn daylight saving
+change waited sixty-five, and one set across the spring change fired an hour early, and Time stepped back an hour.
+UTC does not move, so a wait or a deadline belongs on the UTC one and the local one is for a time a screen shows.
+The clock constructor is also the shortest way to put a clock a test moves by hand under a real TimerSystem<DateTime>.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after

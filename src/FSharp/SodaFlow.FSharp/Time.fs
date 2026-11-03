@@ -2,8 +2,9 @@
 ///     Timer systems: clocks, and streams which fire at times drawn from them.
 /// </summary>
 /// <remarks>
-///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c>. For a different clock,
-///     derive a type from <c>TimerSystemImplementationBase</c> and give it to <c>TimerSystem</c>.
+///     Use <c>SystemClockTimerSystem</c>, <c>UtcClockTimerSystem</c>, or <c>SecondsTimerSystem</c>.
+///     For a different clock, derive a type from <c>TimerSystemImplementationBase</c> and give it
+///     to <c>TimerSystem</c>.
 ///
 ///     Alarms get to the graph through a <c>Transaction.onStart</c> handler. When a transaction starts,
 ///     the handler reads the clock, runs each timer that is due, and sends the alarms. It sends the
@@ -143,8 +144,8 @@ type private Event<'T> = { Time: 'T; Seq: int64; Alarm: StreamSink<'T> }
 ///     alarm fires. The disposal drops an event that is due and not sent. A second disposal does
 ///     nothing, and a disposal from the listener of an alarm is safe.
 ///
-///     Use <c>SystemClockTimerSystem</c> or <c>SecondsTimerSystem</c>, unless a different clock is
-///     necessary.
+///     Use <c>SystemClockTimerSystem</c>, <c>UtcClockTimerSystem</c>, or <c>SecondsTimerSystem</c>,
+///     unless a different clock is necessary.
 /// </remarks>
 type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplementation, handleException: exn -> unit) =
     // In the sequence of the time of each event, and of its arrival for one time. An implementation
@@ -509,22 +510,42 @@ and SimpleTimer<'T when 'T: comparison>
     interface IDisposable with
         member this.Dispose() = cancel ()
 
-type private SystemClockTimerSystemImplementation() =
+type private SystemClockTimerSystemImplementation(now: unit -> DateTime) =
     inherit TimerSystemImplementationBase<DateTime>()
     override _.SubtractTimes first second = first - second
-    override _.Now = DateTime.Now
+    override _.Now = now ()
 
 /// <summary>
-///     A timer system measuring time with the system clock.
+///     A timer system that measures time as a <c>System.DateTime</c> from a clock. The default
+///     clock is <c>DateTime.Now</c>, the local time.
 /// </summary>
+/// <param name="now">Gives the current time. The timer thread reads it frequently.</param>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
 ///     Times are <c>System.DateTime</c> values, thus code can set an alarm against a wall-clock
-///     time directly. The clock can move to an earlier time, after a manual change or a daylight
-///     saving adjustment. An alarm after such a change waits until the clock gets to it again.
+///     time directly. Local time moves with the clock of the machine, after a manual change or a
+///     daylight saving adjustment. An alarm across such a change waits until the moved clock gets
+///     to it. Use <c>UtcClockTimerSystem</c> for a wait or a deadline, and this type for a time
+///     that a screen shows. A test gives a clock that it moves by hand.
 /// </remarks>
-type SystemClockTimerSystem(handleException: exn -> unit) =
-    inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(), handleException)
+type SystemClockTimerSystem(now: unit -> DateTime, handleException: exn -> unit) =
+    inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(now), handleException)
+
+    /// <summary>A timer system over <c>DateTime.Now</c>.</summary>
+    /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+    new(handleException: exn -> unit) = new SystemClockTimerSystem((fun () -> DateTime.Now), handleException)
+
+/// <summary>
+///     A timer system that measures time with <c>DateTime.UtcNow</c>.
+/// </summary>
+/// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+/// <remarks>
+///     UTC does not move at a change of daylight saving time, thus a timer set five minutes ahead
+///     waits five minutes at each date. Use this type for a wait or a deadline, and
+///     <c>SystemClockTimerSystem</c> for a time that a screen shows.
+/// </remarks>
+type UtcClockTimerSystem(handleException: exn -> unit) =
+    inherit SystemClockTimerSystem((fun () -> DateTime.UtcNow), handleException)
 
 type private SecondsTimerSystemImplementation() =
     inherit TimerSystemImplementationBase<float>()
