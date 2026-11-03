@@ -65,6 +65,11 @@ value.
 
 Each also takes an optional `IEqualityComparer<T>`, used to suppress no-op writes.
 
+Where the table says `Cell<T>`, the factory takes a `LoopedCell<T>`: a bindable reads its cell
+only after the transaction that builds it, so it can take a cell whose loop has not closed yet. A
+row view model built inside a loop block hands the looped cell it was given straight to the
+factory; see [rows built inside the block](loops.md#rows-built-inside-the-block).
+
 There is no write-only bindable. A value that starts in the view, such as a selection or a
 scroll offset, is a two-way value on a `CellSink<T>`: the view writes it, the graph reads it, and
 the view reads back whatever the graph settled on. Something the view only sends, with no value

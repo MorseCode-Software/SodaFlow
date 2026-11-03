@@ -2566,8 +2566,9 @@ let inline switchS cell = Cell.switchS cell
 /// <remarks>
 /// Shorthand for <c>LoopedCell.asCell</c>. See it for the full contract.
 ///
-/// The types cannot see that a read comes after the close, thus this call is the assertion. For a
-/// capture of a loop, use <c>closeLC</c> with the closer that the loop gives.
+/// The call is the assertion, at a read site, that the loop is closed. An object built in the
+/// block takes the looped cell and does not use this. For a capture of a loop, use <c>closeLC</c>
+/// with the closer that the loop gives.
 /// </remarks>
 let inline asCellLC cell = LoopedCell.asCell cell
 
@@ -2790,8 +2791,9 @@ let inline switchCLC cell = LoopedCell.switchC cell
 /// <remarks>
 /// Shorthand for <c>LoopedBehavior.asBehavior</c>. See it for the full contract.
 ///
-/// The types cannot see that a read comes after the close, thus this call is the assertion. For a
-/// capture of a loop, use <c>closeLB</c> with the closer that the loop gives.
+/// The call is the assertion, at a read site, that the loop is closed. An object built in the
+/// block takes the looped behavior and does not use this. For a capture of a loop, use
+/// <c>closeLB</c> with the closer that the loop gives.
 /// </remarks>
 let inline asBehaviorLB behavior = LoopedBehavior.asBehavior behavior
 

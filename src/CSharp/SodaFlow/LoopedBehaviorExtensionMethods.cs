@@ -17,11 +17,12 @@ public static class LoopedBehaviorExtensionMethods
     /// <param name="b">The looped behavior.</param>
     /// <returns>The same value as a <see cref="Behavior{T}" />.</returns>
     /// <remarks>
-    ///     Use this to give a placeholder to code that keeps the behavior and reads it after the
-    ///     close, for example a constructor. The types cannot see that the read comes
-    ///     after the close, thus this call is the assertion. A read before the close
-    ///     throws an exception. For a capture of a loop, use the
-    ///     <see cref="LoopCloser" /> that the loop gives when it closes.
+    ///     Use this at a read that the types cannot check, for example in a test after
+    ///     the block returns. The call is the assertion that the loop is closed, and a
+    ///     read before the close throws an exception. An object that is built in the
+    ///     block, for example a row, takes the looped type and does not use this. For a
+    ///     capture of a loop, use the <see cref="LoopCloser" /> that the loop gives
+    ///     when it closes.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<T> AsBehavior<T>(this LoopedBehavior<T> b) => b.AsBehaviorImpl();

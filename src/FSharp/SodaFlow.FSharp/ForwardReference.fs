@@ -12,8 +12,8 @@
 ///     the other one.
 ///
 ///     The reference is a promise about a value, and not the value. A read of it during the
-///     construction, with <c>sampleC</c> or with an operation on it, asks a question that has no
-///     answer now. The read throws an exception to say this, as it does for each looped cell.
+///     construction asks a question that has no answer now. Thus, the reference has no
+///     <c>sampleC</c>, and a read through <c>asCellLC</c> throws an exception.
 /// </remarks>
 module SodaFlow.ForwardReference
 

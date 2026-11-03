@@ -25,17 +25,17 @@ namespace SodaFlow;
 ///     For example:
 ///     <code>
 ///     Node node = ForwardReference&lt;Node&gt;.WithoutCaptures(
-///         reference =&gt; new Node(new Child(reference.AsCell())));
+///         reference =&gt; new Node(new Child(reference)));
 ///     </code>
-///     The child holds a <see cref="Cell{T}" /> with no meaning until the call
-///     returns. It holds the finished node after that. Nothing has to be mutable.
-///     There is also no window where a half-built node is reachable, because no
-///     code can sample the reference before the construction function returns.
-///     That last point is the constraint worth remembering. The reference is a
-///     promise about what a value will be, and not the value. A read of it during
-///     the construction, with <see cref="CellExtensionMethods.Sample{T}" /> or
-///     with anything on it, asks a question with no answer now. The read throws an
-///     exception to say this.
+///     The child takes the <see cref="LoopedCell{T}" />, which has no meaning until
+///     the call returns. It holds the finished node after that. Nothing has to be
+///     mutable. There is also no window where a half-built node is reachable,
+///     because no code can sample the reference before the construction function
+///     returns. That last point is the constraint worth remembering. The reference
+///     is a promise about what a value will be, and not the value. A read of it
+///     during the construction asks a question with no answer now. Thus, the type
+///     has no <see cref="CellExtensionMethods.Sample{T}" />, and a read through
+///     <c>AsCell</c> throws an exception.
 ///     Everything here builds one transaction of its own, thus a caller can call
 ///     this out of a transaction and in one.
 /// </remarks>

@@ -83,9 +83,10 @@ Two conversions go back. The first is the closer: a loop hands out a `LoopCloser
 and `closer.Close(l)` (`closeLC closer l`, `closeLB closer b`) gives the plain type. The block form
 passes the closer to a second function that converts the captures, as the next section shows, and
 `Loop` in the explicit form returns it. The second is `AsCell()` and `AsBehavior()` (`asCellLC`,
-`asBehaviorLB`), which assert the same thing with no closer in hand, for a placeholder handed to
-code that stores it and reads it later, such as a constructor; the types cannot see when a stored
-field is read, so that assertion is yours, and a read before the close still throws.
+`asBehaviorLB`), which assert the same thing with no closer in hand, at a read site the types
+cannot check, such as a test that samples a cell a row exposes. They are not for a constructor: an
+object built inside the block takes the looped type, as the forward reference section shows, and
+a read before the close still throws.
 
 ## Capturing extra values
 
@@ -162,11 +163,9 @@ LoopedCell<Cell<int>> cells = l.Map(x => plain.Map(v => f(v, x)));   // inner ce
 ```
 
 Where the inner cells are there to be followed, `SwitchC` on a `LoopedCell<LoopedCell<T>>`
-collapses them to one `LoopedCell<T>` inside the block. The case that cannot be restructured is an
-object that stores a cell, such as a row view model built inside a `ForwardReference` block; there
-the field is yours, and `AsCell()` at the point of construction is the assertion that it is read
-only after the close, as [Forward references to a single value](#forward-references-to-a-single-value)
-describes.
+collapses them to one `LoopedCell<T>` inside the block. An object that stores a cell, such as a
+row view model built inside a `ForwardReference` block, takes and keeps the looped type, as
+[Rows built inside the block](#rows-built-inside-the-block) shows.
 
 ## The explicit form
 
@@ -251,24 +250,24 @@ cell taken back out — for when what has to refer to itself is one value, not a
 
 ```csharp
 Node node = ForwardReference<Node>.WithoutCaptures(
-    reference => new Node(new Child(reference.AsCell())));
+    reference => new Node(new Child(reference)));
 ```
 
 # [F#](#tab/fsharp)
 
 ```fsharp
-let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child (asCellLC reference)))
+let node = forwardReferenceWithNoCaptures (fun reference -> Node (Child reference))
 ```
 
 ---
 
-The block is handed a `LoopedCell<Node>`, and `AsCell` passes it on as the `Cell<Node>` the
-child wants — a cell that means nothing until the call returns and holds the finished node from
-then on. `AsCell` is the assertion that the child only reads it after that; the types cannot see
-when a constructor's field is read, so this is the one place the check is yours rather than the
-compiler's. It unties the knot two objects make when each needs the other at
-construction, which otherwise forces one of them to be built half-formed and completed
-afterward — with a settable member that has no business being settable once the graph is up.
+The block is handed a `LoopedCell<Node>`, and the child takes it as that: a cell that means
+nothing until the call returns and holds the finished node from then on. The type is what keeps
+the child honest. It can snapshot the cell, map it, listen to it, or bind it, and it cannot read it
+in its constructor, which is the one read that would have no answer. It unties the knot two
+objects make when each needs the other at construction, which otherwise forces one of them to be
+built half-formed and completed afterward — with a settable member that has no business being
+settable once the graph is up.
 
 `WithCaptures`, and `forwardReference` in F#, return anything else worth keeping from the
 construction, the same way a loop does.
@@ -312,6 +311,77 @@ types are inferred from the function, so neither is ever written.
 Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
 the reference has no `Sample`, and a read through `AsCell` during construction asks a question
 that has no answer yet, and throws.
+
+### Rows built inside the block
+
+The object under construction usually makes smaller objects as it goes — the rows of a list,
+say — and a row often needs a cell that comes from the object itself: its share of a total that
+is the sum of the rows, or whether it is the selected one. The row is constructed while the block
+runs, so that cell is pending when the constructor sees it. Give the row the looped type, and let
+it keep that type:
+
+# [C#](#tab/csharp)
+
+```csharp
+internal sealed class Row
+{
+    internal Row(IBindableFactory factory, string name, CellSink<decimal> amount, LoopedCell<decimal> share)
+    {
+        this.Name = name;
+        this.Amount = amount;
+        this.Share = share;
+
+        // The factory takes the looped type: a bindable reads its cell only after the transaction.
+        this.ShareText = factory.CreateOneWay(share.Map(s => $"{s:P0}"));
+    }
+
+    public string Name { get; }
+
+    public CellSink<decimal> Amount { get; }
+
+    public LoopedCell<decimal> Share { get; }
+
+    public IOneWayBindableValue<string> ShareText { get; }
+}
+
+// Inside the ForwardReference block, where viewModelLoop is the LoopedCell<ViewModel>:
+LoopedCell<decimal> totalLoop = viewModelLoop.Map(vm => vm.Total).SwitchC();
+Row row = new(factory, "a", amount, amount.Lift(totalLoop, (a, t) => t == 0 ? 0 : a / t));
+```
+
+# [F#](#tab/fsharp)
+
+```fsharp
+type Row(factory: IBindableFactory, name: string, amount: CellSink<decimal>, share: LoopedCell<decimal>) =
+    member _.Name = name
+    member _.Amount = amount
+    member _.Share = share
+    member _.ShareText = factory.CreateOneWay(share |> mapLC (fun s -> $"{s:P0}"))
+
+// Inside the forwardReferenceWithNoCaptures block:
+let totalLoop = viewModelLoop |> mapLC (fun vm -> vm.Total) |> switchCLC
+let row = Row(factory, "a", amount, lift2LC (fun a t -> if t = 0m then 0m else a / t) (amount, totalLoop))
+```
+
+---
+
+The parameter type is the whole pattern. The constructor cannot sample the cell or store it as a
+`Cell<T>`, because neither compiles, and those were the only two things it could do wrong.
+Everything it legitimately wants to do, it can: hand the cell to the bindable factory, which takes
+the looped type, map it, lift it with the row's own cells, snapshot it from a command, listen to
+it.
+
+Keep the looped type on the property too, rather than converting it with `AsCell()` in a getter. A
+`Cell<T>` property is an escape that the code building the row can take while the loop is still
+open — `row.Share.Sample()` from inside the block compiles and throws — and the row has no way to
+know who is reading. On a `LoopedCell<T>` property every consumer composes freely, and a read is an
+`AsCell()` at the read site, written by the one who knows the loop has closed: a test, or an
+imperative read after construction. That is where the assertion belongs.
+
+A consumer that genuinely needs the value *now* cannot take the looped type, and the compiler says
+so. A collection view's criteria cell is one: `Filter(criteriaCell: totalLoop, …)` does not
+compile, because the view's keys would start from a value that does not exist yet. That is a true
+cycle through the collection, and it is broken the way it always was, with a sink or a snapshot.
 
 ## Where this shows up
 

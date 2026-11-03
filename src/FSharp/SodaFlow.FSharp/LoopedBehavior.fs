@@ -24,10 +24,11 @@ open System.Runtime.CompilerServices
 /// <param name="behavior">The looped behavior.</param>
 /// <returns>The same value as a behavior.</returns>
 /// <remarks>
-///     Use this to give a placeholder to code that keeps the behavior and reads it after the close. The
-///     types cannot see that the read comes after the close, thus this call is the assertion. A
-///     read before the close throws an exception. For a capture of a loop, use <c>close</c> with
-///     the closer that the loop gives.
+///     Use this at a read that the types cannot check, for example in a test after the block
+///     returns. The call is the assertion that the loop is closed, and a read before the close
+///     throws an exception. An object that is built in the block, for example a row, takes the
+///     looped behavior and does not use this. For a capture of a loop, use <c>close</c> with the
+///     closer that the loop gives.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let asBehavior (behavior: LoopedBehavior<_>) = behavior.AsBehaviorImpl()
