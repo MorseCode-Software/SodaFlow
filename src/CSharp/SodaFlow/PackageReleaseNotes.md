@@ -13,6 +13,12 @@ process. Disposing the timer system removes the hook and ends the thread, and af
 alarm fires. A custom ITimerSystemImplementation<T> needs a Stop, which can be empty for a clock a test moves by hand.
 A caller of OnStart can ignore the registration as before, or dispose it to remove the action.
 
+BREAKING: a stopped TimerSystemImplementationBase<T> throws ObjectDisposedException from SetTimer, and so At on a
+disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
+or a later send. Before, the timer was accepted and never fired, and the caller held a handle for an alarm that
+could not come. A cell with no time sets nothing and passes as before. A custom ITimerSystemImplementation<T>
+should do the same after its Stop.
+
 BREAKING: TimerSystemImplementationBase<T> constrains T to IComparable<T>, where it constrained it to the non-generic
 IComparable. TimerSystem<T> and ITimerSystem<T> already required the generic interface, and the F# package uses
 comparison, so the three now agree; double and DateTime implement both, and only a time type that implements the
