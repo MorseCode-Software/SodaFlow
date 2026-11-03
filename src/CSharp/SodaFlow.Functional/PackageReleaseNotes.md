@@ -28,6 +28,17 @@ SodaFlow.Benchmarks measures them. Maybe<T> is also a readonly struct now, as Un
 readonly field or on None no longer copies the value first. The members read the same fields in the same order, so a
 contained null still reaches the function, and a function for the other case still does not run.
 
+Fixed: MaybeMonad.SelectMany and MaybeMonad.Where, the two members a query expression over a Maybe<T> calls, still
+allocated. SelectMany went through two nested Bind calls whose lambdas captured the transformation, the collation, and
+the first value, so a query with two from clauses allocated two closures and two delegates, and Where captured its
+predicate in one. Both now read the value through TryGetValue, as the members above do, and allocate nothing; the
+results are unchanged, and the predicate still does not run without a value. Measured on .NET 10: a query from two
+maybes 27.1 ns and 256 bytes to 7.7 ns and 64 bytes, Where 10.1 ns and 88 bytes to 1.0 ns and nothing, and a query
+with a where clause between two from clauses 39.7 ns and 344 bytes to 9.6 ns and 64 bytes. On .NET Framework 4.7.2,
+36.4 ns to 14.2 ns, 17.6 ns to 5.7 ns, and 55.2 ns to 21.2 ns. The 64 bytes that remain on the two queries are the
+delegate the query expression itself makes for a lambda that reads an instance field, which no library change can
+remove; a query over locals or statics has none.
+
 Fixed: the action and map members of every Either allocated on every call, and the untyped interface members did too.
 MatchVoid wrapped each action in a closure, one per case, so a call on an Either of eight allocated eight; each
 MapFirst through MapEighth captured its function in a closure; and IEitherOfTwo.Match through IEitherOfEight.MatchVoid

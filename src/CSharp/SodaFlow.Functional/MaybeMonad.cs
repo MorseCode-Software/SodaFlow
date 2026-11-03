@@ -86,15 +86,26 @@ public static class MaybeMonad
     ///     <paramref name="value" /> using <paramref name="transformation" /> and then
     ///     collating using <paramref name="collation" />.
     /// </returns>
+    /// <remarks>
+    ///     This reads the two values directly, and does not go through
+    ///     <see cref="Bind{T,TResult}" /> twice. Each of those calls took a lambda
+    ///     that captured an argument, thus a query allocated two closures and two
+    ///     delegates. This allocates nothing.
+    /// </remarks>
     public static Maybe<TResult> SelectMany<T1, T2, TResult>(
         this Maybe<T1> value,
         [InstantHandle] Func<T1, Maybe<T2>> transformation,
-        [InstantHandle] Func<T1, T2, TResult> collation) =>
-        value.Bind(firstValue =>
+        [InstantHandle] Func<T1, T2, TResult> collation)
+    {
+        if (!value.TryGetValue(out T1 firstValue))
         {
-            Maybe<T2> result = transformation(firstValue);
-            return result.Bind(secondValue => Maybe.Some(collation(arg1: firstValue, arg2: secondValue)));
-        });
+            return Maybe<TResult>.None;
+        }
+
+        return transformation(firstValue).TryGetValue(out T2 secondValue)
+            ? Maybe.Some(collation(arg1: firstValue, arg2: secondValue))
+            : Maybe<TResult>.None;
+    }
 
     /// <summary>
     ///     Implements the LINQ select operation for the <see cref="Maybe{T}" /> monad.
@@ -155,7 +166,7 @@ public static class MaybeMonad
     public static Maybe<T> Where<T>(
         this Maybe<T> value,
         [InstantHandle] Func<T, bool> predicate) =>
-        value.Bind(v => Maybe.SomeIf(condition: predicate(v), value: v));
+        value.TryGetValue(out T v) && predicate(v) ? value : Maybe<T>.None;
 
     #endregion
 }

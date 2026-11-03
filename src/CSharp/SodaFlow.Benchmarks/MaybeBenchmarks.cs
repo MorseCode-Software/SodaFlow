@@ -20,6 +20,11 @@ namespace SodaFlow.Benchmarks;
 ///         frequent case, and the case with no value runs the same code with the
 ///         other branch.
 ///     </para>
+///     <para>
+///         The last three arms are the query members in <c>MaybeMonad</c>. A query
+///         with two <c>from</c> clauses calls <c>SelectMany</c>, and a <c>where</c>
+///         clause calls <c>Where</c>. The third of them is the query with both.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -74,4 +79,23 @@ public class MaybeBenchmarks
     /// <summary>Combines two values.</summary>
     [Benchmark(Description = "Lift")]
     public Maybe<int> Lift() => this.some.Lift(b: this.other, f: static (a, b) => a + b);
+
+    /// <summary>Combines two values through a query with two from clauses.</summary>
+    [Benchmark(Description = "SelectMany, from two maybes")]
+    public Maybe<int> SelectMany() =>
+        from a in this.some
+        from b in this.other
+        select a + b;
+
+    /// <summary>Keeps the value when it satisfies a predicate.</summary>
+    [Benchmark(Description = "Where")]
+    public Maybe<int> Where() => this.some.Where(static v => v > 0);
+
+    /// <summary>Combines two values through a query with a where clause between its from clauses.</summary>
+    [Benchmark(Description = "SelectMany and Where, a query with a where clause")]
+    public Maybe<int> SelectManyWhere() =>
+        from a in this.some
+        where a > 0
+        from b in this.other
+        select a + b;
 }

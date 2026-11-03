@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
@@ -66,5 +67,28 @@ public sealed class MaybeMonadTests
             select x * y;
 
         await Assert.That(result).IsEqualTo(Maybe<int>.None);
+    }
+
+    /// <summary>
+    ///     The functions of a query run only for the values that are there. With no
+    ///     first value, the transformation does not run. With no second value, the
+    ///     collation does not run.
+    /// </summary>
+    [Test]
+    public async Task TestQueryDoesNotRunFunctionsWithoutValues()
+    {
+        Maybe<int> fromNone =
+            Maybe<int>.None.SelectMany<int, int, int>(
+                transformation: static _ => throw new InvalidOperationException("The transformation ran."),
+                collation: static (_, _) => throw new InvalidOperationException("The collation ran."));
+
+        await Assert.That(fromNone).IsEqualTo(Maybe<int>.None);
+
+        Maybe<int> toNone =
+            Maybe.Some(2).SelectMany<int, int, int>(
+                transformation: static _ => Maybe<int>.None,
+                collation: static (_, _) => throw new InvalidOperationException("The collation ran."));
+
+        await Assert.That(toNone).IsEqualTo(Maybe<int>.None);
     }
 }
