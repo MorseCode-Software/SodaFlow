@@ -13,34 +13,113 @@ internal static class StreamExtensionMethodsInternal
         where T2 : Stream<T>
     {
         IReadOnlyList<Stream<T>> v = [.. s];
-        return TransactionInternal.Apply((trans, _) => Merge(trans: trans, e: v, start: 0, end: v.Count, f: f));
+        return TransactionInternal.Apply((trans, _) => MergeMany(trans: trans, inputs: v, f: f));
     }
 
-    private static Stream<T> Merge<T>(
-        TransactionInternal trans,
-        IReadOnlyList<Stream<T>> e,
-        int start,
-        int end,
-        Func<T, T, T> f)
+    /// <summary>
+    ///     Merges the inputs through one node. Each input keeps its value of the
+    ///     transaction in a slot at its own index. One action at the output node,
+    ///     queued at the first arrival, folds the slots from the first index and
+    ///     sends one time.
+    /// </summary>
+    /// <remarks>
+    ///     Before, this was a balanced tree of pairwise merges, with a coalesce
+    ///     node for each pair. An input then crossed about log2 n nodes, and one
+    ///     input crossed a merge with no partner. Here an input crosses one node,
+    ///     whatever n is. The fold goes from the first index. Thus, the value of
+    ///     the stream earlier in the list goes to the left of <paramref name="f" />,
+    ///     whatever the sequence the inputs arrived in. An input that fires more
+    ///     than one time in a transaction folds into its own slot first, in the
+    ///     sequence of its firings. A coalesce did the same. A transaction that
+    ///     fails clears the slots, thus a value from it does not go to the next one.
+    ///     An empty slot is the default of the struct. The value of an input goes
+    ///     into <see cref="MaybeInternal{T}" />, thus a null value and an empty
+    ///     slot stay apart.
+    /// </remarks>
+    private static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
     {
-        int n = end - start;
-
-        switch (n)
+        switch (inputs.Count)
         {
             case 0:
                 return new Stream<T>();
             case 1:
-                return e[start];
-            case 2:
-                return e[start].Merge(trans: trans, s: e[start + 1], f: f);
-            default:
-            {
-                int mid = (start + end) / 2;
-
-                return Merge(trans: trans, e: e, start: start, end: mid, f: f)
-                    .Merge(trans: trans, s: Merge(trans: trans, e: e, start: mid, end: end, f: f), f: f);
-            }
+                return inputs[0];
         }
+
+        Stream<T> @out = new(inputs[0].KeepListenersAlive);
+        MaybeInternal<T>[] slots = new MaybeInternal<T>[inputs.Count];
+        bool queued = false;
+
+        // Each of these captures the same state, thus each is one delegate for the life of the
+        // merge and not one for each transaction.
+        Action discard =
+            () =>
+            {
+                Array.Clear(array: slots, index: 0, length: slots.Length);
+                queued = false;
+            };
+
+        Action<TransactionInternal> combine =
+            trans3 =>
+            {
+                MaybeInternal<T> folded = MaybeInternal<T>.None;
+
+                // ReSharper disable once ForCanBeConvertedToForeach - An index, thus the slot can be cleared in place.
+                for (int index = 0; index < slots.Length; index++)
+                {
+                    if (!slots[index].TryGetValue(out T held))
+                    {
+                        continue;
+                    }
+
+                    slots[index] = MaybeInternal<T>.None;
+
+                    folded =
+                        folded.TryGetValue(out T left)
+                            ? MaybeInternal.Some(f(arg1: left, arg2: held))
+                            : MaybeInternal.Some(held);
+                }
+
+                queued = false;
+
+                if (folded.TryGetValue(out T value))
+                {
+                    @out.Send(trans: trans3, a: value);
+                }
+            };
+
+        Stream<T> result = @out;
+
+        for (int i = 0; i < inputs.Count; i++)
+        {
+            int index = i;
+
+            IListener l =
+                inputs[index]
+                    .Listen(
+                        target: @out.Node,
+                        trans: trans,
+                        action: (trans2, a) =>
+                        {
+                            slots[index] =
+                                slots[index].TryGetValue(out T earlier)
+                                    ? MaybeInternal.Some(f(arg1: earlier, arg2: a))
+                                    : MaybeInternal.Some(a);
+
+                            if (queued)
+                            {
+                                return;
+                            }
+
+                            queued = true;
+                            trans2.Prioritized(node: @out.Node, action: combine, discard: discard);
+                        },
+                        suppressEarlierFirings: false);
+
+            result = result.UnsafeAttachListener(l);
+        }
+
+        return result;
     }
 
     internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)

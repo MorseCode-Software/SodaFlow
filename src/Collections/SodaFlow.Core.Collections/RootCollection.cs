@@ -223,14 +223,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     ///     ambiguous condition, and no code resolves it with the sequence of the
     ///     merge, because SodaFlow does not give that sequence.
     /// </summary>
+    // The merge of a list in the core: one node that all the edit streams send into. It folds the
+    // edits of a transaction in the sequence of the streams. One stream comes back as it is.
+    // Before, this was a fold of pairwise merges from a never-firing stream. Thus, an edit crossed
+    // one node for each stream before it, and one node too many with one stream.
     private static Stream<CollectionEdit<TKey, TIdentity, TState>> MergeEdits(
         IEnumerable<Stream<CollectionEdit<TKey, TIdentity, TState>>> editStreams) =>
-        editStreams.Aggregate(
-            seed: StreamInternal.NeverImpl<CollectionEdit<TKey, TIdentity, TState>>(),
-            func: static (mergedStream, editStream) =>
-                mergedStream.MergeImpl(
-                    s: editStream,
-                    f: static (left, right) => left.CombineWith(right)));
+        editStreams.MergeImpl<CollectionEdit<TKey, TIdentity, TState>, Stream<CollectionEdit<TKey, TIdentity, TState>>>(
+            static (left, right) => left.CombineWith(right));
 
     private static MaybeInternal<ItemChange<TKey, TIdentity, TState>> Resolve(
         IEqualityComparer<TKey> keyEqualityComparer,

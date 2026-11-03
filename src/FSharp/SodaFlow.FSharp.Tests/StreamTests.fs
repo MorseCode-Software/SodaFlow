@@ -316,6 +316,31 @@ type ``Stream Tests``() =
             do! Expect.Sequence([ 21; 27 ], out)
         }
 
+    // A merge of a list folds the simultaneous values from the first stream in the list, whatever
+    // the sequence of the sends. A function that is not associative shows the sequence.
+    [<Test>]
+    member _.``Test Merge All Folds In List Order``() =
+        task {
+            let a = sinkS ()
+            let b = sinkS ()
+            let c = sinkS ()
+            let out = List<_>()
+            let l = [ a; b; c ] |> mergeAllS (fun left right -> left + "," + right) |> listenStrongS out.Add
+
+            runT (fun () ->
+                c |> sendS "c"
+                a |> sendS "a"
+                b |> sendS "b")
+
+            runT (fun () ->
+                c |> sendS "c"
+                a |> sendS "a")
+
+            b |> sendS "b"
+            l |> unlistenL
+            do! Expect.Sequence([ "a,b,c"; "a,c"; "b" ], out)
+        }
+
     [<Test>]
     member _.``Test Coalesce``() =
         task {

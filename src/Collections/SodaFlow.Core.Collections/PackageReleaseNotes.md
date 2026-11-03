@@ -74,6 +74,15 @@ on .NET Framework 4.7.2 it takes 1,402 µs where it took 1,903 µs, against 1,36
 100 cells it takes 80 µs where it took 97 µs on .NET 10, equal to the collection; and at 10 keys the two arms measure
 the same as before. The index costs about 22 KB for a change of 1,000 operations.
 
+The edit streams of a collection now merge through the one node that a list merge gets in SodaFlow.Core 6.0.0. Before,
+they were folded into a chain of pairwise merges that started from a never-firing stream, so an edit crossed one node
+for each stream before it, and a collection with one edit stream, the usual shape, paid a merge with that never-firing
+stream on every edit. Edits from several streams in one transaction still combine in the order of the streams.
+Measured on one edit of one key, on a collection of a thousand items with one observed key, .NET 10: through the first
+of 1, 2, 8, and 32 edit streams, 1.71, 1.95, 3.12, and 7.92 µs before and 1.51, 1.65, 1.70, and 1.67 µs after; through
+the last stream, which the chain served in one hop, 1.76, 1.74, 1.69, and 1.72 µs before and 1.52, 1.65, 1.71, and
+1.69 µs after.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
