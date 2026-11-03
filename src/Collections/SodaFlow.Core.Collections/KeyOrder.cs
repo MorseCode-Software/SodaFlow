@@ -86,8 +86,8 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
 
     /// <summary>
     ///     The keys in this order, when this order is their order in the opposite
-    ///     direction. This code then sorts them again with the sort values that they
-    ///     hold, and does not make each sort value again.
+    ///     direction. This code then reads the set that holds them from its end, and
+    ///     does not sort them or make each sort value again.
     /// </summary>
     /// <param name="keys">
     ///     Keys in an order, which can be this order in the opposite

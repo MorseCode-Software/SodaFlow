@@ -16,18 +16,26 @@ namespace SodaFlow.Benchmarks;
 /// <remarks>
 ///     <para>
 ///         A sort stage that gets an order over the same value in the opposite
-///         direction does not sort each key again. It reverses the sorted set that
-///         it holds, which is a copy into a new set, and then it reports a reset.
-///         The first arm measures that toggle through the stage. The second arm
-///         puts a <c>Take</c> after the sort, which is the shape of a paged screen.
-///         The third arm changes the sort value, which rebuilds the stage, and it
-///         is the cost that the reverse already prevents.
+///         direction does not sort each key again. It reads the set that it holds
+///         from its end, through a view that costs nothing to make, and then it
+///         reports a reset. The first arm measures that toggle through the stage.
+///         The second arm puts a <c>Take</c> after the sort, which is the shape
+///         of a paged screen. The third arm changes the sort value, which rebuilds
+///         the stage, and it is the cost that the reverse prevents.
 ///     </para>
 ///     <para>
-///         The fourth arm reverses a set of the same size with the same recipe,
-///         and no stage around it. The difference between the first arm and the
-///         fourth is what the reset costs after the reverse. A reverse that costs
-///         nothing can remove the fourth figure from the first, and not more.
+///         Before the view, the stage copied the set into a new sorted set. The
+///         fourth arm is that copy, on a set of the same size with the same
+///         recipe, and no stage around it. It was 85 percent of the first arm, and
+///         it stays here as the figure that the view removed.
+///     </para>
+///     <para>
+///         The listener in the first three arms reads nothing, thus those arms
+///         measure the stage and not a consumer. A consumer that reads the full
+///         list after the toggle pays a walk of the keys. The view walks them in
+///         runs of equal sort values, where the copy walked a plain set. The fifth
+///         arm toggles and then reads each key, which is what a bound list does at
+///         a reset.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -72,6 +80,8 @@ public class SortReverseBenchmarks
 
     private int pagedDirectionCount;
 
+    private int readDirectionCount;
+
     private int setDirectionCount;
 
     private int valueCount;
@@ -82,6 +92,8 @@ public class SortReverseBenchmarks
     private SortedViewShape paged = SortedViewShape.Build(itemCount: 1, limit: 1, order: ScoreAscending);
 
     private SortedViewShape resorted = SortedViewShape.Build(itemCount: 1, limit: 0, order: ScoreAscending);
+
+    private SortedViewShape read = SortedViewShape.Build(itemCount: 1, limit: 0, order: ScoreAscending);
 
     private ImmutableSortedSet<Entry> set = ImmutableSortedSet<Entry>.Empty;
 
@@ -99,6 +111,7 @@ public class SortReverseBenchmarks
         this.sorted = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreAscending);
         this.paged = SortedViewShape.Build(itemCount: this.ItemCount, limit: ViewSeed.Limit, order: ScoreAscending);
         this.resorted = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreAscending);
+        this.read = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreAscending);
 
         this.set =
             Enumerable
@@ -141,8 +154,17 @@ public class SortReverseBenchmarks
         this.resorted.Order(this.valueCount % 2 == 0 ? ScoreAscending : NumberAscending);
     }
 
-    /// <summary>The reverse of a sorted set of the same size, with no stage around it.</summary>
-    [Benchmark(Description = "reverse the set alone")]
+    /// <summary>The toggle, and then a read of each key, as a bound list does at a reset.</summary>
+    [Benchmark(Description = "toggle the direction, then read every key")]
+    public int ToggleDirectionAndRead()
+    {
+        this.read.Order(NextDirection(ref this.readDirectionCount));
+
+        return this.read.Sum();
+    }
+
+    /// <summary>The copy that the stage made before the view, with no stage around it.</summary>
+    [Benchmark(Description = "copy the set reversed, the former recipe")]
     public ImmutableSortedSet<Entry> ReverseSetAlone()
     {
         this.setDirectionCount++;
@@ -235,6 +257,9 @@ internal sealed class SortedViewShape
     }
 
     internal int FirstKey => this.view.KeysCell.Sample()[0];
+
+    /// <summary>Reads each key one time, and answers with their sum, thus the runtime keeps the work.</summary>
+    internal int Sum() => this.view.KeysCell.Sample().Sum();
 
     internal void Order(KeyOrder<int, ItemIdentity, ItemState> order) => this.order.Send(order);
 

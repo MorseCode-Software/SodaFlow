@@ -295,6 +295,110 @@ public sealed class OrderedKeysTests
     }
 
     /// <summary>
+    ///     The set in the opposite direction reads the set that it came from, and does
+    ///     not copy it. Thus, each read maps its position through the runs of equal
+    ///     sort values, and an edit must keep that map correct. This test compares
+    ///     each answer against a new build in the same order. It does that after a
+    ///     reversal, after two adds, after two removals, and after a reversal back.
+    ///     One add goes into a run, and the other makes a run. One removal takes a
+    ///     key out of a run, and the other removes a full run.
+    /// </summary>
+    [Test]
+    public async Task AReversedSetAnswersEachPositionAsANewBuildDoes()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot =
+            Snapshot(
+                TestUtil.Item(number: 0, name: "zero", score: 20),
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 10),
+                TestUtil.Item(number: 4, name: "four", score: 20),
+                TestUtil.Item(number: 5, name: "five", score: 30),
+                TestUtil.Item(number: 6, name: "six", score: 10),
+                TestUtil.Item(number: 7, name: "seven", score: 30),
+                TestUtil.Item(number: 8, name: "eight", score: 20),
+                TestUtil.Item(number: 9, name: "nine", score: 25));
+
+        List<int> keys = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        KeyOrder<int, ItemIdentity, ItemState> ascending = ByScore(isDescending: false);
+        KeyOrder<int, ItemIdentity, ItemState> descending = ByScore(isDescending: true);
+
+        OrderedKeys<int, ItemIdentity, ItemState> set = ascending.CreateFrom(keys: keys, snapshot: snapshot);
+
+        set = Reverse(order: descending, keys: set);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+
+        // Key 0 goes into the run of 20, at its start. Key 9 then makes a run of its own, between
+        // the run of 30 and the run of 20.
+        keys.Add(0);
+        set = set.Add(key: 0, snapshot: snapshot);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+
+        keys.Add(9);
+        set = set.Add(key: 9, snapshot: snapshot);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+
+        // Out of the middle of the run of 20, and then the full run of 25.
+        keys.Remove(2);
+        set = set.Remove(2);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+
+        keys.Remove(9);
+        set = set.Remove(9);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+
+        // A key that the set does not hold.
+        await Assert.That(set.Contains(99)).IsFalse();
+        await Assert.That(set.IndexOfInternal(99)).IsEqualTo(-1);
+        await Assert.That(set.Remove(99)).IsSameReferenceAs(set);
+
+        // Back to the ascending direction, and then to the descending direction again.
+        set = Reverse(order: ascending, keys: set);
+        await AssertAnswersAsANewBuild(set: set, order: ascending, keys: keys, snapshot: snapshot);
+
+        set = Reverse(order: descending, keys: set);
+        await AssertAnswersAsANewBuild(set: set, order: descending, keys: keys, snapshot: snapshot);
+    }
+
+    private static OrderedKeys<int, ItemIdentity, ItemState> Reverse(
+        KeyOrder<int, ItemIdentity, ItemState> order,
+        OrderedKeys<int, ItemIdentity, ItemState> keys)
+    {
+        // This test must measure the reversal, and not a new build, which hides an incorrect
+        // reversal.
+        bool reversed =
+            order.TryReverse(keys: keys, reversedKeys: out OrderedKeys<int, ItemIdentity, ItemState>? result);
+
+        return reversed && result is not null
+            ? result
+            : throw new InvalidOperationException("The order did not reverse the keys.");
+    }
+
+    private static async Task AssertAnswersAsANewBuild(
+        OrderedKeys<int, ItemIdentity, ItemState> set,
+        KeyOrder<int, ItemIdentity, ItemState> order,
+        IEnumerable<int> keys,
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot)
+    {
+        List<int> expected = TestUtil.Keys(order.CreateFrom(keys: keys, snapshot: snapshot));
+
+        await Assert.That(TestUtil.Keys(set)).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+        await Assert.That(set.Count).IsEqualTo(expected.Count);
+        await Assert.That(ReferenceEquals(objA: set.Order, objB: order)).IsTrue();
+
+        for (int index = 0; index < expected.Count; index++)
+        {
+            await Assert.That(set[index]).IsEqualTo(expected[index]);
+            await Assert.That(set.IndexOfInternal(expected[index])).IsEqualTo(index);
+            await Assert.That(set.Contains(expected[index])).IsTrue();
+        }
+
+        await Assert.That(() => set[-1]).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(() => set[expected.Count]).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>
     ///     A key that the snapshot does not hold has no sort value, and each stage
     ///     adds only the keys in its snapshot. Thus, a call to add such a key is a
     ///     defect. This code throws an exception and does not omit the key with no
