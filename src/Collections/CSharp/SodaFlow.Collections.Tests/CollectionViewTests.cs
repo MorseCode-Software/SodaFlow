@@ -2514,6 +2514,58 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
+    // A negative count or offset is an error in the arithmetic of the caller. The constant
+    // overloads throw at the call, where the clamp hid it.
+    [Test]
+    public async Task ANegativeConstantCountOrOffsetThrows()
+    {
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>(),
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        await Assert.That(() => _ = collection.Take(-1)).ThrowsExactly<ArgumentOutOfRangeException>();
+
+        await Assert.That(() => _ = collection.Slice(offset: -1, limit: 1))
+            .ThrowsExactly<ArgumentOutOfRangeException>();
+
+        await Assert.That(() => _ = collection.Slice(offset: 0, limit: -1))
+            .ThrowsExactly<ArgumentOutOfRangeException>();
+
+        // Zero is a window with nothing in it, and not an error.
+        await Assert.That(KeysOf(collection.Take(0))).IsEmpty();
+        await Assert.That(KeysOf(collection.Slice(offset: 0, limit: 0))).IsEmpty();
+    }
+
+    // A cell can move to a negative value in a transaction, and a throw there fails that
+    // transaction. Thus, the cell overloads count a negative value as zero.
+    [Test]
+    public async Task ANegativeCountOrOffsetInACellCountsAsZero()
+    {
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>(),
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        CellSink<int> limit = Cell.CreateSink(1);
+        CellSink<int> offset = Cell.CreateSink(1);
+        ReactiveCollection<int, ItemIdentity, ItemState> window = collection.Take(limit);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> page =
+            collection.Slice(offsetCell: offset, limitCell: Cell.Constant(1));
+
+        await Assert.That(KeysOf(window)).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+
+        limit.Send(-1);
+        offset.Send(-1);
+
+        await Assert.That(KeysOf(window)).IsEmpty();
+        await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
     /// <summary>
     ///     A key with no order of its own, which the collection has to list
     ///     without comparing.

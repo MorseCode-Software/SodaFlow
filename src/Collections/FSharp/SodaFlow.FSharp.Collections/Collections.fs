@@ -878,12 +878,16 @@ let thenByIdentityWith
 ///     The first <c>limit</c> keys of the upstream — the top-n of whatever ordering and filtering
 ///     precedes it.
 /// </summary>
+/// <remarks>
+///     A negative <c>limit</c> throws <c>ArgumentOutOfRangeException</c>. <c>takeC</c> counts a
+///     negative value as zero, because a throw there fails the transaction that moved the cell.
+/// </remarks>
 /// <param name="limit">The number of keys to keep.</param>
 /// <param name="upstream">The collection or view to window.</param>
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let take (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.TakeImpl(upstream, CellInternal.ConstantImpl limit)
+    CollectionViewUtility.TakeImpl(upstream, limit)
 
 /// <summary>The first keys of the upstream, and that count can change.</summary>
 /// <param name="limitCell">The number of keys to keep.</param>
@@ -901,6 +905,9 @@ let takeC (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity
 ///     There is no <c>skip</c> for a pair with <c>take</c>, for this cause. A window with the two
 ///     ends has a limit, thus this stage stays <c>O(limit)</c> for each transaction. A skip alone
 ///     gives a view whose size follows the collection. A page also needs the two ends.
+///     A negative <c>offset</c> or <c>limit</c> throws <c>ArgumentOutOfRangeException</c>.
+///     <c>sliceC</c> counts a negative value as zero, because a throw there fails the
+///     transaction that moved the cell.
 /// </remarks>
 /// <param name="offset">The number of keys before the start of the window.</param>
 /// <param name="limit">The number of keys to keep.</param>
@@ -908,7 +915,7 @@ let takeC (limitCell: Cell<int>) (upstream: ReactiveCollection<'TKey, 'TIdentity
 /// <returns>A view of that window.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let slice (offset: int) (limit: int) (upstream: ReactiveCollection<'TKey, 'TIdentity, 'TState>) =
-    CollectionViewUtility.SliceImpl(upstream, CellInternal.ConstantImpl offset, CellInternal.ConstantImpl limit)
+    CollectionViewUtility.SliceImpl(upstream, offset, limit)
 
 /// <summary>
 ///     A page of the upstream where each end can change. Send a new offset to move to a different
