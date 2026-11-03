@@ -71,11 +71,15 @@ The clock constructor is also the shortest way to put a clock a test moves by ha
 
 Building a graph costs less. A stream kept two lists from its construction, one of the listeners attached to it and
 one in the cleanup registry, and a stream in a chain has exactly one of each; both now hold the first listener in a
-field and make the list only at the second. Measured in a new benchmark, GraphBuildBenchmarks, per thousand nodes
-built in one transaction, .NET 10: a chain of maps 1.61 ms and 909 KB before, 1.36 ms and 757 KB after; a map with a
-hold 2.28 ms and 1,443 KB before, 1.92 ms and 1,290 KB after; a sink alone 423 to 393 µs. .NET Framework 4.7.2: the
-chain 1.77 to 1.56 ms. The benchmark has an arm for each common shape, so a later change to construction can be
-measured against this one.
+field and make the list only at the second. A node did the same with the hash set of its listeners, which was a set
+object and two arrays for the one listener a node in a chain has; it now holds its first listener in a field and makes
+the set at the second link. The internal Listen that every single-input operator calls once passes its arguments to
+the transaction as a state instead of capturing them in a closure. Measured in a new benchmark, GraphBuildBenchmarks,
+per thousand nodes built in one transaction, in one session, .NET 10: a chain of maps 1.57 ms and 909 KB before, 1.06
+ms and 488 KB after; a map with a hold 2.23 ms and 1,442 KB to 1.90 ms and 1,200 KB; a lift of two cells 4.82 ms and
+3,089 KB to 3.90 ms and 2,935 KB; a constant cell 793 to 645 µs; a sink alone 442 to 388 µs. .NET Framework 4.7.2
+moves in proportion: the chain 1.52 to 1.25 ms over the node and the Listen change alone. The benchmark has an arm for
+each common shape, so a later change to construction can be measured against this one.
 
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
