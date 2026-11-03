@@ -37,6 +37,11 @@ namespace SodaFlow.Benchmarks;
 ///         arm toggles and then reads each key, which is what a bound list does at
 ///         a reset.
 ///     </para>
+///     <para>
+///         An order with more than one level reverses when each level changes
+///         direction. The sixth arm toggles each of two levels. Before an order kept
+///         its levels, that toggle rebuilt the stage at the cost of the third arm.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -76,11 +81,24 @@ public class SortReverseBenchmarks
             keyComparer: Comparer<int>.Default,
             isDescending: false);
 
+    /// <summary>
+    ///     The two-level orders. Each score is unique, thus the second level never
+    ///     decides. The arm measures the identification of the order and the read
+    ///     of the set, and not the second level.
+    /// </summary>
+    private static readonly KeyOrder<int, ItemIdentity, ItemState> ScoreThenNumberAscending =
+        ScoreAscending.ThenByIdentity(selector: ByNumber, sortComparer: Comparer<int>.Default, isDescending: false);
+
+    private static readonly KeyOrder<int, ItemIdentity, ItemState> ScoreThenNumberDescending =
+        ScoreDescending.ThenByIdentity(selector: ByNumber, sortComparer: Comparer<int>.Default, isDescending: true);
+
     private int directionCount;
 
     private int pagedDirectionCount;
 
     private int readDirectionCount;
+
+    private int twoLevelDirectionCount;
 
     private int setDirectionCount;
 
@@ -94,6 +112,8 @@ public class SortReverseBenchmarks
     private SortedViewShape resorted = SortedViewShape.Build(itemCount: 1, limit: 0, order: ScoreAscending);
 
     private SortedViewShape read = SortedViewShape.Build(itemCount: 1, limit: 0, order: ScoreAscending);
+
+    private SortedViewShape twoLevel = SortedViewShape.Build(itemCount: 1, limit: 0, order: ScoreThenNumberAscending);
 
     private ImmutableSortedSet<Entry> set = ImmutableSortedSet<Entry>.Empty;
 
@@ -112,6 +132,7 @@ public class SortReverseBenchmarks
         this.paged = SortedViewShape.Build(itemCount: this.ItemCount, limit: ViewSeed.Limit, order: ScoreAscending);
         this.resorted = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreAscending);
         this.read = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreAscending);
+        this.twoLevel = SortedViewShape.Build(itemCount: this.ItemCount, limit: 0, order: ScoreThenNumberAscending);
 
         this.set =
             Enumerable
@@ -119,23 +140,40 @@ public class SortReverseBenchmarks
                 .Select(static number => new Entry(key: number, score: number))
                 .ToImmutableSortedSet(new EntryComparer(isDescending: false));
 
-        if (this.sorted.FirstKey != 0)
+        CheckToggleReverses(shape: this.sorted, descending: ScoreDescending, ascending: ScoreAscending);
+
+        CheckToggleReverses(
+            shape: this.twoLevel,
+            descending: ScoreThenNumberDescending,
+            ascending: ScoreThenNumberAscending);
+    }
+
+    /// <summary>
+    ///     Toggles a shape to <paramref name="descending" /> and back, and throws an
+    ///     exception if the view does not start at the last key between the two.
+    /// </summary>
+    private static void CheckToggleReverses(
+        SortedViewShape shape,
+        KeyOrder<int, ItemIdentity, ItemState> descending,
+        KeyOrder<int, ItemIdentity, ItemState> ascending)
+    {
+        if (shape.FirstKey != 0)
         {
             throw new InvalidOperationException(
-                $"The ascending sort starts at key {this.sorted.FirstKey}, and the seed scores each item with "
+                $"The ascending sort starts at key {shape.FirstKey}, and the seed scores each item with "
                 + "its own number, so it should start at 0.");
         }
 
-        this.sorted.Order(ScoreDescending);
+        shape.Order(descending);
 
-        if (this.sorted.FirstKey != this.ItemCount - 1)
+        if (shape.FirstKey != shape.Count - 1)
         {
             throw new InvalidOperationException(
-                $"The descending sort starts at key {this.sorted.FirstKey} and not {this.ItemCount - 1}, so the "
+                $"The descending sort starts at key {shape.FirstKey} and not {shape.Count - 1}, so the "
                 + "toggle did not reverse the view.");
         }
 
-        this.sorted.Order(ScoreAscending);
+        shape.Order(ascending);
     }
 
     /// <summary>A change of direction on the same sort value, which reverses the set.</summary>
@@ -162,6 +200,12 @@ public class SortReverseBenchmarks
 
         return this.read.Sum();
     }
+
+    /// <summary>A change of direction at each of two levels, which also reverses the set.</summary>
+    [Benchmark(Description = "toggle the direction of two levels")]
+    public void ToggleTwoLevels() =>
+        this.twoLevel.Order(
+            ++this.twoLevelDirectionCount % 2 == 1 ? ScoreThenNumberDescending : ScoreThenNumberAscending);
 
     /// <summary>The copy that the stage made before the view, with no stage around it.</summary>
     [Benchmark(Description = "copy the set reversed, the former recipe")]
@@ -257,6 +301,8 @@ internal sealed class SortedViewShape
     }
 
     internal int FirstKey => this.view.KeysCell.Sample()[0];
+
+    internal int Count => this.view.KeysCell.Sample().Count;
 
     /// <summary>Reads each key one time, and answers with their sum, thus the runtime keeps the work.</summary>
     internal int Sum() => this.view.KeysCell.Sample().Sum();
