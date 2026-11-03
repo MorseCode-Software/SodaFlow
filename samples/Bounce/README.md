@@ -355,6 +355,5 @@ the one lever available — a scene with less of it, or none, shows the artifact
 
 Balls do not collide with each other in the scenes before the collision scene. Each is two
 independent axes, which is what keeps those graphs small enough to read. The collision scene gives
-that up deliberately, and
-is worth reading against the others for what it costs: one cell for the whole world instead of one
-per axis, and a step that has to consider every pair.
+that up deliberately, and is worth reading against the others for what it costs: one cell for the
+whole world instead of one per axis, and a step that has to consider every pair.
