@@ -229,12 +229,91 @@ public sealed class TimerTests
         await Assert.That(times).IsEquivalentTo(expected: [12, 5], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     The system clock timer system takes any clock. Time follows that clock, and
+    ///     a transaction that starts after the clock passes a timer fires it, on the
+    ///     thread of that transaction.
+    /// </summary>
+    [Test]
+    public async Task TheSystemClockTimerSystemTakesItsClock()
+    {
+        HandClock clock =
+            new()
+            {
+                Now = new DateTime(year: 2026, month: 3, day: 29, hour: 0, minute: 0, second: 0, kind: DateTimeKind.Utc)
+            };
+
+        DateTime start = clock.Now;
+
+        SystemClockTimerSystem timers =
+            this.Keep(
+                new SystemClockTimerSystem(
+                    now: () => clock.Now,
+                    handleException: static _ =>
+                    {
+                    }));
+
+        List<DateTime> alarms = [];
+
+        IStrongListener l =
+            timers.At(Cell.Constant(Maybe.Some(start.AddMinutes(5)))).ListenStrong(alarms.Add);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(timers.Time.Sample()).IsEqualTo(start);
+        await Assert.That(alarms).IsEmpty();
+
+        clock.Now = start.AddMinutes(5);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        l.Unlisten();
+
+        await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddMinutes(5));
+
+        await Assert.That(alarms)
+            .IsEquivalentTo(expected: [start.AddMinutes(5)], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     The UTC timer system measures time in UTC, and the default system clock
+    ///     timer system in local time. Each value of Time says which.
+    /// </summary>
+    [Test]
+    public async Task TheUtcClockTimerSystemCountsInUtcAndTheSystemClockOneInLocalTime()
+    {
+        using UtcClockTimerSystem utc = new(static _ =>
+        {
+        });
+
+        using SystemClockTimerSystem local = new(static _ =>
+        {
+        });
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(utc.Time.Sample().Kind).IsEqualTo(DateTimeKind.Utc);
+        await Assert.That(local.Time.Sample().Kind).IsEqualTo(DateTimeKind.Local);
+    }
+
     /// <summary>Gives the timer system of this test to the cleanup hook, and returns it.</summary>
     private T Keep<T>(T timers)
         where T : IDisposable
     {
         this.timerSystem = timers;
         return timers;
+    }
+
+    // A DateTime that a test moves by hand, for the clock constructor of SystemClockTimerSystem.
+    private sealed class HandClock
+    {
+        internal DateTime Now { get; set; }
     }
 
     // A clock on the base, with the thread of the base, for the tests of that thread.
