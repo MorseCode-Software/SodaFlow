@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 
@@ -32,6 +34,13 @@ public class LiftBenchmarks
     private readonly CellSink<int> e = Cell.CreateSink(0);
     private readonly CellSink<int> f = Cell.CreateSink(0);
     private readonly CellSink<int> sixA = Cell.CreateSink(0);
+    private readonly CellSink<int> listA = Cell.CreateSink(0);
+    private readonly CellSink<int> bothA = Cell.CreateSink(0);
+    private readonly CellSink<int> bothB = Cell.CreateSink(0);
+    private readonly CellSink<int> applyArgument = Cell.CreateSink(0);
+    private readonly CellSink<Func<int, int>> applyFunction = Cell.CreateSink<Func<int, int>>(static x => x);
+    private readonly StreamSink<int> mergeFunctionLeft = Stream.CreateSink<int>();
+    private readonly StreamSink<int> mergeFunctionRight = Stream.CreateSink<int>();
     private readonly StreamSink<int> snapshotSource = Stream.CreateSink<int>();
     private readonly CellSink<int> snapshotCell = Cell.CreateSink(0);
     private readonly StreamSink<int> mergeLeft = Stream.CreateSink<int>();
@@ -39,6 +48,10 @@ public class LiftBenchmarks
 
     private IStrongListener? twoListener;
     private IStrongListener? sixListener;
+    private IStrongListener? listListener;
+    private IStrongListener? bothListener;
+    private IStrongListener? applyListener;
+    private IStrongListener? mergeFunctionListener;
     private IStrongListener? snapshotListener;
     private IStrongListener? mergeListener;
 
@@ -68,6 +81,34 @@ public class LiftBenchmarks
                 {
                 });
 
+        this.listListener =
+            new List<Cell<int>> { this.listA, this.b, this.c, this.d, this.e, this.f }
+                .Lift()
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                });
+
+        this.bothListener =
+            this.bothA.Lift(c2: this.bothB, f: static (x, y) => x + y)
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                });
+
+        this.applyListener =
+            this.applyArgument.Apply(this.applyFunction)
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                });
+
+        this.mergeFunctionListener =
+            this.mergeFunctionLeft.Merge(s2: this.mergeFunctionRight, f: static (x, y) => x + y)
+                .ListenStrong(static _ =>
+                {
+                });
+
         this.snapshotListener =
             this.snapshotSource.SnapshotLatest(c: this.snapshotCell, f: static (x, y) => x + y)
                 .ListenStrong(static _ =>
@@ -87,6 +128,10 @@ public class LiftBenchmarks
     {
         this.twoListener?.Unlisten();
         this.sixListener?.Unlisten();
+        this.listListener?.Unlisten();
+        this.bothListener?.Unlisten();
+        this.applyListener?.Unlisten();
+        this.mergeFunctionListener?.Unlisten();
         this.snapshotListener?.Unlisten();
         this.mergeListener?.Unlisten();
     }
@@ -100,6 +145,26 @@ public class LiftBenchmarks
     public void LiftOfSix() => this.sixA.Send(++this.value);
 
     /// <summary>Sends a new value to the stream of the snapshot.</summary>
+    [Benchmark(Description = "send to both inputs of a lift of two in one transaction")]
+    public void LiftOfTwoBothInputs() =>
+        Transaction.RunVoid(() =>
+        {
+            this.bothA.Send(++this.value);
+            this.bothB.Send(this.value);
+        });
+
+    [Benchmark(Description = "send to one input of a lift of a list of six")]
+    public void LiftOfListOfSix() => this.listA.Send(++this.value);
+
+    [Benchmark(Description = "send to the argument of an apply")]
+    public void ApplyArgument() => this.applyArgument.Send(++this.value);
+
+    [Benchmark(Description = "send to the function of an apply")]
+    public void ApplyFunction() => this.applyFunction.Send(static x => x + 1);
+
+    [Benchmark(Description = "send to one stream of a merge of two with a function")]
+    public void MergeWithFunction() => this.mergeFunctionLeft.Send(++this.value);
+
     [Benchmark(Description = "send to the stream of a snapshot of the latest values")]
     public void SnapshotLatest() => this.snapshotSource.Send(++this.value);
 
