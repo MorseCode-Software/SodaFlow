@@ -31,6 +31,22 @@ their order. Measured on an edit through the first of 1, 2, 8, and 32 edit strea
 this way from SodaFlow.Core.Collections 3.0.0, .NET 10: 1.52, 1.71, 2.10, and 2.58 µs with the tree, and 1.51, 1.65,
 1.70, and 1.67 µs with the node.
 
+Lift of two to eight cells or behaviors, Lift of a list, Apply, SnapshotLatest, MergeMaybes, and Merge of two streams
+with a function each go through one node. Before, the inputs of each sent into a pulse stream, a coalesce on that
+stream made the one firing of the transaction, and a listener on the coalesce sent to the output, so an update
+crossed three nodes and three listener hops for one piece of work. Apply brought each input in through Value, which
+is itself a stream and a coalesce, and had a coalesce of its own on the output, six nodes in all. Now each input
+listens into the output node, and a gate queues one action there at the first update of the transaction; the action
+reads what each input captured and sends once. The lift of a list also stops allocating per update: it sent a
+closure for each input that updated and combined them into one delegate, and it now keeps a slot for each input.
+Nothing a caller can see changes: one firing per transaction, the captured value of each input that updated and the
+current value of each that did not, and a transaction that fails discards the queued action. Measured on a send to
+one input, .NET 10, time and bytes allocated: Lift of two 627 to 430 ns and 1,304 to 928 bytes, Lift of six 640 to
+445 ns, both inputs of a Lift of two in one transaction 922 to 694 ns, Lift of a list of six 697 to 475 ns and 1,496
+to 976 bytes, Apply 760 to 442 ns on the argument and 769 to 463 ns on the function, Merge of two with a function
+326 to 276 ns, SnapshotLatest 421 to 280 ns on the stream and 405 to 265 ns on the cell, and Merge of two types 457
+to 309 ns. On .NET Framework the figures are about twice those and move the same way.
+
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
 exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous

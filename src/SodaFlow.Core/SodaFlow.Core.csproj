@@ -53,6 +53,7 @@
         <Compile Include="Maybe.cs"/>
         <Compile Include="MutableListener.cs"/>
         <Compile Include="Node.cs"/>
+        <Compile Include="OnceGate.cs"/>
         <Compile Include="Operational.cs"/>
         <Compile Include="Stream.cs"/>
         <Compile Include="StreamExtensionMethods.cs"/>

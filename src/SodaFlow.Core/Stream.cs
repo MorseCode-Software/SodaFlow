@@ -12,27 +12,27 @@ internal static class StreamInternal
     internal static StreamSink<T> CreateSinkImpl<T>(Func<T, T, T> coalesce) => new(coalesce);
 
     /// <summary>
-    ///     Connects one input stream to a shared pulse stream. Each firing of the
-    ///     input gives its value to <paramref name="capture" /> and then sends into
-    ///     the pulse. Thus, the step that puts the inputs together reads the captured
-    ///     value, and not the value of a behavior.
+    ///     Connects one input stream to a shared gate. Each firing of the input
+    ///     gives its value to <paramref name="capture" /> and then calls the gate.
+    ///     Thus, the step that puts the inputs together reads the captured value,
+    ///     and not the value of a behavior.
     /// </summary>
     /// <remarks>
     ///     Behavior.LiftImpl, SnapshotLatestImpl, and MergeMaybesImpl use this. For a
     ///     behavior, give the stream of its updates.
     /// </remarks>
-    internal static IListener Pulse<TInput>(
+    internal static IListener Capture<TInput>(
         Stream<TInput> input,
-        Stream<UnitInternal> pulse,
+        OnceGate gate,
         TransactionInternal trans,
         Action<TransactionInternal, TInput> capture) =>
         input.Listen(
-            target: pulse.Node,
+            target: gate.Node,
             trans: trans,
             action: (trans2, v) =>
             {
                 capture(arg1: trans2, arg2: v);
-                pulse.Send(trans: trans2, a: UnitInternal.Value);
+                gate.Arrived(trans2);
             },
             suppressEarlierFirings: false);
 }
@@ -600,18 +600,15 @@ public class Stream<T>
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v))
                 ],
@@ -631,24 +628,21 @@ public class Stream<T>
         Func<T, T1, T2, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v))
                 ],
@@ -673,30 +667,27 @@ public class Stream<T>
         Func<T, T1, T2, T3, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v))
                 ],
@@ -729,8 +720,6 @@ public class Stream<T>
         Func<T, T1, T2, T3, T4, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -738,27 +727,26 @@ public class Stream<T>
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b4.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v))
                 ],
@@ -795,8 +783,6 @@ public class Stream<T>
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -805,32 +791,31 @@ public class Stream<T>
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b4.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b5.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v))
                 ],
@@ -872,8 +857,6 @@ public class Stream<T>
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -883,37 +866,36 @@ public class Stream<T>
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b4.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b5.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b6.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v))
                 ],
@@ -966,8 +948,6 @@ public class Stream<T>
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -978,42 +958,41 @@ public class Stream<T>
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b4.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b5.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b6.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b7.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p7.Set(trans: t, value: v))
                 ],
@@ -1071,8 +1050,6 @@ public class Stream<T>
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T1> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1084,47 +1061,46 @@ public class Stream<T>
 
             return this.SnapshotLatest(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b1.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b2.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b3.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b4.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b5.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b6.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b7.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p7.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: b8.Updates(),
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p8.Set(trans: t, value: v))
                 ],
@@ -1153,14 +1129,14 @@ public class Stream<T>
 
     // SnapshotImpl reads the behaviors when this stream fires. Thus, it gives the values from before
     // the transaction. The SnapshotLatestImpl methods wait for the updates of the behaviors, with the
-    // mechanism of Behavior.LiftImpl. Each behavior captures its update and sends into pulse.Node,
-    // and this stream keeps its firings and also sends into pulse.Node. The coalesce operation ranks
-    // above pulse.Node. Thus, it runs after each behavior sends its update in this transaction. A
-    // behavior commits its update only at the end of the transaction, thus the captured update is
-    // the only source of the new value.
+    // mechanism of Behavior.LiftImpl. Each behavior captures its update and calls the gate, and this
+    // stream keeps its firings and also calls the gate. The gate queues its action at the
+    // output node, which ranks above each input. Thus, the action runs after each behavior sends its
+    // update in this transaction. A behavior commits its update only at the end of the transaction,
+    // thus the captured update is the only source of the new value.
     //
     // SnapshotImpl gives one output firing for each input firing, thus this method keeps all of them.
-    // The behaviors also send into the pulse. Thus, a transaction that updates only the behaviors
+    // The behaviors also call the gate. Thus, a transaction that updates only the behaviors
     // clears the captured values, and the closure does not keep a reference to them.
     //
     // This cannot close a loop, as SnapshotImpl can. If the output updates a behavior in the same
@@ -1168,9 +1144,7 @@ public class Stream<T>
     // can be higher than the output and the behavior.
     private Stream<TResult> SnapshotLatest<TValues, TResult>(
         TransactionInternal trans,
-        Stream<UnitInternal> pulse,
-        // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
-        IListener[] captures,
+        Func<OnceGate, IListener[]> captures,
         Func<TransactionInternal, TValues> take,
         Func<T, TValues, TResult> f)
     {
@@ -1183,9 +1157,50 @@ public class Stream<T>
         List<T> pending = [];
         long pendingOwner = 0;
 
-        IListener l1 =
+        OnceGate gate =
+            new(
+                node: @out.Node,
+                action: trans2 =>
+                {
+                    TValues values = take(trans2);
+
+                    if (pendingOwner != trans2.Id)
+                    {
+                        pending.Clear();
+                        return;
+                    }
+
+                    // The state is clear before f runs. Thus, after an exception from f, the
+                    // next transaction does not send a firing of this transaction.
+                    switch (pending.Count)
+                    {
+                        case 0:
+                            return;
+                        case 1:
+                        {
+                            T a = pending[0];
+                            pending.Clear();
+                            @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
+                            return;
+                        }
+                        default:
+                        {
+                            T[] firings = [.. pending];
+                            pending.Clear();
+
+                            foreach (T a in firings)
+                            {
+                                @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
+                            }
+
+                            return;
+                        }
+                    }
+                });
+
+        IListener l =
             this.Listen(
-                target: pulse.Node,
+                target: gate.Node,
                 trans: trans,
                 action: (trans2, a) =>
                 {
@@ -1196,58 +1211,14 @@ public class Stream<T>
                     }
 
                     pending.Add(a);
-                    pulse.Send(trans: trans2, a: UnitInternal.Value);
+                    gate.Arrived(trans2);
                 },
                 suppressEarlierFirings: false);
 
-        IListener l2 =
-            pulse.Coalesce(trans1: trans, f: static (x, _) => x)
-                .Listen(
-                    target: @out.Node,
-                    trans: trans,
-                    action: (trans2, _) =>
-                    {
-                        TValues values = take(trans2);
-
-                        if (pendingOwner != trans2.Id)
-                        {
-                            pending.Clear();
-                            return;
-                        }
-
-                        // The state is clear before f runs. Thus, after an exception from f, the
-                        // next transaction does not send a firing of this transaction.
-                        switch (pending.Count)
-                        {
-                            case 0:
-                                return;
-                            case 1:
-                            {
-                                T a = pending[0];
-                                pending.Clear();
-                                @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
-                                return;
-                            }
-                            default:
-                            {
-                                T[] firings = [.. pending];
-                                pending.Clear();
-
-                                foreach (T a in firings)
-                                {
-                                    @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
-                                }
-
-                                return;
-                            }
-                        }
-                    },
-                    suppressEarlierFirings: false);
-
-        Stream<TResult> result = @out.UnsafeAttachListener(l1).UnsafeAttachListener(l2);
+        Stream<TResult> result = @out.UnsafeAttachListener(l);
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures)
+        foreach (IListener capture in captures(gate))
         {
             result = result.UnsafeAttachListener(capture);
         }
@@ -1283,32 +1254,31 @@ public class Stream<T>
     internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
         TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
 
+    // The node of the list merge, with two inputs. Before, this was the merge without a function,
+    // which fires one time for each input, and a coalesce operation after it: two nodes.
     internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
-        this.Merge(trans: trans, s: s).Coalesce(trans1: trans, f: f);
+        StreamExtensionMethodsInternal.MergeMany(trans: trans, inputs: [this, s], f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, TResult>(
         Stream<T2> s2,
         Func<MaybeInternal<T>, MaybeInternal<T2>, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v))
                 ],
@@ -1327,30 +1297,27 @@ public class Stream<T>
         Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v))
                 ],
@@ -1371,8 +1338,6 @@ public class Stream<T>
         Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, MaybeInternal<T4>, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1380,27 +1345,26 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s4,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v))
                 ],
@@ -1429,8 +1393,6 @@ public class Stream<T>
             TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1439,32 +1401,31 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s4,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s5,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v))
                 ],
@@ -1501,8 +1462,6 @@ public class Stream<T>
             TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1512,37 +1471,36 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s4,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s5,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s6,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v))
                 ],
@@ -1583,8 +1541,6 @@ public class Stream<T>
             TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1595,42 +1551,41 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s4,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s5,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s6,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s7,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p7.Set(trans: t, value: v))
                 ],
@@ -1675,8 +1630,6 @@ public class Stream<T>
             TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
         {
-            Stream<UnitInternal> pulse = new(this.KeepListenersAlive);
-
             CaptureSlot<T> p1 = default;
             CaptureSlot<T2> p2 = default;
             CaptureSlot<T3> p3 = default;
@@ -1688,47 +1641,46 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
-                pulse: pulse,
-                captures:
+                captures: gate =>
                 [
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: this,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p1.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s2,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p2.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s3,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p3.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s4,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p4.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s5,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p5.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s6,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p6.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s7,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p7.Set(trans: t, value: v)),
-                    StreamInternal.Pulse(
+                    StreamInternal.Capture(
                         input: s8,
-                        pulse: pulse,
+                        gate: gate,
                         trans: trans,
                         capture: (t, v) => p8.Set(trans: t, value: v))
                 ],
@@ -1756,36 +1708,26 @@ public class Stream<T>
         });
 
     // The MergeMaybesImpl methods use the mechanism of Behavior.LiftImpl. Their inputs are streams, and not
-    // the updates of behaviors. Each input captures its firing and sends into pulse.Node. The coalesce
-    // operation ranks above pulse.Node. Thus, it runs after all the inputs that fire in this transaction, and
-    // it makes one output firing from their captured values. An input that does not fire gives an empty
-    // value. An input that fires more than one time in a transaction gives the value of its last firing, as a
-    // lifted input does.
+    // the updates of behaviors. Each input captures its firing and calls the gate. The gate queues its
+    // action at the output node, which ranks above each input. Thus, the action runs after all the inputs
+    // that fire in this transaction, and it makes one output firing from their captured values. An input
+    // that does not fire gives an empty value. An input that fires more than one time in a transaction
+    // gives the value of its last firing, as a lifted input does.
     //
     // This is less expensive than a merge of mapped streams. Each merge of two streams makes a
-    // stream, a coalesce operation, and a node link, and each input must have its own map. Also, the
-    // inputs have no left and no right, thus no input has priority over the other inputs.
+    // stream, a gate, and a node link, and each input must have its own map. Also, the inputs have
+    // no left and no right, thus no input has priority over the other inputs.
     private Stream<TResult> MergeMaybes<TResult>(
         TransactionInternal trans,
-        Stream<UnitInternal> pulse,
-        // ReSharper disable once ParameterTypeCanBeEnumerable.Local - Typed as array for performance reasons
-        IListener[] captures,
+        Func<OnceGate, IListener[]> captures,
         Func<TransactionInternal, TResult> combine)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
-
-        IListener l =
-            pulse.Coalesce(trans1: trans, f: static (x, _) => x)
-                .Listen(
-                    target: @out.Node,
-                    trans: trans,
-                    action: (trans2, _) => @out.Send(trans: trans2, a: combine(trans2)),
-                    suppressEarlierFirings: false);
-
-        Stream<TResult> result = @out.UnsafeAttachListener(l);
+        OnceGate gate = new(node: @out.Node, action: trans2 => @out.Send(trans: trans2, a: combine(trans2)));
+        Stream<TResult> result = @out;
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures)
+        foreach (IListener capture in captures(gate))
         {
             result = result.UnsafeAttachListener(capture);
         }
@@ -1800,17 +1742,6 @@ public class Stream<T>
         IListener l = this.Listen(target: @out.Node, trans: trans1, action: h, suppressEarlierFirings: false);
         return @out.UnsafeAttachListener(l);
     }
-
-    /// <summary>
-    ///     Removes all firings from the output except the last one.
-    /// </summary>
-    /// <param name="trans">The transaction that supplies the last firing.</param>
-    /// <returns>
-    ///     A stream that contains only the last firing from the given
-    ///     transaction.
-    /// </returns>
-    internal Stream<T> LastFiringOnly(TransactionInternal trans) =>
-        this.Coalesce(trans1: trans, f: static (_, second) => second);
 
     internal Stream<T> FilterImpl(Func<T, bool> predicate)
     {

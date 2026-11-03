@@ -94,31 +94,56 @@ internal static class BehaviorExtensionMethodsInternal
         where T2 : Behavior<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
-            Stream<Action<T[]>> @out =
-                new(new FanOutKeepListenersAlive(b.Select(static behavior => behavior.KeepListenersAlive)));
+            T2[] inputs = [.. b];
+
+            Stream<TResult> @out =
+                new(new FanOutKeepListenersAlive(inputs.Select(static behavior => behavior.KeepListenersAlive)));
 
             LazySample<TResult> initialValue =
-                new(_ => f([.. b.Select(static behavior => behavior.SampleNoTransaction())]));
+                new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
 
-            IReadOnlyList<IListener> listeners =
-            [
-                .. b.Select((behavior, i) =>
-                    behavior.Updates()
+            // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before,
+            // each update sent a closure that wrote its index, a coalesce operation added the
+            // closures into one delegate, and a map ran it. A transaction that updated k inputs
+            // allocated about 2k delegates.
+            CaptureSlot<T>[] slots = new CaptureSlot<T>[inputs.Length];
+
+            OnceGate gate =
+                new(
+                    node: @out.Node,
+                    action: trans2 =>
+                    {
+                        T[] values = new T[inputs.Length];
+
+                        for (int i = 0; i < inputs.Length; i++)
+                        {
+                            values[i] = Behavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
+                        }
+
+                        @out.Send(trans: trans2, a: f(values));
+                    });
+
+            IListener[] listeners = new IListener[inputs.Length];
+
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                int index = i;
+
+                listeners[index] =
+                    inputs[index]
+                        .Updates()
                         .Listen(
-                            target: @out.Node,
+                            target: gate.Node,
                             trans: trans1,
-                            action: (trans2, v) => @out.Send(trans: trans2, a: vv => vv[i] = v),
-                            suppressEarlierFirings: false))
-            ];
+                            action: (trans2, v) =>
+                            {
+                                slots[index].Set(trans: trans2, value: v);
+                                gate.Arrived(trans2);
+                            },
+                            suppressEarlierFirings: false);
+            }
 
-            return @out.Coalesce(trans1: trans1, f: static (x, y) => x + y)
-                .MapImpl(a =>
-                {
-                    T[] values = [.. b.Select(static behavior => behavior.SampleNoTransaction())];
-                    a(values);
-                    return f(values);
-                })
-                .UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
+            return @out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
                 .HoldLazyInternal(trans: trans1, initialValue: initialValue);
         });
 
