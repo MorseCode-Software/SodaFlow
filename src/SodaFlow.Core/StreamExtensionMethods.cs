@@ -18,9 +18,9 @@ internal static class StreamExtensionMethodsInternal
 
     /// <summary>
     ///     Merges the inputs through one node. Each input keeps its value of the
-    ///     transaction in a slot at its own index. One action at the output node,
-    ///     queued at the first arrival, folds the slots from the first index and
-    ///     sends one time.
+    ///     transaction in a slot at its own index. An <see cref="OnceGate" /> queues
+    ///     one action at the output node at the first arrival. The action folds the
+    ///     slots from the first index and sends one time.
     /// </summary>
     /// <remarks>
     ///     Before, this was a balanced tree of pairwise merges, with a coalesce
@@ -36,7 +36,7 @@ internal static class StreamExtensionMethodsInternal
     ///     into <see cref="MaybeInternal{T}" />, thus a null value and an empty
     ///     slot stay apart.
     /// </remarks>
-    private static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
+    internal static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
     {
         switch (inputs.Count)
         {
@@ -48,45 +48,12 @@ internal static class StreamExtensionMethodsInternal
 
         Stream<T> @out = new(inputs[0].KeepListenersAlive);
         MaybeInternal<T>[] slots = new MaybeInternal<T>[inputs.Count];
-        bool queued = false;
 
-        // Each of these captures the same state, thus each is one delegate for the life of the
-        // merge and not one for each transaction.
-        Action discard =
-            () =>
-            {
-                Array.Clear(array: slots, index: 0, length: slots.Length);
-                queued = false;
-            };
-
-        Action<TransactionInternal> combine =
-            trans3 =>
-            {
-                MaybeInternal<T> folded = MaybeInternal<T>.None;
-
-                // ReSharper disable once ForCanBeConvertedToForeach - An index, thus the slot can be cleared in place.
-                for (int index = 0; index < slots.Length; index++)
-                {
-                    if (!slots[index].TryGetValue(out T held))
-                    {
-                        continue;
-                    }
-
-                    slots[index] = MaybeInternal<T>.None;
-
-                    folded =
-                        folded.TryGetValue(out T left)
-                            ? MaybeInternal.Some(f(arg1: left, arg2: held))
-                            : MaybeInternal.Some(held);
-                }
-
-                queued = false;
-
-                if (folded.TryGetValue(out T value))
-                {
-                    @out.Send(trans: trans3, a: value);
-                }
-            };
+        OnceGate gate =
+            new(
+                node: @out.Node,
+                action: Combine,
+                discard: () => Array.Clear(array: slots, index: 0, length: slots.Length));
 
         Stream<T> result = @out;
 
@@ -97,7 +64,7 @@ internal static class StreamExtensionMethodsInternal
             IListener l =
                 inputs[index]
                     .Listen(
-                        target: @out.Node,
+                        target: gate.Node,
                         trans: trans,
                         action: (trans2, a) =>
                         {
@@ -106,13 +73,7 @@ internal static class StreamExtensionMethodsInternal
                                     ? MaybeInternal.Some(f(arg1: earlier, arg2: a))
                                     : MaybeInternal.Some(a);
 
-                            if (queued)
-                            {
-                                return;
-                            }
-
-                            queued = true;
-                            trans2.Prioritized(node: @out.Node, action: combine, discard: discard);
+                            gate.Arrived(trans2);
                         },
                         suppressEarlierFirings: false);
 
@@ -120,6 +81,32 @@ internal static class StreamExtensionMethodsInternal
         }
 
         return result;
+
+        void Combine(TransactionInternal trans3)
+        {
+            MaybeInternal<T> folded = MaybeInternal<T>.None;
+
+            // ReSharper disable once ForCanBeConvertedToForeach - An index, thus the slot can be cleared in place.
+            for (int index = 0; index < slots.Length; index++)
+            {
+                if (!slots[index].TryGetValue(out T held))
+                {
+                    continue;
+                }
+
+                slots[index] = MaybeInternal<T>.None;
+
+                folded =
+                    folded.TryGetValue(out T left)
+                        ? MaybeInternal.Some(f(arg1: left, arg2: held))
+                        : MaybeInternal.Some(held);
+            }
+
+            if (folded.TryGetValue(out T value))
+            {
+                @out.Send(trans: trans3, a: value);
+            }
+        }
     }
 
     internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)

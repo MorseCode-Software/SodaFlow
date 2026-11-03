@@ -53,7 +53,7 @@ internal struct CaptureSlot<T>
     ///     inputs with this. It puts them together at the update of each one, and the
     ///     second read in one transaction must see the first value.
     /// </summary>
-    internal MaybeInternal<T> Peek(TransactionInternal trans) =>
+    private MaybeInternal<T> Peek(TransactionInternal trans) =>
         // ReSharper disable once NullableWarningSuppressionIsUsed - Set put a value here when owner is the id of a
         // transaction.
         this.owner == trans.Id ? MaybeInternal.Some(this.value!) : MaybeInternal<T>.None;

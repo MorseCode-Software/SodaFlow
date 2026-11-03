@@ -168,10 +168,10 @@ public sealed class FailedTransactionTests
     }
 
     // The throw is in a map of the updates of a, made after the lift. The node of the map and the
-    // pulse node of the lift have the same rank. The queue runs the entries of one rank in the
+    // output node of the lift have the same rank. The queue runs the entries of one rank in the
     // sequence of their links. Thus, the lift captures the value of a, and then the map throws,
     // before the lift puts its inputs together. A lift that kept the captured value gives 120 and
-    // not 21 at the next update of b.
+    // not 21 at the next update of b. A lift whose gate stayed closed gives nothing.
     [Test]
     public async Task ALiftUsesTheCommittedValuesAfterAFailureBetweenItsCaptureAndItsOutput()
     {
@@ -190,6 +190,31 @@ public sealed class FailedTransactionTests
 
         await Assert.That(sum.Sample()).IsEqualTo(21);
         await Assert.That(@out).IsEquivalentTo(expected: [21], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same for the lift of a list, which keeps a slot for each input in an array.
+    [Test]
+    public async Task AListLiftUsesTheCommittedValuesAfterAFailureBetweenItsCaptureAndItsOutput()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        CellSink<int> b = Cell.CreateSink(10);
+        CellSink<int> c = Cell.CreateSink(100);
+        Cell<IReadOnlyList<int>> values = new List<Cell<int>> { a, b, c }.Lift();
+
+        Fail(
+            s: a.Updates().Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+            send: () => a.Send(1000));
+
+        List<IReadOnlyList<int>> @out = [];
+        IListener l = values.Updates().ListenStrong(@out.Add);
+        b.Send(20);
+        l.Unlisten();
+
+        await Assert.That(values.Sample())
+            .IsEquivalentTo(expected: [1, 20, 100], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(@out).Count().IsEqualTo(1);
+        await Assert.That(@out[0]).IsEquivalentTo(expected: [1, 20, 100], ordering: CollectionOrdering.Matching);
     }
 
     // The throw comes after the output of the apply. The apply has seen the new function, and the
