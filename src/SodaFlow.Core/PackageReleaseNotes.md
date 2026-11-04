@@ -119,6 +119,17 @@ and ListenStrong on one cell 3.41 ms and 2,224 KB to 3.27 ms and 2,010 KB. In Li
 outer cell of a switch costs 3.03 µs and 3,260 B to 1.16 µs and 1,858 B on .NET 10 and 4.41 µs and 3,329 B to 1.92 µs
 and 1,890 B on .NET Framework.
 
+A link is two objects and a stream is three. The target that a node holds for each link is also the weak view of the
+listener that made the link: it holds its source node and removes itself from it, where before a third object held the
+node and the target for that. The node of a stream holds the registry entry of the stream, the weak handle and the views
+of the attached listeners, where before an object of its own held them and the registry held that; the registry now
+holds the nodes. A node registers when the first listener is attached to its stream, because the registry exists to stop
+the attached listeners of a dead stream, and a stream with none has nothing to stop: a sink takes no weak handle and no
+registry slot at all. Measured in the scratch harness on .NET 10, a map in a chain is 465 to 417 bytes, and a full
+garbage collection with 100,000 live map nodes takes 32.7 ms to 26.6 ms, because each map is two objects fewer. In
+GraphBuildBenchmarks, per thousand, .NET 10: a chain of maps 1.04 ms and 481 KB to 0.95 ms and 435 KB, ListenStrong on
+one stream 371 µs and 579 KB to 347 µs and 555 KB, and a sink 395 µs and 437 KB to 52 µs and 367 KB.
+
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
 957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never
