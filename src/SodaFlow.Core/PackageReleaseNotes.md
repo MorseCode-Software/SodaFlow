@@ -98,7 +98,7 @@ sample actions, which the transaction holds as objects where it held delegates, 
 Calm, which also allocated a delegate in every transaction that fired, now allocates nothing for the protocol. A lazy
 sample of a behavior reads the behavior itself in the sample phase, and a sample of a behavior through a function, which
 Map, Calm, and the switches take as their initial value, is one object where it was two samples with a closure each.
-Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, Apply, and both switches, is one stream: its updates
+Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, and both switches, is one stream: its updates
 arrive at a bare node that links into the output, and the right-wins coalesce runs on the output node, where before a
 second stream with its own listener did that one node later. Measured in GraphBuildBenchmarks, per thousand, .NET 10: a
 map of one cell 2.22 ms and 2,078 KB to 1.78 ms and 1,340 KB, an accum 2.30 ms and 2,191 KB to 1.94 ms and 1,585 KB,
@@ -106,6 +106,18 @@ ListenStrong on one cell 4.84 ms and 2,880 KB to 3.41 ms and 2,224 KB, a switch 
 to 27.9 ms and 7,491 KB, a lift of two cells 3.68 ms and 2,750 KB to 3.21 ms and 2,441 KB, and a filter view of a
 collection of ten 75.5 ms and 17,160 KB to 66.0 ms and 15,483 KB. A send that switches the outer cell of a switch costs
 3.79 µs and 4,345 B to 3.03 µs and 3,260 B, and a send into a lift of two is unchanged at 437 ns and 928 B.
+
+A switch builds for half of what it did and switches for less than two thirds. The value of a behavior is a listener
+object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen,
+Cell.ListenStrong, and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
+and SwitchC are that object on the outer behavior, and each behavior they select gets one whose consumer sends into the
+output, where before the switch built a Value and a listener on it for the outer behavior and again for every selection,
+with a closure and two delegates for the commit. SwitchC selects the behavior of each cell through a function on the
+switch, where before it mapped the outer cell to a cell of behaviors that only the switch read. Measured in
+GraphBuildBenchmarks, per thousand, .NET 10: a switch of a constant cell 27.9 ms and 7,491 KB to 11.9 ms and 3,756 KB,
+and ListenStrong on one cell 3.41 ms and 2,224 KB to 3.27 ms and 2,010 KB. In LiftBenchmarks, a send that switches the
+outer cell of a switch costs 3.03 µs and 3,260 B to 1.16 µs and 1,858 B on .NET 10 and 4.41 µs and 3,329 B to 1.92 µs
+and 1,890 B on .NET Framework.
 
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
