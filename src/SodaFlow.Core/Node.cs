@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace SodaFlow;
 
@@ -228,7 +229,7 @@ internal abstract class Node
     }
 }
 
-internal sealed class Node<T> : Node
+internal class Node<T> : Node
 {
     public static readonly Node<T> Null = new(NullRank);
 
@@ -373,9 +374,9 @@ internal sealed class Node<T> : Node
         this.GetListenersSnapshotUnsafe().AsBaseTargets();
 
     // A target is also the weak view of the listener that made its link. It holds the source
-    // node, thus it can remove itself from that node, and it holds the action through a weak
-    // reference only, thus it keeps neither the listener nor the stream alive. Before, a
-    // separate object held the source node and the target for that, one for each link.
+    // node, thus it can remove itself from that node. It holds the action through a weak
+    // reference only, thus it does not keep the listener or the stream alive. Before, an
+    // object of its own held the source node and the target for that, one for each link.
     public new sealed class Target(
         in Action<TransactionInternal, T> action,
         in Node<T> source,
@@ -388,5 +389,68 @@ internal sealed class Node<T> : Node
         private readonly Node<T> source = source;
 
         public void Unlisten() => this.source.RemoveListener(this);
+    }
+}
+
+// The node of a stream. It holds the registry entry of that stream: a weak handle to the
+// stream and the weak views of the listeners attached to the stream. The registry holds the
+// node, and the sweep reads the handle from it. A node outlives its stream, because the
+// targets of the nodes above it hold it. Thus, it can hold the entry. Before, an object of its
+// own held the handle and the views, one for each stream. A node that no stream owns, such as
+// the node of a gate, is a plain Node<T> and does not pay for the entry. The handle is weak,
+// thus the registry does not keep a stream alive. Release frees it.
+internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
+{
+    private GCHandle streamHandle;
+
+    // The first attached listener sits in a field, because a stream in a chain has exactly one.
+    // The list is for the second and later.
+    private IListenerWithWeakReference? firstAttached;
+    private List<IListenerWithWeakReference>? moreAttached;
+
+    public bool IsStreamAlive => this.streamHandle is { IsAllocated: true, Target: not null };
+
+    // A stream calls this last in its constructor. Thus, the registry cannot find an incomplete
+    // stream through the handle.
+    internal void Track(object stream)
+    {
+        this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
+        StreamListenerManager.Register(this);
+    }
+
+    internal void Attach(IListenerWithWeakReference listener)
+    {
+        if (this.firstAttached == null)
+        {
+            this.firstAttached = listener;
+        }
+        else
+        {
+            this.moreAttached ??= [];
+            this.moreAttached.Add(listener);
+        }
+    }
+
+    // The sweep calls this after the garbage collector removed the stream. It stops the attached
+    // listeners, which disconnects this node from the nodes above it.
+    public void Release()
+    {
+        this.firstAttached?.Unlisten();
+        this.firstAttached = null;
+
+        if (this.moreAttached != null)
+        {
+            foreach (IListenerWithWeakReference l in this.moreAttached)
+            {
+                l.Unlisten();
+            }
+
+            this.moreAttached = null;
+        }
+
+        if (this.streamHandle.IsAllocated)
+        {
+            this.streamHandle.Free();
+        }
     }
 }

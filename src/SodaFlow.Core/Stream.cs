@@ -38,9 +38,7 @@ internal static class StreamInternal
 public class Stream<T> : ILastAction
 {
     internal readonly IKeepListenersAlive KeepListenersAlive;
-    internal readonly Node<T> Node;
-
-    private readonly StreamListenerManager.StreamListeners trackedListeners;
+    internal readonly StreamNode<T> Node;
 
     // SodaFlow allocates the fields below on first use. It creates streams in large
     // numbers. One two-cell Lift builds approximately twenty streams. A stream that is only a
@@ -69,12 +67,11 @@ public class Stream<T> : ILastAction
     internal Stream(IKeepListenersAlive keepListenersAlive)
     {
         this.KeepListenersAlive = keepListenersAlive;
-        this.Node = new Node<T>();
+        this.Node = new StreamNode<T>();
 
-        // This is last, so the registry cannot find an incomplete object. The registry holds
-        // this stream with a weak reference only. Thus, this registration does not keep the
-        // stream alive.
-        this.trackedListeners = new StreamListenerManager.StreamListeners(this);
+        // This is last, so the registry cannot find an incomplete object. The node holds this
+        // stream with a weak handle only. Thus, the registration does not keep the stream alive.
+        this.Node.Track(this);
     }
 
     // SodaFlow creates this at the first read, as it does the other fields. It uses CompareExchange
@@ -1929,7 +1926,7 @@ public class Stream<T> : ILastAction
             this.attachedListeners.Add(cleanup);
         }
 
-        this.trackedListeners.AddListener(cleanup.GetListenerWithWeakReference());
+        this.Node.Attach(cleanup.GetListenerWithWeakReference());
         return this;
     }
 

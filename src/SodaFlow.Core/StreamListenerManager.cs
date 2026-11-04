@@ -10,11 +10,11 @@ namespace SodaFlow;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each stream registers a <see cref="StreamListeners" /> that holds a
-///         weak handle to that stream. A background thread sweeps the registry. If
-///         the garbage collector removed the stream of an entry, the sweep stops
-///         the attached listeners. This disconnects the node of that stream from
-///         the nodes above it.
+///         Each stream registers its node, which holds a weak handle to that
+///         stream and the weak views of the listeners attached to it. A
+///         background thread sweeps the registry. If the garbage collector removed
+///         the stream of a node, the sweep stops those listeners. This disconnects
+///         the node from the nodes above it.
 ///     </para>
 ///     <para>
 ///         The garbage collector sets the rate of the sweep, and a timer does not.
@@ -55,7 +55,7 @@ internal static class StreamListenerManager
     private const int TimedSweepIntervalInMilliseconds = 300000;
 
     private static readonly object RegistryLock = new();
-    private static readonly List<StreamListeners> Registry = [];
+    private static readonly List<IEntry> Registry = [];
     private static readonly AutoResetEvent SweepRequested = new(false);
 
     static StreamListenerManager()
@@ -85,6 +85,14 @@ internal static class StreamListenerManager
         }
     }
 
+    internal static void Register(IEntry entry)
+    {
+        lock (RegistryLock)
+        {
+            Registry.Add(entry);
+        }
+    }
+
     private static void SodaFlowCleanup()
     {
         while (true)
@@ -103,7 +111,7 @@ internal static class StreamListenerManager
     /// </summary>
     internal static void Sweep()
     {
-        List<StreamListeners>? collected = null;
+        List<IEntry>? collected = null;
 
         lock (RegistryLock)
         {
@@ -112,7 +120,7 @@ internal static class StreamListenerManager
             // one time.
             for (int i = Registry.Count - 1; i >= 0; i--)
             {
-                StreamListeners entry = Registry[i];
+                IEntry entry = Registry[i];
 
                 if (entry.IsStreamAlive)
                 {
@@ -145,7 +153,7 @@ internal static class StreamListenerManager
         // registry lock can cause a lock sequence problem.
         if (collected != null)
         {
-            foreach (StreamListeners entry in collected)
+            foreach (IEntry entry in collected)
             {
                 entry.Release();
             }
@@ -186,61 +194,11 @@ internal static class StreamListenerManager
         }
     }
 
-    internal sealed class StreamListeners
+    // The node of a stream implements this. See StreamNode<T>.
+    internal interface IEntry
     {
-        // The first listener sits in a field, because a stream in a chain has exactly one. The
-        // list is for the second and later.
-        private IListenerWithWeakReference? first;
-        private List<IListenerWithWeakReference>? more;
+        bool IsStreamAlive { get; }
 
-        // This handle is weak, thus the registry does not keep a stream alive. Release frees
-        // it.
-        private GCHandle streamHandle;
-
-        public StreamListeners(object stream)
-        {
-            this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
-
-            lock (RegistryLock)
-            {
-                Registry.Add(this);
-            }
-        }
-
-        internal bool IsStreamAlive => this.streamHandle is { IsAllocated: true, Target: not null };
-
-        internal void AddListener(IListenerWithWeakReference listener)
-        {
-            if (this.first == null)
-            {
-                this.first = listener;
-            }
-            else
-            {
-                this.more ??= [];
-                this.more.Add(listener);
-            }
-        }
-
-        internal void Release()
-        {
-            this.first?.Unlisten();
-            this.first = null;
-
-            if (this.more != null)
-            {
-                foreach (IListenerWithWeakReference l in this.more)
-                {
-                    l.Unlisten();
-                }
-
-                this.more = null;
-            }
-
-            if (this.streamHandle.IsAllocated)
-            {
-                this.streamHandle.Free();
-            }
-        }
+        void Release();
     }
 }
