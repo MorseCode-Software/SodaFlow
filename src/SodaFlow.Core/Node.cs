@@ -269,7 +269,7 @@ internal sealed class Node<T> : Node
     /// </returns>
     internal Target Link(TransactionInternal trans, Action<TransactionInternal, T> action, Node target)
     {
-        Target t = new(action: action, node: target, isActivated: trans.ActivatedTargets);
+        Target t = new(action: action, source: this, node: target, isActivated: trans.ActivatedTargets);
 
         if (!trans.ActivatedTargets)
         {
@@ -305,8 +305,6 @@ internal sealed class Node<T> : Node
 
         return t;
     }
-
-    internal void Unlink(Target target) => this.RemoveListener(target);
 
     internal TargetSnapshot<Target> GetListenersCopy()
     {
@@ -374,9 +372,21 @@ internal sealed class Node<T> : Node
     protected override TargetSnapshot<Node.Target> GetListenerTargetsUnsafe() =>
         this.GetListenersSnapshotUnsafe().AsBaseTargets();
 
-    public new sealed class Target(Action<TransactionInternal, T> action, Node node, bool isActivated)
-        : Node.Target(node: node, isActivated: isActivated)
+    // A target is also the weak view of the listener that made its link. It holds the source
+    // node, thus it can remove itself from that node, and it holds the action through a weak
+    // reference only, thus it keeps neither the listener nor the stream alive. Before, a
+    // separate object held the source node and the target for that, one for each link.
+    public new sealed class Target(
+        in Action<TransactionInternal, T> action,
+        in Node<T> source,
+        in Node node,
+        in bool isActivated)
+        : Node.Target(node: node, isActivated: isActivated), IListenerWithWeakReference
     {
         public readonly WeakReference<Action<TransactionInternal, T>> Action = new(action);
+
+        private readonly Node<T> source = source;
+
+        public void Unlisten() => this.source.RemoveListener(this);
     }
 }
