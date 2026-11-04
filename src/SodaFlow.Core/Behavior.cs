@@ -22,17 +22,9 @@ internal static class BehaviorInternal
 /// </summary>
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
-public class Behavior<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
+public class Behavior<T> : ILastAction
 {
-    // These capture only this behavior, thus SodaFlow builds them one time and not on each
-    // firing. Only the constructor that takes a stream needs them, because a constant behavior
-    // does not update.
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
-    private readonly Action? applyValueUpdate;
-
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
-    private readonly Action? discardValueUpdate;
-
     // A constant behavior has no stream until a caller asks for its updates. Most constants
     // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
     // does. The field is volatile for the same cause: a reader must not see the reference
@@ -56,9 +48,6 @@ public class Behavior<T>
         // SodaFlow gives this a value before Listen, because Listen can send the firings that
         // this transaction made in this transaction. Thus, the handler below can run before the constructor
         // returns.
-        this.applyValueUpdate = this.ApplyValueUpdate;
-        this.discardValueUpdate = this.DiscardValueUpdate;
-
         this.streamListener =
             TransactionInternal.Apply((trans1, _) =>
                 this.stream.Listen(
@@ -71,7 +60,7 @@ public class Behavior<T>
                         // necessary closures were a large part of the cost of one Send.
                         if (!this.valueUpdate.HasValue())
                         {
-                            trans2.Last(commit: this.applyValueUpdate, discard: this.discardValueUpdate);
+                            trans2.Last(this);
                         }
 
                         this.valueUpdate = MaybeInternal.Some(a);
@@ -125,6 +114,16 @@ public class Behavior<T>
     // A transaction that fails does not apply its update. The update must also go, because the
     // handler queues the apply action only when it has no update.
     private void DiscardValueUpdate() => this.valueUpdate = MaybeInternal<T>.None;
+
+    // The behavior is its own last action, thus a hold allocates no delegate for the commit of
+    // its update. A derived behavior with a lazy initial value adds its own work to each.
+    void ILastAction.Commit() => this.CommitLast();
+
+    void ILastAction.Discard() => this.DiscardLast();
+
+    private protected virtual void CommitLast() => this.ApplyValueUpdate();
+
+    private protected virtual void DiscardLast() => this.DiscardValueUpdate();
 
     /// <summary>
     ///     Makes this behavior use its initial value again. A transaction that set

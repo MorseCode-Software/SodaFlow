@@ -59,7 +59,7 @@ internal static class LazySampleInternal
 /// <typeparam name="T">The type of the value.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class LazySample<T> : IDiscardable
+public sealed class LazySample<T> : ILastAction
 {
     private const string SelfReference =
         "This lazy sample forces itself. The loop that it samples is not closed, or the initial value of a cell reads "
@@ -142,12 +142,18 @@ public sealed class LazySample<T> : IDiscardable
         this.value = captured;
         this.resolved = true;
 
-        trans.Discard(this);
+        trans.Last(this);
+    }
+
+    /// <inheritdoc />
+    // The value stays. A commit changes nothing, and the entry exists for the discard.
+    void ILastAction.Commit()
+    {
     }
 
     /// <inheritdoc />
     // The transaction that gave the value failed, thus the next Force reads the committed state.
-    void IDiscardable.Discard()
+    void ILastAction.Discard()
     {
         // ReSharper disable once NullableWarningSuppressionIsUsed - Read only while resolved is true, which the next line clears.
         this.value = default!;
