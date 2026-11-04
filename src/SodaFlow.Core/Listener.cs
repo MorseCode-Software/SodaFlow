@@ -73,21 +73,11 @@ internal interface IRootableListener : IWeakListener
     void Root();
 }
 
-internal interface IKeepListenersAlive
-{
-    void KeepListenerAlive(IListener listener);
-    void StopKeepingListenerAlive(IListener listener);
-    void Use(IKeepListenersAlive childKeepListenersAlive);
-}
-
 internal static class ListenerInternal
 {
     internal static readonly IListener EmptyImpl = EmptyListener.Instance;
     internal static readonly IWeakListener EmptyWeakImpl = EmptyListener.Instance;
     internal static readonly IStrongListener EmptyStrongImpl = EmptyListener.Instance;
-
-    internal static IListener CreateFromNodeAndTarget<T>(Node<T> node, Node<T>.Target target) =>
-        new ActionListener(() => node.Unlink(target));
 
     internal static IListener CreateFromAction(Action unlisten) => new ActionListener(unlisten);
 

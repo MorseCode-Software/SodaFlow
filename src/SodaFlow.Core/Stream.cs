@@ -1233,29 +1233,6 @@ public class Stream<T>
 
     internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: static (left, _) => left);
 
-    private Stream<T> Merge(TransactionInternal trans, Stream<T> s)
-    {
-        Stream<T> @out = new(this.KeepListenersAlive);
-        Node<T> left = new();
-        Node<T> right = @out.Node;
-
-        Node<T>.Target nodeTarget =
-            left.Link(
-                trans: trans,
-                action: static (_, _) =>
-                {
-                },
-                target: right);
-
-        Action<TransactionInternal, T> h = @out.Send;
-        IListener l1 = this.Listen(target: left, action: h);
-        IListener l2 = s.Listen(target: right, action: h);
-
-        return @out.UnsafeAttachListener(l1)
-            .UnsafeAttachListener(l2)
-            .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(node: left, target: nodeTarget));
-    }
-
     internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
         TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
 
@@ -1274,6 +1251,9 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    first: this.KeepListenersAlive,
+                    second: s2.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1308,6 +1288,10 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1350,6 +1334,11 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive,
+                    s4.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1406,6 +1395,12 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive,
+                    s4.KeepListenersAlive,
+                    s5.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1476,6 +1471,13 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive,
+                    s4.KeepListenersAlive,
+                    s5.KeepListenersAlive,
+                    s6.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1556,6 +1558,14 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive,
+                    s4.KeepListenersAlive,
+                    s5.KeepListenersAlive,
+                    s6.KeepListenersAlive,
+                    s7.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1646,6 +1656,15 @@ public class Stream<T>
 
             return this.MergeMaybes(
                 trans: trans,
+                keepListenersAlive: KeepListenersAliveInternal.Combine(
+                    this.KeepListenersAlive,
+                    s2.KeepListenersAlive,
+                    s3.KeepListenersAlive,
+                    s4.KeepListenersAlive,
+                    s5.KeepListenersAlive,
+                    s6.KeepListenersAlive,
+                    s7.KeepListenersAlive,
+                    s8.KeepListenersAlive),
                 captures: gate =>
                 [
                     StreamInternal.Capture(
@@ -1724,10 +1743,11 @@ public class Stream<T>
     // no left and no right, thus no input has priority over the other inputs.
     private Stream<TResult> MergeMaybes<TResult>(
         TransactionInternal trans,
+        IKeepListenersAlive keepListenersAlive,
         Func<OnceGate, IListener[]> captures,
         Func<TransactionInternal, TResult> combine)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive);
         OnceGate gate = new(node: @out.Node, action: trans2 => @out.Send(trans: trans2, a: combine(trans2)));
         Stream<TResult> result = @out;
 
@@ -2169,30 +2189,5 @@ public class Stream<T>
         private readonly Node<T>.Target target = target;
 
         public void Unlisten() => this.node.Unlink(this.target);
-    }
-
-    private sealed class KeepListenersAliveImplementation : IKeepListenersAlive
-    {
-        // ReSharper disable once CollectionNeverQueried.Local
-        private List<IKeepListenersAlive>? childKeepListenersAliveList;
-
-        // SodaFlow makes one of these for each root stream, and many streams get no
-        // listener. Thus, the two collections wait until the code needs them.
-        // ReSharper disable once CollectionNeverQueried.Local
-        private HashSet<IListener>? listeners;
-
-        public void KeepListenerAlive(IListener listener)
-        {
-            this.listeners ??= [];
-            this.listeners.Add(listener);
-        }
-
-        public void StopKeepingListenerAlive(IListener listener) => this.listeners?.Remove(listener);
-
-        public void Use(IKeepListenersAlive childKeepListenersAlive)
-        {
-            this.childKeepListenersAliveList ??= [];
-            this.childKeepListenersAliveList.Add(childKeepListenersAlive);
-        }
     }
 }

@@ -73,6 +73,13 @@ the subscription overstays rather than dying quietly.
 That is deliberate, and pinned by `ListenerIsKeptAliveWhileStillListening` in the memory
 tests — a listener that silently stopped firing would be the worse failure of the two.
 
+A stream with more than one input — a lift, a merge, `Apply`, `MergeMaybes`, or a switch — is
+rooted by every one of its roots, so the listener lives while any of them does. Lift a cell you
+own with one you were handed, and the listener keeps firing after the handed cell's owner drops
+it, for as long as yours lives. A switch is rooted by the outer cell and by whichever inner
+stream or cell it currently selects, so `Cell.Constant(s).SwitchS().ListenStrong(h)` keeps
+firing for as long as `s` lives. The memory tests pin this for a lift, a merge, and a switch.
+
 Keep the listener whenever you need to be able to stop it:
 
 ```csharp
@@ -180,8 +187,9 @@ all use them; nothing in the test suite uses them the way an application would.
 For ordinary subscriptions you do not need either. Both listen methods already tie the
 listener's lifetime to the stream's, from opposite ends. `Listen` gives you a handle that holds
 the stream, so the subscription lives exactly as long as you keep the handle. `ListenStrong`
-additionally roots the listener in the stream's keep-alive set, and the listener holds the stream
-in turn, so the two form a cycle that the collector reclaims together once you drop your handle.
+additionally roots the listener in the keep-alive set of each root the stream has, and the
+listener holds the stream in turn, so the two form a cycle that the collector reclaims together
+once you drop your handle.
 Neither permanently roots a stream by itself.
 
 The third piece of that machinery, `AttachListener`, used to be public too and is not any more.

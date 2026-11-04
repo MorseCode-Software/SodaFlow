@@ -46,6 +46,7 @@
         <Compile Include="DependencyCycleException.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>
         <Compile Include="InputCapture.cs"/>
+        <Compile Include="KeepListenersAlive.cs"/>
         <Compile Include="LazyBehavior.cs"/>
         <Compile Include="LazySample.cs"/>
         <Compile Include="LiftOutput.cs"/>

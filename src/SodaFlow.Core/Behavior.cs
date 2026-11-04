@@ -241,7 +241,9 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        first: this.KeepListenersAlive,
+                        second: b2.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -268,7 +270,10 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -302,7 +307,11 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive,
+                        b4.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -341,7 +350,12 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive,
+                        b4.KeepListenersAlive,
+                        b5.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -385,7 +399,13 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive,
+                        b4.KeepListenersAlive,
+                        b5.KeepListenersAlive,
+                        b6.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -434,7 +454,14 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive,
+                        b4.KeepListenersAlive,
+                        b5.KeepListenersAlive,
+                        b6.KeepListenersAlive,
+                        b7.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),
@@ -488,7 +515,15 @@ public class Behavior<T>
 
             LiftOutput<TResult> output =
                 new(
-                    keepListenersAlive: this.Updates().KeepListenersAlive,
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(
+                        this.KeepListenersAlive,
+                        b2.KeepListenersAlive,
+                        b3.KeepListenersAlive,
+                        b4.KeepListenersAlive,
+                        b5.KeepListenersAlive,
+                        b6.KeepListenersAlive,
+                        b7.KeepListenersAlive,
+                        b8.KeepListenersAlive),
                     recombine: trans2 =>
                         f(
                             arg1: p1.Take(input: this, trans: trans2),

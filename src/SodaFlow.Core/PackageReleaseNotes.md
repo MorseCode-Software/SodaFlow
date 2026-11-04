@@ -47,6 +47,17 @@ to 976 bytes, Apply 760 to 442 ns on the argument and 769 to 463 ns on the funct
 326 to 276 ns, SnapshotLatest 421 to 280 ns on the stream and 405 to 265 ns on the cell, and Merge of two types 457
 to 309 ns. On .NET Framework the figures are about twice those and move the same way.
 
+Fixed: a strong listener on a stream with more than one input is rooted by every root of that stream, so it lives while
+any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the keep-alive set
+of their first input only. A listener on a lift whose first cell the application dropped, while it kept sending into the
+second, was collected and stopped without a message, and a switch over a constant cell,
+Cell.Constant(s).SwitchS().ListenStrong(h), was an unrooted cycle from the start. A switch now moves its listeners to
+the root of the inner it selects on each switch, so the listener lives while the outer cell or the selected inner lives,
+and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
+root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
+lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
+memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept.
+
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
 exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous
