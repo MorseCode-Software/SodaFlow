@@ -8,11 +8,22 @@ internal static class BehaviorExtensionMethodsInternal
 {
     internal static Behavior<T> SwitchBImpl<T, T2>(this Behavior<T2> bba)
         where T2 : Behavior<T> =>
-        TransactionInternal.Apply((trans, _) => BehaviorSwitch<T, T2>.Create(trans: trans, outer: bba));
+        TransactionInternal.Apply((trans, _) =>
+            BehaviorSwitch<T, T2>.Create(
+                trans: trans,
+                outer: bba,
+                select: static ba => ba,
+                sampleInitial: static ba => ba.SampleImpl()));
 
     internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca)
         where T2 : Cell<T> =>
-        new(bca.MapImpl(static c => c.BehaviorImpl).SwitchBImpl<T, Behavior<T>>());
+        new(
+            TransactionInternal.Apply((trans, _) =>
+                BehaviorSwitch<T, T2>.Create(
+                    trans: trans,
+                    outer: bca,
+                    select: static c => c.BehaviorImpl,
+                    sampleInitial: static c => c.SampleImpl())));
 
     internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa)
         where T2 : Stream<T> =>

@@ -1,4 +1,6 @@
-﻿namespace SodaFlow;
+﻿using System;
+
+namespace SodaFlow;
 
 // SwitchB and SwitchC. The switch listens to the value of the outer behavior, and each value it
 // gets selects a behavior. A selection listens to the value of that behavior into the output,
@@ -7,26 +9,37 @@
 // switch built a Value and a listener on it for the outer behavior. Each selection built the
 // same for the behavior it selected. The Value, the listener on it, and the closures of the
 // handler and of the last action were most of the cost of a switch.
+//
+// SwitchC selects the behavior of each cell through the select function. Before, it mapped the
+// outer cell to a cell of behaviors and switched on that, which built a cell that only the
+// switch read. The switch holds its own output, thus the projection does not hold.
 internal sealed class BehaviorSwitch<T, T2>(
     in TransactionInternal trans,
     in Stream<T> @out,
     in Behavior<T2> outer,
+    in Func<T2, Behavior<T>> select,
     in SwitchKeepListenersAlive keepListenersAlive)
     : ValueListener<T2>(trans: trans, source: outer, target: @out.Node)
-    where T2 : Behavior<T>
 {
     private readonly MutableListener current = new();
     private readonly SwitchKeepListenersAlive keepListenersAlive = keepListenersAlive;
     private readonly Stream<T> @out = @out;
+    private readonly Func<T2, Behavior<T>> select = select;
 
-    internal static Behavior<T> Create(TransactionInternal trans, Behavior<T2> outer)
+    // The initial value of the output is the value of the initial selection. The sample reads
+    // it through sampleInitial, which samples the selected behavior and does not build one.
+    internal static Behavior<T> Create(
+        TransactionInternal trans,
+        Behavior<T2> outer,
+        Func<T2, Behavior<T>> select,
+        Func<T2, T> sampleInitial)
     {
-        LazySample<T> initialValue = outer.SampleLazyMapped(trans: trans, f: static ba => ba.SampleImpl());
+        LazySample<T> initialValue = outer.SampleLazyMapped(trans: trans, f: sampleInitial);
         SwitchKeepListenersAlive keepListenersAlive = new(outer.KeepListenersAlive);
         Stream<T> @out = new(keepListenersAlive);
 
         BehaviorSwitch<T, T2> @switch =
-            new(trans: trans, @out: @out, outer: outer, keepListenersAlive: keepListenersAlive);
+            new(trans: trans, @out: @out, outer: outer, select: select, keepListenersAlive: keepListenersAlive);
 
         return @out.UnsafeAttachListener(@switch)
             .UnsafeAttachListener(@switch.current)
@@ -34,7 +47,7 @@ internal sealed class BehaviorSwitch<T, T2>(
     }
 
     protected override void Consume(TransactionInternal trans, T2 value) =>
-        trans.Last(new Selection(trans: trans, @switch: this, source: value));
+        trans.Last(new Selection(trans: trans, @switch: this, source: this.select(value)));
 
     // The new behavior gets its listener now, thus its value goes to the output in this
     // transaction. The previous listener stays until the commit. A transaction that fails
