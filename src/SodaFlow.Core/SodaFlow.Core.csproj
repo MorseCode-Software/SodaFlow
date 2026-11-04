@@ -38,6 +38,7 @@
         <Compile Include="CarriedState.cs"/>
         <Compile Include="BehaviorExtensionMethods.cs"/>
         <Compile Include="BehaviorSink.cs"/>
+        <Compile Include="BehaviorSwitch.cs"/>
         <Compile Include="Cell.cs"/>
         <Compile Include="CellExtensionMethods.cs"/>
         <Compile Include="CellSink.cs"/>
@@ -67,6 +68,7 @@
         <Compile Include="Transaction.cs"/>
         <Compile Include="TransactionOutcome.cs"/>
         <Compile Include="Unit.cs"/>
+        <Compile Include="ValueListener.cs"/>
     </ItemGroup>
 
     <ItemGroup>
