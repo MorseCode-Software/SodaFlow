@@ -45,6 +45,9 @@ public class LiftBenchmarks
     private readonly CellSink<int> snapshotCell = Cell.CreateSink(0);
     private readonly StreamSink<int> mergeLeft = Stream.CreateSink<int>();
     private readonly StreamSink<string> mergeRight = Stream.CreateSink<string>();
+    private readonly CellSink<int> switchFirst = Cell.CreateSink(0);
+    private readonly CellSink<int> switchSecond = Cell.CreateSink(0);
+    private readonly CellSink<Cell<int>> switchOuter;
 
     private IStrongListener? twoListener;
     private IStrongListener? sixListener;
@@ -54,10 +57,13 @@ public class LiftBenchmarks
     private IStrongListener? mergeFunctionListener;
     private IStrongListener? snapshotListener;
     private IStrongListener? mergeListener;
+    private IStrongListener? switchListener;
 
     private int value;
 
-    /// <summary>Builds the four operations, each with one listener.</summary>
+    public LiftBenchmarks() => this.switchOuter = Cell.CreateSink<Cell<int>>(this.switchFirst);
+
+    /// <summary>Builds the operations, each with one listener.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -120,6 +126,13 @@ public class LiftBenchmarks
                 .ListenStrong(static _ =>
                 {
                 });
+
+        this.switchListener =
+            this.switchOuter.SwitchC()
+                .Updates()
+                .ListenStrong(static _ =>
+                {
+                });
     }
 
     /// <summary>Removes the listeners.</summary>
@@ -134,6 +147,7 @@ public class LiftBenchmarks
         this.mergeFunctionListener?.Unlisten();
         this.snapshotListener?.Unlisten();
         this.mergeListener?.Unlisten();
+        this.switchListener?.Unlisten();
     }
 
     /// <summary>Sends a new value to one input of the lift of two cells.</summary>
@@ -175,4 +189,9 @@ public class LiftBenchmarks
     /// <summary>Sends a new value to the left stream of the merge of two types.</summary>
     [Benchmark(Description = "send to one stream of a merge of two types")]
     public void MergeOfTwoTypes() => this.mergeLeft.Send(++this.value);
+
+    /// <summary>Sends the other inner cell to the outer cell of the switch. Thus, each send switches.</summary>
+    [Benchmark(Description = "send the other cell to the outer cell of a switch")]
+    public void SwitchOuter() =>
+        this.switchOuter.Send((++this.value & 1) == 0 ? this.switchFirst : this.switchSecond);
 }
