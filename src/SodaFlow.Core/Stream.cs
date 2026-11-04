@@ -1233,29 +1233,6 @@ public class Stream<T>
 
     internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: static (left, _) => left);
 
-    private Stream<T> Merge(TransactionInternal trans, Stream<T> s)
-    {
-        Stream<T> @out = new(this.KeepListenersAlive);
-        Node<T> left = new();
-        Node<T> right = @out.Node;
-
-        Node<T>.Target nodeTarget =
-            left.Link(
-                trans: trans,
-                action: static (_, _) =>
-                {
-                },
-                target: right);
-
-        Action<TransactionInternal, T> h = @out.Send;
-        IListener l1 = this.Listen(target: left, action: h);
-        IListener l2 = s.Listen(target: right, action: h);
-
-        return @out.UnsafeAttachListener(l1)
-            .UnsafeAttachListener(l2)
-            .UnsafeAttachListener(ListenerInternal.CreateFromNodeAndTarget(node: left, target: nodeTarget));
-    }
-
     internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
         TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
 
