@@ -92,6 +92,21 @@ ms and 488 KB after; a map with a hold 2.23 ms and 1,442 KB to 1.90 ms and 1,200
 moves in proportion: the chain 1.52 to 1.25 ms over the node and the Listen change alone. The benchmark has an arm for
 each common shape, so a later change to construction can be measured against this one.
 
+A hold, a lazy hold, and the state under Accum, Collect, and Calm no longer allocate delegates for the actions a
+transaction runs at its end. A behavior, a stream, a lazy sample, and that state are their own commit, discard, and
+sample actions, which the transaction holds as objects where it held delegates, and the state under Accum, Collect, and
+Calm, which also allocated a delegate in every transaction that fired, now allocates nothing for the protocol. A lazy
+sample of a behavior reads the behavior itself in the sample phase, and a sample of a behavior through a function, which
+Map, Calm, and the switches take as their initial value, is one object where it was two samples with a closure each.
+Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, Apply, and both switches, is one stream: its updates
+arrive at a bare node that links into the output, and the right-wins coalesce runs on the output node, where before a
+second stream with its own listener did that one node later. Measured in GraphBuildBenchmarks, per thousand, .NET 10: a
+map of one cell 2.22 ms and 2,078 KB to 1.78 ms and 1,340 KB, an accum 2.30 ms and 2,191 KB to 1.94 ms and 1,585 KB,
+ListenStrong on one cell 4.84 ms and 2,880 KB to 3.41 ms and 2,224 KB, a switch of a constant cell 36.2 ms and 10,019 KB
+to 27.9 ms and 7,491 KB, a lift of two cells 3.68 ms and 2,750 KB to 3.21 ms and 2,441 KB, and a filter view of a
+collection of ten 75.5 ms and 17,160 KB to 66.0 ms and 15,483 KB. A send that switches the outer cell of a switch costs
+3.79 µs and 4,345 B to 3.03 µs and 3,260 B, and a send into a lift of two is unchanged at 437 ns and 928 B.
+
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
 957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never
