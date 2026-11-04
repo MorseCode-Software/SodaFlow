@@ -10,11 +10,13 @@ namespace SodaFlow;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each stream registers its node, which holds a weak handle to that
-///         stream and the weak views of the listeners attached to it. A
-///         background thread sweeps the registry. If the garbage collector removed
-///         the stream of a node, the sweep stops those listeners. This disconnects
-///         the node from the nodes above it.
+///         A stream registers its node when a caller attaches the first listener
+///         to it. The node holds a weak handle to that stream and the weak views
+///         of the attached listeners. A background thread sweeps the registry. If the
+///         garbage collector removed the stream of a node, the sweep stops those
+///         listeners. This disconnects the node from the nodes above it. A stream
+///         with no attached listener has nothing to stop, thus it does not
+///         register.
 ///     </para>
 ///     <para>
 ///         The garbage collector sets the rate of the sweep, and a timer does not.

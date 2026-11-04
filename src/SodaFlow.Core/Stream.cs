@@ -68,10 +68,6 @@ public class Stream<T> : ILastAction
     {
         this.KeepListenersAlive = keepListenersAlive;
         this.Node = new StreamNode<T>();
-
-        // This is last, so the registry cannot find an incomplete object. The node holds this
-        // stream with a weak handle only. Thus, the registration does not keep the stream alive.
-        this.Node.Track(this);
     }
 
     // SodaFlow creates this at the first read, as it does the other fields. It uses CompareExchange
@@ -1926,7 +1922,7 @@ public class Stream<T> : ILastAction
             this.attachedListeners.Add(cleanup);
         }
 
-        this.Node.Attach(cleanup.GetListenerWithWeakReference());
+        this.Node.Attach(stream: this, listener: cleanup.GetListenerWithWeakReference());
         return this;
     }
 
