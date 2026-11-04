@@ -21,14 +21,13 @@ internal abstract class ValueListener<T> : IListener
 {
     private readonly Node<T> arrivals = new();
     private readonly IListener listener;
-    private readonly Behavior<T> source;
     private readonly Node target;
     private T? accum;
     private bool accumValid;
 
     protected ValueListener(TransactionInternal trans, Behavior<T> source, Node target)
     {
-        this.source = source;
+        this.Source = source;
         this.target = target;
 
         // The link gives the node of the consumer its rank. The send does not use it.
@@ -45,6 +44,8 @@ internal abstract class ValueListener<T> : IListener
             source.Updates()
                 .Listen(target: this.arrivals, trans: trans, action: this.Arrive, suppressEarlierFirings: false);
     }
+
+    protected Behavior<T> Source { get; }
 
     public void Unlisten() => this.listener.Unlisten();
 
@@ -83,7 +84,7 @@ internal abstract class ValueListener<T> : IListener
         private readonly ValueListener<T> listener = listener;
 
         public override void Execute(TransactionInternal trans) =>
-            this.listener.Arrive(trans: trans, value: this.listener.source.SampleNoTransaction());
+            this.listener.Arrive(trans: trans, value: this.listener.Source.SampleNoTransaction());
     }
 
     private sealed class SendEntry(in ValueListener<T> listener) : TransactionInternal.Entry(listener.target)

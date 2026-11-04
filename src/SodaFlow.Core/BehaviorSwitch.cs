@@ -1,0 +1,69 @@
+﻿namespace SodaFlow;
+
+// SwitchB and SwitchC. The switch listens to the value of the outer behavior, and each value it
+// gets selects a behavior. A selection listens to the value of that behavior into the output,
+// and the output follows it until the next selection. The switch is a ValueListener on the
+// outer behavior, and a selection is a ValueListener on the selected behavior. Before, the
+// switch built a Value and a listener on it for the outer behavior. Each selection built the
+// same for the behavior it selected. The Value, the listener on it, and the closures of the
+// handler and of the last action were most of the cost of a switch.
+internal sealed class BehaviorSwitch<T, T2>(
+    in TransactionInternal trans,
+    in Stream<T> @out,
+    in Behavior<T2> outer,
+    in SwitchKeepListenersAlive keepListenersAlive)
+    : ValueListener<T2>(trans: trans, source: outer, target: @out.Node)
+    where T2 : Behavior<T>
+{
+    private readonly MutableListener current = new();
+    private readonly SwitchKeepListenersAlive keepListenersAlive = keepListenersAlive;
+    private readonly Stream<T> @out = @out;
+
+    internal static Behavior<T> Create(TransactionInternal trans, Behavior<T2> outer)
+    {
+        LazySample<T> initialValue = outer.SampleLazyMapped(trans: trans, f: static ba => ba.SampleImpl());
+        SwitchKeepListenersAlive keepListenersAlive = new(outer.KeepListenersAlive);
+        Stream<T> @out = new(keepListenersAlive);
+
+        BehaviorSwitch<T, T2> @switch =
+            new(trans: trans, @out: @out, outer: outer, keepListenersAlive: keepListenersAlive);
+
+        return @out.UnsafeAttachListener(@switch)
+            .UnsafeAttachListener(@switch.current)
+            .HoldLazyInternal(trans: trans, initialValue: initialValue);
+    }
+
+    protected override void Consume(TransactionInternal trans, T2 value) =>
+        trans.Last(new Selection(trans: trans, @switch: this, source: value));
+
+    // The new behavior gets its listener now, thus its value goes to the output in this
+    // transaction. The previous listener stays until the commit. A transaction that fails
+    // discards the update of the outer behavior. Thus, it must discard the switch too: the
+    // discard removes the new listener and keeps the previous one.
+    //
+    // The previous listener cannot send a stale value after this point. Its arrivals link into
+    // the output node, thus they have a lower rank. The drain ran them before this selection,
+    // which the switch makes on the output node. A dependency of an inner behavior on the
+    // output is a cycle, which Link refuses. FailedTransactionTests holds the two cases.
+    private sealed class Selection(
+        in TransactionInternal trans,
+        in BehaviorSwitch<T, T2> @switch,
+        in Behavior<T> source)
+        : ValueListener<T>(trans: trans, source: source, target: @switch.@out.Node), ILastAction
+    {
+        private readonly BehaviorSwitch<T, T2> @switch = @switch;
+
+        // The set stops the previous listener, which the mutable listener holds. The keep-alive
+        // set moves its listeners to the root of the new behavior at the same time.
+        void ILastAction.Commit()
+        {
+            this.@switch.current.SetListenerImpl(this);
+            this.@switch.keepListenersAlive.SetInner(this.Source.KeepListenersAlive);
+        }
+
+        void ILastAction.Discard() => this.Unlisten();
+
+        protected override void Consume(TransactionInternal trans, T value) =>
+            this.@switch.@out.Send(trans: trans, a: value);
+    }
+}
