@@ -67,6 +67,7 @@
         <Compile Include="Transaction.cs"/>
         <Compile Include="TransactionOutcome.cs"/>
         <Compile Include="Unit.cs"/>
+        <Compile Include="ValueListener.cs"/>
     </ItemGroup>
 
     <ItemGroup>

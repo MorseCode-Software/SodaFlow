@@ -187,59 +187,16 @@ public class Behavior<T> : ISampleSource<T>, ILastAction
     ///     this transaction, and then each update.
     /// </summary>
     /// <remarks>
-    ///     The two sources send into one output stream. They do not use a spark
-    ///     stream, a snapshot of it, and a merge, which is four streams where two are
-    ///     sufficient. Value is below Cell.ListenStrong, Apply, and the switch
-    ///     operations, thus it was a large part of the cost of each of them.
-    ///     SodaFlow queues the initial send against a new node of its own, as the
-    ///     spark stream that it replaces did, and for the same cause. A new node ranks
-    ///     below all other nodes, thus SodaFlow supplies the value also when a caller
-    ///     calls Value during a drain. SwitchB does this, because its handler builds a
-    ///     Value for the newly selected behavior in the middle of a transaction. An
-    ///     initial send on the output node makes the switch supply a previous value.
-    ///     The node costs nothing, but the two intermediate streams were expensive.
-    ///     The updates arrive at a bare node that links into the output node. The
-    ///     two sources write through one handler in which the right value wins, and
-    ///     the handler queues one send on the output node. That node ranks above
-    ///     the node of the updates. Thus, the send runs after the last update of
-    ///     the transaction, and each listener of the output runs after the send.
-    ///     The initial send at rank zero comes before both. A send queued on the
-    ///     node of the updates ran before an update that a sink queued at rank
-    ///     zero. The output then fired two times. Before, a coalesce stream after
-    ///     the output gave the same ranks. It cost a stream and a listener more
-    ///     than the bare node and link here.
+    ///     This is a <see cref="ValueListener{T}" /> whose consumer is the output
+    ///     stream. That class holds the ranks and the cause of each. The coalesce
+    ///     handler and the action at rank zero were closures here before. The
+    ///     handler allocated a delegate for the send in each transaction that
+    ///     fired.
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
         Stream<T> @out = new(this.Updates().KeepListenersAlive);
-        Action<TransactionInternal, T> h = CoalesceHandler.Create(f: static (_, right) => right, @out: @out);
-        Node<T> updates = new();
-
-        updates.Link(
-            trans: trans1,
-            action: static (_, _) =>
-            {
-            },
-            target: @out.Node);
-
-        // This always runs first, because its Rank is 0.
-        trans1.Prioritized(
-            node: new Node<UnitInternal>(),
-            action: trans2 => h(arg1: trans2, arg2: this.SampleNoTransaction()));
-
-        // This listener queues an action that always runs after the previous action. The Rank
-        // of this.Updates() can be 0, but the Rank of its listener is more than 0.
-        IListener l =
-            this.Updates()
-                .Listen(
-                    target: updates,
-                    trans: trans1,
-                    action: h,
-                    suppressEarlierFirings: false);
-
-        // The sequence is correct, and a link between the first node and the second node is
-        // not necessary.
-        return @out.UnsafeAttachListener(l);
+        return @out.UnsafeAttachListener(new ValueStream(trans: trans1, source: this, @out: @out));
     }
 
     internal Behavior<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
@@ -614,4 +571,13 @@ public class Behavior<T> : ISampleSource<T>, ILastAction
     // its own: six nodes where the lift has one.
     internal Behavior<TResult> ApplyImpl<TResult>(Behavior<Func<T, TResult>> bf) =>
         bf.LiftImpl(b2: this, f: static (function, value) => function(value));
+
+    private sealed class ValueStream(in TransactionInternal trans, in Behavior<T> source, in Stream<T> @out)
+        : ValueListener<T>(trans: trans, source: source, target: @out.Node)
+    {
+        private readonly Stream<T> @out = @out;
+
+        protected override void Consume(TransactionInternal trans, T value) =>
+            this.@out.Send(trans: trans, a: value);
+    }
 }
