@@ -23,7 +23,7 @@ internal static class BehaviorInternal
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
-public class Behavior<T> : ILastAction
+public class Behavior<T> : ISampleSource<T>, ILastAction
 {
     // A constant behavior has no stream until a caller asks for its updates. Most constants
     // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
@@ -125,6 +125,12 @@ public class Behavior<T> : ILastAction
 
     private protected virtual void DiscardLast() => this.DiscardValueUpdate();
 
+    // The value at the end of this transaction: the pending update when the behavior got one,
+    // and the current value when it did not. A lazy sample reads this in the sample phase.
+    T ISampleSource<T>.Read() => this.PendingOrCurrent();
+
+    internal T PendingOrCurrent() => this.valueUpdate.TryGetValue(out T v) ? v : this.SampleNoTransaction();
+
     /// <summary>
     ///     Makes this behavior use its initial value again. A transaction that set
     ///     the value from a lazy sample failed, thus the value is not correct.
@@ -137,16 +143,27 @@ public class Behavior<T> : ILastAction
 
     internal LazySample<T> SampleLazy(TransactionInternal trans)
     {
-        LazySample<T> s = new(this);
+        LazySample<T> s = new(source: this);
 
         // The sample phase runs after each send and each prioritized action. Thus, the pending
         // update, when this behavior got one, is the value at the end of the transaction. A
-        // transaction that fails discards that update, and the capture goes with it.
-        trans.Sample(() =>
-            s.Capture(
-                trans: trans,
-                captured: this.valueUpdate.Match(onSome: static v => v, onNone: this.SampleNoTransaction)));
+        // transaction that fails discards that update, and the capture goes with it. The sample
+        // reads for itself, thus this allocates no closure.
+        trans.Sample(s);
 
+        return s;
+    }
+
+    internal LazySample<TResult> SampleLazyMappedImpl<TResult>(Func<T, TResult> f) =>
+        TransactionInternal.Apply((trans, _) => this.SampleLazyMapped(trans: trans, f: f));
+
+    // A sample of this behavior through f: one sample and one small object. Before, this was
+    // a sample and a map on it: two samples, each with its own closure and delegate. The function
+    // runs in the sample phase, one time for each value, as it did through the map.
+    internal LazySample<TResult> SampleLazyMapped<TResult>(TransactionInternal trans, Func<T, TResult> f)
+    {
+        LazySample<TResult> s = new(source: new MappedSampleSource<T, TResult>(behavior: this, f: f));
+        trans.Sample(s);
         return s;
     }
 
@@ -213,7 +230,7 @@ public class Behavior<T> : ILastAction
         TransactionInternal.Apply((trans, _) =>
             this.Updates()
                 .MapImpl(f)
-                .HoldLazyInternal(trans: trans, initialValue: this.SampleLazy(trans).MapImpl(f)));
+                .HoldLazyInternal(trans: trans, initialValue: this.SampleLazyMapped(trans: trans, f: f)));
 
     // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
     // input pay for a Value(), which is a spark stream, a snapshot, a merge, and a coalesce

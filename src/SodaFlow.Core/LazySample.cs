@@ -59,16 +59,19 @@ internal static class LazySampleInternal
 /// <typeparam name="T">The type of the value.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public sealed class LazySample<T> : ILastAction
+public sealed class LazySample<T> : ILastAction, ISampleAction
 {
     private const string SelfReference =
         "This lazy sample forces itself. The loop that it samples is not closed, or the initial value of a cell reads "
         + "that cell.";
 
-    // The transaction is the one that forces the sample. A sample of a behavior reads the
-    // behavior in it, and a sample made from another sample forces that sample in it. Thus, no
-    // level of a chain of samples has to find the transaction again.
-    private readonly Func<TransactionInternal, T> compute;
+    // One of the two is set. A sample of a behavior reads through the source, which is the
+    // behavior itself or one small object for a map. A sample from a function, a map on a
+    // sample, or a lift of samples runs the function. The transaction is the one that forces the
+    // sample. A sample made from another sample forces that sample in it. Thus, no level of a
+    // chain of samples has to find the transaction again.
+    private readonly Func<TransactionInternal, T>? compute;
+    private readonly ISampleSource<T>? source;
 
     private bool forcing;
 
@@ -77,10 +80,7 @@ public sealed class LazySample<T> : ILastAction
     // ReSharper disable once NullableWarningSuppressionIsUsed - Read only while resolved is true, and Capture writes it before it sets resolved.
     private T value = default!;
 
-    internal LazySample(Behavior<T> behavior)
-        : this(_ => behavior.SampleNoTransaction())
-    {
-    }
+    internal LazySample(ISampleSource<T> source) => this.source = source;
 
     internal LazySample(Func<TransactionInternal, T> compute) => this.compute = compute;
 
@@ -119,7 +119,7 @@ public sealed class LazySample<T> : ILastAction
 
         try
         {
-            T computed = this.compute(trans);
+            T computed = this.Read(trans);
 
             this.Capture(trans: trans, captured: computed);
 
@@ -146,6 +146,29 @@ public sealed class LazySample<T> : ILastAction
     }
 
     /// <inheritdoc />
+    // The sample phase of the transaction that asked for this sample. The source gives the value
+    // of the behavior at the end of that transaction. The function of a mapped source runs here,
+    // and a transaction must not change the internal parts of SodaFlow from it. Thus, a send
+    // from the function throws, as it did when the function ran in a force.
+    void ISampleAction.Sample(TransactionInternal trans)
+    {
+        trans.InCallback++;
+
+        try
+        {
+            this.Capture(trans: trans, captured: this.Read(trans));
+        }
+        finally
+        {
+            trans.InCallback--;
+        }
+    }
+
+    private T Read(TransactionInternal trans) =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - The constructor that sets no source sets compute.
+        this.source != null ? this.source.Read() : this.compute!(trans);
+
+    /// <inheritdoc />
     // The value stays. A commit changes nothing, and the entry exists for the discard.
     void ILastAction.Commit()
     {
@@ -164,4 +187,24 @@ public sealed class LazySample<T> : ILastAction
         f == null
             ? throw new ArgumentNullException(nameof(f))
             : new LazySample<TResult>(trans => f(this.Force(trans)));
+}
+
+/// <summary>
+///     What a lazy sample of a behavior reads: the behavior, or the behavior through
+///     a function. The read sees the pending update of the transaction.
+/// </summary>
+internal interface ISampleSource<out T>
+{
+    T Read();
+}
+
+// A sample of a behavior through a function, as one object. Before, this was a sample of the
+// behavior and a map on it: two samples, each with its own closure and delegate.
+internal sealed class MappedSampleSource<TSource, T>(in Behavior<TSource> behavior, in Func<TSource, T> f)
+    : ISampleSource<T>
+{
+    private readonly Behavior<TSource> behavior = behavior;
+    private readonly Func<TSource, T> f = f;
+
+    public T Read() => this.f(this.behavior.PendingOrCurrent());
 }

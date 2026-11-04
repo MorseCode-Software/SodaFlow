@@ -75,6 +75,9 @@ public class Cell<T>
 
     internal LazySample<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
 
+    internal LazySample<TResult> SampleLazyMappedImpl<TResult>(Func<T, TResult> f) =>
+        this.BehaviorImpl.SampleLazyMappedImpl(f);
+
     internal IStrongListener ListenStrongImpl(Action<T> handler) =>
         TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
 
@@ -170,7 +173,7 @@ public class Cell<T>
     internal Cell<T> CalmImpl(Func<T, T, bool> areEqual)
     {
         LazySample<T> initA = this.BehaviorImpl.SampleLazyImpl();
-        LazySample<MaybeInternal<T>> mInitA = initA.MapImpl(MaybeInternal.Some);
+        LazySample<MaybeInternal<T>> mInitA = this.BehaviorImpl.SampleLazyMappedImpl(MaybeInternal.Some);
         return this.UpdatesImpl.Calm(init: mInitA, areEqual: areEqual).HoldLazyImpl(initA);
     }
 }
