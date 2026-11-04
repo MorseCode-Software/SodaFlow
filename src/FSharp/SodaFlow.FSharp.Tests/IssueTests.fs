@@ -259,10 +259,9 @@ module Issue138 =
 
         (*
          * Switch over the sum of the Output cells in the list, deferring the firings from the Values stream, and use a better API.
-         * This is identical to the previous solution except that it uses a special version of SwitchC which defers the Values stream firings.
-         * Using this API, we can better capture the intent of the SwitchC call and allow the type system to eventually check for valid usages of the looped cell.
-         * Note that when the types are modified, the SwitchCWithDeferredValues() call will actually become SwitchC().DeferredValues() with SwitchC() on the cell loop returning a special type
-         * containing the DeferredValues() and DeferredUpdates() methods.
+         * This is the same as the previous solution, but it uses a special version of SwitchC that defers the Values stream firings.
+         * This API captures the intent of the SwitchC call better. The helper takes the looped cell that the loop gives.
+         * switchCLC on it gives a LoopedCell<T>, thus a read of the switched cell inside the loop does not compile.
          *)
         [<Test>]
         member _.``Test SwitchC Deferred Loop With Better API``() =

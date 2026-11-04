@@ -450,8 +450,9 @@ public sealed class BehaviorTests
     public async Task TestCellLoopThrowsException()
     {
         // This test once asked for types that permit only a safe loop. The block form, Cell.Loop,
-        // is that change. The cycle here is in the graph and not in the loop, thus no type catches
-        // it, and the explicit CellLoop stays.
+        // and the LoopedCell<T> base type are that change: a read of the placeholder before the
+        // loop closes does not compile. The cycle here is in the graph and not in the loop, thus
+        // no type catches it, and the explicit CellLoop stays.
 
         Exception? actual = null;
 

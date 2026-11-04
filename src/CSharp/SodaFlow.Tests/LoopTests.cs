@@ -1019,10 +1019,8 @@ public sealed class LoopTests
         // better API.
         // This is the same as the previous solution, but it uses a special version of SwitchC that
         // defers the Values stream firings. This API captures the intent of the SwitchC call better.
-        // It also lets the type system check for correct uses of the looped cell.
-        // When the types change, the SwitchCWithDeferredValues() call becomes
-        // SwitchC().DeferredValues() with SwitchC() on the cell loop returning a special type containing the
-        // DeferredValues() and DeferredUpdates() methods.
+        // The helper takes the LoopedCell<Cell<T>> that the loop gives. SwitchC on it gives a
+        // LoopedCell<T>, thus a read of the switched cell inside the loop does not compile.
         [Test]
         public async Task TestSwitchCDeferredLoopWithBetterApi()
         {
