@@ -139,6 +139,10 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
     ///     called <see cref="RunTimersTo" />, and never while this instance's internal
     ///     lock is held.
     /// </remarks>
+    /// <exception cref="ObjectDisposedException">
+    ///     <see cref="Stop" /> ran. A timer set after that never fires, and a handle
+    ///     for it tells the caller nothing.
+    /// </exception>
     // ReSharper disable once InheritdocConsiderUsage
     public ITimer SetTimer(T time, Action callback)
     {
@@ -146,6 +150,12 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
 
         lock (this.lockObject)
         {
+            // In the lock, because Stop sets the flag in it.
+            if (this.stopped)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
             this.timers.Add(timer);
             this.hasTimers = true;
 
@@ -153,10 +163,7 @@ public abstract class TimerSystemImplementationBase<T> : ITimerSystemImplementat
             // it ends, and a signal after that throws. The initial code signaled out of the lock,
             // because its CancellationTokenSource ran its callbacks synchronously. An
             // AutoResetEvent runs nothing, thus the lock is safe here.
-            if (!this.stopped)
-            {
-                this.timersChanged.Set();
-            }
+            this.timersChanged.Set();
         }
 
         return timer;

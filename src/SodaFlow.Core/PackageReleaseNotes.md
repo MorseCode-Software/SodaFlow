@@ -78,6 +78,32 @@ change waited sixty-five, and one set across the spring change fired an hour ear
 UTC does not move, so a wait or a deadline belongs on the UTC one and the local one is for a time a screen shows.
 The clock constructor is also the shortest way to put a clock a test moves by hand under a real TimerSystem<DateTime>.
 
+Building a graph costs less. A stream kept two lists from its construction, one of the listeners attached to it and
+one in the cleanup registry, and a stream in a chain has exactly one of each; both now hold the first listener in a
+field and make the list only at the second. A node did the same with the hash set of its listeners, which was a set
+object and two arrays for the one listener a node in a chain has; it now holds its first listener in a field and makes
+the set at the second link. The internal Listen that every single-input operator calls once passes its arguments to
+the transaction as a state instead of capturing them in a closure. Measured in a new benchmark, GraphBuildBenchmarks,
+per thousand nodes built in one transaction, in one session, .NET 10: a chain of maps 1.57 ms and 909 KB before, 1.06
+ms and 488 KB after; a map with a hold 2.23 ms and 1,442 KB to 1.90 ms and 1,200 KB; a lift of two cells 4.82 ms and
+3,089 KB to 3.90 ms and 2,935 KB; a constant cell 793 to 645 µs; a sink alone 442 to 388 µs. .NET Framework 4.7.2
+moves in proportion: the chain 1.52 to 1.25 ms over the node and the Listen change alone. The benchmark has an arm for
+each common shape, so a later change to construction can be measured against this one.
+
+A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
+the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
+957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never
+stream at the first ask, in the transaction: 12 µs and 102 KB per thousand. Nothing observable changes; a constant's
+Updates is still a stream that never fires.
+
+A lift allocates less. Each input of a lift, a snapshot of the latest values, or a merge of maybes had two closures
+and two delegates between its stream and the shared gate; it now has one object that holds its slot and is its own
+listener action. A lift's output is built through one object in place of three delegates, an array, and a second
+lambda for the lazy initial value. GraphBuildBenchmarks, per thousand two-cell lifts, .NET 10: 3.81 ms and 2,998 KB
+before, 3.61 ms and 2,688 KB after; .NET Framework 4.7.2: 5.27 to 4.61 ms and 3,036 to 2,721 KB. A lift of six
+cells, which the benchmark now has an arm for, gains more: 11.15 ms and 5,010 KB to 10.27 ms and 4,470 KB on .NET 10,
+and 12.91 to 11.88 ms on .NET Framework 4.7.2.
+
 Fixed: CleanupNow runs the cleanup action at the call, one time, as its documentation said. Before, it only dropped
 the reference to the object, so the action ran at the next garbage collection and sweep, on the cleanup thread, and
 nothing a caller could do made it run sooner. A second call now does nothing, and the collection of the object after

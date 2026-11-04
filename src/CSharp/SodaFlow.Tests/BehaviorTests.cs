@@ -449,7 +449,9 @@ public sealed class BehaviorTests
     [Test]
     public async Task TestCellLoopThrowsException()
     {
-        //TODO: adjust the types so that the type system permits only a safe loop.
+        // This test once asked for types that permit only a safe loop. The block form, Cell.Loop,
+        // is that change. The cycle here is in the graph and not in the loop, thus no type catches
+        // it, and the explicit CellLoop stays.
 
         Exception? actual = null;
 

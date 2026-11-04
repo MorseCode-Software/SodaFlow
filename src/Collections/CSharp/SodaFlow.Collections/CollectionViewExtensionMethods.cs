@@ -515,15 +515,24 @@ public static class CollectionViewExtensionMethods
     /// <param name="upstream">The collection or view to window.</param>
     /// <param name="limit">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="limit" /> is negative. The overload that takes a cell
+    ///     counts a negative value as zero instead.
+    /// </exception>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> Take<TKey, TIdentity, TState>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
         int limit)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.TakeImpl(upstream: upstream, limitCell: Cell.Constant(limit));
+        CollectionViewUtility.TakeImpl(upstream: upstream, limit: limit);
 
     /// <summary>The first keys of the upstream, and that count can change.</summary>
+    /// <remarks>
+    ///     A negative count in the cell counts as zero. A throw here fails the
+    ///     transaction that moved the cell, thus only the overload for a constant
+    ///     throws.
+    /// </remarks>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
@@ -556,6 +565,10 @@ public static class CollectionViewExtensionMethods
     /// <param name="offset">The number of keys before the start of the window.</param>
     /// <param name="limit">How many keys to keep.</param>
     /// <returns>A view of that window.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="offset" /> or <paramref name="limit" /> is negative. The
+    ///     overload that takes cells counts a negative value as zero instead.
+    /// </exception>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static ReactiveCollection<TKey, TIdentity, TState> Slice<TKey, TIdentity, TState>(
         this ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -563,15 +576,17 @@ public static class CollectionViewExtensionMethods
         int limit)
         where TKey : notnull
         where TIdentity : notnull =>
-        CollectionViewUtility.SliceImpl(
-            upstream: upstream,
-            offsetCell: Cell.Constant(offset),
-            limitCell: Cell.Constant(limit));
+        CollectionViewUtility.SliceImpl(upstream: upstream, offset: offset, limit: limit);
 
     /// <summary>
     ///     A page of the upstream where each end can change. Send a new offset to move
     ///     to a different page.
     /// </summary>
+    /// <remarks>
+    ///     A negative offset or count in a cell counts as zero. A throw here fails
+    ///     the transaction that moved the cell, thus only the overload for constants
+    ///     throws.
+    /// </remarks>
     /// <typeparam name="TKey">The type of the keys.</typeparam>
     /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
     /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>

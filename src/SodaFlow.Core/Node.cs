@@ -234,8 +234,10 @@ internal sealed class Node<T> : Node
 
     private static readonly Target[] NoListeners = [];
 
-    // SodaFlow allocates this at the first link. A HashSet is expensive, and no code links
-    // to the last node in a chain.
+    // A node holds its first listener in a field and allocates the set at the second link.
+    // A HashSet is expensive, and a node in a chain has exactly one listener. After the
+    // second link, the set holds all the listeners, and the field stays null.
+    private Target? firstListener;
     private HashSet<Target>? listeners;
     private int listenersCapacity;
 
@@ -276,9 +278,22 @@ internal sealed class Node<T> : Node
 
         lock (ListenersLock)
         {
-            this.listeners ??= [];
-            this.listeners.Add(t);
-            this.listenersCapacity++;
+            if (this.listeners != null)
+            {
+                this.listeners.Add(t);
+                this.listenersCapacity++;
+            }
+            else if (this.firstListener == null)
+            {
+                this.firstListener = t;
+            }
+            else
+            {
+                this.listeners = [this.firstListener, t];
+                this.listenersCapacity = 2;
+                this.firstListener = null;
+            }
+
             this.listenersSnapshot = default;
         }
 
@@ -307,6 +322,12 @@ internal sealed class Node<T> : Node
         {
             if (this.listeners == null)
             {
+                if (this.firstListener == target)
+                {
+                    this.firstListener = null;
+                    this.listenersSnapshot = default;
+                }
+
                 return;
             }
 
@@ -331,15 +352,19 @@ internal sealed class Node<T> : Node
     {
         if (this.listenersSnapshot.IsStale)
         {
-            if (this.listeners == null || this.listeners.Count == 0)
-            {
-                this.listenersSnapshot = new TargetSnapshot<Target>(NoListeners);
-            }
-            else
+            if (this.listeners is { Count: > 0 })
             {
                 Target[] snapshot = new Target[this.listeners.Count];
                 this.listeners.CopyTo(snapshot);
                 this.listenersSnapshot = new TargetSnapshot<Target>(snapshot);
+            }
+            else if (this.firstListener != null)
+            {
+                this.listenersSnapshot = new TargetSnapshot<Target>([this.firstListener]);
+            }
+            else
+            {
+                this.listenersSnapshot = new TargetSnapshot<Target>(NoListeners);
             }
         }
 

@@ -1,5 +1,10 @@
 3.0.0
 
+BREAKING: Take(int) and Slice(int, int) throw ArgumentOutOfRangeException for a negative count or offset, through
+SodaFlow.Core.Collections 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
+to show for the error. The Cell<int> overloads still clamp, because a throw there would fail whichever transaction moved
+the cell.
+
 No change in this package's API. This release raises the dependency floor, so that a new install gets
 SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
 why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then

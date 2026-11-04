@@ -1128,6 +1128,10 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
     internal RangeKeys(OrderedKeys<TKey, TIdentity, TState> source, int offset, int limit)
     {
         this.source = source;
+
+        // A negative value counts as zero. The constant overloads of Take and Slice throw before
+        // this point. A cell can move to a negative value in a transaction, and a throw here
+        // fails that transaction.
         this.offset = Math.Max(val1: offset, val2: 0);
         this.limit = Math.Max(val1: limit, val2: 0);
     }

@@ -188,7 +188,10 @@ internal static class StreamListenerManager
 
     internal sealed class StreamListeners
     {
-        private readonly List<IListenerWithWeakReference> listeners = [];
+        // The first listener sits in a field, because a stream in a chain has exactly one. The
+        // list is for the second and later.
+        private IListenerWithWeakReference? first;
+        private List<IListenerWithWeakReference>? more;
 
         // This handle is weak, thus the registry does not keep a stream alive. Release frees
         // it.
@@ -206,16 +209,33 @@ internal static class StreamListenerManager
 
         internal bool IsStreamAlive => this.streamHandle is { IsAllocated: true, Target: not null };
 
-        internal void AddListener(IListenerWithWeakReference listener) => this.listeners.Add(listener);
+        internal void AddListener(IListenerWithWeakReference listener)
+        {
+            if (this.first == null)
+            {
+                this.first = listener;
+            }
+            else
+            {
+                this.more ??= [];
+                this.more.Add(listener);
+            }
+        }
 
         internal void Release()
         {
-            foreach (IListenerWithWeakReference l in this.listeners)
-            {
-                l.Unlisten();
-            }
+            this.first?.Unlisten();
+            this.first = null;
 
-            this.listeners.Clear();
+            if (this.more != null)
+            {
+                foreach (IListenerWithWeakReference l in this.more)
+                {
+                    l.Unlisten();
+                }
+
+                this.more = null;
+            }
 
             if (this.streamHandle.IsAllocated)
             {

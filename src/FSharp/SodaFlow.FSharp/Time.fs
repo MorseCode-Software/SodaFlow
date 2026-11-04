@@ -420,6 +420,11 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
             let timer = new SimpleTimer<_>(this, time, callback)
 
             lock lockObject (fun () ->
+                // A timer set after Stop never fires, and a handle for it tells the caller nothing. In
+                // the lock, because Stop sets the flag in it.
+                if stopped then
+                    raise (ObjectDisposedException(this.GetType().FullName))
+
                 timers.Add(timer) |> ignore
                 hasTimers <- true
 
@@ -427,8 +432,7 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
                 // ends, and a signal after that throws. The initial code signaled out of the lock,
                 // because its CancellationTokenSource ran its callbacks synchronously. An AutoResetEvent
                 // runs nothing, thus the lock is safe here.
-                if not stopped then
-                    timersChanged.Set() |> ignore)
+                timersChanged.Set() |> ignore)
 
             upcast timer
 

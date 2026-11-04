@@ -64,7 +64,7 @@ error left on screen after a later search succeeded. See
 time rather than a number something keeps updating, which has two consequences worth seeing: the
 instant it reaches a wall is a root of the quadratic, solved in advance and scheduled with `At`
 rather than noticed by a frame; and the views hold no positions at all, asking where things are
-once per frame and drawing them there. It has four scenes, from one ball on one axis, through
+once per frame and drawing them there. Its scenes run from one ball on one axis, through
 balls that can be picked up and thrown — where `SwitchB` chooses between following the pointer and
 following physics — to balls that ricochet off each other, which is the one scene whose flights
 cannot be solved a ball at a time.

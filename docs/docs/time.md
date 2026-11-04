@@ -42,6 +42,12 @@ the hook and ends the thread. After that `Time` stops moving and no alarm fires.
 process, or dispose each one when its work is done. A test that makes one per test should dispose
 it, or every later transaction in the run pays for its hook.
 
+A disposed timer system also refuses a new alarm. `At` throws `ObjectDisposedException` from the
+transaction that gives it a time, whether that is the construction or a later send, and `SetTimer`
+on a stopped `TimerSystemImplementationBase` throws the same, so a timer that could never come is
+an error at the call rather than silence. A cell with no time sets nothing and passes. A custom
+implementation should do the same after its `Stop`.
+
 ## `Time`
 
 `Time` is a `Behavior<T>` giving the current time:

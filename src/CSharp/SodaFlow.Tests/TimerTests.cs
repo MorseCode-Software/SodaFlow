@@ -162,11 +162,11 @@ public sealed class TimerTests
         timers.Dispose();
     }
 
-    // Stop ends the timer thread and waits for it. Thus, a timer that is due after the stop does not
-    // fire: not on that thread, and not from RunTimersTo. The wait after the timer is where a live
-    // thread fires it, in a few milliseconds after the signal.
+    // Stop ends the timer thread and waits for it. Thus, a timer set before the stop does not fire
+    // after it: not on that thread, and not from RunTimersTo. A timer set after the stop never
+    // fires, and a handle for it tells the caller nothing. Thus, SetTimer throws instead.
     [Test]
-    public async Task AStoppedImplementationFiresNoTimer()
+    public async Task AStoppedImplementationRefusesATimerAndFiresNone()
     {
         StopwatchClock clock = new();
         bool fired = false;
@@ -175,17 +175,45 @@ public sealed class TimerTests
         {
         });
 
+        using ITimer timer = clock.SetTimer(time: clock.Now + 1000, callback: () => fired = true);
+
         clock.Stop();
 
-        using ITimer timer = clock.SetTimer(time: clock.Now - 1, callback: () => fired = true);
+        await Assert.That(() => _ = clock.SetTimer(time: clock.Now - 1, callback: () => fired = true))
+            .ThrowsExactly<ObjectDisposedException>();
 
-        clock.RunTimersTo(clock.Now);
+        clock.RunTimersTo(clock.Now + 2000);
         await Task.Delay(200);
 
         await Assert.That(fired).IsFalse();
 
         // A second stop does nothing.
         clock.Stop();
+    }
+
+    // At sets its timer in the transaction that gives the cell a time. Thus, that transaction fails
+    // with the exception of the stopped implementation. That is the construction when the cell
+    // holds a time, and the later send that gives it one. A cell with no time sets nothing and
+    // passes.
+    [Test]
+    public async Task ADisposedTimerSystemRefusesAnAlarm()
+    {
+        TimerSystem<double> timers =
+            new(
+                implementation: new StopwatchClock(),
+                handleException: static _ =>
+                {
+                });
+
+        timers.Dispose();
+
+        await Assert.That(() => _ = timers.At(Cell.Constant(Maybe.Some(1.0)))).ThrowsExactly<ObjectDisposedException>();
+
+        CellSink<Maybe<double>> alarm = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        Stream<double> at = timers.At(alarm);
+
+        await Assert.That(() => alarm.Send(Maybe.Some(1.0))).ThrowsExactly<ObjectDisposedException>();
+        await Assert.That(at).IsNotNull();
     }
 
     // RunTimersTo fires a due timer on the calling thread, and it fires nothing after a cancel of
