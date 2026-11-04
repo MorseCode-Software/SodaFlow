@@ -11,7 +11,8 @@ internal static class BehaviorExtensionMethodsInternal
         TransactionInternal.Apply((trans1, _) =>
         {
             LazySample<T> za = bba.SampleLazyImpl().MapImpl(static ba => ba.SampleImpl());
-            Stream<T> @out = new(bba.KeepListenersAlive);
+            SwitchKeepListenersAlive keepListenersAlive = new(bba.KeepListenersAlive);
+            Stream<T> @out = new(keepListenersAlive);
             MutableListener currentListener = new();
 
             IListener l1 =
@@ -41,8 +42,16 @@ internal static class BehaviorExtensionMethodsInternal
                             action: @out.Send,
                             suppressEarlierFirings: false);
 
-                // The set stops the previous listener, which the mutable listener holds.
-                trans2.Last(commit: () => currentListener.SetListenerImpl(next), discard: next.Unlisten);
+                // The set stops the previous listener, which the mutable listener holds. The
+                // keep-alive set moves its listeners to the root of the new behavior at the same
+                // time.
+                trans2.Last(
+                    commit: () =>
+                    {
+                        currentListener.SetListenerImpl(next);
+                        keepListenersAlive.SetInner(ba.KeepListenersAlive);
+                    },
+                    discard: next.Unlisten);
             }
         });
 
@@ -54,7 +63,8 @@ internal static class BehaviorExtensionMethodsInternal
         where T2 : Stream<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
-            Stream<T> @out = new(bsa.KeepListenersAlive);
+            SwitchKeepListenersAlive keepListenersAlive = new(bsa.KeepListenersAlive);
+            Stream<T> @out = new(keepListenersAlive);
             MutableListener currentListener = new();
 
             trans1.Prioritized(
@@ -67,19 +77,28 @@ internal static class BehaviorExtensionMethodsInternal
 
             return @out.UnsafeAttachListener(l1).UnsafeAttachListener(currentListener);
 
-            // Each set stops the previous listener, which the mutable listener holds.
-            void HInitial(TransactionInternal trans2, Stream<T> sa) =>
+            // Each set stops the previous listener, which the mutable listener holds. The keep-alive
+            // set moves its listeners to the root of the new stream at the same time.
+            void HInitial(TransactionInternal trans2, Stream<T> sa)
+            {
                 currentListener.SetListenerImpl(
                     sa.Listen(target: @out.Node, trans: trans2, action: @out.Send, suppressEarlierFirings: false));
 
+                keepListenersAlive.SetInner(sa.KeepListenersAlive);
+            }
+
             void H(TransactionInternal trans2, Stream<T> sa) =>
                 trans2.Last(() =>
+                {
                     currentListener.SetListenerImpl(
                         sa.Listen(
                             target: @out.Node,
                             trans: trans2,
                             action: @out.Send,
-                            suppressEarlierFirings: true)));
+                            suppressEarlierFirings: true));
+
+                    keepListenersAlive.SetInner(sa.KeepListenersAlive);
+                });
         });
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
@@ -96,8 +115,8 @@ internal static class BehaviorExtensionMethodsInternal
         {
             T2[] inputs = [.. b];
 
-            Stream<TResult> @out =
-                new(new FanOutKeepListenersAlive(inputs.Select(static behavior => behavior.KeepListenersAlive)));
+            IKeepListenersAlive[] roots = [.. inputs.Select(static behavior => behavior.KeepListenersAlive)];
+            Stream<TResult> @out = new(KeepListenersAliveInternal.Combine(roots));
 
             LazySample<TResult> initialValue =
                 new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
@@ -146,34 +165,4 @@ internal static class BehaviorExtensionMethodsInternal
             return @out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
                 .HoldLazyInternal(trans: trans1, initialValue: initialValue);
         });
-
-    private sealed class FanOutKeepListenersAlive(IEnumerable<IKeepListenersAlive> keepListenersAliveEnumerable)
-        : IKeepListenersAlive
-    {
-        private readonly IReadOnlyList<IKeepListenersAlive> keepListenersAliveList = [.. keepListenersAliveEnumerable];
-
-        public void KeepListenerAlive(IListener listener)
-        {
-            foreach (IKeepListenersAlive keepListenersAlive in this.keepListenersAliveList)
-            {
-                keepListenersAlive.KeepListenerAlive(listener);
-            }
-        }
-
-        public void StopKeepingListenerAlive(IListener listener)
-        {
-            foreach (IKeepListenersAlive keepListenersAlive in this.keepListenersAliveList)
-            {
-                keepListenersAlive.StopKeepingListenerAlive(listener);
-            }
-        }
-
-        public void Use(IKeepListenersAlive childKeepListenersAlive)
-        {
-            foreach (IKeepListenersAlive keepListenersAlive in this.keepListenersAliveList)
-            {
-                keepListenersAlive.Use(childKeepListenersAlive);
-            }
-        }
-    }
 }

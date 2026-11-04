@@ -73,13 +73,6 @@ internal interface IRootableListener : IWeakListener
     void Root();
 }
 
-internal interface IKeepListenersAlive
-{
-    void KeepListenerAlive(IListener listener);
-    void StopKeepingListenerAlive(IListener listener);
-    void Use(IKeepListenersAlive childKeepListenersAlive);
-}
-
 internal static class ListenerInternal
 {
     internal static readonly IListener EmptyImpl = EmptyListener.Instance;

@@ -46,7 +46,14 @@ internal static class StreamExtensionMethodsInternal
                 return inputs[0];
         }
 
-        Stream<T> @out = new(inputs[0].KeepListenersAlive);
+        IKeepListenersAlive[] roots = new IKeepListenersAlive[inputs.Count];
+
+        for (int i = 0; i < inputs.Count; i++)
+        {
+            roots[i] = inputs[i].KeepListenersAlive;
+        }
+
+        Stream<T> @out = new(KeepListenersAliveInternal.Combine(roots));
         MaybeInternal<T>[] slots = new MaybeInternal<T>[inputs.Count];
 
         OnceGate gate =

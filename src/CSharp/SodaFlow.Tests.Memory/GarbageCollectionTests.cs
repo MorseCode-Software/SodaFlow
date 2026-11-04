@@ -336,6 +336,85 @@ public sealed class GarbageCollectionTests
             .Because("a cancellation token that lives on should not root the stream after the task completes");
     }
 
+    [Test]
+    public async Task AStrongListenerOnALiftOutlivesTheFirstRoot()
+    {
+        CellSink<int> kept = Cell.CreateSink(2);
+        List<int> @out = [];
+
+        CreateLiftWithADroppedFirstRoot(kept: kept, @out: @out);
+
+        Collect();
+        @out.Clear();
+        kept.Send(10);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [11], ordering: CollectionOrdering.Matching)
+            .Because("the root that lives should hold the listener, whichever input of the lift it feeds");
+    }
+
+    [Test]
+    public async Task AStrongListenerOnAMergeOutlivesTheLeftRoot()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        CreateMergeWithADroppedLeftRoot(kept: kept, @out: @out);
+
+        Collect();
+        kept.Send(10);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
+            .Because("the root that lives should hold the listener, whichever side of the merge it feeds");
+    }
+
+    [Test]
+    public async Task AStrongListenerOnASwitchOutlivesTheOuterRoot()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        CreateSwitchOfAConstantCell(kept: kept, @out: @out);
+
+        Collect();
+        kept.Send(10);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
+            .Because("the root of the selected inner should hold the listener when nothing holds the outer cell");
+    }
+
+    [Test]
+    public async Task AStrongListenerOnASwitchLeavesTheInnerTheSwitchLeft()
+    {
+        StreamSink<int> first = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        WeakReference listener = CreateSwitchThenSelectADroppedInner(first: first, @out: @out);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("an inner stream the switch left should no longer hold the listener");
+    }
+
+    [Test]
+    public async Task UnlistenOnALiftReleasesTheListenerFromEveryRoot()
+    {
+        CellSink<int> first = Cell.CreateSink(1);
+        CellSink<int> second = Cell.CreateSink(2);
+
+        WeakReference listener = CreateLiftListenerAndUnlisten(first: first, second: second);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("no root should hold a listener after Unlisten, however many roots the lift has");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -460,6 +539,47 @@ public sealed class GarbageCollectionTests
     private static WeakReference CreateListenerAndUnlisten(Stream<int> s, ICollection<int> @out)
     {
         IListener listener = s.ListenStrong(@out.Add);
+        listener.Unlisten();
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CreateLiftWithADroppedFirstRoot(Cell<int> kept, ICollection<int> @out)
+    {
+        CellSink<int> dropped = Cell.CreateSink(1);
+        dropped.Lift(c2: kept, f: static (x, y) => x + y).ListenStrong(@out.Add);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CreateMergeWithADroppedLeftRoot(Stream<int> kept, ICollection<int> @out)
+    {
+        StreamSink<int> dropped = Stream.CreateSink<int>();
+        dropped.OrElse(kept).ListenStrong(@out.Add);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CreateSwitchOfAConstantCell(Stream<int> kept, ICollection<int> @out) =>
+        Cell.Constant(kept).SwitchS().ListenStrong(@out.Add);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateSwitchThenSelectADroppedInner(Stream<int> first, ICollection<int> @out)
+    {
+        StreamSink<int> second = Stream.CreateSink<int>();
+        CellSink<Stream<int>> selected = Cell.CreateSink(first);
+        IStrongListener listener = selected.SwitchS().ListenStrong(@out.Add);
+        selected.Send(second);
+        return new WeakReference(listener);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateLiftListenerAndUnlisten(Cell<int> first, Cell<int> second)
+    {
+        IStrongListener listener =
+            first.Lift(c2: second, f: static (x, y) => x + y)
+                .ListenStrong(static _ =>
+                {
+                });
+
         listener.Unlisten();
         return new WeakReference(listener);
     }
