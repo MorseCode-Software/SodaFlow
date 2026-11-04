@@ -47,9 +47,9 @@ public class LoopedBehavior<T> : Behavior<T>
     }
 
     // The transaction that forces the sample can fail after that, and the value then came from a
-    // sample that the failure forgets. Thus, the force registers a last action: its commit
-    // releases the sample, which the behavior does not need after a value, and its discard makes
-    // the behavior use its initial value again, so the next read forces the sample again.
+    // sample that the failure forgets. Thus, the force queues this behavior as a last action. Its
+    // commit releases the sample, which the behavior does not need after a value. Its discard
+    // makes the behavior use its initial value again, so the next read forces the sample again.
     private void EnsureValueIsCreated()
     {
         if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
@@ -61,8 +61,22 @@ public class LoopedBehavior<T> : Behavior<T>
         TransactionInternal trans = TransactionInternal.CurrentTransaction();
 
         this.ValueProperty = sample.Force(trans);
-        trans.Last(commit: this.ReleaseInitialValue, discard: this.UseInitialValueAgain);
+        trans.Last(this);
     }
 
-    private void ReleaseInitialValue() => this.lazyInitialValue = null;
+    private protected override void CommitLast()
+    {
+        base.CommitLast();
+        this.lazyInitialValue = null;
+    }
+
+    private protected override void DiscardLast()
+    {
+        base.DiscardLast();
+
+        if (this.lazyInitialValue != null)
+        {
+            this.UseInitialValueAgain();
+        }
+    }
 }

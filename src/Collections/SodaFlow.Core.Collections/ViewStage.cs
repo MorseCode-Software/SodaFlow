@@ -77,7 +77,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                             .FilterImpl(static change => change.ChangesMembership)
                             .MapImpl(static change => change.After.Identities)
                             .HoldLazyImpl(
-                                this.SnapshotCell.SampleLazyImpl().MapImpl(static snapshot => snapshot.Identities))),
+                                this.SnapshotCell.SampleLazyMappedImpl(static snapshot => snapshot.Identities))),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 

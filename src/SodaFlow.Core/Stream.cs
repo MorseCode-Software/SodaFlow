@@ -34,7 +34,8 @@ internal static class StreamInternal
 /// </summary>
 /// <typeparam name="T">The type of values fired by the stream.</typeparam>
 [PublicAPI]
-public class Stream<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
+public class Stream<T> : ILastAction
 {
     internal readonly IKeepListenersAlive KeepListenersAlive;
     internal readonly Node<T> Node;
@@ -58,7 +59,6 @@ public class Stream<T>
     // SodaFlow caches this delegate with the firings. A method group conversion allocates a
     // new delegate each time, and Send gives this delegate to trans.Last on the first firing of
     // each transaction.
-    private Action? clearFirings;
     private List<T>? firings;
 
     internal Stream()
@@ -1863,116 +1863,23 @@ public class Stream<T>
 
     /// <summary>
     ///     Runs <paramref name="f" /> on each firing and moves state between the
-    ///     firings. It sends the result for a firing when <paramref name="f" /> asks
-    ///     for that. Collect and Accum always ask and differ only in their use of the
-    ///     output stream. Calm removes the firings that it must not send.
+    ///     firings. See <see cref="CarriedState{T,TState,TReturn}" /> for the
+    ///     protocol.
     /// </summary>
-    /// <remarks>
-    ///     Before, FRP primitives made this method: a looped stream to move the state
-    ///     back, a behavior to hold the state, a snapshot to read it, and one map for
-    ///     each output. That is four streams for Collect and two for Accum, to move
-    ///     one value between firings.
-    ///     This method is now one output stream and two fields.
-    ///     The behavior supplied those two fields, and the division between them is
-    ///     important.
-    ///     A snapshot reads a behavior with SampleNoTransaction. Thus, each firing in
-    ///     a transaction saw the state from the start of that transaction, and the
-    ///     behavior committed the result of the last firing. One field with an update
-    ///     without a copy lets a later firing in the same transaction see an earlier
-    ///     one. That is a different fold, and the caller function f can find it.
-    ///     Failure shows the deferral. A transaction that throws discards its last
-    ///     queue. Thus, a firing in that transaction does not commit, and the state
-    ///     stays as it was before. This is the one difference from a commit without a
-    ///     copy. CalmTests.AFailedTransactionDoesNotCommitTheRememberedValue holds
-    ///     this behavior. All other tests pass with one of the two methods.
-    ///     The emit flag lets Calm use this method. A Maybe result with a filter costs
-    ///     a second stream and a node in the rank graph. Calm exists to prevent that
-    ///     cost. A bool in a tuple that is already a struct costs one branch, and the
-    ///     processor predicts that branch.
-    /// </remarks>
     private Stream<TReturn> CarryState<TState, TReturn>(
         TransactionInternal trans1,
         LazySample<TState> initialState,
         Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
     {
         Stream<TReturn> @out = new(this.KeepListenersAlive);
+        CarriedState<T, TState, TReturn> state = new(@out: @out, initialState: initialState, f: f);
 
-        TState? committed = default;
-        bool committedIsSet = false;
-        TState? pending = default;
-        bool hasPending = false;
+        // SodaFlow forces the initial state in the sample phase, and a firing reads it until the
+        // first commit. A sample that a failed transaction forced forgets its value by itself.
+        trans1.Sample(state);
 
-        // SodaFlow forces this in the sample phase and also when a caller reads it. The behavior that
-        // this code replaced forced its lazy initial value in that phase, also when nothing
-        // fired.
-        trans1.Sample(() => EnsureCommittedIsSet(trans1));
-
-        // The construction transaction can fail after its sample phase forced the initial state.
-        // The state then came from a sample that the failure forgets, thus this code forgets it
-        // too, and the next firing forces the sample again. A commit of a firing in that
-        // transaction does not run on failure, thus the state here is still the initial one.
-        trans1.Discard(() =>
-        {
-            committedIsSet = false;
-            committed = default;
-        });
-
-        // A transaction that fails does not commit its state, and it must also clear hasPending.
-        // Otherwise, no subsequent transaction queues the commit. This captures no argument of the
-        // handler, thus SodaFlow builds it one time and not in each transaction.
-        Action discard =
-            () =>
-            {
-                hasPending = false;
-                pending = default;
-            };
-
-        IListener l =
-            this.Listen(
-                target: @out.Node,
-                trans: trans1,
-                action: (trans2, a) =>
-                {
-                    EnsureCommittedIsSet(trans2);
-
-                    // ReSharper disable once NullableWarningSuppressionIsUsed - After EnsureCommittedIsSet() is called
-                    // committed will be non-null.
-                    (bool emit, TReturn returnValue, TState state) = f(arg1: a, arg2: committed!);
-
-                    if (!hasPending)
-                    {
-                        hasPending = true;
-
-                        trans2.Last(
-                            commit: () =>
-                            {
-                                // ReSharper disable once AccessToModifiedClosure - We want to use the latest value of
-                                // pending here.
-                                committed = pending;
-                                hasPending = false;
-                            },
-                            discard: discard);
-                    }
-
-                    pending = state;
-
-                    if (emit)
-                    {
-                        @out.Send(trans: trans2, a: returnValue);
-                    }
-                },
-                suppressEarlierFirings: false);
-
+        IListener l = this.Listen(target: @out.Node, trans: trans1, action: state.Fire, suppressEarlierFirings: false);
         return @out.UnsafeAttachListener(l);
-
-        void EnsureCommittedIsSet(TransactionInternal trans)
-        {
-            if (!committedIsSet)
-            {
-                committed = initialState.Force(trans);
-                committedIsSet = true;
-            }
-        }
     }
 
     internal Stream<T> OnceImpl()
@@ -2026,6 +1933,11 @@ public class Stream<T>
         return this;
     }
 
+    // The firings of a transaction go at its end, whichever way it ends. See Send.
+    void ILastAction.Commit() => this.firings?.Clear();
+
+    void ILastAction.Discard() => this.firings?.Clear();
+
     internal void Send(TransactionInternal trans, T a)
     {
         this.firings ??= [];
@@ -2034,9 +1946,8 @@ public class Stream<T>
         {
             // A transaction that fails must also clear the firings. Otherwise, the count stays above
             // zero, no subsequent transaction queues the clear, and each subsequent Listen sends the
-            // stale firings.
-            Action clear = this.clearFirings ??= this.firings.Clear;
-            trans.Last(commit: clear, discard: clear);
+            // stale firings. The stream is its own last action, thus this allocates no delegate.
+            trans.Last(this);
         }
 
         this.firings.Add(a);

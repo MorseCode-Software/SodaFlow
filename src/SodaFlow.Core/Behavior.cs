@@ -22,17 +22,9 @@ internal static class BehaviorInternal
 /// </summary>
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
-public class Behavior<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
+public class Behavior<T> : ISampleSource<T>, ILastAction
 {
-    // These capture only this behavior, thus SodaFlow builds them one time and not on each
-    // firing. Only the constructor that takes a stream needs them, because a constant behavior
-    // does not update.
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
-    private readonly Action? applyValueUpdate;
-
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable - This is done for performance reasons.
-    private readonly Action? discardValueUpdate;
-
     // A constant behavior has no stream until a caller asks for its updates. Most constants
     // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
     // does. The field is volatile for the same cause: a reader must not see the reference
@@ -56,9 +48,6 @@ public class Behavior<T>
         // SodaFlow gives this a value before Listen, because Listen can send the firings that
         // this transaction made in this transaction. Thus, the handler below can run before the constructor
         // returns.
-        this.applyValueUpdate = this.ApplyValueUpdate;
-        this.discardValueUpdate = this.DiscardValueUpdate;
-
         this.streamListener =
             TransactionInternal.Apply((trans1, _) =>
                 this.stream.Listen(
@@ -71,7 +60,7 @@ public class Behavior<T>
                         // necessary closures were a large part of the cost of one Send.
                         if (!this.valueUpdate.HasValue())
                         {
-                            trans2.Last(commit: this.applyValueUpdate, discard: this.discardValueUpdate);
+                            trans2.Last(this);
                         }
 
                         this.valueUpdate = MaybeInternal.Some(a);
@@ -126,6 +115,22 @@ public class Behavior<T>
     // handler queues the apply action only when it has no update.
     private void DiscardValueUpdate() => this.valueUpdate = MaybeInternal<T>.None;
 
+    // The behavior is its own last action, thus a hold allocates no delegate for the commit of
+    // its update. A derived behavior with a lazy initial value adds its own work to each.
+    void ILastAction.Commit() => this.CommitLast();
+
+    void ILastAction.Discard() => this.DiscardLast();
+
+    private protected virtual void CommitLast() => this.ApplyValueUpdate();
+
+    private protected virtual void DiscardLast() => this.DiscardValueUpdate();
+
+    // The value at the end of this transaction: the pending update when the behavior got one,
+    // and the current value when it did not. A lazy sample reads this in the sample phase.
+    T ISampleSource<T>.Read() => this.PendingOrCurrent();
+
+    internal T PendingOrCurrent() => this.valueUpdate.TryGetValue(out T v) ? v : this.SampleNoTransaction();
+
     /// <summary>
     ///     Makes this behavior use its initial value again. A transaction that set
     ///     the value from a lazy sample failed, thus the value is not correct.
@@ -138,16 +143,27 @@ public class Behavior<T>
 
     internal LazySample<T> SampleLazy(TransactionInternal trans)
     {
-        LazySample<T> s = new(this);
+        LazySample<T> s = new(source: this);
 
         // The sample phase runs after each send and each prioritized action. Thus, the pending
         // update, when this behavior got one, is the value at the end of the transaction. A
-        // transaction that fails discards that update, and the capture goes with it.
-        trans.Sample(() =>
-            s.Capture(
-                trans: trans,
-                captured: this.valueUpdate.Match(onSome: static v => v, onNone: this.SampleNoTransaction)));
+        // transaction that fails discards that update, and the capture goes with it. The sample
+        // reads for itself, thus this allocates no closure.
+        trans.Sample(s);
 
+        return s;
+    }
+
+    internal LazySample<TResult> SampleLazyMappedImpl<TResult>(Func<T, TResult> f) =>
+        TransactionInternal.Apply((trans, _) => this.SampleLazyMapped(trans: trans, f: f));
+
+    // A sample of this behavior through f: one sample and one small object. Before, this was
+    // a sample and a map on it: two samples, each with its own closure and delegate. The function
+    // runs in the sample phase, one time for each value, as it did through the map.
+    internal LazySample<TResult> SampleLazyMapped<TResult>(TransactionInternal trans, Func<T, TResult> f)
+    {
+        LazySample<TResult> s = new(source: new MappedSampleSource<T, TResult>(behavior: this, f: f));
+        trans.Sample(s);
         return s;
     }
 
@@ -182,39 +198,55 @@ public class Behavior<T>
     ///     Value for the newly selected behavior in the middle of a transaction. An
     ///     initial send on the output node makes the switch supply a previous value.
     ///     The node costs nothing, but the two intermediate streams were expensive.
-    ///     A coalesce operation in which the right value wins keeps an update from
-    ///     this transaction in front of the initial value. A merge with (left, right)
-    ///     =&gt; right gave the same result.
+    ///     The updates arrive at a bare node that links into the output node. The
+    ///     two sources write through one handler in which the right value wins, and
+    ///     the handler queues one send on the output node. That node ranks above
+    ///     the node of the updates. Thus, the send runs after the last update of
+    ///     the transaction, and each listener of the output runs after the send.
+    ///     The initial send at rank zero comes before both. A send queued on the
+    ///     node of the updates ran before an update that a sink queued at rank
+    ///     zero. The output then fired two times. Before, a coalesce stream after
+    ///     the output gave the same ranks. It cost a stream and a listener more
+    ///     than the bare node and link here.
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
         Stream<T> @out = new(this.Updates().KeepListenersAlive);
+        Action<TransactionInternal, T> h = CoalesceHandler.Create(f: static (_, right) => right, @out: @out);
+        Node<T> updates = new();
+
+        updates.Link(
+            trans: trans1,
+            action: static (_, _) =>
+            {
+            },
+            target: @out.Node);
 
         // This always runs first, because its Rank is 0.
         trans1.Prioritized(
             node: new Node<UnitInternal>(),
-            action: trans2 => @out.Send(trans: trans2, a: this.SampleNoTransaction()));
+            action: trans2 => h(arg1: trans2, arg2: this.SampleNoTransaction()));
 
         // This listener queues an action that always runs after the previous action. The Rank
         // of this.Updates() can be 0, but the Rank of its listener is more than 0.
         IListener l =
             this.Updates()
                 .Listen(
-                    target: @out.Node,
+                    target: updates,
                     trans: trans1,
-                    action: @out.Send,
+                    action: h,
                     suppressEarlierFirings: false);
 
         // The sequence is correct, and a link between the first node and the second node is
         // not necessary.
-        return @out.UnsafeAttachListener(l).Coalesce(trans1: trans1, f: static (_, right) => right);
+        return @out.UnsafeAttachListener(l);
     }
 
     internal Behavior<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
         TransactionInternal.Apply((trans, _) =>
             this.Updates()
                 .MapImpl(f)
-                .HoldLazyInternal(trans: trans, initialValue: this.SampleLazy(trans).MapImpl(f)));
+                .HoldLazyInternal(trans: trans, initialValue: this.SampleLazyMapped(trans: trans, f: f)));
 
     // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
     // input pay for a Value(), which is a spark stream, a snapshot, a merge, and a coalesce

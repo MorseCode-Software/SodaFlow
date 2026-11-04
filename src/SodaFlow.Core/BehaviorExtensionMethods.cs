@@ -10,7 +10,7 @@ internal static class BehaviorExtensionMethodsInternal
         where T2 : Behavior<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
-            LazySample<T> za = bba.SampleLazyImpl().MapImpl(static ba => ba.SampleImpl());
+            LazySample<T> za = bba.SampleLazyMapped(trans: trans1, f: static ba => ba.SampleImpl());
             SwitchKeepListenersAlive keepListenersAlive = new(bba.KeepListenersAlive);
             Stream<T> @out = new(keepListenersAlive);
             MutableListener currentListener = new();
