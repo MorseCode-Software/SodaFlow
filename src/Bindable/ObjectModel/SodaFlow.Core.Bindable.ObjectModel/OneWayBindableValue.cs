@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
@@ -19,7 +20,7 @@ public static partial class BindableCoreExtensionMethods
     ///     <c>listener</c> are usual fields that a reader needs.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
+    private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>, ILastAction
     {
         private readonly IEqualityComparer<T> comparer;
 
@@ -38,6 +39,13 @@ public static partial class BindableCoreExtensionMethods
 
         /// <summary>The one delegate that each update posts.</summary>
         private readonly Action refresh;
+
+        /// <summary>
+        ///     One while a posted refresh did not start. An update that finds it set
+        ///     posts nothing, because the refresh that is in the queue reads the slot
+        ///     after that update wrote it. See <see cref="OnSourceChanged" />.
+        /// </summary>
+        private int refreshPosted;
 
         /// <summary>
         ///     The last value that the binding engine saw. Only the binding thread reads
@@ -121,22 +129,69 @@ public static partial class BindableCoreExtensionMethods
         ///         refresh reads the cell, and the read waits for that transaction. The
         ///         refresh of the newer update then finds no change.
         ///     </para>
+        ///     <para>
+        ///         An update posts only when no refresh is in the queue. The flag is set
+        ///         with the post and cleared when the refresh starts, before it reads the
+        ///         slot, and the two are full fences. Thus, an update that finds the flag
+        ///         set wrote the slot before the refresh reads it, and an update after the
+        ///         clear posts again. A refresh that starts while the transaction of the
+        ///         newest update is open on its own thread gives the post to the queue of
+        ///         that transaction, which runs it after the close. A read of the cell in
+        ///         that transaction gives the value before the update. That occurs when a
+        ///         nested message loop runs the queue from a callback.
+        ///     </para>
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {
             this.pending.Write((newValue, TransactionInternal.CurrentOutcome()));
+            this.PostRefresh();
+        }
+
+        private void PostRefresh()
+        {
+            if (Interlocked.Exchange(location1: ref this.refreshPosted, value: 1) != 0)
+            {
+                return;
+            }
+
+            // A transaction that fails can drop the post. ImmediateBindingScheduler gives a post made
+            // in a transaction to the post queue of that transaction, and the failure discards the
+            // queue. The discard clears the flag, thus the next update posts again. A scheduler
+            // that delivers the post after the failure runs one refresh more, which finds no change.
+            TransactionInternal.GetCurrentTransaction()?.Last(this);
             this.Scheduler.Post(this.refresh);
         }
 
+        void ILastAction.Commit()
+        {
+        }
+
+        void ILastAction.Discard() => Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
         private void Refresh()
         {
+            Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
             if (this.IsDisposed)
             {
                 return;
             }
 
-            this.ResolveInitialValue();
             (T newValue, TransactionOutcome outcome) = this.pending.Read();
+
+            // The transaction that is open on this thread is the one that made the newest update.
+            // Its outcome is not known, and one transaction runs at a time. A read of the cell in
+            // it gives the value before the update, thus the post waits for its close. The
+            // scheduler cannot hold the wait: a queue that a nested loop drains runs the post
+            // again immediately, in the same transaction.
+            if (!outcome.Committed && TransactionInternal.GetCurrentTransaction() != null)
+            {
+                TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
+
+                return;
+            }
+
+            this.ResolveInitialValue();
             T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
 
             if (this.comparer.Equals(x: this.cachedValue, y: authoritative))

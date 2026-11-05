@@ -930,9 +930,9 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo(5);
     }
 
-    // The cost and the result of a group of updates. Answer this before you try to make the
-    // refresh operations into one. Each refresh in the queue reads the same cell, thus the first
-    // one does the work and the others find no change.
+    // The cost and the result of a group of updates. One refresh is in the queue at a time, and
+    // it samples the cell after each update of the group. Before, each update posted a refresh,
+    // the first did the work, and the others found no change.
     [Test]
     public async Task ABurstOfUpdatesQueuesARefreshEachButNotifiesOnce()
     {
@@ -951,11 +951,11 @@ public sealed class BindableValueConcurrencyTests
 
         int ran = scheduler.RunAll();
 
-        await Assert.That(ran).IsEqualTo(3).Because("one refresh queued per update");
+        await Assert.That(ran).IsEqualTo(1).Because("the second and third updates find a refresh in the queue");
 
         await Assert.That(observed)
             .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching)
-            .Because("but only one notification, because they all sample the same settled cell");
+            .Because("and that refresh samples the settled cell");
 
         await Assert.That(b.Value).IsEqualTo(3);
     }
@@ -983,11 +983,11 @@ public sealed class BindableValueConcurrencyTests
 
         int ran = scheduler.RunAll();
 
-        await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
+        await Assert.That(ran).IsEqualTo(1).Because("the second and third updates find a refresh in the queue");
 
         await Assert.That(observed)
             .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching)
-            .Because("the first refresh reads the newest update, and the other two find no change");
+            .Because("and that refresh reads the newest update");
 
         await Assert.That(b.Value).IsEqualTo(3).Because("and the value delivered agrees with the cell");
     }
@@ -1031,5 +1031,92 @@ public sealed class BindableValueConcurrencyTests
             .Because("the cell holds 1, and the refresh does not show the 2 that the failed transaction discarded");
 
         await Assert.That(b.Value).IsEqualTo(1);
+    }
+
+    // A nested message loop can run the queue from a callback, while the transaction that
+    // updated the cell is open on the binding thread. The update found a refresh in the queue
+    // and posted nothing. That refresh reads the newest update, whose transaction did not end.
+    // A read of the cell in that transaction gives the value before the update. Thus, the
+    // refresh posts itself again and runs after the transaction.
+    [Test]
+    public async Task AOneWayRefreshThatRunsInTheUpdatingTransactionWaitsForIt()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        int ranInside = 0;
+
+        // This listener is newer than the listener of the bindable, thus it runs after it. The
+        // update of 2 found the refresh of 1 in the queue before this runs the queue.
+        IListener pump = c.Updates().Listen(v =>
+        {
+            if (v == 2)
+            {
+                ranInside = scheduler.RunAll();
+            }
+        });
+
+        c.Send(2);
+        pump.Unlisten();
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction of 2");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again for after that transaction");
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching)
+            .Because("the refresh in the transaction announced nothing, and the one after it announced 2");
+
+        await Assert.That(b.Value).IsEqualTo(2);
+    }
+
+    // The same for a two-way value, whose refresh samples. A sample in the open transaction gives
+    // the value before the update.
+    [Test]
+    public async Task ATwoWayRefreshThatRunsInTheUpdatingTransactionWaitsForIt()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        int ranInside = 0;
+
+        IListener pump = c.Updates().Listen(v =>
+        {
+            if (v == 2)
+            {
+                ranInside = scheduler.RunAll();
+            }
+        });
+
+        c.Send(2);
+        pump.Unlisten();
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction of 2");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again for after that transaction");
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching)
+            .Because("the refresh in the transaction announced nothing, and the one after it announced 2");
+
+        await Assert.That(b.Value).IsEqualTo(2);
     }
 }
