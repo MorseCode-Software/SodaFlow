@@ -566,9 +566,9 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(c.Sample()).IsEqualTo("written");
     }
 
-    // The sample is the value at the build, and not the value at the first read. A sample at
-    // the first read gets the newest value. Then the updates in the queue arrive and move the
-    // value back to earlier values.
+    // The sample is the value at the build, and not the value at the first read. A read before
+    // the drain shows the state at the publication of the bindable, and the drain then
+    // announces the newest value one time.
     [Test]
     public async Task OneWayFirstReadAfterQueuedUpdatesGetsTheValueAtTheBuild()
     {
@@ -587,7 +587,7 @@ public sealed class BindableValueConcurrencyTests
         _ = scheduler.RunAll();
 
         await Assert.That(seen)
-            .IsEquivalentTo(expected: ["built", "first", "second"], ordering: CollectionOrdering.Matching);
+            .IsEquivalentTo(expected: ["built", "second"], ordering: CollectionOrdering.Matching);
     }
 
     // A read in the loop block, before the block returns, asks for a value that does not exist
@@ -960,13 +960,13 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(b.Value).IsEqualTo(3);
     }
 
-    // This differs from the two-way value above, and the difference is deliberate. A one-way
-    // value carries the value of the update and does not sample. No setter competes with it, thus
-    // only posted work writes the cache, in sequence. The last update to run leaves the current
-    // value of the cell. A sample is also correct, and it makes this one notification that
-    // carries the last value only.
+    // This is the same as the two-way value above, and it was different before. A one-way value
+    // carried the value of each update, and a drain announced each value in sequence. It now
+    // keeps the newest update in a slot, and each refresh reads that. Thus, three refreshes
+    // announce one time, with the last value. Nothing samples: the value comes with the outcome
+    // of its transaction, as before.
     [Test]
-    public async Task ABurstOfUpdatesReachesAOneWayValueOneAtATime()
+    public async Task ABurstOfUpdatesReachesAOneWayValueAsItsLastValue()
     {
         QueueingScheduler scheduler = new();
         CellSink<int> c = Cell.CreateSink(0);
@@ -986,15 +986,16 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(ran).IsEqualTo(3).Because("one delivery queued per update");
 
         await Assert.That(observed)
-            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching)
-            .Because("each value the cell held is reported, in the order it held them");
+            .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching)
+            .Because("the first refresh reads the newest update, and the other two find no change");
 
-        await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
+        await Assert.That(b.Value).IsEqualTo(3).Because("and the value delivered agrees with the cell");
     }
 
-    // Each queued update keeps the outcome of its own transaction. The refresh of the first
-    // update shows its value. The refresh of the second finds that its transaction did not
-    // commit, thus it reads the cell and finds no change.
+    // The slot holds the newest update with the outcome of its own transaction. The first
+    // refresh finds that the transaction of the newest update did not commit, thus it reads the
+    // cell. That shows the value that the earlier update committed. The second refresh finds no
+    // change.
     [Test]
     public async Task AOneWayRefreshReadsTheCellWhenTheNewerUpdateComesFromATransactionThatFailed()
     {

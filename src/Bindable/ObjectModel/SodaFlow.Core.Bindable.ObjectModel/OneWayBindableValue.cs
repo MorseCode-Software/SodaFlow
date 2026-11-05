@@ -31,11 +31,10 @@ public static partial class BindableCoreExtensionMethods
         private readonly IListener listener;
 
         /// <summary>
-        ///     The updates that the listener posted and that no refresh removed, in
-        ///     sequence, each with the outcome of its transaction. See
-        ///     <see cref="OnSourceChanged" />. The lock is the queue itself.
+        ///     The value and the outcome of the newest update, for the posted refresh. See
+        ///     <see cref="OnSourceChanged" />.
         /// </summary>
-        private readonly Queue<(T Value, TransactionOutcome Outcome)> pending = new();
+        private readonly SingleWriterSlot<(T Value, TransactionOutcome Outcome)> pending = new();
 
         /// <summary>The one delegate that each update posts.</summary>
         private readonly Action refresh;
@@ -110,46 +109,34 @@ public static partial class BindableCoreExtensionMethods
         ///         action before the transaction ends.
         ///     </para>
         ///     <para>
-        ///         The value and the outcome go into the queue, and the post is the one
-        ///         delegate that this object keeps. Each refresh removes the first pair, thus
-        ///         a sequence of updates reaches the binding thread one at a time, as before.
-        ///         Before, each update captured the two in a closure, which was two objects
-        ///         for each change of each bound property. The queue allocates only when it
-        ///         grows, and the two locks are short. A field with the newest pair alone
-        ///         is not sufficient. The refresh of an earlier update then shows a newer
-        ///         value, and the tests on a sequence of updates hold the order.
+        ///         The value and the outcome go into the slot, and the post is the one
+        ///         delegate that this object keeps. Before, each update captured the two in
+        ///         a closure, which was two objects for each change of each bound property.
+        ///         Each refresh reads the newest pair, which can be newer than the update
+        ///         that posted it. Thus, a sequence of updates that the binding thread
+        ///         drains together announces one time, with the last value, as a two-way
+        ///         value does. Before, each refresh carried its own value and the drain
+        ///         announced each in sequence. A newer pair is correct at an older refresh.
+        ///         The outcome of a transaction that did not end is not committed, thus the
+        ///         refresh reads the cell, and the read waits for that transaction. The
+        ///         refresh of the newer update then finds no change.
         ///     </para>
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {
-            TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
-
-            lock (this.pending)
-            {
-                this.pending.Enqueue((newValue, outcome));
-            }
-
+            this.pending.Write((newValue, TransactionInternal.CurrentOutcome()));
             this.Scheduler.Post(this.refresh);
         }
 
         private void Refresh()
         {
-            T newValue;
-            TransactionOutcome outcome;
-
-            // The removal from the queue comes before the test of the disposal. Each post has
-            // one pair, and a refresh that leaves its pair in the queue gives it to the next.
-            lock (this.pending)
-            {
-                (newValue, outcome) = this.pending.Dequeue();
-            }
-
             if (this.IsDisposed)
             {
                 return;
             }
 
             this.ResolveInitialValue();
+            (T newValue, TransactionOutcome outcome) = this.pending.Read();
             T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
 
             if (this.comparer.Equals(x: this.cachedValue, y: authoritative))

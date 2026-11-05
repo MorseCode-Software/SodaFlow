@@ -37,6 +37,7 @@
         <Compile Include="InitialSample.cs"/>
         <Compile Include="Interfaces.cs"/>
         <Compile Include="OneWayBindableValue.cs"/>
+        <Compile Include="SingleWriterSlot.cs"/>
         <Compile Include="TwoWayBindableValue.cs"/>
     </ItemGroup>
 
