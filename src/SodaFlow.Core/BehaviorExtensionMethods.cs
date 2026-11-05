@@ -71,16 +71,24 @@ internal static class BehaviorExtensionMethodsInternal
         this IEnumerable<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Behavior<T> =>
-        b.ToArray().LiftBehaviorsImpl(f);
+        LiftBehaviorsImpl(inputs: [.. b], f: f);
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Behavior<T> =>
+        LiftBehaviorsImpl(inputs: [.. b], f: f);
+
+    // The array is the lift's own copy. A caller gives it through one of the overloads above,
+    // which copy one time. Before, the enumerable overload copied to an array, and this method
+    // copied that array again. This is not an extension method. Thus, a caller can give a
+    // collection expression, and a call on an array does not go to the collection overload.
+    internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
+        T2[] inputs,
+        Func<IReadOnlyList<T>, TResult> f)
+        where T2 : Behavior<T> =>
         TransactionInternal.Apply((trans1, _) =>
         {
-            T2[] inputs = [.. b];
-
             IKeepListenersAlive[] roots = [.. inputs.Select(static behavior => behavior.KeepListenersAlive)];
             Stream<TResult> @out = new(KeepListenersAliveInternal.Combine(roots));
 

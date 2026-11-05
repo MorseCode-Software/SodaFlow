@@ -138,6 +138,25 @@ collection of generation N or higher, so the sweep after a collection of generat
 sweep after a young collection takes about a microsecond at any size. A full sweep costs what it did. A loop that builds
 a map and sends, with 300,000 live streams in the registry, runs 24,000 pairs a second before and 52,000 after.
 
+Transaction.Run and Transaction.RunVoid allocate nothing of their own. Run wrapped its function in a closure and a
+delegate for the state-passing Apply, and RunVoid wrapped its action in a second closure and delegate before that, so
+an empty RunVoid inside an open transaction cost 176 bytes for nothing. Both now pass the caller's delegate as the
+state. Measured in the scratch harness on .NET 10: an empty RunVoid from outside a transaction 55 ns and 288 bytes to
+36 ns and 112 bytes, a Run that returns a value 42 ns and 200 bytes to 35 ns and 112 bytes, and an empty RunVoid
+inside an open transaction 27 ns and 176 bytes to 6 ns and nothing. The 112 bytes that remain are the transaction.
+The F# Transaction.run goes through the same path.
+
+A list lift copies its inputs once. The enumerable overload copied them to an array and then the overload it called
+copied that array again, and the cell overloads went through the same path with a Select in front, so a lift of
+cells paid two copies and a lift of behaviors from a collection one. Every overload now hands one array to the lift,
+which is 8 bytes per input less: a lift of 1,000 cells from an array is 532 KB to 524 KB on .NET 10, and one of 4,000
+is 2,120 KB to 2,088 KB.
+
+A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
+Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
+that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
+measured cost.
+
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
 957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never

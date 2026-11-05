@@ -121,7 +121,20 @@ internal sealed class TransactionInternal
     internal static TransactionInternal CurrentTransaction() =>
         localTransaction ?? throw new InvalidOperationException("No transaction is open on this thread.");
 
-    internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
+    // The state-passing Apply, so a run with no open transaction allocates no closure and no
+    // delegate for the call. Before, this was Apply((_, _) => f()), and RunVoid added a second
+    // closure and delegate of its own.
+    internal static T RunImpl<T>(Func<T> f) => Apply(code: static (_, _, f) => f(), state: f);
+
+    internal static void RunVoidImpl(Action action) =>
+        Apply(
+            code: static (_, _, action) =>
+            {
+                action();
+
+                return UnitInternal.Value;
+            },
+            state: action);
 
     internal static T Apply<T>(Func<TransactionInternal, bool, T> code) =>
         Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
