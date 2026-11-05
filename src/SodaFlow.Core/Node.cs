@@ -87,6 +87,10 @@ internal abstract class Node
     // work.
     internal List<TransactionInternal.Entry>? Entries;
 
+    // True while the node has a listener. Node<T> writes this while it holds ListenersLock. A
+    // reader that holds a transaction can read it without the lock. See EnsureBiggerThan.
+    protected bool HasListeners;
+
     internal int Rank;
 
     internal Node()
@@ -118,6 +122,17 @@ internal abstract class Node
             {
                 trans.AddRerankEntry(e);
             }
+        }
+
+        // A node with no listeners has no descendants, and the walk visits nothing. The target
+        // of a link in a chain is a new node with no listeners. Thus, this read saves a lock
+        // for each link. The read is safe without the lock. Only Link adds a listener, each
+        // Link runs in a transaction, and the transaction lock orders this read after that
+        // write. An unlisten can clear the flag at the same time. A stale true then causes a
+        // walk that finds nothing.
+        if (!node.HasListeners)
+        {
+            return;
         }
 
         lock (ListenersLock)
@@ -295,6 +310,7 @@ internal class Node<T> : Node
                 this.firstListener = null;
             }
 
+            this.HasListeners = true;
             this.listenersSnapshot = default;
         }
 
@@ -324,6 +340,7 @@ internal class Node<T> : Node
                 if (this.firstListener == target)
                 {
                     this.firstListener = null;
+                    this.HasListeners = false;
                     this.listenersSnapshot = default;
                 }
 
@@ -331,6 +348,7 @@ internal class Node<T> : Node
             }
 
             this.listeners.Remove(target);
+            this.HasListeners = this.listeners.Count > 0;
             this.listenersSnapshot = default;
 
             // A HashSet does not release space after a removal. Thus, make a new HashSet when
