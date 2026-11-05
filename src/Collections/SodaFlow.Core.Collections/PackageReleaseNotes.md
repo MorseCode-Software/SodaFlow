@@ -118,6 +118,16 @@ because keys tied on the first level keep their second-level sequence. Measured 
 order over 100,000 items: the toggle took 84.5 ms and allocated 13.7 MB before and takes 2.3 µs and 4.2 KB after on
 .NET 10, and took 182.3 ms before and takes 4.0 µs after on .NET Framework 4.7.2.
 
+Changed: a view stage, which is what Filter, SortBy, Take, and the other view operations build, is made of two nodes
+fewer and allocates about 3.1 KB less, 14 percent of what it allocated. The stage lifted the criteria, the keys above
+it, and the store into one cell and read that cell in its snapshot; the snapshot now reads the three cells itself. The
+stage also mapped a change from above and a new criteria into one shape each and merged the two; one merge now takes the
+two as they are. What a stage fires is unchanged. Measured on .NET 10 on a ten-item collection, bytes and time to build
+inside one transaction: a filter 22,064 to 18,925 bytes and 129 to 104 µs, a sort 23,790 to 20,889 bytes and 140 to 113
+µs, a take 23,235 to 20,303 bytes and 115 to 105 µs, and a filter, a sort, and a take chained 54,411 to 44,102 bytes and
+251 to 196 µs. The first view on a collection also pays, once, for the collection's own order of arrival, which is built
+at the first read of its keys: 8.6 KB and about 35 µs of the figures above.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
