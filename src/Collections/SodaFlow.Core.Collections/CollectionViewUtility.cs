@@ -427,23 +427,14 @@ internal static class CollectionViewUtility
             // code below gives an explicit scope to the value that it receives.
             Cell<CollectionSnapshot<TKey, TIdentity, TState>> storeSnapshotCell = upstream.Root.SnapshotCell;
 
+            // One node that takes a change from above and a new criteria as two slots. Before, a map
+            // of each input made a StageInput with one slot full, and a merge of the two combined
+            // them. That was three nodes, and up to three objects in a transaction that had the two.
             Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream =
-                upstream.KeyChangesStream
-                    .MapImpl(static change =>
-                        new StageInput<TKey, TIdentity, TState, TCriteria>(
-                            change: MaybeInternal.Some(change),
-                            criteria: MaybeInternal<TCriteria>.None))
-                    .MergeImpl(
-                        s: criteriaCell.UpdatesImpl.MapImpl(static criteria =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None,
-                                criteria: MaybeInternal.Some(criteria))),
-                        f: static (left, right) =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: left.Change.Match(onSome: MaybeInternal.Some, onNone: () => right.Change),
-                                criteria: left.Criteria.Match(
-                                    onSome: MaybeInternal.Some,
-                                    onNone: () => right.Criteria)));
+                upstream.KeyChangesStream.MergeMaybesImpl(
+                    s2: criteriaCell.UpdatesImpl,
+                    f: static (change, criteria) =>
+                        new StageInput<TKey, TIdentity, TState, TCriteria>(change: change, criteria: criteria));
 
             // The snapshot reads the criteria, the keys above, and the store as three cells.
             // Before, a lift of the three held them in one object. The lift cost a cell and a hold
