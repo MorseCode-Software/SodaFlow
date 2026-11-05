@@ -162,6 +162,14 @@ scratch harness on .NET 10: a merge of two with a function 1,562 bytes to 1,362,
 merge of two 1,726 to 1,638, against 425 for a map; a list merge of three or four is unchanged. The second link, the
 gate, and their delegates are what remains, so a merge stays about three maps.
 
+A merge of two streams of different types, the Merge overload that gives a tuple of two Maybe values, takes the same
+step. It went through the merge of maybes for n inputs, which captures each input in an object of its own and adds an
+array of them, a closure that makes the array, and a closure that reads them. A new MergeTwoMaybes holds the two slots
+in fields and gives its methods as the delegates, with the same semantics: each slot keeps the last value its input
+sent in the transaction, the gate reads the two once, and a slot a failed transaction filled gives no value. Measured
+in the scratch harness on .NET 10: 1,559 bytes to 1,287. A merge of three or four streams of different types is
+unchanged.
+
 Cell.Calm opens one transaction when called outside one, where it opened four: one each for the two samples, the
 updates, the calm, and the hold, so four lock acquisitions, four runs of every start hook, and four transaction
 objects for one calm. The steps now share one transaction, and Accum's hold and a stream's Calm no longer open a
