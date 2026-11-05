@@ -32,7 +32,8 @@ namespace SodaFlow;
 internal sealed class GenerationalRegistry(in Func<object, int> getGeneration)
 {
     // GC.MaxGeneration is a call into the runtime, and the sweep reads it for each entry.
-    private static readonly int MaxGeneration = GC.MaxGeneration;
+    // The manager reads this field too, so the call to the runtime occurs one time.
+    internal static readonly int MaxGeneration = GC.MaxGeneration;
 
     private readonly Func<object, int> getGeneration = getGeneration;
     private readonly List<IEntry>[] generations = CreateGenerations();

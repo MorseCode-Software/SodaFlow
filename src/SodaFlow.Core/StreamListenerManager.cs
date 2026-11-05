@@ -68,7 +68,7 @@ internal static class StreamListenerManager
 
     // The collection count of each generation at the last signaled sweep. Only the cleanup
     // thread reads and writes this.
-    private static readonly int[] CollectionCounts = new int[GC.MaxGeneration + 1];
+    private static readonly int[] CollectionCounts = new int[GenerationalRegistry.MaxGeneration + 1];
 
     static StreamListenerManager()
     {
@@ -116,7 +116,7 @@ internal static class StreamListenerManager
             Sweep(
                 collectedGeneration: signaled
                     ? CollectedGeneration(lastCounts: CollectionCounts, collectionCount: GC.CollectionCount)
-                    : GC.MaxGeneration);
+                    : GenerationalRegistry.MaxGeneration);
         }
         // ReSharper disable once FunctionNeverReturns
     }
@@ -126,7 +126,7 @@ internal static class StreamListenerManager
     ///     test can start a sweep directly and does not wait for the background
     ///     thread.
     /// </summary>
-    internal static void Sweep() => Sweep(collectedGeneration: GC.MaxGeneration);
+    internal static void Sweep() => Sweep(collectedGeneration: GenerationalRegistry.MaxGeneration);
 
     /// <summary>
     ///     Sweeps generations 0 to <paramref name="collectedGeneration" />, which is
