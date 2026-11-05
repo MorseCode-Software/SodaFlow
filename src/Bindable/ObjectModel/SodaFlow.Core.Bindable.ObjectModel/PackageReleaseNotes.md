@@ -54,6 +54,14 @@ opens. BindableRefreshBenchmarks, on the tree before and after, per send deliver
 .NET 10 and 674 to 673 on .NET Framework 4.7.2, for 904 bytes to 800 and 924 to 819; a two-way value 406 ns to 392 on
 .NET 10 and 732 to 726 on .NET Framework, for 1,016 bytes to 952 and 1,036 to 972.
 
+Changed: a bindable value posts one refresh to the binding thread while one is in the queue, where every update and
+every write posted its own. When the binding thread drained several at a time, the first refresh did the work and the
+rest found no change, which for a two-way value was a sample and so a transaction each. A refresh that runs from a
+nested message loop while the transaction that updated the cell is still open on the binding thread now waits for that
+transaction to close, through its post queue, instead of reading the value before the update; and a transaction that
+fails after posting clears the way for the next update to post again, which matters with BindingScheduler.Immediate,
+where a failed transaction discards the post. What the binding thread sees is unchanged; it is asked less often.
+
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
