@@ -88,7 +88,8 @@ public sealed class LazySample<T> : ILastAction, ISampleAction
     ///     Gives the value, in a transaction of its own or in the one that is open on
     ///     this thread.
     /// </summary>
-    internal T Force() => TransactionInternal.Apply((trans, _) => this.Force(trans));
+    internal T Force() =>
+        TransactionInternal.Apply(code: static (trans, _, sample) => sample.Force(trans), state: this);
 
     /// <summary>
     ///     Gives the value. Only SodaFlow calls this, in a transaction, which is what

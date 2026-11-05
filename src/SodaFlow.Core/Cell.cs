@@ -8,8 +8,10 @@ internal static class CellInternal
     internal static Cell<T> ConstantImpl<T>(T value) => new(BehaviorInternal.ConstantImpl(value));
 
     internal static Cell<T> ConstantLazyImpl<T>(LazySample<T> value) =>
-        TransactionInternal.Apply((trans, _) =>
-            new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)));
+        TransactionInternal.Apply(
+            code: static (trans, _, value) =>
+                new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)),
+            state: value);
 
     internal static CellSink<T> CreateSinkImpl<T>(T initialValue) => new(initialValue);
 
@@ -56,7 +58,8 @@ public class Cell<T>
         // set within a Transaction.
         this.updates ??= this.BehaviorImpl.Updates().Coalesce(trans1: trans, f: static (_, right) => right);
 
-    internal Stream<T> ValuesImpl => TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans));
+    internal Stream<T> ValuesImpl =>
+        TransactionInternal.Apply(code: static (trans, _, cell) => cell.BehaviorImpl.Value(trans), state: this);
 
     internal Behavior<T> BehaviorImpl { get; }
 
@@ -68,12 +71,16 @@ public class Cell<T>
         this.BehaviorImpl.SampleLazyMappedImpl(f);
 
     internal IStrongListener ListenStrongImpl(Action<T> handler) =>
-        TransactionInternal.Apply((trans, _) =>
-            this.BehaviorImpl.Value(trans).ListenStrongImpl(trans: trans, handler: handler));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.BehaviorImpl.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
+            state: (Self: this, Handler: handler));
 
     internal IWeakListener ListenImpl(Action<T> handler) =>
-        TransactionInternal.Apply((trans, _) =>
-            this.BehaviorImpl.Value(trans).ListenImpl(trans: trans, handler: handler));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.BehaviorImpl.Value(trans).ListenImpl(trans: trans, handler: state.Handler),
+            state: (Self: this, Handler: handler));
 
     internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) => new(this.BehaviorImpl.MapImpl(f));
 
@@ -165,16 +172,20 @@ public class Cell<T>
     // step opened its own transaction when no transaction was open. One calm then cost four
     // lock acquisitions, four runs of the start hooks, and four transaction objects.
     internal Cell<T> CalmImpl(Func<T, T, bool> areEqual) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            LazySample<T> initA = this.BehaviorImpl.SampleLazy(trans);
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => state.Self.Calm(trans: trans, areEqual: state.AreEqual),
+            state: (Self: this, AreEqual: areEqual));
 
-            LazySample<MaybeInternal<T>> mInitA =
-                this.BehaviorImpl.SampleLazyMapped(trans: trans, f: MaybeInternal.Some);
+    private Cell<T> Calm(TransactionInternal trans, Func<T, T, bool> areEqual)
+    {
+        LazySample<T> initA = this.BehaviorImpl.SampleLazy(trans);
 
-            return new Cell<T>(
-                this.Updates(trans)
-                    .Calm(trans1: trans, init: mInitA, areEqual: areEqual)
-                    .HoldLazyInternal(trans: trans, initialValue: initA));
-        });
+        LazySample<MaybeInternal<T>> mInitA =
+            this.BehaviorImpl.SampleLazyMapped(trans: trans, f: MaybeInternal.Some);
+
+        return new Cell<T>(
+            this.Updates(trans)
+                .Calm(trans1: trans, init: mInitA, areEqual: areEqual)
+                .HoldLazyInternal(trans: trans, initialValue: initA));
+    }
 }
