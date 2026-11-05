@@ -47,6 +47,7 @@
         <Compile Include="CoalesceHandler.cs"/>
         <Compile Include="DependencyCycleException.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>
+        <Compile Include="GenerationalRegistry.cs"/>
         <Compile Include="InputCapture.cs"/>
         <Compile Include="KeepListenersAlive.cs"/>
         <Compile Include="LazyBehavior.cs"/>

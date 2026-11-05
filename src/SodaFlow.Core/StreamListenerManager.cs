@@ -31,6 +31,12 @@ namespace SodaFlow;
 ///         release of 22,000 streams.
 ///     </para>
 ///     <para>
+///         The registry keeps its entries by generation, and the sweep after a
+///         collection of generation N examines generations 0 to N only. See
+///         <see cref="GenerationalRegistry" />. Thus, the sweep after a young
+///         collection, which is the frequent one, does not walk the live graph.
+///     </para>
+///     <para>
 ///         The handle is a weak <see cref="GCHandle" /> and not a
 ///         <see cref="System.WeakReference" />. A WeakReference owns a handle that
 ///         it must release in a finalizer. Thus, one WeakReference for each stream
@@ -57,8 +63,12 @@ internal static class StreamListenerManager
     private const int TimedSweepIntervalInMilliseconds = 300000;
 
     private static readonly object RegistryLock = new();
-    private static readonly List<IEntry> Registry = [];
+    private static readonly GenerationalRegistry Registry = new(getGeneration: GC.GetGeneration);
     private static readonly AutoResetEvent SweepRequested = new(false);
+
+    // The collection count of each generation at the last signaled sweep. Only the cleanup
+    // thread reads and writes this.
+    private static readonly int[] CollectionCounts = new int[GenerationalRegistry.MaxGeneration + 1];
 
     static StreamListenerManager()
     {
@@ -74,7 +84,7 @@ internal static class StreamListenerManager
 
     /// <summary>
     ///     The number of streams in the registry. This is for tests. The number is
-    ///     applicable only immediately after a <see cref="Sweep" />.
+    ///     applicable only immediately after a <see cref="Sweep()" />.
     /// </summary>
     internal static int RegistryCount
     {
@@ -100,54 +110,35 @@ internal static class StreamListenerManager
         while (true)
         {
             // A collection starts this. The backstop interval starts it if no signal
-            // arrives.
-            SweepRequested.WaitOne(TimedSweepIntervalInMilliseconds);
-            Sweep();
+            // arrives, and that sweep examines all generations.
+            bool signaled = SweepRequested.WaitOne(TimedSweepIntervalInMilliseconds);
+
+            Sweep(
+                collectedGeneration: signaled
+                    ? CollectedGeneration(lastCounts: CollectionCounts, collectionCount: GC.CollectionCount)
+                    : GenerationalRegistry.MaxGeneration);
         }
         // ReSharper disable once FunctionNeverReturns
     }
 
     /// <summary>
-    ///     This member is internal and not private, thus a test can start a sweep
-    ///     directly and does not wait for the interval of the background thread.
+    ///     Sweeps all generations. This member is internal and not private. Thus, a
+    ///     test can start a sweep directly and does not wait for the background
+    ///     thread.
     /// </summary>
-    internal static void Sweep()
+    internal static void Sweep() => Sweep(collectedGeneration: GenerationalRegistry.MaxGeneration);
+
+    /// <summary>
+    ///     Sweeps generations 0 to <paramref name="collectedGeneration" />, which is
+    ///     the sweep after a collection of that generation.
+    /// </summary>
+    private static void Sweep(int collectedGeneration)
     {
-        List<IEntry>? collected = null;
+        List<IEntry>? collected;
 
         lock (RegistryLock)
         {
-            // This moves backwards and puts the last entry into each empty position. Each entry
-            // that it moves comes from a position that it read first. Thus, it reads each entry
-            // one time.
-            for (int i = Registry.Count - 1; i >= 0; i--)
-            {
-                IEntry entry = Registry[i];
-
-                if (entry.IsStreamAlive)
-                {
-                    continue;
-                }
-
-                int last = Registry.Count - 1;
-
-                if (i != last)
-                {
-                    Registry[i] = Registry[last];
-                }
-
-                Registry.RemoveAt(last);
-
-                collected ??= [];
-                collected.Add(entry);
-            }
-
-            // A List keeps its backing array after a removal. Release that array after a large
-            // number of entries becomes small again.
-            if (Registry.Capacity > 100 && Registry.Count < Registry.Capacity / 2)
-            {
-                Registry.TrimExcess();
-            }
+            collected = Registry.Sweep(collectedGeneration);
         }
 
         // SodaFlow does this release while it holds no registry lock. A stop of a listener
@@ -160,6 +151,29 @@ internal static class StreamListenerManager
                 entry.Release();
             }
         }
+    }
+
+    /// <summary>
+    ///     The highest generation that a collection reached since the last call, read
+    ///     from the change in the collection counts. Writes the new counts to
+    ///     <paramref name="lastCounts" />.
+    /// </summary>
+    internal static int CollectedGeneration(int[] lastCounts, Func<int, int> collectionCount)
+    {
+        int collected = 0;
+
+        for (int generation = 1; generation < lastCounts.Length; generation++)
+        {
+            int count = collectionCount(generation);
+
+            if (count != lastCounts[generation])
+            {
+                lastCounts[generation] = count;
+                collected = generation;
+            }
+        }
+
+        return collected;
     }
 
     /// <summary>
