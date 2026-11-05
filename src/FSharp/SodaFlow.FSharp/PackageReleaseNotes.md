@@ -24,6 +24,10 @@ The timer system's hook also allocates nothing in a transaction with no alarm du
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. The C# notes have the measurement; the F# hook has the same shape.
 
+Transaction.run no longer allocates a closure and a delegate of its own. With SodaFlow.Core 6.0.0, a run that returns
+a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
+the rest.
+
 Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
 takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local
 time moves with the machine's clock at a daylight saving change, and a wait across that change waits for the wrong
