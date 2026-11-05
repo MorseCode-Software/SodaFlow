@@ -130,6 +130,14 @@ garbage collection with 100,000 live map nodes takes 32.7 ms to 26.6 ms, because
 GraphBuildBenchmarks, per thousand, .NET 10: a chain of maps 1.04 ms and 481 KB to 0.95 ms and 435 KB, ListenStrong on
 one stream 371 µs and 579 KB to 347 µs and 555 KB, and a sink 395 µs and 437 KB to 52 µs and 367 KB.
 
+The registry sweep after a young collection no longer walks the live graph. The sweep ran after every collection and
+read every entry under the registry lock, whether or not anything had died, which was 1.1 ms at 75,000 live streams and
+4.2 ms at 300,000 on .NET 10, about a hundred times a second under load, and every stream that registered waited on that
+lock. The registry now keeps its entries by garbage collector generation. A stream in generation N can die only in a
+collection of generation N or higher, so the sweep after a collection of generation N examines generations 0 to N, and a
+sweep after a young collection takes about a microsecond at any size. A full sweep costs what it did. A loop that builds
+a map and sends, with 300,000 live streams in the registry, runs 24,000 pairs a second before and 52,000 after.
+
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and
 957 KB per thousand constants on .NET 10. A constant behavior now holds only its value, and Updates makes the never
