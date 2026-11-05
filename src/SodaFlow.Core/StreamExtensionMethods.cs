@@ -36,7 +36,7 @@ internal static class StreamExtensionMethodsInternal
     ///     into <see cref="MaybeInternal{T}" />, thus a null value and an empty
     ///     slot stay apart.
     /// </remarks>
-    internal static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
+    private static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
     {
         switch (inputs.Count)
         {
@@ -44,6 +44,8 @@ internal static class StreamExtensionMethodsInternal
                 return new Stream<T>();
             case 1:
                 return inputs[0];
+            case 2:
+                return MergeTwo<T>.Create(trans: trans, first: inputs[0], second: inputs[1], f: f);
         }
 
         IKeepListenersAlive[] roots = new IKeepListenersAlive[inputs.Count];
