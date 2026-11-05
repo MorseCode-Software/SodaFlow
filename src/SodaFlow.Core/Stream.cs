@@ -104,8 +104,16 @@ public class Stream<T> : ILastAction
 
     internal IStrongListener ListenStrongImpl(Action<T> handler) => this.KeepAlive(this.ListenImpl(handler));
 
+    internal IStrongListener ListenStrongImpl(TransactionInternal trans, Action<T> handler) =>
+        this.KeepAlive(this.ListenImpl(trans: trans, handler: handler));
+
     internal IWeakListener ListenImpl(Action<T> handler) =>
         this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
+
+    // For a caller that holds the transaction, such as a cell's Listen, which makes the value
+    // stream and listens to it in one.
+    internal IWeakListener ListenImpl(TransactionInternal trans, Action<T> handler) =>
+        this.Listen(target: Node<T>.Null, trans: trans, action: (_, a) => handler(a), suppressEarlierFirings: false);
 
     internal Stream<T> AttachListenerInternal(IListener listener)
     {
@@ -1809,18 +1817,23 @@ public class Stream<T> : ILastAction
     ///     initialized flag and must not read an empty state as "not started".
     /// </remarks>
     internal Stream<T> Calm(LazySample<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
-        TransactionInternal.Apply((trans1, _) =>
-            this.CarryState(
-                trans1: trans1,
-                initialState: init,
-                f: (a, last) =>
-                {
-                    bool emit = !(last.TryGetValue(out T previous) && areEqual(arg1: previous, arg2: a));
+        TransactionInternal.Apply(
+            code: static (trans1, _, state) =>
+                state.Stream.Calm(trans1: trans1, init: state.Init, areEqual: state.AreEqual),
+            state: (Stream: this, Init: init, AreEqual: areEqual));
 
-                    // The state carries forward unchanged for a suppressed firing rather than being
-                    // cleared, matching what feeding state back through Collect used to give.
-                    return (emit, a, emit ? MaybeInternal.Some(a) : last);
-                }));
+    internal Stream<T> Calm(TransactionInternal trans1, LazySample<MaybeInternal<T>> init, Func<T, T, bool> areEqual) =>
+        this.CarryState(
+            trans1: trans1,
+            initialState: init,
+            f: (a, last) =>
+            {
+                bool emit = !(last.TryGetValue(out T previous) && areEqual(arg1: previous, arg2: a));
+
+                // The state carries forward unchanged for a suppressed firing rather than being
+                // cleared, matching what feeding state back through Collect used to give.
+                return (emit, a, emit ? MaybeInternal.Some(a) : last);
+            });
 
     internal Stream<TReturn> CollectImpl<TState, TReturn>(
         TState initialState,
@@ -1843,17 +1856,20 @@ public class Stream<T> : ILastAction
     internal Cell<TReturn> AccumImpl<TReturn>(TReturn initialState, Func<T, TReturn, TReturn> f) =>
         this.AccumLazyImpl(initialState: new LazySample<TReturn>(_ => initialState), f: f);
 
+    // The hold takes the same transaction as CarryState. Before, HoldLazyImpl opened its own
+    // Apply in this one, which found the transaction open and allocated a closure for nothing.
     internal Cell<TReturn> AccumLazyImpl<TReturn>(LazySample<TReturn> initialState, Func<T, TReturn, TReturn> f) =>
         TransactionInternal.Apply((trans, _) =>
-            this.CarryState(
-                    trans1: trans,
-                    initialState: initialState,
-                    f: (a, s) =>
-                    {
-                        TReturn next = f(arg1: a, arg2: s);
-                        return (true, next, next);
-                    })
-                .HoldLazyImpl(initialState));
+            new Cell<TReturn>(
+                this.CarryState(
+                        trans1: trans,
+                        initialState: initialState,
+                        f: (a, s) =>
+                        {
+                            TReturn next = f(arg1: a, arg2: s);
+                            return (true, next, next);
+                        })
+                    .HoldLazyInternal(trans: trans, initialValue: initialState)));
 
     /// <summary>
     ///     Runs <paramref name="f" /> on each firing and moves state between the
