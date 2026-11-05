@@ -152,6 +152,16 @@ cells paid two copies and a lift of behaviors from a collection one. Every overl
 which is 8 bytes per input less: a lift of 1,000 cells from an array is 532 KB to 524 KB on .NET 10, and one of 4,000
 is 2,120 KB to 2,088 KB.
 
+A merge of two streams, and so OrElse, no longer goes through the list merge. The list merge is one node for n inputs,
+which was right for n, but it allocates the input array, a slots array, a closure and a delegate for each input
+because the index is captured, and a closure for the fold, and a merge of two is the common case. A new MergeTwo holds
+the two slots in fields and gives its methods as the delegates, with the same semantics: the left value goes to the
+left of the function when both fire, an input that fires more than once in a transaction folds into its own slot in
+order, and a failed transaction clears the slots. The list merge routes two inputs to it as well. Measured in the
+scratch harness on .NET 10: a merge of two with a function 1,562 bytes to 1,362, OrElse 1,642 to 1,442, and a list
+merge of two 1,726 to 1,638, against 425 for a map; a list merge of three or four is unchanged. The second link, the
+gate, and their delegates are what remains, so a merge stays about three maps.
+
 A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
 Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
 that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
