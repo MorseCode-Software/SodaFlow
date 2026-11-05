@@ -137,9 +137,13 @@ public class Behavior<T> : ISampleSource<T>, ILastAction
     /// </summary>
     protected void UseInitialValueAgain() => this.UsingInitialValue = true;
 
-    internal T SampleImpl() => TransactionInternal.Apply((_, _) => this.SampleNoTransaction());
+    // A static lambda with the behavior as the state. A lambda that captured this allocated a
+    // delegate for each sample made when no transaction was open, such as a two-way value's refresh.
+    internal T SampleImpl() =>
+        TransactionInternal.Apply(code: static (_, _, behavior) => behavior.SampleNoTransaction(), state: this);
 
-    internal LazySample<T> SampleLazyImpl() => TransactionInternal.Apply((trans, _) => this.SampleLazy(trans));
+    internal LazySample<T> SampleLazyImpl() =>
+        TransactionInternal.Apply(code: static (trans, _, behavior) => behavior.SampleLazy(trans), state: this);
 
     internal LazySample<T> SampleLazy(TransactionInternal trans)
     {
