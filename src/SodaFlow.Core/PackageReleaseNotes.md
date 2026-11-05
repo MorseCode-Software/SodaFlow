@@ -172,6 +172,13 @@ a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 
 1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
 allocate the same.
 
+Transaction.Post allocates nothing of its own when no transaction is open, where it allocated four objects: two to
+wrap the action in the delegate type of the post queue, and two to capture it for the transaction it opened. The
+action runs in that transaction as before. When a transaction is open, the post still queues one closure, where it
+queued the same two wrappers and the closure. Measured in the scratch harness on .NET 10: a post from outside a
+transaction 296 bytes to 152, which is the transaction itself; a post from inside one 536 bytes to 456. The bindable
+values build on this, and SodaFlow.Bindable.ObjectModel.Core 5.0.0 says what it saves there.
+
 A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
 Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
 that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
