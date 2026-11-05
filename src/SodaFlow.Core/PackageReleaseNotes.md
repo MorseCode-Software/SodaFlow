@@ -179,6 +179,11 @@ queued the same two wrappers and the closure. Measured in the scratch harness on
 transaction 296 bytes to 152, which is the transaction itself; a post from inside one 536 bytes to 456. The bindable
 values build on this, and SodaFlow.Bindable.ObjectModel.Core 5.0.0 says what it saves there.
 
+Sample on a cell or a behavior from outside a transaction allocates no delegate, where it allocated one of 64 bytes
+for the lambda that captured the behavior; the transaction it opens is what remains. A two-way bindable value's
+refresh is such a sample on every change. Measured in the scratch harness on .NET 10: 176 bytes to 112 and about 118
+ns to 105 per sample.
+
 A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
 Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
 that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
