@@ -58,6 +58,9 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         private readonly IListener listener;
 
+        /// <summary>The one delegate that each refresh posts.</summary>
+        private readonly Action refreshFromCell;
+
         private readonly Action<T> write;
 
         /// <summary>
@@ -129,6 +132,7 @@ public static partial class BindableCoreExtensionMethods
 
             // ReSharper disable once NullableWarningSuppressionIsUsed - As above.
             this.lastNotifiedValue = default!;
+            this.refreshFromCell = this.RefreshFromCell;
 
             // The attachment of the listener puts this object into the graph before the
             // constructor returns. Thus, the listener can fire while the constructor runs. This
@@ -186,18 +190,10 @@ public static partial class BindableCoreExtensionMethods
 
                 try
                 {
-                    PostWrite(() =>
-                    {
-                        // This code tests again here, and does not depend on the ThrowIfDisposed
-                        // above. PostWrite defers while a transaction is open. Thus, a Dispose
-                        // between the two can let this write reach the graph.
-                        if (this.IsDisposed)
-                        {
-                            return;
-                        }
-
-                        this.write(value);
-                    });
+                    // The state carries this object and the value, thus the post captures
+                    // nothing. When no transaction is open, which is the usual condition, the
+                    // write runs now and allocates nothing.
+                    PostWrite(write: static s => s.Self.WriteToGraph(s.Value), state: (Self: this, Value: value));
                 }
                 catch (Exception e)
                 {
@@ -232,6 +228,24 @@ public static partial class BindableCoreExtensionMethods
                     this.Scheduler.Post(failure.Throw);
                 }
             }
+        }
+
+        /// <summary>
+        ///     Sends a value that the view wrote into the graph.
+        /// </summary>
+        /// <remarks>
+        ///     This code tests again here, and does not depend on the ThrowIfDisposed in
+        ///     the setter. PostWrite defers while a transaction is open. Thus, a Dispose
+        ///     between the two can let this write reach the graph.
+        /// </remarks>
+        private void WriteToGraph(T value)
+        {
+            if (this.IsDisposed)
+            {
+                return;
+            }
+
+            this.write(value);
         }
 
         /// <summary>
@@ -298,60 +312,64 @@ public static partial class BindableCoreExtensionMethods
             // two sees that the refresh is in the queue.
             Interlocked.Increment(ref this.pendingRefreshes);
 
-            this.Scheduler.Post(() =>
+            // One delegate for the life of this object. Before, each refresh allocated one.
+            this.Scheduler.Post(this.refreshFromCell);
+        }
+
+        /// <summary>The posted part of <see cref="ScheduleRefreshFromCell" />.</summary>
+        private void RefreshFromCell()
+        {
+            try
             {
-                try
+                if (this.IsDisposed)
                 {
-                    if (this.IsDisposed)
-                    {
-                        return;
-                    }
-
-                    this.ResolveInitialValue();
-
-                    T authoritative = this.Cell.SampleImpl();
-
-                    // Two values can be behind the cell, and each one is a cause to announce.
-                    // Thus, there is no work only when the two agree with the cell.
-                    //
-                    // The cached value is the value that the control wrote optimistically. It is
-                    // behind when the graph refused that write or changed it, which is the
-                    // condition that gives the correction back to the control.
-                    //
-                    // The last notified value is the value that each other observer got. It is
-                    // behind when the graph accepted a write with no change. The cache agrees
-                    // with the cell because the setter wrote it first, but no binding on this
-                    // property got a notification. A property that one control can write and
-                    // another cannot follow is not a bindable value, thus this condition must
-                    // announce.
-                    //
-                    // The short-circuit is deliberate. A first test that fails shows that
-                    // this is not the return above. Thus, the second test adds no answer,
-                    // and a comparer is code that this class does not control.
-                    if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
-                        && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
-                    {
-                        return;
-                    }
-
-                    // This code writes the field only on the path that announces. On the early
-                    // return the cached value is equal, and a write there replaces the value of
-                    // the control with the value of the graph and tells no observer. A comparer
-                    // that ignores part of a value shows that difference. A comparer
-                    // that ignores letter case is such a comparer, and nothing corrects the
-                    // difference.
-                    this.cachedValue = authoritative;
-                    this.lastNotifiedValue = authoritative;
-                    this.RaiseValueChanged();
+                    return;
                 }
-                finally
+
+                this.ResolveInitialValue();
+
+                T authoritative = this.Cell.SampleImpl();
+
+                // Two values can be behind the cell, and each one is a cause to announce.
+                // Thus, there is no work only when the two agree with the cell.
+                //
+                // The cached value is the value that the control wrote optimistically. It is
+                // behind when the graph refused that write or changed it, which is the
+                // condition that gives the correction back to the control.
+                //
+                // The last notified value is the value that each other observer got. It is
+                // behind when the graph accepted a write with no change. The cache agrees
+                // with the cell because the setter wrote it first, but no binding on this
+                // property got a notification. A property that one control can write and
+                // another cannot follow is not a bindable value, thus this condition must
+                // announce.
+                //
+                // The short-circuit is deliberate. A first test that fails shows that
+                // this is not the return above. Thus, the second test adds no answer,
+                // and a comparer is code that this class does not control.
+                if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
+                    && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
                 {
-                    // This runs in a finally block. Thus, a disposal, or a throw from the
-                    // comparer, cannot leave the count too high. A count that is too high stops
-                    // the equality test for the full life of this object.
-                    Interlocked.Decrement(ref this.pendingRefreshes);
+                    return;
                 }
-            });
+
+                // This code writes the field only on the path that announces. On the early
+                // return the cached value is equal, and a write there replaces the value of
+                // the control with the value of the graph and tells no observer. A comparer
+                // that ignores part of a value shows that difference. A comparer
+                // that ignores letter case is such a comparer, and nothing corrects the
+                // difference.
+                this.cachedValue = authoritative;
+                this.lastNotifiedValue = authoritative;
+                this.RaiseValueChanged();
+            }
+            finally
+            {
+                // This runs in a finally block. Thus, a disposal, or a throw from the
+                // comparer, cannot leave the count too high. A count that is too high stops
+                // the equality test for the full life of this object.
+                Interlocked.Decrement(ref this.pendingRefreshes);
+            }
         }
 
         /// <summary>

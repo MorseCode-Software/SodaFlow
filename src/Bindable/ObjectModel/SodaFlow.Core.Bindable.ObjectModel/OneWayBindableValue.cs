@@ -31,6 +31,16 @@ public static partial class BindableCoreExtensionMethods
         private readonly IListener listener;
 
         /// <summary>
+        ///     The updates that the listener posted and that no refresh removed, in
+        ///     sequence, each with the outcome of its transaction. See
+        ///     <see cref="OnSourceChanged" />. The lock is the queue itself.
+        /// </summary>
+        private readonly Queue<(T Value, TransactionOutcome Outcome)> pending = new();
+
+        /// <summary>The one delegate that each update posts.</summary>
+        private readonly Action refresh;
+
+        /// <summary>
         ///     The last value that the binding engine saw. Only the binding thread reads
         ///     and writes it. Call <see cref="ResolveInitialValue" /> before each use.
         /// </summary>
@@ -55,6 +65,7 @@ public static partial class BindableCoreExtensionMethods
             // ReSharper disable once NullableWarningSuppressionIsUsed - Never read. ResolveInitialValue
             // replaces it with the sample before the first use of the cached value.
             this.cachedValue = default!;
+            this.refresh = this.Refresh;
 
             // The attachment of the listener puts this object into the graph before the
             // constructor returns. Thus, the listener can fire while the constructor runs. This
@@ -88,37 +99,66 @@ public static partial class BindableCoreExtensionMethods
         ///     responds immediately can come back into the graph from a callback.
         /// </summary>
         /// <remarks>
-        ///     The callback runs while the transaction propagates, and the transaction can
-        ///     fail after it. A failure during propagation discards the update of the
-        ///     cell, thus the value here is not the value of the cell then. The posted
-        ///     action asks the transaction for its outcome, and uses the value here only
-        ///     when the outcome is known as committed. In each other state it reads the
-        ///     cell. See <see cref="TransactionOutcome" /> for why the read is correct in
-        ///     each condition, also where a scheduler runs the action before the
-        ///     transaction ends.
+        ///     <para>
+        ///         The callback runs while the transaction propagates, and the transaction
+        ///         can fail after it. A failure during propagation discards the update of
+        ///         the cell, thus the value here is not the value of the cell then. The
+        ///         posted refresh asks the transaction for its outcome, and uses the value
+        ///         here only when the outcome is known as committed. In each other state
+        ///         it reads the cell. See <see cref="TransactionOutcome" /> for why the
+        ///         read is correct in each condition, also where a scheduler runs the
+        ///         action before the transaction ends.
+        ///     </para>
+        ///     <para>
+        ///         The value and the outcome go into the queue, and the post is the one
+        ///         delegate that this object keeps. Each refresh removes the first pair, thus
+        ///         a sequence of updates reaches the binding thread one at a time, as before.
+        ///         Before, each update captured the two in a closure, which was two objects
+        ///         for each change of each bound property. The queue allocates only when it
+        ///         grows, and the two locks are short. A field with the newest pair alone
+        ///         is not sufficient. The refresh of an earlier update then shows a newer
+        ///         value, and the tests on a sequence of updates hold the order.
+        ///     </para>
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {
             TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
 
-            this.Scheduler.Post(() =>
+            lock (this.pending)
             {
-                if (this.IsDisposed)
-                {
-                    return;
-                }
+                this.pending.Enqueue((newValue, outcome));
+            }
 
-                this.ResolveInitialValue();
-                T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
+            this.Scheduler.Post(this.refresh);
+        }
 
-                if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
-                {
-                    return;
-                }
+        private void Refresh()
+        {
+            T newValue;
+            TransactionOutcome outcome;
 
-                this.cachedValue = authoritative;
-                this.RaiseValueChanged();
-            });
+            // The removal from the queue comes before the test of the disposal. Each post has
+            // one pair, and a refresh that leaves its pair in the queue gives it to the next.
+            lock (this.pending)
+            {
+                (newValue, outcome) = this.pending.Dequeue();
+            }
+
+            if (this.IsDisposed)
+            {
+                return;
+            }
+
+            this.ResolveInitialValue();
+            T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
+
+            if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
+            {
+                return;
+            }
+
+            this.cachedValue = authoritative;
+            this.RaiseValueChanged();
         }
 
         /// <summary>

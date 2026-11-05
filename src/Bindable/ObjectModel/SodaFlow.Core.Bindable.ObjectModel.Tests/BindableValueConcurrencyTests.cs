@@ -991,4 +991,44 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(b.Value).IsEqualTo(3).Because("and the last one delivered agrees with the cell");
     }
+
+    // Each queued update keeps the outcome of its own transaction. The refresh of the first
+    // update shows its value. The refresh of the second finds that its transaction did not
+    // commit, thus it reads the cell and finds no change.
+    [Test]
+    public async Task AOneWayRefreshReadsTheCellWhenTheNewerUpdateComesFromATransactionThatFailed()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        IListener throws = c.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            c.Send(2);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        scheduler.RunAll();
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the cell holds 1, and the refresh does not show the 2 that the failed transaction discarded");
+
+        await Assert.That(b.Value).IsEqualTo(1);
+    }
 }

@@ -125,7 +125,8 @@ public static partial class BindableCoreExtensionMethods
     ///         variant that combines writes is not necessary.
     ///     </para>
     /// </remarks>
-    private static void PostWrite(Action write) => TransactionInternal.PostImpl(write);
+    private static void PostWrite<TState>(Action<TState> write, TState state) =>
+        TransactionInternal.PostImpl(action: write, state: state);
 
     /// <summary>
     ///     Throws when the caller is not on the binding thread.
