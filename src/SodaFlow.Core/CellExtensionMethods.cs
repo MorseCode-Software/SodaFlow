@@ -22,7 +22,10 @@ internal static class CellExtensionMethodsInternal
         this IEnumerable<T2> c,
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Cell<T> =>
-        new(c.Select(static i => i.BehaviorImpl).ToArray().LiftBehaviorsImpl(f));
+        new(
+            BehaviorExtensionMethodsInternal.LiftBehaviorsImpl(
+                inputs: [.. c.Select(static i => i.BehaviorImpl)],
+                f: f));
 
     internal static Cell<TResult> LiftCellsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> c,
