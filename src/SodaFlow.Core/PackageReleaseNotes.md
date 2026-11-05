@@ -162,6 +162,16 @@ scratch harness on .NET 10: a merge of two with a function 1,562 bytes to 1,362,
 merge of two 1,726 to 1,638, against 425 for a map; a list merge of three or four is unchanged. The second link, the
 gate, and their delegates are what remains, so a merge stays about three maps.
 
+Cell.Calm opens one transaction when called outside one, where it opened four: one each for the two samples, the
+updates, the calm, and the hold, so four lock acquisitions, four runs of every start hook, and four transaction
+objects for one calm. The steps now share one transaction, and Accum's hold and a stream's Calm no longer open a
+nested Apply that found the transaction open and allocated a closure for nothing. Nothing observable changes, since
+the samples are captured at the end of whichever transaction closes them either way, and a calm built from outside is
+now atomic with respect to a send from another thread. Measured in the scratch harness on .NET 10, built from outside
+a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 ns to 2,030; an accum 1,673 bytes to
+1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
+allocate the same.
+
 A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
 Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
 that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
