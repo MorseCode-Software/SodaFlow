@@ -39,18 +39,20 @@ transaction failed reads its cell instead.
 
 Changed: a one-way value, a two-way value, and a command allocate nothing of their own per change on the paths that post
 to the binding thread. A one-way value captured each update's value and its transaction's outcome in a closure and
-posted that, two objects per change of each bound property. It now keeps the pairs in a queue under a short lock and
-posts one delegate it holds; each refresh takes the first pair, so a burst of updates still reaches the binding thread
-one at a time, with each value. A two-way value's refresh posted a new delegate each time, and its setter captured the
-written value in a closure that Transaction.Post then wrapped twice more. The refresh is one held delegate, and the
-write goes through a post that carries the value as its state and runs it at once when no transaction is open, which is
-the usual case. A command's Execute posts the same way. Nothing observable changes. Measured in the scratch harness on
-.NET 10, per change, with a scheduler that queues: a send delivered to a one-way value 904 bytes to 800, to a two-way
-value 1,016 to 952, and a write to a two-way value 1,536 to 1,176; with BindingScheduler.Immediate, a send 1,328 to
-1,184 and a write 2,032 to 1,448. Of each figure that remains, 544 bytes is the transaction the send or the write opens.
-BindableRefreshBenchmarks, on the tree before and after, per send delivered: a one-way value 360 ns to 373 on .NET 10
-and 674 to 710 on .NET Framework 4.7.2, which is the cost of the two locks, for 904 bytes to 800 and 924 to 819; a two-
-way value 406 ns to 389 on .NET 10 and 732 to 738 on .NET Framework, for 1,016 bytes to 952 and 1,036 to 972.
+posted that, two objects per change of each bound property. It now keeps the newest pair in a slot that the binding
+thread reads without a lock, and posts one delegate it holds. Each refresh reads the newest pair, so a burst of updates
+that the binding thread drains together now announces once, with the last value, as a two-way value already did; before,
+the drain announced each value in sequence. A refresh that finds the newest transaction not committed reads the cell, as
+before. A two-way value's refresh posted a new delegate each time, and its setter captured the written value in a
+closure that Transaction.Post then wrapped twice more. The refresh is one held delegate, and the write goes through a
+post that carries the value as its state and runs it at once when no transaction is open, which is the usual case. A
+command's Execute posts the same way. The one-way announcement is the one observable change. Measured in the scratch
+harness on .NET 10, per change, with a scheduler that queues: a send delivered to a one-way value 904 bytes to 800, to a
+two-way value 1,016 to 952, and a write to a two-way value 1,536 to 1,176; with BindingScheduler.Immediate, a send 1,328
+to 1,184 and a write 2,032 to 1,448. Of each figure that remains, 544 bytes is the transaction the send or the write
+opens. BindableRefreshBenchmarks, on the tree before and after, per send delivered: a one-way value 360 ns to 354 on
+.NET 10 and 674 to 673 on .NET Framework 4.7.2, for 904 bytes to 800 and 924 to 819; a two-way value 406 ns to 392 on
+.NET 10 and 732 to 726 on .NET Framework, for 1,016 bytes to 952 and 1,036 to 972.
 
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
