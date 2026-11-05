@@ -1229,10 +1229,11 @@ public class Stream<T> : ILastAction
     internal Stream<T> MergeImpl(Stream<T> s, Func<T, T, T> f) =>
         TransactionInternal.Apply((trans, _) => this.Merge(trans: trans, s: s, f: f));
 
-    // The node of the list merge, with two inputs. Before, this was the merge without a function,
+    // One node, with the two slots in fields. Before, this went through the list merge with an array
+    // of two, and MergeTwo says what that cost. Before that, it was the merge without a function,
     // which fires one time for each input, and a coalesce operation after it: two nodes.
     internal Stream<T> Merge(TransactionInternal trans, Stream<T> s, Func<T, T, T> f) =>
-        StreamExtensionMethodsInternal.MergeMany(trans: trans, inputs: [this, s], f: f);
+        MergeTwo<T>.Create(trans: trans, first: this, second: s, f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, TResult>(
         Stream<T2> s2,
