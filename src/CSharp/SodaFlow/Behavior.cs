@@ -90,13 +90,17 @@ public struct BehaviorLooper<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
         Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            LoopedBehavior<T> loop = new();
-            (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
-            loop.Loop(trans: trans, b: result.Behavior);
-            return result;
-        });
+        TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
+
+    private static (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
+        TransactionInternal trans,
+        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f)
+    {
+        LoopedBehavior<T> loop = new();
+        (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
+        loop.Loop(trans: trans, b: result.Behavior);
+        return result;
+    }
 
     /// <summary>
     ///     Loop a behavior and return the resulting behavior.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
@@ -19,7 +20,7 @@ public static partial class BindableCoreExtensionMethods
     ///     <c>listener</c> are usual fields that a reader needs.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>
+    private sealed class OneWayBindableValue<T> : BindableValueBase, IOneWayBindableValue<T>, ILastAction
     {
         private readonly IEqualityComparer<T> comparer;
 
@@ -29,6 +30,22 @@ public static partial class BindableCoreExtensionMethods
         ///     It also keeps the graph above it alive. Do not make it a local variable.
         /// </summary>
         private readonly IListener listener;
+
+        /// <summary>
+        ///     The value and the outcome of the newest update, for the posted refresh. See
+        ///     <see cref="OnSourceChanged" />.
+        /// </summary>
+        private readonly SingleWriterSlot<(T Value, TransactionOutcome Outcome)> pending = new();
+
+        /// <summary>The one delegate that each update posts.</summary>
+        private readonly Action refresh;
+
+        /// <summary>
+        ///     One while a posted refresh did not start. An update that finds it set
+        ///     posts nothing, because the refresh that is in the queue reads the slot
+        ///     after that update wrote it. See <see cref="OnSourceChanged" />.
+        /// </summary>
+        private int refreshPosted;
 
         /// <summary>
         ///     The last value that the binding engine saw. Only the binding thread reads
@@ -55,6 +72,7 @@ public static partial class BindableCoreExtensionMethods
             // ReSharper disable once NullableWarningSuppressionIsUsed - Never read. ResolveInitialValue
             // replaces it with the sample before the first use of the cached value.
             this.cachedValue = default!;
+            this.refresh = this.Refresh;
 
             // The attachment of the listener puts this object into the graph before the
             // constructor returns. Thus, the listener can fire while the constructor runs. This
@@ -88,37 +106,101 @@ public static partial class BindableCoreExtensionMethods
         ///     responds immediately can come back into the graph from a callback.
         /// </summary>
         /// <remarks>
-        ///     The callback runs while the transaction propagates, and the transaction can
-        ///     fail after it. A failure during propagation discards the update of the
-        ///     cell, thus the value here is not the value of the cell then. The posted
-        ///     action asks the transaction for its outcome, and uses the value here only
-        ///     when the outcome is known as committed. In each other state it reads the
-        ///     cell. See <see cref="TransactionOutcome" /> for why the read is correct in
-        ///     each condition, also where a scheduler runs the action before the
-        ///     transaction ends.
+        ///     <para>
+        ///         The callback runs while the transaction propagates, and the transaction
+        ///         can fail after it. A failure during propagation discards the update of
+        ///         the cell, thus the value here is not the value of the cell then. The
+        ///         posted refresh asks the transaction for its outcome, and uses the value
+        ///         here only when the outcome is known as committed. In each other state
+        ///         it reads the cell. See <see cref="TransactionOutcome" /> for why the
+        ///         read is correct in each condition, also where a scheduler runs the
+        ///         action before the transaction ends.
+        ///     </para>
+        ///     <para>
+        ///         The value and the outcome go into the slot, and the post is the one
+        ///         delegate that this object keeps. Before, each update captured the two in
+        ///         a closure, which was two objects for each change of each bound property.
+        ///         Each refresh reads the newest pair, which can be newer than the update
+        ///         that posted it. Thus, a sequence of updates that the binding thread
+        ///         drains together announces one time, with the last value, as a two-way
+        ///         value does. Before, each refresh carried its own value and the drain
+        ///         announced each in sequence. A newer pair is correct at an older refresh.
+        ///         The outcome of a transaction that did not end is not committed, thus the
+        ///         refresh reads the cell, and the read waits for that transaction. The
+        ///         refresh of the newer update then finds no change.
+        ///     </para>
+        ///     <para>
+        ///         An update posts only when no refresh is in the queue. The flag is set
+        ///         with the post and cleared when the refresh starts, before it reads the
+        ///         slot, and the two are full fences. Thus, an update that finds the flag
+        ///         set wrote the slot before the refresh reads it, and an update after the
+        ///         clear posts again. A refresh that starts while the transaction of the
+        ///         newest update is open on its own thread gives the post to the queue of
+        ///         that transaction, which runs it after the close. A read of the cell in
+        ///         that transaction gives the value before the update. That occurs when a
+        ///         nested message loop runs the queue from a callback.
+        ///     </para>
         /// </remarks>
         private void OnSourceChanged(T newValue)
         {
-            TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
+            this.pending.Write((newValue, TransactionInternal.CurrentOutcome()));
+            this.PostRefresh();
+        }
 
-            this.Scheduler.Post(() =>
+        private void PostRefresh()
+        {
+            if (Interlocked.Exchange(location1: ref this.refreshPosted, value: 1) != 0)
             {
-                if (this.IsDisposed)
-                {
-                    return;
-                }
+                return;
+            }
 
-                this.ResolveInitialValue();
-                T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
+            // A transaction that fails can drop the post. ImmediateBindingScheduler gives a post made
+            // in a transaction to the post queue of that transaction, and the failure discards the
+            // queue. The discard clears the flag, thus the next update posts again. A scheduler
+            // that delivers the post after the failure runs one refresh more, which finds no change.
+            TransactionInternal.GetCurrentTransaction()?.Last(this);
+            this.Scheduler.Post(this.refresh);
+        }
 
-                if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
-                {
-                    return;
-                }
+        void ILastAction.Commit()
+        {
+        }
 
-                this.cachedValue = authoritative;
-                this.RaiseValueChanged();
-            });
+        void ILastAction.Discard() => Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
+        private void Refresh()
+        {
+            Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
+            if (this.IsDisposed)
+            {
+                return;
+            }
+
+            (T newValue, TransactionOutcome outcome) = this.pending.Read();
+
+            // The transaction that is open on this thread is the one that made the newest update.
+            // Its outcome is not known, and one transaction runs at a time. A read of the cell in
+            // it gives the value before the update, thus the post waits for its close. The
+            // scheduler cannot hold the wait: a queue that a nested loop drains runs the post
+            // again immediately, in the same transaction.
+            if (!outcome.Committed && TransactionInternal.GetCurrentTransaction() != null)
+            {
+                TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
+
+                return;
+            }
+
+            this.ResolveInitialValue();
+            T authoritative = outcome.Committed ? newValue : this.Cell.SampleImpl();
+
+            if (this.comparer.Equals(x: this.cachedValue, y: authoritative))
+            {
+                return;
+            }
+
+            this.cachedValue = authoritative;
+            this.RaiseValueChanged();
         }
 
         /// <summary>

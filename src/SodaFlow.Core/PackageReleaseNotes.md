@@ -172,6 +172,27 @@ a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 
 1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
 allocate the same.
 
+Transaction.Post allocates nothing of its own when no transaction is open, where it allocated four objects: two to
+wrap the action in the delegate type of the post queue, and two to capture it for the transaction it opened. The
+action runs in that transaction as before. When a transaction is open, the post still queues one closure, where it
+queued the same two wrappers and the closure. Measured in the scratch harness on .NET 10: a post from outside a
+transaction 296 bytes to 152, which is the transaction itself; a post from inside one 536 bytes to 456. The bindable
+values build on this, and SodaFlow.Bindable.ObjectModel.Core 5.0.0 says what it saves there.
+
+Sample on a cell or a behavior from outside a transaction allocates no delegate, where it allocated one of 64 bytes
+for the lambda that captured the behavior; the transaction it opens is what remains. A two-way bindable value's
+refresh is such a sample on every change. Measured in the scratch harness on .NET 10: 176 bytes to 112 and about 118
+ns to 105 per sample.
+
+Every operation that opens a transaction when none is open now does so through a static lambda with its values as the
+state, where it captured them in a closure: a display class and a delegate per call, also when a transaction was
+already open and the lambda ran at once. That covers each lift, snapshot, merge, calm, accum, collect, switch, hold
+with a lazy sample, and listen on a cell, the loop builders, the collection root, and the async map. Nothing
+observable changes. Measured in the scratch harness on .NET 10, bytes per construction inside one transaction, before
+and after: a hold 369 to 305, an accum 1,294 to 1,142, a collect 835 to 747, a merge of two with a function 1,362 to
+1,258, a cell map 1,310 to 1,150, a cell lift of two 2,355 to 2,195 and of six 4,030 to 3,869, a cell calm 2,235 to
+2,075, a switch 3,757 to 3,541; from outside a transaction, a lift 2,321 to 2,161 and an accum 1,577 to 1,425.
+
 A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
 Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
 that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a

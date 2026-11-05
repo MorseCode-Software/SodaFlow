@@ -64,30 +64,37 @@ public class CellLoop<T> : LoopedCell<T>
     /// <param name="c">The cell of the forward reference.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Loop(Cell<T> c) =>
-        TransactionInternal.Apply((trans, _) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+            {
+                state.Self.LoopOnce(trans: trans, c: state.C);
+
+                return UnitInternal.Value;
+            },
+            state: (Self: this, C: c));
+
+    private void LoopOnce(TransactionInternal trans, Cell<T> c)
+    {
+        lock (this.isLoopedLock)
         {
-            lock (this.isLoopedLock)
+            if (this.isLooped)
             {
-                if (this.isLooped)
-                {
-                    throw new InvalidOperationException("Loop was looped more than once.");
-                }
-
-                this.isLooped = true;
+                throw new InvalidOperationException("Loop was looped more than once.");
             }
 
-            if (trans != this.transaction)
-            {
-                this.transaction = null;
+            this.isLooped = true;
+        }
 
-                throw new InvalidOperationException(
-                    "Loop must be looped in the same transaction that it was created in.");
-            }
-
+        if (trans != this.transaction)
+        {
             this.transaction = null;
 
-            this.Loop(trans: trans, c: c);
+            throw new InvalidOperationException(
+                "Loop must be looped in the same transaction that it was created in.");
+        }
 
-            return UnitInternal.Value;
-        });
+        this.transaction = null;
+
+        this.Loop(trans: trans, c: c);
+    }
 }

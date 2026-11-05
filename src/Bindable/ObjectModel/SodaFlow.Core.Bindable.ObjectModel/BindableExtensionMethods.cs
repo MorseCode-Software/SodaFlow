@@ -98,9 +98,11 @@ public static partial class BindableCoreExtensionMethods
     private static (InitialSample<T> InitialValue, IListener Listener) SampleAtCloseAndListenToUpdates<T>(
         Cell<T> cell,
         Action<T> handler) =>
-        TransactionInternal.Apply((transaction, _) =>
-            (InitialSample<T>.Take(transaction: transaction, cell: cell),
-                ListenToUpdates(cell: cell, handler: handler)));
+        TransactionInternal.Apply(
+            code: static (transaction, _, state) =>
+                (InitialSample<T>.Take(transaction: transaction, cell: state.Cell),
+                    ListenToUpdates(cell: state.Cell, handler: state.Handler)),
+            state: (Cell: cell, Handler: handler));
 
     /// <summary>
     ///     Sends a value into the graph after the current
@@ -125,7 +127,8 @@ public static partial class BindableCoreExtensionMethods
     ///         variant that combines writes is not necessary.
     ///     </para>
     /// </remarks>
-    private static void PostWrite(Action write) => TransactionInternal.PostImpl(write);
+    private static void PostWrite<TState>(Action<TState> write, TState state) =>
+        TransactionInternal.PostImpl(action: write, state: state);
 
     /// <summary>
     ///     Throws when the caller is not on the binding thread.

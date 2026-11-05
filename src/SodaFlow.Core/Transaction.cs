@@ -522,39 +522,50 @@ internal sealed class TransactionInternal
         queue[index] = @new;
     }
 
-    private static void PostInternal(Action<TransactionInternal> action, Action<Exception>? onFailure) =>
-        Apply((trans, createdNewTransaction) =>
-        {
-            if (!createdNewTransaction)
+    /// <summary>
+    ///     Posts an action with a state. A caller gives the state here and captures
+    ///     nothing in a closure. When no transaction is open, the action runs now in
+    ///     a new transaction, and the post allocates nothing. When a transaction is
+    ///     open, the post puts the action and the state in one closure for the queue,
+    ///     which holds one delegate type. Before, a post when no transaction was open
+    ///     allocated four objects. Two put the action in the delegate type of the
+    ///     queue, and two captured it for Apply.
+    /// </summary>
+    internal static void PostImpl<TState>(Action<TState> action, TState state, Action<Exception>? onFailure = null) =>
+        Apply(
+            code: static (trans, createdNewTransaction, s) =>
             {
-                trans.Post(action: action, onFailure: onFailure);
-
-                return UnitInternal.Value;
-            }
-
-            // No transaction was open, thus the action runs now, in the transaction that Apply
-            // made. A throw from it goes to the caller, and the release sees that throw first.
-            try
-            {
-                action(trans);
-            }
-            catch (Exception e) when (onFailure != null)
-            {
-                Exception? release = RunRelease(onFailure: onFailure, cause: e);
-
-                if (release == null)
+                if (!createdNewTransaction)
                 {
-                    throw;
+                    trans.Post(action: _ => s.Action(s.State), onFailure: s.OnFailure);
+
+                    return UnitInternal.Value;
                 }
 
-                throw new AggregateException(e, release);
-            }
+                // No transaction was open, thus the action runs now, in the transaction that Apply
+                // made. A throw from it goes to the caller, and the release sees that throw first.
+                try
+                {
+                    s.Action(s.State);
+                }
+                catch (Exception e) when (s.OnFailure != null)
+                {
+                    Exception? release = RunRelease(onFailure: s.OnFailure, cause: e);
 
-            return UnitInternal.Value;
-        });
+                    if (release == null)
+                    {
+                        throw;
+                    }
+
+                    throw new AggregateException(e, release);
+                }
+
+                return UnitInternal.Value;
+            },
+            state: (Action: action, State: state, OnFailure: onFailure));
 
     internal static void PostImpl(Action action, Action<Exception>? onFailure = null) =>
-        PostInternal(action: _ => action(), onFailure: onFailure);
+        PostImpl(action: static a => a(), state: action, onFailure: onFailure);
 
     // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()

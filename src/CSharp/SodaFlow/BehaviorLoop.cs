@@ -64,30 +64,37 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
     /// <param name="b">The behavior of the forward reference.</param>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public void Loop(Behavior<T> b) =>
-        TransactionInternal.Apply((trans, _) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+            {
+                state.Self.LoopOnce(trans: trans, b: state.B);
+
+                return UnitInternal.Value;
+            },
+            state: (Self: this, B: b));
+
+    private void LoopOnce(TransactionInternal trans, Behavior<T> b)
+    {
+        lock (this.isLoopedLock)
         {
-            lock (this.isLoopedLock)
+            if (this.isLooped)
             {
-                if (this.isLooped)
-                {
-                    throw new InvalidOperationException("Loop was looped more than once.");
-                }
-
-                this.isLooped = true;
+                throw new InvalidOperationException("Loop was looped more than once.");
             }
 
-            if (trans != this.transaction)
-            {
-                this.transaction = null;
+            this.isLooped = true;
+        }
 
-                throw new InvalidOperationException(
-                    "Loop must be looped in the same transaction that it was created in.");
-            }
-
+        if (trans != this.transaction)
+        {
             this.transaction = null;
 
-            this.Loop(trans: trans, b: b);
+            throw new InvalidOperationException(
+                "Loop must be looped in the same transaction that it was created in.");
+        }
 
-            return UnitInternal.Value;
-        });
+        this.transaction = null;
+
+        this.Loop(trans: trans, b: b);
+    }
 }
