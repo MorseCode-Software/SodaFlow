@@ -88,8 +88,8 @@ public class TimerSystem<T> : ITimerSystem<T>
                 // An implementation removes a timer and then runs its callback out of its lock. A
                 // transaction can start between the two and send a time after the time of the event.
                 // The event then gets to the set after that time. Its alarm fires at its own time, and
-                // Time does not go back.
-                if (eventTime.CompareTo(this.lastTime) >= 0)
+                // Time does not go back. An event at the time that Time holds sends nothing.
+                if (eventTime.CompareTo(this.lastTime) > 0)
                 {
                     timeSink.Send(eventTime);
                     this.lastTime = eventTime;
@@ -105,9 +105,15 @@ public class TimerSystem<T> : ITimerSystem<T>
             }
 
             // The clock itself can go back, for example at the end of daylight saving time. Time
-            // follows the clock then, as the clock is the authority for the current time.
-            timeSink.Send(t);
-            this.lastTime = t;
+            // follows the clock then, as the clock is the authority for the current time. A clock
+            // that did not move sends nothing: the updates of Time are its changes, as for each
+            // other behavior. Before, this sent at each transaction, and each listener of the
+            // updates ran with the value that Time held.
+            if (t.CompareTo(this.lastTime) != 0)
+            {
+                timeSink.Send(t);
+                this.lastTime = t;
+            }
         });
     }
 

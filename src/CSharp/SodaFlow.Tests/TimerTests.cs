@@ -114,7 +114,8 @@ public sealed class TimerTests
     }
 
     // The clock keeps the timer back, as an implementation does between the removal of a timer and
-    // its callback. A transaction then sends 12, and the event for 10 arrives after it.
+    // its callback. A transaction then sends 12, and the event for 10 arrives after it. The
+    // transaction that brings the event sends no time, because the clock reads 12, as before.
     [Test]
     public async Task AnEventThatArrivesLateFiresItsAlarmAndDoesNotMoveTimeBack()
     {
@@ -136,7 +137,7 @@ public sealed class TimerTests
         l.Unlisten();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
-        await Assert.That(times).IsEquivalentTo(expected: [12, 12], ordering: CollectionOrdering.Matching);
+        await Assert.That(times).IsEquivalentTo(expected: [12], ordering: CollectionOrdering.Matching);
     }
 
     // A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
