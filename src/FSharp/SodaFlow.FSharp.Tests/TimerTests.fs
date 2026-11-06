@@ -119,7 +119,8 @@ type ``Timer Tests``() =
             l |> StrongListener.unlisten
 
             do! Expect.Sequence([ 10 ], alarms)
-            do! Expect.Sequence([ 12; 12 ], times)
+            // The transaction that brings the event sends no time, because the clock reads 12, as before.
+            do! Expect.Sequence([ 12 ], times)
         }
 
     /// A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
