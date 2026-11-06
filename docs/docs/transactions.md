@@ -152,7 +152,10 @@ the program, where a value has to leave the graph for code that knows nothing ab
 
 `Transaction.Post(action)` defers work until after the current transaction closes — or runs it
 immediately if there is no current transaction. Use it for side effects that must not run
-inside the propagation: touching UI, writing to disk, sending into another sink.
+inside the propagation: touching UI, writing to disk, sending into another sink. The action runs
+in a transaction of its own, under the same rule as a block: if it throws, nothing it sent
+reaches the graph, every cell keeps its previous value, and the exception continues to whoever
+ran the transaction that posted it.
 
 Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may

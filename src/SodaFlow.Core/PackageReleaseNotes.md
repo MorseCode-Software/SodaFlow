@@ -226,6 +226,14 @@ nothing a caller could do made it run sooner. A second call now does nothing, an
 the call runs nothing. The action sits behind a guard that the registry and the Cleanup share, and the guard holds no
 reference to either, so the collected path works as before.
 
+Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
+the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
+transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.
+Before, the throw closed the child transaction instead of discarding it, so the sends propagated and the cells changed,
+while the same action run with no transaction open, which goes through the same path as a transaction body, discarded
+them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
+given with the action still runs.
+
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
