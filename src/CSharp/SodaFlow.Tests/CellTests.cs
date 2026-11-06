@@ -13,6 +13,14 @@ namespace SodaFlow.Tests;
 public sealed class CellTests
 {
     [Test]
+    public async Task AsCellOnAPlainCellIsThatCell()
+    {
+        Cell<int> c = Cell.Constant(1);
+
+        await Assert.That(c.AsCell()).IsSameReferenceAs(c);
+    }
+
+    [Test]
     public async Task TestLoop()
     {
         (Cell<int> c, CellStreamSink<int> s) =

@@ -13,6 +13,14 @@ namespace SodaFlow.Tests;
 public sealed class BehaviorTests
 {
     [Test]
+    public async Task AsBehaviorOnAPlainBehaviorIsThatBehavior()
+    {
+        Behavior<int> b = Behavior.Constant(1);
+
+        await Assert.That(b.AsBehavior()).IsSameReferenceAs(b);
+    }
+
+    [Test]
     public async Task TestHold()
     {
         StreamSink<int> s = Stream.CreateSink<int>();

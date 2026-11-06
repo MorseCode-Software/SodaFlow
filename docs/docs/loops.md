@@ -63,7 +63,11 @@ into a cell of the running total starting at zero, and each firing of `s` snapsh
 adds to it. The result *is* `l`, which is what `WithoutCaptures` resolves.
 
 Where a placeholder has to be passed somewhere that wants the plain type, `AsStream`, `AsCell` and
-`AsBehavior` say so without a cast.
+`AsBehavior` say so without a cast. The same three names also exist on the plain types, where they
+return their receiver unchanged. That lets you write the mark at the argument it is about, say
+`new Row(amount.Lift(total, …).AsCell())`, rather than on the placeholder upstream, where it would
+cover every value derived from it. The compiler sees nothing in it; a static analyzer that checks
+loops reads it as your promise that the callee does not sample the value before the loop closes.
 
 ## Capturing extra values
 
