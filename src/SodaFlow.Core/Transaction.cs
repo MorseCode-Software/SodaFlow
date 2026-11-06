@@ -685,14 +685,29 @@ internal sealed class TransactionInternal
 
                         localTransaction = transaction;
 
+                        // A throw from the action fails the child, as a throw from the body of a
+                        // transaction fails that transaction in Apply. Before, a finally closed the
+                        // child, and the close propagated the sends that the action made before
+                        // the throw. Thus, a posted action that sent and then threw put its value
+                        // in the graph. The same action with no transaction open did not, because
+                        // that one runs through Apply.
                         try
                         {
                             action(transaction);
                         }
-                        finally
+                        catch (Exception actionException)
                         {
-                            transaction.Close();
+                            Exception toThrow = transaction.Discard(actionException);
+
+                            if (ReferenceEquals(objA: toThrow, objB: actionException))
+                            {
+                                throw;
+                            }
+
+                            throw toThrow;
                         }
+
+                        transaction.Close();
                     }
                     finally
                     {

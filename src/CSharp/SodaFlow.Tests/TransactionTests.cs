@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -155,6 +156,65 @@ public sealed class TransactionTests
             .Because("the cause comes first");
 
         await Assert.That(aggregate.InnerExceptions[1]).IsSameReferenceAs(fromRelease);
+    }
+
+    // A posted action runs in a transaction of its own. A throw from it fails that transaction, as a
+    // throw from the body of a transaction does. Before, the throw closed the child transaction, and
+    // the sends before the throw reached the graph.
+    [Test]
+    public async Task APostedActionThatThrowsDeliversNoneOfItsSends()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = sink.ListenStrong(seen.Add);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        sink.Send(2);
+                        throw new InvalidOperationException("post");
+                    })))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEmpty();
+    }
+
+    [Test]
+    public async Task APostedActionThatThrowsLeavesACellAtItsValue()
+    {
+        CellSink<int> cell = Cell.CreateSink(0);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        cell.Send(9);
+                        throw new InvalidOperationException("post");
+                    })))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(cell.Sample()).IsEqualTo(0);
+    }
+
+    // With no transaction open, the action runs now through Apply, which always discarded. This
+    // holds the two paths to the same rule.
+    [Test]
+    public async Task APostedActionThatThrowsWithNoTransactionOpenDeliversNoneOfItsSends()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = sink.ListenStrong(seen.Add);
+
+        await Assert.That(() =>
+                Transaction.Post(() =>
+                {
+                    sink.Send(3);
+                    throw new InvalidOperationException("post");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEmpty();
     }
 
     [Test]

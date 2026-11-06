@@ -66,6 +66,28 @@ type ``Transaction Tests``() =
             do! Expect.False released
         }
 
+    /// A posted action runs in a transaction of its own. A throw from it fails that transaction, as a
+    /// throw from the body of a transaction does.
+    [<Test>]
+    member _.``A posted action that throws delivers none of its sends``() =
+        task {
+            let cell = sinkC 0
+
+            let thrown =
+                try
+                    runT (fun () ->
+                        Transaction.post (fun () ->
+                            cell |> sendC 9
+                            raise (InvalidOperationException "post")))
+
+                    false
+                with :? InvalidOperationException ->
+                    true
+
+            do! Expect.True thrown
+            do! Expect.Equal(0, cell |> sampleC)
+        }
+
     [<Test>]
     member _.Post() =
         task {
