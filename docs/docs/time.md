@@ -42,6 +42,12 @@ the hook and ends the thread. After that `Time` stops moving and no alarm fires.
 process, or dispose each one when its work is done. A test that makes one per test should dispose
 it, or every later transaction in the run pays for its hook.
 
+The hook reads the clock and moves `Time` only when the reading differs from the last one. A clock
+that has not moved leaves `Time` as it is, so `Operational.Updates(timers.Time)` fires once per
+change of the clock, not once per transaction. That is what a behavior's updates mean everywhere
+else in the library, and a clock a test moves by hand sees it most: `Time` updates when the test
+advances the clock and at no other transaction.
+
 A disposed timer system also refuses a new alarm. `At` throws `ObjectDisposedException` from the
 transaction that gives it a time, whether that is the construction or a later send, and `SetTimer`
 on a stopped `TimerSystemImplementationBase` throws the same, so a timer that could never come is
