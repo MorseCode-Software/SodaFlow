@@ -14,7 +14,12 @@ namespace SodaFlow.Analyzers;
 /// </summary>
 internal sealed class LoopStateEvaluator
 {
-    private const int MaxInlineDepth = 1;
+    /// <summary>
+    ///     How many calls deep the evaluator follows a helper or a construction. Three
+    ///     is sufficient for a helper that calls a helper that calls one more. The
+    ///     limit is also what ends a recursive chain.
+    /// </summary>
+    public const int MaxInlineDepth = 3;
 
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
     private readonly int depth;
@@ -298,7 +303,9 @@ internal sealed class LoopStateEvaluator
                     ContentLinked: false);
             case "ConstantLazy":
                 return firstArgument.WithLinked(false);
-            case "Constant":
+            case "Constant" or "CreateSink" or "CreateStreamSink":
+                // A value given to a constant or a sink is content. The links of a value with members
+                // of its own are in it, and not links of the cell.
                 return firstArgument.AsContent;
             case "Accum" or "Collect":
                 return new LoopState(
@@ -350,7 +357,7 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>
     ///     An object made in the region. Its constructor is followed when it is in this
-    ///     compilation, and the object then has the combined state of its members.
+    ///     compilation, and the object then knows the state of each of its members.
     /// </summary>
     private LoopState EvalCreation(ExpressionSyntax creation)
     {
@@ -380,7 +387,9 @@ internal sealed class LoopStateEvaluator
             return typeState;
         }
 
-        return typeState.Join(construction.Summary).WithMembers(construction);
+        // The object has no node of its own. Its members hold the state, and a hold or a cell
+        // of such objects reads them through the content.
+        return typeState.WithMembers(construction);
     }
 
     private Construction? FollowConstruction(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments)

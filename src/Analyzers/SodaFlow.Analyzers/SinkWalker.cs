@@ -265,53 +265,122 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     private void CheckMemberRead(ISymbol member, Construction construction, SyntaxNode location)
     {
-        SyntaxNode? declaration = member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        ISymbol? read =
+            this.PendingMemberReadBy(
+                member: member,
+                construction: construction,
+                visited: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+                depth: 0);
 
-        SyntaxNode? body =
-            declaration switch
-            {
-                MethodDeclarationSyntax m => m.Body ?? (SyntaxNode?)m.ExpressionBody,
-                PropertyDeclarationSyntax { ExpressionBody: { } e } => e,
-                PropertyDeclarationSyntax { AccessorList: { } accessors } =>
-                    accessors.Accessors
-                        .Where(static a => a.Keyword.ValueText == "get")
-                        .Select(static a => a.Body ?? (SyntaxNode?)a.ExpressionBody)
-                        .FirstOrDefault(static b => b != null),
-                _ => null
-            };
-
-        if (body == null)
+        if (read == null)
         {
             return;
         }
 
+        this.region.Report(
+            Diagnostic.Create(
+                descriptor: Diagnostics.MemberReadInCallee,
+                location: location.GetLocation(),
+                member.Name,
+                read.Name,
+                this.region.PlaceholderName));
+    }
+
+    /// <summary>
+    ///     The pending member that a method or property of a followed object reads.
+    ///     The read can be in its own body, or in a member of the same object that it
+    ///     calls, up to <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls deep.
+    /// </summary>
+    private ISymbol? PendingMemberReadBy(ISymbol member, Construction construction, HashSet<ISymbol> visited, int depth)
+    {
+        if (depth >= LoopStateEvaluator.MaxInlineDepth || !visited.Add(member.OriginalDefinition))
+        {
+            return null;
+        }
+
+        SyntaxNode? body = BodyOf(member);
+
+        if (body == null)
+        {
+            return null;
+        }
+
         SemanticModel model = this.region.ModelFor(body);
 
-        IEnumerable<ExpressionSyntax> reads =
-            body.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
-                .OfType<MemberAccessExpressionSyntax>()
-                .Where(static a => SodaFlowSymbols.ReadMembers.Contains(a.Name.Identifier.ValueText))
-                .Select(static a => a.Expression);
-
-        foreach (ExpressionSyntax read in reads)
+        foreach (SyntaxNode node in body.DescendantNodesAndSelf(
+                     descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax))
         {
-            ExpressionSyntax target =
-                read is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own ? own : read;
-
-            if (model.GetSymbolInfo(target).Symbol is IPropertySymbol or IFieldSymbol
-                && construction.StateOf(model.GetSymbolInfo(target).Symbol!).Pending)
+            switch (node)
             {
-                this.region.Report(
-                    Diagnostic.Create(
-                        descriptor: Diagnostics.MemberReadInCallee,
-                        location: location.GetLocation(),
-                        member.Name,
-                        model.GetSymbolInfo(target).Symbol!.Name,
-                        this.region.PlaceholderName));
+                case MemberAccessExpressionSyntax access
+                    when SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText):
+                {
+                    ExpressionSyntax target =
+                        access.Expression is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own
+                            ? own
+                            : access.Expression;
 
-                return;
+                    if (model.GetSymbolInfo(target).Symbol is IPropertySymbol or IFieldSymbol
+                        && construction.StateOf(model.GetSymbolInfo(target).Symbol!).Pending)
+                    {
+                        return model.GetSymbolInfo(target).Symbol;
+                    }
+
+                    break;
+                }
+                case InvocationExpressionSyntax { Expression: IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } } call
+                    when model.GetSymbolInfo(call).Symbol is IMethodSymbol next && IsMemberOfSameType(next, member):
+                {
+                    ISymbol? found = this.PendingMemberReadBy(next, construction, visited, depth + 1);
+
+                    if (found != null)
+                    {
+                        return found;
+                    }
+
+                    break;
+                }
+                case IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                    when node.Parent is not InvocationExpressionSyntax
+                    && model.GetSymbolInfo(node).Symbol is IPropertySymbol next
+                    && IsMemberOfSameType(next, member):
+                {
+                    ISymbol? found = this.PendingMemberReadBy(next, construction, visited, depth + 1);
+
+                    if (found != null)
+                    {
+                        return found;
+                    }
+
+                    break;
+                }
             }
         }
+
+        return null;
+    }
+
+    private static bool IsMemberOfSameType(ISymbol candidate, ISymbol member) =>
+        SymbolEqualityComparer.Default.Equals(
+            candidate.ContainingType?.OriginalDefinition,
+            member.ContainingType?.OriginalDefinition);
+
+    /// <summary>The body of a method, or of the getter of a property.</summary>
+    private static SyntaxNode? BodyOf(ISymbol member)
+    {
+        SyntaxNode? declaration = member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+
+        return declaration switch
+        {
+            MethodDeclarationSyntax m => m.Body ?? (SyntaxNode?)m.ExpressionBody,
+            PropertyDeclarationSyntax { ExpressionBody: { } e } => e,
+            PropertyDeclarationSyntax { AccessorList: { } accessors } =>
+                accessors.Accessors
+                    .Where(static a => a.Keyword.ValueText == "get")
+                    .Select(static a => a.Body ?? (SyntaxNode?)a.ExpressionBody)
+                    .FirstOrDefault(static b => b != null),
+            _ => null
+        };
     }
 
     private void CheckCreation(ExpressionSyntax node, ArgumentListSyntax? arguments)
@@ -423,8 +492,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return false;
     }
 
-    private bool SamplesParameter(IMethodSymbol callee, IParameterSymbol parameter)
+    private bool SamplesParameter(IMethodSymbol callee, IParameterSymbol parameter) =>
+        this.SamplesParameter(callee: callee, parameter: parameter, depth: 0);
+
+    /// <summary>
+    ///     True when the callee samples the parameter. The read can be in its own body,
+    ///     or in a method in this compilation that gets the parameter from it. The scan
+    ///     goes <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls deep.
+    /// </summary>
+    private bool SamplesParameter(IMethodSymbol callee, IParameterSymbol parameter, int depth)
     {
+        if (depth >= LoopStateEvaluator.MaxInlineDepth)
+        {
+            return false;
+        }
+
         SyntaxNode? declaration = callee.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
 
         if (declaration == null)
@@ -436,21 +518,62 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // initializers of its members and the arguments to its base.
         SemanticModel model = this.region.ModelFor(declaration);
 
-        IEnumerable<InvocationExpressionSyntax> reads =
-            declaration.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
-                .OfType<InvocationExpressionSyntax>()
-                .Where(static i => i.Expression is MemberAccessExpressionSyntax access
-                    && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText));
-
-        foreach (InvocationExpressionSyntax read in reads)
+        foreach (InvocationExpressionSyntax call in declaration.DescendantNodes(
+                     descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
+                 .OfType<InvocationExpressionSyntax>())
         {
-            ExpressionSyntax target = ((MemberAccessExpressionSyntax)read.Expression).Expression;
+            if (model.GetSymbolInfo(call).Symbol is not IMethodSymbol next)
+            {
+                continue;
+            }
 
-            if (model.GetSymbolInfo(read).Symbol is IMethodSymbol readMethod
-                && SodaFlowSymbols.IsSodaFlow(readMethod)
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(target).Symbol, parameter))
+            if (call.Expression is MemberAccessExpressionSyntax access
+                && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
+                && SodaFlowSymbols.IsSodaFlow(next)
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(access.Expression).Symbol, parameter))
             {
                 return true;
+            }
+
+            if (SodaFlowSymbols.IsSodaFlow(next))
+            {
+                continue;
+            }
+
+            // The parameter passed on to a method of the caller's own.
+            IMethodSymbol definition = (next.ReducedFrom ?? next).OriginalDefinition;
+            int offset = 0;
+
+            if (next.ReducedFrom != null
+                && call.Expression is MemberAccessExpressionSyntax receiverAccess
+                && definition.Parameters.Length > 0)
+            {
+                offset = 1;
+
+                if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(receiverAccess.Expression).Symbol, parameter)
+                    && this.SamplesParameter(callee: definition, parameter: definition.Parameters[0], depth: depth + 1))
+                {
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < call.ArgumentList.Arguments.Count; i++)
+            {
+                ArgumentSyntax argument = call.ArgumentList.Arguments[i];
+
+                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(argument.Expression).Symbol, parameter))
+                {
+                    continue;
+                }
+
+                IParameterSymbol? nextParameter =
+                    SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: i + offset);
+
+                if (nextParameter != null
+                    && this.SamplesParameter(callee: definition, parameter: nextParameter, depth: depth + 1))
+                {
+                    return true;
+                }
             }
         }
 

@@ -20,29 +20,6 @@ internal sealed class Construction(
 
     public ImmutableHashSet<ISymbol> FollowedParameters { get; } = followedParameters;
 
-    /// <summary>
-    ///     The object as one value: pending or linked when any member is. A hold of
-    ///     the object, or a cell of such objects, then knows what it holds.
-    /// </summary>
-    public LoopState Summary
-    {
-        get
-        {
-            LoopState summary = LoopState.None;
-
-            foreach (LoopState state in this.Members.Values)
-            {
-                summary = summary.Join(state);
-            }
-
-            return new LoopState(
-                Pending: summary.Pending || summary.ContentPending,
-                Linked: summary.Linked || summary.ContentLinked,
-                ContentPending: false,
-                ContentLinked: false);
-        }
-    }
-
     public LoopState StateOf(ISymbol member) =>
         this.Members.TryGetValue(member.OriginalDefinition, out LoopState? state) ? state : LoopState.None;
 
