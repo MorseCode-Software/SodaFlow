@@ -3,78 +3,97 @@ namespace SodaFlow.Analyzers;
 /// <summary>
 ///     What the analyzer knows about one expression in a loop region.
 /// </summary>
-/// <param name="Pending">
-///     The initial value of the expression reads the placeholder's current value.
-///     A read of it before the close throws.
-/// </param>
-/// <param name="Linked">
-///     The graph node of the expression is reachable from the placeholder through
-///     links. A close with such a value is a dependency cycle.
-/// </param>
-/// <param name="ContentPending">
-///     The values that the expression holds, for a cell of cells or a cell of
-///     streams, are pending.
-/// </param>
-/// <param name="ContentLinked">
-///     The values that the expression holds are linked to the placeholder.
-/// </param>
-internal readonly struct LoopState(in bool Pending, in bool Linked, in bool ContentPending, in bool ContentLinked)
+/// <remarks>
+///     A class and not a struct. A state holds the state of the values it contains:
+///     a cell of cells, a cell of streams, or a hold of an object.
+/// </remarks>
+internal sealed class LoopState
 {
-    // A struct and not a record, because netstandard2.0 has no IsExternalInit for init accessors.
-    public bool Pending { get; } = Pending;
+    public static readonly LoopState None = new(pending: false, linked: false, members: null, content: null);
 
-    public bool Linked { get; } = Linked;
+    public static readonly LoopState PendingPlaceholder = new(pending: true, linked: true, members: null, content: null);
 
-    public bool ContentPending { get; } = ContentPending;
+    public static readonly LoopState StreamPlaceholder = new(pending: false, linked: true, members: null, content: null);
 
-    public bool ContentLinked { get; } = ContentLinked;
+    private readonly LoopState? content;
 
-    public static readonly LoopState None = default;
+    public LoopState(bool Pending, bool Linked, bool ContentPending, bool ContentLinked)
+        : this(
+            pending: Pending,
+            linked: Linked,
+            members: null,
+            content: ContentPending || ContentLinked
+                ? new LoopState(pending: ContentPending, linked: ContentLinked, members: null, content: null)
+                : null)
+    {
+    }
 
-    public static readonly LoopState PendingPlaceholder = new(
-        Pending: true,
-        Linked: true,
-        ContentPending: false,
-        ContentLinked: false);
+    private LoopState(bool pending, bool linked, Construction? members, LoopState? content)
+    {
+        this.Pending = pending;
+        this.Linked = linked;
+        this.Members = members;
+        this.content = content;
+    }
 
-    public static readonly LoopState StreamPlaceholder = new(
-        Pending: false,
-        Linked: true,
-        ContentPending: false,
-        ContentLinked: false);
+    /// <summary>
+    ///     The initial value of the expression reads the placeholder's current value.
+    ///     A read of it before the close throws.
+    /// </summary>
+    public bool Pending { get; }
+
+    /// <summary>
+    ///     The graph node of the expression is reachable from the placeholder through
+    ///     links. A close with such a value is a dependency cycle.
+    /// </summary>
+    public bool Linked { get; }
+
+    /// <summary>
+    ///     The members of the object this expression names, when its construction was
+    ///     followed. Null for a value with no members of its own.
+    /// </summary>
+    public Construction? Members { get; }
 
     /// <summary>The state of a value that this expression holds.</summary>
-    public LoopState Content => new(
-        Pending: this.ContentPending,
-        Linked: this.ContentLinked,
-        ContentPending: false,
-        ContentLinked: false);
+    public LoopState Content => this.content ?? None;
+
+    public bool ContentPending => this.content?.Pending ?? false;
+
+    public bool ContentLinked => this.content?.Linked ?? false;
 
     /// <summary>A container whose values have this state.</summary>
-    public LoopState AsContent => new(
-        Pending: false,
-        Linked: false,
-        ContentPending: this.Pending,
-        ContentLinked: this.Linked);
+    public LoopState AsContent => new(pending: false, linked: false, members: null, content: this.IsNone ? null : this);
 
-    public LoopState Join(LoopState other) =>
-        new(
-            Pending: this.Pending || other.Pending,
-            Linked: this.Linked || other.Linked,
-            ContentPending: this.ContentPending || other.ContentPending,
-            ContentLinked: this.ContentLinked || other.ContentLinked);
+    private bool IsNone => !this.Pending && !this.Linked && this.Members == null && this.content == null;
+
+    public LoopState Join(LoopState other)
+    {
+        if (other.IsNone)
+        {
+            return this;
+        }
+
+        if (this.IsNone)
+        {
+            return other;
+        }
+
+        return new LoopState(
+            pending: this.Pending || other.Pending,
+            linked: this.Linked || other.Linked,
+            members: Construction.Merge(this.Members, other.Members),
+            content: this.content == null ? other.content : other.content == null ? this.content : this.content.Join(other.content));
+    }
 
     public LoopState WithPending(bool pending) =>
-        new(
-            Pending: pending,
-            Linked: this.Linked,
-            ContentPending: this.ContentPending,
-            ContentLinked: this.ContentLinked);
+        new(pending: pending, linked: this.Linked, members: this.Members, content: this.content);
 
     public LoopState WithLinked(bool linked) =>
-        new(
-            Pending: this.Pending,
-            Linked: linked,
-            ContentPending: this.ContentPending,
-            ContentLinked: this.ContentLinked);
+        new(pending: this.Pending, linked: linked, members: this.Members, content: this.content);
+
+    public LoopState WithMembers(Construction? members) =>
+        new(pending: this.Pending, linked: this.Linked, members: members, content: this.content);
+
+    public LoopState WithContent(LoopState content) =>
+        new(pending: this.Pending, linked: this.Linked, members: this.Members, content: content.IsNone ? null : content);
 }

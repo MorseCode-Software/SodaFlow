@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -16,6 +17,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly LoopStateEvaluator evaluator = evaluator;
     private readonly LoopRegion region = region;
 
+    private readonly Dictionary<ISymbol, AnonymousFunctionExpressionSyntax> storedLambdas =
+        new(SymbolEqualityComparer.Default);
+
+    private readonly HashSet<AnonymousFunctionExpressionSyntax> walkedLambdas = [];
+
     public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         SemanticModel model = this.region.ModelFor(node);
@@ -24,6 +30,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             if (declarator.Initializer == null)
             {
+                continue;
+            }
+
+            // A lambda kept in a local runs when the local is invoked, and the walk enters it then.
+            if (declarator.Initializer.Value is AnonymousFunctionExpressionSyntax stored
+                && model.GetDeclaredSymbol(declarator) is { } holder)
+            {
+                this.storedLambdas[holder] = stored;
+
                 continue;
             }
 
@@ -38,6 +53,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
+        // An event subscription runs its lambda at an event, after the close.
+        if (node.RawKind == (int)SyntaxKind.AddAssignmentExpression && node.Right is AnonymousFunctionExpressionSyntax)
+        {
+            this.Visit(node.Left);
+
+            return;
+        }
+
         base.VisitAssignmentExpression(node);
 
         if (node.Left is IdentifierNameSyntax
@@ -51,6 +74,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         SemanticModel model = this.region.ModelFor(node);
 
+        // A stored lambda runs here, through the delegate's Invoke.
+        if (node.Expression is IdentifierNameSyntax
+            && model.GetSymbolInfo(node.Expression).Symbol is { } holder
+            && this.storedLambdas.TryGetValue(holder, out AnonymousFunctionExpressionSyntax? stored)
+            && this.walkedLambdas.Add(stored))
+        {
+            this.Visit(stored.Body);
+        }
+
         if (model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
         {
             base.VisitInvocationExpression(node);
@@ -62,10 +94,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         bool library = SodaFlowSymbols.IsSodaFlow(method);
         bool runsNow = LoopStateEvaluator.RunsNow(method);
+        bool defers = (library && !runsNow) || RunsOnAnotherThread(method.ContainingType);
 
         foreach (ArgumentSyntax argument in node.ArgumentList.Arguments)
         {
-            if (argument.Expression is AnonymousFunctionExpressionSyntax && library && !runsNow)
+            if (argument.Expression is AnonymousFunctionExpressionSyntax && defers)
             {
                 continue;
             }
@@ -103,30 +136,112 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (method.ReducedFrom != null && receiver != null && definition.Parameters.Length > 0)
         {
-            this.CheckEscape(callee: definition, parameter: definition.Parameters[0], argument: receiver);
+            this.CheckEscape(
+                callee: definition,
+                parameter: definition.Parameters[0],
+                argument: receiver,
+                followed: this.evaluator.FollowedParametersOf(node));
         }
 
-        this.CheckEscapes(callee: definition, arguments: node.ArgumentList.Arguments, offset: method.ReducedFrom != null ? 1 : 0);
+        this.CheckEscapes(
+            callee: definition,
+            arguments: node.ArgumentList.Arguments,
+            offset: method.ReducedFrom != null ? 1 : 0,
+            followed: this.evaluator.FollowedParametersOf(node));
+
+        // A method of an object whose construction was followed: its body can read a member that
+        // the construction made pending.
+        if (receiver != null && method.ReducedFrom == null && this.evaluator.ConstructionOf(receiver) is { } construction)
+        {
+            this.CheckMemberRead(member: method, construction: construction, location: node);
+        }
     }
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
-        base.VisitObjectCreationExpression(node);
+        this.VisitCreationArguments(node, node.ArgumentList);
         this.CheckCreation(node, node.ArgumentList);
     }
 
+    /// <summary>
+    ///     The arguments of a construction, without a lambda that a thread or a timer
+    ///     runs after the close.
+    /// </summary>
+    private void VisitCreationArguments(ExpressionSyntax node, ArgumentListSyntax? arguments)
+    {
+        if (arguments == null)
+        {
+            return;
+        }
+
+        bool defers =
+            this.region.ModelFor(node).GetSymbolInfo(node).Symbol is IMethodSymbol constructor
+            && RunsOnAnotherThread(constructor.ContainingType);
+
+        foreach (ArgumentSyntax argument in arguments.Arguments)
+        {
+            if (argument.Expression is AnonymousFunctionExpressionSyntax && defers)
+            {
+                continue;
+            }
+
+            this.Visit(argument);
+        }
+    }
+
+    /// <summary>
+    ///     A type whose lambdas run on a different thread or after the block, so not
+    ///     in the block.
+    /// </summary>
+    private static bool RunsOnAnotherThread(INamedTypeSymbol type) =>
+        type.ContainingNamespace?.ToDisplayString() is "System.Threading" or "System.Threading.Tasks"
+        && type.Name is "Thread" or "Task" or "TaskFactory" or "ThreadPool" or "Timer" or "SynchronizationContext";
+
     public override void VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
-        base.VisitImplicitObjectCreationExpression(node);
+        this.VisitCreationArguments(node, node.ArgumentList);
         this.CheckCreation(node, node.ArgumentList);
+    }
+
+    public override void VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        // A lambda in a returned capture runs after the close, when the caller invokes it.
+        if (node.Expression != null)
+        {
+            this.VisitWithoutLambdas(node.Expression);
+        }
+    }
+
+    private void VisitWithoutLambdas(SyntaxNode node)
+    {
+        if (node is AnonymousFunctionExpressionSyntax)
+        {
+            return;
+        }
+
+        if (node is TupleExpressionSyntax or ArgumentSyntax or ParenthesizedExpressionSyntax)
+        {
+            foreach (SyntaxNode child in node.ChildNodes())
+            {
+                this.VisitWithoutLambdas(child);
+            }
+
+            return;
+        }
+
+        this.Visit(node);
     }
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
         base.VisitMemberAccessExpression(node);
 
-        if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is IPropertySymbol property
-            && SodaFlowSymbols.IsSodaFlow(property)
+        if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IPropertySymbol property)
+        {
+            return;
+        }
+
+        if (SodaFlowSymbols.IsSodaFlow(property)
             && SodaFlowSymbols.ReadMembers.Contains(property.Name)
             && this.evaluator.Eval(node.Expression).Pending)
         {
@@ -136,6 +251,66 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     location: node.GetLocation(),
                     property.Name,
                     this.region.PlaceholderName));
+        }
+
+        if (!SodaFlowSymbols.IsSodaFlow(property) && this.evaluator.ConstructionOf(node.Expression) is { } construction)
+        {
+            this.CheckMemberRead(member: property, construction: construction, location: node);
+        }
+    }
+
+    /// <summary>
+    ///     A method or a computed property of a followed object, whose body samples a
+    ///     member that the construction made pending.
+    /// </summary>
+    private void CheckMemberRead(ISymbol member, Construction construction, SyntaxNode location)
+    {
+        SyntaxNode? declaration = member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+
+        SyntaxNode? body =
+            declaration switch
+            {
+                MethodDeclarationSyntax m => m.Body ?? (SyntaxNode?)m.ExpressionBody,
+                PropertyDeclarationSyntax { ExpressionBody: { } e } => e,
+                PropertyDeclarationSyntax { AccessorList: { } accessors } =>
+                    accessors.Accessors
+                        .Where(static a => a.Keyword.ValueText == "get")
+                        .Select(static a => a.Body ?? (SyntaxNode?)a.ExpressionBody)
+                        .FirstOrDefault(static b => b != null),
+                _ => null
+            };
+
+        if (body == null)
+        {
+            return;
+        }
+
+        SemanticModel model = this.region.ModelFor(body);
+
+        IEnumerable<ExpressionSyntax> reads =
+            body.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
+                .OfType<MemberAccessExpressionSyntax>()
+                .Where(static a => SodaFlowSymbols.ReadMembers.Contains(a.Name.Identifier.ValueText))
+                .Select(static a => a.Expression);
+
+        foreach (ExpressionSyntax read in reads)
+        {
+            ExpressionSyntax target =
+                read is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own ? own : read;
+
+            if (model.GetSymbolInfo(target).Symbol is IPropertySymbol or IFieldSymbol
+                && construction.StateOf(model.GetSymbolInfo(target).Symbol!).Pending)
+            {
+                this.region.Report(
+                    Diagnostic.Create(
+                        descriptor: Diagnostics.MemberReadInCallee,
+                        location: location.GetLocation(),
+                        member.Name,
+                        model.GetSymbolInfo(target).Symbol!.Name,
+                        this.region.PlaceholderName));
+
+                return;
+            }
         }
     }
 
@@ -148,19 +323,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.CheckEscapes(callee: constructor, arguments: arguments.Arguments, offset: 0);
+        this.CheckEscapes(
+            callee: constructor,
+            arguments: arguments.Arguments,
+            offset: 0,
+            followed: this.evaluator.ConstructionOf(node)?.FollowedParameters);
     }
 
-    private void CheckEscapes(IMethodSymbol callee, SeparatedSyntaxList<ArgumentSyntax> arguments, int offset)
+    private void CheckEscapes(
+        IMethodSymbol callee,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        int offset,
+        ImmutableHashSet<ISymbol>? followed)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
             ArgumentSyntax argument = arguments[i];
-            IParameterSymbol? parameter = ParameterOf(callee: callee, argument: argument, position: i + offset);
+            IParameterSymbol? parameter = SodaFlowSymbols.ParameterOf(callee: callee, argument: argument, position: i + offset);
 
             if (parameter != null)
             {
-                this.CheckEscape(callee: callee, parameter: parameter, argument: argument.Expression);
+                this.CheckEscape(callee: callee, parameter: parameter, argument: argument.Expression, followed: followed);
             }
         }
     }
@@ -171,9 +354,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     <c>AsCell()</c> at the argument is the assertion of the caller and reports
     ///     nothing.
     /// </summary>
-    private void CheckEscape(IMethodSymbol callee, IParameterSymbol parameter, ExpressionSyntax argument)
+    private void CheckEscape(
+        IMethodSymbol callee,
+        IParameterSymbol parameter,
+        ExpressionSyntax argument,
+        ImmutableHashSet<ISymbol>? followed)
     {
-        if (!this.evaluator.Eval(argument).Pending)
+        // Only a library value escapes. An object of the caller that holds a pending member goes
+        // where the caller sends it, as it does with the looped types. The walk checks its reads
+        // through its construction.
+        if (!this.evaluator.Eval(argument).Pending
+            || !SodaFlowSymbols.IsCarrierType(this.region.ModelFor(argument).GetTypeInfo(argument).Type))
         {
             return;
         }
@@ -193,6 +384,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     parameter.Name,
                     this.region.PlaceholderName));
 
+            return;
+        }
+
+        // The construction was followed and the value went only into members, whose reads are
+        // checked. Nothing is unseen.
+        if (followed != null && followed.Contains(parameter))
+        {
             return;
         }
 
@@ -257,24 +455,5 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return false;
-    }
-
-    private static IParameterSymbol? ParameterOf(IMethodSymbol callee, ArgumentSyntax argument, int position)
-    {
-        if (argument.NameColon != null)
-        {
-            string name = argument.NameColon.Name.Identifier.ValueText;
-
-            return callee.Parameters.FirstOrDefault(p => p.Name == name);
-        }
-
-        if (position < callee.Parameters.Length)
-        {
-            return callee.Parameters[position];
-        }
-
-        return callee.Parameters.Length > 0 && callee.Parameters[callee.Parameters.Length - 1].IsParams
-            ? callee.Parameters[callee.Parameters.Length - 1]
-            : null;
     }
 }

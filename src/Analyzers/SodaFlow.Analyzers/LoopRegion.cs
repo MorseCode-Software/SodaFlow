@@ -61,11 +61,23 @@ internal sealed class LoopRegion(
 
         foreach (ExpressionSyntax closing in closings)
         {
-            if (evaluator.Eval(closing).Linked)
+            LoopState state = evaluator.Eval(closing);
+
+            if (state.Linked)
             {
                 this.Report(
                     Diagnostic.Create(
                         descriptor: Diagnostics.LinkedClose,
+                        location: closing.GetLocation(),
+                        this.PlaceholderName));
+            }
+            else if (state.Pending)
+            {
+                // A pending close with no link is a lazy sample of the loop in its own initial
+                // value. That sample forces itself at the end of the transaction.
+                this.Report(
+                    Diagnostic.Create(
+                        descriptor: Diagnostics.PendingClose,
                         location: closing.GetLocation(),
                         this.PlaceholderName));
             }

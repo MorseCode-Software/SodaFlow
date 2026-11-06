@@ -40,6 +40,27 @@ internal static class Diagnostics
             defaultSeverity: DiagnosticSeverity.Info,
             isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor MemberReadInCallee =
+        new(
+            id: "SF1005",
+            title: "A member built from a looped value is read before its loop closes",
+            messageFormat:
+            "'{0}' reads '{1}', which was built from looped value '{2}', before the loop closes. The read throws at run time.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor PendingClose =
+        new(
+            id: "SF1006",
+            title: "A loop closes with a value whose initial value reads its own placeholder",
+            messageFormat:
+            "The initial value of the definition of loop '{0}' reads '{0}', so the loop reads itself at the close. "
+            + "The close throws at run time.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
     public static readonly DiagnosticDescriptor ReadInCallee =
         new(
             id: "SF1004",

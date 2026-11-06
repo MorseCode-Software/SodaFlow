@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
@@ -100,6 +101,34 @@ internal static class SodaFlowSymbols
             default:
                 return LoopState.None;
         }
+    }
+
+    /// <summary>The parameter that an argument binds to, by name or by position.</summary>
+    public static IParameterSymbol? ParameterOf(IMethodSymbol callee, ArgumentSyntax argument, int position)
+    {
+        if (argument.NameColon != null)
+        {
+            string name = argument.NameColon.Name.Identifier.ValueText;
+
+            foreach (IParameterSymbol parameter in callee.Parameters)
+            {
+                if (parameter.Name == name)
+                {
+                    return parameter;
+                }
+            }
+
+            return null;
+        }
+
+        if (position < callee.Parameters.Length)
+        {
+            return callee.Parameters[position];
+        }
+
+        return callee.Parameters.Length > 0 && callee.Parameters[callee.Parameters.Length - 1].IsParams
+            ? callee.Parameters[callee.Parameters.Length - 1]
+            : null;
     }
 
     public static bool IsStreamType(ITypeSymbol? type) =>

@@ -24,7 +24,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
     [
-        Diagnostics.ReadBeforeClose, Diagnostics.LinkedClose, Diagnostics.Escape, Diagnostics.ReadInCallee
+        Diagnostics.ReadBeforeClose, Diagnostics.LinkedClose, Diagnostics.Escape, Diagnostics.ReadInCallee,
+        Diagnostics.MemberReadInCallee, Diagnostics.PendingClose
     ];
 
     public override void Initialize(AnalysisContext context)
@@ -119,33 +120,34 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         foreach (VariableDeclaratorSyntax declarator in declaration.Declaration.Variables)
         {
             if (declarator.Initializer == null
-                || context.SemanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local
-                || local.Type is not INamedTypeSymbol type
-                || !SodaFlowSymbols.IsSodaFlow(type))
+                || context.SemanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
             {
                 continue;
             }
 
-            LoopState placeholderState;
+            // A local of a placeholder type is one explicit loop. A local of a collection of them
+            // is a region too, such as a list of loops closed in a for loop. It has no one closing
+            // expression to check.
+            LoopState placeholderState = SodaFlowSymbols.StateOfType(local.Type);
 
-            switch (type.OriginalDefinition.Name)
+            if (!placeholderState.Pending && !placeholderState.Linked)
             {
-                case "CellLoop" or "BehaviorLoop" or "LoopedCell" or "LoopedBehavior":
-                    placeholderState = LoopState.PendingPlaceholder;
-                    break;
-                case "StreamLoop" or "LoopedStream":
-                    placeholderState = LoopState.StreamPlaceholder;
-                    break;
-                default:
-                    continue;
+                continue;
             }
+
+            bool single =
+                local.Type is INamedTypeSymbol type
+                && SodaFlowSymbols.IsSodaFlow(type)
+                && type.OriginalDefinition.Name
+                    is "CellLoop" or "BehaviorLoop" or "LoopedCell" or "LoopedBehavior" or "StreamLoop" or "LoopedStream";
 
             AnalyzeExplicitLoop(
                 context: context,
                 block: block,
                 declaration: declaration,
                 local: local,
-                placeholderState: placeholderState);
+                placeholderState: placeholderState,
+                single: single);
         }
     }
 
@@ -159,7 +161,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         BlockSyntax block,
         LocalDeclarationStatementSyntax declaration,
         ILocalSymbol local,
-        LoopState placeholderState)
+        LoopState placeholderState,
+        bool single)
     {
         int start = block.Statements.IndexOf(declaration) + 1;
         List<SyntaxNode> roots = [];
@@ -170,19 +173,24 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             StatementSyntax statement = block.Statements[i];
             roots.Add(statement);
 
+            // For one loop, the Loop call on the local. For a collection of loops, the first Loop
+            // call on any placeholder, which is the loop statement that closes them.
             InvocationExpressionSyntax? close =
                 statement.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
                     .OfType<InvocationExpressionSyntax>()
                     .FirstOrDefault(
                         inv =>
                             inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Loop" } access
-                            && SymbolEqualityComparer.Default.Equals(
-                                context.SemanticModel.GetSymbolInfo(access.Expression).Symbol,
-                                local));
+                            && (single
+                                ? SymbolEqualityComparer.Default.Equals(
+                                    context.SemanticModel.GetSymbolInfo(access.Expression).Symbol,
+                                    local)
+                                : SodaFlowSymbols.StateOfType(context.SemanticModel.GetTypeInfo(access.Expression).Type)
+                                    .Linked));
 
             if (close != null)
             {
-                closing = close.ArgumentList.Arguments.LastOrDefault()?.Expression;
+                closing = single ? close.ArgumentList.Arguments.LastOrDefault()?.Expression : null;
 
                 break;
             }
