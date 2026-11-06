@@ -2,8 +2,8 @@
 
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a transaction that fails forget its value; the
-core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two, three,
-or four. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
+core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
+eight. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
 BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
 the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
