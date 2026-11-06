@@ -1392,40 +1392,13 @@ public class Stream<T> : ILastAction
             code: static (trans, _, state) => state.Self.MergeMaybes(trans: trans, s2: state.S2, f: state.F),
             state: (Self: this, S2: s2, F: f));
 
+    // One node, with the two slots in fields. Before, this went through the captures of the merge
+    // of maybes for n inputs, and MergeTwoMaybes says what that cost.
     private Stream<TResult> MergeMaybes<T2, TResult>(
         TransactionInternal trans,
         Stream<T2> s2,
-        Func<MaybeInternal<T>, MaybeInternal<T2>, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-
-        return this.MergeMaybes(
-            trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                first: this.KeepListenersAlive,
-                second: s2.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-
-                return f(arg1: v1, arg2: v2);
-            });
-    }
+        Func<MaybeInternal<T>, MaybeInternal<T2>, TResult> f) =>
+        MergeTwoMaybes<T, T2, TResult>.Create(trans: trans, first: this, second: s2, f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, TResult>(
         Stream<T2> s2,

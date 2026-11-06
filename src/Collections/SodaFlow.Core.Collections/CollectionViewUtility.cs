@@ -425,54 +425,43 @@ internal static class CollectionViewUtility
             // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
             // which is the cost that the deferral prevents. This code needs no scope, because the
             // code below gives an explicit scope to the value that it receives.
-            Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell =
-                criteriaCell.LiftImpl(
-                    b2: upstream.KeysCell,
-                    b3: upstream.Root.SnapshotCell,
-                    f: static (criteria, upstreamKeys, snapshot) =>
-                        new StageContext<TKey, TIdentity, TState, TCriteria>(
-                            criteria: criteria,
-                            upstreamKeys: upstreamKeys,
-                            snapshot: snapshot));
+            Cell<CollectionSnapshot<TKey, TIdentity, TState>> storeSnapshotCell = upstream.Root.SnapshotCell;
 
+            // One node that takes a change from above and a new criteria as two slots. Before, a map
+            // of each input made a StageInput with one slot full, and a merge of the two combined
+            // them. That was three nodes, and up to three objects in a transaction that had the two.
             Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream =
-                upstream.KeyChangesStream
-                    .MapImpl(static change =>
-                        new StageInput<TKey, TIdentity, TState, TCriteria>(
-                            change: MaybeInternal.Some(change),
-                            criteria: MaybeInternal<TCriteria>.None))
-                    .MergeImpl(
-                        s: criteriaCell.UpdatesImpl.MapImpl(static criteria =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None,
-                                criteria: MaybeInternal.Some(criteria))),
-                        f: static (left, right) =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: left.Change.Match(onSome: MaybeInternal.Some, onNone: () => right.Change),
-                                criteria: left.Criteria.Match(
-                                    onSome: MaybeInternal.Some,
-                                    onNone: () => right.Criteria)));
+                upstream.KeyChangesStream.MergeMaybesImpl(
+                    s2: criteriaCell.UpdatesImpl,
+                    f: static (change, criteria) =>
+                        new StageInput<TKey, TIdentity, TState, TCriteria>(change: change, criteria: criteria));
 
+            // The snapshot reads the criteria, the keys above, and the store as three cells.
+            // Before, a lift of the three held them in one object. The lift cost a cell and a hold
+            // at the construction, and an object at each change of any of the three. Each cell
+            // gives the snapshot the value from before the transaction, as the lift did.
             Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
                 inputStream.SnapshotImpl(
                     c1: stateLoopCell,
-                    c2: contextCell,
-                    f: (input, state, context) =>
+                    c2: criteriaCell,
+                    c3: upstream.KeysCell,
+                    c4: storeSnapshotCell,
+                    f: (input, state, criteriaBefore, upstreamKeysBefore, snapshotBefore) =>
                     {
-                        // Each value in the input is newer than the context, which is the sample
-                        // from before the transaction.
+                        // Each value in the input is newer than the three samples from before the
+                        // transaction.
                         TCriteria criteria =
-                            input.Criteria.Match(onSome: static c => c, onNone: () => context.Criteria);
+                            input.Criteria.Match(onSome: static c => c, onNone: () => criteriaBefore);
 
                         CollectionSnapshot<TKey, TIdentity, TState> snapshot =
                             input.Change.Match(
                                 onSome: static change => change.After,
-                                onNone: () => context.Snapshot);
+                                onNone: () => snapshotBefore);
 
                         OrderedKeys<TKey, TIdentity, TState> upstreamKeys =
                             input.Change.Match(
                                 onSome: static change => change.Keys,
-                                onNone: () => context.UpstreamKeys);
+                                onNone: () => upstreamKeysBefore);
 
                         bool hasCriteriaChange =
                             input.Criteria.Match(onSome: static _ => true, onNone: static () => false);
@@ -531,7 +520,7 @@ internal static class CollectionViewUtility
                                 keys: keys,
                                 operations: [],
                                 isReset: true,
-                                before: context.Snapshot.ScopedTo(state),
+                                before: snapshotBefore.ScopedTo(state),
                                 after: snapshot.ScopedTo(keys),
                                 movesKeys: true,
                                 changesMembership: !reordersOnly,
@@ -551,7 +540,7 @@ internal static class CollectionViewUtility
                                 keys: outcome.Keys,
                                 operations: outcome.Operations,
                                 isReset: false,
-                                before: context.Snapshot.ScopedTo(state),
+                                before: snapshotBefore.ScopedTo(state),
                                 after: snapshot.ScopedTo(outcome.Keys),
                                 movesKeys: outcome.MovesKeys,
                                 changesMembership: outcome.ChangesMembership,
@@ -566,12 +555,12 @@ internal static class CollectionViewUtility
                 resultsStream
                     .MapImpl(static result => result.Keys)
                     .HoldLazyImpl(
-                        contextCell.SampleLazyImpl()
-                            .MapImpl(context =>
-                                rebuild(
-                                    criteria: context.Criteria,
-                                    upstreamKeys: context.UpstreamKeys,
-                                    snapshot: context.Snapshot)));
+                        LazySampleInternal.LiftImpl(
+                            a: criteriaCell.SampleLazyImpl(),
+                            b: upstream.KeysCell.SampleLazyImpl(),
+                            c: storeSnapshotCell.SampleLazyImpl(),
+                            f: (criteria, upstreamKeys, snapshot) =>
+                                rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot)));
 
             stateLoopCell.Loop(trans: trans, c: keysCell);
 
