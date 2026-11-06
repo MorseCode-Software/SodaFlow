@@ -8,9 +8,10 @@ namespace SodaFlow.Bindable.ObjectModel;
 public static partial class BindableCoreExtensionMethods
 {
     /// <summary>
-    ///     Shows a <see cref="Cell{T}" /> as a property that the view can set and
+    ///     Shows a <see cref="LoopedCell{T}" /> as a property that the view can set and
     ///     observe. The view sends its writes into the graph. The cell stays the
-    ///     authority on the value.
+    ///     authority on the value. See <see cref="TwoWayBindableValue{T}" /> for a
+    ///     <see cref="Cell{T}" />.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -48,7 +49,7 @@ public static partial class BindableCoreExtensionMethods
     ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class TwoWayBindableValue<T> : BindableValueBase, ITwoWayBindableValue<T>, ILastAction
+    private class LoopedTwoWayBindableValue<T> : BindableValueBase, ILoopedTwoWayBindableValue<T>, ILastAction
     {
         private readonly IEqualityComparer<T> comparer;
 
@@ -128,8 +129,8 @@ public static partial class BindableCoreExtensionMethods
         ///     Tells you if a value changed. A null value selects the default comparer.
         /// </param>
         // ReSharper disable once InheritdocConsiderUsage - The base is a primary constructor, and its only documentation is the summary of BindableValueBase, which does not describe these parameters.
-        internal TwoWayBindableValue(
-            Cell<T> cell,
+        internal LoopedTwoWayBindableValue(
+            LoopedCell<T> cell,
             Action<T> write,
             IBindingScheduler scheduler,
             IEqualityComparer<T>? comparer)
@@ -160,7 +161,7 @@ public static partial class BindableCoreExtensionMethods
         }
 
         /// <inheritdoc />
-        public Cell<T> Cell { get; }
+        public LoopedCell<T> Cell { get; }
 
         /// <inheritdoc />
         public T Value
@@ -435,5 +436,28 @@ public static partial class BindableCoreExtensionMethods
         }
 
         protected override void DisposeCore() => this.listener.Unlisten();
+    }
+
+    /// <summary>
+    ///     A <see cref="LoopedTwoWayBindableValue{T}" /> for a <see cref="Cell{T}" />,
+    ///     which gives the cell back as one.
+    /// </summary>
+    /// <remarks>
+    ///     This is a different class, and not a flag. Thus, a value built from a looped
+    ///     cell is not an <see cref="ITwoWayBindableValue{T}" />, also through a cast.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class TwoWayBindableValue<T> : LoopedTwoWayBindableValue<T>, ITwoWayBindableValue<T>
+    {
+        internal TwoWayBindableValue(
+            Cell<T> cell,
+            Action<T> write,
+            IBindingScheduler scheduler,
+            IEqualityComparer<T>? comparer)
+            : base(cell: cell, write: write, scheduler: scheduler, comparer: comparer) =>
+            this.Cell = cell;
+
+        /// <inheritdoc />
+        public new Cell<T> Cell { get; }
     }
 }

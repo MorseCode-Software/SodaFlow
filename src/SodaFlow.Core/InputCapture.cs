@@ -37,10 +37,10 @@ internal sealed class InputCapture<T>
     /// <summary>
     ///     Gives the value that <paramref name="trans" /> captured, or the current
     ///     value of <paramref name="input" />, and clears the slot. See
-    ///     <see cref="Behavior{T}.Take{TInput}" />.
+    ///     <see cref="LoopedBehavior{T}.Take{TInput}" />.
     /// </summary>
-    internal T Take(Behavior<T> input, TransactionInternal trans) =>
-        Behavior<T>.Take(pending: ref this.slot, input: input, trans: trans);
+    internal T Take(LoopedBehavior<T> input, TransactionInternal trans) =>
+        LoopedBehavior<T>.Take(pending: ref this.slot, input: input, trans: trans);
 
     /// <summary>
     ///     Gives the value that <paramref name="trans" /> captured, when the input

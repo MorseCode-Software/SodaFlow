@@ -120,16 +120,50 @@ public struct CellLooper<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
         Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
-        TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
+        this.WithCaptures(f: f, close: static (captures, _) => captures);
 
-    private static (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
+    /// <summary>
+    ///     Loop a cell and return a value tuple containing the resulting cell and the
+    ///     captures, which a second function converts after the loop closes.
+    /// </summary>
+    /// <typeparam name="TLoopedCaptures">
+    ///     The type of the captures that <paramref name="f" /> returns.
+    /// </typeparam>
+    /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
+    /// <param name="f">
+    ///     A function which takes the cell loop and returns a value tuple containing
+    ///     the resulting cell and captures.
+    /// </param>
+    /// <param name="close">
+    ///     A function which takes the captures and the <see cref="LoopCloser" /> of
+    ///     the loop, and returns the captures with each looped value converted.
+    /// </param>
+    /// <returns>
+    ///     A value tuple containing the resulting cell and the converted captures.
+    /// </returns>
+    /// <remarks>
+    ///     A capture that reads the placeholder is a <see cref="LoopedCell{T}" /> in
+    ///     <paramref name="f" />. The loop is closed when <paramref name="close" />
+    ///     runs, thus the closer can give it as a <see cref="Cell{T}" />.
+    /// </remarks>
+    [Pure]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public (Cell<T> Cell, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        Func<LoopedCell<T>, (Cell<T> Cell, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => WithCaptures(trans: trans, f: state.F, close: state.Close),
+            state: (F: f, Close: close));
+
+    private static (Cell<T> Cell, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
         TransactionInternal trans,
-        Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f)
+        Func<LoopedCell<T>, (Cell<T> Cell, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close)
     {
-        LoopedCell<T> loop = new();
-        (Cell<T> Cell, TCaptures Captures) result = f(loop);
-        loop.Loop(trans: trans, c: result.Cell);
-        return result;
+        CellLoop<T> loop = new();
+        (Cell<T> Cell, TLoopedCaptures Captures) result = f(loop);
+        LoopCloser closer = loop.Loop(trans: trans, c: result.Cell);
+        return (result.Cell, close(arg1: result.Captures, arg2: closer));
     }
 
     /// <summary>

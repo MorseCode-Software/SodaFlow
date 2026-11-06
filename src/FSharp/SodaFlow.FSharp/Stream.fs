@@ -263,7 +263,7 @@ let holdLazy initialValue (stream: Stream<_>) = stream.HoldLazyImpl initialValue
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotB (behavior: Behavior<_>) f (stream: Stream<_>) =
+let snapshotB (behavior: LoopedBehavior<_>) f (stream: Stream<_>) =
     stream.SnapshotImpl(behavior, (Func<_, _, _> f))
 
 /// <summary>
@@ -283,7 +283,7 @@ let snapshotB (behavior: Behavior<_>) f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot (cell: Cell<_>) f (stream: Stream<_>) =
+let snapshot (cell: LoopedCell<_>) f (stream: Stream<_>) =
     stream.SnapshotImpl(cell, (Func<_, _, _> f))
 
 /// <summary>
@@ -300,7 +300,7 @@ let snapshot (cell: Cell<_>) f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.SnapshotImpl behavior
+let snapshotAndTakeB (behavior: LoopedBehavior<_>) (stream: Stream<_>) = stream.SnapshotImpl behavior
 
 /// <summary>
 ///     Samples a cell when the stream fires, and fires the cell's value, discarding the stream's own.
@@ -315,7 +315,7 @@ let snapshotAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.Snapsh
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotImpl cell
+let snapshotAndTake (cell: LoopedCell<_>) (stream: Stream<_>) = stream.SnapshotImpl cell
 
 /// <summary>
 ///     Samples the latest value of a behavior when the stream fires, and fires the combination.
@@ -336,7 +336,7 @@ let snapshotAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotImpl ce
 ///     the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatestB (behavior: Behavior<_>) f (stream: Stream<_>) =
+let snapshotLatestB (behavior: LoopedBehavior<_>) f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(behavior, (Func<_, _, _> f))
 
 /// <summary>
@@ -357,7 +357,7 @@ let snapshotLatestB (behavior: Behavior<_>) f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
+let snapshot2B (behavior1: LoopedBehavior<_>) behavior2 f (stream: Stream<_>) =
     stream.SnapshotImpl(behavior1, behavior2, (Func<_, _, _, _> f))
 
 /// <summary>
@@ -378,7 +378,7 @@ let snapshot2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
+let snapshot2 (cell1: LoopedCell<_>) cell2 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, (Func<_, _, _, _> f))
 
 /// <summary>
@@ -400,7 +400,7 @@ let snapshot2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
+let snapshot3B (behavior1: LoopedBehavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
     stream.SnapshotImpl(behavior1, behavior2, behavior3, (Func<_, _, _, _, _> f))
 
 /// <summary>
@@ -422,7 +422,7 @@ let snapshot3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Stream<_>
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
+let snapshot3 (cell1: LoopedCell<_>) cell2 cell3 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, (Func<_, _, _, _, _> f))
 
 /// <summary>
@@ -445,7 +445,7 @@ let snapshot3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
+let snapshot4B (behavior1: LoopedBehavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
     stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
@@ -468,7 +468,7 @@ let snapshot4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (stream:
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
+let snapshot4 (cell1: LoopedCell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
@@ -492,7 +492,7 @@ let snapshot4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
+let snapshot5B (behavior1: LoopedBehavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
     stream.SnapshotImpl(behavior1, behavior2, behavior3, behavior4, behavior5, (Func<_, _, _, _, _, _, _> f))
 
 /// <summary>
@@ -516,7 +516,7 @@ let snapshot5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
+let snapshot5 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, (Func<_, _, _, _, _, _, _> f))
 
 /// <summary>
@@ -541,7 +541,7 @@ let snapshot5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
+let snapshot6B (behavior1: LoopedBehavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
     stream.SnapshotImpl(
         behavior1,
         behavior2,
@@ -574,7 +574,7 @@ let snapshot6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
+let snapshot6 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, (Func<_, _, _, _, _, _, _, _> f))
 
 /// <summary>
@@ -601,7 +601,7 @@ let snapshot6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot7B
-    (behavior1: Behavior<_>)
+    (behavior1: LoopedBehavior<_>)
     behavior2
     behavior3
     behavior4
@@ -645,7 +645,7 @@ let snapshot7B
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
+let snapshot7 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, (Func<_, _, _, _, _, _, _, _, _> f))
 
 /// <summary>
@@ -673,7 +673,7 @@ let snapshot7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: St
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshot8B
-    (behavior1: Behavior<_>)
+    (behavior1: LoopedBehavior<_>)
     behavior2
     behavior3
     behavior4
@@ -720,7 +720,7 @@ let snapshot8B
 ///     operates in a different sequence.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshot8 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
+let snapshot8 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
     stream.SnapshotImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, cell8, Func<_, _, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -744,7 +744,7 @@ let snapshot8 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stre
 ///     <c>lift</c> functions.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest (cell: Cell<_>) f (stream: Stream<_>) =
+let snapshotLatest (cell: LoopedCell<_>) f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell, (Func<_, _, _> f))
 
 /// <summary>
@@ -763,7 +763,7 @@ let snapshotLatest (cell: Cell<_>) f (stream: Stream<_>) =
 ///     updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatestAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl behavior
+let snapshotLatestAndTakeB (behavior: LoopedBehavior<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl behavior
 
 /// <summary>
 ///     Samples the latest value of a cell when the stream fires, and fires the cell's value,
@@ -782,7 +782,7 @@ let snapshotLatestAndTakeB (behavior: Behavior<_>) (stream: Stream<_>) = stream.
 ///     give a cell from <c>Cell.lift2</c> or one of the other <c>lift</c> functions.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatestAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl cell
+let snapshotLatestAndTake (cell: LoopedCell<_>) (stream: Stream<_>) = stream.SnapshotLatestImpl cell
 
 /// <summary>
 ///     Samples the latest values of two behaviors when the stream fires, and fires the combination.
@@ -802,7 +802,7 @@ let snapshotLatestAndTake (cell: Cell<_>) (stream: Stream<_>) = stream.SnapshotL
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
+let snapshotLatest2B (behavior1: LoopedBehavior<_>) behavior2 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(behavior1, behavior2, (Func<_, _, _, _> f))
 
 /// <summary>
@@ -823,7 +823,7 @@ let snapshotLatest2B (behavior1: Behavior<_>) behavior2 f (stream: Stream<_>) =
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
+let snapshotLatest2 (cell1: LoopedCell<_>) cell2 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, (Func<_, _, _, _> f))
 
 /// <summary>
@@ -847,7 +847,7 @@ let snapshotLatest2 (cell1: Cell<_>) cell2 f (stream: Stream<_>) =
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
+let snapshotLatest3B (behavior1: LoopedBehavior<_>) behavior2 behavior3 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, (Func<_, _, _, _, _> f))
 
 /// <summary>
@@ -870,7 +870,7 @@ let snapshotLatest3B (behavior1: Behavior<_>) behavior2 behavior3 f (stream: Str
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
+let snapshotLatest3 (cell1: LoopedCell<_>) cell2 cell3 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, cell3, (Func<_, _, _, _, _> f))
 
 /// <summary>
@@ -895,7 +895,7 @@ let snapshotLatest3 (cell1: Cell<_>) cell2 cell3 f (stream: Stream<_>) =
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
+let snapshotLatest4B (behavior1: LoopedBehavior<_>) behavior2 behavior3 behavior4 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, behavior4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
@@ -919,7 +919,7 @@ let snapshotLatest4B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 f (s
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
+let snapshotLatest4 (cell1: LoopedCell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, (Func<_, _, _, _, _, _> f))
 
 /// <summary>
@@ -945,7 +945,7 @@ let snapshotLatest4 (cell1: Cell<_>) cell2 cell3 cell4 f (stream: Stream<_>) =
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
+let snapshotLatest5B (behavior1: LoopedBehavior<_>) behavior2 behavior3 behavior4 behavior5 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(behavior1, behavior2, behavior3, behavior4, behavior5, Func<_, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -970,7 +970,7 @@ let snapshotLatest5B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 beha
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
+let snapshotLatest5 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, (Func<_, _, _, _, _, _, _> f))
 
 /// <summary>
@@ -997,7 +997,16 @@ let snapshotLatest5 (cell1: Cell<_>) cell2 cell3 cell4 cell5 f (stream: Stream<_
 ///     loop. Do not give a behavior that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 behavior5 behavior6 f (stream: Stream<_>) =
+let snapshotLatest6B
+    (behavior1: LoopedBehavior<_>)
+    behavior2
+    behavior3
+    behavior4
+    behavior5
+    behavior6
+    f
+    (stream: Stream<_>)
+    =
     stream.SnapshotLatestImpl(
         behavior1,
         behavior2,
@@ -1031,7 +1040,7 @@ let snapshotLatest6B (behavior1: Behavior<_>) behavior2 behavior3 behavior4 beha
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
+let snapshotLatest6 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, cell6, Func<_, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -1060,7 +1069,7 @@ let snapshotLatest6 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 f (stream: St
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatest7B
-    (behavior1: Behavior<_>)
+    (behavior1: LoopedBehavior<_>)
     behavior2
     behavior3
     behavior4
@@ -1105,7 +1114,7 @@ let snapshotLatest7B
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
+let snapshotLatest7 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(cell1, cell2, cell3, cell4, cell5, cell6, cell7, Func<_, _, _, _, _, _, _, _, _> f)
 
 /// <summary>
@@ -1135,7 +1144,7 @@ let snapshotLatest7 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 f (stre
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let snapshotLatest8B
-    (behavior1: Behavior<_>)
+    (behavior1: LoopedBehavior<_>)
     behavior2
     behavior3
     behavior4
@@ -1183,7 +1192,7 @@ let snapshotLatest8B
 ///     loop. Do not give a cell that the result updates in the same transaction.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let snapshotLatest8 (cell1: Cell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
+let snapshotLatest8 (cell1: LoopedCell<_>) cell2 cell3 cell4 cell5 cell6 cell7 cell8 f (stream: Stream<_>) =
     stream.SnapshotLatestImpl(
         cell1,
         cell2,
@@ -1492,7 +1501,7 @@ let choose f (stream: Stream<_>) =
 ///     at the start of the transaction the firing belongs to.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let gateB (behavior: Behavior<_>) (stream: Stream<_>) = stream.GateImpl behavior
+let gateB (behavior: LoopedBehavior<_>) (stream: Stream<_>) = stream.GateImpl behavior
 
 /// <summary>
 ///     Lets firings through only while a cell holds true.
@@ -1505,7 +1514,7 @@ let gateB (behavior: Behavior<_>) (stream: Stream<_>) = stream.GateImpl behavior
 ///     the start of the transaction the firing belongs to.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let gate (cell: Cell<_>) (stream: Stream<_>) = stream.GateImpl cell
+let gate (cell: LoopedCell<_>) (stream: Stream<_>) = stream.GateImpl cell
 
 /// <summary>
 ///     Folds state across firings, firing a value derived from each step, with an initial state

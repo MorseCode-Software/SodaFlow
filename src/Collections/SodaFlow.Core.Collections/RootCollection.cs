@@ -121,7 +121,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         TransactionInternal trans,
         Func<TIdentity, TKey> keySelector,
         IEqualityComparer<TKey> keyEqualityComparer,
-        Cell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
+        LoopedCell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
     {
         // The builders live inside the function, because the function can run more than one
@@ -170,7 +170,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
         // The resolution of an edit uses the state that it resolves against, and the
         // resolution of the edits makes that state. Thus, this code has an explicit loop.
-        LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
+        CellLoop<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
         Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
             editsStream

@@ -90,16 +90,52 @@ public struct BehaviorLooper<T>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
         Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
-        TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
+        this.WithCaptures(f: f, close: static (captures, _) => captures);
 
-    private static (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
+    /// <summary>
+    ///     Loop a behavior and return a value tuple containing the resulting behavior
+    ///     and the captures, which a second function converts after the loop closes.
+    /// </summary>
+    /// <typeparam name="TLoopedCaptures">
+    ///     The type of the captures that <paramref name="f" /> returns.
+    /// </typeparam>
+    /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
+    /// <param name="f">
+    ///     A function which takes the behavior loop and returns a value tuple
+    ///     containing the resulting behavior and captures.
+    /// </param>
+    /// <param name="close">
+    ///     A function which takes the captures and the <see cref="LoopCloser" /> of
+    ///     the loop, and returns the captures with each looped value converted.
+    /// </param>
+    /// <returns>
+    ///     A value tuple containing the resulting behavior and the converted
+    ///     captures.
+    /// </returns>
+    /// <remarks>
+    ///     A capture that reads the placeholder is a
+    ///     <see cref="LoopedBehavior{T}" /> in <paramref name="f" />. The loop is
+    ///     closed when <paramref name="close" /> runs, thus the closer can give it as
+    ///     a <see cref="Behavior{T}" />.
+    /// </remarks>
+    [Pure]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => WithCaptures(trans: trans, f: state.F, close: state.Close),
+            state: (F: f, Close: close));
+
+    private static (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
         TransactionInternal trans,
-        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f)
+        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close)
     {
-        LoopedBehavior<T> loop = new();
-        (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
-        loop.Loop(trans: trans, b: result.Behavior);
-        return result;
+        BehaviorLoop<T> loop = new();
+        (Behavior<T> Behavior, TLoopedCaptures Captures) result = f(loop);
+        LoopCloser closer = loop.Loop(trans: trans, b: result.Behavior);
+        return (result.Behavior, close(arg1: result.Captures, arg2: closer));
     }
 
     /// <summary>

@@ -6,8 +6,8 @@ namespace SodaFlow;
 
 internal static class BehaviorExtensionMethodsInternal
 {
-    internal static Behavior<T> SwitchBImpl<T, T2>(this Behavior<T2> bba)
-        where T2 : Behavior<T> =>
+    internal static Behavior<T> SwitchBImpl<T, T2>(this LoopedBehavior<T2> bba)
+        where T2 : LoopedBehavior<T> =>
         TransactionInternal.Apply(
             code: static (trans, _, bba) =>
                 BehaviorSwitch<T, T2>.Create(
@@ -17,8 +17,8 @@ internal static class BehaviorExtensionMethodsInternal
                     sampleInitial: static ba => ba.SampleImpl()),
             state: bba);
 
-    internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca)
-        where T2 : Cell<T> =>
+    internal static Cell<T> SwitchCImpl<T, T2>(this LoopedBehavior<T2> bca)
+        where T2 : LoopedCell<T> =>
         new(
             TransactionInternal.Apply(
                 code: static (trans, _, bca) =>
@@ -29,13 +29,13 @@ internal static class BehaviorExtensionMethodsInternal
                         sampleInitial: static c => c.SampleImpl()),
                 state: bca));
 
-    internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa)
+    internal static Stream<T> SwitchSImpl<T, T2>(this LoopedBehavior<T2> bsa)
         where T2 : Stream<T> =>
         TransactionInternal.Apply(
             code: static (trans1, _, state) => SwitchS<T, T2>(trans1: trans1, bsa: state),
             state: bsa);
 
-    private static Stream<T> SwitchS<T, T2>(TransactionInternal trans1, Behavior<T2> bsa)
+    private static Stream<T> SwitchS<T, T2>(TransactionInternal trans1, LoopedBehavior<T2> bsa)
         where T2 : Stream<T>
     {
         SwitchKeepListenersAlive keepListenersAlive = new(bsa.KeepListenersAlive);
@@ -88,13 +88,13 @@ internal static class BehaviorExtensionMethodsInternal
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         this IEnumerable<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T> =>
+        where T2 : LoopedBehavior<T> =>
         LiftBehaviorsImpl(inputs: [.. b], f: f);
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> b,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T> =>
+        where T2 : LoopedBehavior<T> =>
         LiftBehaviorsImpl(inputs: [.. b], f: f);
 
     // The array is the lift's own copy. A caller gives it through one of the overloads above,
@@ -104,7 +104,7 @@ internal static class BehaviorExtensionMethodsInternal
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
         T2[] inputs,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T> =>
+        where T2 : LoopedBehavior<T> =>
         TransactionInternal.Apply(
             code: static (trans1, _, state) => LiftBehaviors(trans1: trans1, inputs: state.Inputs, f: state.F),
             state: (Inputs: inputs, F: f));
@@ -114,7 +114,7 @@ internal static class BehaviorExtensionMethodsInternal
         TransactionInternal trans1,
         T2[] inputs,
         Func<IReadOnlyList<T>, TResult> f)
-        where T2 : Behavior<T>
+        where T2 : LoopedBehavior<T>
     {
         IKeepListenersAlive[] roots = [.. inputs.Select(static behavior => behavior.KeepListenersAlive)];
         Stream<TResult> @out = new(KeepListenersAliveInternal.Combine(roots));
@@ -137,7 +137,7 @@ internal static class BehaviorExtensionMethodsInternal
 
                     for (int i = 0; i < inputs.Length; i++)
                     {
-                        values[i] = Behavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
+                        values[i] = LoopedBehavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
                     }
 
                     @out.Send(trans: trans2, a: f(values));

@@ -76,7 +76,7 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull
     {
-        LoopedCell<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
+        CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
             collection.ItemChangesStream
@@ -420,7 +420,7 @@ internal static class CollectionViewUtility
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
-        Cell<TCriteria> criteriaCell,
+        LoopedCell<TCriteria> criteriaCell,
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
@@ -448,7 +448,7 @@ internal static class CollectionViewUtility
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         TransactionInternal trans,
         ReactiveCollection<TKey, TIdentity, TState> upstream,
-        Cell<TCriteria> criteriaCell,
+        LoopedCell<TCriteria> criteriaCell,
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
@@ -456,7 +456,7 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull
     {
-        LoopedCell<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
+        CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
         // This is the store, and not the view of the store in the stage above. A read of
         // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
@@ -658,7 +658,7 @@ internal static class CollectionViewUtility
     /// </remarks>
     private static Cell<OrderedKeys<TKey, TIdentity, TState>> PublishedKeys<TKey, TIdentity, TState>(
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream,
-        Cell<OrderedKeys<TKey, TIdentity, TState>> stateKeysCell)
+        LoopedCell<OrderedKeys<TKey, TIdentity, TState>> stateKeysCell)
         where TKey : notnull
         where TIdentity : notnull =>
         resultsStream

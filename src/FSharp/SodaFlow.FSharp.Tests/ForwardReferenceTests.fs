@@ -12,7 +12,7 @@ and Child(parent: Cell<Node>) =
     member _.Parent = parent
 
 /// Builds the node whose child holds a reference back to it, which is the cycle that this test measures.
-let private nodeHolding reference = Node(Child reference)
+let private nodeHolding reference = Node(Child(asCellLC reference))
 
 type ``Forward Reference Tests``() =
 
@@ -88,7 +88,7 @@ type ``Forward Reference Tests``() =
             // At the construction of each one, the other one is not available. This is the cycle that this
             // code breaks.
             let struct (node, child) =
-                forwardReference (fun reference -> struct (nodeHolding reference, Child reference))
+                forwardReference (fun reference -> struct (nodeHolding reference, Child(asCellLC reference)))
 
             do! Expect.Same(node, child.Parent |> sampleC)
             do! Expect.Same(node, node.Child.Parent |> sampleC)
@@ -107,5 +107,6 @@ type ``Forward Reference Tests``() =
         task {
             // The reference is a promise about the value, and not the value. A read of it before the
             // construction function returns has no answer.
-            do! Expect.Throws<InvalidOperationException>(fun () -> forwardReferenceWithNoCaptures sampleC |> ignore)
+            do! Expect.Throws<InvalidOperationException>(fun () ->
+                forwardReferenceWithNoCaptures (asCellLC >> sampleC) |> ignore)
         }

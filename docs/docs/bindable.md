@@ -53,9 +53,12 @@ Every bindable comes from an `IBindableFactory`; there is no other way to build 
 | You have | You call | You get | Direction |
 | --- | --- | --- | --- |
 | `Cell<T>` | `CreateOneWay(cell)` | `IOneWayBindableValue<T>` | Graph to view |
+| `LoopedCell<T>` | `CreateOneWay(cell)` | `ILoopedOneWayBindableValue<T>` | Graph to view |
 | `CellSink<T>` | `CreateTwoWay(sink)` | `ITwoWayBindableValue<T>` | Both |
 | `Cell<T>` + `StreamSink<T>` | `CreateTwoWay(cell, editsStreamSink)` | `ITwoWayBindableValue<T>` | Both |
+| `LoopedCell<T>` + `StreamSink<T>` | `CreateTwoWay(cell, editsStreamSink)` | `ILoopedTwoWayBindableValue<T>` | Both |
 | `StreamSink<T>` | `CreateBindableAction(sink)` | `IBindableAction<T>` | An `ICommand` |
+| `StreamSink<T>` + `LoopedCell<bool>` | `CreateBindableAction(sink, isEnabledCell)` | `ILoopedBindableAction<T>` | An `ICommand` |
 
 Two `CreateTwoWay` overloads exist because there are two situations. A `CellSink<T>` is the simple
 one: the view is the only writer, and the sink is authoritative. Passing a `Cell<T>` and a
@@ -64,6 +67,21 @@ as their own stream — validation, normalization, or any other rule between the
 value.
 
 Each also takes an optional `IEqualityComparer<T>`, used to suppress no-op writes.
+
+The looped rows exist because a bindable reads its cell only after the transaction that builds
+it, so it can take a cell whose loop has not closed yet. What it returns then is the *base*
+interface of the plain one: `ILoopedOneWayBindableValue<T>`, `ILoopedTwoWayBindableValue<T>` and
+`ILoopedBindableAction<T>` expose the looped cell they were given as `Cell` or `IsEnabledCell`,
+and `IOneWayBindableValue<T>`, `ITwoWayBindableValue<T>` and `IBindableAction<T>` derive from them
+and add the same property typed as a `Cell<T>`. Plain in gives plain out, looped in gives looped
+out, and a bindable built from a looped cell cannot hand out a `Cell<T>` that nothing may read yet,
+not even through a cast. A view binds `Value` and `PropertyChanged`, which live on the base, so
+XAML sees no difference. A row view model built inside a loop block hands the looped cell it was
+given straight to the factory and exposes the looped interface; see
+[rows built inside the block](loops.md#rows-built-inside-the-block). In F# the enablement cell of
+a command is not optional, because F# cannot choose between an optional `Cell<bool>` and a
+`LoopedCell<bool>`: `ToBindableAction sink` is the command that is always enabled, and the
+two-argument overloads take the cell.
 
 There is no write-only bindable. A value that starts in the view, such as a selection or a
 scroll offset, is a two-way value on a `CellSink<T>`: the view writes it, the graph reads it, and

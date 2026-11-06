@@ -33,7 +33,7 @@ public static class BehaviorExtensionMethods
     ///             cref="StreamExtensionMethods.Map{T, TResult}(Stream{T}, Func{T,TResult})" />
     ///         , where a call here is the same as a snapshot of the behavior,
     ///         <see
-    ///             cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, Behavior{T2}, Func{T, T2, TResult})" />
+    ///             cref=" StreamExtensionMethods.Snapshot{T, T2, TResult}(Stream{T}, LoopedBehavior{T2}, Func{T, T2, TResult})" />
     ///         ,
     ///         <see cref="StreamExtensionMethods.Filter{T}(Stream{T}, Func{T, bool})" />
     ///         , and
@@ -71,7 +71,7 @@ public static class BehaviorExtensionMethods
     ///         cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, LazySample{T})" />.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static LazySample<T> SampleLazy<T>(this Behavior<T> b) => b.SampleLazyImpl();
+    public static LazySample<T> SampleLazy<T>(this LoopedBehavior<T> b) => b.SampleLazyImpl();
 
     /// <summary>
     ///     Transforms the values of a behavior with the given function. The behavior
@@ -354,7 +354,7 @@ public static class BehaviorExtensionMethods
     /// <param name="bsa">The behavior containing the stream.</param>
     /// <returns>The unwrapped stream.</returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> SwitchS<T>(this Behavior<Stream<T>> bsa) => bsa.SwitchSImpl<T, Stream<T>>();
+    public static Stream<T> SwitchS<T>(this LoopedBehavior<Stream<T>> bsa) => bsa.SwitchSImpl<T, Stream<T>>();
 
     /// <summary>
     ///     Lift a function into a collection of behaviors, so the returned behavior
@@ -415,4 +415,215 @@ public static class BehaviorExtensionMethods
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Behavior<IReadOnlyList<T>> Lift<T>(this IReadOnlyCollection<Behavior<T>> b) =>
         b.LiftBehaviorsImpl<T, Behavior<T>, IReadOnlyList<T>>(static v => v);
+
+    // The operations below are the same operations on a LoopedBehavior. The initial value of
+    // each result reads the current value of its input, which is not available before the loop
+    // closes. Thus, the result is a LoopedBehavior. The overloads above are better matches when
+    // each input is a Behavior, thus a plain behavior gets a plain result.
+
+    /// <inheritdoc cref="Map{T, TResult}(Behavior{T}, Func{T, TResult})" />
+    /// <remarks>
+    ///     The behavior is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Map<T, TResult>(this LoopedBehavior<T> b, Func<T, TResult> f) =>
+        b.MapImpl(f);
+
+    /// <inheritdoc cref="Lift{T, T2, TResult}(Behavior{T}, Behavior{T2}, Func{T, T2, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        Func<T, T2, TResult> f) =>
+        b.LiftImpl(b2: b2, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Func{T, T2, T3, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        Func<T, T2, T3, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Behavior{T4}, Func{T, T2, T3, T4, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, T4, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        Func<T, T2, T3, T4, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Behavior{T4}, Behavior{T5}, Func{T, T2, T3, T4, T5, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, T4, T5, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        Func<T, T2, T3, T4, T5, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Behavior{T4}, Behavior{T5}, Behavior{T6}, Func{T, T2, T3, T4, T5, T6, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, T4, T5, T6, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        Func<T, T2, T3, T4, T5, T6, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, T7, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Behavior{T4}, Behavior{T5}, Behavior{T6}, Behavior{T7}, Func{T, T2, T3, T4, T5, T6, T7, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, T4, T5, T6, T7, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, f: f);
+
+    /// <inheritdoc
+    ///     cref="Lift{T, T2, T3, T4, T5, T6, T7, T8, TResult}(Behavior{T}, Behavior{T2}, Behavior{T3}, Behavior{T4}, Behavior{T5}, Behavior{T6}, Behavior{T7}, Behavior{T8}, Func{T, T2, T3, T4, T5, T6, T7, T8, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<T2> b2,
+        LoopedBehavior<T3> b3,
+        LoopedBehavior<T4> b4,
+        LoopedBehavior<T5> b5,
+        LoopedBehavior<T6> b6,
+        LoopedBehavior<T7> b7,
+        LoopedBehavior<T8> b8,
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        b.LiftImpl(b2: b2, b3: b3, b4: b4, b5: b5, b6: b6, b7: b7, b8: b8, f: f);
+
+    /// <inheritdoc cref="Apply{T, TResult}(Behavior{T}, Behavior{Func{T, TResult}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Apply<T, TResult>(
+        this LoopedBehavior<T> b,
+        LoopedBehavior<Func<T, TResult>> bf) =>
+        b.ApplyImpl(bf);
+
+    /// <inheritdoc cref="SwitchB{T}(Behavior{Behavior{T}})" />
+    /// <remarks>
+    ///     The behavior is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<T> SwitchB<T>(this LoopedBehavior<Behavior<T>> bba) =>
+        bba.SwitchBImpl<T, Behavior<T>>();
+
+    /// <inheritdoc cref="SwitchB{T}(Behavior{Behavior{T}})" />
+    /// <remarks>
+    ///     The behavior in the behavior is in a loop that is not closed, thus the result
+    ///     is too. See <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<T> SwitchB<T>(this LoopedBehavior<LoopedBehavior<T>> bba) =>
+        bba.SwitchBImpl<T, LoopedBehavior<T>>();
+
+    /// <inheritdoc cref="SwitchC{T}(Behavior{Cell{T}})" />
+    /// <remarks>
+    ///     The behavior is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> SwitchC<T>(this LoopedBehavior<Cell<T>> bca) => bca.SwitchCImpl<T, Cell<T>>();
+
+    /// <inheritdoc cref="SwitchC{T}(Behavior{Cell{T}})" />
+    /// <remarks>
+    ///     The cell in the behavior is in a loop that is not closed, thus the result is
+    ///     too. See <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedCell<T> SwitchC<T>(this LoopedBehavior<LoopedCell<T>> bca) =>
+        bca.SwitchCImpl<T, LoopedCell<T>>();
+
+    /// <inheritdoc cref="Lift{T, TResult}(IEnumerable{Behavior{T}}, Func{IReadOnlyList{T}, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, TResult>(
+        this IEnumerable<LoopedBehavior<T>> b,
+        Func<IReadOnlyList<T>, TResult> f) =>
+        b.LiftBehaviorsImpl(f);
+
+    /// <inheritdoc cref="Lift{T, TResult}(IReadOnlyCollection{Behavior{T}}, Func{IReadOnlyList{T}, TResult})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<TResult> Lift<T, TResult>(
+        this IReadOnlyCollection<LoopedBehavior<T>> b,
+        Func<IReadOnlyList<T>, TResult> f) =>
+        b.LiftBehaviorsImpl(f);
+
+    /// <inheritdoc cref="Lift{T}(IEnumerable{Behavior{T}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<IReadOnlyList<T>> Lift<T>(this IEnumerable<LoopedBehavior<T>> b) =>
+        b.LiftBehaviorsImpl<T, LoopedBehavior<T>, IReadOnlyList<T>>(static v => v);
+
+    /// <inheritdoc cref="Lift{T}(IReadOnlyCollection{Behavior{T}})" />
+    /// <remarks>
+    ///     An input is in a loop that is not closed, thus the result is too. See
+    ///     <see cref="LoopedBehavior{T}" />.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static LoopedBehavior<IReadOnlyList<T>> Lift<T>(this IReadOnlyCollection<LoopedBehavior<T>> b) =>
+        b.LiftBehaviorsImpl<T, LoopedBehavior<T>, IReadOnlyList<T>>(static v => v);
 }

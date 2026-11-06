@@ -1,5 +1,14 @@
 6.0.0
 
+BREAKING: Cell<T> derives from LoopedCell<T>, and Behavior<T> from LoopedBehavior<T>, where each looped type derived
+from the plain one. A looped type has every operation except Sample, so a read of a value that does not exist yet is
+a compile error instead of the exception it was. CellLoop<T> and BehaviorLoop<T> move into this package: they are the
+placeholders that the block form hands out, typed as LoopedCell<T> and LoopedBehavior<T>, and the explicit form with
+its checks is unchanged. New: LoopCloser, which a loop gives when it closes. Loop on CellLoop<T> and BehaviorLoop<T>
+returns it, and the block form hands it to the function that converts the captures. It reads the value it converts,
+so a value that also depends on a loop that is not closed throws at the call. It is the way from a looped type back
+to the plain one, beside AsCell() and AsBehavior(), which assert that the read comes after the close.
+
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, at the end of the transaction that asked for it, so a
 transaction that fails can forget the value the sample took. A Lazy<T> keeps the first value it gives, and that was

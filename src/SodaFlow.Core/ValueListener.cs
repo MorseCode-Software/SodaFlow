@@ -25,7 +25,7 @@ internal abstract class ValueListener<T> : IListener
     private T? accum;
     private bool accumValid;
 
-    protected ValueListener(TransactionInternal trans, Behavior<T> source, Node target)
+    protected ValueListener(TransactionInternal trans, LoopedBehavior<T> source, Node target)
     {
         this.Source = source;
         this.target = target;
@@ -45,7 +45,7 @@ internal abstract class ValueListener<T> : IListener
                 .Listen(target: this.arrivals, trans: trans, action: this.Arrive, suppressEarlierFirings: false);
     }
 
-    protected Behavior<T> Source { get; }
+    protected LoopedBehavior<T> Source { get; }
 
     public void Unlisten() => this.listener.Unlisten();
 

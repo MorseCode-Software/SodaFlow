@@ -289,10 +289,10 @@ internal interface ISampleSource<out T>
 
 // A sample of a behavior through a function, as one object. Before, this was a sample of the
 // behavior and a map on it: two samples, each with its own closure and delegate.
-internal sealed class MappedSampleSource<TSource, T>(in Behavior<TSource> behavior, in Func<TSource, T> f)
+internal sealed class MappedSampleSource<TSource, T>(in LoopedBehavior<TSource> behavior, in Func<TSource, T> f)
     : ISampleSource<T>
 {
-    private readonly Behavior<TSource> behavior = behavior;
+    private readonly LoopedBehavior<TSource> behavior = behavior;
     private readonly Func<TSource, T> f = f;
 
     public T Read() => this.f(this.behavior.PendingOrCurrent());

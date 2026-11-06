@@ -172,7 +172,7 @@ public class TimerSystem<T> : ITimerSystem<T>
     }
 
     /// <inheritdoc />
-    public Stream<T> At(Cell<Maybe<T>> t)
+    public Stream<T> At(LoopedCell<Maybe<T>> t)
     {
         StreamSink<T> alarm = new();
         Maybe<ITimer> currentTimer = Maybe.None;

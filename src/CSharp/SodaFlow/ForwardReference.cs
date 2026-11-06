@@ -25,17 +25,17 @@ namespace SodaFlow;
 ///     For example:
 ///     <code>
 ///     Node node = ForwardReference&lt;Node&gt;.WithoutCaptures(
-///         reference =&gt; new Node(new Child(reference.AsCell())));
+///         reference =&gt; new Node(new Child(reference)));
 ///     </code>
-///     The child holds a <see cref="Cell{T}" /> with no meaning until the call
-///     returns. It holds the finished node after that. Nothing has to be mutable.
-///     There is also no window where a half-built node is reachable, because no
-///     code can sample the reference before the construction function returns.
-///     That last point is the constraint worth remembering. The reference is a
-///     promise about what a value will be, and not the value. A read of it during
-///     the construction, with <see cref="CellExtensionMethods.Sample{T}" /> or
-///     with anything on it, asks a question with no answer now. The read throws an
-///     exception to say this.
+///     The child takes the <see cref="LoopedCell{T}" />, which has no meaning until
+///     the call returns. It holds the finished node after that. Nothing has to be
+///     mutable. There is also no window where a half-built node is reachable,
+///     because no code can sample the reference before the construction function
+///     returns. That last point is the constraint worth remembering. The reference
+///     is a promise about what a value will be, and not the value. A read of it
+///     during the construction asks a question with no answer now. Thus, the type
+///     has no <see cref="CellExtensionMethods.Sample{T}" />, and a read through
+///     <c>AsCell</c> throws an exception.
 ///     Everything here builds one transaction of its own, thus a caller can call
 ///     this out of a transaction and in one.
 /// </remarks>
@@ -71,6 +71,45 @@ public static class ForwardReference<T>
                 (T Value, TCaptures Captures) result = f(reference);
                 return (Cell: Cell.Constant(result.Value), Captures: result);
             })
+            .Captures;
+
+    /// <summary>
+    ///     Constructs a value which can refer to itself, along with captures that a
+    ///     second function converts after the reference has its value.
+    /// </summary>
+    /// <typeparam name="TLoopedCaptures">
+    ///     The type of the captures that <paramref name="f" /> returns.
+    /// </typeparam>
+    /// <typeparam name="TCaptures">The type of the captures to return.</typeparam>
+    /// <param name="f">
+    ///     A function which takes a forward reference to the value it is producing,
+    ///     and returns that value along with the captures.
+    /// </param>
+    /// <param name="close">
+    ///     A function which takes the captures and the <see cref="LoopCloser" /> of
+    ///     the reference, and returns the captures with each looped value converted.
+    /// </param>
+    /// <returns>
+    ///     A value tuple containing the constructed value and the converted captures.
+    /// </returns>
+    /// <remarks>
+    ///     A capture that reads the reference is a <see cref="LoopedCell{T}" /> in
+    ///     <paramref name="f" />. The reference has its value when
+    ///     <paramref name="close" /> runs, thus the closer can give it as a
+    ///     <see cref="Cell{T}" />.
+    /// </remarks>
+    [Pure]
+    public static (T Value, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        Func<LoopedCell<T>, (T Value, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
+        Cell.Loop<T>()
+            .WithCaptures(
+                f: reference =>
+                {
+                    (T Value, TLoopedCaptures Captures) result = f(reference);
+                    return (Cell: Cell.Constant(result.Value), Captures: result);
+                },
+                close: (result, closer) => (result.Value, close(arg1: result.Captures, arg2: closer)))
             .Captures;
 
     /// <summary>

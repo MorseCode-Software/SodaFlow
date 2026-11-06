@@ -16,22 +16,22 @@ namespace SodaFlow;
 internal sealed class BehaviorSwitch<T, T2>(
     in TransactionInternal trans,
     in Stream<T> @out,
-    in Behavior<T2> outer,
-    in Func<T2, Behavior<T>> select,
+    in LoopedBehavior<T2> outer,
+    in Func<T2, LoopedBehavior<T>> select,
     in SwitchKeepListenersAlive keepListenersAlive)
     : ValueListener<T2>(trans: trans, source: outer, target: @out.Node)
 {
     private readonly MutableListener current = new();
     private readonly SwitchKeepListenersAlive keepListenersAlive = keepListenersAlive;
     private readonly Stream<T> @out = @out;
-    private readonly Func<T2, Behavior<T>> select = select;
+    private readonly Func<T2, LoopedBehavior<T>> select = select;
 
     // The initial value of the output is the value of the initial selection. The sample reads
     // it through sampleInitial, which samples the selected behavior and does not build one.
     internal static Behavior<T> Create(
         TransactionInternal trans,
-        Behavior<T2> outer,
-        Func<T2, Behavior<T>> select,
+        LoopedBehavior<T2> outer,
+        Func<T2, LoopedBehavior<T>> select,
         Func<T2, T> sampleInitial)
     {
         LazySample<T> initialValue = outer.SampleLazyMapped(trans: trans, f: sampleInitial);
@@ -61,7 +61,7 @@ internal sealed class BehaviorSwitch<T, T2>(
     private sealed class Selection(
         in TransactionInternal trans,
         in BehaviorSwitch<T, T2> @switch,
-        in Behavior<T> source)
+        in LoopedBehavior<T> source)
         : ValueListener<T>(trans: trans, source: source, target: @switch.@out.Node), ILastAction
     {
         private readonly BehaviorSwitch<T, T2> @switch = @switch;

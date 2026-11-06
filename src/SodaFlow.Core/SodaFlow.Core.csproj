@@ -34,6 +34,7 @@
     <ItemGroup>
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="Behavior.cs"/>
+        <Compile Include="BehaviorLoop.cs"/>
         <Compile Include="CaptureSlot.cs"/>
         <Compile Include="CarriedState.cs"/>
         <Compile Include="BehaviorExtensionMethods.cs"/>
@@ -41,6 +42,7 @@
         <Compile Include="BehaviorSwitch.cs"/>
         <Compile Include="Cell.cs"/>
         <Compile Include="CellExtensionMethods.cs"/>
+        <Compile Include="CellLoop.cs"/>
         <Compile Include="CellSink.cs"/>
         <Compile Include="CellStreamSink.cs"/>
         <Compile Include="Cleanup.cs"/>
@@ -56,6 +58,7 @@
         <Compile Include="Listener.cs"/>
         <Compile Include="LoopedBehavior.cs"/>
         <Compile Include="LoopedCell.cs"/>
+        <Compile Include="LoopCloser.cs"/>
         <Compile Include="LoopedStream.cs"/>
         <Compile Include="Maybe.cs"/>
         <Compile Include="MergeTwo.cs"/>

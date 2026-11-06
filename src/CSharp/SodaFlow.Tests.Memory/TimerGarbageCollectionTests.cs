@@ -108,7 +108,7 @@ public sealed class TimerGarbageCollectionTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private WeakReference CreateAlarmAndDropIt(Cell<Maybe<int>> cell) =>
+    private WeakReference CreateAlarmAndDropIt(LoopedCell<Maybe<int>> cell) =>
         new(Transaction.Run(() => this.timers.At(cell)));
 
     [Test]

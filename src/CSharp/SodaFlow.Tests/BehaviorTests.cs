@@ -450,8 +450,9 @@ public sealed class BehaviorTests
     public async Task TestCellLoopThrowsException()
     {
         // This test once asked for types that permit only a safe loop. The block form, Cell.Loop,
-        // is that change. The cycle here is in the graph and not in the loop, thus no type catches
-        // it, and the explicit CellLoop stays.
+        // and the LoopedCell<T> base type are that change: a read of the placeholder before the
+        // loop closes does not compile. The cycle here is in the graph and not in the loop, thus
+        // no type catches it, and the explicit CellLoop stays.
 
         Exception? actual = null;
 
@@ -1280,7 +1281,7 @@ public sealed class BehaviorTests
                     .. Enumerable.Range(start: 0, count: 50).Select(static _ => Cell.CreateLoop<int>())
                 ];
 
-                Cell<int> sum = cellLoops.Lift().Map(static v => v.Sum());
+                LoopedCell<int> sum = cellLoops.Lift().Map(static v => v.Sum());
 
                 IReadOnlyList<CellSink<int>> cellSinks =
                 [
@@ -1292,7 +1293,8 @@ public sealed class BehaviorTests
                     cellLoops[i].Loop(cellSinks[i]);
                 }
 
-                return (sum, cellSinks);
+                // Each loop is closed now, and the closer of each one is the same conversion.
+                return (sum.AsCell(), cellSinks);
             });
 
         List<int> @out = [];
@@ -1418,10 +1420,10 @@ public sealed class BehaviorTests
                 CellLoop<Cell<int>> loop = Cell.CreateLoop<Cell<int>>();
                 CellSink<int> c1Local = Cell.CreateSink(1);
                 CellSink<int> c2Local = Cell.CreateSink(11);
-                Cell<int> cLocal = loop.SwitchC();
+                LoopedCell<int> cLocal = loop.SwitchC();
                 CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
-                loop.Loop(sLocal);
-                return (cLocal, c1Local, c2Local, sLocal);
+                LoopCloser closer = loop.Loop(sLocal);
+                return (closer.Close(cLocal), c1Local, c2Local, sLocal);
             });
 
         List<int> output = [];

@@ -153,7 +153,7 @@ Stream<double> ticks =
         Cell.Loop<Maybe<double>>()
             .WithCaptures(deadline =>
             {
-                Stream<double> alarm = timers.At(deadline.AsCell());
+                Stream<double> alarm = timers.At(deadline);
 
                 return (
                     Cell: alarm.Map(static t => Maybe.Some(t + 5.0)).Hold(Maybe.Some(5.0)),

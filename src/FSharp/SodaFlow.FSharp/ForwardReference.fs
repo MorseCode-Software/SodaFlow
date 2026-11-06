@@ -12,12 +12,43 @@
 ///     the other one.
 ///
 ///     The reference is a promise about a value, and not the value. A read of it during the
-///     construction, with <c>sampleC</c> or with an operation on it, asks a question that has no
-///     answer now. The read throws an exception to say this, as it does for each looped cell.
+///     construction asks a question that has no answer now. Thus, the reference has no
+///     <c>sampleC</c>, and a read through <c>asCellLC</c> throws an exception.
 /// </remarks>
 module SodaFlow.ForwardReference
 
 open System.Runtime.CompilerServices
+
+/// <summary>
+///     Builds a value which can refer to itself, along with captures that a second function
+///     converts after the reference has its value.
+/// </summary>
+/// <param name="f">
+///     Given the forward reference, returns a struct tuple of the value it stands for and the
+///     captures, which can be looped cells.
+/// </param>
+/// <param name="close">
+///     Given the captures and the <c>LoopCloser</c> of the reference, returns the captures with
+///     each looped value converted.
+/// </param>
+/// <returns>
+///     A struct tuple of the value that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+///     <c>create</c> for a capture that reads the reference, and thus is a looped cell. The
+///     reference has its value when <paramref name="close" /> runs, thus <c>LoopedCell.close</c>
+///     can give the capture as a cell.
+/// </remarks>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let createWithLoopedCaptures f close =
+    let struct (_, result) =
+        Cell.loopWithLoopedCaptures
+            (fun reference ->
+                let struct (value, captures) = f reference
+                struct (Cell.constant value, struct (value, captures)))
+            (fun (struct (value, captures)) closer -> struct (value, close captures closer))
+
+    result
 
 /// <summary>
 ///     Builds a value which can refer to itself, along with anything else worth keeping from its
@@ -39,17 +70,10 @@ open System.Runtime.CompilerServices
 ///     The reference and its resolution occur in one transaction, which this opens when no
 ///     transaction is open.
 ///
-///     Use <c>createWithNoCaptures</c> where the caller needs only the value.
+///     Use <c>createWithNoCaptures</c> where the caller needs only the value, and
+///     <c>createWithLoopedCaptures</c> where a capture reads the reference.
 /// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let create f =
-    let struct (_, result) =
-        Cell.loop (fun reference ->
-            let result = f reference
-            let struct (value, _) = result
-            struct (Cell.constant value, result))
-
-    result
+let create f = createWithLoopedCaptures f (fun captures _ -> captures)
 
 /// <summary>
 ///     Builds a value which can refer to itself, where the caller needs only the value.

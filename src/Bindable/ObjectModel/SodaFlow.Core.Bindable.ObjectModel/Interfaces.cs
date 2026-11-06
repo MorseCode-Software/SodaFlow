@@ -18,6 +18,15 @@ public interface IBindable : IDisposable;
 ///     The part of a bindable value that a caller can read, in each direction of
 ///     flow.
 /// </summary>
+/// <remarks>
+///     The cell here is a <see cref="LoopedCell{T}" />, because a bindable can be
+///     built in a loop block from a cell whose loop is not closed. A bindable built
+///     from a <see cref="Cell{T}" /> implements <see cref="IOneWayBindableValue{T}" />
+///     or <see cref="ITwoWayBindableValue{T}" />, which give the cell back as a
+///     <see cref="Cell{T}" />. Thus, a plain cell in gives a plain cell out, and a
+///     looped cell in gives a looped cell out. This is the rule for the operations
+///     on cells.
+/// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
 public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
@@ -31,7 +40,7 @@ public interface IReadableBindableValue<T> : IBindable, INotifyPropertyChanged
     T Value { get; }
 
     /// <summary>The cell below this value, to use again in the FRP graph.</summary>
-    Cell<T> Cell { get; }
+    LoopedCell<T> Cell { get; }
 }
 
 /// <summary>
@@ -89,15 +98,16 @@ public interface IWritableBindableValue<T> : IBindable
 }
 
 /// <summary>
-///     A value that a XAML binding engine can read but cannot write. A value
-///     starts in the FRP graph and moves out to the view. The view cannot write to
-///     it.
+///     A value that a XAML binding engine can read but cannot write. The cell below
+///     it can be in a loop that is not closed. A value starts in the FRP graph and
+///     moves out to the view. The view cannot write to it.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         <see cref="INotifyPropertyChanged.PropertyChanged" /> always gives the
 ///         property name <c>"Value"</c>. Thus, the binding path is
-///         <c>{Binding SomeProperty.Value}</c>.
+///         <c>{Binding SomeProperty.Value}</c>. A view binds this interface and
+///         <see cref="IOneWayBindableValue{T}" /> the same way.
 ///     </para>
 ///     <para>
 ///         This interface is invariant in <typeparamref name="T" /> and not
@@ -107,15 +117,29 @@ public interface IWritableBindableValue<T> : IBindable
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IOneWayBindableValue<T> : IReadableBindableValue<T>
+public interface ILoopedOneWayBindableValue<T> : IReadableBindableValue<T>
 {
     /// <summary>The last value that SodaFlow gave to the binding thread.</summary>
     new T Value { get; }
 }
 
 /// <summary>
-///     A value that the view can read and also write. A write goes into the FRP
-///     graph, and the graph always supplies the value that is the authority.
+///     A value that a XAML binding engine can read but cannot write, built from a
+///     <see cref="Cell{T}" />. It is an <see cref="ILoopedOneWayBindableValue{T}" />
+///     that also gives its cell back as a <see cref="Cell{T}" />.
+/// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public interface IOneWayBindableValue<T> : ILoopedOneWayBindableValue<T>
+{
+    /// <summary>The cell below this value, to use again in the FRP graph.</summary>
+    new Cell<T> Cell { get; }
+}
+
+/// <summary>
+///     A value that the view can read and also write, built from a cell that can
+///     be in a loop that is not closed. A write goes into the FRP graph, and the
+///     graph always supplies the value that is the authority.
 /// </summary>
 /// <remarks>
 ///     This interface declares <see cref="Value" /> again, to select between the
@@ -124,7 +148,7 @@ public interface IOneWayBindableValue<T> : IReadableBindableValue<T>
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBindableValue<T>
+public interface ILoopedTwoWayBindableValue<T> : ILoopedOneWayBindableValue<T>, IWritableBindableValue<T>
 {
     /// <summary>
     ///     Gets the last value that SodaFlow gave to the binding thread, or writes a
@@ -149,16 +173,42 @@ public interface ITwoWayBindableValue<T> : IOneWayBindableValue<T>, IWritableBin
 }
 
 /// <summary>
-///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the
-///     stream. A <see cref="Cell{T}" /> of <see cref="bool" /> controls when the
-///     command is available.
+///     A value that the view can read and also write, built from a
+///     <see cref="Cell{T}" />. It is an <see cref="ILoopedTwoWayBindableValue{T}" />
+///     that also gives its cell back as a <see cref="Cell{T}" />.
 /// </summary>
+/// <remarks>
+///     This interface declares <see cref="Value" /> again, because it inherits a
+///     declaration with a setter and one without.
+/// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public interface IBindableAction<T> : IBindable, ICommand
+public interface ITwoWayBindableValue<T> : ILoopedTwoWayBindableValue<T>, IOneWayBindableValue<T>
+{
+    /// <summary>
+    ///     Gets the last value that SodaFlow gave to the binding thread, or writes a
+    ///     new value into the FRP graph. See
+    ///     <see cref="ILoopedTwoWayBindableValue{T}.Value" />.
+    /// </summary>
+    new T Value { get; set; }
+}
+
+/// <summary>
+///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the
+///     stream. A cell of <see cref="bool" /> controls when the command is
+///     available, and that cell can be in a loop that is not closed.
+/// </summary>
+/// <remarks>
+///     A command built from a <see cref="Cell{T}" /> implements
+///     <see cref="IBindableAction{T}" />, which gives the cell back as a
+///     <see cref="Cell{T}" />.
+/// </remarks>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public interface ILoopedBindableAction<T> : IBindable, ICommand
 {
     /// <summary>The cell that controls availability, to use again in the FRP graph.</summary>
-    Cell<bool> IsEnabledCell { get; }
+    LoopedCell<bool> IsEnabledCell { get; }
 
     /// <summary>
     ///     Fires one time for each accepted call, and carries the command
@@ -173,4 +223,18 @@ public interface IBindableAction<T> : IBindable, ICommand
     ///     code into the same sink also fires this stream.
     /// </remarks>
     Stream<T> FiringsStream { get; }
+}
+
+/// <summary>
+///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the
+///     stream, built from a <see cref="Cell{T}" /> of <see cref="bool" />. It is an
+///     <see cref="ILoopedBindableAction{T}" /> that also gives that cell back as a
+///     <see cref="Cell{T}" />.
+/// </summary>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public interface IBindableAction<T> : ILoopedBindableAction<T>
+{
+    /// <summary>The cell that controls availability, to use again in the FRP graph.</summary>
+    new Cell<bool> IsEnabledCell { get; }
 }

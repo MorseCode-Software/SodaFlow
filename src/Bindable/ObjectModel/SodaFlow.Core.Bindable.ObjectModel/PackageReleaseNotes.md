@@ -1,5 +1,17 @@
 5.0.0
 
+BREAKING: the looped type is the base of each bindable interface, as it is for cells. IReadableBindableValue<T>.Cell is
+a LoopedCell<T>. ILoopedOneWayBindableValue<T>, ILoopedTwoWayBindableValue<T>, and ILoopedBindableAction<T> are the
+bindables built from a looped cell, with a LoopedCell<T> Cell or a LoopedCell<bool> IsEnabledCell, and
+IOneWayBindableValue<T>, ITwoWayBindableValue<T>, and IBindableAction<T> derive from them and give the cell back as a
+Cell<T> or a Cell<bool>. The construction of each bindable has an overload for a Cell<T> and one for a LoopedCell<T>, and
+the plain one gives the plain interface. Thus, a bindable built from a plain cell is unchanged, and one built in a loop
+block from a looped cell says so, and cannot give out a cell that nothing may read yet, also through a cast. The first
+read of the cell happens at the end of the construction transaction, after the loop has closed, which is what makes a
+looped cell safe to bind. A view binds Value and PropertyChanged, which live on the base interfaces, so XAML sees no
+difference. The commands take two functions for the CommandParameter, one that validates and one that converts, where
+each language surface derived a class; the surfaces are unchanged.
+
 BREAKING: IOneWayToSourceBindableValue is gone, with the write-only value behind it. That value kept the last value
 the view wrote and had no cell to correct it from. When the graph refused a write, the value went on holding what the
 graph refused, and its equality test then dropped every retry of the same value, so the view was stuck until it wrote

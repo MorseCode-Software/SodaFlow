@@ -329,7 +329,7 @@ public sealed class BindableValueConcurrencyTests
     {
         QueueingScheduler scheduler = new();
 
-        (_, IOneWayBindableValue<string> b) =
+        (_, ILoopedOneWayBindableValue<string> b) =
             Cell.Loop<string>()
                 .WithCaptures(cellLoop =>
                     (Cell: Cell.Constant("looped"), Captures: cellLoop.ToOneWayImpl(scheduler: scheduler)));
@@ -347,7 +347,7 @@ public sealed class BindableValueConcurrencyTests
         QueueingScheduler scheduler = new();
         StreamSink<string> edits = Stream.CreateSink<string>();
 
-        (_, ITwoWayBindableValue<string> b) =
+        (_, ILoopedTwoWayBindableValue<string> b) =
             Cell.Loop<string>()
                 .WithCaptures(cellLoop =>
                     (Cell: Cell.Constant("looped"),
@@ -365,7 +365,7 @@ public sealed class BindableValueConcurrencyTests
     {
         QueueingScheduler scheduler = new();
 
-        (_, IBindableAction<int> a) =
+        (_, ILoopedBindableAction<int> a) =
             Cell.Loop<bool>()
                 .WithCaptures(cellLoop =>
                     (Cell: Cell.Constant(true),
@@ -386,14 +386,14 @@ public sealed class BindableValueConcurrencyTests
     {
         CellSink<int> c = Cell.CreateSink(2);
 
-        (_, IOneWayBindableValue<int> b) =
+        (_, ILoopedOneWayBindableValue<int> b) =
             Cell.Loop<int>()
                 .WithCaptures(cellLoop =>
                 {
-                    IOneWayBindableValue<int> created =
+                    ILoopedOneWayBindableValue<int> created =
                         Transaction.Run(() =>
                         {
-                            IOneWayBindableValue<int> inner =
+                            ILoopedOneWayBindableValue<int> inner =
                                 cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
                             c.Send(5);
@@ -417,14 +417,14 @@ public sealed class BindableValueConcurrencyTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
 
-        (_, ITwoWayBindableValue<int> b) =
+        (_, ILoopedTwoWayBindableValue<int> b) =
             Cell.Loop<int>()
                 .WithCaptures(cellLoop =>
                 {
-                    ITwoWayBindableValue<int> created =
+                    ILoopedTwoWayBindableValue<int> created =
                         Transaction.Run(() =>
                         {
-                            ITwoWayBindableValue<int> inner =
+                            ILoopedTwoWayBindableValue<int> inner =
                                 cellLoop.ToTwoWayImpl(editsStreamSink: s, scheduler: BindingScheduler.Immediate);
 
                             s.Send(5);
@@ -448,14 +448,14 @@ public sealed class BindableValueConcurrencyTests
     {
         CellSink<bool> enabled = Cell.CreateSink(false);
 
-        (_, IBindableAction<int> a) =
+        (_, ILoopedBindableAction<int> a) =
             Cell.Loop<bool>()
                 .WithCaptures(cellLoop =>
                 {
-                    IBindableAction<int> created =
+                    ILoopedBindableAction<int> created =
                         Transaction.Run(() =>
                         {
-                            IBindableAction<int> inner =
+                            ILoopedBindableAction<int> inner =
                                 Stream.CreateSink<int>()
                                     .ToBindableActionImpl(
                                         isEnabledCell: cellLoop,
@@ -482,14 +482,14 @@ public sealed class BindableValueConcurrencyTests
     {
         CellSink<bool> enabled = Cell.CreateSink(true);
 
-        (_, IBindableAction<int> a) =
+        (_, ILoopedBindableAction<int> a) =
             Cell.Loop<bool>()
                 .WithCaptures(cellLoop =>
                 {
-                    IBindableAction<int> created =
+                    ILoopedBindableAction<int> created =
                         Transaction.Run(() =>
                         {
-                            IBindableAction<int> inner =
+                            ILoopedBindableAction<int> inner =
                                 Stream.CreateSink<int>()
                                     .ToBindableActionImpl(
                                         isEnabledCell: cellLoop,
@@ -596,11 +596,11 @@ public sealed class BindableValueConcurrencyTests
     [Test]
     public async Task OneWayReadInsideTheLoopBlockThrowsOnlyThere()
     {
-        (_, (IOneWayBindableValue<string> b, Exception? caught)) =
+        (_, (ILoopedOneWayBindableValue<string> b, Exception? caught)) =
             Cell.Loop<string>()
                 .WithCaptures(static cellLoop =>
                 {
-                    IOneWayBindableValue<string> created =
+                    ILoopedOneWayBindableValue<string> created =
                         cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
                     return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
@@ -618,11 +618,11 @@ public sealed class BindableValueConcurrencyTests
     {
         StreamSink<string> edits = Stream.CreateSink<string>();
 
-        (_, (ITwoWayBindableValue<string> b, Exception? caught)) =
+        (_, (ILoopedTwoWayBindableValue<string> b, Exception? caught)) =
             Cell.Loop<string>()
                 .WithCaptures(cellLoop =>
                 {
-                    ITwoWayBindableValue<string> created =
+                    ILoopedTwoWayBindableValue<string> created =
                         cellLoop.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
 
                     return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
@@ -638,11 +638,11 @@ public sealed class BindableValueConcurrencyTests
     [Test]
     public async Task ActionReadInsideTheLoopBlockThrowsOnlyThere()
     {
-        (_, (IBindableAction<int> a, Exception? caught)) =
+        (_, (ILoopedBindableAction<int> a, Exception? caught)) =
             Cell.Loop<bool>()
                 .WithCaptures(static cellLoop =>
                 {
-                    IBindableAction<int> created =
+                    ILoopedBindableAction<int> created =
                         Stream.CreateSink<int>()
                             .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
 

@@ -118,12 +118,26 @@ public sealed class ForwardReferenceTests
     }
 
     [Test]
+    public async Task TestWithLoopedCapturesClosesThemWithTheCloser()
+    {
+        // The capture reads the reference, thus it is a LoopedCell in the block. The close function
+        // runs when the reference has its value, and the closer gives the capture as a Cell.
+        (Node node, Cell<Child> child) =
+            ForwardReference<Node>.WithCaptures(
+                f: static reference =>
+                    (Value: Node.WithChildHolding(reference.AsCell()), Captures: reference.Map(static n => n.Child)),
+                close: static (childLoop, closer) => closer.Close(childLoop));
+
+        await Assert.That(child.Sample()).IsSameReferenceAs(node.Child);
+    }
+
+    [Test]
     public async Task TestReferenceCannotBeReadDuringConstruction() =>
         // The reference is a promise about the value, and not the value. A read of it before the
         // construction function returns has no answer.
         await Assert.That(static () =>
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
-                ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))
+                ForwardReference<int>.WithoutCaptures(static reference => reference.AsCell().Sample()))
             .ThrowsExactly<InvalidOperationException>();
 
     private sealed class Child(Cell<Node> parent)

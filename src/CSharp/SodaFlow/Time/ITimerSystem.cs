@@ -38,5 +38,5 @@ public interface ITimerSystem<T> : IDisposable
     /// </summary>
     /// <param name="t">The time to fire at.</param>
     /// <returns>A stream which fires at the specified time.</returns>
-    Stream<T> At(Cell<Maybe<T>> t);
+    Stream<T> At(LoopedCell<Maybe<T>> t);
 }

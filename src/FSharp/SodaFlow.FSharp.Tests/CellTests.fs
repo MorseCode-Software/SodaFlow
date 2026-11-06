@@ -31,7 +31,7 @@ type ``Cell Tests``() =
         task {
             let struct (_, (c, s)) =
                 loopC (fun cl ->
-                    let c = cl |> mapC ((*) 5)
+                    let c = cl |> mapLC ((*) 5)
                     let s = sinkCS<int> ()
                     struct (s |> holdS 3, (c, s)))
 

@@ -6,55 +6,59 @@ namespace SodaFlow.Bindable.ObjectModel;
 /// <summary>The commands that the factory builds for the C# surface.</summary>
 internal static class BindableActions
 {
-    internal sealed class BindableAction : BindableCoreExtensionMethods.BindableAction<Unit>, IBindableAction
+    /// <summary>
+    ///     A command with no parameter discards its parameter. Thus, the type of that
+    ///     parameter cannot be incorrect.
+    /// </summary>
+    private static void AcceptAnyParameter(object? value)
     {
-        internal BindableAction(
-            StreamSink<Unit> firingsStreamSink,
-            Cell<bool>? isEnabledCell,
-            IBindingScheduler scheduler)
-            : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
-        {
-        }
-
-        /// <inheritdoc />
-        /// <remarks>
-        ///     A command with no parameter discards its parameter. Thus, the type of that
-        ///     parameter cannot be incorrect.
-        /// </remarks>
-        protected override void ValidateParameter(object? value)
-        {
-        }
-
-        /// <inheritdoc />
-        protected override void SendValue(StreamSink<Unit> streamSink, object? value) =>
-            streamSink.SendImpl(Unit.Value);
     }
 
-    internal sealed class BindableMaybeAction<T> : BindableCoreExtensionMethods.BindableAction<Maybe<T>>
-        where T : notnull
+    private static Unit UnitParameter(object? value) => Unit.Value;
+
+    internal sealed class LoopedBindableAction
+        : BindableCoreExtensionMethods.LoopedBindableAction<Unit>, ILoopedBindableAction
     {
-        internal BindableMaybeAction(
-            StreamSink<Maybe<T>> firingsStreamSink,
-            Cell<bool>? isEnabledCell,
+        internal LoopedBindableAction(
+            StreamSink<Unit> firingsStreamSink,
+            LoopedCell<bool> isEnabledCell,
             IBindingScheduler scheduler)
-            : base(firingsStreamSink: firingsStreamSink, isEnabledCell: isEnabledCell, scheduler: scheduler)
+            : base(
+                firingsStreamSink: firingsStreamSink,
+                isEnabledCell: isEnabledCell,
+                scheduler: scheduler,
+                validateParameter: AcceptAnyParameter,
+                convertParameter: UnitParameter)
         {
         }
+    }
 
-        private static InvalidOperationException GetInvalidTypeException() =>
-            new(
-                "The command parameter must be of type "
-                + typeof(T).FullName
-                + ", "
-                + typeof(Maybe<T>).FullName
-                + ", or null.");
+    internal sealed class BindableAction : BindableCoreExtensionMethods.BindableAction<Unit>, IBindableAction
+    {
+        internal BindableAction(StreamSink<Unit> firingsStreamSink, Cell<bool> isEnabledCell, IBindingScheduler scheduler)
+            : base(
+                firingsStreamSink: firingsStreamSink,
+                isEnabledCell: isEnabledCell,
+                scheduler: scheduler,
+                validateParameter: AcceptAnyParameter,
+                convertParameter: UnitParameter)
+        {
+        }
+    }
 
-        /// <inheritdoc />
-        /// <remarks>
-        ///     A command with no parameter discards its parameter. Thus, the type of that
-        ///     parameter cannot be incorrect.
-        /// </remarks>
-        protected override void ValidateParameter(object? value)
+    /// <summary>
+    ///     The rule for a command with an optional parameter: the
+    ///     <c>CommandParameter</c> can be null, a <typeparamref name="T" />, or a
+    ///     <see cref="Maybe{T}" />.
+    /// </summary>
+    internal static class MaybeParameter<T>
+        where T : notnull
+    {
+        /// <exception cref="InvalidOperationException">
+        ///     <paramref name="value" /> is not null, not a <typeparamref name="T" />, and
+        ///     not a <see cref="Maybe{T}" />.
+        /// </exception>
+        internal static void Validate(object? value)
         {
             if (value is null or T or Maybe<T>)
             {
@@ -64,15 +68,25 @@ internal static class BindableActions
             throw GetInvalidTypeException();
         }
 
-        /// <inheritdoc />
-        protected override void SendValue(StreamSink<Maybe<T>> streamSink, object? value) =>
-            streamSink.SendImpl(
-                value switch
-                {
-                    Maybe<T> typedMaybeValue => typedMaybeValue,
-                    T typedValue => Maybe.Some(typedValue),
-                    null => Maybe.None,
-                    _ => throw GetInvalidTypeException()
-                });
+        /// <summary>
+        ///     <see cref="Validate" /> accepted the value before this point, thus the
+        ///     conversion cannot fail.
+        /// </summary>
+        internal static Maybe<T> Convert(object? value) =>
+            value switch
+            {
+                Maybe<T> typedMaybeValue => typedMaybeValue,
+                T typedValue => Maybe.Some(typedValue),
+                null => Maybe.None,
+                _ => throw GetInvalidTypeException()
+            };
+
+        private static InvalidOperationException GetInvalidTypeException() =>
+            new(
+                "The command parameter must be of type "
+                + typeof(T).FullName
+                + ", "
+                + typeof(Maybe<T>).FullName
+                + ", or null.");
     }
 }

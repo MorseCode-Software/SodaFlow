@@ -1,5 +1,6 @@
 module SodaFlow.Tests.Loop
 
+open System
 open System.Collections.Generic
 open SodaFlow
 open TUnit.Core
@@ -119,4 +120,88 @@ type ``Loop Tests``() =
 
             do! Expect.Sequence([ 0; 1; 3; 6 ], out)
             do! Expect.Sequence([ 0; 2; 4; 6 ], out2)
+        }
+
+    [<Test>]
+    member _.``The Closer Gives A Looped Capture As A Cell``() =
+        task {
+            let s = sinkC 0
+
+            // The capture reads the placeholder, thus it is a looped cell. The second function runs
+            // when the loop is closed, and the closer it gets gives the capture back as a cell.
+            let struct (result, plusOne) =
+                loopWithLoopedCapturesC
+                    (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+                    (fun plusOne closer -> plusOne |> closeLC closer)
+
+            s |> sendC 5
+
+            do! Expect.Equal(6, plusOne |> sampleC)
+            do! Expect.Equal(5, result |> sampleC)
+        }
+
+    [<Test>]
+    member _.``The Close Function Runs After The Loop Is Closed``() =
+        task {
+            let s = sinkC 3
+
+            // A read of the converted capture in the close function has an answer, which shows that
+            // the loop is closed when the function runs.
+            let struct (result, readInClose) =
+                loopWithLoopedCapturesC
+                    (fun l -> struct (s |> updatesC |> snapshotC l (+) |> holdS 0, l |> mapLC ((+) 1)))
+                    (fun plusOne closer -> plusOne |> closeLC closer |> sampleC)
+
+            do! Expect.Equal(1, readInClose)
+            do! Expect.Equal(0, result |> sampleC)
+        }
+
+    [<Test>]
+    member _.``The Closer Throws For A Capture Of A Loop That Is Still Open``() =
+        task {
+            // The inner loop is closed when its closer runs, but the capture also reads the outer
+            // placeholder, which is not. The closer reads the value, thus the call throws.
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    loopWithNoCapturesC (fun outer ->
+                        let struct (cell, _) =
+                            loopWithLoopedCapturesC
+                                (fun inner -> struct (constantC 1, lift2LC (+) (inner, outer)))
+                                (fun sum closer -> sum |> closeLC closer)
+
+                        cell)
+                    |> ignore)
+        }
+
+    [<Test>]
+    member _.``The Closer Of The Last Loop Converts A Capture Of Both``() =
+        task {
+            let struct (outerResult, sum) =
+                loopWithLoopedCapturesC
+                    (fun outer ->
+                        let struct (innerResult, sumLoop) =
+                            loopC (fun inner -> struct (constantC 1, lift2LC (+) (inner, outer)))
+
+                        struct (innerResult |> mapC ((+) 1), sumLoop))
+                    (fun sumLoop closer -> sumLoop |> closeLC closer)
+
+            do! Expect.Equal(2, outerResult |> sampleC)
+            do! Expect.Equal(3, sum |> sampleC)
+        }
+
+    [<Test>]
+    member _.``As Cell Read Before The Close Throws``() =
+        task {
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    loopWithNoCapturesC (fun l -> constantC (l |> asCellLC |> sampleC)) |> ignore)
+        }
+
+    [<Test>]
+    member _.``As Cell Read After The Close Gives The Value``() =
+        task {
+            let struct (result, asserted) = loopC (fun l -> struct (constantC 4, l |> asCellLC))
+
+            do! Expect.Equal(4, asserted |> sampleC)
+            do! Expect.Equal(4, result |> sampleC)
         }

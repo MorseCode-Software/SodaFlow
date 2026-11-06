@@ -1684,9 +1684,32 @@ let inline sendB a behaviorSink = BehaviorSink.send a behaviorSink
 /// before the value that it refers to. The reference and its resolution must occur in one
 /// transaction, which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where the caller needs only the behavior.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the behavior, and
+/// <c>loopWithLoopedCaptures</c> where a capture reads the placeholder.
 /// </remarks>
 let inline loopB f = Behavior.loop f
+
+/// <summary>
+/// Builds a behavior which refers to itself, and converts the captures after the loop closes.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the behavior it stands for and the
+/// captures, which can be looped behaviors.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the loop, returns the captures with each looped
+/// value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the behavior that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Behavior.loopWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The loop is closed when <paramref name="close" /> runs, thus <c>closeLB</c> can give a
+/// capture as a behavior.
+/// </remarks>
+let inline loopWithLoopedCapturesB f close = Behavior.loopWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a self-referential behavior where the caller needs only the behavior.
@@ -2045,9 +2068,32 @@ let inline sendC a cellSink = CellSink.send a cellSink
 /// the value that it refers to. The reference and its resolution must occur in one transaction,
 /// which this opens when no transaction is open.
 ///
-/// Use <c>loopWithNoCaptures</c> where the caller needs only the cell.
+/// Use <c>loopWithNoCaptures</c> where the caller needs only the cell, and
+/// <c>loopWithLoopedCaptures</c> where a capture reads the placeholder.
 /// </remarks>
 let inline loopC f = Cell.loop f
+
+/// <summary>
+/// Builds a cell which refers to itself, and converts the captures after the loop closes.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the cell it stands for and the
+/// captures, which can be looped cells.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the loop, returns the captures with each looped
+/// value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the cell that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>Cell.loopWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The loop is closed when <paramref name="close" /> runs, thus <c>closeLC</c> can give a
+/// capture as a cell.
+/// </remarks>
+let inline loopWithLoopedCapturesC f close = Cell.loopWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a self-referential cell where the caller needs only the cell.
@@ -2079,9 +2125,34 @@ let inline loopWithNoCapturesC f = Cell.loopWithNoCaptures f
 /// The cell loop with one value. A constant cell closes the loop that <paramref name="f" />
 /// gets, thus the reference resolves to that value and never changes.
 ///
-/// Use <c>forwardReferenceWithNoCaptures</c> where the caller needs only the value.
+/// Use <c>forwardReferenceWithNoCaptures</c> where the caller needs only the value, and
+/// <c>forwardReferenceWithLoopedCaptures</c> where a capture reads the reference.
 /// </remarks>
 let inline forwardReference f = ForwardReference.create f
+
+/// <summary>
+/// Builds a value which can refer to itself, along with captures that a second function converts
+/// after the reference has its value.
+/// </summary>
+/// <param name="f">
+/// Given the forward reference, returns a struct tuple of the value it stands for and the
+/// captures, which can be looped cells.
+/// </param>
+/// <param name="close">
+/// Given the captures and the <c>LoopCloser</c> of the reference, returns the captures with each
+/// looped value converted.
+/// </param>
+/// <returns>
+/// A struct tuple of the value that closed the forward reference, and the converted captures.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>ForwardReference.createWithLoopedCaptures</c>. See it for the full contract.
+///
+/// The reference has its value when <paramref name="close" /> runs, thus <c>closeLC</c> can give a
+/// capture as a cell.
+/// </remarks>
+let inline forwardReferenceWithLoopedCaptures f close =
+    ForwardReference.createWithLoopedCaptures f close
 
 /// <summary>
 /// Builds a value which can refer to itself, where the caller needs only the value.
@@ -2486,3 +2557,438 @@ let inline switchC cell = Cell.switchC cell
 /// the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 let inline switchS cell = Cell.switchS cell
+
+/// <summary>
+/// Asserts that no code reads the looped cell before its loop closes, and gives it as a cell.
+/// </summary>
+/// <param name="cell">The looped cell.</param>
+/// <returns>The same value as a cell.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.asCell</c>. See it for the full contract.
+///
+/// The call is the assertion, at a read site, that the loop is closed. An object built in the
+/// block takes the looped cell and does not use this. For a capture of a loop, use <c>closeLC</c>
+/// with the closer that the loop gives.
+/// </remarks>
+let inline asCellLC cell = LoopedCell.asCell cell
+
+/// <summary>
+/// Gives the looped cell as a cell, with the closer of its loop.
+/// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
+/// <param name="cell">The looped cell.</param>
+/// <returns>The same value as a cell.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.close</c>. See it for the full contract.
+/// </remarks>
+let inline closeLC closer cell = LoopedCell.close closer cell
+
+/// <summary>
+/// Transforms a looped cell with a function.
+/// </summary>
+/// <param name="f">Transforms the value.</param>
+/// <param name="cell">The looped cell to transform.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the input's value.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.map</c>. See it for the full contract.
+/// </remarks>
+let inline mapLC f cell = LoopedCell.map f cell
+
+/// <summary>
+/// Applies a looped cell of functions to a looped cell of values.
+/// </summary>
+/// <param name="f">The looped cell holding the function to apply.</param>
+/// <param name="cell">The looped cell holding the value to apply it to.</param>
+/// <returns>
+/// A looped cell whose value is the result of the current function in <paramref name="f" /> on the
+/// input's value.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.apply</c>. See it for the full contract.
+/// </remarks>
+let inline applyLC f cell = LoopedCell.apply f cell
+
+/// <summary>
+/// Combines two cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the two current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the two inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift2</c>. See it for the full contract.
+/// </remarks>
+let inline lift2LC f (cell, cell2) = LoopedCell.lift2 f (cell, cell2)
+
+/// <summary>
+/// Combines three cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the three current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the three inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift3</c>. See it for the full contract.
+/// </remarks>
+let inline lift3LC f (cell, cell2, cell3) = LoopedCell.lift3 f (cell, cell2, cell3)
+
+/// <summary>
+/// Combines four cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the four current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <param name="cell4">The fourth cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the four inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift4</c>. See it for the full contract.
+/// </remarks>
+let inline lift4LC f (cell, cell2, cell3, cell4) =
+    LoopedCell.lift4 f (cell, cell2, cell3, cell4)
+
+/// <summary>
+/// Combines five cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the five current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <param name="cell4">The fourth cell.</param>
+/// <param name="cell5">The fifth cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the five inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift5</c>. See it for the full contract.
+/// </remarks>
+let inline lift5LC f (cell, cell2, cell3, cell4, cell5) =
+    LoopedCell.lift5 f (cell, cell2, cell3, cell4, cell5)
+
+/// <summary>
+/// Combines six cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the six current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <param name="cell4">The fourth cell.</param>
+/// <param name="cell5">The fifth cell.</param>
+/// <param name="cell6">The sixth cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the six inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift6</c>. See it for the full contract.
+/// </remarks>
+let inline lift6LC f (cell, cell2, cell3, cell4, cell5, cell6) =
+    LoopedCell.lift6 f (cell, cell2, cell3, cell4, cell5, cell6)
+
+/// <summary>
+/// Combines seven cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the seven current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <param name="cell4">The fourth cell.</param>
+/// <param name="cell5">The fifth cell.</param>
+/// <param name="cell6">The sixth cell.</param>
+/// <param name="cell7">The seventh cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the seven inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift7</c>. See it for the full contract.
+/// </remarks>
+let inline lift7LC f (cell, cell2, cell3, cell4, cell5, cell6, cell7) =
+    LoopedCell.lift7 f (cell, cell2, cell3, cell4, cell5, cell6, cell7)
+
+/// <summary>
+/// Combines eight cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the eight current values into the result.</param>
+/// <param name="cell">The first cell.</param>
+/// <param name="cell2">The second cell.</param>
+/// <param name="cell3">The third cell.</param>
+/// <param name="cell4">The fourth cell.</param>
+/// <param name="cell5">The fifth cell.</param>
+/// <param name="cell6">The sixth cell.</param>
+/// <param name="cell7">The seventh cell.</param>
+/// <param name="cell8">The eighth cell.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on the eight inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.lift8</c>. See it for the full contract.
+/// </remarks>
+let inline lift8LC f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
+    LoopedCell.lift8 f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8)
+
+/// <summary>
+/// Suppresses updates whose value the given function considers equal to the current value.
+/// </summary>
+/// <param name="compare">Gives true when this code must read two values as equal.</param>
+/// <param name="cell">The looped cell to calm.</param>
+/// <returns>A looped cell that updates only when the value changed.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.calmWithCompare</c>. See it for the full contract.
+/// </remarks>
+let inline calmWithCompareLC compare cell = LoopedCell.calmWithCompare compare cell
+
+/// <summary>
+/// Suppresses updates whose value the given comparer considers equal to the current value.
+/// </summary>
+/// <param name="equalityComparer">Gives true when two values are equal.</param>
+/// <param name="cell">The looped cell to calm.</param>
+/// <returns>A looped cell that updates only when the value changed.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.calmWithEqualityComparer</c>. See it for the full contract.
+/// </remarks>
+let inline calmWithEqualityComparerLC equalityComparer cell =
+    LoopedCell.calmWithEqualityComparer equalityComparer cell
+
+/// <summary>
+/// Suppresses updates equal, by F# structural equality, to the current value.
+/// </summary>
+/// <param name="cell">The looped cell to calm.</param>
+/// <returns>A looped cell that updates only when the value changed.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.calm</c>. See it for the full contract.
+/// </remarks>
+let inline calmLC cell = LoopedCell.calm cell
+
+/// <summary>
+/// Combines any number of cells, of which one or more is looped, into one looped cell.
+/// </summary>
+/// <param name="f">Combines the current values, in the sequence of the cells.</param>
+/// <param name="cells">The cells to put together.</param>
+/// <returns>A looped cell whose value is the result of <paramref name="f" /> on all the inputs.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.liftAll</c>. See it for the full contract.
+/// </remarks>
+let inline liftAllLC f cells = LoopedCell.liftAll f cells
+
+/// <summary>
+/// Unwraps a looped cell of behaviors into a looped behavior which follows the current one.
+/// </summary>
+/// <param name="cell">The looped cell holding a behavior.</param>
+/// <returns>A looped behavior whose value is the current value of the current behavior.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.switchB</c>. See it for the full contract.
+/// </remarks>
+let inline switchBLC cell = LoopedCell.switchB cell
+
+/// <summary>
+/// Unwraps a looped cell of cells into a looped cell which follows the current one.
+/// </summary>
+/// <param name="cell">The looped cell that holds a second cell.</param>
+/// <returns>A looped cell whose value is the current value of the current cell.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedCell.switchC</c>. See it for the full contract.
+/// </remarks>
+let inline switchCLC cell = LoopedCell.switchC cell
+
+/// <summary>
+/// Asserts that no code reads the looped behavior before its loop closes, and gives it as a
+/// behavior.
+/// </summary>
+/// <param name="behavior">The looped behavior.</param>
+/// <returns>The same value as a behavior.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.asBehavior</c>. See it for the full contract.
+///
+/// The call is the assertion, at a read site, that the loop is closed. An object built in the
+/// block takes the looped behavior and does not use this. For a capture of a loop, use
+/// <c>closeLB</c> with the closer that the loop gives.
+/// </remarks>
+let inline asBehaviorLB behavior = LoopedBehavior.asBehavior behavior
+
+/// <summary>
+/// Gives the looped behavior as a behavior, with the closer of its loop.
+/// </summary>
+/// <param name="closer">The closer that the loop gave when it closed.</param>
+/// <param name="behavior">The looped behavior.</param>
+/// <returns>The same value as a behavior.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.close</c>. See it for the full contract.
+/// </remarks>
+let inline closeLB closer behavior = LoopedBehavior.close closer behavior
+
+/// <summary>
+/// Transforms a looped behavior with a function.
+/// </summary>
+/// <param name="f">Transforms the value.</param>
+/// <param name="behavior">The looped behavior to transform.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the input's value.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.map</c>. See it for the full contract.
+/// </remarks>
+let inline mapLB f behavior = LoopedBehavior.map f behavior
+
+/// <summary>
+/// Applies a looped behavior of functions to a looped behavior of values.
+/// </summary>
+/// <param name="f">The looped behavior holding the function to apply.</param>
+/// <param name="behavior">The looped behavior holding the value to apply it to.</param>
+/// <returns>
+/// A looped behavior whose value is the result of the current function in <paramref name="f" /> on
+/// the input's value.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.apply</c>. See it for the full contract.
+/// </remarks>
+let inline applyLB f behavior = LoopedBehavior.apply f behavior
+
+/// <summary>
+/// Combines two behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the two current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the two inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift2</c>. See it for the full contract.
+/// </remarks>
+let inline lift2LB f (behavior, behavior2) = LoopedBehavior.lift2 f (behavior, behavior2)
+
+/// <summary>
+/// Combines three behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the three current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the three inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift3</c>. See it for the full contract.
+/// </remarks>
+let inline lift3LB f (behavior, behavior2, behavior3) =
+    LoopedBehavior.lift3 f (behavior, behavior2, behavior3)
+
+/// <summary>
+/// Combines four behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the four current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <param name="behavior4">The fourth behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the four inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift4</c>. See it for the full contract.
+/// </remarks>
+let inline lift4LB f (behavior, behavior2, behavior3, behavior4) =
+    LoopedBehavior.lift4 f (behavior, behavior2, behavior3, behavior4)
+
+/// <summary>
+/// Combines five behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the five current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <param name="behavior4">The fourth behavior.</param>
+/// <param name="behavior5">The fifth behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the five inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift5</c>. See it for the full contract.
+/// </remarks>
+let inline lift5LB f (behavior, behavior2, behavior3, behavior4, behavior5) =
+    LoopedBehavior.lift5 f (behavior, behavior2, behavior3, behavior4, behavior5)
+
+/// <summary>
+/// Combines six behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the six current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <param name="behavior4">The fourth behavior.</param>
+/// <param name="behavior5">The fifth behavior.</param>
+/// <param name="behavior6">The sixth behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the six inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift6</c>. See it for the full contract.
+/// </remarks>
+let inline lift6LB f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6) =
+    LoopedBehavior.lift6 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6)
+
+/// <summary>
+/// Combines seven behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the seven current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <param name="behavior4">The fourth behavior.</param>
+/// <param name="behavior5">The fifth behavior.</param>
+/// <param name="behavior6">The sixth behavior.</param>
+/// <param name="behavior7">The seventh behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the seven inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift7</c>. See it for the full contract.
+/// </remarks>
+let inline lift7LB f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7) =
+    LoopedBehavior.lift7 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7)
+
+/// <summary>
+/// Combines eight behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the eight current values into the result.</param>
+/// <param name="behavior">The first behavior.</param>
+/// <param name="behavior2">The second behavior.</param>
+/// <param name="behavior3">The third behavior.</param>
+/// <param name="behavior4">The fourth behavior.</param>
+/// <param name="behavior5">The fifth behavior.</param>
+/// <param name="behavior6">The sixth behavior.</param>
+/// <param name="behavior7">The seventh behavior.</param>
+/// <param name="behavior8">The eighth behavior.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on the eight inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.lift8</c>. See it for the full contract.
+/// </remarks>
+let inline lift8LB f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8) =
+    LoopedBehavior.lift8 f (behavior, behavior2, behavior3, behavior4, behavior5, behavior6, behavior7, behavior8)
+
+/// <summary>
+/// Combines any number of behaviors, of which one or more is looped, into one looped behavior.
+/// </summary>
+/// <param name="f">Combines the current values, in the sequence of the behaviors.</param>
+/// <param name="behaviors">The behaviors to put together.</param>
+/// <returns>
+/// A looped behavior whose value is the result of <paramref name="f" /> on all the inputs.
+/// </returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.liftAll</c>. See it for the full contract.
+/// </remarks>
+let inline liftAllLB f behaviors = LoopedBehavior.liftAll f behaviors
+
+/// <summary>
+/// Unwraps a looped behavior of behaviors into a looped behavior which follows the current one.
+/// </summary>
+/// <param name="behavior">The looped behavior that holds a second behavior.</param>
+/// <returns>A looped behavior whose value is the current value of the current behavior.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.switchB</c>. See it for the full contract.
+/// </remarks>
+let inline switchBLB behavior = LoopedBehavior.switchB behavior
+
+/// <summary>
+/// Unwraps a looped behavior of cells into a looped cell which follows the current one.
+/// </summary>
+/// <param name="behavior">The looped behavior holding a cell.</param>
+/// <returns>A looped cell whose value is the current value of the current cell.</returns>
+/// <remarks>
+/// Shorthand for <c>LoopedBehavior.switchC</c>. See it for the full contract.
+/// </remarks>
+let inline switchCLB behavior = LoopedBehavior.switchC behavior

@@ -1,5 +1,16 @@
 6.0.0
 
+BREAKING: the looped types are the base types of Cell<T> and Behavior<T>; the core notes say why. Map, Lift, Apply,
+Calm, SwitchB, and SwitchC have an overload on LoopedCell<T> and LoopedBehavior<T> that gives the looped type back, so a
+value that depends on an open loop keeps saying so; the overload on the plain type still wins when every input is
+plain. Snapshot, SnapshotLatest, Gate, Updates, Values, Listen, ListenStrong, SwitchS, Operational.Updates and Value,
+and ITimerSystem.At take the looped type, since none of them reads the value before the transaction closes. New:
+WithCaptures on Cell.Loop, Behavior.Loop, and ForwardReference takes a second function, which runs after the loop
+closes and gets the captures and the LoopCloser that converts a looped capture to the plain type; the core notes say
+what the closer is. AsCell and AsBehavior stay as the unchecked assertion for a placeholder handed to code that stores
+it. A Cell<T> variable assigned from a placeholder, or from an operation on one, no longer compiles: convert it in the
+close function, or write AsCell() where the read is known to come later.
+
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a transaction that fails forget its value; the
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to

@@ -6,7 +6,9 @@ namespace SodaFlow.Bindable.ObjectModel;
 /// <summary>
 ///     The constructions of each bindable, for the factories of the two language
 ///     surfaces. Each implementation is a private nested type. Thus, the public
-///     surface is the four interfaces only.
+///     surface is the interfaces only. Each construction has an overload for a
+///     <see cref="Cell{T}" /> and one for a <see cref="LoopedCell{T}" />. The plain
+///     one gives the interface that also has the plain cell.
 /// </summary>
 public static partial class BindableCoreExtensionMethods
 {
@@ -16,6 +18,13 @@ public static partial class BindableCoreExtensionMethods
         IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null) =>
         new OneWayBindableValue<T>(cell: cell, scheduler: scheduler, comparer: comparer);
+
+    /// <inheritdoc cref="ToOneWayImpl{T}(Cell{T}, IBindingScheduler, IEqualityComparer{T})" />
+    internal static ILoopedOneWayBindableValue<T> ToOneWayImpl<T>(
+        this LoopedCell<T> cell,
+        IBindingScheduler scheduler,
+        IEqualityComparer<T>? comparer = null) =>
+        new LoopedOneWayBindableValue<T>(cell: cell, scheduler: scheduler, comparer: comparer);
 
     /// <summary>
     ///     Shows a cell sink as a two-way bindable property. This is the simplest
@@ -36,19 +45,24 @@ public static partial class BindableCoreExtensionMethods
         this Cell<T> cell,
         StreamSink<T> editsStreamSink,
         IBindingScheduler scheduler,
-        IEqualityComparer<T>? comparer = null)
-    {
-        if (editsStreamSink == null)
-        {
-            throw new ArgumentNullException(nameof(editsStreamSink));
-        }
-
-        return new TwoWayBindableValue<T>(
+        IEqualityComparer<T>? comparer = null) =>
+        new TwoWayBindableValue<T>(
             cell: cell,
-            write: editsStreamSink.SendImpl,
+            write: SendOf(editsStreamSink),
             scheduler: scheduler,
             comparer: comparer);
-    }
+
+    /// <inheritdoc cref="ToTwoWayImpl{T}(Cell{T}, StreamSink{T}, IBindingScheduler, IEqualityComparer{T})" />
+    internal static ILoopedTwoWayBindableValue<T> ToTwoWayImpl<T>(
+        this LoopedCell<T> cell,
+        StreamSink<T> editsStreamSink,
+        IBindingScheduler scheduler,
+        IEqualityComparer<T>? comparer = null) =>
+        new LoopedTwoWayBindableValue<T>(
+            cell: cell,
+            write: SendOf(editsStreamSink),
+            scheduler: scheduler,
+            comparer: comparer);
 
     /// <summary>
     ///     Shows a sink that exists as a command that carries its
@@ -61,8 +75,31 @@ public static partial class BindableCoreExtensionMethods
         where T : notnull =>
         new BindableAction<T>(
             firingsStreamSink: firingsStreamSink,
+            isEnabledCell: isEnabledCell ?? CellInternal.ConstantImpl(true),
+            scheduler: scheduler,
+            validateParameter: LoopedBindableAction<T>.ValidateTyped,
+            convertParameter: LoopedBindableAction<T>.ConvertTyped);
+
+    /// <inheritdoc cref="ToBindableActionImpl{T}(StreamSink{T}, IBindingScheduler, Cell{bool})" />
+    internal static ILoopedBindableAction<T> ToBindableActionImpl<T>(
+        this StreamSink<T> firingsStreamSink,
+        IBindingScheduler scheduler,
+        LoopedCell<bool> isEnabledCell)
+        where T : notnull =>
+        new LoopedBindableAction<T>(
+            firingsStreamSink: firingsStreamSink,
             isEnabledCell: isEnabledCell,
-            scheduler: scheduler);
+            scheduler: scheduler,
+            validateParameter: LoopedBindableAction<T>.ValidateTyped,
+            convertParameter: LoopedBindableAction<T>.ConvertTyped);
+
+    /// <summary>
+    ///     The write of a two-way value into the sink that takes the edits of the
+    ///     view. The constructor of the value cannot make the null test, thus this
+    ///     makes it.
+    /// </summary>
+    private static Action<T> SendOf<T>(StreamSink<T> editsStreamSink) =>
+        editsStreamSink == null ? throw new ArgumentNullException(nameof(editsStreamSink)) : editsStreamSink.SendImpl;
 
     /// <summary>
     ///     Listens to the updates of a cell only. It does not give the initial value,
@@ -80,7 +117,7 @@ public static partial class BindableCoreExtensionMethods
     ///     references the stream that it listens to, and that stream keeps the objects
     ///     above it alive.
     /// </remarks>
-    private static IListener ListenToUpdates<T>(Cell<T> cell, Action<T> handler) =>
+    private static IListener ListenToUpdates<T>(LoopedCell<T> cell, Action<T> handler) =>
         cell.UpdatesImpl.ListenImpl(handler);
 
     /// <summary>
@@ -96,7 +133,7 @@ public static partial class BindableCoreExtensionMethods
     ///     before the close.
     /// </remarks>
     private static (InitialSample<T> InitialValue, IListener Listener) SampleAtCloseAndListenToUpdates<T>(
-        Cell<T> cell,
+        LoopedCell<T> cell,
         Action<T> handler) =>
         TransactionInternal.Apply(
             code: static (transaction, _, state) =>
