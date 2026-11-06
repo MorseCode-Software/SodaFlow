@@ -23,6 +23,13 @@ library. A listener on the updates of Time fires fewer times, which is the break
 a behavior is meant to be read, sees no change, and neither does At. The C# package makes the same change in its 6.0.0,
 and its notes have the figures.
 
+Added: a constructor on SecondsTimerSystem, SystemClockTimerSystem, and UtcClockTimerSystem that takes a TimeSpan
+resolution, as in the C# package. The clock rounds every reading down to a multiple of it, so a reading inside the step
+of the last one leaves Time as it is and the transaction skips the update and its listeners. An alarm fires in the first
+transaction whose rounded reading reaches it, up to one resolution late, and At still fires with the alarm's own time.
+TimeSpan.Zero, which the constructors without a resolution use, reads the clock as it is; a negative resolution raises
+ArgumentOutOfRangeException. The C# notes have the figures.
+
 BREAKING: a stopped TimerSystemImplementationBase<'T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
 or a later send. Before, the timer was accepted and never fired, and the caller held a handle for an alarm that

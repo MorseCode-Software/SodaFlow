@@ -48,6 +48,22 @@ change of the clock, not once per transaction. That is what a behavior's updates
 else in the library, and a clock a test moves by hand sees it most: `Time` updates when the test
 advances the clock and at no other transaction.
 
+A real clock moves between any two transactions, so on its own it never gets that saving. Each
+timer system has a constructor that takes a `TimeSpan` resolution, and the clock then rounds every
+reading down to a multiple of it:
+
+```csharp
+SecondsTimerSystem timers = new SecondsTimerSystem(TimeSpan.FromMilliseconds(1), ex => Log.Error(ex));
+```
+
+With a millisecond resolution, `Time` holds its value through every transaction inside one
+millisecond, and only the first transaction of each millisecond pays for the update and the
+listeners on it. An alarm fires in the first transaction whose rounded reading reaches it, so up to
+one resolution late, and `At` still fires with the alarm's own time. A resolution of zero, which
+the constructors without one use, reads the clock as it is and does no arithmetic. Pick the
+coarsest resolution the consumers of `Time` can take: a binding or a frame cares about a
+millisecond, not a tick.
+
 A disposed timer system also refuses a new alarm. `At` throws `ObjectDisposedException` from the
 transaction that gives it a time, whether that is the construction or a later send, and `SetTimer`
 on a stopped `TimerSystemImplementationBase` throws the same, so a timer that could never come is
