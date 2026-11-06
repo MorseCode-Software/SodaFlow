@@ -593,9 +593,9 @@ internal static class CollectionViewUtility
                 .MapImpl(static result => result.Keys)
                 .HoldLazyImpl(
                     LazySampleInternal.LiftImpl(
-                        a: criteriaCell.SampleLazyImpl(),
-                        b: upstream.KeysCell.SampleLazyImpl(),
-                        c: storeSnapshotCell.SampleLazyImpl(),
+                        sample1: criteriaCell.SampleLazyImpl(),
+                        sample2: upstream.KeysCell.SampleLazyImpl(),
+                        sample3: storeSnapshotCell.SampleLazyImpl(),
                         f: (criteria, upstreamKeys, snapshot) =>
                             rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot)));
 
