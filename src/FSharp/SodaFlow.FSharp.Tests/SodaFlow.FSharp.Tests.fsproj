@@ -30,6 +30,7 @@
         <Compile Include="CleanupTests.fs"/>
         <Compile Include="CommonTests.fs"/>
         <Compile Include="IssueTests.fs"/>
+        <Compile Include="LazySampleTests.fs"/>
         <Compile Include="ListenerTests.fs"/>
         <Compile Include="LoopTests.fs"/>
         <Compile Include="PerformanceTests.fs"/>

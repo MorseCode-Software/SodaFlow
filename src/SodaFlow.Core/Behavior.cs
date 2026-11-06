@@ -8,8 +8,10 @@ internal static class BehaviorInternal
     internal static Behavior<T> ConstantImpl<T>(T value) => new(value);
 
     internal static Behavior<T> ConstantLazyImpl<T>(LazySample<T> value) =>
-        TransactionInternal.Apply((trans, _) =>
-            StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value));
+        TransactionInternal.Apply(
+            code: static (trans, _, value) =>
+                StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value),
+            state: value);
 
     internal static BehaviorSink<T> CreateSinkImpl<T>(T initialValue) => new(initialValue);
 

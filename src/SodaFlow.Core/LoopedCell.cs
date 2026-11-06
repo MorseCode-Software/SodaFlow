@@ -44,29 +44,19 @@ public class LoopedCell<T>
 
     internal LoopedCell(LoopedBehavior<T> behavior) => this.BehaviorImpl = behavior;
 
-    internal Stream<T> UpdatesImpl
-    {
-        get
-        {
-            Stream<T>? existing = this.updates;
+    // SodaFlow creates this in the transaction, thus the test and the set are safe while they
+    // hold no lock of their own. The library runs one transaction at a time across the process,
+    // thus only one thread can be here. See the remarks on SodaFlow.Transaction.
+    internal Stream<T> UpdatesImpl =>
+        this.updates ?? TransactionInternal.Apply(code: static (trans, _, cell) => cell.Updates(trans), state: this);
 
-            if (existing != null)
-            {
-                return existing;
-            }
+    internal Stream<T> Updates(TransactionInternal trans) =>
+        // ReSharper disable once NonAtomicCompoundOperator - This is fine since the updates field is only
+        // set within a Transaction.
+        this.updates ??= this.BehaviorImpl.Updates().Coalesce(trans1: trans, f: static (_, right) => right);
 
-            // SodaFlow creates this in the transaction, thus the test and the set are safe
-            // while they hold no lock of their own. The library runs one transaction at a time across the
-            // process, thus only one thread can be here. See the remarks on
-            // SodaFlow.Transaction.
-            return TransactionInternal.Apply((trans, _) =>
-                // ReSharper disable once NonAtomicCompoundOperator - This is fine since the updates field is only
-                // set within a Transaction.
-                this.updates ??= this.BehaviorImpl.Updates().Coalesce(trans1: trans, f: static (_, right) => right));
-        }
-    }
-
-    internal Stream<T> ValuesImpl => TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans));
+    internal Stream<T> ValuesImpl =>
+        TransactionInternal.Apply(code: static (trans, _, cell) => cell.BehaviorImpl.Value(trans), state: this);
 
     internal LoopedBehavior<T> BehaviorImpl { get; }
 
@@ -74,11 +64,20 @@ public class LoopedCell<T>
 
     internal LazySample<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
 
+    internal LazySample<TResult> SampleLazyMappedImpl<TResult>(Func<T, TResult> f) =>
+        this.BehaviorImpl.SampleLazyMappedImpl(f);
+
     internal IStrongListener ListenStrongImpl(Action<T> handler) =>
-        TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenStrongImpl(handler));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.BehaviorImpl.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
+            state: (Self: this, Handler: handler));
 
     internal IWeakListener ListenImpl(Action<T> handler) =>
-        TransactionInternal.Apply((trans, _) => this.BehaviorImpl.Value(trans).ListenImpl(handler));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.BehaviorImpl.Value(trans).ListenImpl(trans: trans, handler: state.Handler),
+            state: (Self: this, Handler: handler));
 
     /// <summary>
     ///     Gives this cell as a <see cref="Cell{T}" />, and does not check that its
@@ -180,10 +179,24 @@ public class LoopedCell<T>
     internal Cell<TResult> ApplyImpl<TResult>(LoopedCell<Func<T, TResult>> bf) =>
         new(this.BehaviorImpl.ApplyImpl(bf.BehaviorImpl));
 
-    internal Cell<T> CalmImpl(Func<T, T, bool> areEqual)
+    // One transaction for the two samples, the updates, the calm, and the hold. Before, each
+    // step opened its own transaction when no transaction was open. One calm then cost four
+    // lock acquisitions, four runs of the start hooks, and four transaction objects.
+    internal Cell<T> CalmImpl(Func<T, T, bool> areEqual) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => state.Self.Calm(trans: trans, areEqual: state.AreEqual),
+            state: (Self: this, AreEqual: areEqual));
+
+    private Cell<T> Calm(TransactionInternal trans, Func<T, T, bool> areEqual)
     {
-        LazySample<T> initA = this.BehaviorImpl.SampleLazyImpl();
-        LazySample<MaybeInternal<T>> mInitA = initA.MapImpl(MaybeInternal.Some);
-        return this.UpdatesImpl.Calm(init: mInitA, areEqual: areEqual).HoldLazyImpl(initA);
+        LazySample<T> initA = this.BehaviorImpl.SampleLazy(trans);
+
+        LazySample<MaybeInternal<T>> mInitA =
+            this.BehaviorImpl.SampleLazyMapped(trans: trans, f: MaybeInternal.Some);
+
+        return new Cell<T>(
+            this.Updates(trans)
+                .Calm(trans1: trans, init: mInitA, areEqual: areEqual)
+                .HoldLazyInternal(trans: trans, initialValue: initA));
     }
 }

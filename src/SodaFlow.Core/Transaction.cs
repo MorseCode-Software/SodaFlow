@@ -61,7 +61,7 @@ internal sealed class TransactionInternal
     private Queue<PostEntry>? postQueue;
     private HashSet<Entry>? rerankEntriesSet;
 
-    private List<Action>? sampleQueue;
+    private List<SampleEntry>? sampleQueue;
 
     // SodaFlow allocates all of these on first use and not in the constructor. It creates a
     // transaction for each send that is not already in one, and most transactions use only two
@@ -121,7 +121,20 @@ internal sealed class TransactionInternal
     internal static TransactionInternal CurrentTransaction() =>
         localTransaction ?? throw new InvalidOperationException("No transaction is open on this thread.");
 
-    internal static T RunImpl<T>(Func<T> f) => Apply((_, _) => f());
+    // The state-passing Apply, so a run with no open transaction allocates no closure and no
+    // delegate for the call. Before, this was Apply((_, _) => f()), and RunVoid added a second
+    // closure and delegate of its own.
+    internal static T RunImpl<T>(Func<T> f) => Apply(code: static (_, _, f) => f(), state: f);
+
+    internal static void RunVoidImpl(Action action) =>
+        Apply(
+            code: static (_, _, action) =>
+            {
+                action();
+
+                return UnitInternal.Value;
+            },
+            state: action);
 
     internal static T Apply<T>(Func<TransactionInternal, bool, T> code) =>
         Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
@@ -369,7 +382,15 @@ internal sealed class TransactionInternal
         // transaction lock does not guard.
         PrioritizedQueue.Enqueue(e);
 
-    internal void Sample(Action action) => (this.sampleQueue ??= []).Add(action);
+    internal void Sample(Action action) =>
+        (this.sampleQueue ??= []).Add(new SampleEntry(action: action, sampler: null));
+
+    /// <summary>
+    ///     The same for an object that reads for itself. This allocates no delegate,
+    ///     as <see cref="Last(ILastAction)" /> does not.
+    /// </summary>
+    internal void Sample(ISampleAction sampler) =>
+        (this.sampleQueue ??= []).Add(new SampleEntry(action: null, sampler: sampler));
 
     /// <summary>
     ///     Adds an action that runs after all prioritized actions.
@@ -377,7 +398,7 @@ internal sealed class TransactionInternal
     /// <param name="action">The action that runs after all prioritized actions.</param>
     internal void Last(Action action) =>
         (this.lastQueue ??= new Queue<LastEntry>())
-            .Enqueue(new LastEntry(commit: action, discard: null, discardable: null));
+            .Enqueue(new LastEntry(commit: action, discard: null, lastAction: null));
 
     /// <summary>
     ///     Adds an action that runs after all prioritized actions, and an
@@ -396,26 +417,17 @@ internal sealed class TransactionInternal
     /// </param>
     internal void Last(Action commit, Action discard) =>
         (this.lastQueue ??= new Queue<LastEntry>())
-            .Enqueue(new LastEntry(commit: commit, discard: discard, discardable: null));
+            .Enqueue(new LastEntry(commit: commit, discard: discard, lastAction: null));
 
     /// <summary>
-    ///     Queues an action that runs only when this transaction fails, at the point
-    ///     where the transaction discards its last actions.
+    ///     The same for an object that commits and resets itself. A behavior queues
+    ///     one of these in each transaction that updates it, thus two delegates here
+    ///     were two allocations for each hold. A lazy sample queues one for each
+    ///     value it takes, with a commit that does nothing.
     /// </summary>
-    internal void Discard(Action discard) =>
+    internal void Last(ILastAction lastAction) =>
         (this.lastQueue ??= new Queue<LastEntry>())
-            .Enqueue(new LastEntry(commit: NoCommit, discard: discard, discardable: null));
-
-    /// <summary>
-    ///     The same for an object that resets itself. This allocates no delegate,
-    ///     which matters for a lazy sample, because each value it takes registers
-    ///     one.
-    /// </summary>
-    internal void Discard(IDiscardable discardable) =>
-        (this.lastQueue ??= new Queue<LastEntry>())
-            .Enqueue(new LastEntry(commit: NoCommit, discard: null, discardable: discardable));
-
-    private static readonly Action NoCommit = static () => { };
+            .Enqueue(new LastEntry(commit: null, discard: null, lastAction: lastAction));
 
     /// <summary>
     ///     Adds an action that runs after all last actions, and an alternative
@@ -431,7 +443,7 @@ internal sealed class TransactionInternal
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
         (this.afterLastQueue ??= new Queue<LastEntry>())
-            .Enqueue(new LastEntry(commit: commit, discard: discard, discardable: null));
+            .Enqueue(new LastEntry(commit: commit, discard: discard, lastAction: null));
 
     /// <summary>
     ///     The outcome of this transaction, for code that runs after it on a
@@ -510,39 +522,50 @@ internal sealed class TransactionInternal
         queue[index] = @new;
     }
 
-    private static void PostInternal(Action<TransactionInternal> action, Action<Exception>? onFailure) =>
-        Apply((trans, createdNewTransaction) =>
-        {
-            if (!createdNewTransaction)
+    /// <summary>
+    ///     Posts an action with a state. A caller gives the state here and captures
+    ///     nothing in a closure. When no transaction is open, the action runs now in
+    ///     a new transaction, and the post allocates nothing. When a transaction is
+    ///     open, the post puts the action and the state in one closure for the queue,
+    ///     which holds one delegate type. Before, a post when no transaction was open
+    ///     allocated four objects. Two put the action in the delegate type of the
+    ///     queue, and two captured it for Apply.
+    /// </summary>
+    internal static void PostImpl<TState>(Action<TState> action, TState state, Action<Exception>? onFailure = null) =>
+        Apply(
+            code: static (trans, createdNewTransaction, s) =>
             {
-                trans.Post(action: action, onFailure: onFailure);
-
-                return UnitInternal.Value;
-            }
-
-            // No transaction was open, thus the action runs now, in the transaction that Apply
-            // made. A throw from it goes to the caller, and the release sees that throw first.
-            try
-            {
-                action(trans);
-            }
-            catch (Exception e) when (onFailure != null)
-            {
-                Exception? release = RunRelease(onFailure: onFailure, cause: e);
-
-                if (release == null)
+                if (!createdNewTransaction)
                 {
-                    throw;
+                    trans.Post(action: _ => s.Action(s.State), onFailure: s.OnFailure);
+
+                    return UnitInternal.Value;
                 }
 
-                throw new AggregateException(e, release);
-            }
+                // No transaction was open, thus the action runs now, in the transaction that Apply
+                // made. A throw from it goes to the caller, and the release sees that throw first.
+                try
+                {
+                    s.Action(s.State);
+                }
+                catch (Exception e) when (s.OnFailure != null)
+                {
+                    Exception? release = RunRelease(onFailure: s.OnFailure, cause: e);
 
-            return UnitInternal.Value;
-        });
+                    if (release == null)
+                    {
+                        throw;
+                    }
+
+                    throw new AggregateException(e, release);
+                }
+
+                return UnitInternal.Value;
+            },
+            state: (Action: action, State: state, OnFailure: onFailure));
 
     internal static void PostImpl(Action action, Action<Exception>? onFailure = null) =>
-        PostInternal(action: _ => action(), onFailure: onFailure);
+        PostImpl(action: static a => a(), state: action, onFailure: onFailure);
 
     // If the priority queue holds entries when SodaFlow changes the rank of a node, SodaFlow must build the queue again to keep it correct.
     private void CheckRegen()
@@ -605,14 +628,14 @@ internal sealed class TransactionInternal
                     e.Execute(this);
                 }
 
-                List<Action>? sq = this.sampleQueue;
+                List<SampleEntry>? sq = this.sampleQueue;
                 this.sampleQueue = null;
 
                 if (sq != null)
                 {
-                    foreach (Action s in sq)
+                    foreach (SampleEntry s in sq)
                     {
-                        s();
+                        s.Run(this);
                     }
                 }
             }
@@ -902,22 +925,44 @@ internal sealed class TransactionInternal
 
     // One last action, with the alternative action for a transaction that fails. A readonly
     // struct, because a transaction makes one for each last action, and the type is private.
-    private readonly struct LastEntry(in Action commit, in Action? discard, in IDiscardable? discardable)
+    // Three fields, as before the object form: a fourth field made the queue's array larger,
+    // which showed as 32 bytes on each send.
+    private readonly struct LastEntry(in Action? commit, in Action? discard, in ILastAction? lastAction)
     {
+        // Null for an entry that holds an object in place of delegates.
+        private readonly Action? commit = commit;
+
         // Null where the last action leaves no state that a failure must reset.
         private readonly Action? discard = discard;
 
-        // An object that resets itself on failure, where a delegate costs an allocation.
-        private readonly IDiscardable? discardable = discardable;
+        // An object that commits and resets itself, where two delegates cost two allocations.
+        private readonly ILastAction? lastAction = lastAction;
 
-        public Action Commit { get; } = commit;
+        // One method for each phase and both types of entry, thus each queue runs an entry in the
+        // same manner, whichever type it holds.
+        public void Commit()
+        {
+            this.commit?.Invoke();
+            this.lastAction?.Commit();
+        }
 
-        // One method for the two types of entry, thus each queue resets an entry in the same
-        // manner, whichever type it holds.
         public void Discard()
         {
             this.discard?.Invoke();
-            this.discardable?.Discard();
+            this.lastAction?.Discard();
+        }
+    }
+
+    // One sample action: a delegate, or an object that reads for itself.
+    private readonly struct SampleEntry(in Action? action, in ISampleAction? sampler)
+    {
+        private readonly Action? action = action;
+        private readonly ISampleAction? sampler = sampler;
+
+        public void Run(TransactionInternal trans)
+        {
+            this.action?.Invoke();
+            this.sampler?.Sample(trans);
         }
     }
 
@@ -1015,11 +1060,26 @@ internal sealed class TransactionInternal
 }
 
 /// <summary>
-///     An object that a failed transaction resets, registered with
-///     <see cref="TransactionInternal.Discard(IDiscardable)" />.
+///     An object that a transaction commits or resets at its end, registered with
+///     <see cref="TransactionInternal.Last(ILastAction)" />. A behavior is one, thus
+///     a hold allocates no delegate for its update. A lazy sample is one whose
+///     commit does nothing, thus a value it takes registers no delegate.
 /// </summary>
-internal interface IDiscardable
+internal interface ILastAction
 {
+    /// <summary>Applies the state that the transaction gave this object.</summary>
+    void Commit();
+
     /// <summary>Forgets the state that the failed transaction gave this object.</summary>
     void Discard();
+}
+
+/// <summary>
+///     An object that reads a value in the sample phase of a transaction, registered
+///     with <see cref="TransactionInternal.Sample(ISampleAction)" />.
+/// </summary>
+internal interface ISampleAction
+{
+    /// <summary>Reads the value at the end of the transaction.</summary>
+    void Sample(TransactionInternal trans);
 }

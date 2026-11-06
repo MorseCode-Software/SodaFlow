@@ -103,91 +103,110 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         IEqualityComparer<TKey> keyEqualityComparer,
         Cell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            // The builders live inside the function, because the function can run more than one
-            // time. A transaction that fails after the sample phase forgets the snapshot, and the
-            // next read builds it again. Builders made outside then hold each key two times.
-            LazySample<CollectionSnapshot<TKey, TIdentity, TState>> initial =
-                initialEntries.SampleLazyImpl()
-                    .MapImpl(initialEntries =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                Create(
+                    trans: trans,
+                    keySelector: state.KeySelector,
+                    keyEqualityComparer: state.KeyEqualityComparer,
+                    initialEntries: state.InitialEntries,
+                    editStreams: state.EditStreams),
+            state: (
+                KeySelector: keySelector,
+                KeyEqualityComparer: keyEqualityComparer,
+                InitialEntries: initialEntries,
+                EditStreams: editStreams));
+
+    private static ReactiveCollection<TKey, TIdentity, TState> Create(
+        TransactionInternal trans,
+        Func<TIdentity, TKey> keySelector,
+        IEqualityComparer<TKey> keyEqualityComparer,
+        LoopedCell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
+        params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
+    {
+        // The builders live inside the function, because the function can run more than one
+        // time. A transaction that fails after the sample phase forgets the snapshot, and the
+        // next read builds it again. Builders made outside then hold each key two times.
+        LazySample<CollectionSnapshot<TKey, TIdentity, TState>> initial =
+            initialEntries.SampleLazyImpl()
+                .MapImpl(initialEntries =>
+                {
+                    ImmutableDictionary<TKey, TIdentity>.Builder identities =
+                        ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
+
+                    Dictionary<TKey, TState> states = new(keyEqualityComparer);
+
+                    // This code gives a number to each item in the sequence of the enumeration,
+                    // and the collection lists the items in that sequence.
+                    ImmutableDictionary<TKey, long>.Builder arrivals =
+                        ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
+
+                    foreach (Item<TIdentity, TState> item in initialEntries)
                     {
-                        ImmutableDictionary<TKey, TIdentity>.Builder identities =
-                            ImmutableDictionary.CreateBuilder<TKey, TIdentity>(keyEqualityComparer);
+                        TKey key = keySelector(item.Identity);
 
-                        Dictionary<TKey, TState> states = new(keyEqualityComparer);
-
-                        // This code gives a number to each item in the sequence of the enumeration,
-                        // and the collection lists the items in that sequence.
-                        ImmutableDictionary<TKey, long>.Builder arrivals =
-                            ImmutableDictionary.CreateBuilder<TKey, long>(keyEqualityComparer);
-
-                        foreach (Item<TIdentity, TState> item in initialEntries)
+                        // This uses ContainsKey and not TryAdd. A dictionary in
+                        // netstandard2.0 and in net472 has no TryAdd, and a builder has
+                        // none.
+                        if (identities.ContainsKey(key))
                         {
-                            TKey key = keySelector(item.Identity);
-
-                            // This uses ContainsKey and not TryAdd. A dictionary in
-                            // netstandard2.0 and in net472 has no TryAdd, and a builder has
-                            // none.
-                            if (identities.ContainsKey(key))
-                            {
-                                throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
-                            }
-
-                            identities.Add(key: key, value: item.Identity);
-                            states.Add(key: key, value: item.State);
-                            arrivals.Add(key: key, value: arrivals.Count);
+                            throw new ArgumentException($"Duplicate key '{key}' in the initial items.");
                         }
 
-                        return new CollectionSnapshot<TKey, TIdentity, TState>(
-                            identities: identities.ToImmutable(),
-                            states: ImmutableStateMap<TState>.Create(keyEqualityComparer)
-                                .With(updated: states, removed: []),
-                            arrivals: arrivals.ToImmutable(),
-                            nextArrival: arrivals.Count);
-                    });
+                        identities.Add(key: key, value: item.Identity);
+                        states.Add(key: key, value: item.State);
+                        arrivals.Add(key: key, value: arrivals.Count);
+                    }
 
-            Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
+                    return new CollectionSnapshot<TKey, TIdentity, TState>(
+                        identities: identities.ToImmutable(),
+                        states: ImmutableStateMap<TState>.Create(keyEqualityComparer)
+                            .With(updated: states, removed: []),
+                        arrivals: arrivals.ToImmutable(),
+                        nextArrival: arrivals.Count);
+                });
 
-            // The resolution of an edit uses the state that it resolves against, and the
-            // resolution of the edits makes that state. Thus, this code has an explicit loop.
-            CellLoop<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
+        Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
-            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
-                editsStream
-                    .SnapshotImpl(
-                        c: snapshotLoopCell,
-                        f: (edit, before) =>
-                            Resolve(
-                                keyEqualityComparer: keyEqualityComparer,
-                                keySelector: keySelector,
-                                edit: edit,
-                                before: before))
-                    .FilterSomeInternal();
+        // The resolution of an edit uses the state that it resolves against, and the
+        // resolution of the edits makes that state. Thus, this code has an explicit loop.
+        CellLoop<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
 
-            Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
-                itemChangesStream
-                    .MapImpl(static change => change.After)
-                    .HoldLazyImpl(initial);
+        Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
+            editsStream
+                .SnapshotImpl(
+                    c: snapshotLoopCell,
+                    f: (edit, before) =>
+                        Resolve(
+                            keyEqualityComparer: keyEqualityComparer,
+                            keySelector: keySelector,
+                            edit: edit,
+                            before: before))
+                .FilterSomeInternal();
 
-            snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
+        Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
+            itemChangesStream
+                .MapImpl(static change => change.After)
+                .HoldLazyImpl(initial);
 
-            // This comes from its own hold on the same stream, and not from a Calm on a map of
-            // the snapshot cell. The two holds read the same transaction, thus the two views always
-            // agree. This cell also sends a value only at the condition above: a change of the item
-            // count, or a change of a key.
-            Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
-                itemChangesStream
-                    .FilterImpl(static change => change.IsStructural)
-                    .MapImpl(static change => change.After.Identities)
-                    .HoldLazyImpl(initial.MapImpl(static initial => initial.Identities));
+        snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
 
-            return new RootCollection<TKey, TIdentity, TState>(
-                keyEqualityComparer: keyEqualityComparer,
-                itemChangesStream: itemChangesStream,
-                snapshotCell: snapshotCell,
-                shapeCell: shapeCell);
-        });
+        // This comes from its own hold on the same stream, and not from a Calm on a map of
+        // the snapshot cell. The two holds read the same transaction, thus the two views always
+        // agree. This cell also sends a value only at the condition above: a change of the item
+        // count, or a change of a key.
+        Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
+            itemChangesStream
+                .FilterImpl(static change => change.IsStructural)
+                .MapImpl(static change => change.After.Identities)
+                .HoldLazyImpl(initial.MapImpl(static initial => initial.Identities));
+
+        return new RootCollection<TKey, TIdentity, TState>(
+            keyEqualityComparer: keyEqualityComparer,
+            itemChangesStream: itemChangesStream,
+            snapshotCell: snapshotCell,
+            shapeCell: shapeCell);
+    }
 
     /// <inheritdoc />
     /// <remarks>

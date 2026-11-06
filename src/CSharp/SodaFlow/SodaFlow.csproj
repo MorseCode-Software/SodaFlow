@@ -52,6 +52,7 @@
         <Compile Include="StreamLoop.cs"/>
         <Compile Include="StreamSinkExtensionMethods.cs"/>
         <Compile Include="Transaction.cs"/>
+        <Compile Include="Time\ClockResolution.cs"/>
         <Compile Include="Time\ITimer.cs"/>
         <Compile Include="Time\ITimerSystem.cs"/>
         <Compile Include="Time\ITimerSystemImplementation.cs"/>

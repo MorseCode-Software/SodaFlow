@@ -12,8 +12,8 @@ to the plain one, beside AsCell() and AsBehavior(), which assert that the read c
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, at the end of the transaction that asked for it, so a
 transaction that fails can forget the value the sample took. A Lazy<T> keeps the first value it gives, and that was
-the defect below. Map transforms a LazySample, Lift combines two, three, or four, and LazySample.Defer makes one from
-a function, for an initial value that is not a sample of the graph. A function given to any of them runs once for
+the defect below. Map transforms a LazySample, Lift combines two to eight, and LazySample.Defer makes one from a
+function, for an initial value that is not a sample of the graph. A function given to any of them runs once for
 each value, however many cells start from the sample, and runs again after a transaction that failed, so it must be
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
@@ -56,6 +56,17 @@ to 976 bytes, Apply 760 to 442 ns on the argument and 769 to 463 ns on the funct
 326 to 276 ns, SnapshotLatest 421 to 280 ns on the stream and 405 to 265 ns on the cell, and Merge of two types 457
 to 309 ns. On .NET Framework the figures are about twice those and move the same way.
 
+Fixed: a strong listener on a stream with more than one input is rooted by every root of that stream, so it lives while
+any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the keep-alive set
+of their first input only. A listener on a lift whose first cell the application dropped, while it kept sending into the
+second, was collected and stopped without a message, and a switch over a constant cell,
+Cell.Constant(s).SwitchS().ListenStrong(h), was an unrooted cycle from the start. A switch now moves its listeners to
+the root of the inner it selects on each switch, so the listener lives while the outer cell or the selected inner lives,
+and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
+root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
+lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
+memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept.
+
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
 exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous
@@ -89,6 +100,120 @@ ms and 488 KB after; a map with a hold 2.23 ms and 1,442 KB to 1.90 ms and 1,200
 3,089 KB to 3.90 ms and 2,935 KB; a constant cell 793 to 645 µs; a sink alone 442 to 388 µs. .NET Framework 4.7.2
 moves in proportion: the chain 1.52 to 1.25 ms over the node and the Listen change alone. The benchmark has an arm for
 each common shape, so a later change to construction can be measured against this one.
+
+A hold, a lazy hold, and the state under Accum, Collect, and Calm no longer allocate delegates for the actions a
+transaction runs at its end. A behavior, a stream, a lazy sample, and that state are their own commit, discard, and
+sample actions, which the transaction holds as objects where it held delegates, and the state under Accum, Collect, and
+Calm, which also allocated a delegate in every transaction that fired, now allocates nothing for the protocol. A lazy
+sample of a behavior reads the behavior itself in the sample phase, and a sample of a behavior through a function, which
+Map, Calm, and the switches take as their initial value, is one object where it was two samples with a closure each.
+Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, and both switches, is one stream: its updates
+arrive at a bare node that links into the output, and the right-wins coalesce runs on the output node, where before a
+second stream with its own listener did that one node later. Measured in GraphBuildBenchmarks, per thousand, .NET 10: a
+map of one cell 2.22 ms and 2,078 KB to 1.78 ms and 1,340 KB, an accum 2.30 ms and 2,191 KB to 1.94 ms and 1,585 KB,
+ListenStrong on one cell 4.84 ms and 2,880 KB to 3.41 ms and 2,224 KB, a switch of a constant cell 36.2 ms and 10,019 KB
+to 27.9 ms and 7,491 KB, a lift of two cells 3.68 ms and 2,750 KB to 3.21 ms and 2,441 KB, and a filter view of a
+collection of ten 75.5 ms and 17,160 KB to 66.0 ms and 15,483 KB. A send that switches the outer cell of a switch costs
+3.79 µs and 4,345 B to 3.03 µs and 3,260 B, and a send into a lift of two is unchanged at 437 ns and 928 B.
+
+A switch builds for half of what it did and switches for less than two thirds. The value of a behavior is a listener
+object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen,
+Cell.ListenStrong, and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
+and SwitchC are that object on the outer behavior, and each behavior they select gets one whose consumer sends into the
+output, where before the switch built a Value and a listener on it for the outer behavior and again for every selection,
+with a closure and two delegates for the commit. SwitchC selects the behavior of each cell through a function on the
+switch, where before it mapped the outer cell to a cell of behaviors that only the switch read. Measured in
+GraphBuildBenchmarks, per thousand, .NET 10: a switch of a constant cell 27.9 ms and 7,491 KB to 11.9 ms and 3,756 KB,
+and ListenStrong on one cell 3.41 ms and 2,224 KB to 3.27 ms and 2,010 KB. In LiftBenchmarks, a send that switches the
+outer cell of a switch costs 3.03 µs and 3,260 B to 1.16 µs and 1,858 B on .NET 10 and 4.41 µs and 3,329 B to 1.92 µs
+and 1,890 B on .NET Framework.
+
+A link is two objects and a stream is three. The target that a node holds for each link is also the weak view of the
+listener that made the link: it holds its source node and removes itself from it, where before a third object held the
+node and the target for that. The node of a stream holds the registry entry of the stream, the weak handle and the views
+of the attached listeners, where before an object of its own held them and the registry held that; the registry now
+holds the nodes. A node registers when the first listener is attached to its stream, because the registry exists to stop
+the attached listeners of a dead stream, and a stream with none has nothing to stop: a sink takes no weak handle and no
+registry slot at all. Measured in the scratch harness on .NET 10, a map in a chain is 465 to 417 bytes, and a full
+garbage collection with 100,000 live map nodes takes 32.7 ms to 26.6 ms, because each map is two objects fewer. In
+GraphBuildBenchmarks, per thousand, .NET 10: a chain of maps 1.04 ms and 481 KB to 0.95 ms and 435 KB, ListenStrong on
+one stream 371 µs and 579 KB to 347 µs and 555 KB, and a sink 395 µs and 437 KB to 52 µs and 367 KB.
+
+The registry sweep after a young collection no longer walks the live graph. The sweep ran after every collection and
+read every entry under the registry lock, whether or not anything had died, which was 1.1 ms at 75,000 live streams and
+4.2 ms at 300,000 on .NET 10, about a hundred times a second under load, and every stream that registered waited on that
+lock. The registry now keeps its entries by garbage collector generation. A stream in generation N can die only in a
+collection of generation N or higher, so the sweep after a collection of generation N examines generations 0 to N, and a
+sweep after a young collection takes about a microsecond at any size. A full sweep costs what it did. A loop that builds
+a map and sends, with 300,000 live streams in the registry, runs 24,000 pairs a second before and 52,000 after.
+
+Transaction.Run and Transaction.RunVoid allocate nothing of their own. Run wrapped its function in a closure and a
+delegate for the state-passing Apply, and RunVoid wrapped its action in a second closure and delegate before that, so
+an empty RunVoid inside an open transaction cost 176 bytes for nothing. Both now pass the caller's delegate as the
+state. Measured in the scratch harness on .NET 10: an empty RunVoid from outside a transaction 55 ns and 288 bytes to
+36 ns and 112 bytes, a Run that returns a value 42 ns and 200 bytes to 35 ns and 112 bytes, and an empty RunVoid
+inside an open transaction 27 ns and 176 bytes to 6 ns and nothing. The 112 bytes that remain are the transaction.
+The F# Transaction.run goes through the same path.
+
+A list lift copies its inputs once. The enumerable overload copied them to an array and then the overload it called
+copied that array again, and the cell overloads went through the same path with a Select in front, so a lift of
+cells paid two copies and a lift of behaviors from a collection one. Every overload now hands one array to the lift,
+which is 8 bytes per input less: a lift of 1,000 cells from an array is 532 KB to 524 KB on .NET 10, and one of 4,000
+is 2,120 KB to 2,088 KB.
+
+A merge of two streams, and so OrElse, no longer goes through the list merge. The list merge is one node for n inputs,
+which was right for n, but it allocates the input array, a slots array, a closure and a delegate for each input
+because the index is captured, and a closure for the fold, and a merge of two is the common case. A new MergeTwo holds
+the two slots in fields and gives its methods as the delegates, with the same semantics: the left value goes to the
+left of the function when both fire, an input that fires more than once in a transaction folds into its own slot in
+order, and a failed transaction clears the slots. The list merge routes two inputs to it as well. Measured in the
+scratch harness on .NET 10: a merge of two with a function 1,562 bytes to 1,362, OrElse 1,642 to 1,442, and a list
+merge of two 1,726 to 1,638, against 425 for a map; a list merge of three or four is unchanged. The second link, the
+gate, and their delegates are what remains, so a merge stays about three maps.
+
+A merge of two streams of different types, the Merge overload that gives a tuple of two Maybe values, takes the same
+step. It went through the merge of maybes for n inputs, which captures each input in an object of its own and adds an
+array of them, a closure that makes the array, and a closure that reads them. A new MergeTwoMaybes holds the two slots
+in fields and gives its methods as the delegates, with the same semantics: each slot keeps the last value its input
+sent in the transaction, the gate reads the two once, and a slot a failed transaction filled gives no value. Measured
+in the scratch harness on .NET 10: 1,559 bytes to 1,287. A merge of three or four streams of different types is
+unchanged.
+
+Cell.Calm opens one transaction when called outside one, where it opened four: one each for the two samples, the
+updates, the calm, and the hold, so four lock acquisitions, four runs of every start hook, and four transaction
+objects for one calm. The steps now share one transaction, and Accum's hold and a stream's Calm no longer open a
+nested Apply that found the transaction open and allocated a closure for nothing. Nothing observable changes, since
+the samples are captured at the end of whichever transaction closes them either way, and a calm built from outside is
+now atomic with respect to a send from another thread. Measured in the scratch harness on .NET 10, built from outside
+a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 ns to 2,030; an accum 1,673 bytes to
+1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
+allocate the same.
+
+Transaction.Post allocates nothing of its own when no transaction is open, where it allocated four objects: two to
+wrap the action in the delegate type of the post queue, and two to capture it for the transaction it opened. The
+action runs in that transaction as before. When a transaction is open, the post still queues one closure, where it
+queued the same two wrappers and the closure. Measured in the scratch harness on .NET 10: a post from outside a
+transaction 296 bytes to 152, which is the transaction itself; a post from inside one 536 bytes to 456. The bindable
+values build on this, and SodaFlow.Bindable.ObjectModel.Core 5.0.0 says what it saves there.
+
+Sample on a cell or a behavior from outside a transaction allocates no delegate, where it allocated one of 64 bytes
+for the lambda that captured the behavior; the transaction it opens is what remains. A two-way bindable value's
+refresh is such a sample on every change. Measured in the scratch harness on .NET 10: 176 bytes to 112 and about 118
+ns to 105 per sample.
+
+Every operation that opens a transaction when none is open now does so through a static lambda with its values as the
+state, where it captured them in a closure: a display class and a delegate per call, also when a transaction was
+already open and the lambda ran at once. That covers each lift, snapshot, merge, calm, accum, collect, switch, hold
+with a lazy sample, and listen on a cell, the loop builders, the collection root, and the async map. Nothing
+observable changes. Measured in the scratch harness on .NET 10, bytes per construction inside one transaction, before
+and after: a hold 369 to 305, an accum 1,294 to 1,142, a collect 835 to 747, a merge of two with a function 1,362 to
+1,258, a cell map 1,310 to 1,150, a cell lift of two 2,355 to 2,195 and of six 4,030 to 3,869, a cell calm 2,235 to
+2,075, a switch 3,757 to 3,541; from outside a transaction, a lift 2,321 to 2,161 and an accum 1,577 to 1,425.
+
+A link to a node with no listeners no longer takes the listeners lock to walk its descendants, which it has none of.
+Every link in a chain had that lock, because the target of a link is the fresh output node. The node keeps a flag
+that the lock sets. A chain of maps measures the same within the noise of the harness, so this removes a lock, not a
+measured cost.
 
 A constant costs about a hundred bytes. Cell.Constant built a never stream and a behavior that listened to it, with
 the node, the registry entry, the link, and the listener of a real hold, for a stream that cannot fire: 627 µs and

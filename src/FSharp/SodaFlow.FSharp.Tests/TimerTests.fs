@@ -119,7 +119,8 @@ type ``Timer Tests``() =
             l |> StrongListener.unlisten
 
             do! Expect.Sequence([ 10 ], alarms)
-            do! Expect.Sequence([ 12; 12 ], times)
+            // The transaction that brings the event sends no time, because the clock reads 12, as before.
+            do! Expect.Sequence([ 12 ], times)
         }
 
     /// A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
@@ -146,6 +147,47 @@ type ``Timer Tests``() =
 
             // A second disposal does nothing.
             timers.Dispose()
+        }
+
+    [<Test>]
+    member _.``A clock with a resolution moves Time once per step``() =
+        task {
+            let start = DateTime(2026, 11, 6, 0, 0, 0, DateTimeKind.Utc)
+            let mutable now = start
+
+            use timerSystem =
+                new SystemClockTimerSystem((fun () -> now), TimeSpan.FromMilliseconds 1.0, (fun _ -> ()))
+
+            let timers = timerSystem :> ITimerSystem<DateTime>
+            let times = List<DateTime>()
+            let l = timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+
+            for step in 1..5 do
+                now <- start.AddTicks(int64 step * 4L * TimeSpan.TicksPerMillisecond / 10L)
+                Transaction.run (fun () -> ())
+
+            l |> StrongListener.unlisten
+
+            do! Expect.Sequence([ start.AddMilliseconds 1.0; start.AddMilliseconds 2.0 ], times)
+            do! Expect.Equal(start.AddMilliseconds 2.0, timers.Time |> Behavior.sample)
+        }
+
+    [<Test>]
+    member _.``A negative resolution is refused``() =
+        task {
+            let negative = TimeSpan.FromTicks -1L
+
+            do!
+                Expect.Throws<ArgumentOutOfRangeException>(fun () ->
+                    new SecondsTimerSystem(negative, (fun _ -> ())) |> ignore)
+
+            do!
+                Expect.Throws<ArgumentOutOfRangeException>(fun () ->
+                    new SystemClockTimerSystem(negative, (fun _ -> ())) |> ignore)
+
+            do!
+                Expect.Throws<ArgumentOutOfRangeException>(fun () ->
+                    new UtcClockTimerSystem(negative, (fun _ -> ())) |> ignore)
         }
 
     [<Test>]

@@ -85,26 +85,30 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public LoopCloser Loop(Behavior<T> b) =>
-        TransactionInternal.Apply((trans, _) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => state.Self.LoopOnce(trans: trans, b: state.B),
+            state: (Self: this, B: b));
+
+    private LoopCloser LoopOnce(TransactionInternal trans, Behavior<T> b)
+    {
+        lock (this.isLoopedLock)
         {
-            lock (this.isLoopedLock)
+            if (this.isLooped)
             {
-                if (this.isLooped)
-                {
-                    throw new InvalidOperationException("Loop was looped more than once.");
-                }
+                throw new InvalidOperationException("Loop was looped more than once.");
             }
+        }
 
-            if (trans != this.transaction)
-            {
-                this.transaction = null;
+        if (trans != this.transaction)
+        {
+            this.transaction = null;
 
-                throw new InvalidOperationException(
-                    "Loop must be looped in the same transaction that it was created in.");
-            }
+            throw new InvalidOperationException(
+                "Loop must be looped in the same transaction that it was created in.");
+        }
 
-            return this.Loop(trans: trans, b: b);
-        });
+        return this.Loop(trans: trans, b: b);
+    }
 
     // A loop block closes the loop through this, in the transaction that made it. Thus, it
     // needs none of the checks above, but it marks the loop closed so that the check at the end
@@ -141,9 +145,9 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
     }
 
     // The transaction that forces the sample can fail after that, and the value then came from a
-    // sample that the failure forgets. Thus, the force registers a last action: its commit
-    // releases the sample, which the behavior does not need after a value, and its discard makes
-    // the behavior use its initial value again, so the next read forces the sample again.
+    // sample that the failure forgets. Thus, the force queues this behavior as a last action. Its
+    // commit releases the sample, which the behavior does not need after a value. Its discard
+    // makes the behavior use its initial value again, so the next read forces the sample again.
     private void EnsureValueIsCreated()
     {
         if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
@@ -155,8 +159,22 @@ public class BehaviorLoop<T> : LoopedBehavior<T>
         TransactionInternal trans = TransactionInternal.CurrentTransaction();
 
         this.ValueProperty = sample.Force(trans);
-        trans.Last(commit: this.ReleaseInitialValue, discard: this.UseInitialValueAgain);
+        trans.Last(this);
     }
 
-    private void ReleaseInitialValue() => this.lazyInitialValue = null;
+    private protected override void CommitLast()
+    {
+        base.CommitLast();
+        this.lazyInitialValue = null;
+    }
+
+    private protected override void DiscardLast()
+    {
+        base.DiscardLast();
+
+        if (this.lazyInitialValue != null)
+        {
+            this.UseInitialValueAgain();
+        }
+    }
 }

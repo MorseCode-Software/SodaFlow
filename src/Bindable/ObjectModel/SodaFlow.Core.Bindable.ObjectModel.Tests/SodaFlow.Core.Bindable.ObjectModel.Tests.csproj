@@ -46,6 +46,7 @@
         <Compile Include="BindableValueTests.cs"/>
         <Compile Include="BindingSchedulerTests.cs"/>
         <Compile Include="QueueingScheduler.cs"/>
+        <Compile Include="SingleWriterSlotTests.cs"/>
         <Compile Include="SynchronizationContextBindingSchedulerTests.cs"/>
         <Compile Include="ThreadPerActionScheduler.cs"/>
     </ItemGroup>

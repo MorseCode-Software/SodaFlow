@@ -13,8 +13,8 @@ close function, or write AsCell() where the read is known to come later.
 
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a transaction that fails forget its value; the
-core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two, three,
-or four. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
+core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
+eight. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
 BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
 the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
@@ -23,6 +23,34 @@ either, so each timer system made, for example one per test, taxed every later t
 process. Disposing the timer system removes the hook and ends the thread, and after that Time does not move and no
 alarm fires. A custom ITimerSystemImplementation<T> needs a Stop, which can be empty for a clock a test moves by hand.
 A caller of OnStart can ignore the registration as before, or dispose it to remove the action.
+
+BREAKING: Time updates when the clock moves and holds its value otherwise. The hook that runs at the start of each
+transaction sent the clock's reading to Time every time, so a listener on Operational.Updates(timers.Time) ran once per
+transaction in the process, with the value Time already held whenever the clock had not moved, which a clock a test
+moves by hand never does between transactions. The hook now sends only a reading that differs from the last one, and an
+alarm's event at the time Time holds sends nothing either. That is what a behavior's updates mean everywhere else in the
+library. A listener on the updates of Time fires fewer times, which is the breaking part; a sample of Time, which is how
+a behavior is meant to be read, sees no change, and neither does At. Measured in the scratch harness on .NET 10 with the
+JIT fully optimizing from the start, an empty transaction with a timer system alive and one listener on the updates,
+before and after: a clock that does not move 513 to 71 ns and 936 to 160 bytes; with four listeners 1,209 to 71 ns and
+1,848 to 160 bytes. A clock whose reading differs at every transaction, which on this machine both DateTime.UtcNow and
+the stopwatch of SecondsTimerSystem do, is within noise, since the compare costs about one nanosecond.
+
+Added: a constructor on SecondsTimerSystem, SystemClockTimerSystem, and UtcClockTimerSystem that takes a TimeSpan
+resolution. The clock rounds every reading down to a multiple of it, in the ticks of its stopwatch for the seconds clock
+and in the ticks of a DateTime for the calendar clocks, so a reading inside the step of the last one leaves Time as it
+is and the transaction skips the update and its listeners. An alarm fires in the first transaction whose rounded reading
+reaches it, up to one resolution late, and At still fires with the alarm's own time. A resolution of zero, which the
+constructors without one use, reads the clock as it is and does no arithmetic; a negative one throws
+ArgumentOutOfRangeException. A real clock moves between any two transactions, so without a resolution the change above
+saves it nothing, and with one millisecond every transaction after the first in a millisecond skips the send. Measured
+in two new benchmarks, ClockReadBenchmarks and ClockResolutionBenchmarks: the rounding costs about 3 ns on a read of
+DateTime.UtcNow on both frameworks, 17.5 to 20.5 ns on .NET 10 and 48.6 to 52.3 ns on .NET Framework 4.7.2, and nothing
+on a read of the stopwatch, 20.7 to 18.3 ns and 23.5 to 24.2 ns, which reads the ticks it rounds rather than converting
+them twice; an empty transaction with the clock alive and one listener on the updates of Time goes from 398 to 95 ns and
+936 to 160 bytes on .NET 10 for either clock, and from 777 to 162 ns for the stopwatch on .NET Framework. On .NET
+Framework DateTime.UtcNow moves in steps of about a millisecond on its own, so the system clock there already skips most
+sends without a resolution, 177 ns and 161 bytes.
 
 BREAKING: a stopped TimerSystemImplementationBase<T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
@@ -45,6 +73,10 @@ and an enumerator on every transaction in the process, and it no longer takes th
 is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
 350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
 behavior derived from it depends on.
+
+Transaction.RunVoid no longer wraps its action in a closure and a delegate of its own. With SodaFlow.Core 6.0.0, an
+empty RunVoid from outside a transaction measures 55 ns and 288 bytes to 36 ns and 112 bytes on .NET 10, and one
+inside an open transaction 27 ns and 176 bytes to 6 ns and nothing; the core notes have the rest.
 
 FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with SodaFlow.Functional 4.0.0. They call
 MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.

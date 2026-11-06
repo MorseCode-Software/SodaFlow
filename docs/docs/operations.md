@@ -91,7 +91,7 @@ is already the new one.
 | `closer.Close(l)` | `closeLC closer l` | A `Cell<T>` from a `LoopedCell<T>`, with the `LoopCloser` a loop hands out when it closes: to the second function of `WithCaptures`, or from `Loop` in the explicit form. The way back for a capture. |
 | `l.AsCell()` | `asCellLC l` | The same with no check: the assertion, at a read site, that the loop is closed. An object built inside a block takes the looped type instead. |
 | `sample.Map(f)` | `LazySample.map f sample` | A `LazySample<T>` of the transformed value. |
-| `a.Lift(b, f)` | `LazySample.lift2 f a b` | A `LazySample<T>` combining two to four samples. |
+| `a.Lift(b, f)` | `LazySample.lift2 f a b` | A `LazySample<T>` combining two to eight samples. |
 | `LazySample.Defer(f)` | `lazySample f` | A `LazySample<T>` from a function, for a starting value that is not a sample of the graph. |
 | `c.Map(f)` | `mapC f c` | Transform the value. |
 | `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads up to 8 cells in both languages. |

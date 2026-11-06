@@ -151,13 +151,20 @@ public struct CellLooper<T>
     public (Cell<T> Cell, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
         Func<LoopedCell<T>, (Cell<T> Cell, TLoopedCaptures Captures)> f,
         Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            CellLoop<T> loop = new();
-            (Cell<T> Cell, TLoopedCaptures Captures) result = f(loop);
-            LoopCloser closer = loop.Loop(trans: trans, c: result.Cell);
-            return (result.Cell, close(arg1: result.Captures, arg2: closer));
-        });
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => WithCaptures(trans: trans, f: state.F, close: state.Close),
+            state: (F: f, Close: close));
+
+    private static (Cell<T> Cell, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        TransactionInternal trans,
+        Func<LoopedCell<T>, (Cell<T> Cell, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close)
+    {
+        CellLoop<T> loop = new();
+        (Cell<T> Cell, TLoopedCaptures Captures) result = f(loop);
+        LoopCloser closer = loop.Loop(trans: trans, c: result.Cell);
+        return (result.Cell, close(arg1: result.Captures, arg2: closer));
+    }
 
     /// <summary>
     ///     Loop a cell and return the resulting cell.

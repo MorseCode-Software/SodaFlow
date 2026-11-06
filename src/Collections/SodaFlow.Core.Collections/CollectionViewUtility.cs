@@ -63,53 +63,63 @@ internal static class CollectionViewUtility
         KeyOrder<TKey, TIdentity, TState> order =
             KeyOrder<TKey, TIdentity, TState>.ByArrival().With(collection.Root.KeyEqualityComparer);
 
-        return TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
-        {
-            CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
+        return TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                CreateRoot(trans: trans, collection: state.Collection, order: state.Order),
+            state: (Collection: collection, Order: order));
+    }
 
-            Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
-                collection.ItemChangesStream
-                    .SnapshotImpl(
-                        c: stateLoopCell,
-                        f: (change, state) =>
-                            ProcessRoot(change: change, state: state)
-                                .Match(
-                                    onSome: static result => result,
-                                    onNone: () =>
-                                    {
-                                        OrderedKeys<TKey, TIdentity, TState> rebuilt =
-                                            RebuildRoot(order: order, snapshot: change.After);
+    private static ReactiveCollection<TKey, TIdentity, TState> CreateRoot<TKey, TIdentity, TState>(
+        TransactionInternal trans,
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        KeyOrder<TKey, TIdentity, TState> order)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
-                                        return new StageResult<TKey, TIdentity, TState>(
-                                            keys: rebuilt,
-                                            operations: [],
-                                            isReset: true,
-                                            before: change.Before,
-                                            after: change.After,
-                                            movesKeys: true,
-                                            changesMembership: true,
-                                            reordersOnly: false);
-                                    }));
+        Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
+            collection.ItemChangesStream
+                .SnapshotImpl(
+                    c: stateLoopCell,
+                    f: (change, state) =>
+                        ProcessRoot(change: change, state: state)
+                            .Match(
+                                onSome: static result => result,
+                                onNone: () =>
+                                {
+                                    OrderedKeys<TKey, TIdentity, TState> rebuilt =
+                                        RebuildRoot(order: order, snapshot: change.After);
 
-            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
-                resultsStream
-                    .MapImpl(static result => result.Keys)
-                    .HoldLazyImpl(
-                        collection.SnapshotCell.SampleLazyImpl()
-                            .MapImpl(snapshot => RebuildRoot(order: order, snapshot: snapshot)));
+                                    return new StageResult<TKey, TIdentity, TState>(
+                                        keys: rebuilt,
+                                        operations: [],
+                                        isReset: true,
+                                        before: change.Before,
+                                        after: change.After,
+                                        movesKeys: true,
+                                        changesMembership: true,
+                                        reordersOnly: false);
+                                }));
 
-            stateLoopCell.Loop(trans: trans, c: keysCell);
+        Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
+            resultsStream
+                .MapImpl(static result => result.Keys)
+                .HoldLazyImpl(
+                    collection.SnapshotCell.SampleLazyImpl()
+                        .MapImpl(snapshot => RebuildRoot(order: order, snapshot: snapshot)));
 
-            return new ViewStage<TKey, TIdentity, TState>(
-                source: collection,
-                keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
-                // The order of the root holds each key, thus a scope on it puts the store in a
-                // filter that accepts each key.
-                snapshotCell: () => collection.SnapshotCell,
-                keyChangesStream: ToChangesStream(
-                    resultsStream: resultsStream,
-                    keyEqualityComparer: collection.Root.KeyEqualityComparer));
-        });
+        stateLoopCell.Loop(trans: trans, c: keysCell);
+
+        return new ViewStage<TKey, TIdentity, TState>(
+            source: collection,
+            keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
+            // The order of the root holds each key, thus a scope on it puts the store in a
+            // filter that accepts each key.
+            snapshotCell: () => collection.SnapshotCell,
+            keyChangesStream: ToChangesStream(
+                resultsStream: resultsStream,
+                keyEqualityComparer: collection.Root.KeyEqualityComparer));
     }
 
     /// <summary>Reorders by key, over any stage.</summary>
@@ -417,178 +427,194 @@ internal static class CollectionViewUtility
         Reorder<TKey, TIdentity, TState>? reorder)
         where TKey : notnull
         where TIdentity : notnull =>
-        TransactionInternal.Apply<ReactiveCollection<TKey, TIdentity, TState>>((trans, _) =>
-        {
-            CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                BuildStage(
+                    trans: trans,
+                    upstream: state.Upstream,
+                    criteriaCell: state.CriteriaCell,
+                    rebuild: state.Rebuild,
+                    processNewCriteria: state.ProcessNewCriteria,
+                    process: state.Process,
+                    reorder: state.Reorder),
+            state: (
+                Upstream: upstream,
+                CriteriaCell: criteriaCell,
+                Rebuild: rebuild,
+                ProcessNewCriteria: processNewCriteria,
+                Process: process,
+                Reorder: reorder));
 
-            // This is the store, and not the view of the store in the stage above. A read of
-            // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
-            // which is the cost that the deferral prevents. This code needs no scope, because the
-            // code below gives an explicit scope to the value that it receives.
-            Cell<StageContext<TKey, TIdentity, TState, TCriteria>> contextCell =
-                criteriaCell.LiftImpl(
-                    b2: upstream.KeysCell,
-                    b3: upstream.Root.SnapshotCell,
-                    f: static (criteria, upstreamKeys, snapshot) =>
-                        new StageContext<TKey, TIdentity, TState, TCriteria>(
-                            criteria: criteria,
-                            upstreamKeys: upstreamKeys,
-                            snapshot: snapshot));
+    private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
+        TransactionInternal trans,
+        ReactiveCollection<TKey, TIdentity, TState> upstream,
+        LoopedCell<TCriteria> criteriaCell,
+        Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
+        ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
+        Process<TCriteria, TKey, TIdentity, TState> process,
+        Reorder<TKey, TIdentity, TState>? reorder)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        CellLoop<OrderedKeys<TKey, TIdentity, TState>> stateLoopCell = new();
 
-            Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream =
-                upstream.KeyChangesStream
-                    .MapImpl(static change =>
-                        new StageInput<TKey, TIdentity, TState, TCriteria>(
-                            change: MaybeInternal.Some(change),
-                            criteria: MaybeInternal<TCriteria>.None))
-                    .MergeImpl(
-                        s: criteriaCell.UpdatesImpl.MapImpl(static criteria =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None,
-                                criteria: MaybeInternal.Some(criteria))),
-                        f: static (left, right) =>
-                            new StageInput<TKey, TIdentity, TState, TCriteria>(
-                                change: left.Change.Match(onSome: MaybeInternal.Some, onNone: () => right.Change),
-                                criteria: left.Criteria.Match(
-                                    onSome: MaybeInternal.Some,
-                                    onNone: () => right.Criteria)));
+        // This is the store, and not the view of the store in the stage above. A read of
+        // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
+        // which is the cost that the deferral prevents. This code needs no scope, because the
+        // code below gives an explicit scope to the value that it receives.
+        Cell<CollectionSnapshot<TKey, TIdentity, TState>> storeSnapshotCell = upstream.Root.SnapshotCell;
 
-            Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
-                inputStream.SnapshotImpl(
-                    c1: stateLoopCell,
-                    c2: contextCell,
-                    f: (input, state, context) =>
+        // One node that takes a change from above and a new criteria as two slots. Before, a map
+        // of each input made a StageInput with one slot full, and a merge of the two combined
+        // them. That was three nodes, and up to three objects in a transaction that had the two.
+        Stream<StageInput<TKey, TIdentity, TState, TCriteria>> inputStream =
+            upstream.KeyChangesStream.MergeMaybesImpl(
+                s2: criteriaCell.UpdatesImpl,
+                f: static (change, criteria) =>
+                    new StageInput<TKey, TIdentity, TState, TCriteria>(change: change, criteria: criteria));
+
+        // The snapshot reads the criteria, the keys above, and the store as three cells.
+        // Before, a lift of the three held them in one object. The lift cost a cell and a hold
+        // at the construction, and an object at each change of any of the three. Each cell
+        // gives the snapshot the value from before the transaction, as the lift did.
+        Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
+            inputStream.SnapshotImpl(
+                c1: stateLoopCell,
+                c2: criteriaCell,
+                c3: upstream.KeysCell,
+                c4: storeSnapshotCell,
+                f: (input, state, criteriaBefore, upstreamKeysBefore, snapshotBefore) =>
+                {
+                    // Each value in the input is newer than the three samples from before the
+                    // transaction.
+                    TCriteria criteria =
+                        input.Criteria.Match(onSome: static c => c, onNone: () => criteriaBefore);
+
+                    CollectionSnapshot<TKey, TIdentity, TState> snapshot =
+                        input.Change.Match(
+                            onSome: static change => change.After,
+                            onNone: () => snapshotBefore);
+
+                    OrderedKeys<TKey, TIdentity, TState> upstreamKeys =
+                        input.Change.Match(
+                            onSome: static change => change.Keys,
+                            onNone: () => upstreamKeysBefore);
+
+                    bool hasCriteriaChange =
+                        input.Criteria.Match(onSome: static _ => true, onNone: static () => false);
+
+                    bool mustRebuild =
+                        input.Change.Match(
+                            onSome: change => hasCriteriaChange || change.IsReset,
+                            onNone: static () => false);
+
+                    if (mustRebuild)
                     {
-                        // Each value in the input is newer than the context, which is the sample
-                        // from before the transaction.
-                        TCriteria criteria =
-                            input.Criteria.Match(onSome: static c => c, onNone: () => context.Criteria);
-
-                        CollectionSnapshot<TKey, TIdentity, TState> snapshot =
-                            input.Change.Match(
-                                onSome: static change => change.After,
-                                onNone: () => context.Snapshot);
-
-                        OrderedKeys<TKey, TIdentity, TState> upstreamKeys =
-                            input.Change.Match(
-                                onSome: static change => change.Keys,
-                                onNone: () => context.UpstreamKeys);
-
-                        bool hasCriteriaChange =
-                            input.Criteria.Match(onSome: static _ => true, onNone: static () => false);
-
-                        bool mustRebuild =
-                            input.Change.Match(
-                                onSome: change => hasCriteriaChange || change.IsReset,
-                                onNone: static () => false);
-
-                        if (mustRebuild)
-                        {
-                            // A change of order above, with no criteria of this stage to apply,
-                            // does not change the members of this stage or their values.
-                            return input.Change.Match(
-                                onSome: change =>
-                                    !hasCriteriaChange && change.ReordersOnly && reorder is not null
-                                        ? CreateReorder(reorder(state: state, change: change))
-                                        : Rebuild(),
-                                onNone: Rebuild);
-                        }
-
+                        // A change of order above, with no criteria of this stage to apply,
+                        // does not change the members of this stage or their values.
                         return input.Change.Match(
                             onSome: change =>
-                                ConvertOutcomeMaybe(process(criteria: criteria, state: state, change: change)),
-                            onNone: () =>
+                                !hasCriteriaChange && change.ReordersOnly && reorder is not null
+                                    ? CreateReorder(reorder(state: state, change: change))
+                                    : Rebuild(),
+                            onNone: Rebuild);
+                    }
+
+                    return input.Change.Match(
+                        onSome: change =>
+                            ConvertOutcomeMaybe(process(criteria: criteria, state: state, change: change)),
+                        onNone: () =>
+                        {
+                            if (hasCriteriaChange)
                             {
-                                if (hasCriteriaChange)
-                                {
-                                    return processNewCriteria(
-                                        createResultFromStageOutcome: ConvertOutcome,
-                                        createResultFromRebuild: Rebuild,
-                                        createResultForReorder: CreateReorder,
-                                        criteria: criteria,
-                                        upstreamKeys: upstreamKeys,
-                                        snapshot: snapshot,
-                                        state: state);
-                                }
+                                return processNewCriteria(
+                                    createResultFromStageOutcome: ConvertOutcome,
+                                    createResultFromRebuild: Rebuild,
+                                    createResultForReorder: CreateReorder,
+                                    criteria: criteria,
+                                    upstreamKeys: upstreamKeys,
+                                    snapshot: snapshot,
+                                    state: state);
+                            }
 
-                                CollectionSnapshot<TKey, TIdentity, TState> beforeAndAfter = snapshot.ScopedTo(state);
+                            CollectionSnapshot<TKey, TIdentity, TState> beforeAndAfter = snapshot.ScopedTo(state);
 
-                                return new StageResult<TKey, TIdentity, TState>(
-                                    keys: state,
-                                    operations: [],
-                                    isReset: false,
-                                    before: beforeAndAfter,
-                                    after: beforeAndAfter,
-                                    movesKeys: false,
-                                    changesMembership: false,
-                                    reordersOnly: false);
-                            });
-
-                        StageResult<TKey, TIdentity, TState> CreateReset(
-                            OrderedKeys<TKey, TIdentity, TState> keys,
-                            bool reordersOnly) =>
-                            new(
-                                keys: keys,
+                            return new StageResult<TKey, TIdentity, TState>(
+                                keys: state,
                                 operations: [],
-                                isReset: true,
-                                before: context.Snapshot.ScopedTo(state),
-                                after: snapshot.ScopedTo(keys),
-                                movesKeys: true,
-                                changesMembership: !reordersOnly,
-                                reordersOnly: reordersOnly);
-
-                        StageResult<TKey, TIdentity, TState> CreateReorder(OrderedKeys<TKey, TIdentity, TState> keys) =>
-                            CreateReset(keys: keys, reordersOnly: true);
-
-                        StageResult<TKey, TIdentity, TState> Rebuild() =>
-                            CreateReset(
-                                keys: rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot),
-                                reordersOnly: false);
-
-                        StageResult<TKey, TIdentity, TState> ConvertOutcome(
-                            StageOutcome<TKey, TIdentity, TState> outcome) =>
-                            new(
-                                keys: outcome.Keys,
-                                operations: outcome.Operations,
                                 isReset: false,
-                                before: context.Snapshot.ScopedTo(state),
-                                after: snapshot.ScopedTo(outcome.Keys),
-                                movesKeys: outcome.MovesKeys,
-                                changesMembership: outcome.ChangesMembership,
+                                before: beforeAndAfter,
+                                after: beforeAndAfter,
+                                movesKeys: false,
+                                changesMembership: false,
                                 reordersOnly: false);
+                        });
 
-                        StageResult<TKey, TIdentity, TState> ConvertOutcomeMaybe(
-                            MaybeInternal<StageOutcome<TKey, TIdentity, TState>> outcome) =>
-                            outcome.Match(onSome: ConvertOutcome, onNone: Rebuild);
-                    });
+                    StageResult<TKey, TIdentity, TState> CreateReset(
+                        OrderedKeys<TKey, TIdentity, TState> keys,
+                        bool reordersOnly) =>
+                        new(
+                            keys: keys,
+                            operations: [],
+                            isReset: true,
+                            before: snapshotBefore.ScopedTo(state),
+                            after: snapshot.ScopedTo(keys),
+                            movesKeys: true,
+                            changesMembership: !reordersOnly,
+                            reordersOnly: reordersOnly);
 
-            Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
-                resultsStream
-                    .MapImpl(static result => result.Keys)
-                    .HoldLazyImpl(
-                        contextCell.SampleLazyImpl()
-                            .MapImpl(context =>
-                                rebuild(
-                                    criteria: context.Criteria,
-                                    upstreamKeys: context.UpstreamKeys,
-                                    snapshot: context.Snapshot)));
+                    StageResult<TKey, TIdentity, TState> CreateReorder(OrderedKeys<TKey, TIdentity, TState> keys) =>
+                        CreateReset(keys: keys, reordersOnly: true);
 
-            stateLoopCell.Loop(trans: trans, c: keysCell);
+                    StageResult<TKey, TIdentity, TState> Rebuild() =>
+                        CreateReset(
+                            keys: rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot),
+                            reordersOnly: false);
 
-            return new ViewStage<TKey, TIdentity, TState>(
-                source: upstream,
-                keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
-                // The cell above it is behind the keys of this stage, and this code builds it
-                // only when other code reads it.
-                snapshotCell: () =>
-                    TransactionInternal.RunImpl(() =>
-                        upstream.SnapshotCell.LiftImpl(
-                            b2: keysCell,
-                            f: static (snapshot, keys) => snapshot.ScopedTo(keys))),
-                keyChangesStream: ToChangesStream(
-                    resultsStream: resultsStream,
-                    keyEqualityComparer: upstream.Root.KeyEqualityComparer));
-        });
+                    StageResult<TKey, TIdentity, TState> ConvertOutcome(
+                        StageOutcome<TKey, TIdentity, TState> outcome) =>
+                        new(
+                            keys: outcome.Keys,
+                            operations: outcome.Operations,
+                            isReset: false,
+                            before: snapshotBefore.ScopedTo(state),
+                            after: snapshot.ScopedTo(outcome.Keys),
+                            movesKeys: outcome.MovesKeys,
+                            changesMembership: outcome.ChangesMembership,
+                            reordersOnly: false);
+
+                    StageResult<TKey, TIdentity, TState> ConvertOutcomeMaybe(
+                        MaybeInternal<StageOutcome<TKey, TIdentity, TState>> outcome) =>
+                        outcome.Match(onSome: ConvertOutcome, onNone: Rebuild);
+                });
+
+        Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell =
+            resultsStream
+                .MapImpl(static result => result.Keys)
+                .HoldLazyImpl(
+                    LazySampleInternal.LiftImpl(
+                        sample1: criteriaCell.SampleLazyImpl(),
+                        sample2: upstream.KeysCell.SampleLazyImpl(),
+                        sample3: storeSnapshotCell.SampleLazyImpl(),
+                        f: (criteria, upstreamKeys, snapshot) =>
+                            rebuild(criteria: criteria, upstreamKeys: upstreamKeys, snapshot: snapshot)));
+
+        stateLoopCell.Loop(trans: trans, c: keysCell);
+
+        return new ViewStage<TKey, TIdentity, TState>(
+            source: upstream,
+            keysCell: PublishedKeys(resultsStream: resultsStream, stateKeysCell: keysCell),
+            // The cell above it is behind the keys of this stage, and this code builds it
+            // only when other code reads it.
+            snapshotCell: () =>
+                TransactionInternal.RunImpl(() =>
+                    upstream.SnapshotCell.LiftImpl(
+                        b2: keysCell,
+                        f: static (snapshot, keys) => snapshot.ScopedTo(keys))),
+            keyChangesStream: ToChangesStream(
+                resultsStream: resultsStream,
+                keyEqualityComparer: upstream.Root.KeyEqualityComparer));
+    }
 
     private static Stream<CollectionViewChange<TKey, TIdentity, TState>> ToChangesStream<TKey, TIdentity, TState>(
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream,

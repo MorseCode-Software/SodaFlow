@@ -123,13 +123,20 @@ public struct BehaviorLooper<T>
     public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
         Func<LoopedBehavior<T>, (Behavior<T> Behavior, TLoopedCaptures Captures)> f,
         Func<TLoopedCaptures, LoopCloser, TCaptures> close) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            BehaviorLoop<T> loop = new();
-            (Behavior<T> Behavior, TLoopedCaptures Captures) result = f(loop);
-            LoopCloser closer = loop.Loop(trans: trans, b: result.Behavior);
-            return (result.Behavior, close(arg1: result.Captures, arg2: closer));
-        });
+        TransactionInternal.Apply(
+            code: static (trans, _, state) => WithCaptures(trans: trans, f: state.F, close: state.Close),
+            state: (F: f, Close: close));
+
+    private static (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TLoopedCaptures, TCaptures>(
+        TransactionInternal trans,
+        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TLoopedCaptures Captures)> f,
+        Func<TLoopedCaptures, LoopCloser, TCaptures> close)
+    {
+        BehaviorLoop<T> loop = new();
+        (Behavior<T> Behavior, TLoopedCaptures Captures) result = f(loop);
+        LoopCloser closer = loop.Loop(trans: trans, b: result.Behavior);
+        return (result.Behavior, close(arg1: result.Captures, arg2: closer));
+    }
 
     /// <summary>
     ///     Loop a behavior and return the resulting behavior.

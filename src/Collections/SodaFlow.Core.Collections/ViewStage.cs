@@ -77,7 +77,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                             .FilterImpl(static change => change.ChangesMembership)
                             .MapImpl(static change => change.After.Identities)
                             .HoldLazyImpl(
-                                this.SnapshotCell.SampleLazyImpl().MapImpl(static snapshot => snapshot.Identities))),
+                                this.SnapshotCell.SampleLazyMappedImpl(static snapshot => snapshot.Identities))),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -187,31 +187,6 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                                 ? onPresent(identity)
                                 : onAbsent())));
     }
-}
-
-/// <summary>
-///     The inputs from before the transaction. A stage reads them when the event
-///     in its current step has no newer value for them.
-/// </summary>
-internal sealed class StageContext<TKey, TIdentity, TState, TCriteria>
-    where TKey : notnull
-    where TIdentity : notnull
-{
-    internal StageContext(
-        TCriteria criteria,
-        OrderedKeys<TKey, TIdentity, TState> upstreamKeys,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
-    {
-        this.Criteria = criteria;
-        this.UpstreamKeys = upstreamKeys;
-        this.Snapshot = snapshot;
-    }
-
-    internal TCriteria Criteria { get; }
-
-    internal OrderedKeys<TKey, TIdentity, TState> UpstreamKeys { get; }
-
-    internal CollectionSnapshot<TKey, TIdentity, TState> Snapshot { get; }
 }
 
 /// <summary>

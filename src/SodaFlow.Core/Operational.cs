@@ -5,10 +5,12 @@ namespace SodaFlow;
 internal static class OperationalInternal
 {
     internal static Stream<T> UpdatesImpl<T>(LoopedBehavior<T> b) =>
-        TransactionInternal.Apply((trans, _) => b.Updates().Coalesce(trans1: trans, f: static (_, right) => right));
+        TransactionInternal.Apply(
+            code: static (trans, _, b) => b.Updates().Coalesce(trans1: trans, f: static (_, right) => right),
+            state: b);
 
     internal static Stream<T> ValueImpl<T>(LoopedBehavior<T> b) =>
-        TransactionInternal.Apply((trans, _) => b.Value(trans));
+        TransactionInternal.Apply(code: static (trans, _, b) => b.Value(trans), state: b);
 
     internal static Stream<T> DeferImpl<T>(Stream<T> s) => SplitImpl<T, T[]>(s.MapImpl(static a => new[] { a }));
 

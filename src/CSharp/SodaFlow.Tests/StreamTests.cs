@@ -1824,11 +1824,16 @@ public sealed class StreamTests
 
         ((Action)(() =>
         {
-            // ReSharper disable once UnusedVariable
             IWeakListener l = s.Listen(@out.Add);
 
             s.Send(1);
             s.Send(2);
+
+            // The listener must live until the block returns. In a Release build, the JIT reads a
+            // local as dead after its last use. Thus, a collection during the sends can remove the
+            // listener before the block ends. This read is that last use. The collection after
+            // the block removes the listener, as the test asks.
+            GC.KeepAlive(l);
         }))();
 
         Collect();
@@ -1851,23 +1856,27 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                // ReSharper disable once UnusedVariable
                 IWeakListener l = s2.Listen(@out.Add);
 
                 s.Send(1);
                 s.Send(2);
+
+                // See TestListen.
+                GC.KeepAlive(l);
             }))();
 
             Collect();
 
             ((Action)(() =>
             {
-                // ReSharper disable once UnusedVariable
                 IWeakListener l = s2.Listen(@out.Add);
 
                 s.Send(3);
                 s.Send(4);
                 s.Send(5);
+
+                // See TestListen.
+                GC.KeepAlive(l);
             }))();
         }))();
 

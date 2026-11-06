@@ -14,8 +14,8 @@ close.
 BREAKING: sampleLazy returns a LazySample<'T>, and holdLazy, accumLazy, collectLazy, and constantLazy take one, where
 each used a Lazy<'T>, so a lazy expression no longer fits. Only SodaFlow reads a LazySample, which is what lets a
 transaction that fails forget its value; the core notes say why. New: the LazySample module, with defer for one from a
-function, map, and lift2, lift3, and lift4, and the lazySample alias for defer in Shorthand. A function given to any of
-them can run again after a failed transaction, so it must be pure and must not send.
+function, map, and lift2 to lift8, and the lazySample alias for defer in Shorthand. A function given to any of them
+can run again after a failed transaction, so it must be pure and must not send.
 
 BREAKING: ITimerSystem<'T> inherits IDisposable, ITimerSystemImplementation<'T> has a Stop, and Transaction.onStart
 and onStartT return the registration of the action as an IDisposable, so a call that ignored the result now needs an
@@ -24,6 +24,22 @@ real clock starts a thread; before this release nothing could remove either, so 
 one per test, taxed every later transaction for the life of the process. Disposing the timer system removes the hook
 and ends the thread, and after that Time does not move and no alarm fires. A custom ITimerSystemImplementation<'T>
 needs a Stop, which can be empty for a clock a test moves by hand.
+
+BREAKING: Time updates when the clock moves and holds its value otherwise. The hook that runs at the start of each
+transaction sent the clock's reading to Time every time, so a listener on Operational.updates on Time ran once per
+transaction in the process, with the value Time already held whenever the clock had not moved, which a clock a test
+moves by hand never does between transactions. The hook now sends only a reading that differs from the last one, and an
+alarm's event at the time Time holds sends nothing either. That is what a behavior's updates mean everywhere else in the
+library. A listener on the updates of Time fires fewer times, which is the breaking part; a sample of Time, which is how
+a behavior is meant to be read, sees no change, and neither does At. The C# package makes the same change in its 6.0.0,
+and its notes have the figures.
+
+Added: a constructor on SecondsTimerSystem, SystemClockTimerSystem, and UtcClockTimerSystem that takes a TimeSpan
+resolution, as in the C# package. The clock rounds every reading down to a multiple of it, so a reading inside the step
+of the last one leaves Time as it is and the transaction skips the update and its listeners. An alarm fires in the first
+transaction whose rounded reading reaches it, up to one resolution late, and At still fires with the alarm's own time.
+TimeSpan.Zero, which the constructors without a resolution use, reads the clock as it is; a negative resolution raises
+ArgumentOutOfRangeException. The C# notes have the figures.
 
 BREAKING: a stopped TimerSystemImplementationBase<'T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
@@ -34,6 +50,10 @@ should do the same after its Stop.
 The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. The C# notes have the measurement; the F# hook has the same shape.
+
+Transaction.run no longer allocates a closure and a delegate of its own. With SodaFlow.Core 6.0.0, a run that returns
+a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
+the rest.
 
 Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
 takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local

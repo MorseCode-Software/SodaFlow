@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using SodaFlow.Collections;
 
 namespace SodaFlow.Benchmarks;
 
@@ -142,6 +143,116 @@ public class GraphBuildBenchmarks
         return keep;
     }
 
+    /// <summary>Maps of one cell.</summary>
+    [Benchmark(Description = "map of one cell")]
+    public List<Cell<int>> MapOfOneCell()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        List<Cell<int>> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(a.Map(static v => v + 1));
+            }
+        });
+
+        return keep;
+    }
+
+    /// <summary>Accumulators on one sink.</summary>
+    [Benchmark(Description = "accum on one stream")]
+    public List<Cell<int>> AccumOnOneStream()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<Cell<int>> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(sink.Accum(initialState: 0, f: static (v, total) => total + v));
+            }
+        });
+
+        return keep;
+    }
+
+    /// <summary>Merges of the same two sinks.</summary>
+    [Benchmark(Description = "merge of two streams")]
+    public List<Stream<int>> MergeOfTwoStreams()
+    {
+        StreamSink<int> a = Stream.CreateSink<int>();
+        StreamSink<int> b = Stream.CreateSink<int>();
+        List<Stream<int>> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(a.OrElse(b));
+            }
+        });
+
+        return keep;
+    }
+
+    /// <summary>Switches over a constant cell that holds one cell.</summary>
+    [Benchmark(Description = "switch of a constant cell of one cell")]
+    public List<Cell<int>> SwitchOfAConstantCell()
+    {
+        CellSink<int> inner = Cell.CreateSink(1);
+        List<Cell<int>> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(Cell.Constant<Cell<int>>(inner).SwitchC());
+            }
+        });
+
+        return keep;
+    }
+
+    /// <summary>Filter views of one collection of ten items.</summary>
+    /// <remarks>
+    ///     The item types are internal to this assembly, thus the public arm returns
+    ///     the views as objects.
+    /// </remarks>
+    [Benchmark(Description = "filter view of a collection of ten")]
+    public List<object> FilterViewOfACollection()
+    {
+        List<Item<ItemIdentity, ItemState>> items = new(10);
+
+        for (int number = 0; number < 10; number++)
+        {
+            items.Add(
+                new Item<ItemIdentity, ItemState>(
+                    identity: ItemSeed.Identity(number),
+                    state: ItemSeed.State(number)));
+        }
+
+        List<object> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            ReactiveCollection<int, ItemIdentity, ItemState> collection =
+                ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                    keySelector: static identity => identity.Number,
+                    initialItems: items,
+                    Stream.Never<CollectionEdit<int, ItemIdentity, ItemState>>());
+
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(collection.Filter(static (_, state) => state.Score > 5));
+            }
+        });
+
+        return keep;
+    }
+
     /// <summary>Strong listeners on one sink.</summary>
     [Benchmark(Description = "ListenStrong on one stream")]
     public List<IListener> ListenStrongOnOneStream()
@@ -155,6 +266,27 @@ public class GraphBuildBenchmarks
             {
                 keep.Add(
                     sink.ListenStrong(static _ =>
+                    {
+                    }));
+            }
+        });
+
+        return keep;
+    }
+
+    /// <summary>Strong listeners on one cell.</summary>
+    [Benchmark(Description = "ListenStrong on one cell")]
+    public List<IListener> ListenStrongOnOneCell()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        List<IListener> keep = new(Count);
+
+        Transaction.RunVoid(() =>
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                keep.Add(
+                    a.ListenStrong(static _ =>
                     {
                     }));
             }

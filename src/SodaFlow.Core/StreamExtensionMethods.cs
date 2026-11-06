@@ -13,7 +13,10 @@ internal static class StreamExtensionMethodsInternal
         where T2 : Stream<T>
     {
         IReadOnlyList<Stream<T>> v = [.. s];
-        return TransactionInternal.Apply((trans, _) => MergeMany(trans: trans, inputs: v, f: f));
+
+        return TransactionInternal.Apply(
+            code: static (trans, _, state) => MergeMany(trans: trans, inputs: state.V, f: state.F),
+            state: (V: v, F: f));
     }
 
     /// <summary>
@@ -36,7 +39,7 @@ internal static class StreamExtensionMethodsInternal
     ///     into <see cref="MaybeInternal{T}" />, thus a null value and an empty
     ///     slot stay apart.
     /// </remarks>
-    internal static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
+    private static Stream<T> MergeMany<T>(TransactionInternal trans, IReadOnlyList<Stream<T>> inputs, Func<T, T, T> f)
     {
         switch (inputs.Count)
         {
@@ -44,9 +47,18 @@ internal static class StreamExtensionMethodsInternal
                 return new Stream<T>();
             case 1:
                 return inputs[0];
+            case 2:
+                return MergeTwo<T>.Create(trans: trans, first: inputs[0], second: inputs[1], f: f);
         }
 
-        Stream<T> @out = new(inputs[0].KeepListenersAlive);
+        IKeepListenersAlive[] roots = new IKeepListenersAlive[inputs.Count];
+
+        for (int i = 0; i < inputs.Count; i++)
+        {
+            roots[i] = inputs[i].KeepListenersAlive;
+        }
+
+        Stream<T> @out = new(KeepListenersAliveInternal.Combine(roots));
         MaybeInternal<T>[] slots = new MaybeInternal<T>[inputs.Count];
 
         OnceGate gate =
@@ -242,21 +254,38 @@ internal static class StreamExtensionMethodsInternal
         Func<LoopedCell<TDeadline>, Stream<TTime>> at,
         Func<TTime, TDeadline> arm,
         TDeadline disarmed) =>
-        TransactionInternal.Apply((trans, _) =>
-        {
-            CellLoop<TDeadline> deadline = new();
-            Stream<TTime> alarm = at(deadline);
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                Debounce(
+                    trans: trans,
+                    s: state.S,
+                    time: state.Time,
+                    at: state.At,
+                    arm: state.Arm,
+                    disarmed: state.Disarmed),
+            state: (S: s, Time: time, At: at, Arm: arm, Disarmed: disarmed));
 
-            // The value of each firing, for the alarm to read. This holds MaybeInternal and not
-            // the optional type of a caller. The alarm comes after a firing, thus the first value of
-            // this cell never reaches the result.
-            Cell<MaybeInternal<T>> latest = s.MapImpl(MaybeInternal.Some).HoldImpl(MaybeInternal<T>.None);
+    private static Stream<T> Debounce<T, TTime, TDeadline>(
+        TransactionInternal trans,
+        Stream<T> s,
+        LoopedBehavior<TTime> time,
+        Func<LoopedCell<TDeadline>, Stream<TTime>> at,
+        Func<TTime, TDeadline> arm,
+        TDeadline disarmed)
+    {
+        CellLoop<TDeadline> deadline = new();
+        Stream<TTime> alarm = at(deadline);
 
-            Stream<TDeadline> armed = s.SnapshotImpl(b: time, f: (_, now) => arm(now));
-            Stream<TDeadline> cleared = alarm.MapToImpl(disarmed);
+        // The value of each firing, for the alarm to read. This holds MaybeInternal and not
+        // the optional type of a caller. The alarm comes after a firing, thus the first value of
+        // this cell never reaches the result.
+        Cell<MaybeInternal<T>> latest = s.MapImpl(MaybeInternal.Some).HoldImpl(MaybeInternal<T>.None);
 
-            deadline.Loop(trans: trans, c: armed.OrElseImpl(cleared).HoldImpl(disarmed));
+        Stream<TDeadline> armed = s.SnapshotImpl(b: time, f: (_, now) => arm(now));
+        Stream<TDeadline> cleared = alarm.MapToImpl(disarmed);
 
-            return alarm.SnapshotImpl(latest).FilterSomeInternal();
-        });
+        deadline.Loop(trans: trans, c: armed.OrElseImpl(cleared).HoldImpl(disarmed));
+
+        return alarm.SnapshotImpl(latest).FilterSomeInternal();
+    }
 }

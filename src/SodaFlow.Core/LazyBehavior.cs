@@ -3,10 +3,10 @@
 // A behavior whose initial value is a LazySample. The sample phase of the transaction that makes
 // the behavior forces the sample, and so does a read that comes first. The transaction that
 // forces the sample can fail after that, and the value then came from a sample that the failure
-// forgets. Thus, the force registers a last action in that transaction. Its commit releases the
-// sample, and its discard makes the behavior use its initial value again. The next read then
-// forces the sample again and gets the committed value.
-internal sealed class LazyBehavior<T> : Behavior<T>
+// forgets. Thus, the force queues the behavior as a last action of that transaction. Its commit
+// releases the sample, and its discard makes the behavior use its initial value again. The
+// next read then forces the sample again and gets the committed value.
+internal sealed class LazyBehavior<T> : Behavior<T>, ISampleAction
 {
     private LazySample<T>? lazyInitialValue;
 
@@ -18,7 +18,7 @@ internal sealed class LazyBehavior<T> : Behavior<T>
     {
         this.lazyInitialValue = lazyInitialValue;
 
-        trans.Sample(this.EnsureValueIsCreated);
+        trans.Sample(this);
     }
 
     internal override T SampleNoTransaction()
@@ -50,8 +50,30 @@ internal sealed class LazyBehavior<T> : Behavior<T>
             trans.InCallback--;
         }
 
-        trans.Last(commit: this.ReleaseInitialValue, discard: this.UseInitialValueAgain);
+        trans.Last(this);
     }
 
-    private void ReleaseInitialValue() => this.lazyInitialValue = null;
+    void ISampleAction.Sample(TransactionInternal trans) => this.EnsureValueIsCreated();
+
+    // The base commits the update of the transaction, and this releases the sample, which the
+    // behavior does not need after a value. A transaction that forced the sample and also
+    // updated the behavior queued this behavior two times, and the second run finds nothing to
+    // do.
+    private protected override void CommitLast()
+    {
+        base.CommitLast();
+        this.lazyInitialValue = null;
+    }
+
+    // The sample stays, thus the next read forces it again. A behavior that released the sample
+    // in an earlier transaction has a value, and keeps it.
+    private protected override void DiscardLast()
+    {
+        base.DiscardLast();
+
+        if (this.lazyInitialValue != null)
+        {
+            this.UseInitialValueAgain();
+        }
+    }
 }

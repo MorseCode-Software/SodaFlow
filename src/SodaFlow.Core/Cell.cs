@@ -8,8 +8,10 @@ internal static class CellInternal
     internal static Cell<T> ConstantImpl<T>(T value) => new(BehaviorInternal.ConstantImpl(value));
 
     internal static Cell<T> ConstantLazyImpl<T>(LazySample<T> value) =>
-        TransactionInternal.Apply((trans, _) =>
-            new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)));
+        TransactionInternal.Apply(
+            code: static (trans, _, value) =>
+                new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)),
+            state: value);
 
     internal static CellSink<T> CreateSinkImpl<T>(T initialValue) => new(initialValue);
 

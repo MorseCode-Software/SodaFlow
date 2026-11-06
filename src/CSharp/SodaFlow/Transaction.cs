@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
-using SodaFlow.Functional;
 
 namespace SodaFlow;
 
@@ -65,12 +64,7 @@ public static class Transaction
     ///     same result.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void RunVoid(Action action) =>
-        TransactionInternal.RunImpl(() =>
-        {
-            action();
-            return Unit.Value;
-        });
+    public static void RunVoid(Action action) => TransactionInternal.RunVoidImpl(action);
 
     /// <summary>
     ///     Runs the given function in one transaction.
