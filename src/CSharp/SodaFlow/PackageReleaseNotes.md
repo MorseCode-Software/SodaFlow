@@ -19,11 +19,11 @@ transaction in the process, with the value Time already held whenever the clock 
 moves by hand never does between transactions. The hook now sends only a reading that differs from the last one, and an
 alarm's event at the time Time holds sends nothing either. That is what a behavior's updates mean everywhere else in the
 library. A listener on the updates of Time fires fewer times, which is the breaking part; a sample of Time, which is how
-a behavior is meant to be read, sees no change, and neither does At. Measured in the scratch harness on .NET 10, an
-empty transaction with a timer system alive and one listener on the updates, before and after: a clock that does not
-move 680 to 116 ns and 936 to 160 bytes; with four listeners 1,312 to 106 ns and 1,848 to 160 bytes. A clock whose
-reading differs at every transaction, which on this machine both DateTime.UtcNow and the stopwatch of SecondsTimerSystem
-do, moves within noise, since the compare costs about one nanosecond.
+a behavior is meant to be read, sees no change, and neither does At. Measured in the scratch harness on .NET 10 with the
+JIT fully optimizing from the start, an empty transaction with a timer system alive and one listener on the updates,
+before and after: a clock that does not move 513 to 71 ns and 936 to 160 bytes; with four listeners 1,209 to 71 ns and
+1,848 to 160 bytes. A clock whose reading differs at every transaction, which on this machine both DateTime.UtcNow and
+the stopwatch of SecondsTimerSystem do, is within noise, since the compare costs about one nanosecond.
 
 BREAKING: a stopped TimerSystemImplementationBase<T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
