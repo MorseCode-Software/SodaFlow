@@ -235,16 +235,18 @@ through a weak handle to that stream, asks the weak reference that the first att
 link's action holds the stream, so no operator stream allocates a handle. Nothing observable changes. Measured in
 GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a chain of maps 1.14 ms and 442
 KB to 0.68 ms and 362 KB, and 1.12 ms to 0.83 ms; a fan-out of maps 1.02 to 0.89 ms and 586 to 495 KB, and 1.64 to 0.99
-ms; a map with a hold 1.62 to 1.78 ms and 919 to 726 KB, and 2.25 to 1.94 ms, the one arm whose .NET 10 time rose, by
-about seven percent in the full run and in a paired run of that arm alone against main, for a cause this change did not
-find; a map of one cell 1.49 to 1.22 ms and 1,127 to 922 KB, and 2.01 to 1.65 ms; an accum 1.55 to 1.31 ms and 1,288 to
-1,094 KB, and 2.04 to 1.67 ms; a merge of two streams 2.59 to 1.73 ms and 1,522 to 1,420 KB, and 2.55 to 2.26 ms; a lift
-of two cells 3.20 to 2.39 ms and 2,199 to 1,919 KB, and 3.80 to 3.29 ms; a lift of six 8.33 to 7.35 ms and 4,268 to
-3,634 KB, and 10.57 to 8.75 ms; a switch of a constant cell 13.97 to 8.87 ms and 3,455 to 3,171 KB, and 12.49 to 9.41
-ms; ListenStrong on one stream 388 to 330 µs and 555 to 469 KB, and 463 to 441 µs; ListenStrong on one cell 3.79 to 2.88
-ms and 1,875 to 1,693 KB, and 4.17 to 3.56 ms; a filter view of a collection of ten 49.6 to 37.7 ms and 10,133 to 9,200
-KB, and 41.2 to 34.0 ms. In the scratch harness on .NET 10, a full collection over 100,000 live maps takes 25.6 ms to
-19.2 ms, because each map is two objects fewer.
+ms; a map with a hold 1.62 to 1.78 ms and 919 to 726 KB, and 2.25 to 1.94 ms, where the .NET 10 time is inside the noise
+of an arm that spends two thirds of its time in collections: runs of it with memory randomization swing by forty percent
+on the same code, and the scratch harness, which separates the pauses with GC.GetTotalPauseDuration, puts the work
+outside the pauses at 640 to 790 ns per node on the branch against 720 to 890 ns on main; a map of one cell 1.49 to 1.22
+ms and 1,127 to 922 KB, and 2.01 to 1.65 ms; an accum 1.55 to 1.31 ms and 1,288 to 1,094 KB, and 2.04 to 1.67 ms; a
+merge of two streams 2.59 to 1.73 ms and 1,522 to 1,420 KB, and 2.55 to 2.26 ms; a lift of two cells 3.20 to 2.39 ms and
+2,199 to 1,919 KB, and 3.80 to 3.29 ms; a lift of six 8.33 to 7.35 ms and 4,268 to 3,634 KB, and 10.57 to 8.75 ms; a
+switch of a constant cell 13.97 to 8.87 ms and 3,455 to 3,171 KB, and 12.49 to 9.41 ms; ListenStrong on one stream 388
+to 330 µs and 555 to 469 KB, and 463 to 441 µs; ListenStrong on one cell 3.79 to 2.88 ms and 1,875 to 1,693 KB, and 4.17
+to 3.56 ms; a filter view of a collection of ten 49.6 to 37.7 ms and 10,133 to 9,200 KB, and 41.2 to 34.0 ms. In the
+scratch harness on .NET 10, a full collection over 100,000 live maps takes 25.6 ms to 19.2 ms, because each map is two
+objects fewer.
 
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
