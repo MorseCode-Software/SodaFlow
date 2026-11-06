@@ -496,6 +496,51 @@ public sealed class BehaviorTests
         await Assert.That(actual?.Message).IsEqualTo("A dependency cycle was detected.");
     }
 
+    // The selector holds the switch's own output through the loop, which a hold allows. The hold
+    // breaks the dependency in time and not in the links. SwitchS links its outer behavior to a
+    // new node for this; a link to its output node makes this graph a cycle.
+    [Test]
+    public async Task ASwitchWhoseSelectorHoldsItsOwnOutputBuilds()
+    {
+        StreamSink<int> evens = Stream.CreateSink<int>();
+        StreamSink<int> odds = Stream.CreateSink<int>();
+
+        // An even value from the switch selects the odd sink for the next value, and an odd value
+        // selects the even sink.
+        (Cell<Stream<int>> _, Stream<int> @out) =
+            Transaction.Run(() =>
+                Cell.Loop<Stream<int>>()
+                    .WithCaptures(loop =>
+                    {
+                        Stream<int> switched = loop.SwitchS();
+
+                        Cell<Stream<int>> selector =
+                            switched.Map(v => v % 2 == 0 ? (Stream<int>)odds : evens).Hold(evens);
+
+                        return (selector, switched);
+                    }));
+
+        List<int> values = [];
+        IListener l = @out.ListenStrong(values.Add);
+        evens.Send(2);
+        evens.Send(4);
+        odds.Send(3);
+        evens.Send(6);
+        l.Unlisten();
+
+        await Assert.That(values).IsEquivalentTo(expected: [2, 3, 6], ordering: CollectionOrdering.Matching);
+    }
+
+    // The inner stream is the switch's own output, with no hold between them. That is a cycle in
+    // the links. The inner listen links the loop to the output, and the loop links the output to
+    // the loop.
+    [Test]
+    public async Task ASwitchOverItsOwnOutputThrows() =>
+        await Assert.That(static () =>
+                Transaction.Run(static () =>
+                    Stream.Loop<int>().WithoutCaptures(static loop => Cell.Constant<Stream<int>>(loop).SwitchS())))
+            .Throws<DependencyCycleException>();
+
     [Test]
     public async Task TestCellLoopSwitchS()
     {
