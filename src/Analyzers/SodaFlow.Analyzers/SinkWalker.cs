@@ -438,11 +438,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        if (IsAsserted(argument))
-        {
-            return;
-        }
-
+        // A read the analyzer can see is reported whatever the caller asserted: the assertion is
+        // the promise, and the body breaks it.
         if (this.SamplesParameter(callee: callee, parameter: parameter))
         {
             this.region.Report(
@@ -453,6 +450,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     parameter.Name,
                     this.region.PlaceholderName));
 
+            return;
+        }
+
+        if (IsAsserted(argument))
+        {
             return;
         }
 
