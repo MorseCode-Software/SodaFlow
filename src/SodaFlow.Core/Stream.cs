@@ -27,6 +27,22 @@ internal static class StreamInternal
         TransactionInternal trans,
         InputCapture<TInput> capture) =>
         input.Listen(target: gate.Node, trans: trans, action: capture.Arm(gate), suppressEarlierFirings: false);
+
+    /// <summary>
+    ///     Calls an action with a value. The target of a link holds a delegate or
+    ///     an <see cref="IStreamAction{T}" />, and this tests which.
+    /// </summary>
+    internal static void Fire<T>(object action, TransactionInternal trans, T value)
+    {
+        if (action is IStreamAction<T> streamAction)
+        {
+            streamAction.Fire(trans: trans, value: value);
+        }
+        else
+        {
+            ((Action<TransactionInternal, T>)action)(arg1: trans, arg2: value);
+        }
+    }
 }
 
 /// <summary>
@@ -107,13 +123,19 @@ public class Stream<T> : ILastAction
     internal IStrongListener ListenStrongImpl(TransactionInternal trans, Action<T> handler) =>
         this.KeepAlive(this.ListenImpl(trans: trans, handler: handler));
 
+    // The handler goes behind one object, which is the action and the listener. Before, a
+    // closure, a delegate, and a listener object stood between the node and the handler.
     internal IWeakListener ListenImpl(Action<T> handler) =>
-        this.Listen(target: Node<T>.Null, action: (_, a) => handler(a));
+        this.Listen(target: Node<T>.Null, action: new HandlerAction<T>(handler));
 
     // For a caller that holds the transaction, such as a cell's Listen, which makes the value
     // stream and listens to it in one.
     internal IWeakListener ListenImpl(TransactionInternal trans, Action<T> handler) =>
-        this.Listen(target: Node<T>.Null, trans: trans, action: (_, a) => handler(a), suppressEarlierFirings: false);
+        this.Listen(
+            target: Node<T>.Null,
+            trans: trans,
+            action: new HandlerAction<T>(handler),
+            suppressEarlierFirings: false);
 
     internal Stream<T> AttachListenerInternal(IListener listener)
     {
@@ -244,6 +266,67 @@ public class Stream<T> : ILastAction
         Node target,
         TransactionInternal trans,
         Action<TransactionInternal, T> action,
+        bool suppressEarlierFirings) =>
+        new ListenerImplementation(
+            stream: this,
+            action: action,
+            target: this.LinkAndReplay(
+                target: target,
+                trans: trans,
+                action: action,
+                suppressEarlierFirings: suppressEarlierFirings));
+
+    /// <summary>
+    ///     Links an operator's action, which is also the listener that the operator's
+    ///     output attaches, and gives it back with its target set. The static lambda
+    ///     with a state is as for a delegate.
+    /// </summary>
+    internal StreamAction<T> Listen(Node target, StreamAction<T> action) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Stream.Listen(
+                    target: state.Target,
+                    trans: trans,
+                    action: state.Action,
+                    suppressEarlierFirings: false),
+            state: (Stream: this, Target: target, Action: action));
+
+    internal StreamAction<T> Listen(
+        Node target,
+        TransactionInternal trans,
+        StreamAction<T> action,
+        bool suppressEarlierFirings)
+    {
+        action.Linked(
+            source: this,
+            target: this.LinkAndReplay(
+                target: target,
+                trans: trans,
+                action: action,
+                suppressEarlierFirings: suppressEarlierFirings));
+
+        return action;
+    }
+
+    /// <summary>
+    ///     The same for an object that is its own strong holder and is not attached.
+    ///     A behavior is one: the node reaches it through the target only.
+    /// </summary>
+    internal Node<T>.Target Listen(
+        Node target,
+        TransactionInternal trans,
+        IStreamAction<T> action,
+        bool suppressEarlierFirings) =>
+        this.LinkAndReplay(
+            target: target,
+            trans: trans,
+            action: action,
+            suppressEarlierFirings: suppressEarlierFirings);
+
+    private Node<T>.Target LinkAndReplay(
+        Node target,
+        TransactionInternal trans,
+        object action,
         bool suppressEarlierFirings)
     {
         Node<T>.Target nodeTarget = this.Node.Link(trans: trans, action: action, target: target);
@@ -270,7 +353,7 @@ public class Stream<T> : ILastAction
                         {
                             // A transaction must not change the internal parts of
                             // SodaFlow.
-                            action(arg1: trans2, arg2: a);
+                            StreamInternal.Fire(action: action, trans: trans2, value: a);
                         }
                         finally
                         {
@@ -280,14 +363,15 @@ public class Stream<T> : ILastAction
                 });
         }
 
-        return new ListenerImplementation(stream: this, action: action, target: nodeTarget);
+        return nodeTarget;
     }
 
     internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
-        IListener l = this.Listen(target: @out.Node, action: (trans2, a) => @out.Send(trans: trans2, a: f(a)));
-        return @out.UnsafeAttachListener(l);
+
+        return @out.UnsafeAttachListener(
+            this.Listen(target: @out.Node, action: new MapAction<TResult>(@out: @out, f: f)));
     }
 
     internal Stream<TResult> MapToImpl<TResult>(TResult value) => this.MapImpl(_ => value);
@@ -317,12 +401,13 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) => @out.Send(trans: trans2, a: f(arg1: a, arg2: b.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, TResult>(
+                    @out: @out,
+                    b1: b,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
@@ -338,15 +423,14 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(arg1: a, arg2: b1.SampleNoTransaction(), arg3: b2.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
@@ -364,19 +448,15 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
@@ -396,20 +476,16 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction(),
-                            arg5: b4.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, T4, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
@@ -437,21 +513,17 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction(),
-                            arg5: b4.SampleNoTransaction(),
-                            arg6: b5.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, T4, T5, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
@@ -482,22 +554,18 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction(),
-                            arg5: b4.SampleNoTransaction(),
-                            arg6: b5.SampleNoTransaction(),
-                            arg7: b6.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, T4, T5, T6, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -531,23 +599,19 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction(),
-                            arg5: b4.SampleNoTransaction(),
-                            arg6: b5.SampleNoTransaction(),
-                            arg7: b6.SampleNoTransaction(),
-                            arg8: b7.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, T4, T5, T6, T7, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    b7: b7,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -584,24 +648,20 @@ public class Stream<T> : ILastAction
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             this.Listen(
                 target: @out.Node,
-                action: (trans2, a) =>
-                    @out.Send(
-                        trans: trans2,
-                        a: f(
-                            arg1: a,
-                            arg2: b1.SampleNoTransaction(),
-                            arg3: b2.SampleNoTransaction(),
-                            arg4: b3.SampleNoTransaction(),
-                            arg5: b4.SampleNoTransaction(),
-                            arg6: b5.SampleNoTransaction(),
-                            arg7: b6.SampleNoTransaction(),
-                            arg8: b7.SampleNoTransaction(),
-                            arg9: b8.SampleNoTransaction())));
-
-        return @out.UnsafeAttachListener(l);
+                action: new SnapshotAction<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+                    @out: @out,
+                    b1: b1,
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    b7: b7,
+                    b8: b8,
+                    f: f)));
     }
 
     internal Stream<TResult> SnapshotLatestImpl<TResult>(Cell<TResult> c) => this.SnapshotLatestImpl(c.BehaviorImpl);
@@ -1295,73 +1355,12 @@ public class Stream<T> : ILastAction
         Func<T, TValues, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
+        SnapshotLatestAction<TValues, TResult> action = new(@out: @out, take: take, f: f);
+        OnceGate gate = new(node: @out.Node, action: action.Send);
 
-        // The firings of this stream in one transaction, and the id of that transaction. A
-        // transaction that fails between a firing and the output leaves the firing here, and an
-        // update of the behaviors alone then sent it. Thus, a firing from a different transaction
-        // does not count. See CaptureSlot, which does the same for one value.
-        List<T> pending = [];
-        long pendingOwner = 0;
-
-        OnceGate gate =
-            new(
-                node: @out.Node,
-                action: trans2 =>
-                {
-                    TValues values = take(trans2);
-
-                    if (pendingOwner != trans2.Id)
-                    {
-                        pending.Clear();
-                        return;
-                    }
-
-                    // The state is clear before f runs. Thus, after an exception from f, the
-                    // next transaction does not send a firing of this transaction.
-                    switch (pending.Count)
-                    {
-                        case 0:
-                            return;
-                        case 1:
-                        {
-                            T a = pending[0];
-                            pending.Clear();
-                            @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
-                            return;
-                        }
-                        default:
-                        {
-                            T[] firings = [.. pending];
-                            pending.Clear();
-
-                            foreach (T a in firings)
-                            {
-                                @out.Send(trans: trans2, a: f(arg1: a, arg2: values));
-                            }
-
-                            return;
-                        }
-                    }
-                });
-
-        IListener l =
-            this.Listen(
-                target: gate.Node,
-                trans: trans,
-                action: (trans2, a) =>
-                {
-                    if (pendingOwner != trans2.Id)
-                    {
-                        pending.Clear();
-                        pendingOwner = trans2.Id;
-                    }
-
-                    pending.Add(a);
-                    gate.Arrived(trans2);
-                },
-                suppressEarlierFirings: false);
-
-        Stream<TResult> result = @out.UnsafeAttachListener(l);
+        Stream<TResult> result =
+            @out.UnsafeAttachListener(
+                this.Listen(target: gate.Node, trans: trans, action: action.Arm(gate), suppressEarlierFirings: false));
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
         foreach (IListener capture in captures(gate))
@@ -2016,27 +2015,21 @@ public class Stream<T> : ILastAction
     internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
     {
         Stream<T> @out = new(this.KeepListenersAlive);
-        Action<TransactionInternal, T> h = CoalesceHandler.Create(f: f, @out: @out);
-        IListener l = this.Listen(target: @out.Node, trans: trans1, action: h, suppressEarlierFirings: false);
-        return @out.UnsafeAttachListener(l);
+
+        return @out.UnsafeAttachListener(
+            this.Listen(
+                target: @out.Node,
+                trans: trans1,
+                action: new CoalesceAction<T>(f: f, @out: @out),
+                suppressEarlierFirings: false));
     }
 
     internal Stream<T> FilterImpl(Func<T, bool> predicate)
     {
         Stream<T> @out = new(this.KeepListenersAlive);
 
-        IListener l =
-            this.Listen(
-                target: @out.Node,
-                action: (trans2, a) =>
-                {
-                    if (predicate(a))
-                    {
-                        @out.Send(trans: trans2, a: a);
-                    }
-                });
-
-        return @out.UnsafeAttachListener(l);
+        return @out.UnsafeAttachListener(
+            this.Listen(target: @out.Node, action: new FilterAction(@out: @out, predicate: predicate)));
     }
 
     internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
@@ -2155,38 +2148,15 @@ public class Stream<T> : ILastAction
         // first commit. A sample that a failed transaction forced forgets its value by itself.
         trans1.Sample(state);
 
-        IListener l = this.Listen(target: @out.Node, trans: trans1, action: state.Fire, suppressEarlierFirings: false);
-        return @out.UnsafeAttachListener(l);
+        return @out.UnsafeAttachListener(
+            this.Listen(target: @out.Node, trans: trans1, action: state, suppressEarlierFirings: false));
     }
 
     internal Stream<T> OnceImpl()
     {
         Stream<T> @out = new(this.KeepListenersAlive);
-        IWeakListener? listener = null;
 
-        IWeakListener listenerToReturn =
-            this.Listen(
-                target: @out.Node,
-                action: (trans, a) =>
-                {
-                    // The first firing removes the listener and sets null. Listen can send the
-                    // earlier firings of a transaction to this handler in one loop, and Unlisten
-                    // does not stop that loop. Thus, this test stops the second value.
-                    // ReSharper disable AccessToModifiedClosure
-                    if (listener == null)
-                    {
-                        return;
-                    }
-
-                    @out.Send(trans: trans, a: a);
-                    listener.Unlisten();
-                    listener = null;
-                    // ReSharper restore AccessToModifiedClosure
-                });
-
-        listener = listenerToReturn;
-
-        return @out.UnsafeAttachListener(listenerToReturn);
+        return @out.UnsafeAttachListener(this.Listen(target: @out.Node, action: new OnceAction(@out)));
     }
 
     // This method is not thread-safe. One of these two conditions must be applicable:
@@ -2239,6 +2209,357 @@ public class Stream<T> : ILastAction
         }
     }
 
+    private sealed class MapAction<TResult>(in Stream<TResult> @out, in Func<T, TResult> f) : StreamAction<T>
+    {
+        private readonly Func<T, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(trans: trans, a: this.f(value));
+    }
+
+    private sealed class SnapshotAction<T1, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Func<T, T1, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Func<T, T1, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Func<T, T1, T2, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Func<T, T1, T2, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Func<T, T1, T2, T3, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Func<T, T1, T2, T3, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, T4, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Behavior<T4> b4,
+        in Func<T, T1, T2, T3, T4, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Behavior<T4> b4 = b4;
+        private readonly Func<T, T1, T2, T3, T4, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction(),
+                    arg5: this.b4.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, T4, T5, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Behavior<T4> b4,
+        in Behavior<T5> b5,
+        in Func<T, T1, T2, T3, T4, T5, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Behavior<T4> b4 = b4;
+        private readonly Behavior<T5> b5 = b5;
+        private readonly Func<T, T1, T2, T3, T4, T5, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction(),
+                    arg5: this.b4.SampleNoTransaction(),
+                    arg6: this.b5.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, T4, T5, T6, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Behavior<T4> b4,
+        in Behavior<T5> b5,
+        in Behavior<T6> b6,
+        in Func<T, T1, T2, T3, T4, T5, T6, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Behavior<T4> b4 = b4;
+        private readonly Behavior<T5> b5 = b5;
+        private readonly Behavior<T6> b6 = b6;
+        private readonly Func<T, T1, T2, T3, T4, T5, T6, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction(),
+                    arg5: this.b4.SampleNoTransaction(),
+                    arg6: this.b5.SampleNoTransaction(),
+                    arg7: this.b6.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Behavior<T4> b4,
+        in Behavior<T5> b5,
+        in Behavior<T6> b6,
+        in Behavior<T7> b7,
+        in Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Behavior<T4> b4 = b4;
+        private readonly Behavior<T5> b5 = b5;
+        private readonly Behavior<T6> b6 = b6;
+        private readonly Behavior<T7> b7 = b7;
+        private readonly Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction(),
+                    arg5: this.b4.SampleNoTransaction(),
+                    arg6: this.b5.SampleNoTransaction(),
+                    arg7: this.b6.SampleNoTransaction(),
+                    arg8: this.b7.SampleNoTransaction()));
+    }
+
+    private sealed class SnapshotAction<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        in Stream<TResult> @out,
+        in Behavior<T1> b1,
+        in Behavior<T2> b2,
+        in Behavior<T3> b3,
+        in Behavior<T4> b4,
+        in Behavior<T5> b5,
+        in Behavior<T6> b6,
+        in Behavior<T7> b7,
+        in Behavior<T8> b8,
+        in Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Behavior<T1> b1 = b1;
+        private readonly Behavior<T2> b2 = b2;
+        private readonly Behavior<T3> b3 = b3;
+        private readonly Behavior<T4> b4 = b4;
+        private readonly Behavior<T5> b5 = b5;
+        private readonly Behavior<T6> b6 = b6;
+        private readonly Behavior<T7> b7 = b7;
+        private readonly Behavior<T8> b8 = b8;
+        private readonly Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.@out.Send(
+                trans: trans,
+                a: this.f(
+                    arg1: value,
+                    arg2: this.b1.SampleNoTransaction(),
+                    arg3: this.b2.SampleNoTransaction(),
+                    arg4: this.b3.SampleNoTransaction(),
+                    arg5: this.b4.SampleNoTransaction(),
+                    arg6: this.b5.SampleNoTransaction(),
+                    arg7: this.b6.SampleNoTransaction(),
+                    arg8: this.b7.SampleNoTransaction(),
+                    arg9: this.b8.SampleNoTransaction()));
+    }
+
+    // The firings of this stream in one transaction, and the id of that transaction. A
+    // transaction that fails between a firing and the output leaves the firings here, and an
+    // update of the behaviors alone then sent them. Thus, a firing from a different transaction
+    // does not count. See CaptureSlot, which does the same for one value.
+    private sealed class SnapshotLatestAction<TValues, TResult>(
+        in Stream<TResult> @out,
+        in Func<TransactionInternal, TValues> take,
+        in Func<T, TValues, TResult> f)
+        : StreamAction<T>
+    {
+        private readonly Func<T, TValues, TResult> f = f;
+        private readonly Stream<TResult> @out = @out;
+        private readonly List<T> pending = [];
+        private readonly Func<TransactionInternal, TValues> take = take;
+        private OnceGate? gate;
+        private long pendingOwner;
+
+        // The gate holds this action's Send, thus the gate exists after this object, and arrives
+        // here before the input links.
+        internal SnapshotLatestAction<TValues, TResult> Arm(OnceGate gate)
+        {
+            this.gate = gate;
+
+            return this;
+        }
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            if (this.pendingOwner != trans.Id)
+            {
+                this.pending.Clear();
+                this.pendingOwner = trans.Id;
+            }
+
+            this.pending.Add(value);
+
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Arm set the gate before the input could fire.
+            this.gate!.Arrived(trans);
+        }
+
+        internal void Send(TransactionInternal trans)
+        {
+            TValues values = this.take(trans);
+
+            if (this.pendingOwner != trans.Id)
+            {
+                this.pending.Clear();
+                return;
+            }
+
+            // The state is clear before f runs. Thus, after an exception from f, the next
+            // transaction does not send a firing of this transaction.
+            switch (this.pending.Count)
+            {
+                case 0:
+                    return;
+                case 1:
+                {
+                    T a = this.pending[0];
+                    this.pending.Clear();
+                    this.@out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
+                    return;
+                }
+                default:
+                {
+                    T[] firings = [.. this.pending];
+                    this.pending.Clear();
+
+                    foreach (T a in firings)
+                    {
+                        this.@out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
+                    }
+
+                    return;
+                }
+            }
+        }
+    }
+
+    private sealed class FilterAction(in Stream<T> @out, in Func<T, bool> predicate) : StreamAction<T>
+    {
+        private readonly Stream<T> @out = @out;
+        private readonly Func<T, bool> predicate = predicate;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            if (this.predicate(value))
+            {
+                this.@out.Send(trans: trans, a: value);
+            }
+        }
+    }
+
+    // The first firing sends and stops the link. Listen can send the earlier firings of a
+    // transaction to this action in one loop, and Unlisten does not stop that loop. Thus, the
+    // flag stops the second value.
+    private sealed class OnceAction(in Stream<T> @out) : StreamAction<T>
+    {
+        private readonly Stream<T> @out = @out;
+        private bool fired;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            if (this.fired)
+            {
+                return;
+            }
+
+            this.fired = true;
+            this.@out.Send(trans: trans, a: value);
+            this.Unlisten();
+        }
+    }
+
     private sealed class SendEntry(Stream<T> stream, Node<T>.Target target, T value)
         : TransactionInternal.Entry(target.Node)
     {
@@ -2262,12 +2583,12 @@ public class Stream<T> : ILastAction
             {
                 // A transaction must not change the internal parts of SodaFlow.
                 // Read the weak reference.
-                if (this.target.Action.TryGetTarget(out Action<TransactionInternal, T>? action))
+                if (this.target.Action.TryGetTarget(out object? action))
                 {
                     // The garbage collector did not remove the action, thus call it.
                     if (this.target.IsActivated)
                     {
-                        action(arg1: trans, arg2: this.value);
+                        StreamInternal.Fire(action: action, trans: trans, value: this.value);
                     }
                 }
                 else
@@ -2344,6 +2665,7 @@ public class Stream<T> : ILastAction
             this.listener.GetListenerWithWeakReference();
     }
 
+    // The listener around a delegate. An operator's action is its own listener. See StreamAction.
     private sealed class ListenerImplementation(
         in Stream<T> stream,
         in Action<TransactionInternal, T> action,

@@ -1,4 +1,6 @@
-﻿namespace SodaFlow;
+﻿using System;
+
+namespace SodaFlow;
 
 // A listener on the value of a behavior. It gives the current value in the transaction of the
 // listen, and then each update, to Consume. It calls Consume one time in a transaction, with the
@@ -17,10 +19,13 @@
 // listen in a loop reads the behavior after the loop has its definition, for the same cause. A
 // transaction that fails before the send runs discards the send and clears the value. An
 // arrival queues the send only when no value waits.
-internal abstract class ValueListener<T> : IListener
+internal abstract class ValueListener<T> : StreamAction<T>
 {
+    // The action of the link that gives the consumer its rank. The node of the arrivals never
+    // sends, thus nothing calls it.
+    private static readonly Action<TransactionInternal, T> NoAction = static (_, _) => { };
+
     private readonly Node<T> arrivals = new();
-    private readonly IListener listener;
     private readonly Node target;
     private T? accum;
     private bool accumValid;
@@ -31,29 +36,20 @@ internal abstract class ValueListener<T> : IListener
         this.target = target;
 
         // The link gives the node of the consumer its rank. The send does not use it.
-        this.arrivals.Link(
-            trans: trans,
-            action: static (_, _) =>
-            {
-            },
-            target: target);
+        this.arrivals.Link(trans: trans, action: NoAction, target: target);
 
         trans.Prioritized(new InitialEntry(this));
 
-        this.listener =
-            source.Updates()
-                .Listen(target: this.arrivals, trans: trans, action: this.Arrive, suppressEarlierFirings: false);
+        source.Updates().Listen(target: this.arrivals, trans: trans, action: this, suppressEarlierFirings: false);
     }
 
     protected Behavior<T> Source { get; }
 
-    public void Unlisten() => this.listener.Unlisten();
-
-    public IListenerWithWeakReference GetListenerWithWeakReference() => this.listener.GetListenerWithWeakReference();
-
     protected abstract void Consume(TransactionInternal trans, T value);
 
-    private void Arrive(TransactionInternal trans, T value)
+    /// <inheritdoc />
+    // The arrival of one update, or of the initial value.
+    public override void Fire(TransactionInternal trans, T value)
     {
         this.accum = value;
 
@@ -84,7 +80,7 @@ internal abstract class ValueListener<T> : IListener
         private readonly ValueListener<T> listener = listener;
 
         public override void Execute(TransactionInternal trans) =>
-            this.listener.Arrive(trans: trans, value: this.listener.Source.SampleNoTransaction());
+            this.listener.Fire(trans: trans, value: this.listener.Source.SampleNoTransaction());
     }
 
     private sealed class SendEntry(in ValueListener<T> listener) : TransactionInternal.Entry(listener.target)

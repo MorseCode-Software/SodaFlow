@@ -19,20 +19,24 @@ internal static class OperationalInternal
     {
         Stream<T> @out = new(s.KeepListenersAlive);
 
-        IListener l1 =
-            s.Listen(
-                target: new Node<T>(),
-                action: (trans, aa) =>
-                {
-                    int childIx = 0;
+        return @out.UnsafeAttachListener(
+            s.Listen(target: new Node<T>(), action: new SplitAction<T, TCollection>(@out)));
+    }
 
-                    foreach (T a in aa)
-                    {
-                        trans.Split(index: childIx, action: trans1 => @out.Send(trans: trans1, a: a));
-                        childIx++;
-                    }
-                });
+    private sealed class SplitAction<T, TCollection>(in Stream<T> @out) : StreamAction<TCollection>
+        where TCollection : IEnumerable<T>
+    {
+        private readonly Stream<T> @out = @out;
 
-        return @out.UnsafeAttachListener(l1);
+        public override void Fire(TransactionInternal trans, TCollection value)
+        {
+            int childIx = 0;
+
+            foreach (T a in value)
+            {
+                trans.Split(index: childIx, action: trans1 => this.@out.Send(trans: trans1, a: a));
+                childIx++;
+            }
+        }
     }
 }

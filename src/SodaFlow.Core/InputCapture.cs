@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SodaFlow;
+﻿namespace SodaFlow;
 
 /// <summary>
 ///     One input of an operation that puts the firings of more than one input
@@ -11,27 +9,28 @@ namespace SodaFlow;
 ///     Before, each input had a lambda that wrote its slot, and Capture wrapped
 ///     that lambda in a second one that called the gate. That was two closures
 ///     and two delegates for each input, and the slot sat in the closure of the
-///     operation. This object holds the slot and the gate, and its Set method is
-///     the action. Thus, each input costs one object and one delegate. The step
+///     operation. This object holds the slot and the gate, and it is the action
+///     and the listener of its link. Thus, each input costs one object. The step
 ///     that puts the inputs together reads the slot through one of the Take
 ///     methods.
 /// </remarks>
 /// <typeparam name="T">The type of the captured value.</typeparam>
-internal sealed class InputCapture<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+internal sealed class InputCapture<T> : StreamAction<T>
 {
     private OnceGate? gate;
     private CaptureSlot<T> slot;
 
     /// <summary>
-    ///     Gives the action that fills the slot and calls <paramref name="gate" />.
-    ///     An operation makes its gate after its inputs, thus the gate arrives here
-    ///     and not in the constructor.
+    ///     Gives this action, with <paramref name="gate" /> as the gate it calls. An
+    ///     operation makes its gate after its inputs, thus the gate arrives here and
+    ///     not in the constructor.
     /// </summary>
-    internal Action<TransactionInternal, T> Arm(OnceGate gate)
+    internal InputCapture<T> Arm(OnceGate gate)
     {
         this.gate = gate;
 
-        return this.Set;
+        return this;
     }
 
     /// <summary>
@@ -48,7 +47,7 @@ internal sealed class InputCapture<T>
     /// </summary>
     internal MaybeInternal<T> Take(TransactionInternal trans) => this.slot.Take(trans);
 
-    private void Set(TransactionInternal trans, T value)
+    public override void Fire(TransactionInternal trans, T value)
     {
         this.slot.Set(trans: trans, value: value);
 

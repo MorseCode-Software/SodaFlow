@@ -25,16 +25,13 @@ internal static class BehaviorInternal
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
-public class Behavior<T> : ISampleSource<T>, ILastAction
+public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
 {
     // A constant behavior has no stream until a caller asks for its updates. Most constants
     // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
     // does. The field is volatile for the same cause: a reader must not see the reference
     // before the state of the stream. See the comment on that field.
     private volatile Stream<T>? stream;
-
-    // ReSharper disable once NotAccessedField.Local - Used to keep object from being garbage collected
-    private readonly IListener? streamListener;
 
     private T valueProperty;
     private MaybeInternal<T> valueUpdate;
@@ -48,19 +45,19 @@ public class Behavior<T> : ISampleSource<T>, ILastAction
         this.UsingInitialValue = true;
 
         // SodaFlow gives this a value before Listen, because Listen can send the firings that
-        // this transaction made in this transaction. Thus, the handler below can run before the constructor
+        // this transaction made in this transaction. Thus, the action below can run before the constructor
         // returns.
-        this.streamListener =
-            TransactionInternal.Apply(
-                code: static (trans1, _, behavior) => behavior.ListenToStream(trans1),
-                state: this);
+        TransactionInternal.Apply(code: static (trans1, _, behavior) => behavior.ListenToStream(trans1), state: this);
     }
 
-    // The handler is a method and not a lambda, thus the Apply above captures nothing. The method
-    // group is one delegate for each behavior, as the lambda that captured this was.
-    private IListener ListenToStream(TransactionInternal trans1) =>
+    // The behavior is the action of its link. The node holds it through the weak reference of
+    // the target. Thus, nothing here keeps the link, and the behavior lives while its owner
+    // holds it. Before, a listener object held a delegate to a method here.
+    private Node<T>.Target ListenToStream(TransactionInternal trans1) =>
         // ReSharper disable once NullableWarningSuppressionIsUsed - The constructor sets the stream before this call.
-        this.stream!.Listen(target: Node<T>.Null, trans: trans1, action: this.OnFiring, suppressEarlierFirings: false);
+        this.stream!.Listen(target: Node<T>.Null, trans: trans1, action: this, suppressEarlierFirings: false);
+
+    void IStreamAction<T>.Fire(TransactionInternal trans, T value) => this.OnFiring(trans2: trans, a: value);
 
     private void OnFiring(TransactionInternal trans2, T a)
     {

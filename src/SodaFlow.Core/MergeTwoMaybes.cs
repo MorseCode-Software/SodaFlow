@@ -57,16 +57,31 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult>
                 f: f);
 
         IListener l1 =
-            first.Listen(target: merge.gate.Node, trans: trans, action: merge.SetLeft, suppressEarlierFirings: false);
+            first.Listen(target: merge.gate.Node, trans: trans, action: new Left(merge), suppressEarlierFirings: false);
 
         IListener l2 =
             second.Listen(
                 target: merge.gate.Node,
                 trans: trans,
-                action: merge.SetRight,
+                action: new Right(merge),
                 suppressEarlierFirings: false);
 
         return merge.@out.UnsafeAttachListener(l1).UnsafeAttachListener(l2);
+    }
+
+    // The actions of the two inputs. See MergeTwo.Input.
+    private sealed class Left(in MergeTwoMaybes<T1, T2, TResult> merge) : StreamAction<T1>
+    {
+        private readonly MergeTwoMaybes<T1, T2, TResult> merge = merge;
+
+        public override void Fire(TransactionInternal trans, T1 value) => this.merge.SetLeft(trans: trans, a: value);
+    }
+
+    private sealed class Right(in MergeTwoMaybes<T1, T2, TResult> merge) : StreamAction<T2>
+    {
+        private readonly MergeTwoMaybes<T1, T2, TResult> merge = merge;
+
+        public override void Fire(TransactionInternal trans, T2 value) => this.merge.SetRight(trans: trans, a: value);
     }
 
     private void SetLeft(TransactionInternal trans, T1 a)

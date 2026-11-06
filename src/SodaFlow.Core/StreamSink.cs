@@ -13,7 +13,7 @@ namespace SodaFlow;
 // ReSharper disable once InheritdocConsiderUsage
 public class StreamSink<T> : Stream<T>
 {
-    private readonly Action<TransactionInternal, T> coalescer;
+    private readonly CoalesceAction<T> coalescer;
 
     internal StreamSink()
         : this(static (_, _) =>
@@ -22,7 +22,7 @@ public class StreamSink<T> : Stream<T>
     {
     }
 
-    internal StreamSink(Func<T, T, T> coalesce) => this.coalescer = CoalesceHandler.Create(f: coalesce, @out: this);
+    internal StreamSink(Func<T, T, T> coalesce) => this.coalescer = new CoalesceAction<T>(f: coalesce, @out: this);
 
     // A static lambda with a state, and an entry with fields: no closure and no delegate for a
     // send from outside a transaction. The timer system's start hook sends one time in each
@@ -47,6 +47,7 @@ public class StreamSink<T> : Stream<T>
         private readonly StreamSink<T> sink = sink;
         private readonly T value = value;
 
-        internal override void Run(TransactionInternal trans) => this.sink.coalescer(arg1: trans, arg2: this.value);
+        internal override void Run(TransactionInternal trans) =>
+            this.sink.coalescer.Fire(trans: trans, value: this.value);
     }
 }

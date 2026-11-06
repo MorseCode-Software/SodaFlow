@@ -283,7 +283,7 @@ internal class Node<T> : Node
     ///     A tuple. It tells you if the node rank changed, and it contains the
     ///     <see cref="Target" /> object for this link.
     /// </returns>
-    internal Target Link(TransactionInternal trans, Action<TransactionInternal, T> action, Node target)
+    internal Target Link(TransactionInternal trans, object action, Node target)
     {
         Target t = new(action: action, source: this, node: target, isActivated: trans.ActivatedTargets);
 
@@ -395,14 +395,17 @@ internal class Node<T> : Node
     // node, thus it can remove itself from that node. It holds the action through a weak
     // reference only, thus it does not keep the listener or the stream alive. Before, an
     // object of its own held the source node and the target for that, one for each link.
+    //
+    // The action is an IStreamAction<T> or an Action<TransactionInternal, T>, and the code that
+    // calls it tests the type. See IStreamAction<T>.
     public new sealed class Target(
-        in Action<TransactionInternal, T> action,
+        in object action,
         in Node<T> source,
         in Node node,
         in bool isActivated)
         : Node.Target(node: node, isActivated: isActivated), IListenerWithWeakReference
     {
-        public readonly WeakReference<Action<TransactionInternal, T>> Action = new(action);
+        public readonly WeakReference<object> Action = new(action);
 
         private readonly Node<T> source = source;
 

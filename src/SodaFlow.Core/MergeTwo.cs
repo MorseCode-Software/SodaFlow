@@ -49,16 +49,40 @@ internal sealed class MergeTwo<T>
                 f: f);
 
         IListener l1 =
-            first.Listen(target: merge.gate.Node, trans: trans, action: merge.SetLeft, suppressEarlierFirings: false);
+            first.Listen(
+                target: merge.gate.Node,
+                trans: trans,
+                action: new Input(merge: merge, left: true),
+                suppressEarlierFirings: false);
 
         IListener l2 =
             second.Listen(
                 target: merge.gate.Node,
                 trans: trans,
-                action: merge.SetRight,
+                action: new Input(merge: merge, left: false),
                 suppressEarlierFirings: false);
 
         return merge.@out.UnsafeAttachListener(l1).UnsafeAttachListener(l2);
+    }
+
+    // The action of one input: one object for each side. Before, a delegate to a method here
+    // was one delegate and a listener object for each side.
+    private sealed class Input(in MergeTwo<T> merge, in bool left) : StreamAction<T>
+    {
+        private readonly bool left = left;
+        private readonly MergeTwo<T> merge = merge;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            if (this.left)
+            {
+                this.merge.SetLeft(trans: trans, a: value);
+            }
+            else
+            {
+                this.merge.SetRight(trans: trans, a: value);
+            }
+        }
     }
 
     private void SetLeft(TransactionInternal trans, T a)

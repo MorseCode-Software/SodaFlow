@@ -15,6 +15,10 @@ namespace SodaFlow.Tests.Internal;
 /// </summary>
 public sealed class PrioritizedTests
 {
+    // The target of a link holds a delegate or an action as an object. The tests link with a delegate that
+    // does nothing.
+    private static readonly Action<TransactionInternal, int> NoAction = static (_, _) => { };
+
     [Test]
     public async Task AnEntryThatRaisesTheRankOfItsOwnNodeRunsOnce()
     {
@@ -35,7 +39,7 @@ public sealed class PrioritizedTests
                 action: t =>
                 {
                     runs++;
-                    high.Link(trans: t, action: static (_, _) => { }, target: own);
+                    high.Link(trans: t, action: NoAction, target: own);
                 });
 
             return UnitInternal.Value;
@@ -70,7 +74,7 @@ public sealed class PrioritizedTests
 
         TransactionInternal.Apply((trans, _) =>
         {
-            Chain(trans: trans, length: 3).Link(trans: trans, action: static (_, _) => { }, target: own);
+            Chain(trans: trans, length: 3).Link(trans: trans, action: NoAction, target: own);
             trans.Prioritized(node: new Node<int>(), action: static _ => { });
             return UnitInternal.Value;
         });
@@ -157,7 +161,7 @@ public sealed class PrioritizedTests
         for (int i = 0; i < length; i++)
         {
             Node<int> next = new();
-            node.Link(trans: trans, action: static (_, _) => { }, target: next);
+            node.Link(trans: trans, action: NoAction, target: next);
             node = next;
         }
 
