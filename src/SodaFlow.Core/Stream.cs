@@ -310,9 +310,10 @@ public class Stream<T> : ILastAction
 
     /// <summary>
     ///     The same for an object that is its own strong holder and is not attached.
-    ///     A behavior is one: the node reaches it through the target only.
+    ///     A behavior is one: the node reaches it through the target only, and the
+    ///     caller keeps nothing, thus this gives nothing back.
     /// </summary>
-    internal Node<T>.Target Listen(
+    internal void Listen(
         Node target,
         TransactionInternal trans,
         IStreamAction<T> action,

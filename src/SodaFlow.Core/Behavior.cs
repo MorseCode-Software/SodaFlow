@@ -53,9 +53,14 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
     // The behavior is the action of its link. The node holds it through the weak reference of
     // the target. Thus, nothing here keeps the link, and the behavior lives while its owner
     // holds it. Before, a listener object held a delegate to a method here.
-    private Node<T>.Target ListenToStream(TransactionInternal trans1) =>
+    // The unit is for Apply, which gives a result, as RunVoid does.
+    private UnitInternal ListenToStream(TransactionInternal trans1)
+    {
         // ReSharper disable once NullableWarningSuppressionIsUsed - The constructor sets the stream before this call.
         this.stream!.Listen(target: Node<T>.Null, trans: trans1, action: this, suppressEarlierFirings: false);
+
+        return UnitInternal.Value;
+    }
 
     void IStreamAction<T>.Fire(TransactionInternal trans, T value) => this.OnFiring(trans2: trans, a: value);
 
