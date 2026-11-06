@@ -3,8 +3,8 @@
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, at the end of the transaction that asked for it, so a
 transaction that fails can forget the value the sample took. A Lazy<T> keeps the first value it gives, and that was
-the defect below. Map transforms a LazySample, Lift combines two, three, or four, and LazySample.Defer makes one from
-a function, for an initial value that is not a sample of the graph. A function given to any of them runs once for
+the defect below. Map transforms a LazySample, Lift combines two to eight, and LazySample.Defer makes one from a
+function, for an initial value that is not a sample of the graph. A function given to any of them runs once for
 each value, however many cells start from the sample, and runs again after a transaction that failed, so it must be
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.

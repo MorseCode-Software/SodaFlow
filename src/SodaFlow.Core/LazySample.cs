@@ -9,32 +9,120 @@ internal static class LazySampleInternal
         f == null ? throw new ArgumentNullException(nameof(f)) : new LazySample<T>(_ => f());
 
     internal static LazySample<TResult> LiftImpl<T1, T2, TResult>(
-        LazySample<T1> a,
-        LazySample<T2> b,
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
         Func<T1, T2, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(trans => f(arg1: a.Force(trans), arg2: b.Force(trans)));
+            : new LazySample<TResult>(trans => f(arg1: sample1.Force(trans), arg2: sample2.Force(trans)));
 
     internal static LazySample<TResult> LiftImpl<T1, T2, T3, TResult>(
-        LazySample<T1> a,
-        LazySample<T2> b,
-        LazySample<T3> c,
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
         Func<T1, T2, T3, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
-            : new LazySample<TResult>(trans => f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans)));
+            : new LazySample<TResult>(trans =>
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans)));
 
     internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, TResult>(
-        LazySample<T1> a,
-        LazySample<T2> b,
-        LazySample<T3> c,
-        LazySample<T4> d,
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
+        LazySample<T4> sample4,
         Func<T1, T2, T3, T4, TResult> f) =>
         f == null
             ? throw new ArgumentNullException(nameof(f))
             : new LazySample<TResult>(trans =>
-                f(arg1: a.Force(trans), arg2: b.Force(trans), arg3: c.Force(trans), arg4: d.Force(trans)));
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans),
+                    arg4: sample4.Force(trans)));
+
+    internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, T5, TResult>(
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
+        LazySample<T4> sample4,
+        LazySample<T5> sample5,
+        Func<T1, T2, T3, T4, T5, TResult> f) =>
+        f == null
+            ? throw new ArgumentNullException(nameof(f))
+            : new LazySample<TResult>(trans =>
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans),
+                    arg4: sample4.Force(trans),
+                    arg5: sample5.Force(trans)));
+
+    internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, T5, T6, TResult>(
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
+        LazySample<T4> sample4,
+        LazySample<T5> sample5,
+        LazySample<T6> sample6,
+        Func<T1, T2, T3, T4, T5, T6, TResult> f) =>
+        f == null
+            ? throw new ArgumentNullException(nameof(f))
+            : new LazySample<TResult>(trans =>
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans),
+                    arg4: sample4.Force(trans),
+                    arg5: sample5.Force(trans),
+                    arg6: sample6.Force(trans)));
+
+    internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
+        LazySample<T4> sample4,
+        LazySample<T5> sample5,
+        LazySample<T6> sample6,
+        LazySample<T7> sample7,
+        Func<T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        f == null
+            ? throw new ArgumentNullException(nameof(f))
+            : new LazySample<TResult>(trans =>
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans),
+                    arg4: sample4.Force(trans),
+                    arg5: sample5.Force(trans),
+                    arg6: sample6.Force(trans),
+                    arg7: sample7.Force(trans)));
+
+    internal static LazySample<TResult> LiftImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        LazySample<T1> sample1,
+        LazySample<T2> sample2,
+        LazySample<T3> sample3,
+        LazySample<T4> sample4,
+        LazySample<T5> sample5,
+        LazySample<T6> sample6,
+        LazySample<T7> sample7,
+        LazySample<T8> sample8,
+        Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        f == null
+            ? throw new ArgumentNullException(nameof(f))
+            : new LazySample<TResult>(trans =>
+                f(
+                    arg1: sample1.Force(trans),
+                    arg2: sample2.Force(trans),
+                    arg3: sample3.Force(trans),
+                    arg4: sample4.Force(trans),
+                    arg5: sample5.Force(trans),
+                    arg6: sample6.Force(trans),
+                    arg7: sample7.Force(trans),
+                    arg8: sample8.Force(trans)));
 }
 
 /// <summary>
