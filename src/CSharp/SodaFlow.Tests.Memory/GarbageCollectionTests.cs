@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
@@ -161,6 +163,83 @@ public sealed class GarbageCollectionTests
         await Assert.That(after)
             .IsLessThanOrEqualTo(before)
             .Because("the registry should be back to its previous size once the streams it tracked are collected");
+    }
+
+    // The registry asks the first attached link of an operator's output if the output is alive,
+    // and not a weak handle to it. That rests on an invariant that no compiler checks: the
+    // action of that link references the output. This builds each operator shape, holds the
+    // output, collects, sweeps, and sends. For a shape whose action does not reference its output,
+    // the sweep releases the output, and the shape stays silent here. See StreamNode<T>.
+    [Test]
+    public async Task AliveOperatorStreamsSurviveTheSweep()
+    {
+        StreamSink<int> a = Stream.CreateSink<int>();
+        StreamSink<int> b = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(10);
+        CellSink<Stream<int>> selector = Cell.CreateSink<Stream<int>>(a);
+        CellSink<Cell<int>> cellSelector = Cell.CreateSink<Cell<int>>(c);
+        List<string> seen = [];
+
+        string[] tags =
+        [
+            "map", "filter", "choose", "snapshot", "snapshot latest", "or else", "merge of two types",
+            "or else of three", "accum", "calm", "collect", "lift", "lift of a list", "switch s", "switch c", "loop",
+            "split"
+        ];
+
+        List<IStrongListener> listeners =
+            Transaction.Run(() =>
+                new List<IStrongListener>
+                {
+                    a.Map(static v => v + 1).Map(static v => v * 2).ListenStrong(Mark<int>(seen: seen, tag: "map")),
+                    a.Filter(static v => v > 0).ListenStrong(Mark<int>(seen: seen, tag: "filter")),
+                    a.Choose(Maybe.Some).ListenStrong(Mark<int>(seen: seen, tag: "choose")),
+                    a.Snapshot(c: c, f: static (v, w) => v + w).ListenStrong(Mark<int>(seen: seen, tag: "snapshot")),
+                    a.SnapshotLatest(c: c, f: static (v, w) => v + w)
+                        .ListenStrong(Mark<int>(seen: seen, tag: "snapshot latest")),
+                    a.OrElse(b).ListenStrong(Mark<int>(seen: seen, tag: "or else")),
+                    a.Merge(b).ListenStrong(Mark<(Maybe<int>, Maybe<int>)>(seen: seen, tag: "merge of two types")),
+                    new[] { a, b, Stream.Never<int>() }.OrElse()
+                        .ListenStrong(Mark<int>(seen: seen, tag: "or else of three")),
+                    a.Accum(initialState: 0, f: static (v, total) => total + v)
+                        .ListenStrong(Mark<int>(seen: seen, tag: "accum")),
+                    a.Calm().ListenStrong(Mark<int>(seen: seen, tag: "calm")),
+                    a.Collect(initialState: 0, f: static (v, state) => (v, state + 1))
+                        .ListenStrong(Mark<int>(seen: seen, tag: "collect")),
+                    c.Map(static v => v + 1).Lift(c2: c, f: static (x, y) => x + y)
+                        .ListenStrong(Mark<int>(seen: seen, tag: "lift")),
+                    new[] { c, c.Map(static v => v) }.Lift()
+                        .ListenStrong(Mark<IReadOnlyList<int>>(seen: seen, tag: "lift of a list")),
+                    selector.SwitchS().ListenStrong(Mark<int>(seen: seen, tag: "switch s")),
+                    cellSelector.SwitchC().ListenStrong(Mark<int>(seen: seen, tag: "switch c")),
+                    Stream.Loop<int>().WithoutCaptures(_ => a.Map(static v => v * 3))
+                        .ListenStrong(Mark<int>(seen: seen, tag: "loop")),
+                    Operational.Split<int, int[]>(a.Map(static v => new[] { v }))
+                        .ListenStrong(Mark<int>(seen: seen, tag: "split"))
+                });
+
+        // The cell listens fired at the construction. Only what fires after the sweep counts.
+        seen.Clear();
+
+        Collect();
+        StreamListenerManager.Sweep();
+
+        Transaction.RunVoid(() =>
+        {
+            a.Send(1);
+            b.Send(2);
+        });
+
+        c.Send(20);
+
+        foreach (IStrongListener listener in listeners)
+        {
+            listener.Unlisten();
+        }
+
+        await Assert.That(seen.Distinct())
+            .IsEquivalentTo(expected: tags, ordering: CollectionOrdering.Any)
+            .Because("every operator output a caller holds should still fire after a collection and a sweep");
     }
 
     [Test]
@@ -583,6 +662,9 @@ public sealed class GarbageCollectionTests
         listener.Unlisten();
         return new WeakReference(listener);
     }
+
+    // ReSharper disable once SuggestBaseTypeForParameter - CA1859 asks for the list, which the one caller gives.
+    private static Action<T> Mark<T>(List<string> seen, string tag) => _ => seen.Add(tag);
 
     private static void Collect()
     {
