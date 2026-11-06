@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            netstandard2.0 is the one target an analyzer can have: the compiler loads it into
+            whichever runtime hosts the build, and Visual Studio still hosts on .NET Framework.
+        -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>SodaFlow.Analyzers</PackageId>
+        <MinVerTagPrefix>sodaflow-analyzers-</MinVerTagPrefix>
+        <Product>SodaFlow Analyzers</Product>
+        <Title>SodaFlow Analyzers</Title>
+        <Description>Roslyn analyzers for SodaFlow: a read of a looped value before its loop closes.</Description>
+        <AssemblyName>SodaFlow.Analyzers</AssemblyName>
+        <RootNamespace>SodaFlow.Analyzers</RootNamespace>
+        <!--
+            An analyzer package carries its assembly under analyzers/dotnet/cs and nothing under
+            lib, so that a consumer's compiler loads it and the consumer's assembly never
+            references it.
+        -->
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The compiler's own API, at a version older than every compiler that builds this
+            repository, because an analyzer built against an older API loads in a newer compiler
+            and not the reverse. PrivateAssets keeps the reference out of the package.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Diagnostics.cs"/>
+        <Compile Include="LoopReadAnalyzer.cs"/>
+        <Compile Include="LoopRegion.cs"/>
+        <Compile Include="LoopState.cs"/>
+        <Compile Include="LoopStateEvaluator.cs"/>
+        <Compile Include="SinkWalker.cs"/>
+        <Compile Include="SodaFlowSymbols.cs"/>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md"/>
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md"/>
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+    </ItemGroup>
+
+</Project>
