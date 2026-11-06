@@ -37,6 +37,8 @@
         <Compile Include="AsyncQueueBenchmarks.cs"/>
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
+        <Compile Include="ClockReadBenchmarks.cs"/>
+        <Compile Include="ClockResolutionBenchmarks.cs"/>
         <Compile Include="DeepFirstEntryBenchmarks.cs"/>
         <Compile Include="EditStreamMergeBenchmarks.cs"/>
         <Compile Include="EitherBenchmarks.cs"/>

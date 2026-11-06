@@ -55,15 +55,88 @@ public class SystemClockTimerSystem : TimerSystem<DateTime>
     /// </param>
     // ReSharper disable once InheritdocConsiderUsage
     public SystemClockTimerSystem(Func<DateTime> now, Action<Exception> handleException)
-        : base(implementation: new Implementation(now), handleException: handleException)
+        : this(now: now, resolution: TimeSpan.Zero, handleException: handleException)
     {
     }
 
-    internal sealed class Implementation(in Func<DateTime> now) : TimerSystemImplementationBase<DateTime>
+    /// <summary>
+    ///     Makes a timer system over <see cref="DateTime.Now" /> that gives its
+    ///     value in steps of <paramref name="resolution" />.
+    /// </summary>
+    /// <param name="resolution">
+    ///     The step that each value of the clock rounds down to, or
+    ///     <see cref="TimeSpan.Zero" /> for the value as it is. The constructor
+    ///     refuses a negative step.
+    /// </param>
+    /// <param name="handleException">
+    ///     The handler for an exception from a timer callback.
+    /// </param>
+    /// <remarks>
+    ///     <see cref="ITimerSystem{T}.Time" /> updates only when the value of the
+    ///     clock differs from the last one. Thus, with a resolution, it holds its
+    ///     value through the transactions in one step, and each of those
+    ///     transactions skips the update. An alarm fires in the first transaction
+    ///     whose clock value is at or after its time. Thus, an alarm can fire up to
+    ///     one step late, with its own time as before.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="resolution" /> is negative.
+    /// </exception>
+    // ReSharper disable once InheritdocConsiderUsage - The base documents a parameter this one does not have.
+    public SystemClockTimerSystem(TimeSpan resolution, Action<Exception> handleException)
+        : this(now: static () => DateTime.Now, resolution: resolution, handleException: handleException)
+    {
+    }
+
+    /// <summary>
+    ///     Makes a timer system over <paramref name="now" /> that gives its value
+    ///     in steps of <paramref name="resolution" />.
+    /// </summary>
+    /// <param name="now">The clock. The timer thread reads it frequently.</param>
+    /// <param name="resolution">
+    ///     The step that each value of the clock rounds down to, or
+    ///     <see cref="TimeSpan.Zero" /> for the value as it is. The constructor
+    ///     refuses a negative step.
+    /// </param>
+    /// <param name="handleException">
+    ///     The handler for an exception from a timer callback.
+    /// </param>
+    /// <remarks>
+    ///     <see cref="ITimerSystem{T}.Time" /> updates only when the value of the
+    ///     clock differs from the last one. Thus, with a resolution, it holds its
+    ///     value through the transactions in one step, and each of those
+    ///     transactions skips the update. An alarm fires in the first transaction
+    ///     whose clock value is at or after its time. Thus, an alarm can fire up to
+    ///     one step late, with its own time as before.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="resolution" /> is negative.
+    /// </exception>
+    // ReSharper disable once InheritdocConsiderUsage - The base documents a parameter this one does not have.
+    public SystemClockTimerSystem(Func<DateTime> now, TimeSpan resolution, Action<Exception> handleException)
+        : base(implementation: new Implementation(now: now, resolution: resolution), handleException: handleException)
+    {
+    }
+
+    internal sealed class Implementation(in Func<DateTime> now, in TimeSpan resolution)
+        : TimerSystemImplementationBase<DateTime>
     {
         private readonly Func<DateTime> now = now;
 
-        public override DateTime Now => this.now();
+        // Zero reads the clock as it is, with no arithmetic of its own.
+        private readonly long resolutionTicks = ClockResolution.Ticks(resolution);
+
+        public override DateTime Now
+        {
+            get
+            {
+                DateTime time = this.now();
+
+                return this.resolutionTicks == 0
+                    ? time
+                    : ClockResolution.RoundDown(time: time, resolutionTicks: this.resolutionTicks);
+            }
+        }
 
         protected override TimeSpan SubtractTimes(DateTime first, DateTime second) => first - second;
     }

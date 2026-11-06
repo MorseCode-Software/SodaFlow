@@ -519,16 +519,54 @@ and SimpleTimer<'T when 'T: comparison>
     interface IDisposable with
         member this.Dispose() = cancel ()
 
-type private SystemClockTimerSystemImplementation(now: unit -> DateTime) =
+/// The resolution of a clock, as the clocks here use it. It is the step that Now rounds down to, or
+/// zero for the value as it is. The C# package has the same helper, and it is internal there.
+module private ClockResolution =
+    let ticks (resolution: TimeSpan) =
+        if resolution < TimeSpan.Zero then
+            raise (
+                ArgumentOutOfRangeException(
+                    "resolution",
+                    resolution,
+                    "A clock's resolution cannot be negative. Zero reads the clock as it is."
+                )
+            )
+
+        resolution.Ticks
+
+    /// In the ticks of a Stopwatch. A resolution below one tick of the stopwatch gives zero, because
+    /// the stopwatch cannot count below its own tick.
+    let stopwatchTicks (resolution: TimeSpan) =
+        int64 (float (ticks resolution) * (float Stopwatch.Frequency / float TimeSpan.TicksPerSecond))
+
+    let roundDown (time: DateTime) (resolutionTicks: int64) =
+        DateTime(time.Ticks - (time.Ticks % resolutionTicks), time.Kind)
+
+type private SystemClockTimerSystemImplementation(now: unit -> DateTime, resolution: TimeSpan) =
     inherit TimerSystemImplementationBase<DateTime>()
+
+    // Zero reads the clock as it is, with no arithmetic of its own.
+    let resolutionTicks = ClockResolution.ticks resolution
+
     override _.SubtractTimes first second = first - second
-    override _.Now = now ()
+
+    override _.Now =
+        let time = now ()
+
+        if resolutionTicks = 0L then
+            time
+        else
+            ClockResolution.roundDown time resolutionTicks
 
 /// <summary>
 ///     A timer system that measures time as a <c>System.DateTime</c> from a clock. The default
 ///     clock is <c>DateTime.Now</c>, the local time.
 /// </summary>
 /// <param name="now">Gives the current time. The timer thread reads it frequently.</param>
+/// <param name="resolution">
+///     The step that each value of the clock rounds down to, or <c>TimeSpan.Zero</c> for the
+///     value as it is. The constructor refuses a negative step.
+/// </param>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
 ///     Times are <c>System.DateTime</c> values, thus code can set an alarm against a wall-clock
@@ -536,46 +574,98 @@ type private SystemClockTimerSystemImplementation(now: unit -> DateTime) =
 ///     daylight saving adjustment. An alarm across such a change waits until the moved clock gets
 ///     to it. Use <c>UtcClockTimerSystem</c> for a wait or a deadline, and this type for a time
 ///     that a screen shows. A test gives a clock that it moves by hand.
+///     <c>Time</c> updates only when the value of the clock differs from the last one. Thus, with
+///     a resolution, it holds its value through the transactions in one step, and each of those
+///     transactions skips the update. An alarm fires in the first transaction whose clock value is
+///     at or after its time. Thus, an alarm can fire up to one step late, with its own time as
+///     before.
 /// </remarks>
-type SystemClockTimerSystem(now: unit -> DateTime, handleException: exn -> unit) =
-    inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(now), handleException)
+type SystemClockTimerSystem(now: unit -> DateTime, resolution: TimeSpan, handleException: exn -> unit) =
+    inherit TimerSystem<DateTime>(SystemClockTimerSystemImplementation(now, resolution), handleException)
+
+    /// <summary>A timer system over <paramref name="now" />, with the value as it is.</summary>
+    /// <param name="now">Gives the current time. The timer thread reads it frequently.</param>
+    /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+    new(now: unit -> DateTime, handleException: exn -> unit) =
+        new SystemClockTimerSystem(now, TimeSpan.Zero, handleException)
+
+    /// <summary>
+    ///     A timer system over <c>DateTime.Now</c> that gives its value in steps of
+    ///     <paramref name="resolution" />.
+    /// </summary>
+    /// <param name="resolution">
+    ///     The step that each value of the clock rounds down to, or <c>TimeSpan.Zero</c> for the
+    ///     value as it is. The constructor refuses a negative step.
+    /// </param>
+    /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+    new(resolution: TimeSpan, handleException: exn -> unit) =
+        new SystemClockTimerSystem((fun () -> DateTime.Now), resolution, handleException)
 
     /// <summary>A timer system over <c>DateTime.Now</c>.</summary>
     /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
-    new(handleException: exn -> unit) = new SystemClockTimerSystem((fun () -> DateTime.Now), handleException)
+    new(handleException: exn -> unit) =
+        new SystemClockTimerSystem((fun () -> DateTime.Now), TimeSpan.Zero, handleException)
 
 /// <summary>
 ///     A timer system that measures time with <c>DateTime.UtcNow</c>.
 /// </summary>
+/// <param name="resolution">
+///     The step that each value of the clock rounds down to, or <c>TimeSpan.Zero</c> for the
+///     value as it is. The constructor refuses a negative step.
+/// </param>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
 ///     UTC does not move at a change of daylight saving time, thus a timer set five minutes ahead
 ///     waits five minutes at each date. Use this type for a wait or a deadline, and
-///     <c>SystemClockTimerSystem</c> for a time that a screen shows.
+///     <c>SystemClockTimerSystem</c> for a time that a screen shows. See that type for what a
+///     resolution does.
 /// </remarks>
-type UtcClockTimerSystem(handleException: exn -> unit) =
-    inherit SystemClockTimerSystem((fun () -> DateTime.UtcNow), handleException)
+type UtcClockTimerSystem(resolution: TimeSpan, handleException: exn -> unit) =
+    inherit SystemClockTimerSystem((fun () -> DateTime.UtcNow), resolution, handleException)
 
-type private SecondsTimerSystemImplementation() =
+    /// <summary>A timer system over <c>DateTime.UtcNow</c>, with the value as it is.</summary>
+    /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+    new(handleException: exn -> unit) = new UtcClockTimerSystem(TimeSpan.Zero, handleException)
+
+type private SecondsTimerSystemImplementation(resolution: TimeSpan) =
     inherit TimerSystemImplementationBase<float>()
 
     // A Stopwatch, and not two readings of DateTime.Now. DateTime.Now moves with the system clock.
     // Thus, a change of daylight saving time or a correction of the clock moved this count by the
     // same quantity. A Stopwatch counts the time that goes by and nothing else.
     let stopwatch = Stopwatch.StartNew()
+
+    // Zero reads the stopwatch as it is. That path is the one from before resolutions, with no
+    // arithmetic of its own. The rounding is in the ticks of the stopwatch, so that the step is accurate.
+    let resolutionTicks = ClockResolution.stopwatchTicks resolution
+
     override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
-    override _.Now = stopwatch.Elapsed.TotalSeconds
+
+    override _.Now =
+        if resolutionTicks = 0L then
+            stopwatch.Elapsed.TotalSeconds
+        else
+            let ticks = stopwatch.ElapsedTicks
+            float (ticks - (ticks % resolutionTicks)) / float Stopwatch.Frequency
 
 /// <summary>
 ///     A timer system that measures time as the number of seconds after its construction.
 /// </summary>
+/// <param name="resolution">
+///     The step that each value of the clock rounds down to, or <c>TimeSpan.Zero</c> for the
+///     value as it is. The constructor refuses a negative step.
+/// </param>
 /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
 /// <remarks>
 ///     Times are <c>float</c> seconds. Convenient where alarms are naturally expressed as delays
-///     rather than as points in time.
+///     rather than as points in time. See <c>SystemClockTimerSystem</c> for what a resolution does.
 /// </remarks>
-type SecondsTimerSystem(handleException: exn -> unit) =
-    inherit TimerSystem<float>(SecondsTimerSystemImplementation(), handleException)
+type SecondsTimerSystem(resolution: TimeSpan, handleException: exn -> unit) =
+    inherit TimerSystem<float>(SecondsTimerSystemImplementation(resolution), handleException)
+
+    /// <summary>A timer system in seconds, with the value as it is.</summary>
+    /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
+    new(handleException: exn -> unit) = new SecondsTimerSystem(TimeSpan.Zero, handleException)
 
 /// <summary>
 ///     Fires the last value of a stream after a time with no other value. Each firing moves the

@@ -340,6 +340,146 @@ public sealed class TimerTests
     }
 
     // A DateTime that a test moves by hand, for the clock constructor of SystemClockTimerSystem.
+    // A clock with a resolution gives its value in steps. Time moves at the first transaction in
+    // each step and holds its value through the others, so the updates of Time are one per step.
+    [Test]
+    public async Task AClockWithAResolutionMovesTimeOncePerStep()
+    {
+        DateTime start = new(year: 2026, month: 11, day: 6, hour: 0, minute: 0, second: 0, kind: DateTimeKind.Utc);
+        HandClock clock = new() { Now = start };
+
+        SystemClockTimerSystem timers =
+            this.Keep(
+                new SystemClockTimerSystem(
+                    now: () => clock.Now,
+                    resolution: TimeSpan.FromMilliseconds(1),
+                    handleException: static _ =>
+                    {
+                    }));
+
+        List<DateTime> times = [];
+        IStrongListener l = Operational.Updates(timers.Time).ListenStrong(times.Add);
+
+        for (int step = 1; step <= 5; step++)
+        {
+            clock.Now = start.AddTicks(step * 4 * TimeSpan.TicksPerMillisecond / 10);
+
+            Transaction.RunVoid(static () =>
+            {
+            });
+        }
+
+        l.Unlisten();
+
+        await Assert.That(times)
+            .IsEquivalentTo(
+                expected: [start.AddMilliseconds(1), start.AddMilliseconds(2)],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddMilliseconds(2));
+    }
+
+    // The value rounds down. Thus, an alarm in a step fires in the first transaction whose value
+    // gets to the next step, with its own time. The step is an hour and the alarm is half an hour after
+    // the start. Thus, the timer thread, which waits for the alarm on the same clock, sleeps
+    // through the test, and the test's own transaction fires the alarm.
+    [Test]
+    public async Task AnAlarmUnderAResolutionFiresInTheFirstTransactionThatReachesIt()
+    {
+        DateTime start = new(year: 2026, month: 11, day: 6, hour: 0, minute: 0, second: 0, kind: DateTimeKind.Utc);
+        HandClock clock = new() { Now = start };
+
+        SystemClockTimerSystem timers =
+            this.Keep(
+                new SystemClockTimerSystem(
+                    now: () => clock.Now,
+                    resolution: TimeSpan.FromHours(1),
+                    handleException: static _ =>
+                    {
+                    }));
+
+        DateTime alarmTime = start.AddMinutes(30);
+        List<DateTime> alarms = [];
+        IStrongListener l = timers.At(Cell.Constant(Maybe.Some(alarmTime))).ListenStrong(alarms.Add);
+
+        clock.Now = start.AddMinutes(45);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(alarms).IsEmpty();
+
+        clock.Now = start.AddMinutes(70);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [alarmTime], ordering: CollectionOrdering.Matching);
+        await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddHours(1));
+    }
+
+    // Zero is the value as it is, which is what the constructors without a resolution give.
+    [Test]
+    public async Task AZeroResolutionReadsTheClockAsItIs()
+    {
+        DateTime start = new(year: 2026, month: 11, day: 6, hour: 0, minute: 0, second: 0, kind: DateTimeKind.Utc);
+        HandClock clock = new() { Now = start.AddTicks(7) };
+
+        SystemClockTimerSystem timers =
+            this.Keep(
+                new SystemClockTimerSystem(
+                    now: () => clock.Now,
+                    resolution: TimeSpan.Zero,
+                    handleException: static _ =>
+                    {
+                    }));
+
+        await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddTicks(7));
+    }
+
+    [Test]
+    public async Task ANegativeResolutionIsRefused()
+    {
+        TimeSpan negative = TimeSpan.FromTicks(-1);
+
+        await Assert.That(() => this.Keep(new SecondsTimerSystem(resolution: negative, handleException: Ignore)))
+            .Throws<ArgumentOutOfRangeException>();
+
+        await Assert.That(() => this.Keep(new SystemClockTimerSystem(resolution: negative, handleException: Ignore)))
+            .Throws<ArgumentOutOfRangeException>();
+
+        await Assert.That(() => this.Keep(new UtcClockTimerSystem(resolution: negative, handleException: Ignore)))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    // The seconds clock rounds in the ticks of its stopwatch. A resolution of one hour holds zero
+    // for the length of a test, and the value as it is moves in a few milliseconds.
+    [Test]
+    public async Task TheSecondsClockRoundsItsStopwatch()
+    {
+        SecondsTimerSystem hourly =
+            this.Keep(new SecondsTimerSystem(resolution: TimeSpan.FromHours(1), handleException: Ignore));
+
+        SecondsTimerSystem raw = this.Keep(new SecondsTimerSystem(Ignore));
+
+        Thread.Sleep(5);
+
+        Transaction.RunVoid(static () =>
+        {
+        });
+
+        await Assert.That(hourly.Time.Sample()).IsEqualTo(0.0);
+        await Assert.That(raw.Time.Sample()).IsGreaterThan(0.0);
+    }
+
+    private static void Ignore(Exception e)
+    {
+    }
+
     private sealed class HandClock
     {
         internal DateTime Now { get; set; }

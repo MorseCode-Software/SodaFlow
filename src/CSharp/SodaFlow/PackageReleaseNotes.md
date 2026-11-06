@@ -25,6 +25,22 @@ before and after: a clock that does not move 513 to 71 ns and 936 to 160 bytes; 
 1,848 to 160 bytes. A clock whose reading differs at every transaction, which on this machine both DateTime.UtcNow and
 the stopwatch of SecondsTimerSystem do, is within noise, since the compare costs about one nanosecond.
 
+Added: a constructor on SecondsTimerSystem, SystemClockTimerSystem, and UtcClockTimerSystem that takes a TimeSpan
+resolution. The clock rounds every reading down to a multiple of it, in the ticks of its stopwatch for the seconds clock
+and in the ticks of a DateTime for the calendar clocks, so a reading inside the step of the last one leaves Time as it
+is and the transaction skips the update and its listeners. An alarm fires in the first transaction whose rounded reading
+reaches it, up to one resolution late, and At still fires with the alarm's own time. A resolution of zero, which the
+constructors without one use, reads the clock as it is and does no arithmetic; a negative one throws
+ArgumentOutOfRangeException. A real clock moves between any two transactions, so without a resolution the change above
+saves it nothing, and with one millisecond every transaction after the first in a millisecond skips the send. Measured
+in two new benchmarks, ClockReadBenchmarks and ClockResolutionBenchmarks: the rounding costs about 3 ns on a read of
+DateTime.UtcNow on both frameworks, 17.5 to 20.5 ns on .NET 10 and 48.6 to 52.3 ns on .NET Framework 4.7.2, and nothing
+on a read of the stopwatch, 20.7 to 18.3 ns and 23.5 to 24.2 ns, which reads the ticks it rounds rather than converting
+them twice; an empty transaction with the clock alive and one listener on the updates of Time goes from 398 to 95 ns and
+936 to 160 bytes on .NET 10 for either clock, and from 777 to 162 ns for the stopwatch on .NET Framework. On .NET
+Framework DateTime.UtcNow moves in steps of about a millisecond on its own, so the system clock there already skips most
+sends without a resolution, 177 ns and 161 bytes.
+
 BREAKING: a stopped TimerSystemImplementationBase<T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
 or a later send. Before, the timer was accepted and never fired, and the caller held a handle for an alarm that
