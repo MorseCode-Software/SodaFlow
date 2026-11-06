@@ -14,6 +14,15 @@ one per test, taxed every later transaction for the life of the process. Disposi
 and ends the thread, and after that Time does not move and no alarm fires. A custom ITimerSystemImplementation<'T>
 needs a Stop, which can be empty for a clock a test moves by hand.
 
+BREAKING: Time updates when the clock moves and holds its value otherwise. The hook that runs at the start of each
+transaction sent the clock's reading to Time every time, so a listener on Operational.updates on Time ran once per
+transaction in the process, with the value Time already held whenever the clock had not moved, which a clock a test
+moves by hand never does between transactions. The hook now sends only a reading that differs from the last one, and an
+alarm's event at the time Time holds sends nothing either. That is what a behavior's updates mean everywhere else in the
+library. A listener on the updates of Time fires fewer times, which is the breaking part; a sample of Time, which is how
+a behavior is meant to be read, sees no change, and neither does At. The C# package makes the same change in its 6.0.0,
+and its notes have the figures.
+
 BREAKING: a stopped TimerSystemImplementationBase<'T> throws ObjectDisposedException from SetTimer, and so At on a
 disposed timer system throws it from the transaction that gives the alarm a time, whether that is the construction
 or a later send. Before, the timer was accepted and never fired, and the caller held a handle for an alarm that
