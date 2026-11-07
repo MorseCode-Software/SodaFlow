@@ -478,15 +478,15 @@ public sealed class StreamTests
     {
         StreamSink<int> sa = Stream.CreateSink<int>();
 
-        (StreamLoop<int> sb, Stream<int> sb2, Stream<int> sc) =
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> sbLocal = Stream.CreateLoop<int>();
-                Stream<int> scLocal = sa.Map(static x => x % 10).Merge(s2: sbLocal, f: static (x, y) => x * y);
-                Stream<int> sbOut = sa.Map(static x => x / 10).Filter(static x => x != 0);
-                sbLocal.Loop(sbOut);
-                return (sbLocal, sbOut, scLocal);
-            });
+        (Stream<int> sb, Stream<int> sb2, Stream<int> sc) =
+            Stream.Loop<int>()
+                .WithCaptures(sbLocal =>
+                {
+                    Stream<int> scLocal = sa.Map(static x => x % 10).Merge(s2: sbLocal, f: static (x, y) => x * y);
+                    Stream<int> sbOut = sa.Map(static x => x / 10).Filter(static x => x != 0);
+                    return (Stream: sbOut, Captures: (sbLocal.AsStream(), sbOut, scLocal));
+                })
+                .Captures;
 
         List<int> @out = [];
         List<int> out2 = [];
@@ -509,15 +509,15 @@ public sealed class StreamTests
     {
         CellSink<int> ca = Cell.CreateSink(22);
 
-        (CellLoop<int> cb, Cell<int> cb2, Cell<int> cc) =
-            Transaction.Run(() =>
-            {
-                CellLoop<int> cbLocal = Cell.CreateLoop<int>();
-                Cell<int> ccLocal = ca.Map(static x => x % 10).Lift(c2: cbLocal, f: static (x, y) => x * y);
-                Cell<int> cbOut = ca.Map(static x => x / 10);
-                cbLocal.Loop(cbOut);
-                return (cbLocal, cbOut, ccLocal);
-            });
+        (Cell<int> cb, Cell<int> cb2, Cell<int> cc) =
+            Cell.Loop<int>()
+                .WithCaptures(cbLocal =>
+                {
+                    Cell<int> ccLocal = ca.Map(static x => x % 10).Lift(c2: cbLocal, f: static (x, y) => x * y);
+                    Cell<int> cbOut = ca.Map(static x => x / 10);
+                    return (Cell: cbOut, Captures: (cbLocal.AsCell(), cbOut, ccLocal));
+                })
+                .Captures;
 
         List<int> @out = [];
         List<int> out2 = [];
@@ -2112,19 +2112,20 @@ public sealed class StreamTests
         Cell<int> a1 = a.Map(static x => x + 1);
         Cell<int> a2 = a.Map(static x => x * 2);
 
-        (CellLoop<int> called, IListener l) =
+        (Cell<int> called, IListener l) =
             Transaction.Run(() =>
             {
                 Cell<int> result = a1.Lift(c2: a2, f: static (x, y) => x + y);
                 Stream<Unit> incrementStream = result.Values().MapTo(Unit.Value);
                 StreamSink<Unit> decrementStream = Stream.CreateSink<Unit>();
-                CellLoop<int> calledLoop = Cell.CreateLoop<int>();
 
-                calledLoop.Loop(
-                    incrementStream.MapTo(1)
-                        .Merge(s2: decrementStream.MapTo(-1), f: static (x, y) => x + y)
-                        .Snapshot(c: calledLoop, f: static (u, c) => c + u)
-                        .Hold(0));
+                Cell<int> calledLocal =
+                    Cell.Loop<int>()
+                        .WithoutCaptures(calledLoop =>
+                            incrementStream.MapTo(1)
+                                .Merge(s2: decrementStream.MapTo(-1), f: static (x, y) => x + y)
+                                .Snapshot(c: calledLoop, f: static (u, c) => c + u)
+                                .Hold(0));
 
                 IListener lLocal =
                     result.ListenStrong(_ =>
@@ -2136,7 +2137,7 @@ public sealed class StreamTests
                         });
                     });
 
-                return (calledLoop, lLocal);
+                return (calledLocal, lLocal);
             });
 
         // ReSharper disable once UnusedVariable
@@ -2159,14 +2160,12 @@ public sealed class StreamTests
         StreamSink<int> streamSink = Stream.CreateSink<int>();
 
         Stream<int> s =
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> sl = new();
-                Cell<int> c = sl.Map(static v => v + 2).Hold(0);
-                Stream<int> s2 = streamSink.Snapshot(c: c, f: static (x, y) => x + y);
-                sl.Loop(s2);
-                return s2;
-            });
+            Stream.Loop<int>()
+                .WithoutCaptures(sl =>
+                {
+                    Cell<int> c = sl.Map(static v => v + 2).Hold(0);
+                    return streamSink.Snapshot(c: c, f: static (x, y) => x + y);
+                });
 
         List<int> @out = [];
         IListener l = s.ListenStrong(@out.Add);
@@ -2185,16 +2184,9 @@ public sealed class StreamTests
         StreamSink<int> streamSink = Stream.CreateSink<int>();
 
         Stream<int> stream =
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> streamLoop = new();
-
-                Stream<int> streamLocal =
-                    Operational.Defer(streamSink.OrElse(streamLoop).Filter(static v => v < 5).Map(static v => v + 1));
-
-                streamLoop.Loop(streamLocal);
-                return streamLocal;
-            });
+            Stream.Loop<int>()
+                .WithoutCaptures(streamLoop =>
+                    Operational.Defer(streamSink.OrElse(streamLoop).Filter(static v => v < 5).Map(static v => v + 1)));
 
         List<int> @out = [];
         IListener l = stream.ListenStrong(@out.Add);

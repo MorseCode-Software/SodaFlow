@@ -32,11 +32,9 @@
     <ItemGroup>
         <Compile Include="Behavior.cs"/>
         <Compile Include="BehaviorExtensionMethods.cs"/>
-        <Compile Include="BehaviorLoop.cs"/>
         <Compile Include="BehaviorSinkExtensionMethods.cs"/>
         <Compile Include="Cell.cs"/>
         <Compile Include="CellExtensionMethods.cs"/>
-        <Compile Include="CellLoop.cs"/>
         <Compile Include="CellSinkExtensionMethods.cs"/>
         <Compile Include="CellStreamSinkExtensionMethods.cs"/>
         <Compile Include="ForwardReference.cs"/>
@@ -49,7 +47,6 @@
         <Compile Include="Operational.cs"/>
         <Compile Include="Stream.cs"/>
         <Compile Include="StreamExtensionMethods.cs"/>
-        <Compile Include="StreamLoop.cs"/>
         <Compile Include="StreamSinkExtensionMethods.cs"/>
         <Compile Include="Transaction.cs"/>
         <Compile Include="Time\ITimer.cs"/>

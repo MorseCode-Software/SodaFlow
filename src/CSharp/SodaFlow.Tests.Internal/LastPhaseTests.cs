@@ -200,4 +200,30 @@ public sealed class LastPhaseTests
 
         internal override void Run(TransactionInternal trans) => this.action();
     }
+
+    // A last action that throws fails the transaction. The clear of the firings is the last action
+    // after it, thus this covers a failure in the last phase. Before, an explicit loop that was not
+    // looped made the throw. The block forms always close a loop.
+    [Test]
+    public async Task AStreamDoesNotKeepItsFiringsWhenALastActionFails()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+
+        await Assert.That(() =>
+                TransactionInternal.Apply<UnitInternal>((trans, _) =>
+                {
+                    trans.Last(static () => throw new InvalidOperationException("abort"));
+                    s.Send(1);
+                    return UnitInternal.Value;
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("abort");
+
+        List<int> @out = [];
+        IListener l = s.ListenStrong(@out.Add);
+        s.Send(2);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+    }
 }

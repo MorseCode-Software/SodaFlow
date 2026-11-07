@@ -63,10 +63,9 @@ public static class BehaviorExtensionMethods
     ///     at the end of the transaction, and a transaction that fails forgets it.
     /// </returns>
     /// <remarks>
-    ///     This is a variant of <see cref="Sample{T}" /> that works with the
-    ///     <see cref="BehaviorLoop{T}" /> class when no code closed the behavior loop.
-    ///     Use it in code that is general sufficient for a
-    ///     <see cref="BehaviorLoop{T}" /> argument.  See
+    ///     This is a variant of <see cref="Sample{T}" /> that works with a
+    ///     <see cref="LoopedBehavior{T}" /> before its loop closes. Use it in code
+    ///     that can get a <see cref="LoopedBehavior{T}" /> argument. See
     ///     <see
     ///         cref="StreamExtensionMethods.HoldLazy{T}(Stream{T}, LazySample{T})" />.
     /// </remarks>

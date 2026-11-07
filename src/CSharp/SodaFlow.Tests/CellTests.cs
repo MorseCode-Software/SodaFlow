@@ -16,14 +16,14 @@ public sealed class CellTests
     public async Task TestLoop()
     {
         (Cell<int> c, CellStreamSink<int> s) =
-            Transaction.Run(static () =>
-            {
-                CellLoop<int> loop = Cell.CreateLoop<int>();
-                Cell<int> cLocal = loop.Map(static v => v * 5);
-                CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
-                loop.Loop(sLocal.Hold(3));
-                return (cLocal, sLocal);
-            });
+            Cell.Loop<int>()
+                .WithCaptures(static loop =>
+                {
+                    Cell<int> cLocal = loop.Map(static v => v * 5);
+                    CellStreamSink<int> sLocal = Cell.CreateStreamSink<int>();
+                    return (Cell: sLocal.Hold(3), Captures: (cLocal, sLocal));
+                })
+                .Captures;
 
         List<int> output1 = [];
         List<int> output2 = [];
