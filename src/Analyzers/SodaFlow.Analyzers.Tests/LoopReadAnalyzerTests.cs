@@ -7,22 +7,23 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SodaFlow.Bindable.ObjectModel;
+using SodaFlow.Functional;
 using TUnit.Assertions;
-using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace SodaFlow.Analyzers.Tests;
 
 /// <summary>
-///     Runs <see cref="LoopReadAnalyzer" /> over the shapes file and checks the rule
-///     it reports for each shape.
+///     Runs <see cref="LoopReadAnalyzer" /> over the shapes file and checks
+///     the rule it reports for each shape.
 /// </summary>
 /// <remarks>
-///     Each shape is one method of <c>Shapes.cs</c>, and the table here gives the rules
-///     expected in it. A shape with no entry expects nothing. The table is the record
-///     of what the analyzer sees and what it does not. The shapes with no entry
-///     include a read in a callback and a read after the block. They also include a
-///     delegate with an unknown result and a chain one call deeper than the depth.
+///     Each shape is one method of <c>Shapes.cs</c>, and the table here gives
+///     the rules expected in it. A shape with no entry expects nothing. The table
+///     is the record of what the analyzer sees and what it does not. The shapes
+///     with no entry include a read in a callback and a read after the block. They
+///     also include a delegate with an unknown result and a chain one call deeper
+///     than the depth.
 /// </remarks>
 internal sealed class LoopReadAnalyzerTests
 {
@@ -75,7 +76,7 @@ internal sealed class LoopReadAnalyzerTests
     [Test]
     public async Task EachShapeReportsTheExpectedRules()
     {
-        string source = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Shapes.cs"));
+        string source = await File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "Shapes.cs"));
 
         IReadOnlyList<Diagnostic> diagnostics =
             await AnalyzerHarness.Analyze(
@@ -85,7 +86,7 @@ internal sealed class LoopReadAnalyzerTests
                 [
                     typeof(Cell<>).Assembly,
                     typeof(CellExtensionMethods).Assembly,
-                    typeof(Functional.Maybe<>).Assembly,
+                    typeof(Maybe<>).Assembly,
                     typeof(IBindableFactory).Assembly,
                     typeof(IOneWayBindableValue<>).Assembly
                 ]);
@@ -101,7 +102,8 @@ internal sealed class LoopReadAnalyzerTests
                 .Select(static method => method.Identifier.ValueText)
         ];
 
-        Dictionary<string, List<string>> actual = shapes.ToDictionary(static shape => shape, static _ => new List<string>());
+        Dictionary<string, List<string>> actual =
+            shapes.ToDictionary(keySelector: static shape => shape, elementSelector: static _ => new List<string>());
 
         foreach (Diagnostic diagnostic in diagnostics)
         {
@@ -110,10 +112,15 @@ internal sealed class LoopReadAnalyzerTests
             MethodDeclarationSyntax? shape =
                 node.AncestorsAndSelf()
                     .OfType<MethodDeclarationSyntax>()
-                    .FirstOrDefault(static method => method.Parent is ClassDeclarationSyntax { Identifier.ValueText: "Shapes" });
+                    .FirstOrDefault(static method =>
+                        method.Parent is ClassDeclarationSyntax { Identifier.ValueText: "Shapes" });
 
-            await Assert.That(shape).IsNotNull().Because($"{diagnostic} is outside every shape");
-            actual[shape!.Identifier.ValueText].Add(diagnostic.Id);
+            if (shape == null)
+            {
+                throw new InvalidOperationException($"{diagnostic} is outside every shape.");
+            }
+
+            actual[shape.Identifier.ValueText].Add(diagnostic.Id);
         }
 
         // All mismatches together, so that one run says what changed.
@@ -122,8 +129,16 @@ internal sealed class LoopReadAnalyzerTests
             .. shapes
                 .Select(shape =>
                 {
-                    string expected = string.Join(" ", Expected.TryGetValue(shape, out string[]? rules) ? rules : []);
-                    string found = string.Join(" ", actual[shape].OrderBy(static id => id, StringComparer.Ordinal));
+                    string expected =
+                        string.Join(
+                            separator: " ",
+                            value: Expected.TryGetValue(key: shape, value: out string[]? rules) ? rules : []);
+
+                    string found =
+                        string.Join(
+                            separator: " ",
+                            values: actual[shape]
+                                .OrderBy(keySelector: static id => id, comparer: StringComparer.Ordinal));
 
                     return expected == found ? null : $"{shape}: expected [{expected}], found [{found}]";
                 })

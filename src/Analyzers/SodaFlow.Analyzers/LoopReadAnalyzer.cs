@@ -9,17 +9,18 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     Finds each read of a looped cell or behavior before its loop closes, and each
-///     loop whose definition is linked to its own placeholder.
+///     Finds each read of a looped cell or behavior before its loop closes,
+///     and each loop whose definition is linked to its own placeholder.
 /// </summary>
 /// <remarks>
-///     A loop block hands its lambda a placeholder. An explicit loop makes one with
-///     <c>new CellLoop&lt;T&gt;()</c> and closes it with <c>Loop</c>. Both give a
-///     region of code that runs while the loop is open, and this analyzer checks
-///     that region. See <see cref="LoopStateEvaluator" /> for the model of the
-///     operators.
+///     A loop block hands its lambda a placeholder. An explicit loop makes
+///     one with <c>new CellLoop&lt;T&gt;()</c> and closes it with <c>Loop</c>.
+///     Both give a region of code that runs while the loop is open, and this
+///     analyzer checks that region. See <see cref="LoopStateEvaluator" /> for the
+///     model of the operators.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
+// ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
 public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
@@ -35,22 +36,25 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeLoopBlock, SyntaxKind.InvocationExpression);
-        context.RegisterSyntaxNodeAction(AnalyzeExplicitLoop, SyntaxKind.LocalDeclarationStatement);
+        context.RegisterSyntaxNodeAction(action: AnalyzeLoopBlock, SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(action: AnalyzeExplicitLoop, SyntaxKind.LocalDeclarationStatement);
     }
 
     private static void AnalyzeLoopBlock(SyntaxNodeAnalysisContext context)
     {
         InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
-        if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
-            || method.Name is not ("WithCaptures" or "WithoutCaptures")
+        if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
+                {
+                    Name: "WithCaptures" or "WithoutCaptures"
+                } method
             || !SodaFlowSymbols.IsLooper(method.ContainingType))
         {
             return;
         }
 
-        if (invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression is not AnonymousFunctionExpressionSyntax lambda)
+        if (invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression is not AnonymousFunctionExpressionSyntax
+            lambda)
         {
             return;
         }
@@ -105,8 +109,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         }
 
         ArgumentSyntax? named =
-            tuple.Arguments.FirstOrDefault(
-                static a => a.NameColon?.Name.Identifier.ValueText is "Cell" or "Behavior" or "Stream");
+            tuple.Arguments.FirstOrDefault(static a =>
+                a.NameColon?.Name.Identifier.ValueText is "Cell" or "Behavior" or "Stream");
 
         return (named ?? tuple.Arguments[0]).Expression;
     }
@@ -133,7 +137,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             // expression to check.
             LoopState placeholderState = SodaFlowSymbols.StateOfType(local.Type);
 
-            if (!placeholderState.Pending && !placeholderState.Linked)
+            if (placeholderState is { Pending: false, Linked: false })
             {
                 continue;
             }
@@ -142,7 +146,12 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 local.Type is INamedTypeSymbol type
                 && SodaFlowSymbols.IsSodaFlow(type)
                 && type.OriginalDefinition.Name
-                    is "CellLoop" or "BehaviorLoop" or "LoopedCell" or "LoopedBehavior" or "StreamLoop" or "LoopedStream";
+                    is "CellLoop"
+                    or "BehaviorLoop"
+                    or "LoopedCell"
+                    or "LoopedBehavior"
+                    or "StreamLoop"
+                    or "LoopedStream";
 
             AnalyzeExplicitLoop(
                 context: context,
@@ -155,15 +164,15 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The region of an explicit loop is each statement after its declaration up
-    ///     to the one that calls <c>Loop</c> on it. The argument of that call closes
-    ///     the loop.
+    ///     The region of an explicit loop is each statement after its declaration
+    ///     up to the one that calls <c>Loop</c> on it. The argument of that call
+    ///     closes the loop.
     /// </summary>
     private static void AnalyzeExplicitLoop(
         SyntaxNodeAnalysisContext context,
         BlockSyntax block,
-        LocalDeclarationStatementSyntax declaration,
-        ILocalSymbol local,
+        StatementSyntax declaration,
+        ISymbol local,
         LoopState placeholderState,
         bool single)
     {
@@ -181,15 +190,14 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             InvocationExpressionSyntax? close =
                 statement.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
                     .OfType<InvocationExpressionSyntax>()
-                    .FirstOrDefault(
-                        inv =>
-                            inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Loop" } access
-                            && (single
-                                ? SymbolEqualityComparer.Default.Equals(
-                                    context.SemanticModel.GetSymbolInfo(access.Expression).Symbol,
-                                    local)
-                                : SodaFlowSymbols.StateOfType(context.SemanticModel.GetTypeInfo(access.Expression).Type)
-                                    .Linked));
+                    .FirstOrDefault(inv =>
+                        inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Loop" } access
+                        && (single
+                            ? SymbolEqualityComparer.Default.Equals(
+                                x: context.SemanticModel.GetSymbolInfo(access.Expression).Symbol,
+                                y: local)
+                            : SodaFlowSymbols.StateOfType(context.SemanticModel.GetTypeInfo(access.Expression).Type)
+                                .Linked));
 
             if (close != null)
             {

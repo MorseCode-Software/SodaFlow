@@ -6,8 +6,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     The code that runs while one loop is open: a loop block, or the statements
-///     between an explicit loop's creation and its <c>Loop</c> call.
+///     The code that runs while one loop is open: a loop block, or the
+///     statements between an explicit loop's creation and its <c>Loop</c> call.
 /// </summary>
 internal sealed class LoopRegion(
     in Compilation compilation,
@@ -25,9 +25,9 @@ internal sealed class LoopRegion(
 
     public string PlaceholderName => this.Placeholder.Name;
 
-    public SemanticModel ModelFor(SyntaxTree tree)
+    private SemanticModel ModelFor(SyntaxTree tree)
     {
-        if (!this.models.TryGetValue(tree, out SemanticModel? model))
+        if (!this.models.TryGetValue(key: tree, value: out SemanticModel? model))
         {
             model = this.compilation.GetSemanticModel(tree);
             this.models[tree] = model;

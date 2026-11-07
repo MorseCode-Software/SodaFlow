@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
-/// <summary>Questions about symbols that the analyzer asks of the SodaFlow assemblies.</summary>
+/// <summary>
+///     Questions about symbols that the analyzer asks of the SodaFlow
+///     assemblies.
+/// </summary>
 internal static class SodaFlowSymbols
 {
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
@@ -21,7 +25,8 @@ internal static class SodaFlowSymbols
     ///     The members that read the current value of a cell, a behavior, or a
     ///     bindable built from one.
     /// </summary>
-    public static readonly ImmutableHashSet<string> ReadMembers = ImmutableHashSet.Create("Sample", "Value", "CanExecute");
+    public static readonly ImmutableHashSet<string> ReadMembers =
+        ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
     /// <summary>
     ///     A member of one of the library's own assemblies, and not of a test, a
@@ -31,77 +36,60 @@ internal static class SodaFlowSymbols
     ///     A prefix is a prototype's rule. A shipped analyzer marks the library
     ///     assemblies with an attribute and reads that.
     /// </remarks>
-    public static bool IsSodaFlow(ISymbol? symbol)
-    {
-        string? name = symbol?.ContainingAssembly?.Name;
-
-        if (name == null)
+    public static bool IsSodaFlow(ISymbol? symbol) =>
+        symbol?.ContainingAssembly?.Name switch
         {
-            return false;
-        }
-
-        if (name == "SodaFlow")
-        {
-            return true;
-        }
-
-        return name.StartsWith("SodaFlow.", StringComparison.Ordinal)
-            && !name.Contains(".Tests")
-            && !name.Contains(".Benchmarks")
-            && !name.Contains(".Samples.");
-    }
+            null => false,
+            "SodaFlow" => true,
+            { } name => name.StartsWith(value: "SodaFlow.", comparisonType: StringComparison.Ordinal)
+                        && !name.Contains(".Tests")
+                        && !name.Contains(".Benchmarks")
+                        && !name.Contains(".Samples.")
+        };
 
     public static bool IsLooper(INamedTypeSymbol type) =>
         IsSodaFlow(type) && LooperTypes.Contains(type.OriginalDefinition.Name);
 
     /// <summary>
-    ///     The state that an expression has from its type alone. Only a placeholder
-    ///     has a placeholder type, so the type says that the value is pending.
+    ///     The state that an expression has from its type alone. Only a
+    ///     placeholder has a placeholder type, so the type says that the value is
+    ///     pending.
     /// </summary>
     public static LoopState StateOfType(ITypeSymbol? type) => StateOfType(type: type, depth: 0);
 
     private static LoopState StateOfType(ITypeSymbol? type, int depth)
     {
-        switch (type)
+        // An array of placeholders is pending as one value, as a list of them is.
+        while (type is IArrayTypeSymbol array)
         {
-            case IArrayTypeSymbol array:
-                return StateOfType(type: array.ElementType, depth: depth + 1);
-            case INamedTypeSymbol named:
-            {
-                if (IsSodaFlow(named))
-                {
-                    string name = named.OriginalDefinition.Name;
-
-                    if (PendingPlaceholderTypes.Contains(name))
-                    {
-                        return LoopState.PendingPlaceholder;
-                    }
-
-                    if (StreamPlaceholderTypes.Contains(name))
-                    {
-                        return LoopState.StreamPlaceholder;
-                    }
-                }
-
-                // One level into a collection type: a list of placeholders is pending as one value,
-                // which is what a list Lift over it reads.
-                if (depth == 0 && !IsSodaFlow(named))
-                {
-                    LoopState state = LoopState.None;
-
-                    foreach (ITypeSymbol argument in named.TypeArguments)
-                    {
-                        state = state.Join(StateOfType(type: argument, depth: depth + 1));
-                    }
-
-                    return state;
-                }
-
-                return LoopState.None;
-            }
-            default:
-                return LoopState.None;
+            type = array.ElementType;
+            depth++;
         }
+
+        if (type is not INamedTypeSymbol named)
+        {
+            return LoopState.None;
+        }
+
+        if (IsSodaFlow(named))
+        {
+            string name = named.OriginalDefinition.Name;
+
+            if (PendingPlaceholderTypes.Contains(name))
+            {
+                return LoopState.PendingPlaceholder;
+            }
+
+            return StreamPlaceholderTypes.Contains(name) ? LoopState.StreamPlaceholder : LoopState.None;
+        }
+
+        // One level into a collection type: a list of placeholders is pending as one value, which
+        // is what a list Lift over it reads.
+        return depth == 0
+            ? named.TypeArguments.Aggregate(
+                seed: LoopState.None,
+                func: static (state, argument) => state.Join(StateOfType(type: argument, depth: 1)))
+            : LoopState.None;
     }
 
     /// <summary>The parameter that an argument binds to, by name or by position.</summary>
@@ -111,15 +99,7 @@ internal static class SodaFlowSymbols
         {
             string name = argument.NameColon.Name.Identifier.ValueText;
 
-            foreach (IParameterSymbol parameter in callee.Parameters)
-            {
-                if (parameter.Name == name)
-                {
-                    return parameter;
-                }
-            }
-
-            return null;
+            return callee.Parameters.FirstOrDefault(parameter => parameter.Name == name);
         }
 
         if (position < callee.Parameters.Length)
@@ -142,8 +122,8 @@ internal static class SodaFlowSymbols
         type is INamedTypeSymbol { OriginalDefinition.Name: "LazySample" } named && IsSodaFlow(named);
 
     /// <summary>
-    ///     A type whose values can hold a pending read: a cell, a behavior, a lazy
-    ///     sample, or a bindable.
+    ///     A type whose values can hold a pending read: a cell, a behavior, a
+    ///     lazy sample, or a bindable.
     /// </summary>
     public static bool IsCarrierType(ITypeSymbol? type) =>
         type is INamedTypeSymbol named
@@ -156,8 +136,14 @@ internal static class SodaFlowSymbols
         name is "Stream" or "StreamSink" or "LoopedStream" or "StreamLoop" or "CellStreamSink";
 
     private static bool IsCellOrBehaviorName(string name) =>
-        name is "Cell" or "CellSink" or "LoopedCell" or "CellLoop" or "Behavior" or "BehaviorSink"
-            or "LoopedBehavior" or "BehaviorLoop";
+        name is "Cell"
+            or "CellSink"
+            or "LoopedCell"
+            or "CellLoop"
+            or "Behavior"
+            or "BehaviorSink"
+            or "LoopedBehavior"
+            or "BehaviorLoop";
 
     private static bool IsListenerName(string name) =>
         name is "IListener" or "IStrongListener" or "IWeakListener" or "Unit" or "Maybe" or "Either";

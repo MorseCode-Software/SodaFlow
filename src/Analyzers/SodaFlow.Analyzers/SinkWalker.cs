@@ -8,10 +8,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     Walks the code that runs while a loop is open and reports each read of a
-///     pending value. A lambda given to a library operator runs after the close, and
-///     the walk does not enter it. The walk enters all other lambdas.
+///     Walks the code that runs while a loop is open and reports each read of
+///     a pending value. A lambda given to a library operator runs after the close,
+///     and the walk does not enter it. The walk enters all other lambdas.
 /// </summary>
+// ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
 internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator evaluator) : CSharpSyntaxWalker
 {
     private readonly LoopStateEvaluator evaluator = evaluator;
@@ -46,7 +47,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                this.evaluator.Declare(local, this.evaluator.Eval(declarator.Initializer.Value));
+                this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
             }
         }
     }
@@ -54,7 +55,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         // An event subscription runs its lambda at an event, after the close.
-        if (node.RawKind == (int)SyntaxKind.AddAssignmentExpression && node.Right is AnonymousFunctionExpressionSyntax)
+        if (node is { RawKind: (int)SyntaxKind.AddAssignmentExpression, Right: AnonymousFunctionExpressionSyntax })
         {
             this.Visit(node.Left);
 
@@ -66,7 +67,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (node.Left is IdentifierNameSyntax
             && this.region.ModelFor(node).GetSymbolInfo(node.Left).Symbol is ILocalSymbol local)
         {
-            this.evaluator.Declare(local, this.evaluator.Eval(node.Right));
+            this.evaluator.Declare(local: local, state: this.evaluator.Eval(node.Right));
         }
     }
 
@@ -77,7 +78,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A stored lambda runs here, through the delegate's Invoke.
         if (node.Expression is IdentifierNameSyntax
             && model.GetSymbolInfo(node.Expression).Symbol is { } holder
-            && this.storedLambdas.TryGetValue(holder, out AnonymousFunctionExpressionSyntax? stored)
+            && this.storedLambdas.TryGetValue(key: holder, value: out AnonymousFunctionExpressionSyntax? stored)
             && this.walkedLambdas.Add(stored))
         {
             this.Visit(stored.Body);
@@ -96,13 +97,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         bool runsNow = LoopStateEvaluator.RunsNow(method);
         bool defers = (library && !runsNow) || RunsOnAnotherThread(method.ContainingType);
 
-        foreach (ArgumentSyntax argument in node.ArgumentList.Arguments)
+        foreach (ArgumentSyntax argument in node.ArgumentList.Arguments.Where(argument =>
+                     !defers || argument.Expression is not AnonymousFunctionExpressionSyntax))
         {
-            if (argument.Expression is AnonymousFunctionExpressionSyntax && defers)
-            {
-                continue;
-            }
-
             this.Visit(argument);
         }
 
@@ -151,7 +148,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // A method of an object whose construction was followed: its body can read a member that
         // the construction made pending.
-        if (receiver != null && method.ReducedFrom == null && this.evaluator.ConstructionOf(receiver) is { } construction)
+        if (receiver != null
+            && method.ReducedFrom == null
+            && this.evaluator.ConstructionOf(receiver) is { } construction)
         {
             this.CheckMemberRead(member: method, construction: construction, location: node);
         }
@@ -159,15 +158,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
-        this.VisitCreationArguments(node, node.ArgumentList);
-        this.CheckCreation(node, node.ArgumentList);
+        this.VisitCreationArguments(node: node, arguments: node.ArgumentList);
+        this.CheckCreation(node: node, arguments: node.ArgumentList);
     }
 
     /// <summary>
-    ///     The arguments of a construction, without a lambda that a thread or a timer
-    ///     runs after the close.
+    ///     The arguments of a construction, without a lambda that a thread or a
+    ///     timer runs after the close.
     /// </summary>
-    private void VisitCreationArguments(ExpressionSyntax node, ArgumentListSyntax? arguments)
+    private void VisitCreationArguments(ExpressionSyntax node, BaseArgumentListSyntax? arguments)
     {
         if (arguments == null)
         {
@@ -178,29 +177,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.region.ModelFor(node).GetSymbolInfo(node).Symbol is IMethodSymbol constructor
             && RunsOnAnotherThread(constructor.ContainingType);
 
-        foreach (ArgumentSyntax argument in arguments.Arguments)
+        foreach (ArgumentSyntax argument in arguments.Arguments.Where(argument =>
+                     !defers || argument.Expression is not AnonymousFunctionExpressionSyntax))
         {
-            if (argument.Expression is AnonymousFunctionExpressionSyntax && defers)
-            {
-                continue;
-            }
-
             this.Visit(argument);
         }
     }
 
     /// <summary>
-    ///     A type whose lambdas run on a different thread or after the block, so not
-    ///     in the block.
+    ///     A type whose lambdas run on a different thread or after the block, so
+    ///     not in the block.
     /// </summary>
-    private static bool RunsOnAnotherThread(INamedTypeSymbol type) =>
+    private static bool RunsOnAnotherThread(ISymbol type) =>
         type.ContainingNamespace?.ToDisplayString() is "System.Threading" or "System.Threading.Tasks"
         && type.Name is "Thread" or "Task" or "TaskFactory" or "ThreadPool" or "Timer" or "SynchronizationContext";
 
     public override void VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
-        this.VisitCreationArguments(node, node.ArgumentList);
-        this.CheckCreation(node, node.ArgumentList);
+        this.VisitCreationArguments(node: node, arguments: node.ArgumentList);
+        this.CheckCreation(node: node, arguments: node.ArgumentList);
     }
 
     public override void VisitReturnStatement(ReturnStatementSyntax node)
@@ -214,22 +209,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     private void VisitWithoutLambdas(SyntaxNode node)
     {
-        if (node is AnonymousFunctionExpressionSyntax)
+        switch (node)
         {
-            return;
+            case AnonymousFunctionExpressionSyntax:
+                return;
+            case TupleExpressionSyntax or ArgumentSyntax or ParenthesizedExpressionSyntax:
+                foreach (SyntaxNode child in node.ChildNodes())
+                {
+                    this.VisitWithoutLambdas(child);
+                }
+
+                return;
+            default:
+                this.Visit(node);
+
+                return;
         }
-
-        if (node is TupleExpressionSyntax or ArgumentSyntax or ParenthesizedExpressionSyntax)
-        {
-            foreach (SyntaxNode child in node.ChildNodes())
-            {
-                this.VisitWithoutLambdas(child);
-            }
-
-            return;
-        }
-
-        this.Visit(node);
     }
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
@@ -260,8 +255,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     /// <summary>
-    ///     A method or a computed property of a followed object, whose body samples a
-    ///     member that the construction made pending.
+    ///     A method or a computed property of a followed object, whose body
+    ///     samples a member that the construction made pending.
     /// </summary>
     private void CheckMemberRead(ISymbol member, Construction construction, SyntaxNode location)
     {
@@ -287,11 +282,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     /// <summary>
-    ///     The pending member that a method or property of a followed object reads.
-    ///     The read can be in its own body, or in a member of the same object that it
-    ///     calls, up to <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls deep.
+    ///     The pending member that a method or property of a followed object
+    ///     reads. The read can be in its own body, or in a member of the same object
+    ///     that it calls, up to <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls
+    ///     deep.
     /// </summary>
-    private ISymbol? PendingMemberReadBy(ISymbol member, Construction construction, HashSet<ISymbol> visited, int depth)
+    private ISymbol? PendingMemberReadBy(ISymbol member, Construction construction, ISet<ISymbol> visited, int depth)
     {
         if (depth >= LoopStateEvaluator.MaxInlineDepth || !visited.Add(member.OriginalDefinition))
         {
@@ -320,18 +316,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                             ? own
                             : access.Expression;
 
-                    if (model.GetSymbolInfo(target).Symbol is IPropertySymbol or IFieldSymbol
-                        && construction.StateOf(model.GetSymbolInfo(target).Symbol!).Pending)
+                    if (model.GetSymbolInfo(target).Symbol is { } read and (IPropertySymbol or IFieldSymbol)
+                        && construction.StateOf(read).Pending)
                     {
-                        return model.GetSymbolInfo(target).Symbol;
+                        return read;
                     }
 
                     break;
                 }
-                case InvocationExpressionSyntax { Expression: IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } } call
-                    when model.GetSymbolInfo(call).Symbol is IMethodSymbol next && IsMemberOfSameType(next, member):
+                case InvocationExpressionSyntax
+                    {
+                        Expression: IdentifierNameSyntax
+                        or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                    } call
+                    when model.GetSymbolInfo(call).Symbol is IMethodSymbol next
+                         && IsMemberOfSameType(candidate: next, member: member):
                 {
-                    ISymbol? found = this.PendingMemberReadBy(next, construction, visited, depth + 1);
+                    ISymbol? found =
+                        this.PendingMemberReadBy(
+                            member: next,
+                            construction: construction,
+                            visited: visited,
+                            depth: depth + 1);
 
                     if (found != null)
                     {
@@ -342,10 +348,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 }
                 case IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
                     when node.Parent is not InvocationExpressionSyntax
-                    && model.GetSymbolInfo(node).Symbol is IPropertySymbol next
-                    && IsMemberOfSameType(next, member):
+                         && model.GetSymbolInfo(node).Symbol is IPropertySymbol next
+                         && IsMemberOfSameType(candidate: next, member: member):
                 {
-                    ISymbol? found = this.PendingMemberReadBy(next, construction, visited, depth + 1);
+                    ISymbol? found =
+                        this.PendingMemberReadBy(
+                            member: next,
+                            construction: construction,
+                            visited: visited,
+                            depth: depth + 1);
 
                     if (found != null)
                     {
@@ -362,8 +373,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     private static bool IsMemberOfSameType(ISymbol candidate, ISymbol member) =>
         SymbolEqualityComparer.Default.Equals(
-            candidate.ContainingType?.OriginalDefinition,
-            member.ContainingType?.OriginalDefinition);
+            x: candidate.ContainingType?.OriginalDefinition,
+            y: member.ContainingType?.OriginalDefinition);
 
     /// <summary>The body of a method, or of the getter of a property.</summary>
     private static SyntaxNode? BodyOf(ISymbol member)
@@ -383,7 +394,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         };
     }
 
-    private void CheckCreation(ExpressionSyntax node, ArgumentListSyntax? arguments)
+    private void CheckCreation(ExpressionSyntax node, BaseArgumentListSyntax? arguments)
     {
         if (arguments == null
             || this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IMethodSymbol constructor
@@ -408,24 +419,30 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         for (int i = 0; i < arguments.Count; i++)
         {
             ArgumentSyntax argument = arguments[i];
-            IParameterSymbol? parameter = SodaFlowSymbols.ParameterOf(callee: callee, argument: argument, position: i + offset);
+
+            IParameterSymbol? parameter =
+                SodaFlowSymbols.ParameterOf(callee: callee, argument: argument, position: i + offset);
 
             if (parameter != null)
             {
-                this.CheckEscape(callee: callee, parameter: parameter, argument: argument.Expression, followed: followed);
+                this.CheckEscape(
+                    callee: callee,
+                    parameter: parameter,
+                    argument: argument.Expression,
+                    followed: followed);
             }
         }
     }
 
     /// <summary>
-    ///     A pending value given to code that is not in the library. The body of the
-    ///     callee answers the question when it is in this compilation. An
+    ///     A pending value given to code that is not in the library. The body of
+    ///     the callee answers the question when it is in this compilation. An
     ///     <c>AsCell()</c> at the argument is the assertion of the caller and reports
     ///     nothing.
     /// </summary>
     private void CheckEscape(
         IMethodSymbol callee,
-        IParameterSymbol parameter,
+        ISymbol parameter,
         ExpressionSyntax argument,
         ImmutableHashSet<ISymbol>? followed)
     {
@@ -440,7 +457,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // A read the analyzer can see is reported whatever the caller asserted: the assertion is
         // the promise, and the body breaks it.
-        if (this.SamplesParameter(callee: callee, parameter: parameter))
+        if (this.SamplesParameter(callee: callee, parameter: parameter, depth: 0))
         {
             this.region.Report(
                 Diagnostic.Create(
@@ -474,12 +491,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     /// <summary>
-    ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a value it
-    ///     is derived from, is the assertion that nothing reads it before the close.
+    ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a
+    ///     value it is derived from, is the assertion that nothing reads it before the
+    ///     close.
     /// </summary>
     private static bool IsAsserted(ExpressionSyntax argument)
     {
-        ExpressionSyntax? current = argument;
+        ExpressionSyntax current = argument;
 
         while (current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access })
         {
@@ -494,15 +512,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return false;
     }
 
-    private bool SamplesParameter(IMethodSymbol callee, IParameterSymbol parameter) =>
-        this.SamplesParameter(callee: callee, parameter: parameter, depth: 0);
-
     /// <summary>
-    ///     True when the callee samples the parameter. The read can be in its own body,
-    ///     or in a method in this compilation that gets the parameter from it. The scan
-    ///     goes <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls deep.
+    ///     True when the callee samples the parameter. The read can be in its own
+    ///     body, or in a method in this compilation that gets the parameter from it.
+    ///     The scan goes <see cref="LoopStateEvaluator.MaxInlineDepth" /> calls deep.
     /// </summary>
-    private bool SamplesParameter(IMethodSymbol callee, IParameterSymbol parameter, int depth)
+    private bool SamplesParameter(ISymbol callee, ISymbol parameter, int depth)
     {
         if (depth >= LoopStateEvaluator.MaxInlineDepth)
         {
@@ -521,8 +536,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SemanticModel model = this.region.ModelFor(declaration);
 
         foreach (InvocationExpressionSyntax call in declaration.DescendantNodes(
-                     descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
-                 .OfType<InvocationExpressionSyntax>())
+                         descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
+                     .OfType<InvocationExpressionSyntax>())
         {
             if (model.GetSymbolInfo(call).Symbol is not IMethodSymbol next)
             {
@@ -532,7 +547,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (call.Expression is MemberAccessExpressionSyntax access
                 && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
                 && SodaFlowSymbols.IsSodaFlow(next)
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(access.Expression).Symbol, parameter))
+                && SymbolEqualityComparer.Default.Equals(
+                    x: model.GetSymbolInfo(access.Expression).Symbol,
+                    y: parameter))
             {
                 return true;
             }
@@ -552,7 +569,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 offset = 1;
 
-                if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(receiverAccess.Expression).Symbol, parameter)
+                if (SymbolEqualityComparer.Default.Equals(
+                        x: model.GetSymbolInfo(receiverAccess.Expression).Symbol,
+                        y: parameter)
                     && this.SamplesParameter(callee: definition, parameter: definition.Parameters[0], depth: depth + 1))
                 {
                     return true;
@@ -563,7 +582,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 ArgumentSyntax argument = call.ArgumentList.Arguments[i];
 
-                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(argument.Expression).Symbol, parameter))
+                if (!SymbolEqualityComparer.Default.Equals(
+                        x: model.GetSymbolInfo(argument.Expression).Symbol,
+                        y: parameter))
                 {
                     continue;
                 }

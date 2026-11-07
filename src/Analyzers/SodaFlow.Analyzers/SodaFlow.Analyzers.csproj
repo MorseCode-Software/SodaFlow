@@ -32,7 +32,9 @@
         System.Collections.Immutable has no collection builder, so the analyzer makes an immutable
         array with Create. It brings Microsoft.CodeAnalysis.Analyzers, whose rules
         EnforceExtendedAnalyzerRules turns on, and whose release tracking the two AnalyzerReleases
-        files are for. PrivateAssets keeps Roslyn out of every package that references this project.
+        files are for. That package adds the two files to AdditionalFiles itself, thus this project
+        does not name them; a second listing makes docfx report each as a duplicate source file.
+        PrivateAssets keeps Roslyn out of every package that references this project.
     -->
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all"/>
@@ -49,8 +51,6 @@
         <Compile Include="OperatorTable.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
-        <AdditionalFiles Include="AnalyzerReleases.Shipped.md"/>
-        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md"/>
     </ItemGroup>
 
 </Project>

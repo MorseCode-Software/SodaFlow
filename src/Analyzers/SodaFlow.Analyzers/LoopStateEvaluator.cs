@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -8,27 +9,28 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     Gives each expression in a loop region its <see cref="LoopState" />. The
-///     rules are a model of what each library operator does with the current value
-///     and the links of its inputs.
+///     Gives each expression in a loop region its <see cref="LoopState" />.
+///     The rules are a model of what each library operator does with the current
+///     value and the links of its inputs.
 /// </summary>
 internal sealed class LoopStateEvaluator
 {
-
     /// <summary>
-    ///     How many calls deep the evaluator follows a helper or a construction. Three
-    ///     is sufficient for a helper that calls a helper that calls one more. The
-    ///     limit is also what ends a recursive chain.
+    ///     How many calls deep the evaluator follows a helper or a construction.
+    ///     Three is sufficient for a helper that calls a helper that calls one more.
+    ///     The limit is also what ends a recursive chain.
     /// </summary>
     public const int MaxInlineDepth = 3;
 
+    private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create(item1: "Impl", item2: "Internal");
+
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
     private readonly int depth;
+    private readonly Dictionary<InvocationExpressionSyntax, ImmutableHashSet<ISymbol>> followedByCall = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
-    private readonly Dictionary<InvocationExpressionSyntax, ImmutableHashSet<ISymbol>> followedByCall = [];
-    private readonly Dictionary<ISymbol, LoopState> thisMembers;
     private readonly LoopRegion region;
+    private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
     public LoopStateEvaluator(LoopRegion region)
         : this(
@@ -49,23 +51,27 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>Records the state of a local at its declaration or assignment.</summary>
     public void Declare(ISymbol local, LoopState state) =>
-        this.locals[local] = this.locals.TryGetValue(local, out LoopState? existing) ? existing.Join(state) : state;
+        this.locals[local] =
+            this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
 
     /// <summary>
-    ///     The members of the object that an expression names, when its construction
-    ///     was followed. The state carries them through a local, a hold, or a map.
+    ///     The members of the object that an expression names, when its
+    ///     construction was followed. The state carries them through a local, a hold,
+    ///     or a map.
     /// </summary>
     public Construction? ConstructionOf(ExpressionSyntax expression) => this.Eval(expression).Members;
 
     /// <summary>
-    ///     The parameters of an inlined call with all uses in the expressions that the
-    ///     evaluator read. The argument went only where the result shows it.
+    ///     The parameters of an inlined call with all uses in the expressions
+    ///     that the evaluator read. The argument went only where the result shows it.
     /// </summary>
     public ImmutableHashSet<ISymbol>? FollowedParametersOf(InvocationExpressionSyntax invocation)
     {
         this.Eval(invocation);
 
-        return this.followedByCall.TryGetValue(invocation, out ImmutableHashSet<ISymbol>? followed) ? followed : null;
+        return this.followedByCall.TryGetValue(key: invocation, value: out ImmutableHashSet<ISymbol>? followed)
+            ? followed
+            : null;
     }
 
     public LoopState Eval(ExpressionSyntax? expression)
@@ -75,7 +81,7 @@ internal sealed class LoopStateEvaluator
             return LoopState.None;
         }
 
-        if (this.memo.TryGetValue(expression, out LoopState? known))
+        if (this.memo.TryGetValue(key: expression, value: out LoopState? known))
         {
             return known;
         }
@@ -89,60 +95,39 @@ internal sealed class LoopStateEvaluator
         return state;
     }
 
-    private LoopState EvalUncached(ExpressionSyntax expression)
-    {
-        switch (expression)
+    private LoopState EvalUncached(ExpressionSyntax expression) =>
+        expression switch
         {
-            case ParenthesizedExpressionSyntax p:
-                return this.Eval(p.Expression);
-            case CastExpressionSyntax c:
-                return this.Eval(c.Expression);
-            case CheckedExpressionSyntax c:
-                return this.Eval(c.Expression);
-            case AwaitExpressionSyntax a:
-                return this.Eval(a.Expression);
-            case PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } s:
-                return this.Eval(s.Operand);
-            case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b:
-                return this.Eval(b.Left);
-            case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b:
-                return this.Eval(b.Left).Join(this.Eval(b.Right));
-            case ConditionalExpressionSyntax c:
-                return this.Eval(c.WhenTrue).Join(this.Eval(c.WhenFalse));
-            case SwitchExpressionSyntax s:
-                return this.JoinAll(s.Arms.Select(static arm => arm.Expression));
-            case TupleExpressionSyntax t:
-                return this.JoinAll(t.Arguments.Select(static a => a.Expression));
-            case CollectionExpressionSyntax c:
-                return this.JoinAll(
-                    c.Elements.Select(
-                        static e =>
-                            e switch
-                            {
-                                ExpressionElementSyntax x => x.Expression,
-                                SpreadElementSyntax x => x.Expression,
-                                _ => null
-                            }));
-            case ArrayCreationExpressionSyntax { Initializer: { } init }:
-                return this.JoinAll(init.Expressions);
-            case ImplicitArrayCreationExpressionSyntax a:
-                return this.JoinAll(a.Initializer.Expressions);
-            case InitializerExpressionSyntax i:
-                return this.JoinAll(i.Expressions);
-            case ElementAccessExpressionSyntax e:
-                return this.Eval(e.Expression).Join(this.TypeState(expression));
-            case AnonymousFunctionExpressionSyntax:
-                return LoopState.None;
-            case InvocationExpressionSyntax inv:
-                return this.EvalInvocation(inv);
-            case ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax:
-                return this.EvalCreation(expression);
-            case IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax:
-                return this.EvalName(expression);
-            default:
-                return this.TypeState(expression);
-        }
-    }
+            ParenthesizedExpressionSyntax p => this.Eval(p.Expression),
+            CastExpressionSyntax c => this.Eval(c.Expression),
+            CheckedExpressionSyntax c => this.Eval(c.Expression),
+            AwaitExpressionSyntax a => this.Eval(a.Expression),
+            PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } s =>
+                this.Eval(s.Operand),
+            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b => this.Eval(b.Left),
+            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b =>
+                this.Eval(b.Left).Join(this.Eval(b.Right)),
+            ConditionalExpressionSyntax c => this.Eval(c.WhenTrue).Join(this.Eval(c.WhenFalse)),
+            SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
+            TupleExpressionSyntax t => this.JoinAll(t.Arguments.Select(static a => a.Expression)),
+            CollectionExpressionSyntax c => this.JoinAll(
+                c.Elements.Select(static e =>
+                    e switch
+                    {
+                        ExpressionElementSyntax x => x.Expression,
+                        SpreadElementSyntax x => x.Expression,
+                        _ => null
+                    })),
+            ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions),
+            ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions),
+            InitializerExpressionSyntax i => this.JoinAll(i.Expressions),
+            ElementAccessExpressionSyntax e => this.Eval(e.Expression).Join(this.TypeState(expression)),
+            AnonymousFunctionExpressionSyntax => LoopState.None,
+            InvocationExpressionSyntax inv => this.EvalInvocation(inv),
+            ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
+            IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax => this.EvalName(expression),
+            _ => this.TypeState(expression)
+        };
 
     private LoopState EvalName(ExpressionSyntax expression)
     {
@@ -152,24 +137,29 @@ internal sealed class LoopStateEvaluator
         switch (symbol)
         {
             case ILocalSymbol or IParameterSymbol:
-                if (SymbolEqualityComparer.Default.Equals(symbol, this.region.Placeholder))
+                if (SymbolEqualityComparer.Default.Equals(x: symbol, y: this.region.Placeholder))
                 {
                     return this.region.PlaceholderState;
                 }
 
-                if (this.bound.TryGetValue(symbol, out LoopState? boundState))
+                if (this.bound.TryGetValue(key: symbol, value: out LoopState? boundState))
                 {
                     return boundState;
                 }
 
-                return this.locals.TryGetValue(symbol, out LoopState? localState) ? localState : LoopState.None;
+                return this.locals.TryGetValue(key: symbol, value: out LoopState? localState)
+                    ? localState
+                    : LoopState.None;
             case IPropertySymbol or IFieldSymbol:
             {
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.
-                if (expression is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
+                if (expression is IdentifierNameSyntax
+                    or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
                 {
-                    return (this.thisMembers.TryGetValue(symbol.OriginalDefinition, out LoopState? own) ? own : LoopState.None)
+                    return (this.thisMembers.TryGetValue(key: symbol.OriginalDefinition, value: out LoopState? own)
+                            ? own
+                            : LoopState.None)
                         .Join(this.TypeState(expression));
                 }
 
@@ -188,7 +178,7 @@ internal sealed class LoopStateEvaluator
 
                     // Otherwise, a member of a pending value is pending: the cell behind a bindable,
                     // or one element of a tuple from a loop block.
-                    ITypeSymbol? memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
+                    ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
 
                     if (SodaFlowSymbols.IsCarrierType(memberType)
                         || SodaFlowSymbols.IsStreamType(memberType)
@@ -224,7 +214,7 @@ internal sealed class LoopStateEvaluator
 
         foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
         {
-            argumentStates.Add(this.EvalArgument(argument.Expression, runsNow: runsNow));
+            argumentStates.Add(this.EvalArgument(argument: argument.Expression, runsNow: runsNow));
             argumentTypes.Add(model.GetTypeInfo(argument.Expression).Type);
         }
 
@@ -242,120 +232,102 @@ internal sealed class LoopStateEvaluator
         LoopState firstArgument = argumentStates.Count > 0 ? argumentStates[0] : LoopState.None;
         LoopState source = receiver != null ? receiverState : firstArgument;
 
-        switch (OperatorTable.Rule(method: method, receiverType: receiverType))
+        return OperatorTable.Rule(method: method, receiverType: receiverType) switch
         {
-            case OperatorRule.RunsNow:
-                return firstArgument;
-            case OperatorRule.Read:
-                return LoopState.None;
-            case OperatorRule.SampleLazy:
-                return new LoopState(
-                    Pending: receiverState.Pending,
-                    Linked: false,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.MapLazy:
-                return receiverState.WithLinked(false);
-            case OperatorRule.MapStream:
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false).WithContent(this.LambdaContent(invocation, receiverState.Content));
-            case OperatorRule.MapValue:
-                // The result holds what the function returns, and not what the receiver held.
-                return new LoopState(
-                    Pending: receiverState.Pending,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false).WithContent(this.LambdaContent(invocation, receiverState.Content));
-            case OperatorRule.LiftLazy:
-                return inputs.WithLinked(false);
-            case OperatorRule.Combine:
-                return new LoopState(
-                    Pending: inputs.Pending,
-                    Linked: inputs.Linked,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.SwitchValue:
-                return new LoopState(
-                    Pending: receiverState.Pending || receiverState.ContentPending,
-                    Linked: receiverState.Linked || receiverState.ContentLinked,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.SwitchStream:
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.ContentLinked,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.Hold:
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false).WithContent(receiverState.Content.Join(firstArgument));
-            case OperatorRule.HoldLazy:
-                return new LoopState(
-                    Pending: firstArgument.Pending,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.ConstantLazy:
-                return firstArgument.WithLinked(false);
-            case OperatorRule.Content:
-                // A value given to a constant or a sink is content. The links of a value with members
-                // of its own are in it, and not links of the cell.
-                return firstArgument.AsContent;
-            case OperatorRule.Fold:
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.Updates:
-                return source.WithPending(false);
-            case OperatorRule.MapTo:
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.Linked,
-                    ContentPending: false,
-                    ContentLinked: false).WithContent(firstArgument);
-            case OperatorRule.StreamFromReceiver:
-                // A snapshot samples its cells at each firing. Only the stream has a link.
-                return new LoopState(
-                    Pending: false,
-                    Linked: receiverState.Linked,
-                    ContentPending: receiverState.ContentPending,
-                    ContentLinked: receiverState.ContentLinked);
-            case OperatorRule.MergeStreams:
-                return new LoopState(
-                    Pending: false,
-                    Linked: LinkedStreamInput(
-                        receiverState: receiverState,
-                        receiverType: receiverType,
-                        argumentStates: argumentStates,
-                        argumentTypes: argumentTypes),
-                    ContentPending: inputs.ContentPending,
-                    ContentLinked: inputs.ContentLinked);
-            case OperatorRule.DeferLazy:
-                // A deferred read is pending when the function reads a pending value.
-                return new LoopState(
-                    Pending: firstArgument.Pending || this.LambdaReadsPending(invocation),
-                    Linked: false,
-                    ContentPending: false,
-                    ContentLinked: false);
-            case OperatorRule.Break:
-                // A defer, a split, a timer, a debounce, a listener, and a send: no state.
-                return LoopState.None;
-            default:
-                return DefaultLibraryResult(method: method, inputs: inputs);
-        }
+            OperatorRule.RunsNow => firstArgument,
+            OperatorRule.Read => LoopState.None,
+            OperatorRule.SampleLazy => new LoopState(
+                pending: receiverState.Pending,
+                linked: false,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.MapLazy => receiverState.WithLinked(false),
+            OperatorRule.MapStream => new LoopState(
+                pending: false,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false).WithContent(
+                this.LambdaContent(invocation: invocation, parameterState: receiverState.Content)),
+            // The result holds what the function returns, and not what the receiver held.
+            OperatorRule.MapValue => new LoopState(
+                pending: receiverState.Pending,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false).WithContent(
+                this.LambdaContent(invocation: invocation, parameterState: receiverState.Content)),
+            OperatorRule.LiftLazy => inputs.WithLinked(false),
+            OperatorRule.Combine => new LoopState(
+                pending: inputs.Pending,
+                linked: inputs.Linked,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.SwitchValue => new LoopState(
+                pending: receiverState.Pending || receiverState.ContentPending,
+                linked: receiverState.Linked || receiverState.ContentLinked,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.SwitchStream => new LoopState(
+                pending: false,
+                linked: receiverState.ContentLinked,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.Hold => new LoopState(
+                pending: false,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false).WithContent(receiverState.Content.Join(firstArgument)),
+            OperatorRule.HoldLazy => new LoopState(
+                pending: firstArgument.Pending,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.ConstantLazy => firstArgument.WithLinked(false),
+            // A value given to a constant or a sink is content. The links of a value with members of
+            // its own are in it, and not links of the cell.
+            OperatorRule.Content => firstArgument.AsContent,
+            OperatorRule.Fold => new LoopState(
+                pending: false,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false),
+            OperatorRule.Updates => source.WithPending(false),
+            OperatorRule.MapTo => new LoopState(
+                pending: false,
+                linked: receiverState.Linked,
+                contentPending: false,
+                contentLinked: false).WithContent(firstArgument),
+            // A snapshot samples its cells at each firing. Only the stream has a link.
+            OperatorRule.StreamFromReceiver => new LoopState(
+                pending: false,
+                linked: receiverState.Linked,
+                contentPending: receiverState.ContentPending,
+                contentLinked: receiverState.ContentLinked),
+            OperatorRule.MergeStreams => new LoopState(
+                pending: false,
+                linked: LinkedStreamInput(
+                    receiverState: receiverState,
+                    receiverType: receiverType,
+                    argumentStates: argumentStates,
+                    argumentTypes: argumentTypes),
+                contentPending: inputs.ContentPending,
+                contentLinked: inputs.ContentLinked),
+            // A deferred read is pending when the function reads a pending value.
+            OperatorRule.DeferLazy => new LoopState(
+                pending: firstArgument.Pending || this.LambdaReadsPending(invocation),
+                linked: false,
+                contentPending: false,
+                contentLinked: false),
+            // A defer, a split, a timer, a debounce, a listener, and a send: no state.
+            OperatorRule.Break => LoopState.None,
+            OperatorRule.Default => DefaultLibraryResult(method: method, inputs: inputs),
+            _ => throw new ArgumentOutOfRangeException(paramName: nameof(method), message: "An operator rule has no case.")
+        };
     }
 
     /// <summary>
-    ///     An object made in the region. Its constructor is followed when it is in this
-    ///     compilation, and the object then knows the state of each of its members.
+    ///     An object made in the region. Its constructor is followed when it is
+    ///     in this compilation, and the object then knows the state of each of its
+    ///     members.
     /// </summary>
     private LoopState EvalCreation(ExpressionSyntax creation)
     {
@@ -380,14 +352,9 @@ internal sealed class LoopStateEvaluator
 
         Construction? construction = this.FollowConstruction(constructor: constructor, arguments: arguments.Arguments);
 
-        if (construction == null)
-        {
-            return typeState;
-        }
-
-        // The object has no node of its own. Its members hold the state, and a hold or a cell
-        // of such objects reads them through the content.
-        return typeState.WithMembers(construction);
+        // The object has no node of its own. Its members hold the state, and a hold or a cell of
+        // such objects reads them through the content.
+        return construction == null ? typeState : typeState.WithMembers(construction);
     }
 
     private Construction? FollowConstruction(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments)
@@ -396,7 +363,8 @@ internal sealed class LoopStateEvaluator
         SyntaxNode? declaration = definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
 
         // A primary constructor declares on its type. An explicit one declares in it.
-        TypeDeclarationSyntax? type = declaration as TypeDeclarationSyntax ?? declaration?.Parent as TypeDeclarationSyntax;
+        TypeDeclarationSyntax? type =
+            declaration as TypeDeclarationSyntax ?? declaration?.Parent as TypeDeclarationSyntax;
 
         if (type == null)
         {
@@ -409,46 +377,36 @@ internal sealed class LoopStateEvaluator
 
         for (int i = 0; i < arguments.Count; i++)
         {
-            IParameterSymbol? parameter = SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i);
+            IParameterSymbol? parameter =
+                SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i);
 
             if (parameter != null)
             {
-                bound[parameter] = this.EvalArgument(arguments[i].Expression, runsNow: false);
+                bound[parameter] = this.EvalArgument(argument: arguments[i].Expression, runsNow: false);
                 parameters.Add(parameter);
             }
         }
 
         LoopStateEvaluator inner = new(region: this.region, bound: bound.ToImmutable(), depth: this.depth + 1);
+
         ImmutableDictionary<ISymbol, LoopState>.Builder members =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
         List<SyntaxNode> followed = [];
-
-        void Set(ISymbol? member, ExpressionSyntax value)
-        {
-            if (member == null)
-            {
-                return;
-            }
-
-            LoopState state = inner.Eval(value);
-            members[member] = members.TryGetValue(member, out LoopState? existing) ? existing.Join(state) : state;
-            inner.thisMembers[member] = members[member];
-            followed.Add(value);
-        }
 
         foreach (MemberDeclarationSyntax member in type.Members)
         {
             switch (member)
             {
                 case PropertyDeclarationSyntax { Initializer: { } init } property:
-                    Set(model.GetDeclaredSymbol(property), init.Value);
+                    Set(member: model.GetDeclaredSymbol(property), value: init.Value);
                     break;
                 case FieldDeclarationSyntax field:
                     foreach (VariableDeclaratorSyntax declarator in field.Declaration.Variables)
                     {
                         if (declarator.Initializer != null)
                         {
-                            Set(model.GetDeclaredSymbol(declarator), declarator.Initializer.Value);
+                            Set(member: model.GetDeclaredSymbol(declarator), value: declarator.Initializer.Value);
                         }
                     }
 
@@ -460,14 +418,18 @@ internal sealed class LoopStateEvaluator
         {
             IEnumerable<ExpressionSyntax> assignments =
                 explicitConstructor.Body != null
-                    ? explicitConstructor.Body.Statements.OfType<ExpressionStatementSyntax>().Select(static s => s.Expression)
+                    ? explicitConstructor.Body.Statements.OfType<ExpressionStatementSyntax>()
+                        .Select(static s => s.Expression)
                     : explicitConstructor.ExpressionBody != null
                         ? [explicitConstructor.ExpressionBody.Expression]
                         : [];
 
             foreach (ExpressionSyntax expression in assignments)
             {
-                if (expression is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
+                if (expression is not AssignmentExpressionSyntax
+                    {
+                        RawKind: (int)SyntaxKind.SimpleAssignmentExpression
+                    } assignment)
                 {
                     continue;
                 }
@@ -479,14 +441,34 @@ internal sealed class LoopStateEvaluator
 
                 if (model.GetSymbolInfo(target).Symbol is IPropertySymbol or IFieldSymbol)
                 {
-                    Set(model.GetSymbolInfo(target).Symbol, assignment.Right);
+                    Set(member: model.GetSymbolInfo(target).Symbol, value: assignment.Right);
                 }
             }
         }
 
         return new Construction(
             members: members.ToImmutable(),
-            followedParameters: FollowedParameters(model: model, scope: type, parameters: parameters.ToImmutableArray(), evaluated: followed));
+            followedParameters: FollowedParameters(
+                model: model,
+                scope: type,
+                parameters: parameters.ToImmutableArray(),
+                evaluated: followed));
+
+        void Set(ISymbol? member, ExpressionSyntax value)
+        {
+            if (member == null)
+            {
+                return;
+            }
+
+            LoopState state = inner.Eval(value);
+
+            members[member] =
+                members.TryGetValue(key: member, value: out LoopState? existing) ? existing.Join(state) : state;
+
+            inner.thisMembers[member] = members[member];
+            followed.Add(value);
+        }
     }
 
     /// <summary>
@@ -499,17 +481,21 @@ internal sealed class LoopStateEvaluator
         InvocationExpressionSyntax invocation,
         IMethodSymbol method,
         LoopState receiverState,
-        List<LoopState> argumentStates)
+        IReadOnlyList<LoopState> argumentStates)
     {
         LoopState? inlined =
-            this.TryInline(invocation: invocation, method: method, receiverState: receiverState, argumentStates: argumentStates);
+            this.TryInline(
+                invocation: invocation,
+                method: method,
+                receiverState: receiverState,
+                argumentStates: argumentStates);
 
         return (inlined ?? LoopState.None).Join(SodaFlowSymbols.StateOfType(method.ReturnType));
     }
 
     /// <summary>
-    ///     A method with no rule here gives its result the state of its inputs, where
-    ///     the result type can hold one. This is the conservative default.
+    ///     A method with no rule here gives its result the state of its inputs,
+    ///     where the result type can hold one. This is the conservative default.
     /// </summary>
     private static LoopState DefaultLibraryResult(IMethodSymbol method, LoopState inputs)
     {
@@ -518,30 +504,25 @@ internal sealed class LoopStateEvaluator
         if (SodaFlowSymbols.IsStreamType(returnType))
         {
             return new LoopState(
-                Pending: false,
-                Linked: inputs.Linked,
-                ContentPending: inputs.ContentPending,
-                ContentLinked: inputs.ContentLinked);
+                pending: false,
+                linked: inputs.Linked,
+                contentPending: inputs.ContentPending,
+                contentLinked: inputs.ContentLinked);
         }
 
-        if (SodaFlowSymbols.IsCarrierType(returnType))
-        {
-            return inputs;
-        }
-
-        return LoopState.None;
+        return SodaFlowSymbols.IsCarrierType(returnType) ? inputs : LoopState.None;
     }
 
     /// <summary>
-    ///     One level into a method in this compilation. The result is what the body
-    ///     returns, with the parameters bound to the arguments. The locals of the body
-    ///     are declared in order.
+    ///     One level into a method in this compilation. The result is what the
+    ///     body returns, with the parameters bound to the arguments. The locals of the
+    ///     body are declared in order.
     /// </summary>
     private LoopState? TryInline(
         InvocationExpressionSyntax invocation,
         IMethodSymbol method,
         LoopState receiverState,
-        List<LoopState> argumentStates)
+        IReadOnlyList<LoopState> argumentStates)
     {
         if (this.depth >= MaxInlineDepth)
         {
@@ -559,7 +540,7 @@ internal sealed class LoopStateEvaluator
                 _ => (null, null)
             };
 
-        if (expressionBody == null && block == null)
+        if (declaration == null || (expressionBody == null && block == null))
         {
             return null;
         }
@@ -583,16 +564,19 @@ internal sealed class LoopStateEvaluator
 
         this.followedByCall[invocation] =
             FollowedParameters(
-                model: this.region.ModelFor(declaration!),
-                scope: declaration!,
+                model: this.region.ModelFor(declaration),
+                scope: declaration,
                 parameters: definition.Parameters,
-                evaluated: inner.Evaluated(expressionBody: expressionBody, block: block));
+                evaluated: Evaluated(expressionBody: expressionBody, block: block));
 
         return result;
     }
 
-    /// <summary>The expressions that <see cref="EvalBody" /> evaluates: the local initializers and the returns.</summary>
-    private IEnumerable<SyntaxNode> Evaluated(ExpressionSyntax? expressionBody, BlockSyntax? block)
+    /// <summary>
+    ///     The expressions that <see cref="EvalBody" /> evaluates: the local
+    ///     initializers and the returns.
+    /// </summary>
+    private static IEnumerable<SyntaxNode> Evaluated(SyntaxNode? expressionBody, BlockSyntax? block)
     {
         if (expressionBody != null)
         {
@@ -614,8 +598,8 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The parameters with all uses in the scope in one of the expressions that
-    ///     the evaluator read. The value went only where the result shows it.
+    ///     The parameters with all uses in the scope in one of the expressions
+    ///     that the evaluator read. The value went only where the result shows it.
     /// </summary>
     private static ImmutableHashSet<ISymbol> FollowedParameters(
         SemanticModel model,
@@ -624,37 +608,20 @@ internal sealed class LoopStateEvaluator
         IEnumerable<SyntaxNode> evaluated)
     {
         List<SyntaxNode> covered = [.. evaluated];
-        ImmutableHashSet<ISymbol>.Builder followed = ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
 
-        foreach (IParameterSymbol parameter in parameters)
-        {
-            bool allFollowed = true;
-
-            foreach (IdentifierNameSyntax use in scope.DescendantNodes().OfType<IdentifierNameSyntax>())
-            {
-                if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(use).Symbol, parameter))
-                {
-                    continue;
-                }
-
-                if (!use.AncestorsAndSelf().Any(covered.Contains))
-                {
-                    allFollowed = false;
-
-                    break;
-                }
-            }
-
-            if (allFollowed)
-            {
-                followed.Add(parameter);
-            }
-        }
-
-        return followed.ToImmutable();
+        return parameters
+            .Where(parameter =>
+                scope.DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Where(use => SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(use).Symbol, y: parameter))
+                    .All(use => use.AncestorsAndSelf().Any(covered.Contains)))
+            .ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
     }
 
-    /// <summary>What a body returns: its one expression, or the combined state of its return statements.</summary>
+    /// <summary>
+    ///     What a body returns: its one expression, or the combined state of its
+    ///     return statements.
+    /// </summary>
     private LoopState EvalBody(ExpressionSyntax? expressionBody, BlockSyntax? block)
     {
         if (expressionBody != null)
@@ -669,15 +636,15 @@ internal sealed class LoopStateEvaluator
 
         SemanticModel model = this.region.ModelFor(block);
 
-        // The locals of the block, in order, so that a return of one of them has a state.
-        foreach (LocalDeclarationStatementSyntax declaration in block.Statements.OfType<LocalDeclarationStatementSyntax>())
+        // The locals of the block, in order, so that a return of one of them has a state. A local
+        // with no initializer gets no state.
+        foreach (VariableDeclaratorSyntax declarator in block.Statements
+                     .OfType<LocalDeclarationStatementSyntax>()
+                     .SelectMany(static declaration => declaration.Declaration.Variables))
         {
-            foreach (VariableDeclaratorSyntax declarator in declaration.Declaration.Variables)
+            if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                if (declarator.Initializer != null && model.GetDeclaredSymbol(declarator) is { } local)
-                {
-                    this.Declare(local, this.Eval(declarator.Initializer.Value));
-                }
+                this.Declare(local: local, state: this.Eval(declarator.Initializer?.Value));
             }
         }
 
@@ -685,8 +652,8 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True when the function given to an operator reads a pending value, which a
-    ///     deferred sample then reads when it is forced.
+    ///     True when the function given to an operator reads a pending value,
+    ///     which a deferred sample then reads when it is forced.
     /// </summary>
     private bool LambdaReadsPending(InvocationExpressionSyntax invocation)
     {
@@ -703,7 +670,8 @@ internal sealed class LoopStateEvaluator
 
         SemanticModel model = this.region.ModelFor(lambda);
 
-        foreach (InvocationExpressionSyntax read in lambda.Body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
+        foreach (InvocationExpressionSyntax read in lambda.Body.DescendantNodesAndSelf()
+                     .OfType<InvocationExpressionSyntax>())
         {
             if (read.Expression is MemberAccessExpressionSyntax access
                 && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
@@ -718,26 +686,24 @@ internal sealed class LoopStateEvaluator
         return false;
     }
 
-    private LoopState EvalArgument(ExpressionSyntax argument, bool runsNow)
-    {
-        switch (argument)
+    private LoopState EvalArgument(ExpressionSyntax argument, bool runsNow) =>
+        argument switch
         {
-            case AnonymousFunctionExpressionSyntax lambda:
-                return runsNow ? this.EvalLambdaResult(lambda, boundParameters: ImmutableArray<LoopState>.Empty) : LoopState.None;
-            case MemberAccessExpressionSyntax access
+            AnonymousFunctionExpressionSyntax lambda => runsNow
+                ? this.EvalLambdaResult(lambda: lambda, boundParameters: ImmutableArray<LoopState>.Empty)
+                : LoopState.None,
+            // A method group such as x.Sample is a read that runs after this. It is pending, as a lazy
+            // sample of x is.
+            MemberAccessExpressionSyntax access
                 when SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
-                && this.region.ModelFor(access).GetSymbolInfo(access).Symbol is IMethodSymbol:
-                // A method group such as x.Sample is a read that runs after this. It is pending, as
-                // a lazy sample of x is.
-                return this.Eval(access.Expression).WithLinked(false);
-            default:
-                return this.Eval(argument);
-        }
-    }
+                     && this.region.ModelFor(access).GetSymbolInfo(access).Symbol is IMethodSymbol =>
+                this.Eval(access.Expression).WithLinked(false),
+            _ => this.Eval(argument)
+        };
 
     /// <summary>
-    ///     The state of what a lambda given to an operator returns, for the content
-    ///     of a cell of cells or a cell of streams.
+    ///     The state of what a lambda given to an operator returns, for the
+    ///     content of a cell of cells or a cell of streams.
     /// </summary>
     private LoopState LambdaContent(InvocationExpressionSyntax invocation, LoopState parameterState)
     {
@@ -747,15 +713,12 @@ internal sealed class LoopStateEvaluator
                 .OfType<AnonymousFunctionExpressionSyntax>()
                 .FirstOrDefault();
 
-        if (lambda == null)
-        {
-            return LoopState.None;
-        }
-
-        return this.EvalLambdaResult(lambda, boundParameters: ImmutableArray.Create(parameterState));
+        return lambda == null
+            ? LoopState.None
+            : this.EvalLambdaResult(lambda: lambda, boundParameters: ImmutableArray.Create(parameterState));
     }
 
-    public LoopState EvalLambdaResult(
+    private LoopState EvalLambdaResult(
         AnonymousFunctionExpressionSyntax lambda,
         ImmutableArray<LoopState> boundParameters)
     {
@@ -770,7 +733,7 @@ internal sealed class LoopStateEvaluator
                 SimpleLambdaExpressionSyntax s => new[] { s.Parameter },
                 ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.ToArray(),
                 AnonymousMethodExpressionSyntax { ParameterList: { } list } => list.Parameters.ToArray(),
-                _ => System.Array.Empty<ParameterSyntax>()
+                _ => Array.Empty<ParameterSyntax>()
             };
 
         for (int i = 0; i < parameters.Count && i < boundParameters.Length; i++)
@@ -782,20 +745,25 @@ internal sealed class LoopStateEvaluator
         }
 
         LoopStateEvaluator inner =
-            boundParameters.IsEmpty ? this : new LoopStateEvaluator(region: this.region, bound: bound.ToImmutable(), depth: this.depth);
+            boundParameters.IsEmpty
+                ? this
+                : new LoopStateEvaluator(region: this.region, bound: bound.ToImmutable(), depth: this.depth);
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);
     }
 
     /// <summary>
-    ///     The expressions that a block returns, without those of a nested function.
+    ///     The expressions that a block returns, without those of a nested
+    ///     function.
     /// </summary>
     public static IEnumerable<ExpressionSyntax> ReturnExpressions(SyntaxNode body) =>
-        body.DescendantNodes(descendIntoChildren: static n => n is not (AnonymousFunctionExpressionSyntax
-                or LocalFunctionStatementSyntax))
+        body.DescendantNodes(
+                descendIntoChildren: static n =>
+                    n is not (AnonymousFunctionExpressionSyntax
+                        or LocalFunctionStatementSyntax))
             .OfType<ReturnStatementSyntax>()
             .Select(static r => r.Expression)
-            .Where(static e => e != null)!;
+            .OfType<ExpressionSyntax>();
 
     private LoopState JoinAll(IEnumerable<ExpressionSyntax?> expressions) =>
         expressions.Aggregate(seed: LoopState.None, func: (state, e) => state.Join(this.Eval(e)));
@@ -806,10 +774,11 @@ internal sealed class LoopStateEvaluator
     private static bool LinkedStreamInput(
         LoopState receiverState,
         ITypeSymbol? receiverType,
-        List<LoopState> argumentStates,
-        List<ITypeSymbol?> argumentTypes)
+        IReadOnlyList<LoopState> argumentStates,
+        IReadOnlyList<ITypeSymbol?> argumentTypes)
     {
-        bool linked = receiverState.Linked && (receiverType == null || !SodaFlowSymbols.IsCellOrBehaviorType(receiverType));
+        bool linked =
+            receiverState.Linked && (receiverType == null || !SodaFlowSymbols.IsCellOrBehaviorType(receiverType));
 
         for (int i = 0; i < argumentStates.Count; i++)
         {
@@ -820,8 +789,9 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The code of a lambda given to one of these runs in the block, before the
-    ///     loop closes. Every other operator keeps its lambda for a firing after the close.
+    ///     The code of a lambda given to one of these runs in the block, before
+    ///     the loop closes. Every other operator keeps its lambda for a firing after
+    ///     the close.
     /// </summary>
     public static bool RunsNow(IMethodSymbol method) =>
         SodaFlowSymbols.IsSodaFlow(method)
@@ -835,18 +805,13 @@ internal sealed class LoopStateEvaluator
     {
         string name = method.Name;
 
-        foreach (string suffix in Suffixes)
-        {
-            if (name.Length > suffix.Length && name.EndsWith(suffix, System.StringComparison.Ordinal))
-            {
-                return name.Substring(0, name.Length - suffix.Length);
-            }
-        }
+        string? suffix =
+            Suffixes.FirstOrDefault(candidate =>
+                name.Length > candidate.Length
+                && name.EndsWith(value: candidate, comparisonType: StringComparison.Ordinal));
 
-        return name;
+        return suffix == null ? name : name.Substring(startIndex: 0, length: name.Length - suffix.Length);
     }
-
-    private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create("Impl", "Internal");
 
     public static ExpressionSyntax? ReceiverOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
