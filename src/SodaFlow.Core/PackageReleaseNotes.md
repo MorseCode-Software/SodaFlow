@@ -270,7 +270,7 @@ lift's object is the source of the lazy sample its hold starts from. Nothing obs
 GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a lift of two cells 2.38 to
 2.13 ms and 1,920 to 1,492 KB, and 3.30 to 2.84 ms; a lift of six 7.38 to 6.40 ms and 3,639 to 3,205 KB, and 8.75 to
 7.99 ms; a merge of two streams 1.70 to 1.57 ms and 1,420 to 1,086 KB, and 2.25 to 2.00 ms. In the scratch probe on .NET
-10, per item: a SnapshotLatest of one cell is 1,380 to 937 bytes, a merge of maybes of three streams 1,886 to 1,394, and
+10, per item: a SnapshotLatest of one cell is 1,380 to 929 bytes, a merge of maybes of three streams 1,886 to 1,394, and
 a list merge of three 1,943 to 1,553.
 
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
