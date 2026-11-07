@@ -86,6 +86,14 @@ public class Stream<T> : ILastAction
         this.Node = new StreamNode<T>();
     }
 
+    // The stream of the updates of a derived behavior, on the node that the inputs of the behavior
+    // already link into. See IDerivation.
+    internal Stream(IKeepListenersAlive keepListenersAlive, StreamNode<T> node)
+    {
+        this.KeepListenersAlive = keepListenersAlive;
+        this.Node = node;
+    }
+
     // SodaFlow creates this at the first read, as it does the other fields. It uses CompareExchange
     // and not a null test, because no other lock can stop more than one thread from creating this one.
     //
@@ -309,11 +317,11 @@ public class Stream<T> : ILastAction
     }
 
     /// <summary>
-    ///     The same for an object that is its own strong holder and is not attached.
-    ///     A behavior is one: the node reaches it through the target only, and the
-    ///     caller keeps nothing, thus this gives nothing back.
+    ///     The same for an object that is not attached. A behavior is one: the node
+    ///     reaches it through the target only. A map of a behavior is one, and keeps
+    ///     the target as its weak view.
     /// </summary>
-    internal void Listen(
+    internal Node<T>.Target Listen(
         Node target,
         TransactionInternal trans,
         IStreamAction<T> action,
@@ -1265,6 +1273,14 @@ public class Stream<T> : ILastAction
         this.Node.Attach(stream: this, listener: cleanup.GetListenerWithWeakReference());
         return this;
     }
+
+    /// <summary>
+    ///     Holds a listener, as an attach does, but does not attach its weak view to
+    ///     the node. The stream of the updates of a derived behavior holds the
+    ///     derivation this way. The derivation attached its own links to the node
+    ///     when it was made.
+    /// </summary>
+    internal void Retain(IListenerInternal listener) => this.attachedListener = listener;
 
     // The firings of a transaction go at its end, whichever way it ends. See Send.
     void ILastAction.Commit() => this.firings?.Clear();

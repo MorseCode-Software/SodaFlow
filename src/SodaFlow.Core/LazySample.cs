@@ -149,7 +149,7 @@ internal static class LazySampleInternal
 // ReSharper disable once InheritdocConsiderUsage
 public sealed class LazySample<T> : ILastAction, ISampleAction
 {
-    private const string SelfReference =
+    internal const string SelfReference =
         "This lazy sample forces itself. The loop that it samples is not closed, or the initial value of a cell reads "
         + "that cell.";
 
