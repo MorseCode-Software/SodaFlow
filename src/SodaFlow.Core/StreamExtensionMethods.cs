@@ -71,25 +71,14 @@ internal static class StreamExtensionMethodsInternal
 
         for (int i = 0; i < inputs.Count; i++)
         {
-            int index = i;
-
-            IListener l =
-                inputs[index]
-                    .Listen(
-                        target: gate.Node,
-                        trans: trans,
-                        action: (trans2, a) =>
-                        {
-                            slots[index] =
-                                slots[index].TryGetValue(out T earlier)
-                                    ? MaybeInternal.Some(f(arg1: earlier, arg2: a))
-                                    : MaybeInternal.Some(a);
-
-                            gate.Arrived(trans2);
-                        },
-                        suppressEarlierFirings: false);
-
-            result = result.UnsafeAttachListener(l);
+            result =
+                result.UnsafeAttachListener(
+                    inputs[i]
+                        .Listen(
+                            target: gate.Node,
+                            trans: trans,
+                            action: new MergeInput<T>(slots: slots, index: i, f: f, gate: gate),
+                            suppressEarlierFirings: false));
         }
 
         return result;
@@ -125,12 +114,8 @@ internal static class StreamExtensionMethodsInternal
     {
         Stream<T> @out = new(s.KeepListenersAlive);
 
-        IListener l =
-            s.Listen(
-                target: @out.Node,
-                action: (trans2, a) => matchSome(arg1: a, arg2: v => @out.Send(trans: trans2, a: v)));
-
-        return @out.UnsafeAttachListener(l);
+        return @out.UnsafeAttachListener(
+            s.Listen(target: @out.Node, action: new FilterSomeAction<T, TMaybe>(@out: @out, matchSome: matchSome)));
     }
 
     // This does not go through FilterSomeImpl. That method knows no optional type, thus it matches
@@ -140,18 +125,7 @@ internal static class StreamExtensionMethodsInternal
     {
         Stream<T> @out = new(s.KeepListenersAlive);
 
-        IListener l =
-            s.Listen(
-                target: @out.Node,
-                action: (trans2, m) =>
-                {
-                    if (m.TryGetValue(out T v))
-                    {
-                        @out.Send(trans: trans2, a: v);
-                    }
-                });
-
-        return @out.UnsafeAttachListener(l);
+        return @out.UnsafeAttachListener(s.Listen(target: @out.Node, action: new FilterSomeInternalAction<T>(@out)));
     }
 
     /// <summary>
@@ -169,12 +143,10 @@ internal static class StreamExtensionMethodsInternal
     {
         Stream<TResult> @out = new(s.KeepListenersAlive);
 
-        IListener l =
+        return @out.UnsafeAttachListener(
             s.Listen(
                 target: @out.Node,
-                action: (trans2, a) => matchSome(arg1: f(a), arg2: v => @out.Send(trans: trans2, a: v)));
-
-        return @out.UnsafeAttachListener(l);
+                action: new ChooseAction<T, TResult, TMaybe>(@out: @out, f: f, matchSome: matchSome)));
     }
 
     /// <summary>
@@ -190,18 +162,85 @@ internal static class StreamExtensionMethodsInternal
     {
         Stream<TResult> @out = new(s.KeepListenersAlive);
 
-        IListener l =
-            s.Listen(
-                target: @out.Node,
-                action: (trans2, a) =>
-                {
-                    if (f(a).TryGetValue(out TResult v))
-                    {
-                        @out.Send(trans: trans2, a: v);
-                    }
-                });
+        return @out.UnsafeAttachListener(
+            s.Listen(target: @out.Node, action: new ChooseInternalAction<T, TResult>(@out: @out, f: f)));
+    }
 
-        return @out.UnsafeAttachListener(l);
+    // The actions of the links above. Each holds what its lambda captured, and is the listener
+    // that the output attaches. See StreamAction.
+    private sealed class MergeInput<T>(
+        in MaybeInternal<T>[] slots,
+        in int index,
+        in Func<T, T, T> f,
+        in OnceGate gate)
+        : StreamAction<T>
+    {
+        private readonly Func<T, T, T> f = f;
+        private readonly OnceGate gate = gate;
+        private readonly int index = index;
+        private readonly MaybeInternal<T>[] slots = slots;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            this.slots[this.index] =
+                this.slots[this.index].TryGetValue(out T earlier)
+                    ? MaybeInternal.Some(this.f(arg1: earlier, arg2: value))
+                    : MaybeInternal.Some(value);
+
+            this.gate.Arrived(trans);
+        }
+    }
+
+    private sealed class FilterSomeAction<T, TMaybe>(in Stream<T> @out, in Action<TMaybe, Action<T>> matchSome)
+        : StreamAction<TMaybe>
+    {
+        private readonly Action<TMaybe, Action<T>> matchSome = matchSome;
+        private readonly Stream<T> @out = @out;
+
+        public override void Fire(TransactionInternal trans, TMaybe value) =>
+            this.matchSome(arg1: value, arg2: v => this.@out.Send(trans: trans, a: v));
+    }
+
+    private sealed class FilterSomeInternalAction<T>(in Stream<T> @out) : StreamAction<MaybeInternal<T>>
+    {
+        private readonly Stream<T> @out = @out;
+
+        public override void Fire(TransactionInternal trans, MaybeInternal<T> value)
+        {
+            if (value.TryGetValue(out T v))
+            {
+                this.@out.Send(trans: trans, a: v);
+            }
+        }
+    }
+
+    private sealed class ChooseAction<T, TResult, TMaybe>(
+        in Stream<TResult> @out,
+        in Func<T, TMaybe> f,
+        in Action<TMaybe, Action<TResult>> matchSome)
+        : StreamAction<T>
+    {
+        private readonly Func<T, TMaybe> f = f;
+        private readonly Action<TMaybe, Action<TResult>> matchSome = matchSome;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.matchSome(arg1: this.f(value), arg2: v => this.@out.Send(trans: trans, a: v));
+    }
+
+    private sealed class ChooseInternalAction<T, TResult>(in Stream<TResult> @out, in Func<T, MaybeInternal<TResult>> f)
+        : StreamAction<T>
+    {
+        private readonly Func<T, MaybeInternal<TResult>> f = f;
+        private readonly Stream<TResult> @out = @out;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            if (this.f(value).TryGetValue(out TResult v))
+            {
+                this.@out.Send(trans: trans, a: v);
+            }
+        }
     }
 
     /// <summary>

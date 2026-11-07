@@ -241,6 +241,11 @@ internal abstract class Node
     {
         public readonly Node Node = node;
         public bool IsActivated = isActivated;
+
+        // True when the action of this link is reachable. The registry asks this of the first
+        // attached link of a stream, and not a weak handle to the stream. See
+        // StreamNode<T>.Attach.
+        internal abstract bool IsAlive { get; }
     }
 }
 
@@ -283,7 +288,7 @@ internal class Node<T> : Node
     ///     A tuple. It tells you if the node rank changed, and it contains the
     ///     <see cref="Target" /> object for this link.
     /// </returns>
-    internal Target Link(TransactionInternal trans, Action<TransactionInternal, T> action, Node target)
+    internal Target Link(TransactionInternal trans, object action, Node target)
     {
         Target t = new(action: action, source: this, node: target, isActivated: trans.ActivatedTargets);
 
@@ -395,16 +400,21 @@ internal class Node<T> : Node
     // node, thus it can remove itself from that node. It holds the action through a weak
     // reference only, thus it does not keep the listener or the stream alive. Before, an
     // object of its own held the source node and the target for that, one for each link.
+    //
+    // The action is an IStreamAction<T> or an Action<TransactionInternal, T>, and the code that
+    // calls it tests the type. See IStreamAction<T>.
     public new sealed class Target(
-        in Action<TransactionInternal, T> action,
+        in object action,
         in Node<T> source,
         in Node node,
         in bool isActivated)
         : Node.Target(node: node, isActivated: isActivated), IListenerWithWeakReference
     {
-        public readonly WeakReference<Action<TransactionInternal, T>> Action = new(action);
+        public readonly WeakReference<object> Action = new(action);
 
         private readonly Node<T> source = source;
+
+        internal override bool IsAlive => this.Action.TryGetTarget(out _);
 
         public void Unlisten() => this.source.RemoveListener(this);
     }
@@ -428,6 +438,17 @@ internal class Node<T> : Node
 // each such stream survive a collection with its node. ListenStrong on one stream then cost
 // 371 to 521 microseconds per thousand, and a sink 392 to 416. The lazy registration takes
 // that back and more, because a sink then allocates no handle at all.
+//
+// The entry allocates no handle at all when the first attached listener is the target of a link,
+// which is the case for each operator. The action of that link is an object that holds the
+// stream, and the stream holds the action. Thus, the action is
+// reachable when and only when the stream is, and the weak reference in the target answers for
+// the stream. This is an invariant that no compiler checks: the first attached action of an
+// operator's output must reference that output. Otherwise, the sweep releases the links of a
+// live stream, and the stream stops with no message. Each action in StreamAction.cs and beside the operators
+// holds its output, and the memory test AliveOperatorStreamsSurviveTheSweep holds each shape.
+// A first listener that is not a target, such as the action listener of a Cleanup, keeps the
+// handle.
 internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
 {
     private GCHandle streamHandle;
@@ -437,7 +458,10 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
     private IListenerWithWeakReference? firstAttached;
     private List<IListenerWithWeakReference>? moreAttached;
 
-    public bool IsStreamAlive => this.streamHandle is { IsAllocated: true, Target: not null };
+    public bool IsStreamAlive =>
+        this.firstAttached is Node.Target target
+            ? target.IsAlive
+            : this.streamHandle is { IsAllocated: true, Target: not null };
 
     // The stream is complete when this runs, because a caller attaches a listener to a stream
     // that exists. Thus, the registry cannot find an incomplete stream through the handle.
@@ -445,7 +469,11 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
     {
         if (this.firstAttached == null)
         {
-            this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
+            if (listener is not Node.Target)
+            {
+                this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
+            }
+
             StreamListenerManager.Register(this);
             this.firstAttached = listener;
         }

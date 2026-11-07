@@ -40,11 +40,11 @@ internal static class BehaviorExtensionMethodsInternal
     {
         SwitchKeepListenersAlive keepListenersAlive = new(bsa.KeepListenersAlive);
         Stream<T> @out = new(keepListenersAlive);
-        MutableListener currentListener = new();
+        SwitchSAction<T, T2> action = new(@out: @out, keepListenersAlive: keepListenersAlive);
 
         // The two targets are new nodes, and not the output node that SwitchB links its outer
-        // behavior to. H does its work in trans2.Last, after each prioritized action of the
-        // transaction. Thus, the outer update needs no rank below the output, and the first
+        // behavior to. The action does its work in trans2.Last, after each prioritized action of
+        // the transaction. Thus, the outer update needs no rank below the output, and the first
         // selection samples the outer behavior out of the rank order too. A link from the outer
         // behavior to the output node puts the output in the rank graph of its own selector. A
         // selector that holds the output through a loop is a legal graph. The hold breaks the
@@ -53,36 +53,42 @@ internal static class BehaviorExtensionMethodsInternal
         // step as the outer update, thus its rank is necessary.
         trans1.Prioritized(
             node: new Node<T>(),
-            action: trans2 => HInitial(trans2: trans2, sa: bsa.SampleNoTransaction()));
+            action: trans2 =>
+                action.Select(trans: trans2, sa: bsa.SampleNoTransaction(), suppressEarlierFirings: false));
 
         IListener l1 =
-            bsa.Updates()
-                .Listen(target: new Node<T>(), trans: trans1, action: H, suppressEarlierFirings: false);
+            bsa.Updates().Listen(target: new Node<T>(), trans: trans1, action: action, suppressEarlierFirings: false);
 
-        return @out.UnsafeAttachListener(l1).UnsafeAttachListener(currentListener);
+        return @out.UnsafeAttachListener(l1).UnsafeAttachListener(action.Current);
+    }
+
+    // The action of the outer link of a switch of streams. It holds the output, the mutable
+    // listener that holds the inner link, and the keep-alive set of the switch.
+    private sealed class SwitchSAction<T, T2>(in Stream<T> @out, in SwitchKeepListenersAlive keepListenersAlive)
+        : StreamAction<T2>
+        where T2 : Stream<T>
+    {
+        private readonly SwitchKeepListenersAlive keepListenersAlive = keepListenersAlive;
+        private readonly Stream<T> @out = @out;
+
+        internal MutableListener Current { get; } = new();
+
+        public override void Fire(TransactionInternal trans, T2 value) =>
+            trans.Last(() => this.Select(trans: trans, sa: value, suppressEarlierFirings: true));
 
         // Each set stops the previous listener, which the mutable listener holds. The keep-alive
         // set moves its listeners to the root of the new stream at the same time.
-        void HInitial(TransactionInternal trans2, Stream<T> sa)
+        internal void Select(TransactionInternal trans, Stream<T> sa, bool suppressEarlierFirings)
         {
-            currentListener.SetListenerImpl(
-                sa.Listen(target: @out.Node, trans: trans2, action: @out.Send, suppressEarlierFirings: false));
+            this.Current.SetListenerImpl(
+                sa.Listen(
+                    target: this.@out.Node,
+                    trans: trans,
+                    action: new SendInto<T>(this.@out),
+                    suppressEarlierFirings: suppressEarlierFirings));
 
-            keepListenersAlive.SetInner(sa.KeepListenersAlive);
+            this.keepListenersAlive.SetInner(sa.KeepListenersAlive);
         }
-
-        void H(TransactionInternal trans2, Stream<T> sa) =>
-            trans2.Last(() =>
-            {
-                currentListener.SetListenerImpl(
-                    sa.Listen(
-                        target: @out.Node,
-                        trans: trans2,
-                        action: @out.Send,
-                        suppressEarlierFirings: true));
-
-                keepListenersAlive.SetInner(sa.KeepListenersAlive);
-            });
     }
 
     internal static Behavior<TResult> LiftBehaviorsImpl<T, T2, TResult>(
@@ -147,23 +153,32 @@ internal static class BehaviorExtensionMethodsInternal
 
         for (int i = 0; i < inputs.Length; i++)
         {
-            int index = i;
-
-            listeners[index] =
-                inputs[index]
+            listeners[i] =
+                inputs[i]
                     .Updates()
                     .Listen(
                         target: gate.Node,
                         trans: trans1,
-                        action: (trans2, v) =>
-                        {
-                            slots[index].Set(trans: trans2, value: v);
-                            gate.Arrived(trans2);
-                        },
+                        action: new LiftInput<T>(slots: slots, index: i, gate: gate),
                         suppressEarlierFirings: false);
         }
 
         return @out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
             .HoldLazyInternal(trans: trans1, initialValue: initialValue);
+    }
+
+    // The action of one input of the list lift: it fills the slot at its index and calls the
+    // gate. Before, a lambda captured the index, the slots, and the gate.
+    private sealed class LiftInput<T>(in CaptureSlot<T>[] slots, in int index, in OnceGate gate) : StreamAction<T>
+    {
+        private readonly OnceGate gate = gate;
+        private readonly int index = index;
+        private readonly CaptureSlot<T>[] slots = slots;
+
+        public override void Fire(TransactionInternal trans, T value)
+        {
+            this.slots[this.index].Set(trans: trans, value: value);
+            this.gate.Arrived(trans);
+        }
     }
 }

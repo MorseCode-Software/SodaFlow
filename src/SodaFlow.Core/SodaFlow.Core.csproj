@@ -44,7 +44,7 @@
         <Compile Include="CellSink.cs"/>
         <Compile Include="CellStreamSink.cs"/>
         <Compile Include="Cleanup.cs"/>
-        <Compile Include="CoalesceHandler.cs"/>
+        <Compile Include="CoalesceAction.cs"/>
         <Compile Include="DependencyCycleException.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>
         <Compile Include="GenerationalRegistry.cs"/>
@@ -65,6 +65,7 @@
         <Compile Include="OnceGate.cs"/>
         <Compile Include="Operational.cs"/>
         <Compile Include="Stream.cs"/>
+        <Compile Include="StreamAction.cs"/>
         <Compile Include="StreamExtensionMethods.cs"/>
         <Compile Include="StreamListenerManager.cs"/>
         <Compile Include="StreamSink.cs"/>

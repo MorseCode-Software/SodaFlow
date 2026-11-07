@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
@@ -8,6 +9,10 @@ namespace SodaFlow.Tests.Internal;
 
 public sealed class NodeTests
 {
+    // The target of a link holds a delegate or an action as an object. The tests link with a delegate that
+    // does nothing.
+    private static readonly Action<TransactionInternal, int> NoAction = static (_, _) => { };
+
     [Test]
     public async Task TestNode()
     {
@@ -18,9 +23,7 @@ public sealed class NodeTests
         {
             a.Link(
                 trans: trans,
-                action: static (_, _) =>
-                {
-                },
+                action: NoAction,
                 target: b);
 
             trans.Prioritized(
@@ -91,10 +94,10 @@ public sealed class NodeTests
 
         TransactionInternal.Apply((trans, _) =>
         {
-            a.Link(trans: trans, action: static (_, _) => { }, target: b);
-            Node<int>.Target bc = b.Link(trans: trans, action: static (_, _) => { }, target: c);
+            a.Link(trans: trans, action: NoAction, target: b);
+            Node<int>.Target bc = b.Link(trans: trans, action: NoAction, target: c);
             b.RemoveListener(bc);
-            d.Link(trans: trans, action: static (_, _) => { }, target: b);
+            d.Link(trans: trans, action: NoAction, target: b);
 
             return UnitInternal.Value;
         });
@@ -104,7 +107,7 @@ public sealed class NodeTests
 
         TransactionInternal.Apply((trans, _) =>
         {
-            b.Link(trans: trans, action: static (_, _) => { }, target: c);
+            b.Link(trans: trans, action: NoAction, target: c);
 
             return UnitInternal.Value;
         });
@@ -128,18 +131,18 @@ public sealed class NodeTests
 
         TransactionInternal.Apply((trans, _) =>
         {
-            a.Link(trans: trans, action: static (_, _) => { }, target: b);
-            Node<int>.Target bc = b.Link(trans: trans, action: static (_, _) => { }, target: c);
-            Node<int>.Target be = b.Link(trans: trans, action: static (_, _) => { }, target: e);
+            a.Link(trans: trans, action: NoAction, target: b);
+            Node<int>.Target bc = b.Link(trans: trans, action: NoAction, target: c);
+            Node<int>.Target be = b.Link(trans: trans, action: NoAction, target: e);
             b.RemoveListener(bc);
-            d.Link(trans: trans, action: static (_, _) => { }, target: b);
+            d.Link(trans: trans, action: NoAction, target: b);
             cRankAfterFirstRemoval = c.Rank;
             eRankAfterFirstRemoval = e.Rank;
             b.RemoveListener(be);
-            g.Link(trans: trans, action: static (_, _) => { }, target: b);
+            g.Link(trans: trans, action: NoAction, target: b);
             bRankAfterSecondRemoval = b.Rank;
             eRankAfterSecondRemoval = e.Rank;
-            b.Link(trans: trans, action: static (_, _) => { }, target: e);
+            b.Link(trans: trans, action: NoAction, target: e);
 
             return UnitInternal.Value;
         });

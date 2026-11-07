@@ -32,7 +32,7 @@ internal sealed class CarriedState<T, TState, TReturn>(
     in Stream<TReturn> @out,
     in LazySample<TState> initialState,
     in Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f)
-    : ISampleAction, ILastAction
+    : StreamAction<T>, ISampleAction, ILastAction
 {
     private readonly Func<T, TState, (bool Emit, TReturn ReturnValue, TState State)> f = f;
     private readonly LazySample<TState> initialState = initialState;
@@ -47,8 +47,8 @@ internal sealed class CarriedState<T, TState, TReturn>(
     private bool hasPending;
     private TState? pending;
 
-    /// <summary>The action of the listener on the source stream.</summary>
-    internal void Fire(TransactionInternal trans, T a)
+    /// <inheritdoc />
+    public override void Fire(TransactionInternal trans, T a)
     {
         // ReSharper disable once NullableWarningSuppressionIsUsed - committed is set when committedIsSet is true.
         TState current = this.committedIsSet ? this.committed! : this.initialState.Force(trans);
