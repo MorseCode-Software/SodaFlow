@@ -40,6 +40,17 @@ The timer system's hook also allocates nothing in a transaction with no alarm du
 and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
 is set. The C# notes have the measurement; the F# hook has the same shape.
 
+BREAKING: SimpleTimer<'T> is no longer public. It is the handle that TimerSystemImplementationBase<'T> gives from
+SetTimer, and every caller already reached it as an ITimer. Its documentation said not to make one, and nothing outside
+the package could make one that fires. The C# package's equivalent was always private.
+
+The timer system is now the one in SodaFlow.Core, which the C# package uses too: TimerSystem, the scheduling in
+TimerSystemImplementationBase, and the three clocks. Before, this package had its own copy of each, and the two copies
+drifted; a change to the C# hook earlier in this release reached F# only in a second change, after a test caught it.
+Every other public type keeps its signature and its behavior. The one difference is a clock that reads NaN: compare
+treats NaN as equal to itself where = does not, so Time no longer updates on every transaction for such a clock. No
+clock in the package gives NaN.
+
 Transaction.run no longer allocates a closure and a delegate of its own. With SodaFlow.Core 6.0.0, a run that returns
 a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
 the rest.
