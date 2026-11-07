@@ -59,6 +59,14 @@ jobs:
           dotnet restore src/Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj
           dotnet restore src/Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj
 
+      # Every C# project under src/ runs the loop analyzer, and DocFX loads each project with its
+      # analyzers. DocFX does not build them: without the analyzer's dll it reports
+      # FailedToResolveAnalyzer once for each project, and the warnings are errors. The analyzer
+      # targets netstandard2.0 only, so this builds on Linux. Release, because docfx.json loads the
+      # projects in that configuration and so looks for the dll under bin/Release.
+      - name: Build analyzer
+        run: dotnet build src/Analyzers/SodaFlow.Analyzers/SodaFlow.Analyzers.csproj --configuration Release -warnaserror
+
       - name: Build site
         run: dotnet docfx docs/docfx.json --warningsAsErrors
 
