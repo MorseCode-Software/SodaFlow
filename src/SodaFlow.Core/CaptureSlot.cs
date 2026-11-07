@@ -43,9 +43,15 @@ internal struct CaptureSlot<T>
     internal MaybeInternal<T> Take(TransactionInternal trans)
     {
         MaybeInternal<T> result = this.Peek(trans);
+        this.Clear();
+        return result;
+    }
+
+    /// <summary>Clears the slot without a read.</summary>
+    internal void Clear()
+    {
         this.value = default;
         this.owner = 0;
-        return result;
     }
 
     /// <summary>

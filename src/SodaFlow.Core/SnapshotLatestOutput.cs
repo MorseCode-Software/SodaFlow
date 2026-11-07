@@ -79,6 +79,11 @@ internal abstract class SnapshotLatestGate<T, TValues, TResult> : OnceGate
     /// <summary>Gives the values of the behaviors in the transaction, and clears the captures.</summary>
     private protected abstract TValues Take(TransactionInternal trans);
 
+    /// <summary>
+    ///     Clears the captures, and does not read the behaviors that did not update.
+    /// </summary>
+    private protected abstract void Clear();
+
     private protected abstract TResult Combine(T a, TValues values);
 
     // The firings are clear before Take and f run. Thus, after an exception from either, the
@@ -87,8 +92,9 @@ internal abstract class SnapshotLatestGate<T, TValues, TResult> : OnceGate
     {
         switch (this.pending.Count)
         {
+            // Only a behavior updated. A read of a behavior that did not update has no use here.
             case 0:
-                this.Take(trans);
+                this.Clear();
                 return;
             case 1:
             {
@@ -157,6 +163,8 @@ internal sealed class SnapshotLatestOutput<T, T1, TResult>(
 
     private protected override T1 Take(TransactionInternal trans) => this.p1.Take(input: this.b1, trans: trans);
 
+    private protected override void Clear() => this.p1.Clear();
+
     private protected override TResult Combine(T a, T1 values) => this.f(arg1: a, arg2: values);
 }
 
@@ -194,6 +202,12 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, TResult>(
     (
         this.p1.Take(input: this.b1, trans: trans),
         this.p2.Take(input: this.b2, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2) values) =>
         this.f(
@@ -242,6 +256,13 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, TResult>(
         this.p1.Take(input: this.b1, trans: trans),
         this.p2.Take(input: this.b2, trans: trans),
         this.p3.Take(input: this.b3, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3) values) =>
         this.f(
@@ -298,6 +319,14 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, T4, TResult>(
         this.p2.Take(input: this.b2, trans: trans),
         this.p3.Take(input: this.b3, trans: trans),
         this.p4.Take(input: this.b4, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+        this.p4.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3, T4) values) =>
         this.f(
@@ -361,6 +390,15 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, T4, T5, TResult>(
         this.p3.Take(input: this.b3, trans: trans),
         this.p4.Take(input: this.b4, trans: trans),
         this.p5.Take(input: this.b5, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+        this.p4.Clear();
+        this.p5.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3, T4, T5) values) =>
         this.f(
@@ -431,6 +469,16 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, TResult>(
         this.p4.Take(input: this.b4, trans: trans),
         this.p5.Take(input: this.b5, trans: trans),
         this.p6.Take(input: this.b6, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+        this.p4.Clear();
+        this.p5.Clear();
+        this.p6.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3, T4, T5, T6) values) =>
         this.f(
@@ -508,6 +556,17 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, T7, TResul
         this.p5.Take(input: this.b5, trans: trans),
         this.p6.Take(input: this.b6, trans: trans),
         this.p7.Take(input: this.b7, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+        this.p4.Clear();
+        this.p5.Clear();
+        this.p6.Clear();
+        this.p7.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3, T4, T5, T6, T7) values) =>
         this.f(
@@ -592,6 +651,18 @@ internal sealed class SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, T7, T8, TR
         this.p6.Take(input: this.b6, trans: trans),
         this.p7.Take(input: this.b7, trans: trans),
         this.p8.Take(input: this.b8, trans: trans));
+
+    private protected override void Clear()
+    {
+        this.p1.Clear();
+        this.p2.Clear();
+        this.p3.Clear();
+        this.p4.Clear();
+        this.p5.Clear();
+        this.p6.Clear();
+        this.p7.Clear();
+        this.p8.Clear();
+    }
 
     private protected override TResult Combine(T a, (T1, T2, T3, T4, T5, T6, T7, T8) values) =>
         this.f(
