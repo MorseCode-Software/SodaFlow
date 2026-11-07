@@ -7,7 +7,7 @@ namespace SodaFlow;
 ///     The clock of the timer systems that measure time as the number of seconds
 ///     after their construction.
 /// </summary>
-internal sealed class SecondsClock(in TimeSpan resolution)
+internal sealed class SecondsClock
 {
     // A Stopwatch, and not two readings of DateTime.Now. DateTime.Now moves with the system clock.
     // Thus, a change of daylight saving time or a correction of the clock moved this count by the
@@ -16,7 +16,11 @@ internal sealed class SecondsClock(in TimeSpan resolution)
 
     // Zero reads the stopwatch as it is. That path is the one from before resolutions, with no
     // arithmetic of its own.
-    private readonly long resolutionTicks = ClockResolution.StopwatchTicks(resolution);
+    private readonly long resolutionTicks;
+
+    // This type has its own constructor, and not a primary constructor with in parameters. F# cannot
+    // give a value to an in parameter of a constructor, and the F# package makes this type.
+    internal SecondsClock(TimeSpan resolution) => this.resolutionTicks = ClockResolution.StopwatchTicks(resolution);
 
     /// <summary>Gets the seconds after the construction, rounded down to the resolution.</summary>
     internal double Now =>

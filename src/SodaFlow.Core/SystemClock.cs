@@ -7,12 +7,20 @@ namespace SodaFlow;
 ///     <see cref="DateTime" />. It reads the local clock, the UTC clock, or a
 ///     clock that a caller gives.
 /// </summary>
-internal sealed class SystemClock(in Func<DateTime> now, in TimeSpan resolution)
+internal sealed class SystemClock
 {
-    private readonly Func<DateTime> now = now;
+    private readonly Func<DateTime> now;
 
     // Zero reads the clock as it is, with no arithmetic of its own.
-    private readonly long resolutionTicks = ClockResolution.Ticks(resolution);
+    private readonly long resolutionTicks;
+
+    // This type has its own constructor, and not a primary constructor with in parameters. F# cannot
+    // give a value to an in parameter of a constructor, and the F# package makes this type.
+    internal SystemClock(Func<DateTime> now, TimeSpan resolution)
+    {
+        this.now = now;
+        this.resolutionTicks = ClockResolution.Ticks(resolution);
+    }
 
     /// <summary>Gets the current time, rounded down to the resolution.</summary>
     internal DateTime Now

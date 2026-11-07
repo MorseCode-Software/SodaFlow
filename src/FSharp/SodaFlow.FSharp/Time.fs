@@ -14,10 +14,7 @@
 module SodaFlow.Time
 
 open System
-open System.Collections.Generic
-open System.Diagnostics
 open System.Runtime.CompilerServices
-open System.Threading
 
 /// <summary>
 ///     A handle to cancel a timer.
@@ -127,7 +124,15 @@ type ITimerSystemImplementation<'T> =
     abstract member RunTimersTo: 'T -> unit
     abstract member Now: 'T
 
-type private Event<'T> = { Time: 'T; Seq: int64; Alarm: StreamSink<'T> }
+// Passes each member that the Core timer system uses to the public implementation.
+type private ImplementationAdapter<'T>(implementation: 'T ITimerSystemImplementation) =
+    interface ITimerSystemImplementationInternal<'T, ITimer> with
+        member _.Now = implementation.Now
+        member _.Start(handleException: Action<exn>) = implementation.Start handleException.Invoke
+        member _.Stop() = implementation.Stop()
+        member _.SetTimer(time, callback: Action) = implementation.SetTimer time callback.Invoke
+        member _.Cancel(timer: ITimer) = timer.Cancel()
+        member _.RunTimersTo time = implementation.RunTimersTo time
 
 /// <summary>
 ///     A timer system on an <c>ITimerSystemImplementation</c>, which gives the clock and the wait
@@ -148,125 +153,39 @@ type private Event<'T> = { Time: 'T; Seq: int64; Alarm: StreamSink<'T> }
 ///     unless a different clock is necessary.
 /// </remarks>
 type TimerSystem<'T when 'T: comparison>(implementation: 'T ITimerSystemImplementation, handleException: exn -> unit) =
-    // In the sequence of the time of each event, and of its arrival for one time. An implementation
-    // runs a callback out of its lock, and it can run timers on more than one thread. Thus, the events
-    // can get to this set in a different sequence from their times.
-    let eventQueue =
-        SortedSet<Event<'T>>(
-            Comparer<Event<'T>>.Create(fun x y ->
-                let timeComparison = compare x.Time y.Time
-
-                if timeComparison <> 0 then
-                    timeComparison
-                else
-                    compare x.Seq y.Seq)
+    // The timer system itself is in Core, and the C# package uses the same one. This type gives its
+    // public surface, with option as the optional type.
+    let timerSystem =
+        new TimerSystemInternal<'T, ITimer>(
+            ImplementationAdapter implementation,
+            LanguagePrimitives.FastGenericComparer<'T>,
+            Action<exn> handleException
         )
 
-    // The arrival number of the next event. Only code that holds the lock on eventQueue uses this.
-    let mutable nextEventSeq = 0L
-
-    // The time behavior, and the registration of the transaction hook, which a disposal removes.
-    let time, startHook =
-        (fun () ->
-            implementation.Start handleException
-
-            // The last value that the onStart handler sent to Time. Only that handler uses this, and it
-            // runs with the transaction lock.
-            let lastTime = ref implementation.Now
-            let timeSink = BehaviorSink.create lastTime.Value
-
-            let startHook =
-                Transaction.onStart (fun () ->
-                    let t = implementation.Now
-                    implementation.RunTimersTo t
-
-                    let rec processEvents () =
-                        // The earliest events at or before t, which are all at one time. The list is
-                        // complete before a removal, because a SortedSet does not let code change it
-                        // while an enumeration of it continues. This runs at the start of each
-                        // transaction in the process, and most of them have no event due. That path
-                        // allocates nothing here: Count and Min are properties of the set, where
-                        // Seq.tryHead allocated an enumerator.
-                        let events =
-                            lock eventQueue (fun () ->
-                                if eventQueue.Count = 0 then
-                                    []
-                                else
-                                    let first = eventQueue.Min
-
-                                    if first.Time > t then
-                                        []
-                                    else
-                                        let events =
-                                            eventQueue
-                                            |> Seq.takeWhile (fun event -> event.Time = first.Time)
-                                            |> Seq.toList
-
-                                        events |> List.iter (eventQueue.Remove >> ignore)
-                                        events)
-
-                        match events with
-                        | [] -> ()
-                        | first :: _ ->
-                            // An implementation removes a timer and then runs its callback out of its
-                            // lock. A transaction can start between the two and send a time after the
-                            // time of the event. The event then gets to the set after that time. Its
-                            // alarm fires at its own time, and Time does not go back. An event at the
-                            // time that Time holds sends nothing.
-                            if first.Time > lastTime.Value then
-                                timeSink |> BehaviorSink.send first.Time
-                                lastTime.Value <- first.Time
-
-                            Transaction.run (fun () ->
-                                events |> List.iter (fun event -> event.Alarm |> StreamSink.send event.Time))
-
-                            processEvents ()
-
-                    processEvents ()
-
-                    // The clock itself can go back, for example at the end of daylight saving time.
-                    // Time follows the clock then, as the clock is the authority for the current time.
-                    // A clock that did not move sends nothing: the updates of Time are its changes,
-                    // as for each other behavior. Before, this sent at each transaction, and each
-                    // listener of the updates ran with the value that Time held.
-                    if t <> lastTime.Value then
-                        timeSink |> BehaviorSink.send t
-                        lastTime.Value <- t)
-
-            timeSink :> 'T Behavior, startHook) ()
-
     interface IDisposable with
-        member _.Dispose() =
-            startHook.Dispose()
-            implementation.Stop()
+        member _.Dispose() = timerSystem.Dispose()
 
     interface 'T ITimerSystem with
-        member _.Time = time
+        member _.Time = timerSystem.Time
 
         member _.At t =
-            let alarm = StreamSink.create ()
-            let mutable currentTimer: ITimer option = None
+            timerSystem.At(
+                t,
+                Func<'T option, MaybeInternal<'T>>(function
+                    | Some time -> MaybeInternal.Some time
+                    | None -> MaybeInternal<'T>.None)
+            )
 
-            let listener =
-                t
-                |> Cell.listen (fun o ->
-                    currentTimer |> Option.iter (fun timer -> timer.Cancel())
+// The timer of the Core scheduler, which is also the handle that SetTimer gives. Thus, a timer is
+// one object.
+type private SimpleTimer<'T>(scheduler: TimerScheduler<'T>, time: 'T, callback: Action) =
+    inherit ScheduledTimer<'T>(scheduler, time, callback)
 
-                    currentTimer <-
-                        o
-                        |> Option.map (fun time ->
-                            implementation.SetTimer time (fun () ->
-                                lock eventQueue (fun () ->
-                                    eventQueue.Add { Time = time; Seq = nextEventSeq; Alarm = alarm } |> ignore
-                                    nextEventSeq <- nextEventSeq + 1L)
+    interface ITimer with
+        member this.Cancel() = this.Cancel()
 
-                                Transaction.run id)))
-
-            alarm.AttachListenerInternal listener
-
-type private WaitOrFire =
-    | Wait of TimeSpan
-    | Fire of (unit -> unit)
+    interface IDisposable with
+        member this.Dispose() = this.Cancel()
 
 /// <summary>
 ///     A base for timer system implementations which supplies the scheduling, leaving a derived type
@@ -284,67 +203,14 @@ type private WaitOrFire =
 /// </remarks>
 [<AbstractClass>]
 type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
-    let lockObject = obj ()
-    let timers = SortedSet<SimpleTimer<'T>>()
-
-    // A change to the timer set signals this, to wake the timer thread. The thread then calculates
-    // the new wait. This is an AutoResetEvent and not a CancellationTokenSource. A signal latches
-    // after the thread calculates its wait and before that wait starts. Thus, the next wait
-    // returns immediately, and does not sleep through the change. The initial code allocated a new
-    // CancellationTokenSource at each step, and disposed of none of them.
-    let timersChanged = new AutoResetEvent(false)
-
-    let mutable nextSeq = 0
-
-    // Set by Stop, with the lock. The timer thread reads it at each step, out of the lock, thus it
-    // is volatile.
-    [<VolatileField>]
-    let mutable stopped = false
-
-    // The thread that Start made, for Stop to wait for. None before Start.
-    let mutable timerThread: Thread option = None
-
-    // True while the set holds a timer. The flag is a copy of the set's count for the one reader
-    // out of the lock. Code in the lock reads the set, not the flag. Each change of the set writes
-    // the flag in the same lock: SetTimer, timeUntilNext when a timer fires, and RemoveTimer.
-    // RunTimersTo reads the flag out of the lock, and skips the lock in a transaction with no timer
-    // set, which is most of them. A timer that a different thread adds at that moment fires from
-    // the timer thread, or at the next transaction.
-    [<VolatileField>]
-    let mutable hasTimers = false
-
-    let rec timeUntilNext now =
-        let waitOrFire =
-            lock lockObject (fun () ->
-                // A stopped implementation fires nothing, also from RunTimersTo.
-                if stopped || timers.Count < 1 then
-                    Wait(TimeSpan.FromSeconds(1000.0))
-                else
-                    // Min is a property of the set. First is the LINQ method, which allocates an
-                    // enumerator at each call, and this runs at each wake of the timer thread.
-                    let timer = timers.Min
-                    let waitTime = this.SubtractTimes timer.Time now
-
-                    if waitTime <= TimeSpan.Zero then
-                        timers.Remove(timer) |> ignore
-                        hasTimers <- timers.Count > 0
-                        Fire timer.Callback
-                    else
-                        Wait waitTime)
-
-        match waitOrFire with
-        | Wait waitTime -> waitTime
-        | Fire callback ->
-            callback ()
-            timeUntilNext now
-
-    member internal _.LockObject = lockObject
-    member val internal NextSeq = nextSeq with get, set
-
-    member internal _.RemoveTimer(timer: SimpleTimer<'T>) =
-        lock lockObject (fun () ->
-            timers.Remove timer |> ignore
-            hasTimers <- timers.Count > 0)
+    // The scheduling is in Core, and the C# package uses the same one. This type gives it the clock
+    // of the derived type.
+    let scheduler =
+        TimerScheduler<'T>(
+            LanguagePrimitives.FastGenericComparer<'T>,
+            Func<'T>(fun () -> this.Now),
+            Func<'T, 'T, TimeSpan>(fun first second -> this.SubtractTimes first second)
+        )
 
     /// <summary>
     ///     Returns how much time separates two points on this implementation's clock.
@@ -369,194 +235,32 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
     abstract member Now: 'T
 
     interface 'T ITimerSystemImplementation with
-        // A dedicated thread rather than the thread pool.
-        //
-        // No other code fires alarms. The <c>Transaction.onStart</c> handler calls RunTimersTo, but
-        // only when a transaction starts. Thus, code that only waits is dependent on this loop.
-        // Async.Start made that dependency dangerous for liveness. Each step needed a pool thread: one
-        // time to start, and again for each Task.Delay continuation. A cancellation only put that
-        // continuation in the queue. With a full pool the loop never ran, and no alarm fired.
-        //
-        // Pool work cannot starve a background thread, and WaitOne is the timed wait and the wake. This
-        // is the same as the C# implementation, where a full pool showed the same bug. Eight of eight
-        // runs sent zero events after a wait of two seconds. The alarms were one hundred milliseconds in
-        // the future. Zero of eight runs gave this result with a pool that was not full.
-        member this.Start handleException =
-            let thread =
-                Thread(
-                    ThreadStart(fun () ->
-                        while not stopped do
-                            try
-                                let waitTime = timeUntilNext this.Now
+        member _.Start handleException = scheduler.Start(Action<exn> handleException)
 
-                                if waitTime > TimeSpan.Zero then
-                                    timersChanged.WaitOne waitTime |> ignore
-                            with e ->
-                                handleException e
-
-                        // The thread ends the event. SetTimer signals it only in the lock and only
-                        // before the stop, thus nothing signals it after this.
-                        lock lockObject (fun () -> timersChanged.Dispose())),
-                    Name = "SodaFlow Timer Thread",
-                    IsBackground = true
-                )
-
-            timerThread <- Some thread
-            thread.Start()
-
-        member _.Stop() =
-            let wasStopped =
-                lock lockObject (fun () ->
-                    if stopped then
-                        true
-                    else
-                        stopped <- true
-                        timersChanged.Set() |> ignore
-                        false)
-
-            // A wait for the thread, so that no timer fires after this returns. Not from the thread
-            // itself: the listener of an alarm runs on it, and a disposal there must not wait for it.
-            if not wasStopped then
-                match timerThread with
-                | Some thread when thread <> Thread.CurrentThread -> thread.Join()
-                | _ -> ()
+        member _.Stop() = scheduler.Stop()
 
         member this.SetTimer time callback =
-            let timer = new SimpleTimer<_>(this, time, callback)
+            let timer = new SimpleTimer<'T>(scheduler, time, Action callback)
 
-            lock lockObject (fun () ->
-                // A timer set after Stop never fires, and a handle for it tells the caller nothing. In
-                // the lock, because Stop sets the flag in it.
-                if stopped then
-                    raise (ObjectDisposedException(this.GetType().FullName))
-
-                timers.Add(timer) |> ignore
-                hasTimers <- true
-
-                // Signaled in the lock, because the timer thread disposes the event in the lock when it
-                // ends, and a signal after that throws. The initial code signaled out of the lock,
-                // because its CancellationTokenSource ran its callbacks synchronously. An AutoResetEvent
-                // runs nothing, thus the lock is safe here.
-                timersChanged.Set() |> ignore)
+            // A timer set after Stop never fires, and a handle for it tells the caller nothing.
+            if not (scheduler.TryAdd timer) then
+                raise (ObjectDisposedException(this.GetType().FullName))
 
             upcast timer
 
-        member _.RunTimersTo now =
-            if hasTimers then
-                timeUntilNext now |> ignore
+        member _.RunTimersTo now = scheduler.RunTimersTo now
 
         member this.Now = this.Now
 
-/// <summary>
-///     One scheduled timer in a <c>TimerSystemImplementationBase</c>.
-/// </summary>
-/// <typeparam name="'T">The type used to express a point in time.</typeparam>
-/// <param name="implementation">The implementation that holds this timer.</param>
-/// <param name="time">The time at which the callback is to run.</param>
-/// <param name="callback">The callback to run.</param>
-/// <remarks>
-///     <c>SetTimer</c> gives one of these as an <c>ITimer</c>, and only it makes one. These are
-///     in order of time, and in order of construction where two have the same time. Thus, timers
-///     for the same instant fire in the sequence that the code set them.
-/// </remarks>
-and internal SimpleTimer<'T when 'T: comparison>
-    (implementation: 'T TimerSystemImplementationBase, time: 'T, callback: unit -> unit) as this =
-    let seq =
-        lock implementation.LockObject (fun () ->
-            let seq = implementation.NextSeq
-            implementation.NextSeq <- implementation.NextSeq + 1
-            seq)
-
-    let compareEntries (x: 'T SimpleTimer) (y: 'T SimpleTimer) =
-        let timeComparison = compare x.Time y.Time
-
-        if timeComparison <> 0 then
-            timeComparison
-        else
-            compare x.Seq y.Seq
-
-    // This does not signal the timer thread, on purpose. A signal to calculate a deadline that
-    // moved forward gains nothing, and with an AutoResetEvent it has a cost. The signal here
-    // releases the waiter, and the Set in the SetTimer that replaces this timer latches for the
-    // next wait. Thus, one replacement causes the thread to calculate two times, and one time is
-    // sufficient.
-    let cancel () = implementation.RemoveTimer this
-
-    member internal _.Seq = seq
-    member internal _.Time = time
-    member internal _.Callback = callback
-
-    interface ITimer with
-        member this.Cancel() = cancel ()
-
-    /// <summary>
-    ///     Gives true when a second object is the same scheduled timer.
-    /// </summary>
-    /// <returns>
-    ///     <c>true</c> if the other object is a timer of the same type scheduled for the same time and
-    ///     with the same creation order.
-    /// </returns>
-    override this.Equals(otherObj) =
-        match otherObj with
-        | :? SimpleTimer<'T> as other -> this.Time = other.Time && this.Seq = other.Seq
-        | _ -> false
-
-    /// <summary>
-    ///     Returns a hash code for this timer.
-    /// </summary>
-    /// <returns>A hash of the time of the timer.</returns>
-    override this.GetHashCode() = hash this.Time
-
-    interface IComparable<'T SimpleTimer> with
-        member this.CompareTo other = compareEntries this other
-
-    interface IComparable with
-        member this.CompareTo otherObj =
-            match otherObj with
-            | :? SimpleTimer<'T> as other -> compareEntries this other
-            | _ -> invalidArg "other" "Cannot compare values of different types."
-
-    interface IDisposable with
-        member this.Dispose() = cancel ()
-
-/// The resolution of a clock, as the clocks here use it. It is the step that Now rounds down to, or
-/// zero for the value as it is. The C# package has the same helper, and it is internal there.
-module private ClockResolution =
-    let ticks (resolution: TimeSpan) =
-        if resolution < TimeSpan.Zero then
-            raise (
-                ArgumentOutOfRangeException(
-                    "resolution",
-                    resolution,
-                    "A clock's resolution cannot be negative. Zero reads the clock as it is."
-                )
-            )
-
-        resolution.Ticks
-
-    /// In the ticks of a Stopwatch. A resolution below one tick of the stopwatch gives zero, because
-    /// the stopwatch cannot count below its own tick.
-    let stopwatchTicks (resolution: TimeSpan) =
-        int64 (float (ticks resolution) * (float Stopwatch.Frequency / float TimeSpan.TicksPerSecond))
-
-    let roundDown (time: DateTime) (resolutionTicks: int64) =
-        DateTime(time.Ticks - (time.Ticks % resolutionTicks), time.Kind)
-
+// The clock is in Core, and the C# package uses the same one.
 type private SystemClockTimerSystemImplementation(now: unit -> DateTime, resolution: TimeSpan) =
     inherit TimerSystemImplementationBase<DateTime>()
 
-    // Zero reads the clock as it is, with no arithmetic of its own.
-    let resolutionTicks = ClockResolution.ticks resolution
+    let clock = SystemClock(Func<DateTime> now, resolution)
 
-    override _.SubtractTimes first second = first - second
+    override _.SubtractTimes first second = SystemClock.Subtract(first, second)
 
-    override _.Now =
-        let time = now ()
-
-        if resolutionTicks = 0L then
-            time
-        else
-            ClockResolution.roundDown time resolutionTicks
+    override _.Now = clock.Now
 
 /// <summary>
 ///     A timer system that measures time as a <c>System.DateTime</c> from a clock. The default
@@ -627,26 +331,15 @@ type UtcClockTimerSystem(resolution: TimeSpan, handleException: exn -> unit) =
     /// <param name="handleException">Called with any exception raised while waiting for or firing timers.</param>
     new(handleException: exn -> unit) = new UtcClockTimerSystem(TimeSpan.Zero, handleException)
 
+// The clock is in Core, and the C# package uses the same one.
 type private SecondsTimerSystemImplementation(resolution: TimeSpan) =
     inherit TimerSystemImplementationBase<float>()
 
-    // A Stopwatch, and not two readings of DateTime.Now. DateTime.Now moves with the system clock.
-    // Thus, a change of daylight saving time or a correction of the clock moved this count by the
-    // same quantity. A Stopwatch counts the time that goes by and nothing else.
-    let stopwatch = Stopwatch.StartNew()
+    let clock = SecondsClock(resolution)
 
-    // Zero reads the stopwatch as it is. That path is the one from before resolutions, with no
-    // arithmetic of its own. The rounding is in the ticks of the stopwatch, so that the step is accurate.
-    let resolutionTicks = ClockResolution.stopwatchTicks resolution
+    override _.SubtractTimes first second = SecondsClock.Subtract(first, second)
 
-    override _.SubtractTimes first second = TimeSpan.FromSeconds(first - second)
-
-    override _.Now =
-        if resolutionTicks = 0L then
-            stopwatch.Elapsed.TotalSeconds
-        else
-            let ticks = stopwatch.ElapsedTicks
-            float (ticks - (ticks % resolutionTicks)) / float Stopwatch.Frequency
+    override _.Now = clock.Now
 
 /// <summary>
 ///     A timer system that measures time as the number of seconds after its construction.
