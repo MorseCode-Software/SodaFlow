@@ -259,6 +259,20 @@ GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framewor
 KB, and 3.56 to 3.46 ms. The switch's .NET 10 time moves inside its error of 0.18 ms either way. In the scratch probe on
 .NET 10, a switch of a constant cell is 3,106 to 2,799 bytes, and ListenStrong on a cell 1,648 to 1,496.
 
+An operator that reads all of its inputs before it sends is its own gate, and a lift, a SnapshotLatest, and a merge of
+maybes are one object for each arity. The gate that queues such an operator once in a transaction was an object that
+held the operator's step and discard as delegates, wrapped each in a closure, and held none of the operator's state:
+about 280 bytes in every lift, merge of two or more streams, merge of maybes, list lift, and SnapshotLatest. The
+operator now derives from the gate. A lift also kept its recombine step and its initial value as two delegates on a
+closure, and SnapshotLatest and a merge of maybes for three or more streams built their captures through closures and an
+array; the object for each arity holds the inputs and the function as fields and gives those steps as methods, and a
+lift's object is the source of the lazy sample its hold starts from. Nothing observable changes. Measured in
+GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a lift of two cells 2.38 to
+2.13 ms and 1,920 to 1,492 KB, and 3.30 to 2.84 ms; a lift of six 7.38 to 6.40 ms and 3,639 to 3,205 KB, and 8.75 to
+7.99 ms; a merge of two streams 1.70 to 1.57 ms and 1,420 to 1,086 KB, and 2.25 to 2.00 ms. In the scratch probe on .NET
+10, per item: a SnapshotLatest of one cell is 1,380 to 937 bytes, a merge of maybes of three streams 1,886 to 1,394, and
+a list merge of three 1,943 to 1,553.
+
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
 transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.
