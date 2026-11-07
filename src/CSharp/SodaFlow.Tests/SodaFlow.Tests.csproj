@@ -34,7 +34,6 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="BehaviorTests.cs"/>
         <Compile Include="CellTests.cs"/>
-        <Compile Include="CleanupTests.cs"/>
         <Compile Include="CommonTests.cs"/>
         <Compile Include="DebounceTests.cs"/>
         <Compile Include="DenotationalSemanticsTests.cs"/>

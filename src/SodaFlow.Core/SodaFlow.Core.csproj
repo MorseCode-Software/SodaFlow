@@ -44,7 +44,6 @@
         <Compile Include="CellSink.cs"/>
         <Compile Include="CellStreamSink.cs"/>
         <Compile Include="ClockResolution.cs"/>
-        <Compile Include="Cleanup.cs"/>
         <Compile Include="CoalesceAction.cs"/>
         <Compile Include="DependencyCycleException.cs"/>
         <Compile Include="EntryPriorityQueue.cs"/>

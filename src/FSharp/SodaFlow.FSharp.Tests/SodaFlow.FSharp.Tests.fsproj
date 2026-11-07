@@ -27,7 +27,6 @@
         <Compile Include="CellTests.fs"/>
         <Compile Include="DenotationalSemanticsTests.fs"/>
         <Compile Include="ForwardReferenceTests.fs"/>
-        <Compile Include="CleanupTests.fs"/>
         <Compile Include="CommonTests.fs"/>
         <Compile Include="IssueTests.fs"/>
         <Compile Include="LazySampleTests.fs"/>

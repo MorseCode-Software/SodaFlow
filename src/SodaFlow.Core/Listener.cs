@@ -73,8 +73,6 @@ internal static class ListenerInternal
     internal static readonly IWeakListener EmptyWeakImpl = EmptyListener.Instance;
     internal static readonly IStrongListener EmptyStrongImpl = EmptyListener.Instance;
 
-    internal static IListenerInternal CreateFromAction(Action unlisten) => new ActionListener(unlisten);
-
     internal static IListenerInternal CreateCompositeImpl<T>(IReadOnlyList<T> listeners)
         where T : IListener =>
         new CompositeListener<T>(listeners);
@@ -107,24 +105,6 @@ internal static class ListenerInternal
         public void Dispose()
         {
         }
-    }
-
-    /// <summary>
-    ///     A listener that runs the given action when a caller disposes it.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
-    private sealed class ActionListener : IListenerInternal, IListenerWithWeakReference
-    {
-        private readonly Action unlisten;
-
-        /// <summary>
-        ///     Creates a listener that runs the given action when a caller disposes it.
-        /// </summary>
-        /// <param name="unlisten">The action that runs when this listener must stop.</param>
-        internal ActionListener(Action unlisten) => this.unlisten = unlisten;
-
-        public void Unlisten() => this.unlisten();
-        public IListenerWithWeakReference GetListenerWithWeakReference() => this;
     }
 
     private class CompositeListener<T>(IReadOnlyList<T> listeners) : IListenerInternal, IListenerWithWeakReference
