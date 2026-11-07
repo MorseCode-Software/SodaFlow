@@ -39,7 +39,11 @@ internal static class AnalyzerHarness
 
         CSharpCompilation compilation =
             CSharpCompilation.Create(
-                assemblyName: "Shapes",
+                // Core lets an assembly with this name use its internals. The explicit loop shapes
+                // must use them, because only the library can make an explicit loop. The analyzer
+                // counts an assembly whose name has ".Tests" as code that uses the library, as it
+                // counts the shapes.
+                assemblyName: "SodaFlow.Tests.Internal",
                 syntaxTrees:
                 [
                     CSharpSyntaxTree.ParseText(

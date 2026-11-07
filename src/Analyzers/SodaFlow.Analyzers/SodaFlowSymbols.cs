@@ -13,10 +13,10 @@ namespace SodaFlow.Analyzers;
 internal static class SodaFlowSymbols
 {
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
-        ImmutableHashSet.Create("LoopedCell", "CellLoop", "LoopedBehavior", "BehaviorLoop");
+        ImmutableHashSet.Create("LoopedCell", "LoopedBehavior");
 
     private static readonly ImmutableHashSet<string> StreamPlaceholderTypes =
-        ImmutableHashSet.Create("LoopedStream", "StreamLoop");
+        ImmutableHashSet.Create("LoopedStream");
 
     private static readonly ImmutableHashSet<string> LooperTypes =
         ImmutableHashSet.Create("CellLooper", "BehaviorLooper", "StreamLooper", "ForwardReference");
@@ -133,17 +133,15 @@ internal static class SodaFlowSymbols
         && !IsListenerName(named.OriginalDefinition.Name);
 
     private static bool IsStreamName(string name) =>
-        name is "Stream" or "StreamSink" or "LoopedStream" or "StreamLoop" or "CellStreamSink";
+        name is "Stream" or "StreamSink" or "LoopedStream" or "CellStreamSink";
 
     private static bool IsCellOrBehaviorName(string name) =>
         name is "Cell"
             or "CellSink"
             or "LoopedCell"
-            or "CellLoop"
             or "Behavior"
             or "BehaviorSink"
-            or "LoopedBehavior"
-            or "BehaviorLoop";
+            or "LoopedBehavior";
 
     private static bool IsListenerName(string name) =>
         name is "IListener" or "IStrongListener" or "IWeakListener" or "Unit" or "Maybe" or "Either";

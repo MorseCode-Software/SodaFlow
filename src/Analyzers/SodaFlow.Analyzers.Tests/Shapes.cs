@@ -119,14 +119,14 @@ public static class Shapes
     public static Cell<int> ReadInNestedTransaction() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Transaction.Run(() => l.Sample()); return S.Hold(x); });
 
-    // S24. Explicit loop, read before Loop.
+    // S24. Explicit loop, read before Loop. Only the library can write one, as here.
     public static Cell<int> ExplicitLoop() =>
-        Transaction.Run(() =>
+        TransactionInternal.Apply(code: (trans, isNew) =>
         {
-            CellLoop<int> c = new();
+            LoopedCell<int> c = new();
             int before = c.Sample();
             Cell<int> definition = S.Snapshot(c, (a, b) => a + b).Hold(before);
-            c.Loop(definition);
+            c.Loop(trans: trans, c: definition);
             int after = c.Sample();
             return definition.Map(v => v + after);
         });
@@ -171,12 +171,12 @@ public static class Shapes
 
     // S32. A list Lift over explicit loops in a list, sampled before the foreach that closes them.
     public static Cell<int> ListLiftSample() =>
-        Transaction.Run(() =>
+        TransactionInternal.Apply(code: (trans, isNew) =>
         {
-            IReadOnlyList<CellLoop<int>> loops = [.. Enumerable.Range(0, 3).Select(_ => Cell.CreateLoop<int>())];
+            IReadOnlyList<LoopedCell<int>> loops = [.. Enumerable.Range(0, 3).Select(_ => new LoopedCell<int>())];
             Cell<int> sum = loops.Lift().Map(v => v.Sum());
             int now = sum.Sample();
-            foreach (CellLoop<int> loop in loops) { loop.Loop(Cell.Constant(now)); }
+            foreach (LoopedCell<int> loop in loops) { loop.Loop(trans: trans, c: Cell.Constant(now)); }
             int after = sum.Sample();
             return sum.Map(v => v + after);
         });

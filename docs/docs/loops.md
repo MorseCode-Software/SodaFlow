@@ -217,9 +217,9 @@ the common shapes at build time, in C# projects. Nothing has to be added: a proj
 `SodaFlow` runs it, and `ExcludeAssets="analyzers"` on that reference removes it. F# is not
 covered, because a Roslyn analyzer runs in the C# compiler only; an F# project keeps the exception.
 
-The analyzer looks at the code that runs while a loop is open, which is the lambda of a loop block
-or the statements between an explicit loop's creation and its `Loop` call, and follows the
-placeholder through the library's operators. Six rules come out of that, five of them warnings:
+The analyzer looks at the code that runs while a loop is open, which is the lambda of a loop
+block, and follows the placeholder through the library's operators. Six rules come out of that,
+five of them warnings:
 
 | Rule | Reports |
 | --- | --- |

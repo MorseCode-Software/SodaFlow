@@ -14,10 +14,11 @@ namespace SodaFlow.Analyzers;
 /// </summary>
 /// <remarks>
 ///     A loop block hands its lambda a placeholder. An explicit loop makes
-///     one with <c>new CellLoop&lt;T&gt;()</c> and closes it with <c>Loop</c>.
-///     Both give a region of code that runs while the loop is open, and this
-///     analyzer checks that region. See <see cref="LoopStateEvaluator" /> for the
-///     model of the operators.
+///     one with <c>new LoopedCell&lt;T&gt;()</c> and closes it with
+///     <c>Loop</c>. Only the SodaFlow assemblies can make an explicit loop,
+///     because the constructor is internal. Both give a region of code that
+///     runs while the loop is open, and this analyzer checks that region.
+///     See <see cref="LoopStateEvaluator" /> for the model of the operators.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
@@ -146,11 +147,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 local.Type is INamedTypeSymbol type
                 && SodaFlowSymbols.IsSodaFlow(type)
                 && type.OriginalDefinition.Name
-                    is "CellLoop"
-                    or "BehaviorLoop"
-                    or "LoopedCell"
+                    is "LoopedCell"
                     or "LoopedBehavior"
-                    or "StreamLoop"
                     or "LoopedStream";
 
             AnalyzeExplicitLoop(
