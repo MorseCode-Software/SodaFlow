@@ -681,23 +681,8 @@ public class Stream<T> : ILastAction
     private Stream<TResult> SnapshotLatest<T1, TResult>(
         TransactionInternal trans,
         Behavior<T1> b,
-        Func<T, T1, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-
-        return this.SnapshotLatest(
-            trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1)
-            ],
-            take: trans2 => p1.Take(input: b, trans: trans2),
-            f: f);
-    }
+        Func<T, T1, TResult> f) =>
+        SnapshotLatestOutput<T, T1, TResult>.Create(trans: trans, stream: this, b1: b, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, TResult>(
         Cell<T1> c1,
@@ -718,32 +703,8 @@ public class Stream<T> : ILastAction
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
-        Func<T, T1, T2, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-
-        return this.SnapshotLatest(
-            trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2)),
-            f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2));
-    }
+        Func<T, T1, T2, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, TResult>.Create(trans: trans, stream: this, b1: b1, b2: b2, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, TResult>(
         Cell<T1> c1,
@@ -767,39 +728,8 @@ public class Stream<T> : ILastAction
         Behavior<T1> b1,
         Behavior<T2> b2,
         Behavior<T3> b3,
-        Func<T, T1, T2, T3, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-
-        return this.SnapshotLatest(
-            trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2)),
-            f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3));
-    }
+        Func<T, T1, T2, T3, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, TResult>.Create(trans: trans, stream: this, b1: b1, b2: b2, b3: b3, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, TResult>(
         Cell<T1> c1,
@@ -837,46 +767,15 @@ public class Stream<T> : ILastAction
         Behavior<T2> b2,
         Behavior<T3> b3,
         Behavior<T4> b4,
-        Func<T, T1, T2, T3, T4, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-
-        return this.SnapshotLatest(
+        Func<T, T1, T2, T3, T4, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, T4, TResult>.Create(
             trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: b4.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p4)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2),
-                p4.Take(input: b4, trans: trans2)),
-            f: (a, v) => f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4));
-    }
+            stream: this,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, TResult>(
         Cell<T1> c1,
@@ -919,54 +818,16 @@ public class Stream<T> : ILastAction
         Behavior<T3> b3,
         Behavior<T4> b4,
         Behavior<T5> b5,
-        Func<T, T1, T2, T3, T4, T5, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-
-        return this.SnapshotLatest(
+        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, T4, T5, TResult>.Create(
             trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: b4.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: b5.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p5)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2),
-                p4.Take(input: b4, trans: trans2),
-                p5.Take(input: b5, trans: trans2)),
-            f: (a, v) =>
-                f(arg1: a, arg2: v.Item1, arg3: v.Item2, arg4: v.Item3, arg5: v.Item4, arg6: v.Item5));
-    }
+            stream: this,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
         Cell<T1> c1,
@@ -1014,68 +875,17 @@ public class Stream<T> : ILastAction
         Behavior<T4> b4,
         Behavior<T5> b5,
         Behavior<T6> b6,
-        Func<T, T1, T2, T3, T4, T5, T6, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-
-        return this.SnapshotLatest(
+        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, TResult>.Create(
             trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: b4.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: b5.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: b6.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p6)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2),
-                p4.Take(input: b4, trans: trans2),
-                p5.Take(input: b5, trans: trans2),
-                p6.Take(input: b6, trans: trans2)),
-            f: (a, v) =>
-                f(
-                    arg1: a,
-                    arg2: v.Item1,
-                    arg3: v.Item2,
-                    arg4: v.Item3,
-                    arg5: v.Item4,
-                    arg6: v.Item5,
-                    arg7: v.Item6));
-    }
+            stream: this,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
         Cell<T1> c1,
@@ -1128,76 +938,18 @@ public class Stream<T> : ILastAction
         Behavior<T5> b5,
         Behavior<T6> b6,
         Behavior<T7> b7,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-
-        return this.SnapshotLatest(
+        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, T7, TResult>.Create(
             trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: b4.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: b5.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: b6.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p6),
-                StreamInternal.Capture(
-                    input: b7.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p7)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2),
-                p4.Take(input: b4, trans: trans2),
-                p5.Take(input: b5, trans: trans2),
-                p6.Take(input: b6, trans: trans2),
-                p7.Take(input: b7, trans: trans2)),
-            f: (a, v) =>
-                f(
-                    arg1: a,
-                    arg2: v.Item1,
-                    arg3: v.Item2,
-                    arg4: v.Item3,
-                    arg5: v.Item4,
-                    arg6: v.Item5,
-                    arg7: v.Item6,
-                    arg8: v.Item7));
-    }
+            stream: this,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            b7: b7,
+            f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         Cell<T1> c1,
@@ -1255,125 +1007,19 @@ public class Stream<T> : ILastAction
         Behavior<T6> b6,
         Behavior<T7> b7,
         Behavior<T8> b8,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f)
-    {
-        InputCapture<T1> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-        InputCapture<T8> p8 = new();
-
-        return this.SnapshotLatest(
+        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        SnapshotLatestOutput<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult>.Create(
             trans: trans,
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: b1.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: b2.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: b3.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: b4.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: b5.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: b6.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p6),
-                StreamInternal.Capture(
-                    input: b7.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p7),
-                StreamInternal.Capture(
-                    input: b8.Updates(),
-                    gate: gate,
-                    trans: trans,
-                    capture: p8)
-            ],
-            take: trans2 =>
-            (
-                p1.Take(input: b1, trans: trans2),
-                p2.Take(input: b2, trans: trans2),
-                p3.Take(input: b3, trans: trans2),
-                p4.Take(input: b4, trans: trans2),
-                p5.Take(input: b5, trans: trans2),
-                p6.Take(input: b6, trans: trans2),
-                p7.Take(input: b7, trans: trans2),
-                p8.Take(input: b8, trans: trans2)),
-            f: (a, v) =>
-                f(
-                    arg1: a,
-                    arg2: v.Item1,
-                    arg3: v.Item2,
-                    arg4: v.Item3,
-                    arg5: v.Item4,
-                    arg6: v.Item5,
-                    arg7: v.Item6,
-                    arg8: v.Item7,
-                    arg9: v.Item8));
-    }
-
-    // SnapshotImpl reads the behaviors when this stream fires. Thus, it gives the values from before
-    // the transaction. The SnapshotLatestImpl methods wait for the updates of the behaviors, with the
-    // mechanism of Behavior.LiftImpl. Each behavior captures its update and calls the gate, and this
-    // stream keeps its firings and also calls the gate. The gate queues its action at the
-    // output node, which ranks above each input. Thus, the action runs after each behavior sends its
-    // update in this transaction. A behavior commits its update only at the end of the transaction,
-    // thus the captured update is the only source of the new value.
-    //
-    // SnapshotImpl gives one output firing for each input firing, thus this method keeps all of them.
-    // The behaviors also call the gate. Thus, a transaction that updates only the behaviors
-    // clears the captured values, and the closure does not keep a reference to them.
-    //
-    // This cannot close a loop, as SnapshotImpl can. If the output updates a behavior in the same
-    // transaction, the behavior must have its new value before it can calculate that value. No rank
-    // can be higher than the output and the behavior.
-    private Stream<TResult> SnapshotLatest<TValues, TResult>(
-        TransactionInternal trans,
-        Func<OnceGate, IListener[]> captures,
-        Func<TransactionInternal, TValues> take,
-        Func<T, TValues, TResult> f)
-    {
-        SnapshotLatestOutput<TValues, TResult> output =
-            new(@out: new Stream<TResult>(this.KeepListenersAlive), take: take, f: f);
-
-        Stream<TResult> result =
-            output.Out.UnsafeAttachListener(
-                this.Listen(
-                    target: output.Node,
-                    trans: trans,
-                    action: new SnapshotLatestFiring<TValues, TResult>(output),
-                    suppressEarlierFirings: false));
-
-        // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures(output))
-        {
-            result = result.UnsafeAttachListener(capture);
-        }
-
-        return result;
-    }
+            stream: this,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            b7: b7,
+            b8: b8,
+            f: f);
 
     internal Stream<T> OrElseImpl(Stream<T> s) => this.MergeImpl(s: s, f: static (left, _) => left);
 
@@ -1416,45 +1062,8 @@ public class Stream<T> : ILastAction
         TransactionInternal trans,
         Stream<T2> s2,
         Stream<T3> s3,
-        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-
-        return this.MergeMaybes(
-            trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-
-                return f(arg1: v1, arg2: v2, arg3: v3);
-            });
-    }
+        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, TResult>.Create(trans: trans, s1: this, s2: s2, s3: s3, f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, TResult>(
         Stream<T2> s2,
@@ -1471,53 +1080,8 @@ public class Stream<T> : ILastAction
         Stream<T2> s2,
         Stream<T3> s3,
         Stream<T4> s4,
-        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, MaybeInternal<T4>, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-
-        return this.MergeMaybes(
-            trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive,
-                s4.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: s4,
-                    gate: gate,
-                    trans: trans,
-                    capture: p4)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-                MaybeInternal<T4> v4 = p4.Take(trans2);
-
-                return f(arg1: v1, arg2: v2, arg3: v3, arg4: v4);
-            });
-    }
+        Func<MaybeInternal<T>, MaybeInternal<T2>, MaybeInternal<T3>, MaybeInternal<T4>, TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, T4, TResult>.Create(trans: trans, s1: this, s2: s2, s3: s3, s4: s4, f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, TResult>(
         Stream<T2> s2,
@@ -1554,66 +1118,15 @@ public class Stream<T> : ILastAction
             MaybeInternal<T3>,
             MaybeInternal<T4>,
             MaybeInternal<T5>,
-            TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-
-        return this.MergeMaybes(
+            TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, T4, T5, TResult>.Create(
             trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive,
-                s4.KeepListenersAlive,
-                s5.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: s4,
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: s5,
-                    gate: gate,
-                    trans: trans,
-                    capture: p5)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-                MaybeInternal<T4> v4 = p4.Take(trans2);
-                MaybeInternal<T5> v5 = p5.Take(trans2);
-
-                return f(
-                    arg1: v1,
-                    arg2: v2,
-                    arg3: v3,
-                    arg4: v4,
-                    arg5: v5);
-            });
-    }
+            s1: this,
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, TResult>(
         Stream<T2> s2,
@@ -1655,75 +1168,16 @@ public class Stream<T> : ILastAction
             MaybeInternal<T4>,
             MaybeInternal<T5>,
             MaybeInternal<T6>,
-            TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-
-        return this.MergeMaybes(
+            TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, T4, T5, T6, TResult>.Create(
             trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive,
-                s4.KeepListenersAlive,
-                s5.KeepListenersAlive,
-                s6.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: s4,
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: s5,
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: s6,
-                    gate: gate,
-                    trans: trans,
-                    capture: p6)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-                MaybeInternal<T4> v4 = p4.Take(trans2);
-                MaybeInternal<T5> v5 = p5.Take(trans2);
-                MaybeInternal<T6> v6 = p6.Take(trans2);
-
-                return f(
-                    arg1: v1,
-                    arg2: v2,
-                    arg3: v3,
-                    arg4: v4,
-                    arg5: v5,
-                    arg6: v6);
-            });
-    }
+            s1: this,
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, T7, TResult>(
         Stream<T2> s2,
@@ -1770,84 +1224,17 @@ public class Stream<T> : ILastAction
             MaybeInternal<T5>,
             MaybeInternal<T6>,
             MaybeInternal<T7>,
-            TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-
-        return this.MergeMaybes(
+            TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, T4, T5, T6, T7, TResult>.Create(
             trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive,
-                s4.KeepListenersAlive,
-                s5.KeepListenersAlive,
-                s6.KeepListenersAlive,
-                s7.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: s4,
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: s5,
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: s6,
-                    gate: gate,
-                    trans: trans,
-                    capture: p6),
-                StreamInternal.Capture(
-                    input: s7,
-                    gate: gate,
-                    trans: trans,
-                    capture: p7)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-                MaybeInternal<T4> v4 = p4.Take(trans2);
-                MaybeInternal<T5> v5 = p5.Take(trans2);
-                MaybeInternal<T6> v6 = p6.Take(trans2);
-                MaybeInternal<T7> v7 = p7.Take(trans2);
-
-                return f(
-                    arg1: v1,
-                    arg2: v2,
-                    arg3: v3,
-                    arg4: v4,
-                    arg5: v5,
-                    arg6: v6,
-                    arg7: v7);
-            });
-    }
+            s1: this,
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            s7: s7,
+            f: f);
 
     internal Stream<TResult> MergeMaybesImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
         Stream<T2> s2,
@@ -1899,121 +1286,18 @@ public class Stream<T> : ILastAction
             MaybeInternal<T6>,
             MaybeInternal<T7>,
             MaybeInternal<T8>,
-            TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-        InputCapture<T8> p8 = new();
-
-        return this.MergeMaybes(
+            TResult> f) =>
+        MergeMaybesOutput<T, T2, T3, T4, T5, T6, T7, T8, TResult>.Create(
             trans: trans,
-            keepListenersAlive: KeepListenersAliveInternal.Combine(
-                this.KeepListenersAlive,
-                s2.KeepListenersAlive,
-                s3.KeepListenersAlive,
-                s4.KeepListenersAlive,
-                s5.KeepListenersAlive,
-                s6.KeepListenersAlive,
-                s7.KeepListenersAlive,
-                s8.KeepListenersAlive),
-            captures: gate =>
-            [
-                StreamInternal.Capture(
-                    input: this,
-                    gate: gate,
-                    trans: trans,
-                    capture: p1),
-                StreamInternal.Capture(
-                    input: s2,
-                    gate: gate,
-                    trans: trans,
-                    capture: p2),
-                StreamInternal.Capture(
-                    input: s3,
-                    gate: gate,
-                    trans: trans,
-                    capture: p3),
-                StreamInternal.Capture(
-                    input: s4,
-                    gate: gate,
-                    trans: trans,
-                    capture: p4),
-                StreamInternal.Capture(
-                    input: s5,
-                    gate: gate,
-                    trans: trans,
-                    capture: p5),
-                StreamInternal.Capture(
-                    input: s6,
-                    gate: gate,
-                    trans: trans,
-                    capture: p6),
-                StreamInternal.Capture(
-                    input: s7,
-                    gate: gate,
-                    trans: trans,
-                    capture: p7),
-                StreamInternal.Capture(
-                    input: s8,
-                    gate: gate,
-                    trans: trans,
-                    capture: p8)
-            ],
-            combine: trans2 =>
-            {
-                MaybeInternal<T> v1 = p1.Take(trans2);
-                MaybeInternal<T2> v2 = p2.Take(trans2);
-                MaybeInternal<T3> v3 = p3.Take(trans2);
-                MaybeInternal<T4> v4 = p4.Take(trans2);
-                MaybeInternal<T5> v5 = p5.Take(trans2);
-                MaybeInternal<T6> v6 = p6.Take(trans2);
-                MaybeInternal<T7> v7 = p7.Take(trans2);
-                MaybeInternal<T8> v8 = p8.Take(trans2);
-
-                return f(
-                    arg1: v1,
-                    arg2: v2,
-                    arg3: v3,
-                    arg4: v4,
-                    arg5: v5,
-                    arg6: v6,
-                    arg7: v7,
-                    arg8: v8);
-            });
-    }
-
-    // The MergeMaybesImpl methods use the mechanism of Behavior.LiftImpl. Their inputs are streams, and not
-    // the updates of behaviors. Each input captures its firing and calls the gate. The gate queues its
-    // action at the output node, which ranks above each input. Thus, the action runs after all the inputs
-    // that fire in this transaction, and it makes one output firing from their captured values. An input
-    // that does not fire gives an empty value. An input that fires more than one time in a transaction
-    // gives the value of its last firing, as a lifted input does.
-    //
-    // This is less expensive than a merge of mapped streams. Each merge of two streams makes a
-    // stream, a gate, and a node link, and each input must have its own map. Also, the inputs have
-    // no left and no right, thus no input has priority over the other inputs.
-    private Stream<TResult> MergeMaybes<TResult>(
-        TransactionInternal trans,
-        IKeepListenersAlive keepListenersAlive,
-        Func<OnceGate, IListener[]> captures,
-        Func<TransactionInternal, TResult> combine)
-    {
-        MergeMaybesOutput<TResult> output = new(@out: new Stream<TResult>(keepListenersAlive), combine: combine);
-        Stream<TResult> result = output.Out;
-
-        // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures(output))
-        {
-            result = result.UnsafeAttachListener(capture);
-        }
-
-        return result;
-    }
+            s1: this,
+            s2: s2,
+            s3: s3,
+            s4: s4,
+            s5: s5,
+            s6: s6,
+            s7: s7,
+            s8: s8,
+            f: f);
 
     internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
     {
@@ -2447,100 +1731,6 @@ public class Stream<T> : ILastAction
                     arg7: this.b6.SampleNoTransaction(),
                     arg8: this.b7.SampleNoTransaction(),
                     arg9: this.b8.SampleNoTransaction()));
-    }
-
-    // The output of a snapshot of the latest values, and the gate. It keeps the firings of this
-    // stream in one transaction, and the id of that transaction. A transaction that fails between
-    // a firing and the output leaves the firings here, and an update of the behaviors alone then
-    // sent them. Thus, a firing from a different transaction does not count. See CaptureSlot,
-    // which does the same for one value.
-    private sealed class SnapshotLatestOutput<TValues, TResult>(
-        in Stream<TResult> @out,
-        in Func<TransactionInternal, TValues> take,
-        in Func<T, TValues, TResult> f)
-        : OnceGate
-    {
-        internal readonly Stream<TResult> Out = @out;
-        private readonly Func<T, TValues, TResult> f = f;
-        private readonly List<T> pending = [];
-        private readonly Func<TransactionInternal, TValues> take = take;
-        private long pendingOwner;
-
-        internal override Node Node => this.Out.Node;
-
-        internal void Fired(TransactionInternal trans, T value)
-        {
-            if (this.pendingOwner != trans.Id)
-            {
-                this.pending.Clear();
-                this.pendingOwner = trans.Id;
-            }
-
-            this.pending.Add(value);
-            this.Arrived(trans);
-        }
-
-        private protected override void Run(TransactionInternal trans)
-        {
-            TValues values = this.take(trans);
-
-            if (this.pendingOwner != trans.Id)
-            {
-                this.pending.Clear();
-                return;
-            }
-
-            // The state is clear before f runs. Thus, after an exception from f, the next
-            // transaction does not send a firing of this transaction.
-            switch (this.pending.Count)
-            {
-                case 0:
-                    return;
-                case 1:
-                {
-                    T a = this.pending[0];
-                    this.pending.Clear();
-                    this.Out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
-                    return;
-                }
-                default:
-                {
-                    T[] firings = [.. this.pending];
-                    this.pending.Clear();
-
-                    foreach (T a in firings)
-                    {
-                        this.Out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
-                    }
-
-                    return;
-                }
-            }
-        }
-    }
-
-    // The action of the link from this stream into a snapshot of the latest values.
-    private sealed class SnapshotLatestFiring<TValues, TResult>(in SnapshotLatestOutput<TValues, TResult> output)
-        : StreamAction<T>
-    {
-        private readonly SnapshotLatestOutput<TValues, TResult> output = output;
-
-        public override void Fire(TransactionInternal trans, T value) => this.output.Fired(trans: trans, value: value);
-    }
-
-    // The output of a merge of maybes, and the gate.
-    private sealed class MergeMaybesOutput<TResult>(
-        in Stream<TResult> @out,
-        in Func<TransactionInternal, TResult> combine)
-        : OnceGate
-    {
-        internal readonly Stream<TResult> Out = @out;
-        private readonly Func<TransactionInternal, TResult> combine = combine;
-
-        internal override Node Node => this.Out.Node;
-
-        private protected override void Run(TransactionInternal trans) =>
-            this.Out.Send(trans: trans, a: this.combine(trans));
     }
 
     private sealed class FilterAction(in Stream<T> @out, in Func<T, bool> predicate) : StreamAction<T>
