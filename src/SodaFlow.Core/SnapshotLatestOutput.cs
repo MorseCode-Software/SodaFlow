@@ -5,9 +5,8 @@ namespace SodaFlow;
 
 /// <summary>
 ///     The output of a snapshot of the latest values, and its gate. It keeps the
-///     firings of the stream in one transaction, and the id of that transaction.
-///     A subclass for each arity holds the behaviors, their captures, and the
-///     function.
+///     firings of the stream in one transaction. A subclass for each arity holds
+///     the behaviors, their captures, and the function.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -28,9 +27,14 @@ namespace SodaFlow;
 ///         transaction that updates only the behaviors clears the captured values,
 ///         and this object does not keep a reference to them. A transaction that
 ///         fails between a firing and the output leaves the firings here, and an
-///         update of the behaviors alone then sent them. Thus, a firing from a
-///         different transaction does not count. See <see cref="CaptureSlot{T}" />,
-///         which does the same for one value.
+///         update of the behaviors alone then sent them. Thus, <see cref="Discard" />
+///         clears the firings when the transaction fails. <see cref="Run" /> clears
+///         them before it reads the behaviors or calls <c>f</c>. A read can call a
+///         function of the caller, and an exception from <see cref="Run" /> does
+///         not call <see cref="Discard" />. Before, this object kept the id of the
+///         transaction of the firings, as <see cref="CaptureSlot{T}" /> does for
+///         one value. The id did the work of the discard step, which a gate has
+///         in all cases.
 ///     </para>
 ///     <para>
 ///         This cannot close a loop, as a snapshot can. If the output updates a
@@ -51,7 +55,6 @@ namespace SodaFlow;
 internal abstract class SnapshotLatestGate<T, TValues, TResult> : OnceGate
 {
     private readonly List<T> pending = [];
-    private long pendingOwner;
 
     private protected SnapshotLatestGate(IKeepListenersAlive keepListenersAlive) =>
         this.Out = new Stream<TResult>(keepListenersAlive);
@@ -78,33 +81,27 @@ internal abstract class SnapshotLatestGate<T, TValues, TResult> : OnceGate
 
     private protected abstract TResult Combine(T a, TValues values);
 
+    // The firings are clear before Take and f run. Thus, after an exception from either, the
+    // next transaction does not send a firing of this transaction.
     private protected override void Run(TransactionInternal trans)
     {
-        TValues values = this.Take(trans);
-
-        if (this.pendingOwner != trans.Id)
-        {
-            this.pending.Clear();
-            return;
-        }
-
-        // The state is clear before f runs. Thus, after an exception from f, the next
-        // transaction does not send a firing of this transaction.
         switch (this.pending.Count)
         {
             case 0:
+                this.Take(trans);
                 return;
             case 1:
             {
                 T a = this.pending[0];
                 this.pending.Clear();
-                this.Out.Send(trans: trans, a: this.Combine(a: a, values: values));
+                this.Out.Send(trans: trans, a: this.Combine(a: a, values: this.Take(trans)));
                 return;
             }
             default:
             {
                 T[] firings = [.. this.pending];
                 this.pending.Clear();
+                TValues values = this.Take(trans);
 
                 foreach (T a in firings)
                 {
@@ -116,14 +113,10 @@ internal abstract class SnapshotLatestGate<T, TValues, TResult> : OnceGate
         }
     }
 
+    private protected override void Discard() => this.pending.Clear();
+
     private void Fired(TransactionInternal trans, T value)
     {
-        if (this.pendingOwner != trans.Id)
-        {
-            this.pending.Clear();
-            this.pendingOwner = trans.Id;
-        }
-
         this.pending.Add(value);
         this.Arrived(trans);
     }
