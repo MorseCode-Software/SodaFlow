@@ -58,12 +58,14 @@
         <Compile Include="LoopedCell.cs"/>
         <Compile Include="LoopedStream.cs"/>
         <Compile Include="Maybe.cs"/>
+        <Compile Include="MergeMaybesOutput.cs"/>
         <Compile Include="MergeTwo.cs"/>
         <Compile Include="MergeTwoMaybes.cs"/>
         <Compile Include="MutableListener.cs"/>
         <Compile Include="Node.cs"/>
         <Compile Include="OnceGate.cs"/>
         <Compile Include="Operational.cs"/>
+        <Compile Include="SnapshotLatestOutput.cs"/>
         <Compile Include="Stream.cs"/>
         <Compile Include="StreamAction.cs"/>
         <Compile Include="StreamExtensionMethods.cs"/>

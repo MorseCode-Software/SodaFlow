@@ -122,31 +122,9 @@ internal static class BehaviorExtensionMethodsInternal
         where T2 : Behavior<T>
     {
         IKeepListenersAlive[] roots = [.. inputs.Select(static behavior => behavior.KeepListenersAlive)];
-        Stream<TResult> @out = new(KeepListenersAliveInternal.Combine(roots));
 
-        LazySample<TResult> initialValue =
-            new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
-
-        // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before,
-        // each update sent a closure that wrote its index, a coalesce operation added the
-        // closures into one delegate, and a map ran it. A transaction that updated k inputs
-        // allocated about 2k delegates.
-        CaptureSlot<T>[] slots = new CaptureSlot<T>[inputs.Length];
-
-        OnceGate gate =
-            new(
-                node: @out.Node,
-                action: trans2 =>
-                {
-                    T[] values = new T[inputs.Length];
-
-                    for (int i = 0; i < inputs.Length; i++)
-                    {
-                        values[i] = Behavior<T>.Take(pending: ref slots[i], input: inputs[i], trans: trans2);
-                    }
-
-                    @out.Send(trans: trans2, a: f(values));
-                });
+        ListLift<T, T2, TResult> lift =
+            new(@out: new Stream<TResult>(KeepListenersAliveInternal.Combine(roots)), inputs: inputs, f: f);
 
         IListener[] listeners = new IListener[inputs.Length];
 
@@ -156,28 +134,65 @@ internal static class BehaviorExtensionMethodsInternal
                 inputs[i]
                     .Updates()
                     .Listen(
-                        target: gate.Node,
+                        target: lift.Node,
                         trans: trans1,
-                        action: new LiftInput<T>(slots: slots, index: i, gate: gate),
+                        action: new LiftInput<T, T2, TResult>(lift: lift, index: i),
                         suppressEarlierFirings: false);
         }
 
-        return @out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
-            .HoldLazyInternal(trans: trans1, initialValue: initialValue);
+        return lift.Out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
+            .HoldLazyInternal(trans: trans1, initialValue: new LazySample<TResult>(source: lift));
+    }
+
+    // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before, each
+    // update sent a closure that wrote its index, a coalesce operation added the closures into one
+    // delegate, and a map ran it. A transaction that updated k inputs allocated about 2k delegates.
+    // This object is the output, the slots, and the gate, and the source of the initial value.
+    private sealed class ListLift<T, T2, TResult>(
+        in Stream<TResult> @out,
+        in T2[] inputs,
+        in Func<IReadOnlyList<T>, TResult> f)
+        : OnceGate, ISampleSource<TResult>
+        where T2 : Behavior<T>
+    {
+        internal readonly Stream<TResult> Out = @out;
+        private readonly Func<IReadOnlyList<T>, TResult> f = f;
+        private readonly T2[] inputs = inputs;
+        private readonly CaptureSlot<T>[] slots = new CaptureSlot<T>[inputs.Length];
+
+        internal override Node Node => this.Out.Node;
+
+        internal void Capture(TransactionInternal trans, int index, T value)
+        {
+            this.slots[index].Set(trans: trans, value: value);
+            this.Arrived(trans);
+        }
+
+        private protected override void Run(TransactionInternal trans)
+        {
+            T[] values = new T[this.inputs.Length];
+
+            for (int i = 0; i < this.inputs.Length; i++)
+            {
+                values[i] = Behavior<T>.Take(pending: ref this.slots[i], input: this.inputs[i], trans: trans);
+            }
+
+            this.Out.Send(trans: trans, a: this.f(values));
+        }
+
+        TResult ISampleSource<TResult>.Read() =>
+            this.f([.. this.inputs.Select(static behavior => behavior.SampleNoTransaction())]);
     }
 
     // The action of one input of the list lift: it fills the slot at its index and calls the
     // gate. Before, a lambda captured the index, the slots, and the gate.
-    private sealed class LiftInput<T>(in CaptureSlot<T>[] slots, in int index, in OnceGate gate) : StreamAction<T>
+    private sealed class LiftInput<T, T2, TResult>(in ListLift<T, T2, TResult> lift, in int index) : StreamAction<T>
+        where T2 : Behavior<T>
     {
-        private readonly OnceGate gate = gate;
         private readonly int index = index;
-        private readonly CaptureSlot<T>[] slots = slots;
+        private readonly ListLift<T, T2, TResult> lift = lift;
 
-        public override void Fire(TransactionInternal trans, T value)
-        {
-            this.slots[this.index].Set(trans: trans, value: value);
-            this.gate.Arrived(trans);
-        }
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.lift.Capture(trans: trans, index: this.index, value: value);
     }
 }
