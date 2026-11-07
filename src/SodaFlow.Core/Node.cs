@@ -469,13 +469,20 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
     {
         if (this.firstAttached == null)
         {
+            // The listener and the handle go in before the registration, and not after it. The
+            // sweep reads them out of any lock after it finds the node in the registry. Before,
+            // a sweep between the registration and the store found no listener and no handle,
+            // and read the stream as dead. Its release then stopped the listener that the store
+            // put there after that: the link of a live stream. The registration takes the
+            // registry lock, which the sweep holds, thus the sweep sees the two stores.
+            this.firstAttached = listener;
+
             if (listener is not Node.Target)
             {
                 this.streamHandle = GCHandle.Alloc(value: stream, type: GCHandleType.Weak);
             }
 
             StreamListenerManager.Register(this);
-            this.firstAttached = listener;
         }
         else
         {
