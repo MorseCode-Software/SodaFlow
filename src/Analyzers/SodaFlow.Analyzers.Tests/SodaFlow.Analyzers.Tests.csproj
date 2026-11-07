@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        net10.0 only, not also net472 as the other tests. The tests compile the shapes against the
+        assemblies of the runtime that runs them, through a compiler later than the Roslyn the
+        analyzer is built on, as a consumer's compiler is. The analyzer has one netstandard2.0
+        build, with no code that changes with the framework.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <!-- The usings are listed per file here, as everywhere else in this repository. -->
+        <TUnitImplicitUsings>disable</TUnitImplicitUsings>
+        <TUnitAssertionsImplicitUsings>disable</TUnitAssertionsImplicitUsings>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.Analyzers.Tests</AssemblyName>
+        <RootNamespace>SodaFlow.Analyzers.Tests</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+        The compiler that compiles the shapes. It is later than the Roslyn of the analyzer, as the
+        compiler of a consumer is, and it knows the collection expressions the shapes use.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"/>
+        <PackageReference Include="TUnit" Version="1.66.27"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="AnalyzerHarness.cs"/>
+        <Compile Include="LoopReadAnalyzerTests.cs"/>
+        <Compile Include="OperatorTableTests.cs"/>
+    </ItemGroup>
+
+    <!--
+        The shapes are test data, not code of this project: the harness compiles the file at test
+        time, against the library assemblies this project references, and the analyzer reads it.
+        Compiling it here would hold a file that is meant to trip every rule to the build's own
+        warnings. It is a .cs file so that an editor reads it as C#.
+    -->
+    <ItemGroup>
+        <None Include="Shapes.cs" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <!--
+        The analyzer under test, and the libraries the shapes and the completeness test reference.
+        The completeness test reflects over every public operator of these assemblies.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\SodaFlow.Analyzers\SodaFlow.Analyzers.csproj"/>
+        <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
+        <ProjectReference Include="..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
+        <ProjectReference Include="..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+        <ProjectReference Include="..\..\Async\SodaFlow.Core.Async\SodaFlow.Core.Async.csproj"/>
+        <ProjectReference Include="..\..\Async\CSharp\SodaFlow.Async\SodaFlow.Async.csproj"/>
+        <ProjectReference Include="..\..\Collections\SodaFlow.Core.Collections\SodaFlow.Core.Collections.csproj"/>
+        <ProjectReference Include="..\..\Collections\CSharp\SodaFlow.Collections\SodaFlow.Collections.csproj"/>
+        <ProjectReference Include="..\..\Bindable\ObjectModel\SodaFlow.Core.Bindable.ObjectModel\SodaFlow.Core.Bindable.ObjectModel.csproj"/>
+        <ProjectReference Include="..\..\Bindable\ObjectModel\CSharp\SodaFlow.Bindable.ObjectModel\SodaFlow.Bindable.ObjectModel.csproj"/>
+    </ItemGroup>
+
+</Project>
