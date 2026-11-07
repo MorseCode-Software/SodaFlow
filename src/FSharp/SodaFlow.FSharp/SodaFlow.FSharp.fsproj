@@ -42,7 +42,6 @@
         <Compile Include="Transaction.fs"/>
         <Compile Include="Listener.fs"/>
         <Compile Include="StreamSink.fs"/>
-        <Compile Include="Cleanup.fs"/>
         <Compile Include="BehaviorSink.fs"/>
         <Compile Include="CellStreamSink.fs"/>
         <Compile Include="CellSink.fs"/>

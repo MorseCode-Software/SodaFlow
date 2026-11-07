@@ -20,50 +20,47 @@ public sealed class IssueTests
             CellSink<int> threshold = Cell.CreateSink(10);
             StreamSink<int> addPoolSink = Stream.CreateSink<int>();
 
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> submitPooledAmount = new();
+            _ = Stream.Loop<int>()
+                .WithCaptures(submitPooledAmount =>
+                {
+                    // The ways to change the pool.
+                    Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
-                // The ways to change the pool.
-                Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
+                    Stream<Func<int, int>>
+                        poolRemoveByUsage = submitPooledAmount.Map(static i => (Func<int, int>)(x => x - i));
 
-                Stream<Func<int, int>>
-                    poolRemoveByUsage = submitPooledAmount.Map(static i => (Func<int, int>)(x => x - i));
+                    // The current level of the pool
+                    Cell<int> poolLocal =
+                        poolAddByInput
+                            .Merge(s2: poolRemoveByUsage, f: static (f, g) => x => g(f(x)))
+                            .Accum(initialState: 0, f: static (f, x) => f(x));
 
-                // The current level of the pool
-                Cell<int> poolLocal =
-                    poolAddByInput
-                        .Merge(s2: poolRemoveByUsage, f: static (f, g) => x => g(f(x)))
-                        .Accum(initialState: 0, f: static (f, x) => f(x));
+                    // The current input changes combined with the pool as a stream
+                    Stream<int> inputByAdded =
+                        poolAddByInput
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: static (f, x, t) =>
+                                    f(x) >= t
+                                        ? Maybe.Some(f(x))
+                                        : Maybe.None)
+                            .FilterSome();
 
-                // The current input changes combined with the pool as a stream
-                Stream<int> inputByAdded =
-                    poolAddByInput
-                        .Snapshot(
-                            c1: poolLocal,
-                            c2: threshold,
-                            f: static (f, x, t) =>
-                                f(x) >= t
-                                    ? Maybe.Some(f(x))
-                                    : Maybe.None)
-                        .FilterSome();
+                    // Simple rising edge on pool threshold satisfaction.
+                    Stream<int> inputBySatisfaction =
+                        poolLocal.Updates()
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: static (neu, alt, t) =>
+                                    neu >= t && alt < t
+                                        ? Maybe.Some(neu)
+                                        : Maybe.None)
+                            .FilterSome();
 
-                // Simple rising edge on pool threshold satisfaction.
-                Stream<int> inputBySatisfaction =
-                    poolLocal.Updates()
-                        .Snapshot(
-                            c1: poolLocal,
-                            c2: threshold,
-                            f: static (neu, alt, t) =>
-                                neu >= t && alt < t
-                                    ? Maybe.Some(neu)
-                                    : Maybe.None)
-                        .FilterSome();
-
-                submitPooledAmount.Loop(inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max));
-
-                return (submitPooledAmount, poolLocal);
-            });
+                    return (Stream: inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max), Captures: poolLocal);
+                });
         }
         catch (Exception e)
         {
@@ -81,50 +78,47 @@ public sealed class IssueTests
         StreamSink<int> addPoolSink = Stream.CreateSink<int>();
 
         (Stream<int> input, Cell<int> pool) =
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> submitPooledAmount = new();
+            Stream.Loop<int>()
+                .WithCaptures(submitPooledAmount =>
+                {
+                    // The ways to change the pool.
+                    Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
 
-                // The ways to change the pool.
-                Stream<Func<int, int>> poolAddByInput = addPoolSink.Map(static i => (Func<int, int>)(x => x + i));
+                    Stream<Func<int, int>> poolRemoveByUsage =
+                        Operational.Defer(submitPooledAmount.Map(static i => (Func<int, int>)(x => x - i)));
 
-                Stream<Func<int, int>> poolRemoveByUsage =
-                    Operational.Defer(submitPooledAmount.Map(static i => (Func<int, int>)(x => x - i)));
+                    // The current level of the pool
+                    Cell<int> poolLocal =
+                        poolAddByInput
+                            .Merge(s2: poolRemoveByUsage, f: static (f, g) => x => g(f(x)))
+                            .Accum(initialState: 0, f: static (f, x) => f(x));
 
-                // The current level of the pool
-                Cell<int> poolLocal =
-                    poolAddByInput
-                        .Merge(s2: poolRemoveByUsage, f: static (f, g) => x => g(f(x)))
-                        .Accum(initialState: 0, f: static (f, x) => f(x));
+                    // The current input changes combined with the pool as a stream
+                    Stream<int> inputByAdded =
+                        poolAddByInput
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: static (f, x, t) =>
+                                    f(x) >= t
+                                        ? Maybe.Some(f(x))
+                                        : Maybe.None)
+                            .FilterSome();
 
-                // The current input changes combined with the pool as a stream
-                Stream<int> inputByAdded =
-                    poolAddByInput
-                        .Snapshot(
-                            c1: poolLocal,
-                            c2: threshold,
-                            f: static (f, x, t) =>
-                                f(x) >= t
-                                    ? Maybe.Some(f(x))
-                                    : Maybe.None)
-                        .FilterSome();
+                    // Simple rising edge on pool threshold satisfaction.
+                    Stream<int> inputBySatisfaction =
+                        poolLocal.Updates()
+                            .Snapshot(
+                                c1: poolLocal,
+                                c2: threshold,
+                                f: static (neu, alt, t) =>
+                                    neu >= t && alt < t
+                                        ? Maybe.Some(neu)
+                                        : Maybe.None)
+                            .FilterSome();
 
-                // Simple rising edge on pool threshold satisfaction.
-                Stream<int> inputBySatisfaction =
-                    poolLocal.Updates()
-                        .Snapshot(
-                            c1: poolLocal,
-                            c2: threshold,
-                            f: static (neu, alt, t) =>
-                                neu >= t && alt < t
-                                    ? Maybe.Some(neu)
-                                    : Maybe.None)
-                        .FilterSome();
-
-                submitPooledAmount.Loop(inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max));
-
-                return (submitPooledAmount, poolLocal);
-            });
+                    return (Stream: inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max), Captures: poolLocal);
+                });
 
         List<int> submissions = [];
 

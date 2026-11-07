@@ -6,6 +6,11 @@ transaction that fails forget its value; the core notes say why. New: the LazySa
 function, map, and lift2 to lift8, and the lazySample alias for defer in Shorthand. A function given to any of them
 can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: getListenerWithWeakReference in the Listener, WeakListener, StrongListener, and MutableListener modules, and
+Listener.unlistenWeak, are removed, and IListenerWithWeakReference is internal. The MutableListener module is removed
+with the type, which is internal, and the Cleanup module with Cleanup, which is removed; the core notes say why. F#
+never had the explicit loop types that the C# package removes in this release, so loops in F# do not change.
+
 BREAKING: ITimerSystem<'T> inherits IDisposable, ITimerSystemImplementation<'T> has a Stop, and Transaction.onStart
 and onStartT return the registration of the action as an IDisposable, so a call that ignored the result now needs an
 ignore. A timer system's constructor installs a hook that runs at the start of every transaction in the process, and a

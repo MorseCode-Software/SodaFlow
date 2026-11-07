@@ -85,13 +85,6 @@ public static class Cell
         CellInternal.CreateStreamSinkImpl(coalesce);
 
     /// <summary>
-    ///     Creates a cell loop.
-    /// </summary>
-    /// <typeparam name="T">The type of values in the cell loop.</typeparam>
-    /// <returns>The cell loop.</returns>
-    public static CellLoop<T> CreateLoop<T>() => new();
-
-    /// <summary>
     ///     Creates a helper to loop over a cell for the specified type.
     /// </summary>
     /// <typeparam name="T">The type of the cell to loop.</typeparam>

@@ -38,6 +38,7 @@
         <Compile Include="LastPhaseTests.cs"/>
         <Compile Include="LazySampleTests.cs"/>
         <Compile Include="ListenOnceTests.cs"/>
+        <Compile Include="MutableListenerTests.cs"/>
         <Compile Include="NodeTests.cs"/>
         <Compile Include="OnceTests.cs"/>
         <Compile Include="PrioritizedTests.cs"/>

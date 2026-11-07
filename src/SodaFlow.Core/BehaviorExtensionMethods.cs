@@ -55,7 +55,7 @@ internal static class BehaviorExtensionMethodsInternal
         trans1.PrioritizedAtRankZero(trans2 =>
             action.Select(trans: trans2, sa: bsa.SampleNoTransaction(), suppressEarlierFirings: false));
 
-        IListener l1 =
+        IListenerInternal l1 =
             bsa.Updates().Listen(target: new Node<T>(), trans: trans1, action: action, suppressEarlierFirings: false);
 
         return @out.UnsafeAttachListener(l1).UnsafeAttachListener(action.Current);
@@ -79,7 +79,7 @@ internal static class BehaviorExtensionMethodsInternal
         // set moves its listeners to the root of the new stream at the same time.
         internal void Select(TransactionInternal trans, Stream<T> sa, bool suppressEarlierFirings)
         {
-            this.Current.SetListenerImpl(
+            this.Current.SetListener(
                 sa.Listen(
                     target: this.@out.Node,
                     trans: trans,
@@ -126,7 +126,7 @@ internal static class BehaviorExtensionMethodsInternal
         ListLift<T, T2, TResult> lift =
             new(@out: new Stream<TResult>(KeepListenersAliveInternal.Combine(roots)), inputs: inputs, f: f);
 
-        IListener[] listeners = new IListener[inputs.Length];
+        IListenerInternal[] listeners = new IListenerInternal[inputs.Length];
 
         for (int i = 0; i < inputs.Length; i++)
         {

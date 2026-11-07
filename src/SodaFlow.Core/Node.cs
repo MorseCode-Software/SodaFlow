@@ -453,8 +453,8 @@ internal class Node<T> : Node
 // operator's output must reference that output. Otherwise, the sweep releases the links of a
 // live stream, and the stream stops with no message. Each action in StreamAction.cs and beside the operators
 // holds its output, and the memory test AliveOperatorStreamsSurviveTheSweep holds each shape.
-// A first listener that is not a target, such as the action listener of a Cleanup, keeps the
-// handle.
+// A first listener that is not a target, such as the composite listener of a lift of a list, keeps
+// the handle.
 internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
 {
     private GCHandle streamHandle;

@@ -64,10 +64,10 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult> : OnceGate
                     second: second.KeepListenersAlive),
                 f: f);
 
-        IListener l1 =
+        IListenerInternal l1 =
             first.Listen(target: merge.Node, trans: trans, action: new Left(merge), suppressEarlierFirings: false);
 
-        IListener l2 =
+        IListenerInternal l2 =
             second.Listen(
                 target: merge.Node,
                 trans: trans,

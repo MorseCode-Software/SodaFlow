@@ -38,7 +38,7 @@ public class LoopedBehavior<T> : Behavior<T>
     {
         if (!this.streamLoop.IsAssigned)
         {
-            throw new InvalidOperationException("BehaviorLoop was sampled before it was looped.");
+            throw new InvalidOperationException("LoopedBehavior was sampled before it was looped.");
         }
 
         this.EnsureValueIsCreated();

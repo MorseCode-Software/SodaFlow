@@ -109,7 +109,7 @@ without a `Sample` at the call site. F# names those variants with its usual `C` 
 Sinks still belong at the edge of the program — that is how UI events and I/O enter the graph
 at all — but they are the caller's, created at the boundary and passed in here as streams. If
 an edit stream depends on something derived from the collection, close the circle with
-`Stream.CreateLoop` at the call site. See [Feedback loops](loops.md).
+`Stream.Loop` at the call site. See [Feedback loops](loops.md).
 
 ## An item is two halves
 

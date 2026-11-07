@@ -35,30 +35,6 @@ public sealed class FailedTransactionTests
         await Assert.That(later).IsEmpty();
     }
 
-    // The loop that is not looped throws from its last action. The clear of the firings is the
-    // last action after it, thus this covers a failure in the last phase.
-    [Test]
-    public async Task AStreamDoesNotKeepItsFiringsWhenALastActionFails()
-    {
-        StreamSink<int> s = Stream.CreateSink<int>();
-
-        await Assert.That(() =>
-                Transaction.RunVoid(() =>
-                {
-                    _ = Stream.CreateLoop<int>();
-                    s.Send(1);
-                }))
-            .ThrowsExactly<InvalidOperationException>()
-            .WithMessage("Loop was not looped.");
-
-        List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
-        s.Send(2);
-        l.Unlisten();
-
-        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
-    }
-
     [Test]
     public async Task ACellUpdatesAfterAFailedTransaction()
     {

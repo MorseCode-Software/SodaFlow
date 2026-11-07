@@ -55,13 +55,6 @@ public static class Behavior
         BehaviorInternal.CreateSinkImpl(initialValue: initialValue, coalesce: coalesce);
 
     /// <summary>
-    ///     Makes a <see cref="BehaviorLoop{T}" />. A caller must call this and close
-    ///     the loop in one transaction.
-    /// </summary>
-    /// <typeparam name="T">The type of values in the behavior loop.</typeparam>
-    public static BehaviorLoop<T> CreateLoop<T>() => new();
-
-    /// <summary>
     ///     Creates a helper to loop over a behavior for the specified type.
     /// </summary>
     /// <typeparam name="T">The type of the behavior to loop.</typeparam>

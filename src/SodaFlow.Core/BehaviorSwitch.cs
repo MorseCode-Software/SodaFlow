@@ -70,7 +70,7 @@ internal sealed class BehaviorSwitch<T, T2>(
         // set moves its listeners to the root of the new behavior at the same time.
         void ILastAction.Commit()
         {
-            this.@switch.current.SetListenerImpl(this);
+            this.@switch.current.SetListener(this);
             this.@switch.keepListenersAlive.SetInner(this.Source.KeepListenersAlive);
         }
 

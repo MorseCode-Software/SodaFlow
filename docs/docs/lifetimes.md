@@ -178,13 +178,9 @@ IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
 Handlers also carry no thread guarantee — the docs say to make no assumptions about which
 thread they run on, and not to block.
 
-## Machinery you probably do not need
+## The machinery behind a combinator
 
-`MutableListener` and `Cleanup` are public, but they exist mainly so the library can build its
-own primitives. `Operational`, `LoopedStream`, `TimerSystem` and the `Switch` implementations
-all use them; nothing in the test suite uses them the way an application would.
-
-For ordinary subscriptions you do not need either. Both listen methods already tie the
+For ordinary subscriptions, the two listen methods are all you need. Both already tie the
 listener's lifetime to the stream's, from opposite ends. `Listen` gives you a handle that holds
 the stream, so the subscription lives exactly as long as you keep the handle. `ListenStrong`
 additionally roots the listener in the keep-alive set of each root the stream has, and the
@@ -192,27 +188,26 @@ listener holds the stream in turn, so the two form a cycle that the collector re
 once you drop your handle.
 Neither permanently roots a stream by itself.
 
-The third piece of that machinery, `AttachListener`, used to be public too and is not any more.
-It bound *some other* listener to *a chosen* stream's lifetime, and had it actively unlistened —
-disconnecting its node from upstream — when that stream was collected, rather than merely
-becoming unreachable. That is how a combinator keeps its own wiring alive. [`Switch`](switch.md)
-subscribes to the outer cell to learn when the branch changes, and to whichever inner stream is
-currently selected; the caller holds neither, only the stream `Switch` returns. Both
-subscriptions are therefore attached to that returned stream, so they live exactly as long as
-the result does. `Operational`, `LoopedStream` and `TimerSystem` do the same thing.
+A combinator needs one more kind of subscription, and none of it is public. It binds *some
+other* listener to *a chosen* stream's lifetime, and has it actively unlistened — disconnecting
+its node from upstream — when that stream is collected, rather than merely becoming unreachable.
+That is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes to the outer
+cell to learn when the branch changes, and to whichever inner stream is currently selected; the
+caller holds neither, only the stream `Switch` returns. Both subscriptions are therefore attached
+to that returned stream, so they live exactly as long as the result does. `Operational`,
+`LoopedStream` and `TimerSystem` do the same thing.
 
-Application code could never get into that situation, which is why the method is gone rather
+To stop those listeners after the stream is gone, the library keeps a weak view of each one, which
+can unlisten it without holding the stream. The inner subscription of `Switch` is replaced on every
+branch change, but attaching a fresh listener each time would grow the stream's attached-listener
+list without bound, so one listener whose target can be re-pointed is attached once.
+
+Application code never gets into that situation, which is why this machinery is internal rather
 than merely discouraged: building a primitive this way needs the weak `Listen` overload taking a
 node, which is `internal`, and a handler that sends, which throws. `Switch` has already done it
-for you.
-
-`MutableListener` is an `IListener` whose target can be swapped (`SetListener`, `ClearListener`,
-`Unlisten`) while the handle stays stable. `Switch` needs exactly that: the inner subscription is
-replaced on every branch change, but attaching a fresh listener each time would grow the stream's
-attached-listener list without bound, so one stable handle is attached once and re-pointed.
-
-`Cleanup` runs an action when it is collected, or immediately via `CleanupNow()` — finalization
-rather than deterministic disposal, so it runs *eventually*.
+for you. Earlier versions exposed parts of it — `AttachListener`, the weak view through
+`GetListenerWithWeakReference`, `MutableListener`, and `Cleanup` — and 6.0.0 removed the last of
+them from the public surface.
 
 ## Verifying it
 

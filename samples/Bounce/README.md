@@ -205,10 +205,6 @@ block returns closes it: the definition, and whatever was built along the way â€
 itself, which comes back as `Captures`. `WithoutCaptures` is the same thing where the block has
 only the definition to hand back, which is how `Cell.Loop` is used in `BouncingAxis`.
 
-Prefer that block form. `Stream.CreateLoop` and `Cell.CreateLoop` declare a loop that some later
-statement has to remember to close, and are for the rare loop that cannot be written inside one
-block.
-
 ## Ricochets, and the one thing that couples
 
 Every other scene is built out of things that do not interact. A ball is two axes that know

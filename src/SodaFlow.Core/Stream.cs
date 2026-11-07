@@ -21,7 +21,7 @@ internal static class StreamInternal
     ///     LiftOutput, SnapshotLatestImpl, and MergeMaybesImpl use this. For a
     ///     behavior, give the stream of its updates.
     /// </remarks>
-    internal static IListener Capture<TInput>(
+    internal static IListenerInternal Capture<TInput>(
         Stream<TInput> input,
         OnceGate gate,
         TransactionInternal trans,
@@ -65,10 +65,10 @@ public class Stream<T> : ILastAction
     // The first attached listener sits in a field, because a stream in a chain has exactly one.
     // The list is for the second and later.
     // ReSharper disable once NotAccessedField.Local
-    private IListener? attachedListener;
+    private IListenerInternal? attachedListener;
 
     // ReSharper disable once CollectionNeverQueried.Local
-    private List<IListener>? attachedListeners;
+    private List<IListenerInternal>? attachedListeners;
 
     // SodaFlow caches this delegate with the firings. A method group conversion allocates a
     // new delegate each time, and Send gives this delegate to trans.Last on the first firing of
@@ -125,19 +125,19 @@ public class Stream<T> : ILastAction
 
     // The handler goes behind one object, which is the action and the listener. Before, a
     // closure, a delegate, and a listener object stood between the node and the handler.
-    internal IWeakListener ListenImpl(Action<T> handler) =>
+    internal IWeakListenerInternal ListenImpl(Action<T> handler) =>
         this.Listen(target: Node<T>.Null, action: new HandlerAction<T>(handler));
 
     // For a caller that holds the transaction, such as a cell's Listen, which makes the value
     // stream and listens to it in one.
-    internal IWeakListener ListenImpl(TransactionInternal trans, Action<T> handler) =>
+    internal IWeakListenerInternal ListenImpl(TransactionInternal trans, Action<T> handler) =>
         this.Listen(
             target: Node<T>.Null,
             trans: trans,
             action: new HandlerAction<T>(handler),
             suppressEarlierFirings: false);
 
-    internal Stream<T> AttachListenerInternal(IListener listener)
+    internal Stream<T> AttachListenerInternal(IListenerInternal listener)
     {
         lock (this.AttachListenerLock)
         {
@@ -220,7 +220,7 @@ public class Stream<T> : ILastAction
         return listenerToReturn;
     }
 
-    private StrongListener KeepAlive(IWeakListener innerListener)
+    private StrongListener KeepAlive(IWeakListenerInternal innerListener)
     {
         StrongListener? listener = null;
 
@@ -252,7 +252,7 @@ public class Stream<T> : ILastAction
 
     // A static lambda with a state: no closure and no delegate for the call that each
     // single-input operator makes. See SendImpl in StreamSink.
-    internal IWeakListener Listen(Node target, Action<TransactionInternal, T> action) =>
+    internal IWeakListenerInternal Listen(Node target, Action<TransactionInternal, T> action) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
                 state.Stream.Listen(
@@ -262,7 +262,7 @@ public class Stream<T> : ILastAction
                     suppressEarlierFirings: false),
             state: (Stream: this, Target: target, Action: action));
 
-    internal IWeakListener Listen(
+    internal IWeakListenerInternal Listen(
         Node target,
         TransactionInternal trans,
         Action<TransactionInternal, T> action,
@@ -1451,7 +1451,7 @@ public class Stream<T> : ILastAction
     //    other threads.
     // 2. The method that created this object does not return it at this time. Thus, two threads cannot
     //    share the object.
-    internal Stream<T> UnsafeAttachListener(IListener cleanup)
+    internal Stream<T> UnsafeAttachListener(IListenerInternal cleanup)
     {
         if (this.attachedListener == null)
         {
@@ -1812,11 +1812,12 @@ public class Stream<T> : ILastAction
         }
     }
 
-    private sealed class StrongListener(Action unlisten, IListener listener) : IStrongListener
+    private sealed class StrongListener(Action unlisten, IListenerInternal listener)
+        : IStrongListener, IListenerInternal
     {
         // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
         // captured into a mutable variable.
-        private readonly IListener listener = listener;
+        private readonly IListenerInternal listener = listener;
 
         // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
         // captured into a mutable variable.
@@ -1832,9 +1833,9 @@ public class Stream<T> : ILastAction
 
     // The lock on KeepListenersAlive makes Root and Unlisten atomic. Thus, a Root on one thread and
     // the first firing on a different thread cannot keep a listener that stopped in the set.
-    private sealed class RootableListener(in Stream<T> stream, in IWeakListener listener) : IRootableListener
+    private sealed class RootableListener(in Stream<T> stream, in IWeakListenerInternal listener) : IRootableListener
     {
-        private readonly IWeakListener listener = listener;
+        private readonly IWeakListenerInternal listener = listener;
         private readonly Stream<T> stream = stream;
         private bool rooted;
         private bool stopped;
@@ -1878,7 +1879,7 @@ public class Stream<T> : ILastAction
         in Stream<T> stream,
         in Action<TransactionInternal, T> action,
         in Node<T>.Target target)
-        : IWeakListener
+        : IWeakListenerInternal
     {
         // This field keeps the action alive, because the node uses a weak reference.
         // ReSharper disable once UnusedMember.Local
