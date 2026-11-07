@@ -1,5 +1,16 @@
 6.0.0
 
+Added: a Roslyn analyzer, inside this package under analyzers/dotnet/cs, that reports a read of a looped cell or
+behavior before its loop closes, a loop closed with a value linked to its own placeholder, and the other shapes that
+throw at run time; six rules, SF1001 to SF1006, five of them warnings and the escape to unknown code an info. A C#
+project that references SodaFlow runs it with no step of its own, and ExcludeAssets="analyzers" on the reference
+removes it. F# is not covered, because a Roslyn analyzer runs in the C# compiler only. The loops page describes the
+rules, the mark that silences the escape, and what the analyzer does not see.
+
+Added: AsCell on a plain Cell<T>, AsBehavior on a plain Behavior<T>, and AsStream on a plain Stream<T>. Each returns
+its receiver. In a loop block they mark a value derived from the placeholder, at the argument where it leaves for code
+the analyzer cannot see into, as one that no callee reads before the loop closes.
+
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a transaction that fails forget its value; the
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to

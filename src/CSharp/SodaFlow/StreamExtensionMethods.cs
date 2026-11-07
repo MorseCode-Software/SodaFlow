@@ -24,6 +24,20 @@ namespace SodaFlow;
 public static class StreamExtensionMethods
 {
     /// <summary>
+    ///     Return a reference to this <see cref="Stream{T}" /> as a
+    ///     <see cref="Stream{T}" />.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <returns>This stream.</returns>
+    /// <remarks>
+    ///     This does nothing at run time. It is the twin of
+    ///     <see cref="CellExtensionMethods.AsCell{T}(Cell{T})" /> for a stream, so
+    ///     that the three names work on each plain type as they do on a placeholder.
+    /// </remarks>
+    public static Stream<T> AsStream<T>(this Stream<T> s) => s;
+
+    /// <summary>
     ///     Listen for events/firings on this stream, keeping the stream alive for as
     ///     long as the returned listener is reachable. A disposal of the
     ///     <see cref="IStrongListener" /> from this call stops the listener. This is

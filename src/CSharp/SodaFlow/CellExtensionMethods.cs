@@ -121,6 +121,21 @@ public static class CellExtensionMethods
     public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c.BehaviorImpl;
 
     /// <summary>
+    ///     Return a reference to this <see cref="Cell{T}" /> as a
+    ///     <see cref="Cell{T}" />.
+    /// </summary>
+    /// <typeparam name="T">The type of the cell.</typeparam>
+    /// <param name="c">The cell.</param>
+    /// <returns>This cell.</returns>
+    /// <remarks>
+    ///     This does nothing at run time. In a loop block, it marks a value that comes
+    ///     from the placeholder as one that no callee reads before the loop closes.
+    ///     Write it at the argument that the promise is about. A static analyzer reads
+    ///     the mark, and the compiler does not.
+    /// </remarks>
+    public static Cell<T> AsCell<T>(this Cell<T> c) => c;
+
+    /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as
     ///     long as the returned listener is reachable. A disposal of the
     ///     <see cref="IStrongListener" /> from this call stops the listener. This is

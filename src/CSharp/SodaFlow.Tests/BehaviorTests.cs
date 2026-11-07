@@ -13,6 +13,14 @@ namespace SodaFlow.Tests;
 public sealed class BehaviorTests
 {
     [Test]
+    public async Task AsBehaviorOnAPlainBehaviorIsThatBehavior()
+    {
+        Behavior<int> b = Behavior.Constant(1);
+
+        await Assert.That(b.AsBehavior()).IsSameReferenceAs(b);
+    }
+
+    [Test]
     public async Task TestHold()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
@@ -471,7 +479,9 @@ public sealed class BehaviorTests
                             .Merge(s2: s, f: static (_, r) => r)
                             .Hold(1);
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                     cellLoop.Loop(cellLocal);
+#pragma warning restore SF1002 // The cycle is the subject of this test.
                     return cellLocal;
                 });
 
@@ -536,10 +546,12 @@ public sealed class BehaviorTests
     // the loop.
     [Test]
     public async Task ASwitchOverItsOwnOutputThrows() =>
+#pragma warning disable SF1002 // The cycle is the subject of this test.
         await Assert.That(static () =>
                 Transaction.Run(static () =>
                     Stream.Loop<int>().WithoutCaptures(static loop => Cell.Constant<Stream<int>>(loop).SwitchS())))
             .Throws<DependencyCycleException>();
+#pragma warning restore SF1002 // The cycle is the subject of this test.
 
     [Test]
     public async Task TestCellLoopSwitchS()

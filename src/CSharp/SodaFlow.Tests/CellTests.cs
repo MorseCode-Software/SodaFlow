@@ -13,6 +13,14 @@ namespace SodaFlow.Tests;
 public sealed class CellTests
 {
     [Test]
+    public async Task AsCellOnAPlainCellIsThatCell()
+    {
+        Cell<int> c = Cell.Constant(1);
+
+        await Assert.That(c.AsCell()).IsSameReferenceAs(c);
+    }
+
+    [Test]
     public async Task TestLoop()
     {
         (Cell<int> c, CellStreamSink<int> s) =
@@ -306,7 +314,9 @@ public sealed class CellTests
                     StreamSink<Inner> s = Stream.CreateSink<Inner>();
                     Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
                     Cell<int> c = cc.Map(static o => o.C).SwitchC();
+#pragma warning disable SF1006 // The sample that forces itself is the subject of this test.
                     return c;
+#pragma warning restore SF1006 // The sample that forces itself is the subject of this test.
                 });
         }
         catch (InvalidOperationException e)
