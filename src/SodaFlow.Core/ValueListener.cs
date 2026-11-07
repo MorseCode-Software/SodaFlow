@@ -74,8 +74,7 @@ internal abstract class ValueListener<T> : StreamAction<T>
         this.accum = default;
     }
 
-    private sealed class InitialEntry(in ValueListener<T> listener)
-        : TransactionInternal.Entry(new Node<UnitInternal>())
+    private sealed class InitialEntry(in ValueListener<T> listener) : TransactionInternal.Entry
     {
         private readonly ValueListener<T> listener = listener;
 

@@ -70,6 +70,12 @@ internal abstract class Node
 {
     public const int NullRank = int.MaxValue;
 
+    // The one node for an entry at rank zero. Nothing links into it, thus its rank stays zero,
+    // and an entry on it goes into no list. A value listener's initial value and a switch's
+    // first selection queue on it. Before, each made a node of its own for that one entry. That
+    // was a node, a list, and the list's array, for a rank that does not change.
+    internal static readonly Node RankZero = new Node<UnitInternal>();
+
     // A small lock. It stops more than one thread from changing the listeners and the nodes.
     protected static readonly object ListenersLock = new();
 

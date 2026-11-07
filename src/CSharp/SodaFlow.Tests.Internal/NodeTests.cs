@@ -13,6 +13,21 @@ public sealed class NodeTests
     // does nothing.
     private static readonly Action<TransactionInternal, int> NoAction = static (_, _) => { };
 
+    // The shared rank-zero node takes the initial entry of a value listener and the first selection of
+    // a switch of streams. Those go into no list, and the list of the node stays null.
+    [Test]
+    public async Task TheSharedRankZeroNodeTakesNoRegistration()
+    {
+        CellSink<int> cell = Cell.CreateSink(1);
+        CellSink<Stream<int>> selector = Cell.CreateSink(Stream.Never<int>());
+
+        using IStrongListener l1 = cell.ListenStrong(static _ => { });
+        using IStrongListener l2 = selector.SwitchS().ListenStrong(static _ => { });
+
+        await Assert.That(Node.RankZero.Entries).IsNull();
+        await Assert.That(Node.RankZero.Rank).IsEqualTo(0);
+    }
+
     [Test]
     public async Task TestNode()
     {
