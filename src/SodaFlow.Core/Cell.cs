@@ -76,7 +76,7 @@ public class Cell<T>
                 state.Self.BehaviorImpl.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
             state: (Self: this, Handler: handler));
 
-    internal IWeakListener ListenImpl(Action<T> handler) =>
+    internal IWeakListenerInternal ListenImpl(Action<T> handler) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
                 state.Self.BehaviorImpl.Value(trans).ListenImpl(trans: trans, handler: state.Handler),

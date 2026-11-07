@@ -14,14 +14,6 @@ module Listener =
     open System.Runtime.CompilerServices
 
     /// <summary>
-    ///     Stops listening, through a handle which does not itself keep the observed stream alive.
-    /// </summary>
-    /// <param name="listener">The listener to stop.</param>
-    /// <remarks>
-    ///     A second call is safe. Each call after the first does nothing.
-    /// </remarks>
-    let unlistenWeak (listener: IListenerWithWeakReference) = listener.Unlisten()
-    /// <summary>
     ///     Stops listening.
     /// </summary>
     /// <param name="listener">The listener to stop.</param>
@@ -29,20 +21,6 @@ module Listener =
     ///     A second call is safe. Each call after the first does nothing.
     /// </remarks>
     let unlisten (listener: IListener) = listener.Unlisten()
-    /// <summary>
-    ///     Gets a view of a listener which does not keep the stream it observes alive.
-    /// </summary>
-    /// <param name="listener">The listener to give a weak reference to.</param>
-    /// <returns>
-    ///     A handle for <c>unlistenWeak</c>. It does not by itself keep the monitored stream in memory.
-    /// </returns>
-    /// <remarks>
-    ///     The listener from <c>Stream.listenStrong</c> keeps the stream that it monitors in memory for
-    ///     as long as code can get to the listener. Thus, a part of the graph stays rooted while a
-    ///     listener monitors it. This gives a handle that does not root the graph. Use it where the
-    ///     graph must not stay in memory.
-    /// </remarks>
-    let getListenerWithWeakReference (listener: IListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -156,16 +134,6 @@ module WeakListener =
     ///     A second call is safe. Each call after the first does nothing.
     /// </remarks>
     let unlisten (listener: IWeakListener) = listener.Unlisten()
-    /// <summary>
-    ///     Gets a view of a weak listener which does not keep the stream it observes alive.
-    /// </summary>
-    /// <param name="listener">The listener to give a weak reference to.</param>
-    /// <returns>A handle that stops the listener.</returns>
-    /// <remarks>
-    ///     A weak listener does not root the streams that it monitors. This is here to agree with
-    ///     <c>Listener</c>, and not because it changes what stays in memory.
-    /// </remarks>
-    let getListenerWithWeakReference (listener: IWeakListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A weak listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -221,19 +189,6 @@ module StrongListener =
     ///     A second call is safe and does nothing. A disposal of the listener has the same result.
     /// </remarks>
     let unlisten (listener: IStrongListener) = listener.Unlisten()
-    /// <summary>
-    ///     Gets a view of a strong listener which does not keep the stream it observes alive.
-    /// </summary>
-    /// <param name="listener">The listener to give a weak reference to.</param>
-    /// <returns>
-    ///     A handle that stops the listener. It does not by itself prevent
-    ///     the observed stream from being garbage collected.
-    /// </returns>
-    /// <remarks>
-    ///     The initial strong listener continues to root the stream. This gives a second handle that
-    ///     does not root it.
-    /// </remarks>
-    let getListenerWithWeakReference (listener: IStrongListener) = listener.GetListenerWithWeakReference()
 
     /// <summary>
     ///     A strong listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
@@ -312,12 +267,3 @@ module MutableListener =
     ///     A second call is safe. Each call after the first does nothing.
     /// </remarks>
     let unlisten (m: MutableListener) = Listener.unlisten m
-    /// <summary>
-    ///     Gets a view of a mutable listener which does not keep the streams it observes alive.
-    /// </summary>
-    /// <param name="m">The mutable listener.</param>
-    /// <returns>
-    ///     A handle that stops the listener. It does not by itself prevent
-    ///     the observed streams from being garbage collected.
-    /// </returns>
-    let getListenerWithWeakReference (m: MutableListener) = Listener.getListenerWithWeakReference m

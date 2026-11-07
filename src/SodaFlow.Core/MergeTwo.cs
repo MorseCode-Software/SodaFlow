@@ -46,14 +46,14 @@ internal sealed class MergeTwo<T> : OnceGate
                     second: second.KeepListenersAlive),
                 f: f);
 
-        IListener l1 =
+        IListenerInternal l1 =
             first.Listen(
                 target: merge.Node,
                 trans: trans,
                 action: new Input(merge: merge, left: true),
                 suppressEarlierFirings: false);
 
-        IListener l2 =
+        IListenerInternal l2 =
             second.Listen(
                 target: merge.Node,
                 trans: trans,

@@ -49,19 +49,4 @@ public static class MutableListenerExtensionMethods
         IListener l = m;
         l.Unlisten();
     }
-
-    /// <summary>
-    ///     Gets a view of this mutable listener which does not keep the streams it
-    ///     listens to alive.
-    /// </summary>
-    /// <param name="m">The mutable listener.</param>
-    /// <returns>
-    ///     A listener that <see cref="IListenerWithWeakReference.Unlisten" /> can
-    ///     stop. It does not by itself keep the monitored streams in memory.
-    /// </returns>
-    public static IListenerWithWeakReference GetListenerWithWeakReference(this MutableListener m)
-    {
-        IListener l = m;
-        return l.GetListenerWithWeakReference();
-    }
 }

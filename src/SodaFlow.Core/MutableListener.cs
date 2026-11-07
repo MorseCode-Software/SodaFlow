@@ -15,13 +15,13 @@ namespace SodaFlow;
 /// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage
-public class MutableListener : IListener
+public class MutableListener : IListenerInternal
 {
     private readonly WeakMutableListener weakMutableListener = new();
     private IListener? listener;
 
     void IListener.Unlisten() => this.listener?.Unlisten();
-    IListenerWithWeakReference IListener.GetListenerWithWeakReference() => this.weakMutableListener;
+    IListenerWithWeakReference IListenerInternal.GetListenerWithWeakReference() => this.weakMutableListener;
 
     // The previous target stops after this code sets the new target. Thus, a reader of this
     // listener never finds it with no target between the two. A set of the target that this
@@ -37,7 +37,7 @@ public class MutableListener : IListener
         }
 
         this.listener = listener;
-        this.weakMutableListener.WeakListener = listener.GetListenerWithWeakReference();
+        this.weakMutableListener.WeakListener = ListenerInternal.GetListenerWithWeakReference(listener);
         previous?.Unlisten();
     }
 

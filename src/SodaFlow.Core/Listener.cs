@@ -6,22 +6,6 @@ using JetBrains.Annotations;
 namespace SodaFlow;
 
 /// <summary>
-///     A listener for stream firings. It does not prevent garbage collection of
-///     the stream. Call <see cref="Unlisten" /> to stop the listener.
-/// </summary>
-[PublicAPI]
-public interface IListenerWithWeakReference
-{
-    /// <summary>
-    ///     Stops listening.
-    /// </summary>
-    /// <remarks>
-    ///     You can call this more than one time. A subsequent call does nothing.
-    /// </remarks>
-    void Unlisten();
-}
-
-/// <summary>
 ///     A listener for stream firings. Call <see cref="Unlisten" /> to stop the
 ///     listener.
 /// </summary>
@@ -35,15 +19,6 @@ public interface IListener
     ///     You can call this more than one time. A subsequent call does nothing.
     /// </remarks>
     void Unlisten();
-
-    /// <summary>
-    ///     Gives a view of this listener that does not keep its stream alive.
-    /// </summary>
-    /// <returns>
-    ///     A listener. You can call <see cref="IListenerWithWeakReference.Unlisten" />
-    ///     on it, but it does not prevent garbage collection of the stream.
-    /// </returns>
-    IListenerWithWeakReference GetListenerWithWeakReference();
 }
 
 /// <summary>
@@ -64,10 +39,29 @@ public interface IStrongListener : IListener, IDisposable;
 // ReSharper disable once InheritdocConsiderUsage
 public interface IWeakListener : IListener;
 
+// The weak view of a listener. It stops the listener, and it does not keep the stream alive. The
+// registry entry of a stream holds the weak views of the listeners attached to the stream. Thus,
+// the registry does not keep the stream alive. See StreamNode<T>.
+internal interface IListenerWithWeakReference
+{
+    // Stops the listener. A subsequent call does nothing.
+    void Unlisten();
+}
+
+// A listener that the library makes, which also gives its weak view. A stream attaches only this
+// type. Thus, the compiler makes sure that each attached listener has a weak view. Before, the weak
+// view was a member of IListener, and a caller that wrote an IListener had to write it.
+internal interface IListenerInternal : IListener
+{
+    IListenerWithWeakReference GetListenerWithWeakReference();
+}
+
+internal interface IWeakListenerInternal : IWeakListener, IListenerInternal;
+
 // A one-shot listener that roots nothing until a call to Root. The F# listenOnceAsync uses it. The
 // async holds it until the async runs, and the async roots it when it runs. Thus, an async that does
 // not run does not keep the listener on the stream.
-internal interface IRootableListener : IWeakListener
+internal interface IRootableListener : IWeakListenerInternal
 {
     // Keeps the listener alive until it fires or stops. After it fires or stops, this does nothing.
     void Root();
@@ -79,9 +73,9 @@ internal static class ListenerInternal
     internal static readonly IWeakListener EmptyWeakImpl = EmptyListener.Instance;
     internal static readonly IStrongListener EmptyStrongImpl = EmptyListener.Instance;
 
-    internal static IListener CreateFromAction(Action unlisten) => new ActionListener(unlisten);
+    internal static IListenerInternal CreateFromAction(Action unlisten) => new ActionListener(unlisten);
 
-    internal static IListener CreateCompositeImpl<T>(IReadOnlyList<T> listeners)
+    internal static IListenerInternal CreateCompositeImpl<T>(IReadOnlyList<T> listeners)
         where T : IListener =>
         new CompositeListener<T>(listeners);
 
@@ -91,7 +85,12 @@ internal static class ListenerInternal
     internal static IStrongListener CreateStrongCompositeImpl(IReadOnlyList<IStrongListener> listeners) =>
         new CompositeStrongListener(listeners);
 
-    private sealed class EmptyListener : IStrongListener, IWeakListener, IListenerWithWeakReference
+    // A listener that a caller wrote has no weak view of its own. Its view holds it, and calls it.
+    // Only a composite listener or a mutable listener can hold such a listener.
+    internal static IListenerWithWeakReference GetListenerWithWeakReference(IListener listener) =>
+        listener is IListenerInternal l ? l.GetListenerWithWeakReference() : new ExternalListenerView(listener);
+
+    private sealed class EmptyListener : IStrongListener, IWeakListenerInternal, IListenerWithWeakReference
     {
         public static readonly EmptyListener Instance = new();
 
@@ -114,7 +113,7 @@ internal static class ListenerInternal
     ///     A listener that runs the given action when a caller disposes it.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class ActionListener : IListener, IListenerWithWeakReference
+    private sealed class ActionListener : IListenerInternal, IListenerWithWeakReference
     {
         private readonly Action unlisten;
 
@@ -128,7 +127,7 @@ internal static class ListenerInternal
         public IListenerWithWeakReference GetListenerWithWeakReference() => this;
     }
 
-    private class CompositeListener<T>(IReadOnlyList<T> listeners) : IListener, IListenerWithWeakReference
+    private class CompositeListener<T>(IReadOnlyList<T> listeners) : IListenerInternal, IListenerWithWeakReference
         where T : IListener
     {
         // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
@@ -147,7 +146,7 @@ internal static class ListenerInternal
 
         public IListenerWithWeakReference GetListenerWithWeakReference() =>
             new CompositeWeakListenerWithWeakReference(
-                [.. this.listeners.Select(static l => l.GetListenerWithWeakReference())]);
+                [.. this.listeners.Select(static l => ListenerInternal.GetListenerWithWeakReference(l))]);
 
         private sealed class CompositeWeakListenerWithWeakReference(
             IReadOnlyList<IListenerWithWeakReference> weakListeners) : IListenerWithWeakReference
@@ -166,6 +165,13 @@ internal static class ListenerInternal
                 }
             }
         }
+    }
+
+    private sealed class ExternalListenerView(in IListener listener) : IListenerWithWeakReference
+    {
+        private readonly IListener listener = listener;
+
+        public void Unlisten() => this.listener.Unlisten();
     }
 
     private sealed class CompositeStrongListener(IReadOnlyList<IStrongListener> listeners)

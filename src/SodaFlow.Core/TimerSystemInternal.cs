@@ -100,7 +100,7 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
         StreamSink<T> alarm = new();
         MaybeInternal<TTimer> currentTimer = MaybeInternal<TTimer>.None;
 
-        IListener l =
+        IListenerInternal l =
             deadline.ListenImpl(d =>
             {
                 if (currentTimer.TryGetValue(out TTimer timer))
