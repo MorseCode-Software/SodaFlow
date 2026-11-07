@@ -12,32 +12,30 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     </PropertyGroup>
 
+    <!--
+        Not a package. The dll ships inside the SodaFlow package, under analyzers/dotnet/cs, which
+        SodaFlow.csproj packs from this project's output; Directory.Build.targets says why it is not a
+        package of its own. The assembly name is what a consumer sees in a diagnostic's source.
+    -->
     <PropertyGroup>
-        <PackageId>SodaFlow.Analyzers</PackageId>
-        <MinVerTagPrefix>sodaflow-analyzers-</MinVerTagPrefix>
-        <Product>SodaFlow Analyzers</Product>
-        <Title>SodaFlow Analyzers</Title>
-        <Description>Roslyn analyzers for SodaFlow: a read of a looped value before its loop closes.</Description>
         <AssemblyName>SodaFlow.Analyzers</AssemblyName>
         <RootNamespace>SodaFlow.Analyzers</RootNamespace>
-        <!--
-            An analyzer package carries its assembly under analyzers/dotnet/cs and nothing under
-            lib, so that a consumer's compiler loads it and the consumer's assembly never
-            references it.
-        -->
-        <IncludeBuildOutput>false</IncludeBuildOutput>
-        <DevelopmentDependency>true</DevelopmentDependency>
-        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
+    <!--
+        The analyzer runs inside the compiler, which supplies these assemblies. An analyzer must not
+        ask for a later version than the compiler that loads it, or that compiler does not run it.
+        Roslyn 4.8 is in the .NET 8 SDK and Visual Studio 2022 17.8, and in each later one. It is the
+        first with the syntax of a collection expression, which the analyzer walks in the code it
+        reads, and that is why it is the floor and not the 4.4 of the Toolkit's analyzer. Its
+        System.Collections.Immutable has no collection builder, so the analyzer makes an immutable
+        array with Create. It brings Microsoft.CodeAnalysis.Analyzers, whose rules
+        EnforceExtendedAnalyzerRules turns on, and whose release tracking the two AnalyzerReleases
+        files are for. PrivateAssets keeps Roslyn out of every package that references this project.
+    -->
     <ItemGroup>
-        <!--
-            The compiler's own API, at a version older than every compiler that builds this
-            repository, because an analyzer built against an older API loads in a newer compiler
-            and not the reverse. PrivateAssets keeps the reference out of the package.
-        -->
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all"/>
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -51,7 +49,6 @@
         <Compile Include="SodaFlowSymbols.cs"/>
         <AdditionalFiles Include="AnalyzerReleases.Shipped.md"/>
         <AdditionalFiles Include="AnalyzerReleases.Unshipped.md"/>
-        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
     </ItemGroup>
 
 </Project>

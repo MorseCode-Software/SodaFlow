@@ -488,7 +488,7 @@ internal sealed class LoopStateEvaluator
 
         return new Construction(
             members: members.ToImmutable(),
-            followedParameters: FollowedParameters(model: model, scope: type, parameters: [.. parameters], evaluated: followed));
+            followedParameters: FollowedParameters(model: model, scope: type, parameters: parameters.ToImmutableArray(), evaluated: followed));
     }
 
     /// <summary>
@@ -725,7 +725,7 @@ internal sealed class LoopStateEvaluator
         switch (argument)
         {
             case AnonymousFunctionExpressionSyntax lambda:
-                return runsNow ? this.EvalLambdaResult(lambda, boundParameters: []) : LoopState.None;
+                return runsNow ? this.EvalLambdaResult(lambda, boundParameters: ImmutableArray<LoopState>.Empty) : LoopState.None;
             case MemberAccessExpressionSyntax access
                 when SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
                 && this.region.ModelFor(access).GetSymbolInfo(access).Symbol is IMethodSymbol:
@@ -754,7 +754,7 @@ internal sealed class LoopStateEvaluator
             return LoopState.None;
         }
 
-        return this.EvalLambdaResult(lambda, boundParameters: [parameterState]);
+        return this.EvalLambdaResult(lambda, boundParameters: ImmutableArray.Create(parameterState));
     }
 
     public LoopState EvalLambdaResult(
@@ -846,7 +846,7 @@ internal sealed class LoopStateEvaluator
         return name;
     }
 
-    private static readonly ImmutableArray<string> Suffixes = ["Impl", "Internal"];
+    private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create("Impl", "Internal");
 
     public static ExpressionSyntax? ReceiverOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {

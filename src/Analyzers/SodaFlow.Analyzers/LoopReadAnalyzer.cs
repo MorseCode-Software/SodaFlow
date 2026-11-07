@@ -23,10 +23,13 @@ namespace SodaFlow.Analyzers;
 public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-    [
-        Diagnostics.ReadBeforeClose, Diagnostics.LinkedClose, Diagnostics.Escape, Diagnostics.ReadInCallee,
-        Diagnostics.MemberReadInCallee, Diagnostics.PendingClose
-    ];
+        ImmutableArray.Create(
+            Diagnostics.ReadBeforeClose,
+            Diagnostics.LinkedClose,
+            Diagnostics.Escape,
+            Diagnostics.ReadInCallee,
+            Diagnostics.MemberReadInCallee,
+            Diagnostics.PendingClose);
 
     public override void Initialize(AnalysisContext context)
     {

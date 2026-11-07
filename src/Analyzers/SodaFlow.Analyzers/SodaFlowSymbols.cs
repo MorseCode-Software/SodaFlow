@@ -9,18 +9,19 @@ namespace SodaFlow.Analyzers;
 internal static class SodaFlowSymbols
 {
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
-        ["LoopedCell", "CellLoop", "LoopedBehavior", "BehaviorLoop"];
+        ImmutableHashSet.Create("LoopedCell", "CellLoop", "LoopedBehavior", "BehaviorLoop");
 
-    private static readonly ImmutableHashSet<string> StreamPlaceholderTypes = ["LoopedStream", "StreamLoop"];
+    private static readonly ImmutableHashSet<string> StreamPlaceholderTypes =
+        ImmutableHashSet.Create("LoopedStream", "StreamLoop");
 
     private static readonly ImmutableHashSet<string> LooperTypes =
-        ["CellLooper", "BehaviorLooper", "StreamLooper", "ForwardReference"];
+        ImmutableHashSet.Create("CellLooper", "BehaviorLooper", "StreamLooper", "ForwardReference");
 
     /// <summary>
     ///     The members that read the current value of a cell, a behavior, or a
     ///     bindable built from one.
     /// </summary>
-    public static readonly ImmutableHashSet<string> ReadMembers = ["Sample", "Value", "CanExecute"];
+    public static readonly ImmutableHashSet<string> ReadMembers = ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
     /// <summary>
     ///     A member of one of the library's own assemblies, and not of a test, a
