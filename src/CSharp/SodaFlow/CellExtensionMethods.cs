@@ -117,7 +117,7 @@ public static class CellExtensionMethods
     ///     <see cref="Behavior{T}" />.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c.BehaviorImpl;
+    public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c;
 
     /// <summary>
     ///     Listen for updates to the value of this cell, keeping the cell alive for as

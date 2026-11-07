@@ -347,6 +347,49 @@ public sealed class CellTests
         await Assert.That(@out).IsEquivalentTo(expected: [3, 5, 4, 7], ordering: CollectionOrdering.Matching);
     }
 
+    [Test]
+    public async Task ACellIsABehavior()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        Behavior<int> b = c;
+
+        c.Send(2);
+
+        await Assert.That(ReferenceEquals(objA: c.AsBehavior(), objB: c)).IsTrue();
+        await Assert.That(b.Sample()).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task ALiftOfACellAndABehaviorIsABehaviorThatFollowsBoth()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        BehaviorSink<int> b = Behavior.CreateSink(10);
+
+        Behavior<int> sum = c.Lift(b2: b, f: static (x, y) => x + y);
+
+        c.Send(2);
+        int afterCell = sum.Sample();
+        b.Send(20);
+
+        await Assert.That(afterCell).IsEqualTo(12);
+        await Assert.That(sum.Sample()).IsEqualTo(22);
+        await Assert.That(sum is Cell<int>).IsFalse();
+    }
+
+    // A behavior that a cell feeds is not a cell. Thus, a cast cannot give the steps of a value
+    // that the type says is continuous.
+    [Test]
+    public async Task ABehaviorMapOfACellIsNotACell()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        Behavior<int> mapped = c.AsBehavior().Map(static v => v * 2);
+
+        c.Send(3);
+
+        await Assert.That(mapped.Sample()).IsEqualTo(6);
+        await Assert.That(mapped is Cell<int>).IsFalse();
+    }
+
     private sealed class Test(int initialValue)
     {
         public CellSink<int> Value { get; } = Cell.CreateSink(initialValue);

@@ -377,26 +377,24 @@ public class Stream<T> : ILastAction
 
     internal Stream<TResult> MapToImpl<TResult>(TResult value) => this.MapImpl(_ => value);
 
-    internal Cell<T> HoldImpl(T initialValue) => new(this.HoldInternal(initialValue));
+    internal Cell<T> HoldImpl(T initialValue) => new(stream: this, initialValue: initialValue);
 
     internal Behavior<T> HoldInternal(T initialValue) => new(stream: this, initialValue: initialValue);
 
     internal Cell<T> HoldLazyImpl(LazySample<T> initialValue) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
-                new Cell<T>(state.Self.HoldLazyInternal(trans: trans, initialValue: state.InitialValue)),
+                state.Self.HoldLazyCellInternal(trans: trans, initialValue: state.InitialValue),
             state: (Self: this, InitialValue: initialValue));
 
     internal Behavior<T> HoldLazyInternal(TransactionInternal trans, LazySample<T> initialValue) =>
         new(trans: trans, stream: this, lazyInitialValue: initialValue);
 
-    internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
+    internal Cell<T> HoldLazyCellInternal(TransactionInternal trans, LazySample<T> initialValue) =>
+        new(trans: trans, stream: this, lazyInitialValue: initialValue);
 
     internal Stream<TResult> SnapshotImpl<TResult>(Behavior<TResult> b) =>
         this.SnapshotImpl(b: b, f: static (_, a) => a);
-
-    internal Stream<TResult> SnapshotImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
-        this.SnapshotImpl(b: c.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
     {
@@ -410,12 +408,6 @@ public class Stream<T> : ILastAction
                     b1: b,
                     f: f)));
     }
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Func<T, T1, T2, TResult> f) =>
-        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, TResult>(
         Behavior<T1> b1,
@@ -435,13 +427,6 @@ public class Stream<T> : ILastAction
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Func<T, T1, T2, T3, TResult> f) =>
-        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, TResult>(
         Behavior<T1> b1,
         Behavior<T2> b2,
         Behavior<T3> b3,
@@ -459,14 +444,6 @@ public class Stream<T> : ILastAction
                     b3: b3,
                     f: f)));
     }
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Func<T, T1, T2, T3, T4, TResult> f) =>
-        this.SnapshotImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, b4: c4.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, TResult>(
         Behavior<T1> b1,
@@ -490,21 +467,6 @@ public class Stream<T> : ILastAction
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
-        this.SnapshotImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            f: f);
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, TResult>(
         Behavior<T1> b1,
         Behavior<T2> b2,
         Behavior<T3> b3,
@@ -526,23 +488,6 @@ public class Stream<T> : ILastAction
                     b5: b5,
                     f: f)));
     }
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
-        this.SnapshotImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
-            f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, TResult>(
         Behavior<T1> b1,
@@ -570,25 +515,6 @@ public class Stream<T> : ILastAction
     }
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
-        this.SnapshotImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
-            b7: c7.BehaviorImpl,
-            f: f);
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
         Behavior<T1> b1,
         Behavior<T2> b2,
         Behavior<T3> b3,
@@ -614,27 +540,6 @@ public class Stream<T> : ILastAction
                     b7: b7,
                     f: f)));
     }
-
-    internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
-        this.SnapshotImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
-            b7: c7.BehaviorImpl,
-            b8: c8.BehaviorImpl,
-            f: f);
 
     internal Stream<TResult> SnapshotImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         Behavior<T1> b1,
@@ -665,13 +570,8 @@ public class Stream<T> : ILastAction
                     f: f)));
     }
 
-    internal Stream<TResult> SnapshotLatestImpl<TResult>(Cell<TResult> c) => this.SnapshotLatestImpl(c.BehaviorImpl);
-
     internal Stream<TResult> SnapshotLatestImpl<TResult>(Behavior<TResult> b) =>
         this.SnapshotLatestImpl(b: b, f: static (_, a) => a);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Cell<T1> c, Func<T, T1, TResult> f) =>
-        this.SnapshotLatestImpl(b: c.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f) =>
         TransactionInternal.Apply(
@@ -683,12 +583,6 @@ public class Stream<T> : ILastAction
         Behavior<T1> b,
         Func<T, T1, TResult> f) =>
         SnapshotLatestOutput<T, T1, TResult>.Create(trans: trans, stream: this, b1: b, f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Func<T, T1, T2, TResult> f) =>
-        this.SnapshotLatestImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, TResult>(
         Behavior<T1> b1,
@@ -707,13 +601,6 @@ public class Stream<T> : ILastAction
         SnapshotLatestOutput<T, T1, T2, TResult>.Create(trans: trans, stream: this, b1: b1, b2: b2, f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Func<T, T1, T2, T3, TResult> f) =>
-        this.SnapshotLatestImpl(b1: c1.BehaviorImpl, b2: c2.BehaviorImpl, b3: c3.BehaviorImpl, f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, TResult>(
         Behavior<T1> b1,
         Behavior<T2> b2,
         Behavior<T3> b3,
@@ -730,19 +617,6 @@ public class Stream<T> : ILastAction
         Behavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f) =>
         SnapshotLatestOutput<T, T1, T2, T3, TResult>.Create(trans: trans, stream: this, b1: b1, b2: b2, b3: b3, f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Func<T, T1, T2, T3, T4, TResult> f) =>
-        this.SnapshotLatestImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, TResult>(
         Behavior<T1> b1,
@@ -775,21 +649,6 @@ public class Stream<T> : ILastAction
             b2: b2,
             b3: b3,
             b4: b4,
-            f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Func<T, T1, T2, T3, T4, T5, TResult> f) =>
-        this.SnapshotLatestImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, TResult>(
@@ -827,23 +686,6 @@ public class Stream<T> : ILastAction
             b3: b3,
             b4: b4,
             b5: b5,
-            f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
-        this.SnapshotLatestImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, TResult>(
@@ -885,25 +727,6 @@ public class Stream<T> : ILastAction
             b4: b4,
             b5: b5,
             b6: b6,
-            f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
-        this.SnapshotLatestImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
-            b7: c7.BehaviorImpl,
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, TResult>(
@@ -949,27 +772,6 @@ public class Stream<T> : ILastAction
             b5: b5,
             b6: b6,
             b7: b7,
-            f: f);
-
-    internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
-        Cell<T1> c1,
-        Cell<T2> c2,
-        Cell<T3> c3,
-        Cell<T4> c4,
-        Cell<T5> c5,
-        Cell<T6> c6,
-        Cell<T7> c7,
-        Cell<T8> c8,
-        Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
-        this.SnapshotLatestImpl(
-            b1: c1.BehaviorImpl,
-            b2: c2.BehaviorImpl,
-            b3: c3.BehaviorImpl,
-            b4: c4.BehaviorImpl,
-            b5: c5.BehaviorImpl,
-            b6: c6.BehaviorImpl,
-            b7: c7.BehaviorImpl,
-            b8: c8.BehaviorImpl,
             f: f);
 
     internal Stream<TResult> SnapshotLatestImpl<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
@@ -1319,8 +1121,6 @@ public class Stream<T> : ILastAction
             this.Listen(target: @out.Node, action: new FilterAction(@out: @out, predicate: predicate)));
     }
 
-    internal Stream<T> GateImpl(Cell<bool> c) => this.GateImpl(c.BehaviorImpl);
-
     internal Stream<T> GateImpl(Behavior<bool> b) =>
         this.SnapshotImpl(b: b, f: static (a, pred) => pred ? MaybeInternal.Some(a) : MaybeInternal<T>.None)
             .FilterSomeInternal();
@@ -1407,16 +1207,15 @@ public class Stream<T> : ILastAction
         TransactionInternal trans,
         LazySample<TReturn> initialState,
         Func<T, TReturn, TReturn> f) =>
-        new(
-            this.CarryState(
-                    trans1: trans,
-                    initialState: initialState,
-                    f: (a, s) =>
-                    {
-                        TReturn next = f(arg1: a, arg2: s);
-                        return (true, next, next);
-                    })
-                .HoldLazyInternal(trans: trans, initialValue: initialState));
+        this.CarryState(
+                trans1: trans,
+                initialState: initialState,
+                f: (a, s) =>
+                {
+                    TReturn next = f(arg1: a, arg2: s);
+                    return (true, next, next);
+                })
+            .HoldLazyCellInternal(trans: trans, initialValue: initialState);
 
     /// <summary>
     ///     Runs <paramref name="f" /> on each firing and moves state between the

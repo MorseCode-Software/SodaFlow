@@ -37,8 +37,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     private MaybeInternal<T> valueUpdate;
 
     // The initial value of a hold whose initial value is a LazySample, until a commit makes it
-    // unnecessary. See EnsureValueIsCreated. A lazy hold and a looped behavior use it, thus it is
-    // here and not in two subclasses that each keep a copy.
+    // unnecessary. See EnsureValueIsCreated. A lazy cell and a lazy behavior use it, thus it is
+    // here and not in a subclass. A cell is a behavior, thus one subclass cannot be the two.
     private LazySample<T>? lazyInitialValue;
 
     internal Behavior(T value) => this.valueProperty = value;
@@ -313,7 +313,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
             state: (Self: this, B2: b2, F: f));
 
     private Behavior<TResult> Lift<T2, TResult>(TransactionInternal trans, Behavior<T2> b2, Func<T, T2, TResult> f) =>
-        LiftOutput<T, T2, TResult>.Create(trans: trans, b1: this, b2: b2, f: f);
+        LiftOutput<T, T2, TResult>.Create(trans: trans, b1: this, b2: b2, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, TResult>(
         Behavior<T2> b2,
@@ -328,7 +328,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         Behavior<T2> b2,
         Behavior<T3> b3,
         Func<T, T2, T3, TResult> f) =>
-        LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, f: f);
+        LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, TResult>(
         Behavior<T2> b2,
@@ -346,7 +346,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         Behavior<T3> b3,
         Behavior<T4> b4,
         Func<T, T2, T3, T4, TResult> f) =>
-        LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, f: f);
+        LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, TResult>(
         Behavior<T2> b2,
@@ -366,7 +366,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         Behavior<T4> b4,
         Behavior<T5> b5,
         Func<T, T2, T3, T4, T5, TResult> f) =>
-        LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
+        LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, b5: b5, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, TResult>(
         Behavior<T2> b2,
@@ -403,7 +403,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
             b4: b4,
             b5: b5,
             b6: b6,
-            f: f);
+            f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
         Behavior<T2> b2,
@@ -444,7 +444,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
             b5: b5,
             b6: b6,
             b7: b7,
-            f: f);
+            f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
         Behavior<T2> b2,
@@ -489,7 +489,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
             b6: b6,
             b7: b7,
             b8: b8,
-            f: f);
+            f: f).Hold(trans);
 
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this

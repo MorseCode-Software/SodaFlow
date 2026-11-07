@@ -26,12 +26,7 @@ public class CellSink<T> : Cell<T>
     }
 
     private CellSink(CellStreamSink<T> streamSink, T initialValue)
-        : this(streamSink: streamSink, behavior: new Behavior<T>(stream: streamSink, initialValue: initialValue))
-    {
-    }
-
-    private CellSink(CellStreamSink<T> streamSink, Behavior<T> behavior)
-        : base(behavior) =>
+        : base(stream: streamSink, initialValue: initialValue) =>
         this.streamSink = streamSink;
 
     internal void SendImpl(T a) => this.streamSink.SendImpl(a);

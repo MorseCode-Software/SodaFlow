@@ -260,3 +260,25 @@ type ``Cell Tests``() =
 
             do! Expect.Sequence([ 3; 5; 4; 7 ], out)
         }
+
+    // A function of the Behavior module takes a cell with no asBehavior, and the lift of a cell
+    // and a behavior is a behavior.
+    [<Test>]
+    member _.``A cell lifts with a behavior``() =
+        task {
+            let c = sinkC 1
+            let b = sinkB 10
+            let sum = lift2B (+) (c, b)
+            let doubled = c |> mapB ((*) 2)
+            let applied = c |> applyB (constantB (fun v -> v + 100))
+
+            c |> sendC 2
+            let afterCell = sum |> sampleB
+            b |> sendB 20
+
+            do! Expect.Equal(12, afterCell)
+            do! Expect.Equal(22, sum |> sampleB)
+            do! Expect.Equal(2, c |> sampleB)
+            do! Expect.Equal(4, doubled |> sampleB)
+            do! Expect.Equal(102, applied |> sampleB)
+        }

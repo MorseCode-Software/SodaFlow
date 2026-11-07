@@ -28,7 +28,8 @@ internal sealed class BehaviorSwitch<T, T2>(
 
     // The initial value of the output is the value of the initial selection. The sample reads
     // it through sampleInitial, which samples the selected behavior and does not build one.
-    internal static Behavior<T> Create(
+    // SwitchB holds the output in a behavior, and SwitchC holds it in a cell.
+    internal static (Stream<T> Out, LazySample<T> InitialValue) Create(
         TransactionInternal trans,
         Behavior<T2> outer,
         Func<T2, Behavior<T>> select,
@@ -41,9 +42,8 @@ internal sealed class BehaviorSwitch<T, T2>(
         BehaviorSwitch<T, T2> @switch =
             new(trans: trans, @out: @out, outer: outer, select: select, keepListenersAlive: keepListenersAlive);
 
-        return @out.UnsafeAttachListener(@switch)
-            .UnsafeAttachListener(@switch.current)
-            .HoldLazyInternal(trans: trans, initialValue: initialValue);
+        return (Out: @out.UnsafeAttachListener(@switch).UnsafeAttachListener(@switch.current),
+            InitialValue: initialValue);
     }
 
     protected override void Consume(TransactionInternal trans, T2 value) =>
