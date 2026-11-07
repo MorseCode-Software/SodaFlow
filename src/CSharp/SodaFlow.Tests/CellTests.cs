@@ -314,7 +314,9 @@ public sealed class CellTests
                     StreamSink<Inner> s = Stream.CreateSink<Inner>();
                     Cell<Inner> cc = s.Hold(new Inner(l.SampleLazy()));
                     Cell<int> c = cc.Map(static o => o.C).SwitchC();
+#pragma warning disable SF1006 // The sample that forces itself is the subject of this test.
                     return c;
+#pragma warning restore SF1006 // The sample that forces itself is the subject of this test.
                 });
         }
         catch (InvalidOperationException e)

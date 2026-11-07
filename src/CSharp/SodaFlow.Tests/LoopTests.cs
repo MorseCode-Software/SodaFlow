@@ -714,7 +714,9 @@ public sealed class LoopTests
                                 .Snapshot(c: cellLoop, f: static (f, v) => f(v))
                                 .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]);
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                         cellLoop.Loop(cellLocal);
+#pragma warning restore SF1002 // The cycle is the subject of this test.
                         return cellLocal;
                     });
 

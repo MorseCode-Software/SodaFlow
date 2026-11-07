@@ -60,7 +60,9 @@ public sealed class IssueTests
                                     : Maybe.None)
                         .FilterSome();
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                 submitPooledAmount.Loop(inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max));
+#pragma warning restore SF1002 // The cycle is the subject of this test.
 
                 return (submitPooledAmount, poolLocal);
             });
