@@ -455,11 +455,11 @@ type TimerSystemImplementationBase<'T when 'T: comparison>() as this =
 /// <param name="time">The time at which the callback is to run.</param>
 /// <param name="callback">The callback to run.</param>
 /// <remarks>
-///     <c>SetTimer</c> gives one of these as an <c>ITimer</c>. Do not make one directly. These are
+///     <c>SetTimer</c> gives one of these as an <c>ITimer</c>, and only it makes one. These are
 ///     in order of time, and in order of construction where two have the same time. Thus, timers
 ///     for the same instant fire in the sequence that the code set them.
 /// </remarks>
-and SimpleTimer<'T when 'T: comparison>
+and internal SimpleTimer<'T when 'T: comparison>
     (implementation: 'T TimerSystemImplementationBase, time: 'T, callback: unit -> unit) as this =
     let seq =
         lock implementation.LockObject (fun () ->
