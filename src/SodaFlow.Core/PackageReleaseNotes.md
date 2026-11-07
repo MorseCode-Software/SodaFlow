@@ -273,6 +273,11 @@ GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framewor
 10, per item: a SnapshotLatest of one cell is 1,380 to 929 bytes, a merge of maybes of three streams 1,886 to 1,394, and
 a list merge of three 1,943 to 1,553.
 
+SodaFlow.Core now holds the timer system that the C# and F# packages give: the hook that sends Time and the alarms at
+the start of each transaction, the scheduling with its timer thread, and the clocks. All of it is internal. Each package
+keeps its public types and passes their members to it, with its own optional type for At, as Debounce already did.
+Before, each package had a copy, and the two drifted.
+
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
 transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.

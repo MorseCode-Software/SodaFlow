@@ -63,6 +63,10 @@ is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with 
 350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
 behavior derived from it depends on.
 
+The timer system, the scheduling behind TimerSystemImplementationBase<T>, and the clocks now live in SodaFlow.Core, and
+the F# package builds on the same code instead of a copy of its own. No public signature changes and no behavior
+changes.
+
 Transaction.RunVoid no longer wraps its action in a closure and a delegate of its own. With SodaFlow.Core 6.0.0, an
 empty RunVoid from outside a transaction measures 55 ns and 288 bytes to 36 ns and 112 bytes on .NET 10, and one
 inside an open transaction 27 ns and 176 bytes to 6 ns and nothing; the core notes have the rest.

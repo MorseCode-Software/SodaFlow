@@ -118,26 +118,15 @@ public class SystemClockTimerSystem : TimerSystem<DateTime>
     {
     }
 
-    internal sealed class Implementation(in Func<DateTime> now, in TimeSpan resolution)
+    // The clock is in Core, and the F# package uses the same one.
+    private sealed class Implementation(in Func<DateTime> now, in TimeSpan resolution)
         : TimerSystemImplementationBase<DateTime>
     {
-        private readonly Func<DateTime> now = now;
+        private readonly SystemClock clock = new(now: now, resolution: resolution);
 
-        // Zero reads the clock as it is, with no arithmetic of its own.
-        private readonly long resolutionTicks = ClockResolution.Ticks(resolution);
+        public override DateTime Now => this.clock.Now;
 
-        public override DateTime Now
-        {
-            get
-            {
-                DateTime time = this.now();
-
-                return this.resolutionTicks == 0
-                    ? time
-                    : ClockResolution.RoundDown(time: time, resolutionTicks: this.resolutionTicks);
-            }
-        }
-
-        protected override TimeSpan SubtractTimes(DateTime first, DateTime second) => first - second;
+        protected override TimeSpan SubtractTimes(DateTime first, DateTime second) =>
+            SystemClock.Subtract(first: first, second: second);
     }
 }

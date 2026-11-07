@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace SodaFlow.Time;
+namespace SodaFlow;
 
 /// <summary>
-///     The resolution of a clock, as the clocks of this package use it. It is the
-///     step that <c>Now</c> rounds down to, or zero for the value as it is.
+///     The resolution of a clock, as the clocks of the timer systems use it. It
+///     is the step that <c>Now</c> rounds down to, or zero for the value as it is.
 /// </summary>
 internal static class ClockResolution
 {
