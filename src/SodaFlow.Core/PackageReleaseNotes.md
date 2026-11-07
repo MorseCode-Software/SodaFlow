@@ -21,8 +21,18 @@ MutableListener, and nothing outside the library needed one; its ClearListener, 
 used, is removed with it. Nothing in the library used Cleanup. It ran an action when the garbage collector removed it,
 at a time the collector chose, and its own documentation advised IDisposable for a release at a known time.
 
+BREAKING: Cell<T> derives from Behavior<T>. A cell was a second object that held a behavior; now it is the behavior, so
+a cell goes wherever a behavior is expected, and each cell is one object fewer. A behavior that an operation derives is
+still not a cell, even when a cell feeds it, so a cast cannot recover the steps of a value whose type says it is
+continuous. LoopedCell<T> is a Cell<T> and no longer holds a LoopedBehavior<T>. Behavior<T> loses three protected
+members, ValueProperty, UsingInitialValue, and UseInitialValueAgain, which nothing outside the library could reach,
+because its constructors are internal.
+
 Changed: a looped behavior sampled before its loop closes throws an InvalidOperationException whose message names
 LoopedBehavior, where it named BehaviorLoop, which the C# package removes in this release.
+
+Changed: a looped cell sampled before its loop closes throws an InvalidOperationException whose message names
+LoopedCell, where it named LoopedBehavior.
 
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction

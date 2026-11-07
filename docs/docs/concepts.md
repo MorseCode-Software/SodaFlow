@@ -44,8 +44,9 @@ and `Behavior` the continuous one.
 The API surfaces this asymmetry deliberately. A cell has `Updates`, `Values`, and `Listen`; a
 behavior has none of them. You cannot ask a behavior when it changed, because a continuous
 value does not have a well-defined set of change moments — and being able to detect them would
-break the model's guarantees. `c.AsBehavior()` converts freely in the direction that discards
-information; going the other way requires the `Operational` primitives and their caveats.
+break the model's guarantees. Every cell is also a behavior — `Cell<T>` derives from
+`Behavior<T>` — so a cell goes anywhere a behavior is expected, because that direction discards
+information. Going the other way requires the `Operational` primitives and their caveats.
 
 If you are unsure which to reach for, use `Cell`. Reach for `Behavior` when the value genuinely
 is continuous — [time](time.md) being the canonical case.
@@ -72,7 +73,7 @@ imperative code
       │ Map, Filter,       │
       │ Merge, Snapshot    │
       ▼                    │
-   Stream ── Hold ──────────► Cell ── AsBehavior ──► Behavior
+   Stream ── Hold ──────────► Cell ──── is a ──────► Behavior
       │                          │                        │
       │ Listen                   │ Listen, Lift, Calm     │ Sample, Lift
       ▼                          ▼                        ▼
