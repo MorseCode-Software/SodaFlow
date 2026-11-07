@@ -227,6 +227,44 @@ types are inferred from the function, so neither is ever written.
 Internally this is a cell loop closed with a constant cell, so the rule above applies unchanged:
 reading the reference during construction asks a question that has no answer yet, and throws.
 
+## The loop analyzer
+
+Reading a looped value before its loop closes throws at run time, and the shapes above tell you
+how to avoid it. From this release the `SodaFlow` package also carries a Roslyn analyzer that finds
+the common shapes at build time, in C# projects. Nothing has to be added: a project that references
+`SodaFlow` runs it, and `ExcludeAssets="analyzers"` on that reference removes it. F# is not
+covered, because a Roslyn analyzer runs in the C# compiler only; an F# project keeps the exception.
+
+The analyzer looks at the code that runs while a loop is open, which is the lambda of a loop block
+or the statements between an explicit loop's creation and its `Loop` call, and follows the
+placeholder through the library's operators. Six rules come out of that, five of them warnings:
+
+| Rule | Reports |
+| --- | --- |
+| `SF1001` | `Sample()`, a bindable's `Value`, or `CanExecute` on a value derived from the placeholder, in code that runs before the close. |
+| `SF1002` | A loop whose definition is linked to its own placeholder, with no sampled hold, `Operational.Defer`, or timer between them: the shape that throws `DependencyCycleException`. |
+| `SF1003` | A value derived from the placeholder handed to a method, constructor, or delegate the analyzer cannot see into. This one is an info, visible in the editor and silent in the build. |
+| `SF1004` | A method or constructor in your own project that samples the parameter the derived value is bound to, up to three calls deep. |
+| `SF1005` | A method or property of an object you built in the block that samples a member the construction made pending. |
+| `SF1006` | A loop whose definition's initial value is a lazy sample of the loop itself, which forces itself at the end of the transaction. |
+
+A read inside a callback, a `Map`, `Snapshot`, or `Listen` lambda for instance, is not reported,
+because it runs after the close. Neither is a read after the block, through a capture or a row's
+property, so nothing needs a mark there.
+
+Where a value derived from the placeholder goes into code the analyzer cannot follow, and you know
+that code does not read it before the close, say so with `AsCell()`, `AsBehavior()`, or `AsStream()`
+at the argument. The methods return their receiver and change nothing at run time; the analyzer
+reads them as your promise and stays quiet, unless it can see the callee break the promise, which
+it still reports. The tests that deliberately read a placeholder early do it with a pragma and a
+reason, as in `#pragma warning disable SF1002 // The cycle is the subject of this test.`, and a
+project that wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning` in
+its `.editorconfig`.
+
+What the analyzer does not see: a value that passes through a delegate or a method in another
+assembly, a placeholder held in a field or a tuple, a chain of more than three calls, and an inner
+stream a switch fetches from an object. The runtime check stays behind all of them.
+
 ## Where this shows up
 
 Accumulators are the common case, and `Accum` and `Collect` are loops with the plumbing already
