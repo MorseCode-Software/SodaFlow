@@ -123,9 +123,6 @@ internal static class BehaviorExtensionMethodsInternal
     {
         IKeepListenersAlive[] roots = [.. inputs.Select(static behavior => behavior.KeepListenersAlive)];
 
-        LazySample<TResult> initialValue =
-            new(_ => f([.. inputs.Select(static behavior => behavior.SampleNoTransaction())]));
-
         ListLift<T, T2, TResult> lift =
             new(@out: new Stream<TResult>(KeepListenersAliveInternal.Combine(roots)), inputs: inputs, f: f);
 
@@ -144,18 +141,18 @@ internal static class BehaviorExtensionMethodsInternal
         }
 
         return lift.Out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
-            .HoldLazyInternal(trans: trans1, initialValue: initialValue);
+            .HoldLazyInternal(trans: trans1, initialValue: new LazySample<TResult>(source: lift));
     }
 
     // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before, each
     // update sent a closure that wrote its index, a coalesce operation added the closures into one
     // delegate, and a map ran it. A transaction that updated k inputs allocated about 2k delegates.
-    // This object is the output, the slots, and the gate.
+    // This object is the output, the slots, and the gate, and the source of the initial value.
     private sealed class ListLift<T, T2, TResult>(
         in Stream<TResult> @out,
         in T2[] inputs,
         in Func<IReadOnlyList<T>, TResult> f)
-        : OnceGate
+        : OnceGate, ISampleSource<TResult>
         where T2 : Behavior<T>
     {
         internal readonly Stream<TResult> Out = @out;
@@ -182,6 +179,9 @@ internal static class BehaviorExtensionMethodsInternal
 
             this.Out.Send(trans: trans, a: this.f(values));
         }
+
+        TResult ISampleSource<TResult>.Read() =>
+            this.f([.. this.inputs.Select(static behavior => behavior.SampleNoTransaction())]);
     }
 
     // The action of one input of the list lift: it fills the slot at its index and calls the

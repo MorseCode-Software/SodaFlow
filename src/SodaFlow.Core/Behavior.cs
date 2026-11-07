@@ -246,29 +246,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
             code: static (trans, _, state) => state.Self.Lift(trans: trans, b2: state.B2, f: state.F),
             state: (Self: this, B2: b2, F: f));
 
-    private Behavior<TResult> Lift<T2, TResult>(TransactionInternal trans, Behavior<T2> b2, Func<T, T2, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    first: this.KeepListenersAlive,
-                    second: b2.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-
-        return output.Hold(
-            trans: trans,
-            initialValue: _ =>
-                f(arg1: this.SampleNoTransaction(), arg2: b2.SampleNoTransaction()));
-    }
+    private Behavior<TResult> Lift<T2, TResult>(TransactionInternal trans, Behavior<T2> b2, Func<T, T2, TResult> f) =>
+        LiftOutput<T, T2, TResult>.Create(trans: trans, b1: this, b2: b2, f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, TResult>(
         Behavior<T2> b2,
@@ -282,36 +261,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         TransactionInternal trans,
         Behavior<T2> b2,
         Behavior<T3> b3,
-        Func<T, T2, T3, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-
-        return output.Hold(
-            trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction()));
-    }
+        Func<T, T2, T3, TResult> f) =>
+        LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, TResult>(
         Behavior<T2> b2,
@@ -328,41 +279,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T2> b2,
         Behavior<T3> b3,
         Behavior<T4> b4,
-        Func<T, T2, T3, T4, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive,
-                    b4.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2),
-                        arg4: p4.Take(input: b4, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-        output.Capture(input: b4.Updates(), trans: trans, capture: p4);
-
-        return output.Hold(
-            trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction(),
-                    arg4: b4.SampleNoTransaction()));
-    }
+        Func<T, T2, T3, T4, TResult> f) =>
+        LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, TResult>(
         Behavior<T2> b2,
@@ -381,46 +299,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T3> b3,
         Behavior<T4> b4,
         Behavior<T5> b5,
-        Func<T, T2, T3, T4, T5, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive,
-                    b4.KeepListenersAlive,
-                    b5.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2),
-                        arg4: p4.Take(input: b4, trans: trans2),
-                        arg5: p5.Take(input: b5, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-        output.Capture(input: b4.Updates(), trans: trans, capture: p4);
-        output.Capture(input: b5.Updates(), trans: trans, capture: p5);
-
-        return output.Hold(
-            trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction(),
-                    arg4: b4.SampleNoTransaction(),
-                    arg5: b5.SampleNoTransaction()));
-    }
+        Func<T, T2, T3, T4, T5, TResult> f) =>
+        LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, TResult>(
         Behavior<T2> b2,
@@ -448,51 +328,16 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T4> b4,
         Behavior<T5> b5,
         Behavior<T6> b6,
-        Func<T, T2, T3, T4, T5, T6, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive,
-                    b4.KeepListenersAlive,
-                    b5.KeepListenersAlive,
-                    b6.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2),
-                        arg4: p4.Take(input: b4, trans: trans2),
-                        arg5: p5.Take(input: b5, trans: trans2),
-                        arg6: p6.Take(input: b6, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-        output.Capture(input: b4.Updates(), trans: trans, capture: p4);
-        output.Capture(input: b5.Updates(), trans: trans, capture: p5);
-        output.Capture(input: b6.Updates(), trans: trans, capture: p6);
-
-        return output.Hold(
+        Func<T, T2, T3, T4, T5, T6, TResult> f) =>
+        LiftOutput<T, T2, T3, T4, T5, T6, TResult>.Create(
             trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction(),
-                    arg4: b4.SampleNoTransaction(),
-                    arg5: b5.SampleNoTransaction(),
-                    arg6: b6.SampleNoTransaction()));
-    }
+            b1: this,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
         Behavior<T2> b2,
@@ -523,56 +368,17 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T5> b5,
         Behavior<T6> b6,
         Behavior<T7> b7,
-        Func<T, T2, T3, T4, T5, T6, T7, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive,
-                    b4.KeepListenersAlive,
-                    b5.KeepListenersAlive,
-                    b6.KeepListenersAlive,
-                    b7.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2),
-                        arg4: p4.Take(input: b4, trans: trans2),
-                        arg5: p5.Take(input: b5, trans: trans2),
-                        arg6: p6.Take(input: b6, trans: trans2),
-                        arg7: p7.Take(input: b7, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-        output.Capture(input: b4.Updates(), trans: trans, capture: p4);
-        output.Capture(input: b5.Updates(), trans: trans, capture: p5);
-        output.Capture(input: b6.Updates(), trans: trans, capture: p6);
-        output.Capture(input: b7.Updates(), trans: trans, capture: p7);
-
-        return output.Hold(
+        Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
+        LiftOutput<T, T2, T3, T4, T5, T6, T7, TResult>.Create(
             trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction(),
-                    arg4: b4.SampleNoTransaction(),
-                    arg5: b5.SampleNoTransaction(),
-                    arg6: b6.SampleNoTransaction(),
-                    arg7: b7.SampleNoTransaction()));
-    }
+            b1: this,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            b7: b7,
+            f: f);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
         Behavior<T2> b2,
@@ -606,61 +412,18 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T6> b6,
         Behavior<T7> b7,
         Behavior<T8> b8,
-        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f)
-    {
-        InputCapture<T> p1 = new();
-        InputCapture<T2> p2 = new();
-        InputCapture<T3> p3 = new();
-        InputCapture<T4> p4 = new();
-        InputCapture<T5> p5 = new();
-        InputCapture<T6> p6 = new();
-        InputCapture<T7> p7 = new();
-        InputCapture<T8> p8 = new();
-
-        LiftOutput<TResult> output =
-            new(
-                keepListenersAlive: KeepListenersAliveInternal.Combine(
-                    this.KeepListenersAlive,
-                    b2.KeepListenersAlive,
-                    b3.KeepListenersAlive,
-                    b4.KeepListenersAlive,
-                    b5.KeepListenersAlive,
-                    b6.KeepListenersAlive,
-                    b7.KeepListenersAlive,
-                    b8.KeepListenersAlive),
-                recombine: trans2 =>
-                    f(
-                        arg1: p1.Take(input: this, trans: trans2),
-                        arg2: p2.Take(input: b2, trans: trans2),
-                        arg3: p3.Take(input: b3, trans: trans2),
-                        arg4: p4.Take(input: b4, trans: trans2),
-                        arg5: p5.Take(input: b5, trans: trans2),
-                        arg6: p6.Take(input: b6, trans: trans2),
-                        arg7: p7.Take(input: b7, trans: trans2),
-                        arg8: p8.Take(input: b8, trans: trans2)));
-
-        output.Capture(input: this.Updates(), trans: trans, capture: p1);
-        output.Capture(input: b2.Updates(), trans: trans, capture: p2);
-        output.Capture(input: b3.Updates(), trans: trans, capture: p3);
-        output.Capture(input: b4.Updates(), trans: trans, capture: p4);
-        output.Capture(input: b5.Updates(), trans: trans, capture: p5);
-        output.Capture(input: b6.Updates(), trans: trans, capture: p6);
-        output.Capture(input: b7.Updates(), trans: trans, capture: p7);
-        output.Capture(input: b8.Updates(), trans: trans, capture: p8);
-
-        return output.Hold(
+        Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
+        LiftOutput<T, T2, T3, T4, T5, T6, T7, T8, TResult>.Create(
             trans: trans,
-            initialValue: _ =>
-                f(
-                    arg1: this.SampleNoTransaction(),
-                    arg2: b2.SampleNoTransaction(),
-                    arg3: b3.SampleNoTransaction(),
-                    arg4: b4.SampleNoTransaction(),
-                    arg5: b5.SampleNoTransaction(),
-                    arg6: b6.SampleNoTransaction(),
-                    arg7: b7.SampleNoTransaction(),
-                    arg8: b8.SampleNoTransaction()));
-    }
+            b1: this,
+            b2: b2,
+            b3: b3,
+            b4: b4,
+            b5: b5,
+            b6: b6,
+            b7: b7,
+            b8: b8,
+            f: f);
 
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this
