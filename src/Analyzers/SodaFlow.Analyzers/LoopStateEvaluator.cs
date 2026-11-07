@@ -14,6 +14,7 @@ namespace SodaFlow.Analyzers;
 /// </summary>
 internal sealed class LoopStateEvaluator
 {
+
     /// <summary>
     ///     How many calls deep the evaluator follows a helper or a construction. Three
     ///     is sufficient for a helper that calls a helper that calls one more. The
@@ -241,94 +242,93 @@ internal sealed class LoopStateEvaluator
         LoopState firstArgument = argumentStates.Count > 0 ? argumentStates[0] : LoopState.None;
         LoopState source = receiver != null ? receiverState : firstArgument;
 
-        switch (OperatorName(method))
+        switch (OperatorTable.Rule(method: method, receiverType: receiverType))
         {
-            case "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures":
+            case OperatorRule.RunsNow:
                 return firstArgument;
-            case "Sample" or "Value" or "CanExecute":
+            case OperatorRule.Read:
                 return LoopState.None;
-            case "SampleLazy":
+            case OperatorRule.SampleLazy:
                 return new LoopState(
                     Pending: receiverState.Pending,
                     Linked: false,
                     ContentPending: false,
                     ContentLinked: false);
-            case "Map" when SodaFlowSymbols.IsLazySampleType(receiverType):
+            case OperatorRule.MapLazy:
                 return receiverState.WithLinked(false);
-            case "Map" when SodaFlowSymbols.IsStreamType(receiverType):
+            case OperatorRule.MapStream:
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false).WithContent(this.LambdaContent(invocation, receiverState.Content));
-            case "Map":
+            case OperatorRule.MapValue:
                 // The result holds what the function returns, and not what the receiver held.
                 return new LoopState(
                     Pending: receiverState.Pending,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false).WithContent(this.LambdaContent(invocation, receiverState.Content));
-            case "Lift" when SodaFlowSymbols.IsLazySampleType(receiverType):
+            case OperatorRule.LiftLazy:
                 return inputs.WithLinked(false);
-            case "Lift" or "Apply" or "Calm" or "AsCell" or "AsBehavior" or "AsStream"
-                when !SodaFlowSymbols.IsStreamType(receiverType):
+            case OperatorRule.Combine:
                 return new LoopState(
                     Pending: inputs.Pending,
                     Linked: inputs.Linked,
                     ContentPending: false,
                     ContentLinked: false);
-            case "SwitchC" or "SwitchB":
+            case OperatorRule.SwitchValue:
                 return new LoopState(
                     Pending: receiverState.Pending || receiverState.ContentPending,
                     Linked: receiverState.Linked || receiverState.ContentLinked,
                     ContentPending: false,
                     ContentLinked: false);
-            case "SwitchS":
+            case OperatorRule.SwitchStream:
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.ContentLinked,
                     ContentPending: false,
                     ContentLinked: false);
-            case "Hold":
+            case OperatorRule.Hold:
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false).WithContent(receiverState.Content.Join(firstArgument));
-            case "HoldLazy" or "AccumLazy" or "CollectLazy":
+            case OperatorRule.HoldLazy:
                 return new LoopState(
                     Pending: firstArgument.Pending,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false);
-            case "ConstantLazy":
+            case OperatorRule.ConstantLazy:
                 return firstArgument.WithLinked(false);
-            case "Constant" or "CreateSink" or "CreateStreamSink":
+            case OperatorRule.Content:
                 // A value given to a constant or a sink is content. The links of a value with members
                 // of its own are in it, and not links of the cell.
                 return firstArgument.AsContent;
-            case "Accum" or "Collect":
+            case OperatorRule.Fold:
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false);
-            case "Updates" or "Values":
+            case OperatorRule.Updates:
                 return source.WithPending(false);
-            case "MapTo":
+            case OperatorRule.MapTo:
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.Linked,
                     ContentPending: false,
                     ContentLinked: false).WithContent(firstArgument);
-            case "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once" or "Calm":
+            case OperatorRule.StreamFromReceiver:
                 // A snapshot samples its cells at each firing. Only the stream has a link.
                 return new LoopState(
                     Pending: false,
                     Linked: receiverState.Linked,
                     ContentPending: receiverState.ContentPending,
                     ContentLinked: receiverState.ContentLinked);
-            case "Merge" or "OrElse":
+            case OperatorRule.MergeStreams:
                 return new LoopState(
                     Pending: false,
                     Linked: LinkedStreamInput(
@@ -338,17 +338,15 @@ internal sealed class LoopStateEvaluator
                         argumentTypes: argumentTypes),
                     ContentPending: inputs.ContentPending,
                     ContentLinked: inputs.ContentLinked);
-            case "Defer" when method.ContainingType.Name == "LazySample":
+            case OperatorRule.DeferLazy:
                 // A deferred read is pending when the function reads a pending value.
                 return new LoopState(
                     Pending: firstArgument.Pending || this.LambdaReadsPending(invocation),
                     Linked: false,
                     ContentPending: false,
                     ContentLinked: false);
-            case "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce"
-                or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop":
-                // A defer, a split, a timer, and a debounce fire in a new transaction, which breaks
-                // the link.
+            case OperatorRule.Break:
+                // A defer, a split, a timer, a debounce, a listener, and a send: no state.
                 return LoopState.None;
             default:
                 return DefaultLibraryResult(method: method, inputs: inputs);
@@ -764,13 +762,15 @@ internal sealed class LoopStateEvaluator
         SemanticModel model = this.region.ModelFor(lambda);
         ImmutableDictionary<ISymbol, LoopState>.Builder bound = this.bound.ToBuilder();
 
+        // Arrays, and not a collection expression. A collection expression here takes the natural
+        // type of the other arms, SeparatedSyntaxList, and that conversion gives an empty list.
         IReadOnlyList<ParameterSyntax> parameters =
             lambda switch
             {
-                SimpleLambdaExpressionSyntax s => [s.Parameter],
-                ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters,
-                AnonymousMethodExpressionSyntax { ParameterList: { } list } => list.Parameters,
-                _ => []
+                SimpleLambdaExpressionSyntax s => new[] { s.Parameter },
+                ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.ToArray(),
+                AnonymousMethodExpressionSyntax { ParameterList: { } list } => list.Parameters.ToArray(),
+                _ => System.Array.Empty<ParameterSyntax>()
             };
 
         for (int i = 0; i < parameters.Count && i < boundParameters.Length; i++)

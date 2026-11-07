@@ -39,12 +39,14 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="Construction.cs"/>
         <Compile Include="Diagnostics.cs"/>
         <Compile Include="LoopReadAnalyzer.cs"/>
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
+        <Compile Include="OperatorTable.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <AdditionalFiles Include="AnalyzerReleases.Shipped.md"/>

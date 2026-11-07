@@ -1,0 +1,181 @@
+using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+
+namespace SodaFlow.Analyzers;
+
+/// <summary>
+///     What an operator does with the pending bit, the linked bit, and the content
+///     of its inputs. <see cref="LoopStateEvaluator" /> applies the rule.
+/// </summary>
+internal enum OperatorRule
+{
+    /// <summary>No row. The result keeps the state of its inputs where its type can hold one.</summary>
+    Default,
+
+    /// <summary>The lambda runs in the block, and the result is what the lambda returns.</summary>
+    RunsNow,
+
+    /// <summary>A read of the current value. The result is a plain value.</summary>
+    Read,
+
+    /// <summary>A deferred read of the receiver. Pending when the receiver is, with no link.</summary>
+    SampleLazy,
+
+    /// <summary>A map of a lazy sample. Pending when the receiver is, with no link.</summary>
+    MapLazy,
+
+    /// <summary>A map of a stream. Linked when the receiver is, and the content is what the function returns.</summary>
+    MapStream,
+
+    /// <summary>A map of a cell or behavior. Pending and linked as the receiver, and the content is what the function returns.</summary>
+    MapValue,
+
+    /// <summary>A lift of lazy samples. Pending when any input is, with no link.</summary>
+    LiftLazy,
+
+    /// <summary>A cell or behavior from cells or behaviors. Pending and linked when any input is.</summary>
+    Combine,
+
+    /// <summary>A switch to a cell or behavior. Pending and linked through the outer and through its content.</summary>
+    SwitchValue,
+
+    /// <summary>A switch to a stream. Linked through the content of the outer only.</summary>
+    SwitchStream,
+
+    /// <summary>A hold. Linked when the stream is, and the value is content.</summary>
+    Hold,
+
+    /// <summary>A hold or fold from a lazy sample. Pending when the sample is, linked when the stream is.</summary>
+    HoldLazy,
+
+    /// <summary>A constant from a lazy sample. Pending when the sample is.</summary>
+    ConstantLazy,
+
+    /// <summary>A constant or a sink. The value given is content.</summary>
+    Content,
+
+    /// <summary>A fold with a given value. Linked when the stream is.</summary>
+    Fold,
+
+    /// <summary>The updates or values of a cell or behavior. Linked when the source is.</summary>
+    Updates,
+
+    /// <summary>A stream that fires a given value. Linked when the receiver is, and the value is content.</summary>
+    MapTo,
+
+    /// <summary>A stream from the receiver. Linked when the receiver is. A cell argument is sampled, not linked.</summary>
+    StreamFromReceiver,
+
+    /// <summary>A merge of streams. Linked when any stream input is.</summary>
+    MergeStreams,
+
+    /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
+    DeferLazy,
+
+    /// <summary>A new transaction, a listener, or a send. No state.</summary>
+    Break
+}
+
+/// <summary>
+///     The table of the library's operators: the rule for each, by name and by the
+///     type of its receiver. A name with no row falls to <see cref="OperatorRule.Default" />,
+///     which keeps the state of the inputs. Thus, it reports too much and not too few.
+/// </summary>
+/// <remarks>
+///     The completeness test in the analyzer's tests holds the table to the public
+///     operators of the library. Each one is a row here, or is listed in
+///     <see cref="DefaultIsSound" />. A new operator fails that test until it has a
+///     row or that listing. That is the moment to say what it does with a loop.
+/// </remarks>
+internal static class OperatorTable
+{
+    /// <summary>The names that have a row.</summary>
+    public static readonly ImmutableHashSet<string> Names =
+        ImmutableHashSet.Create(
+            "Run", "RunVoid", "WithCaptures", "WithoutCaptures",
+            "Sample", "Value", "CanExecute",
+            "SampleLazy", "Map", "Lift", "Apply", "Calm", "AsCell", "AsBehavior", "AsStream",
+            "SwitchC", "SwitchB", "SwitchS",
+            "Hold", "HoldLazy", "AccumLazy", "CollectLazy", "ConstantLazy", "Constant", "CreateSink", "CreateStreamSink",
+            "Accum", "Collect", "Updates", "Values", "MapTo",
+            "Snapshot", "SnapshotLatest", "Gate", "Filter", "FilterSome", "Once", "Merge", "OrElse",
+            "Defer", "Split", "At", "Debounce", "Post", "Listen", "ListenStrong", "ListenOnce", "ListenOnceStrong",
+            "ListenOnceAsync", "Send", "Unlisten", "Loop");
+
+    /// <summary>
+    ///     The public operators with no row, for which the default is the correct rule.
+    ///     Each gives its result the state of its inputs. None crosses a transaction or
+    ///     reads a current value at construction.
+    /// </summary>
+    public static readonly ImmutableHashSet<string> DefaultIsSound =
+        ImmutableHashSet.Create(
+            // A stream of the values a function keeps, from a stream: linked as the stream is.
+            "Choose",
+            // A stream or sink with no inputs.
+            "Never", "AsStreamSink",
+            // The cells and streams of a reactive collection. Their input is the collection, which is
+            // not a placeholder. A fold starts from the snapshot of the collection.
+            "Fold", "FoldByIdentity", "FromAdds", "FromRemoves", "FromStates", "FromUpdates", "IdentityCell", "ItemCell",
+            "StateCell");
+
+    /// <summary>The rule for a library method, by its name and the type of its receiver.</summary>
+    public static OperatorRule Rule(IMethodSymbol method, ITypeSymbol? receiverType)
+    {
+        string name = LoopStateEvaluator.OperatorName(method);
+        bool lazy = SodaFlowSymbols.IsLazySampleType(receiverType);
+        bool stream = SodaFlowSymbols.IsStreamType(receiverType);
+
+        switch (name)
+        {
+            case "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures":
+                return OperatorRule.RunsNow;
+            case "Value" when method.ContainingType.Name == "Operational":
+                return OperatorRule.Updates;
+            case "Sample" or "Value" or "CanExecute":
+                return OperatorRule.Read;
+            case "SampleLazy":
+                return OperatorRule.SampleLazy;
+            case "Map" when lazy:
+                return OperatorRule.MapLazy;
+            case "Map" when stream:
+                return OperatorRule.MapStream;
+            case "Map":
+                return OperatorRule.MapValue;
+            case "Lift" when lazy:
+                return OperatorRule.LiftLazy;
+            case "Calm" when stream:
+                return OperatorRule.StreamFromReceiver;
+            case "Lift" or "Apply" or "Calm" or "AsCell" or "AsBehavior" or "AsStream":
+                return OperatorRule.Combine;
+            case "SwitchC" or "SwitchB":
+                return OperatorRule.SwitchValue;
+            case "SwitchS":
+                return OperatorRule.SwitchStream;
+            case "Hold":
+                return OperatorRule.Hold;
+            case "HoldLazy" or "AccumLazy" or "CollectLazy":
+                return OperatorRule.HoldLazy;
+            case "ConstantLazy":
+                return OperatorRule.ConstantLazy;
+            case "Constant" or "CreateSink" or "CreateStreamSink":
+                return OperatorRule.Content;
+            case "Accum" or "Collect":
+                return OperatorRule.Fold;
+            case "Updates" or "Values":
+                return OperatorRule.Updates;
+            case "MapTo":
+                return OperatorRule.MapTo;
+            case "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once":
+                return OperatorRule.StreamFromReceiver;
+            case "Merge" or "OrElse":
+                return OperatorRule.MergeStreams;
+            case "Defer" when method.ContainingType.Name == "LazySample":
+                return OperatorRule.DeferLazy;
+            case "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce"
+                or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop":
+                return OperatorRule.Break;
+            default:
+                return OperatorRule.Default;
+        }
+    }
+}
