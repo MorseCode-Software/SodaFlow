@@ -34,6 +34,14 @@ LoopedBehavior, where it named BehaviorLoop, which the C# package removes in thi
 Changed: a looped cell sampled before its loop closes throws an InvalidOperationException whose message names
 LoopedCell, where it named LoopedBehavior.
 
+A map or a lift of a cell or a behavior is its own node, where it was a hold of an output stream: the operator sent into
+a stream, and the behavior listened to it. The value now arrives at the behavior directly, the initial value comes from
+the operator without a lazy sample, and the stream of the updates is made only when something asks for it: a listener, a
+lift or other operator on top, or Updates and Values. What a caller sees does not change, including the value a listener
+gets when it asks for the updates in the transaction that changed them. Measured on building a thousand, .NET 10: a map
+of one cell 900 to 625 KB and 1.20 to 0.79 ms, a lift of two cells 1,469 to 1,163 KB and 2.13 to 1.51 ms, and a lift of
+six cells 3,184 to 2,824 KB and 6.54 to 5.00 ms. A send through a lift allocates what it did.
+
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
