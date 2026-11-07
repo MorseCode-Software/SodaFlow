@@ -388,7 +388,7 @@ public class Stream<T> : ILastAction
             state: (Self: this, InitialValue: initialValue));
 
     internal Behavior<T> HoldLazyInternal(TransactionInternal trans, LazySample<T> initialValue) =>
-        new LazyBehavior<T>(trans: trans, stream: this, lazyInitialValue: initialValue);
+        new(trans: trans, stream: this, lazyInitialValue: initialValue);
 
     internal Stream<TResult> SnapshotImpl<TResult>(Cell<TResult> c) => this.SnapshotImpl(c.BehaviorImpl);
 
