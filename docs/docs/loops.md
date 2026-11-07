@@ -14,7 +14,7 @@ refers to it, then say what it was a reference to.
 
 ## The functional form
 
-This is the idiom to use. `Stream.Loop<T>()`, `Cell.Loop<T>()` and `Behavior.Loop<T>()` hand
+This is how every loop is written. `Stream.Loop<T>()`, `Cell.Loop<T>()` and `Behavior.Loop<T>()` hand
 your block the placeholder — a `LoopedStream<T>`, `LoopedCell<T>` or `LoopedBehavior<T>` — take
 back the definition it returns, and close the loop for you, including the explicit transaction it
 needs.
@@ -83,42 +83,24 @@ StreamSink<int> s = Stream.CreateSink<int>();
 equivalent is `loopS`, which returns a struct tuple of the looped value and the captures, while
 `loopWithNoCapturesS` is the shorthand when there is nothing extra.
 
-## The explicit form
+## Why a block
 
-`StreamLoop<T>`, `CellLoop<T>` and `BehaviorLoop<T>` are the underlying mechanism, reached
-through `Stream.CreateLoop<T>`, `Cell.CreateLoop<T>` and `Behavior.CreateLoop<T>`. Each derives
-from the placeholder the block form hands out — `StreamLoop<T>` is a `LoopedStream<T>` — and adds
-the one member that closes it, `Loop`. You will meet them in older code and in the book's
-examples:
+Earlier versions also had an explicit form. `Stream.CreateLoop<T>()` and its cell and behavior
+counterparts returned a placeholder with a `Loop` method, and a later statement had to call it.
+Four mistakes were possible with it, and each one surfaced only as an exception at run time:
+creating the placeholder outside a transaction, never closing it, closing it twice, and closing it
+in a different transaction. Version 6.0.0 removed it.
 
-```csharp
-Transaction.RunVoid(() =>
-{
-    StreamLoop<int> l = Stream.CreateLoop<int>();
-    Stream<int> total = s.Snapshot(l.Hold(0), (n, o) => n + o);
-    l.Loop(total);
-});
-```
+The block form makes all four impossible, and it is the type system that makes them so rather
+than a convention. What the block is handed is a `LoopedStream<T>`, which has no `Loop` on it at
+all: there is nothing to call twice, nothing to leave uncalled, and nothing to call in the wrong
+transaction. The definition is what the block returns rather than something a later statement has
+to remember to do.
 
-Four rules apply, and the library enforces all four with exceptions:
-
-| Mistake | Message |
-| --- | --- |
-| Creating a loop outside a transaction | `Loop must be created within an explicit transaction.` |
-| Never calling `Loop` | `Loop was not looped.` |
-| Calling `Loop` twice | `Loop was looped more than once.` |
-| Closing it in a different transaction | `Loop must be looped in the same transaction that it was created in.` |
-
-The functional form exists because it makes all four impossible, and it is the type system that
-makes them so rather than a convention. What the block is handed is a `LoopedStream<T>`, which has
-no `Loop` on it at all: there is nothing to call twice, nothing to leave uncalled, and nothing to
-call in the wrong transaction. The placeholder cannot outlive the block, and the definition is what
-that block returns rather than something a later statement has to remember to do.
-
-So reach for `Loop` and write the explicit form only in the rare case where the loop cannot be
-scoped in a block at all — where the placeholder and its definition are separated by something a
-lambda cannot enclose. If what is being built is an object rather than a single value, that is not
-one of those cases; see below.
+A loop whose parts seem to need separating still fits. Blocks nest, so several loops can be open
+at once, and when the number of loops is known only at run time, a recursive function can open
+one block per call and build whatever uses them in the innermost call. If what is being built is
+an object rather than a single value, use a forward reference; see below.
 
 ## `Sample` inside a loop
 

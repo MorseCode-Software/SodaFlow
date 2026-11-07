@@ -9,6 +9,21 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
+BREAKING: IListener has one member, Unlisten. GetListenerWithWeakReference is gone from it, and the
+IListenerWithWeakReference that it returned is internal. The weak view lets the library stop the listeners attached to a
+stream once the stream is collected, without keeping the stream alive to do so. That is the library's own work, and a
+caller that implemented IListener, as the composite factories invite, had to write a method whose contract was the
+library's. Every listener the library makes still has its weak view, now behind an internal interface, and a stream
+attaches only that interface, so the compiler checks that each attached listener has one.
+
+BREAKING: MutableListener is internal, and Cleanup is removed. The switches hold their inner listener in a
+MutableListener, and nothing outside the library needed one; its ClearListener, which only callers outside the library
+used, is removed with it. Nothing in the library used Cleanup. It ran an action when the garbage collector removed it,
+at a time the collector chose, and its own documentation advised IDisposable for a release at a known time.
+
+Changed: a looped behavior sampled before its loop closes throws an InvalidOperationException whose message names
+LoopedBehavior, where it named BehaviorLoop, which the C# package removes in this release.
+
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a

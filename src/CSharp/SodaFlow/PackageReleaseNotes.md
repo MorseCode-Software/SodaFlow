@@ -5,6 +5,20 @@ each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a tran
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
 eight. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: the listener surface is smaller. IListener has only Unlisten, GetListenerWithWeakReference is gone from it and
+from the extension methods of MutableListener, and IListenerWithWeakReference is internal. MutableListener and
+MutableListenerExtensionMethods are internal, and Cleanup and CleanupExtensionMethods are removed; the core notes say
+why. A type of yours that implements IListener deletes its GetListenerWithWeakReference.
+
+BREAKING: Stream.CreateLoop, Cell.CreateLoop, and Behavior.CreateLoop are removed, with the StreamLoop<T>, CellLoop<T>,
+and BehaviorLoop<T> they returned. Write a loop with Stream.Loop<T>(), Cell.Loop<T>(), or Behavior.Loop<T>() and
+WithoutCaptures or WithCaptures, or with ForwardReference when an object refers to itself. The explicit form needed a
+later statement to close the loop, and four mistakes failed only at run time: making it outside a transaction, never
+closing it, closing it twice, and closing it in a different transaction. The block form cannot make any of them. A loop
+whose parts seem to need separating still fits: blocks nest, and a recursive function can open one block for each loop
+when the number of loops is known only at run time. Nothing in this repository used the explicit form outside its own
+tests.
+
 BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
 the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
 of every transaction in the process, and a real clock starts a thread; before this release nothing could remove
