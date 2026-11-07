@@ -1355,16 +1355,19 @@ public class Stream<T> : ILastAction
         Func<TransactionInternal, TValues> take,
         Func<T, TValues, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
-        SnapshotLatestAction<TValues, TResult> action = new(@out: @out, take: take, f: f);
-        OnceGate gate = new(node: @out.Node, action: action.Send);
+        SnapshotLatestOutput<TValues, TResult> output =
+            new(@out: new Stream<TResult>(this.KeepListenersAlive), take: take, f: f);
 
         Stream<TResult> result =
-            @out.UnsafeAttachListener(
-                this.Listen(target: gate.Node, trans: trans, action: action.Arm(gate), suppressEarlierFirings: false));
+            output.Out.UnsafeAttachListener(
+                this.Listen(
+                    target: output.Node,
+                    trans: trans,
+                    action: new SnapshotLatestFiring<TValues, TResult>(output),
+                    suppressEarlierFirings: false));
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures(gate))
+        foreach (IListener capture in captures(output))
         {
             result = result.UnsafeAttachListener(capture);
         }
@@ -2000,12 +2003,11 @@ public class Stream<T> : ILastAction
         Func<OnceGate, IListener[]> captures,
         Func<TransactionInternal, TResult> combine)
     {
-        Stream<TResult> @out = new(keepListenersAlive);
-        OnceGate gate = new(node: @out.Node, action: trans2 => @out.Send(trans: trans2, a: combine(trans2)));
-        Stream<TResult> result = @out;
+        MergeMaybesOutput<TResult> output = new(@out: new Stream<TResult>(keepListenersAlive), combine: combine);
+        Stream<TResult> result = output.Out;
 
         // ReSharper disable once LoopCanBeConvertedToQuery - Foreach for performance reasons
-        foreach (IListener capture in captures(gate))
+        foreach (IListener capture in captures(output))
         {
             result = result.UnsafeAttachListener(capture);
         }
@@ -2447,33 +2449,26 @@ public class Stream<T> : ILastAction
                     arg9: this.b8.SampleNoTransaction()));
     }
 
-    // The firings of this stream in one transaction, and the id of that transaction. A
-    // transaction that fails between a firing and the output leaves the firings here, and an
-    // update of the behaviors alone then sent them. Thus, a firing from a different transaction
-    // does not count. See CaptureSlot, which does the same for one value.
-    private sealed class SnapshotLatestAction<TValues, TResult>(
+    // The output of a snapshot of the latest values, and the gate. It keeps the firings of this
+    // stream in one transaction, and the id of that transaction. A transaction that fails between
+    // a firing and the output leaves the firings here, and an update of the behaviors alone then
+    // sent them. Thus, a firing from a different transaction does not count. See CaptureSlot,
+    // which does the same for one value.
+    private sealed class SnapshotLatestOutput<TValues, TResult>(
         in Stream<TResult> @out,
         in Func<TransactionInternal, TValues> take,
         in Func<T, TValues, TResult> f)
-        : StreamAction<T>
+        : OnceGate
     {
+        internal readonly Stream<TResult> Out = @out;
         private readonly Func<T, TValues, TResult> f = f;
-        private readonly Stream<TResult> @out = @out;
         private readonly List<T> pending = [];
         private readonly Func<TransactionInternal, TValues> take = take;
-        private OnceGate? gate;
         private long pendingOwner;
 
-        // The gate holds this action's Send, thus the gate exists after this object, and arrives
-        // here before the input links.
-        internal SnapshotLatestAction<TValues, TResult> Arm(OnceGate gate)
-        {
-            this.gate = gate;
+        internal override Node Node => this.Out.Node;
 
-            return this;
-        }
-
-        public override void Fire(TransactionInternal trans, T value)
+        internal void Fired(TransactionInternal trans, T value)
         {
             if (this.pendingOwner != trans.Id)
             {
@@ -2482,12 +2477,10 @@ public class Stream<T> : ILastAction
             }
 
             this.pending.Add(value);
-
-            // ReSharper disable once NullableWarningSuppressionIsUsed - Arm set the gate before the input could fire.
-            this.gate!.Arrived(trans);
+            this.Arrived(trans);
         }
 
-        internal void Send(TransactionInternal trans)
+        private protected override void Run(TransactionInternal trans)
         {
             TValues values = this.take(trans);
 
@@ -2507,7 +2500,7 @@ public class Stream<T> : ILastAction
                 {
                     T a = this.pending[0];
                     this.pending.Clear();
-                    this.@out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
+                    this.Out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
                     return;
                 }
                 default:
@@ -2517,13 +2510,37 @@ public class Stream<T> : ILastAction
 
                     foreach (T a in firings)
                     {
-                        this.@out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
+                        this.Out.Send(trans: trans, a: this.f(arg1: a, arg2: values));
                     }
 
                     return;
                 }
             }
         }
+    }
+
+    // The action of the link from this stream into a snapshot of the latest values.
+    private sealed class SnapshotLatestFiring<TValues, TResult>(in SnapshotLatestOutput<TValues, TResult> output)
+        : StreamAction<T>
+    {
+        private readonly SnapshotLatestOutput<TValues, TResult> output = output;
+
+        public override void Fire(TransactionInternal trans, T value) => this.output.Fired(trans: trans, value: value);
+    }
+
+    // The output of a merge of maybes, and the gate.
+    private sealed class MergeMaybesOutput<TResult>(
+        in Stream<TResult> @out,
+        in Func<TransactionInternal, TResult> combine)
+        : OnceGate
+    {
+        internal readonly Stream<TResult> Out = @out;
+        private readonly Func<TransactionInternal, TResult> combine = combine;
+
+        internal override Node Node => this.Out.Node;
+
+        private protected override void Run(TransactionInternal trans) =>
+            this.Out.Send(trans: trans, a: this.combine(trans));
     }
 
     private sealed class FilterAction(in Stream<T> @out, in Func<T, bool> predicate) : StreamAction<T>

@@ -3,27 +3,24 @@
 namespace SodaFlow;
 
 /// <summary>
-///     The merge of two streams through one node. It holds the output stream, the
-///     gate through which each input sends, and the two slots. Its methods are the
-///     actions of the inputs and of the gate.
+///     The merge of two streams through one node. It holds the output stream and
+///     the two slots, and it is the gate through which each input sends.
 /// </summary>
 /// <remarks>
 ///     The list merge does the same for n inputs. It has an array of slots, and
-///     each input has a closure and a delegate, because each input captures its
-///     index. A merge of two is the usual case, and it paid for that generality:
-///     1,562 bytes against 425 for a map. This object holds the two slots in fields
-///     and gives its methods as the delegates: 1,362 bytes. The second link, the
-///     gate, and their delegates are the cost that remains. The semantics are those
-///     of the list merge. The left value goes to the left of <c>f</c> when the two
-///     fire. An input that fires more than one time in a transaction folds into its
-///     own slot, in the sequence of its firings. A transaction that fails clears
-///     the slots.
+///     each input has an object that holds its index. A merge of two is the usual
+///     case, and it paid for that generality: 1,562 bytes against 425 for a map.
+///     This object holds the two slots in fields, and it is the gate. The
+///     semantics are those of the list merge. The left value goes to the left of
+///     <c>f</c> when the two fire. An input that fires more than one time in a
+///     transaction folds into its own slot, in the sequence of its firings. A
+///     transaction that fails clears the slots.
 /// </remarks>
 /// <typeparam name="T">The type of the values of the streams.</typeparam>
-internal sealed class MergeTwo<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+internal sealed class MergeTwo<T> : OnceGate
 {
     private readonly Func<T, T, T> f;
-    private readonly OnceGate gate;
     private readonly Stream<T> @out;
     private MaybeInternal<T> left;
     private MaybeInternal<T> right;
@@ -32,8 +29,9 @@ internal sealed class MergeTwo<T>
     {
         this.f = f;
         this.@out = new Stream<T>(keepListenersAlive);
-        this.gate = new OnceGate(node: this.@out.Node, action: this.Combine, discard: this.Discard);
     }
+
+    internal override Node Node => this.@out.Node;
 
     /// <summary>
     ///     Links <paramref name="first" /> and <paramref name="second" /> into a new
@@ -50,14 +48,14 @@ internal sealed class MergeTwo<T>
 
         IListener l1 =
             first.Listen(
-                target: merge.gate.Node,
+                target: merge.Node,
                 trans: trans,
                 action: new Input(merge: merge, left: true),
                 suppressEarlierFirings: false);
 
         IListener l2 =
             second.Listen(
-                target: merge.gate.Node,
+                target: merge.Node,
                 trans: trans,
                 action: new Input(merge: merge, left: false),
                 suppressEarlierFirings: false);
@@ -88,19 +86,19 @@ internal sealed class MergeTwo<T>
     private void SetLeft(TransactionInternal trans, T a)
     {
         this.left = this.Fold(slot: this.left, a: a);
-        this.gate.Arrived(trans);
+        this.Arrived(trans);
     }
 
     private void SetRight(TransactionInternal trans, T a)
     {
         this.right = this.Fold(slot: this.right, a: a);
-        this.gate.Arrived(trans);
+        this.Arrived(trans);
     }
 
     private MaybeInternal<T> Fold(MaybeInternal<T> slot, T a) =>
         slot.TryGetValue(out T earlier) ? MaybeInternal.Some(this.f(arg1: earlier, arg2: a)) : MaybeInternal.Some(a);
 
-    private void Combine(TransactionInternal trans)
+    private protected override void Run(TransactionInternal trans)
     {
         MaybeInternal<T> l = this.left;
         MaybeInternal<T> r = this.right;
@@ -119,7 +117,7 @@ internal sealed class MergeTwo<T>
         }
     }
 
-    private void Discard()
+    private protected override void Discard()
     {
         this.left = MaybeInternal<T>.None;
         this.right = MaybeInternal<T>.None;
