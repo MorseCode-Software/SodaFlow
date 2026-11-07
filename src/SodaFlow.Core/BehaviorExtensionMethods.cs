@@ -42,19 +42,18 @@ internal static class BehaviorExtensionMethodsInternal
         Stream<T> @out = new(keepListenersAlive);
         SwitchSAction<T, T2> action = new(@out: @out, keepListenersAlive: keepListenersAlive);
 
-        // The two targets are new nodes, and not the output node that SwitchB links its outer
-        // behavior to. The action does its work in trans2.Last, after each prioritized action of
-        // the transaction. Thus, the outer update needs no rank below the output, and the first
-        // selection samples the outer behavior out of the rank order too. A link from the outer
+        // The first selection queues on the shared rank-zero node, and the outer link gets a new
+        // node. The output node, which SwitchB links its outer behavior to, is not one of them.
+        // The action does its work in trans2.Last, after each prioritized action of the transaction.
+        // Thus, the outer update needs no rank below the output, and the first selection samples
+        // the outer behavior out of the rank order too. A link from the outer
         // behavior to the output node puts the output in the rank graph of its own selector. A
         // selector that holds the output through a loop is a legal graph. The hold breaks the
         // dependency in time and not in the links. With that link, TestCellLoopSwitchS throws
         // DependencyCycleException. SwitchB reads the new inner behavior in the same prioritized
         // step as the outer update, thus its rank is necessary.
-        trans1.Prioritized(
-            node: new Node<T>(),
-            action: trans2 =>
-                action.Select(trans: trans2, sa: bsa.SampleNoTransaction(), suppressEarlierFirings: false));
+        trans1.PrioritizedAtRankZero(trans2 =>
+            action.Select(trans: trans2, sa: bsa.SampleNoTransaction(), suppressEarlierFirings: false));
 
         IListener l1 =
             bsa.Updates().Listen(target: new Node<T>(), trans: trans1, action: action, suppressEarlierFirings: false);

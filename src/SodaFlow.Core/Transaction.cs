@@ -362,6 +362,13 @@ internal sealed class TransactionInternal
         this.Prioritized(new ActionEntry(node: node, action: action));
 
     /// <summary>
+    ///     Queues an action at rank zero, on the shared node that nothing links into.
+    ///     See <see cref="Node.RankZero" />.
+    /// </summary>
+    internal void PrioritizedAtRankZero(Action<TransactionInternal> action) =>
+        this.Prioritized(new ActionEntry(action));
+
+    /// <summary>
     ///     Queues an action on a node, and an alternative action for a
     ///     transaction that fails before the first action runs.
     /// </summary>
@@ -1002,6 +1009,15 @@ internal sealed class TransactionInternal
             this.nodeEntryIndex = node.AddEntry(this);
         }
 
+        // An entry on the shared rank-zero node. It goes into no list, because the rank of the
+        // node does not change, and a rerank is the only reader of the list. Dispose then finds
+        // the index below zero and does nothing.
+        protected Entry()
+        {
+            this.Node = Node.RankZero;
+            this.nodeEntryIndex = -1;
+        }
+
         public void Dispose()
         {
             int index = this.nodeEntryIndex;
@@ -1047,12 +1063,15 @@ internal sealed class TransactionInternal
     // The general entry. Use it at a call site that runs one time for each construction, or
     // one time for each transaction, because such a site gets no benefit from the removal of the
     // delegate.
-    private sealed class ActionEntry(Node node, Action<TransactionInternal> action)
-        : Entry(node)
+    private sealed class ActionEntry : Entry
     {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
-        private readonly Action<TransactionInternal> action = action;
+        private readonly Action<TransactionInternal> action;
+
+        public ActionEntry(Node node, Action<TransactionInternal> action)
+            : base(node) =>
+            this.action = action;
+
+        public ActionEntry(Action<TransactionInternal> action) => this.action = action;
 
         public override void Execute(TransactionInternal trans) => this.action(trans);
     }

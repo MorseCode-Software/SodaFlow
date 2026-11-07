@@ -248,6 +248,17 @@ to 3.56 ms; a filter view of a collection of ten 49.6 to 37.7 ms and 10,133 to 9
 scratch harness on .NET 10, a full collection over 100,000 live maps takes 25.6 ms to 19.2 ms, because each map is two
 objects fewer.
 
+A value listener's initial value and a switch's first selection queue on one shared rank-zero node. Each queued through
+an entry on a new node of its own, so that the entry sat at rank zero, and an entry registers with its node, which
+allocates the node's entry list at the first registration: a node, a list, and the list's array, about 150 bytes, for a
+rank that nothing can raise because nothing links into a node that nothing holds. The one shared node takes those
+entries now, and an entry on it goes into no list. A switch makes two value listeners, and Cell.Listen,
+Cell.ListenStrong, Cell.Values, and every bindable value make one. Nothing observable changes. Measured in
+GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a switch of a constant cell
+8.87 to 9.14 ms and 3,171 to 2,877 KB, and 9.41 to 9.09 ms; ListenStrong on one cell 2.88 to 2.67 ms and 1,693 to 1,546
+KB, and 3.56 to 3.46 ms. The switch's .NET 10 time moves inside its error of 0.18 ms either way. In the scratch probe on
+.NET 10, a switch of a constant cell is 3,106 to 2,799 bytes, and ListenStrong on a cell 1,648 to 1,496.
+
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
 transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.
