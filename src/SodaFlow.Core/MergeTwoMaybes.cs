@@ -8,16 +8,23 @@ namespace SodaFlow;
 ///     input sends.
 /// </summary>
 /// <remarks>
-///     The merge of maybes for n inputs captures each input in an object of its
-///     own. It also makes an array of them, a closure that makes the array, and a
-///     closure that reads them. A merge of two is the usual case, and it paid for
-///     that generality: 1,559 bytes against 1,258 for <see cref="MergeTwo{T}" />.
-///     This object holds the two slots in fields, and it is the gate. The
-///     semantics are those of the merge of maybes. Each slot keeps
-///     the last value that its input sent in the transaction. The gate reads the
-///     two slots one time at the end of the sends. A slot knows the transaction
-///     that filled it, thus a slot that a transaction filled and then discarded
-///     gives no value.
+///     <para>
+///         This object holds the two slots in fields, and it is the gate. The
+///         semantics are those of <see cref="MergeMaybesOutput{TResult}" />. Each
+///         slot keeps the last value that its input sent in the transaction. The
+///         gate reads the two slots one time at the end of the sends. A slot knows
+///         the transaction that filled it, thus a slot that a transaction filled
+///         and then discarded gives no value.
+///     </para>
+///     <para>
+///         An arity of <see cref="MergeMaybesOutput{TResult}" /> keeps each slot in
+///         the <see cref="InputCapture{T}" /> of its input, and it holds a reference
+///         to each capture. Here, the slots are fields of this object, and the
+///         action of each input holds only a reference to this object. The count
+///         of objects is the same, and this merge is 16 bytes smaller: 967 bytes
+///         against 983. A merge of two is the usual case, thus it uses this class,
+///         as <see cref="MergeTwo{T}" /> does.
+///     </para>
 /// </remarks>
 /// <typeparam name="T1">The type of the values of the first stream.</typeparam>
 /// <typeparam name="T2">The type of the values of the second stream.</typeparam>

@@ -1041,8 +1041,8 @@ public class Stream<T> : ILastAction
             code: static (trans, _, state) => state.Self.MergeMaybes(trans: trans, s2: state.S2, f: state.F),
             state: (Self: this, S2: s2, F: f));
 
-    // One node, with the two slots in fields. Before, this went through the captures of the merge
-    // of maybes for n inputs, and MergeTwoMaybes says what that cost.
+    // One node, with the two slots in fields. MergeTwoMaybes tells why two inputs do not use
+    // MergeMaybesOutput.
     private Stream<TResult> MergeMaybes<T2, TResult>(
         TransactionInternal trans,
         Stream<T2> s2,
