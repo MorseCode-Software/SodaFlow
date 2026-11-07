@@ -4,28 +4,35 @@ namespace SodaFlow;
 
 /// <summary>
 ///     The merge of two streams of different types through one node. It holds
-///     the output stream, the gate through which each input sends, and the two
-///     slots. Its methods are the actions of the inputs and of the gate.
+///     the output stream and the two slots, and it is the gate through which each
+///     input sends.
 /// </summary>
 /// <remarks>
-///     The merge of maybes for n inputs captures each input in an object of its
-///     own. It also makes an array of them, a closure that makes the array, and a
-///     closure that reads them. A merge of two is the usual case, and it paid for
-///     that generality: 1,559 bytes against 1,258 for <see cref="MergeTwo{T}" />.
-///     This object holds the two slots in fields and gives its methods as the
-///     delegates. The semantics are those of the merge of maybes. Each slot keeps
-///     the last value that its input sent in the transaction. The gate reads the
-///     two slots one time at the end of the sends. A slot knows the transaction
-///     that filled it, thus a slot that a transaction filled and then discarded
-///     gives no value.
+///     <para>
+///         This object holds the two slots in fields, and it is the gate. The
+///         semantics are those of <see cref="MergeMaybesOutput{TResult}" />. Each
+///         slot keeps the last value that its input sent in the transaction. The
+///         gate reads the two slots one time at the end of the sends. A slot knows
+///         the transaction that filled it, thus a slot that a transaction filled
+///         and then discarded gives no value.
+///     </para>
+///     <para>
+///         An arity of <see cref="MergeMaybesOutput{TResult}" /> keeps each slot in
+///         the <see cref="InputCapture{T}" /> of its input, and it holds a reference
+///         to each capture. Here, the slots are fields of this object, and the
+///         action of each input holds only a reference to this object. The count
+///         of objects is the same, and this merge is 16 bytes smaller: 967 bytes
+///         against 983. A merge of two is the usual case, thus it uses this class,
+///         as <see cref="MergeTwo{T}" /> does.
+///     </para>
 /// </remarks>
 /// <typeparam name="T1">The type of the values of the first stream.</typeparam>
 /// <typeparam name="T2">The type of the values of the second stream.</typeparam>
 /// <typeparam name="TResult">The type of the values of the output stream.</typeparam>
-internal sealed class MergeTwoMaybes<T1, T2, TResult>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+internal sealed class MergeTwoMaybes<T1, T2, TResult> : OnceGate
 {
     private readonly Func<MaybeInternal<T1>, MaybeInternal<T2>, TResult> f;
-    private readonly OnceGate gate;
     private readonly Stream<TResult> @out;
     private CaptureSlot<T1> left;
     private CaptureSlot<T2> right;
@@ -36,8 +43,9 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult>
     {
         this.f = f;
         this.@out = new Stream<TResult>(keepListenersAlive);
-        this.gate = new OnceGate(node: this.@out.Node, action: this.Combine);
     }
+
+    internal override Node Node => this.@out.Node;
 
     /// <summary>
     ///     Links <paramref name="first" /> and <paramref name="second" /> into a new
@@ -56,12 +64,12 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult>
                     second: second.KeepListenersAlive),
                 f: f);
 
-        IListener l1 =
-            first.Listen(target: merge.gate.Node, trans: trans, action: new Left(merge), suppressEarlierFirings: false);
+        IListenerInternal l1 =
+            first.Listen(target: merge.Node, trans: trans, action: new Left(merge), suppressEarlierFirings: false);
 
-        IListener l2 =
+        IListenerInternal l2 =
             second.Listen(
-                target: merge.gate.Node,
+                target: merge.Node,
                 trans: trans,
                 action: new Right(merge),
                 suppressEarlierFirings: false);
@@ -87,15 +95,15 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult>
     private void SetLeft(TransactionInternal trans, T1 a)
     {
         this.left.Set(trans: trans, value: a);
-        this.gate.Arrived(trans);
+        this.Arrived(trans);
     }
 
     private void SetRight(TransactionInternal trans, T2 a)
     {
         this.right.Set(trans: trans, value: a);
-        this.gate.Arrived(trans);
+        this.Arrived(trans);
     }
 
-    private void Combine(TransactionInternal trans) =>
+    private protected override void Run(TransactionInternal trans) =>
         this.@out.Send(trans: trans, a: this.f(arg1: this.left.Take(trans), arg2: this.right.Take(trans)));
 }

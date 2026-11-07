@@ -47,6 +47,9 @@ internal sealed class InputCapture<T> : StreamAction<T>
     /// </summary>
     internal MaybeInternal<T> Take(TransactionInternal trans) => this.slot.Take(trans);
 
+    /// <summary>Clears the slot without a read of the input.</summary>
+    internal void Clear() => this.slot.Clear();
+
     public override void Fire(TransactionInternal trans, T value)
     {
         this.slot.Set(trans: trans, value: value);

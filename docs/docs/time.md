@@ -337,5 +337,6 @@ Nothing in that test depends on wall-clock timing, so it cannot be flaky and it 
 the processor can walk the graph. `TimerGarbageCollectionTests` in `SodaFlow.Tests.Memory` uses
 exactly this shape.
 
-The F# implementation mirrors all of this in `SodaFlow.Time` — `TimerSystem<'T>`,
-`SecondsTimerSystem`, `SystemClockTimerSystem`, `UtcClockTimerSystem`, and the same interfaces.
+The F# package has all of this in `SodaFlow.Time` — `TimerSystem<'T>`, `SecondsTimerSystem`,
+`SystemClockTimerSystem`, `UtcClockTimerSystem`, and the same interfaces. Both packages run the
+same timer system underneath, so what this page says about one holds for the other.

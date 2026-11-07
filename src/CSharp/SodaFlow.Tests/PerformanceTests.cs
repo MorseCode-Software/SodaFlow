@@ -17,21 +17,24 @@ public sealed class PerformanceTests
         StreamSink<Unit> s = Stream.CreateSink<Unit>();
 
         TestObject[] obj =
-            Transaction.Run(() =>
-            {
-                StreamLoop<bool> loop = Stream.CreateLoop<bool>();
-                CellStreamSink<int> s1 = Cell.CreateStreamSink<int>();
-                CellStreamSink<int> s2 = Cell.CreateStreamSink<int>();
+            Stream.Loop<bool>()
+                .WithCaptures(loop =>
+                {
+                    CellStreamSink<int> s1 = Cell.CreateStreamSink<int>();
+                    CellStreamSink<int> s2 = Cell.CreateStreamSink<int>();
 
-                TestObject[] l =
-                [
-                    .. Enumerable.Range(start: 0, count: 5000)
-                        .Select(_ => new TestObject(s: loop, s1: s1, s2: s2))
-                ];
+                    TestObject[] l =
+                    [
+                        .. Enumerable.Range(start: 0, count: 5000)
+                            .Select(_ => new TestObject(s: loop, s1: s1, s2: s2))
+                    ];
 
-                loop.Loop(s.Snapshot(l.Select(static o => o.Cell).Lift()).Map(static o => o.All(static v => v == 0)));
-                return l;
-            });
+                    Stream<bool> allZero =
+                        s.Snapshot(l.Select(static o => o.Cell).Lift()).Map(static o => o.All(static v => v == 0));
+
+                    return (Stream: allZero, Captures: l);
+                })
+                .Captures;
 
         int[] values = [.. obj.Select(static v => v.CurrentValue)];
 
@@ -78,47 +81,48 @@ public sealed class PerformanceTests
     public async Task TestRunConstruct2()
     {
         (var objectsAndIsSelected, Stream<bool> selectAllStream, CellSink<IReadOnlyList<TestObject2>> objects) =
-            Transaction.Run(static () =>
-            {
-                CellLoop<bool?> allSelectedCellLoop = Cell.CreateLoop<bool?>();
-                StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
+            Cell.Loop<bool?>()
+                .WithCaptures(static allSelectedCellLoop =>
+                {
+                    StreamSink<Unit> toggleAllSelectedStreamLocal = Stream.CreateSink<Unit>();
 
-                Stream<bool> selectAllStreamLocal =
-                    toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(static a => a != true);
+                    Stream<bool> selectAllStreamLocal =
+                        toggleAllSelectedStreamLocal.Snapshot(allSelectedCellLoop).Map(static a => a != true);
 
-                IReadOnlyList<TestObject2> o2 =
-                [
-                    .. Enumerable.Range(start: 0, count: 10000)
-                        .Select(n =>
-                            new TestObject2(
-                                initialIsSelected: n < 1500,
-                                selectAllStream: selectAllStreamLocal))
-                ];
+                    IReadOnlyList<TestObject2> o2 =
+                    [
+                        .. Enumerable.Range(start: 0, count: 10000)
+                            .Select(n =>
+                                new TestObject2(
+                                    initialIsSelected: n < 1500,
+                                    selectAllStream: selectAllStreamLocal))
+                    ];
 
-                CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
+                    CellSink<IReadOnlyList<TestObject2>> objectsLocal = Cell.CreateSink(o2);
 
-                var objectsAndIsSelectedLocal =
-                    objectsLocal
-                        .Map(static oo =>
-                            oo.Select(static o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift())
-                        .SwitchC();
+                    var objectsAndIsSelectedLocal =
+                        objectsLocal
+                            .Map(static oo =>
+                                oo.Select(static o => o.IsSelected.Map(s => new { Object = o, IsSelected = s })).Lift())
+                            .SwitchC();
 
-                bool defaultValue = o2.Count < 1;
+                    bool defaultValue = o2.Count < 1;
 
-                Cell<bool?> allSelected =
-                    objectsAndIsSelectedLocal.Map(oo =>
-                        !oo.Any()
-                            ? defaultValue
-                            : oo.All(static o => o.IsSelected)
-                                ? true
-                                : oo.All(static o => !o.IsSelected)
-                                    ? (bool?)false
-                                    : null);
+                    Cell<bool?> allSelected =
+                        objectsAndIsSelectedLocal.Map(oo =>
+                            !oo.Any()
+                                ? defaultValue
+                                : oo.All(static o => o.IsSelected)
+                                    ? true
+                                    : oo.All(static o => !o.IsSelected)
+                                        ? (bool?)false
+                                        : null);
 
-                allSelectedCellLoop.Loop(allSelected);
-
-                return (objectsAndIsSelectedLocal, selectAllStreamLocal, objectsLocal);
-            });
+                    return (
+                        Cell: allSelected,
+                        Captures: (objectsAndIsSelectedLocal, selectAllStreamLocal, objectsLocal));
+                })
+                .Captures;
 
         List<int> @out = [];
 

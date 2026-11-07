@@ -9,6 +9,21 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
+BREAKING: IListener has one member, Unlisten. GetListenerWithWeakReference is gone from it, and the
+IListenerWithWeakReference that it returned is internal. The weak view lets the library stop the listeners attached to a
+stream once the stream is collected, without keeping the stream alive to do so. That is the library's own work, and a
+caller that implemented IListener, as the composite factories invite, had to write a method whose contract was the
+library's. Every listener the library makes still has its weak view, now behind an internal interface, and a stream
+attaches only that interface, so the compiler checks that each attached listener has one.
+
+BREAKING: MutableListener is internal, and Cleanup is removed. The switches hold their inner listener in a
+MutableListener, and nothing outside the library needed one; its ClearListener, which only callers outside the library
+used, is removed with it. Nothing in the library used Cleanup. It ran an action when the garbage collector removed it,
+at a time the collector chose, and its own documentation advised IDisposable for a release at a known time.
+
+Changed: a looped behavior sampled before its loop closes throws an InvalidOperationException whose message names
+LoopedBehavior, where it named BehaviorLoop, which the C# package removes in this release.
+
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
@@ -258,6 +273,25 @@ GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framewor
 8.87 to 9.14 ms and 3,171 to 2,877 KB, and 9.41 to 9.09 ms; ListenStrong on one cell 2.88 to 2.67 ms and 1,693 to 1,546
 KB, and 3.56 to 3.46 ms. The switch's .NET 10 time moves inside its error of 0.18 ms either way. In the scratch probe on
 .NET 10, a switch of a constant cell is 3,106 to 2,799 bytes, and ListenStrong on a cell 1,648 to 1,496.
+
+An operator that reads all of its inputs before it sends is its own gate, and a lift, a SnapshotLatest, and a merge of
+maybes are one object for each arity. The gate that queues such an operator once in a transaction was an object that
+held the operator's step and discard as delegates, wrapped each in a closure, and held none of the operator's state:
+about 280 bytes in every lift, merge of two or more streams, merge of maybes, list lift, and SnapshotLatest. The
+operator now derives from the gate. A lift also kept its recombine step and its initial value as two delegates on a
+closure, and SnapshotLatest and a merge of maybes for three or more streams built their captures through closures and an
+array; the object for each arity holds the inputs and the function as fields and gives those steps as methods, and a
+lift's object is the source of the lazy sample its hold starts from. Nothing observable changes. Measured in
+GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a lift of two cells 2.38 to
+2.13 ms and 1,920 to 1,492 KB, and 3.30 to 2.84 ms; a lift of six 7.38 to 6.40 ms and 3,639 to 3,205 KB, and 8.75 to
+7.99 ms; a merge of two streams 1.70 to 1.57 ms and 1,420 to 1,086 KB, and 2.25 to 2.00 ms. In the scratch probe on .NET
+10, per item: a SnapshotLatest of one cell is 1,380 to 929 bytes, a merge of maybes of three streams 1,886 to 1,394, and
+a list merge of three 1,943 to 1,553.
+
+SodaFlow.Core now holds the timer system that the C# and F# packages give: the hook that sends Time and the alarms at
+the start of each transaction, the scheduling with its timer thread, and the clocks. All of it is internal. Each package
+keeps its public types and passes their members to it, with its own optional type for At, as Debounce already did.
+Before, each package had a copy, and the two drifted.
 
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a

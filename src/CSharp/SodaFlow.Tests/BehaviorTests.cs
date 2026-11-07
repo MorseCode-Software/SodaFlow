@@ -220,11 +220,8 @@ public sealed class BehaviorTests
             removeItemsStreamSink = Stream.CreateSink<IReadOnlyList<TestObject>>();
 
         Cell<IReadOnlyList<TestObject>> listCell =
-            Transaction.Run(() =>
-            {
-                CellLoop<IReadOnlyList<TestObject>> listCellLoop = new();
-
-                Cell<IReadOnlyList<TestObject>> listCellLocal =
+            Cell.Loop<IReadOnlyList<TestObject>>()
+                .WithoutCaptures(listCellLoop =>
                     addItemStreamSink.OrElse(s.Map(static v => (Number1: v, Number2: v)))
                         .Map(static o =>
                             (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c =>
@@ -236,11 +233,7 @@ public sealed class BehaviorTests
                                 (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => [.. c.Except(o)])),
                             f: static (f, g) => c => g(f(c)))
                         .Snapshot(c: listCellLoop, f: static (f, c) => f(c))
-                        .Hold([]);
-
-                listCellLoop.Loop(listCellLocal);
-                return listCellLocal;
-            });
+                        .Hold([]));
 
         IListener l2 =
             Transaction.Run(() =>
@@ -435,13 +428,7 @@ public sealed class BehaviorTests
         StreamSink<int> s = Stream.CreateSink<int>();
 
         Cell<int> cell =
-            Transaction.Run(() =>
-            {
-                CellLoop<int> cellLoop = new();
-                Cell<int> cellLocal = s.Snapshot(c: cellLoop, f: static (x, y) => x + y).Hold(1);
-                cellLoop.Loop(cellLocal);
-                return cellLocal;
-            });
+            Cell.Loop<int>().WithoutCaptures(cellLoop => s.Snapshot(c: cellLoop, f: static (x, y) => x + y).Hold(1));
 
         List<int> @out = [];
         IListener l = cell.ListenStrong(@out.Add);
@@ -459,7 +446,7 @@ public sealed class BehaviorTests
     {
         // This test once asked for types that permit only a safe loop. The block form, Cell.Loop,
         // is that change. The cycle here is in the graph and not in the loop, thus no type catches
-        // it, and the explicit CellLoop stays.
+        // it, and the block form gives the same exception.
 
         Exception? actual = null;
 
@@ -467,23 +454,16 @@ public sealed class BehaviorTests
         {
             StreamSink<int> s = Stream.CreateSink<int>();
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
             Cell<int> cell =
-                Transaction.Run(() =>
-                {
-                    CellLoop<int> cellLoop = new();
-
-                    Cell<int> cellLocal =
+                Cell.Loop<int>()
+                    .WithoutCaptures(cellLoop =>
                         cellLoop.Updates()
                             .Filter(static v => v % 2 == 0)
                             .Map(static v => v + 1)
                             .Merge(s2: s, f: static (_, r) => r)
-                            .Hold(1);
-
-#pragma warning disable SF1002 // The cycle is the subject of this test.
-                    cellLoop.Loop(cellLocal);
+                            .Hold(1));
 #pragma warning restore SF1002 // The cycle is the subject of this test.
-                    return cellLocal;
-                });
 
             List<int> @out = [];
             IListener l = cell.ListenStrong(@out.Add);
@@ -559,11 +539,8 @@ public sealed class BehaviorTests
         StreamSink<TestObject> addStreamSink = Stream.CreateSink<TestObject>();
 
         Cell<IReadOnlyList<TestObject>> cell =
-            Transaction.Run(() =>
-            {
-                CellLoop<IReadOnlyList<TestObject>> cellLoop = new();
-
-                Cell<IReadOnlyList<TestObject>> cellLocal =
+            Cell.Loop<IReadOnlyList<TestObject>>()
+                .WithoutCaptures(cellLoop =>
                     cellLoop
                         .Map(static oo =>
                             oo.Select(static o => o.RemoveStream.MapTo(new[] { o }))
@@ -576,11 +553,7 @@ public sealed class BehaviorTests
                                 (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(c => [.. c, o])),
                             f: static (f, g) => c => g(f(c)))
                         .Snapshot(c: cellLoop, f: static (f, c) => f(c))
-                        .Hold([]);
-
-                cellLoop.Loop(cellLocal);
-                return cellLocal;
-            });
+                        .Hold([]));
 
         List<int> @out = [];
         IListener l = cell.ListenStrong(c => @out.Add(c.Count));
@@ -1287,24 +1260,12 @@ public sealed class BehaviorTests
         (Cell<int> c, IReadOnlyList<CellSink<int>> s) =
             Transaction.Run(static () =>
             {
-                IReadOnlyList<CellLoop<int>> cellLoops =
-                [
-                    .. Enumerable.Range(start: 0, count: 50).Select(static _ => Cell.CreateLoop<int>())
-                ];
-
-                Cell<int> sum = cellLoops.Lift().Map(static v => v.Sum());
-
                 IReadOnlyList<CellSink<int>> cellSinks =
                 [
                     .. Enumerable.Range(start: 0, count: 50).Select(static _ => Cell.CreateSink(1))
                 ];
 
-                for (int i = 0; i < 50; i++)
-                {
-                    cellLoops[i].Loop(cellSinks[i]);
-                }
-
-                return (sum, cellSinks);
+                return (SumOfLoops(sinks: cellSinks, loops: []), cellSinks);
             });
 
         List<int> @out = [];
@@ -1323,6 +1284,17 @@ public sealed class BehaviorTests
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
+
+    // Each call opens one loop and closes it on the sink with the same index. The lift and the sum
+    // go in the innermost call, where all of the loops are open. A count of loops that is known only
+    // at run time can thus use the block form.
+    private static Cell<int> SumOfLoops(IReadOnlyList<CellSink<int>> sinks, IReadOnlyList<Cell<int>> loops) =>
+        loops.Count == sinks.Count
+            ? loops.Lift().Map(static v => v.Sum())
+            : Cell.Loop<int>()
+                .WithCaptures(loop =>
+                    (Cell: sinks[loops.Count], Captures: SumOfLoops(sinks: sinks, loops: [.. loops, loop])))
+                .Captures;
 
     [Test]
     public async Task TestLiftListLarge()
@@ -1425,16 +1397,16 @@ public sealed class BehaviorTests
     public async Task SwitchCOnCellLoop()
     {
         (Cell<int> c, CellSink<int> c1, CellSink<int> c2, CellSink<Cell<int>> s) =
-            Transaction.Run(static () =>
-            {
-                CellLoop<Cell<int>> loop = Cell.CreateLoop<Cell<int>>();
-                CellSink<int> c1Local = Cell.CreateSink(1);
-                CellSink<int> c2Local = Cell.CreateSink(11);
-                Cell<int> cLocal = loop.SwitchC();
-                CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
-                loop.Loop(sLocal);
-                return (cLocal, c1Local, c2Local, sLocal);
-            });
+            Cell.Loop<Cell<int>>()
+                .WithCaptures(static loop =>
+                {
+                    CellSink<int> c1Local = Cell.CreateSink(1);
+                    CellSink<int> c2Local = Cell.CreateSink(11);
+                    Cell<int> cLocal = loop.SwitchC();
+                    CellSink<Cell<int>> sLocal = Cell.CreateSink(c1Local.AsCell());
+                    return (Cell: sLocal.AsCell(), Captures: (cLocal, c1Local, c2Local, sLocal));
+                })
+                .Captures;
 
         List<int> output = [];
         IListener l = c.ListenStrong(output.Add);
@@ -1461,16 +1433,16 @@ public sealed class BehaviorTests
     public async Task SwitchSOnBehaviorLoop()
     {
         (Stream<int> b, StreamSink<int> b1, StreamSink<int> b2, BehaviorSink<Stream<int>> s) =
-            Transaction.Run(static () =>
-            {
-                BehaviorLoop<Stream<int>> loop = Behavior.CreateLoop<Stream<int>>();
-                StreamSink<int> b1Local = Stream.CreateSink<int>();
-                StreamSink<int> b2Local = Stream.CreateSink<int>();
-                Stream<int> bLocal = loop.SwitchS();
-                BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(b1Local.AsStream());
-                loop.Loop(sLocal);
-                return (bLocal, b1Local, b2Local, sLocal);
-            });
+            Behavior.Loop<Stream<int>>()
+                .WithCaptures(static loop =>
+                {
+                    StreamSink<int> b1Local = Stream.CreateSink<int>();
+                    StreamSink<int> b2Local = Stream.CreateSink<int>();
+                    Stream<int> bLocal = loop.SwitchS();
+                    BehaviorSink<Stream<int>> sLocal = Behavior.CreateSink(b1Local.AsStream());
+                    return (Behavior: sLocal.AsBehavior(), Captures: (bLocal, b1Local, b2Local, sLocal));
+                })
+                .Captures;
 
         List<int> output = [];
         IListener l = b.ListenStrong(output.Add);

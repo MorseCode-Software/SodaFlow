@@ -35,30 +35,6 @@ public sealed class FailedTransactionTests
         await Assert.That(later).IsEmpty();
     }
 
-    // The loop that is not looped throws from its last action. The clear of the firings is the
-    // last action after it, thus this covers a failure in the last phase.
-    [Test]
-    public async Task AStreamDoesNotKeepItsFiringsWhenALastActionFails()
-    {
-        StreamSink<int> s = Stream.CreateSink<int>();
-
-        await Assert.That(() =>
-                Transaction.RunVoid(() =>
-                {
-                    _ = Stream.CreateLoop<int>();
-                    s.Send(1);
-                }))
-            .ThrowsExactly<InvalidOperationException>()
-            .WithMessage("Loop was not looped.");
-
-        List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
-        s.Send(2);
-        l.Unlisten();
-
-        await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
-    }
-
     [Test]
     public async Task ACellUpdatesAfterAFailedTransaction()
     {
@@ -277,6 +253,32 @@ public sealed class FailedTransactionTests
         l.Unlisten();
 
         await Assert.That(@out).IsEmpty();
+    }
+
+    // An exception from f fails the transaction in the output step. The gate has left the queue,
+    // thus the transaction does not discard it. The output clears its firings before it calls f.
+    // Thus, the next update of the cell alone does not send the firing again.
+    [Test]
+    public async Task ASnapshotLatestDoesNotSendAFiringAgainAfterAnExceptionFromItsFunction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(10);
+
+        Stream<string> latest =
+            s.SnapshotLatest(
+                c: c,
+                f: static (a, v) => a == 7 ? throw new InvalidOperationException("abort") : $"{a},{v}");
+
+        List<string> @out = [];
+        IListener l = latest.ListenStrong(@out.Add);
+
+        await Assert.That(() => s.Send(7)).ThrowsExactly<InvalidOperationException>().WithMessage("abort");
+
+        c.Send(20);
+        s.Send(1);
+        l.Unlisten();
+
+        await Assert.That(@out).IsEquivalentTo(expected: ["1,20"], ordering: CollectionOrdering.Matching);
     }
 
     // The same as the lift, for a merge of two streams of different types. A merge that kept the

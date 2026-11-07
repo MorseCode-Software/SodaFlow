@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
@@ -12,163 +11,6 @@ namespace SodaFlow.Tests;
 
 public sealed class LoopTests
 {
-    [Test]
-    public async Task ImperativeStreamLoop()
-    {
-        StreamSink<int> s = Stream.CreateSink<int>();
-
-        Stream<int> result =
-            Transaction.Run(() =>
-            {
-                StreamLoop<int> l = new();
-                Stream<int> resultLocal = s.Snapshot(c: l.Hold(0), f: static (n, o) => n + o);
-                l.Loop(resultLocal);
-                return resultLocal;
-            });
-
-        List<int> @out = [];
-
-        using (result.ListenStrong(@out.Add))
-        {
-            s.Send(1);
-            s.Send(2);
-            s.Send(3);
-        }
-
-        await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 6], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task ImperativeStreamLoopFailsWhenLoopedTwice()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            StreamSink<int> s = Stream.CreateSink<int>();
-
-            Transaction.RunVoid(() =>
-            {
-                StreamLoop<int> l = new();
-                Stream<int> resultLocal = s.Snapshot(c: l.Hold(0), f: static (n, o) => n + o);
-                l.Loop(resultLocal);
-                l.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
-    }
-
-    [Test]
-    public async Task ImperativeStreamLoopFailsWithoutTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            new StreamLoop<int>();
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
-    }
-
-    [Test]
-    public async Task ImperativeStreamLoopFailsWhenNotLooped()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            Transaction.RunVoid(static () => new StreamLoop<int>());
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
-    }
-
-    [Test]
-    public async Task ImperativeStreamLoopFailsWhenLoopedInSeparateTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        StreamLoop<int>? l = null;
-
-        ManualResetEvent waitHandle = new(false);
-
-        InvalidOperationException? actualOnOtherThread = null;
-
-        Thread thread =
-            new(() =>
-            {
-                try
-                {
-                    Transaction.RunVoid(() =>
-                    {
-                        l = new StreamLoop<int>();
-                        waitHandle.Set();
-                        Thread.Sleep(500);
-                    });
-                }
-                catch (InvalidOperationException e)
-                {
-                    // This transaction makes the loop and never closes it, thus it must fail at its end.
-                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
-                    actualOnOtherThread = e;
-                }
-            });
-
-        thread.Start();
-
-        waitHandle.WaitOne();
-
-        try
-        {
-            StreamSink<int> s = Stream.CreateSink<int>();
-
-            Transaction.RunVoid(() =>
-            {
-                Thread.Sleep(250);
-                // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set before
-                // the waitHandle is signaled.
-                Stream<int> resultLocal = s.Snapshot(c: l!.Hold(0), f: static (n, o) => n + o);
-                // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set before
-                // the waitHandle is signaled.
-                l!.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        thread.Join();
-
-        await Assert.That(actual).IsNotNull();
-
-        await Assert.That(actual?.Message)
-            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
-
-        await Assert.That(actualOnOtherThread).IsNotNull();
-
-        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
-    }
-
     [Test]
     public async Task FunctionalStreamLoop()
     {
@@ -250,172 +92,6 @@ public sealed class LoopTests
     }
 
     [Test]
-    public async Task ImperativeBehaviorLoop()
-    {
-        BehaviorSink<int> s = Behavior.CreateSink(0);
-
-        Behavior<int> result =
-            Transaction.Run(() =>
-            {
-                BehaviorLoop<int> l = new();
-
-                Behavior<int> resultLocal =
-                    Operational.Updates(s).Snapshot(b: l, f: static (n, o) => n + o).Hold(0).AsBehavior();
-
-                l.Loop(resultLocal);
-                return resultLocal;
-            });
-
-        List<int> @out = [];
-
-        using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
-        {
-            s.Send(1);
-            s.Send(2);
-            s.Send(3);
-        }
-
-        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task ImperativeBehaviorLoopFailsWhenLoopedTwice()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            BehaviorSink<int> s = Behavior.CreateSink(0);
-
-            Transaction.RunVoid(() =>
-            {
-                BehaviorLoop<int> l = new();
-
-                Behavior<int> resultLocal =
-                    Operational.Updates(s).Snapshot(b: l, f: static (n, o) => n + o).Hold(0).AsBehavior();
-
-                l.Loop(resultLocal);
-                l.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
-    }
-
-    [Test]
-    public async Task ImperativeBehaviorLoopFailsWithoutTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            new BehaviorLoop<int>();
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
-    }
-
-    [Test]
-    public async Task ImperativeBehaviorLoopFailsWhenNotLooped()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            Transaction.RunVoid(static () => new BehaviorLoop<int>());
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
-    }
-
-    [Test]
-    public async Task ImperativeBehaviorLoopFailsWhenLoopedInSeparateTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        BehaviorLoop<int>? l = null;
-
-        ManualResetEvent waitHandle = new(false);
-
-        InvalidOperationException? actualOnOtherThread = null;
-
-        Thread thread =
-            new(() =>
-            {
-                try
-                {
-                    Transaction.RunVoid(() =>
-                    {
-                        l = new BehaviorLoop<int>();
-                        waitHandle.Set();
-                        Thread.Sleep(500);
-                    });
-                }
-                catch (InvalidOperationException e)
-                {
-                    // This transaction makes the loop and never closes it, thus it must fail at its end.
-                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
-                    actualOnOtherThread = e;
-                }
-            });
-
-        thread.Start();
-
-        waitHandle.WaitOne();
-
-        try
-        {
-            BehaviorSink<int> s = Behavior.CreateSink(0);
-
-            Transaction.RunVoid(() =>
-            {
-                Thread.Sleep(250);
-
-                Behavior<int> resultLocal =
-                    // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set
-                    // before the waitHandle is signaled.
-                    Operational.Updates(s).Snapshot(b: l!, f: static (n, o) => n + o).Hold(0).AsBehavior();
-
-                // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set before
-                // the waitHandle is signaled.
-                l!.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        thread.Join();
-
-        await Assert.That(actual).IsNotNull();
-
-        await Assert.That(actual?.Message)
-            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
-
-        await Assert.That(actualOnOtherThread).IsNotNull();
-
-        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
-    }
-
-    [Test]
     public async Task FunctionalBehaviorLoop()
     {
         BehaviorSink<int> s = Behavior.CreateSink(0);
@@ -462,163 +138,6 @@ public sealed class LoopTests
 
         await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
         await Assert.That(out2).IsEquivalentTo(expected: [0, 2, 4, 6], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task ImperativeCellLoop()
-    {
-        CellSink<int> s = Cell.CreateSink(0);
-
-        Cell<int> result =
-            Transaction.Run(() =>
-            {
-                CellLoop<int> l = new();
-                Cell<int> resultLocal = s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0);
-                l.Loop(resultLocal);
-                return resultLocal;
-            });
-
-        List<int> @out = [];
-
-        using (Transaction.Run(() => result.Values().ListenStrong(@out.Add)))
-        {
-            s.Send(1);
-            s.Send(2);
-            s.Send(3);
-        }
-
-        await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task ImperativeCellLoopFailsWhenLoopedTwice()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            CellSink<int> s = Cell.CreateSink(0);
-
-            Transaction.RunVoid(() =>
-            {
-                CellLoop<int> l = new();
-                Cell<int> resultLocal = s.Updates().Snapshot(c: l, f: static (n, o) => n + o).Hold(0);
-                l.Loop(resultLocal);
-                l.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was looped more than once.");
-    }
-
-    [Test]
-    public async Task ImperativeCellLoopFailsWithoutTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            new CellLoop<int>();
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop must be created within an explicit transaction.");
-    }
-
-    [Test]
-    public async Task ImperativeCellLoopFailsWhenNotLooped()
-    {
-        InvalidOperationException? actual = null;
-
-        try
-        {
-            // ReSharper disable once ObjectCreationAsStatement
-            Transaction.RunVoid(static () => new CellLoop<int>());
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        await Assert.That(actual).IsNotNull();
-        await Assert.That(actual?.Message).IsEqualTo("Loop was not looped.");
-    }
-
-    [Test]
-    public async Task ImperativeCellLoopFailsWhenLoopedInSeparateTransaction()
-    {
-        InvalidOperationException? actual = null;
-
-        CellLoop<int>? l = null;
-
-        ManualResetEvent waitHandle = new(false);
-
-        InvalidOperationException? actualOnOtherThread = null;
-
-        Thread thread =
-            new(() =>
-            {
-                try
-                {
-                    Transaction.RunVoid(() =>
-                    {
-                        l = new CellLoop<int>();
-                        waitHandle.Set();
-                        Thread.Sleep(500);
-                    });
-                }
-                catch (InvalidOperationException e)
-                {
-                    // This transaction makes the loop and never closes it, thus it must fail at its end.
-                    // A catch here keeps it from the end of the test host, and lets the assertion below read it.
-                    actualOnOtherThread = e;
-                }
-            });
-
-        thread.Start();
-
-        waitHandle.WaitOne();
-
-        try
-        {
-            CellSink<int> s = Cell.CreateSink(0);
-
-            Transaction.RunVoid(() =>
-            {
-                Thread.Sleep(250);
-                // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set before
-                // the waitHandle is signaled.
-                Cell<int> resultLocal = s.Updates().Snapshot(c: l!, f: static (n, o) => n + o).Hold(0);
-                // ReSharper disable once NullableWarningSuppressionIsUsed - l will be non-null because it is set before
-                // the waitHandle is signaled.
-                l!.Loop(resultLocal);
-            });
-        }
-        catch (InvalidOperationException e)
-        {
-            actual = e;
-        }
-
-        thread.Join();
-
-        await Assert.That(actual).IsNotNull();
-
-        await Assert.That(actual?.Message)
-            .IsEqualTo("Loop must be looped in the same transaction that it was created in.");
-
-        await Assert.That(actualOnOtherThread).IsNotNull();
-
-        await Assert.That(actualOnOtherThread?.Message).IsEqualTo("Loop was not looped.");
     }
 
     [Test]
@@ -691,12 +210,10 @@ public sealed class LoopTests
                 CellStreamSink<IReadOnlyList<TestObject>> streamSink =
                     Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                 Cell<IReadOnlyList<TestObject>> cell =
-                    Transaction.Run(() =>
-                    {
-                        CellLoop<IReadOnlyList<TestObject>> cellLoop = new();
-
-                        Cell<IReadOnlyList<TestObject>> cellLocal =
+                    Cell.Loop<IReadOnlyList<TestObject>>()
+                        .WithoutCaptures(cellLoop =>
                             streamSink
                                 .Map(static v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
                                 .Merge(
@@ -712,13 +229,8 @@ public sealed class LoopTests
                                             ])),
                                     f: static (f, g) => v => g(f(v)))
                                 .Snapshot(c: cellLoop, f: static (f, v) => f(v))
-                                .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]);
-
-#pragma warning disable SF1002 // The cycle is the subject of this test.
-                        cellLoop.Loop(cellLocal);
+                                .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 #pragma warning restore SF1002 // The cycle is the subject of this test.
-                        return cellLocal;
-                    });
 
                 cell.Sample()[2].Input1.Send(1);
                 cell.Sample()[1].Input1.Send(-20);
@@ -748,11 +260,8 @@ public sealed class LoopTests
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
 
             Cell<IReadOnlyList<TestObject>> cell =
-                Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new();
-
-                    Cell<IReadOnlyList<TestObject>> cellLocal =
+                Cell.Loop<IReadOnlyList<TestObject>>()
+                    .WithoutCaptures(cellLoop =>
                         streamSink.Map(static v => (Func<IReadOnlyList<TestObject>, IReadOnlyList<TestObject>>)(_ => v))
                             .Merge(
                                 s2: cellLoop
@@ -767,11 +276,7 @@ public sealed class LoopTests
                                         ])),
                                 f: static (f, g) => v => g(f(v)))
                             .Snapshot(c: cellLoop, f: static (f, v) => f(v))
-                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]);
-
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
             cell.ListenStrong(vv => objectCounts.Add(vv.Count));
@@ -806,11 +311,8 @@ public sealed class LoopTests
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
 
             Cell<IReadOnlyList<TestObject>> cell =
-                Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new();
-
-                    Cell<IReadOnlyList<TestObject>> cellLocal =
+                Cell.Loop<IReadOnlyList<TestObject>>()
+                    .WithoutCaptures(cellLoop =>
                         streamSink
                             .OrElse(
                                 Operational
@@ -824,11 +326,7 @@ public sealed class LoopTests
                                         c: cellLoop,
                                         f: static (_, items) =>
                                             (IReadOnlyList<TestObject>)[.. items, new TestObject()]))
-                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]);
-
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
             cell.ListenStrong(vv => objectCounts.Add(vv.Count));
@@ -863,11 +361,8 @@ public sealed class LoopTests
                 Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
 
             Cell<IReadOnlyList<TestObject>> cell =
-                Transaction.Run(() =>
-                {
-                    CellLoop<IReadOnlyList<TestObject>> cellLoop = new();
-
-                    Cell<IReadOnlyList<TestObject>> cellLocal =
+                Cell.Loop<IReadOnlyList<TestObject>>()
+                    .WithoutCaptures(cellLoop =>
                         streamSink
                             .OrElse(
                                 cellLoop.Map(static oo => oo.Select(static o => o.Output).Lift(static vv => vv.Sum()))
@@ -877,11 +372,7 @@ public sealed class LoopTests
                                         c: cellLoop,
                                         f: static (_, items) =>
                                             (IReadOnlyList<TestObject>)[.. items, new TestObject()]))
-                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]);
-
-                    cellLoop.Loop(cellLocal);
-                    return cellLocal;
-                });
+                            .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
             cell.ListenStrong(vv => objectCounts.Add(vv.Count));

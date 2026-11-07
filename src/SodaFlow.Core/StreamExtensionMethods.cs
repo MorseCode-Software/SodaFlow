@@ -58,16 +58,10 @@ internal static class StreamExtensionMethodsInternal
             roots[i] = inputs[i].KeepListenersAlive;
         }
 
-        Stream<T> @out = new(KeepListenersAliveInternal.Combine(roots));
-        MaybeInternal<T>[] slots = new MaybeInternal<T>[inputs.Count];
+        ListMerge<T> merge =
+            new(@out: new Stream<T>(KeepListenersAliveInternal.Combine(roots)), count: inputs.Count, f: f);
 
-        OnceGate gate =
-            new(
-                node: @out.Node,
-                action: Combine,
-                discard: () => Array.Clear(array: slots, index: 0, length: slots.Length));
-
-        Stream<T> result = @out;
+        Stream<T> result = merge.Out;
 
         for (int i = 0; i < inputs.Count; i++)
         {
@@ -75,39 +69,13 @@ internal static class StreamExtensionMethodsInternal
                 result.UnsafeAttachListener(
                     inputs[i]
                         .Listen(
-                            target: gate.Node,
+                            target: merge.Node,
                             trans: trans,
-                            action: new MergeInput<T>(slots: slots, index: i, f: f, gate: gate),
+                            action: new MergeInput<T>(merge: merge, index: i),
                             suppressEarlierFirings: false));
         }
 
         return result;
-
-        void Combine(TransactionInternal trans3)
-        {
-            MaybeInternal<T> folded = MaybeInternal<T>.None;
-
-            // ReSharper disable once ForCanBeConvertedToForeach - An index, thus the slot can be cleared in place.
-            for (int index = 0; index < slots.Length; index++)
-            {
-                if (!slots[index].TryGetValue(out T held))
-                {
-                    continue;
-                }
-
-                slots[index] = MaybeInternal<T>.None;
-
-                folded =
-                    folded.TryGetValue(out T left)
-                        ? MaybeInternal.Some(f(arg1: left, arg2: held))
-                        : MaybeInternal.Some(held);
-            }
-
-            if (folded.TryGetValue(out T value))
-            {
-                @out.Send(trans: trans3, a: value);
-            }
-        }
     }
 
     internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
@@ -166,29 +134,65 @@ internal static class StreamExtensionMethodsInternal
             s.Listen(target: @out.Node, action: new ChooseInternalAction<T, TResult>(@out: @out, f: f)));
     }
 
-    // The actions of the links above. Each holds what its lambda captured, and is the listener
-    // that the output attaches. See StreamAction.
-    private sealed class MergeInput<T>(
-        in MaybeInternal<T>[] slots,
-        in int index,
-        in Func<T, T, T> f,
-        in OnceGate gate)
-        : StreamAction<T>
+    // The output of the list merge, its slots, and the gate. Before, the slots, the fold, and the
+    // clear of the slots were a closure and two delegates beside the gate.
+    private sealed class ListMerge<T>(in Stream<T> @out, in int count, in Func<T, T, T> f) : OnceGate
     {
+        internal readonly Stream<T> Out = @out;
         private readonly Func<T, T, T> f = f;
-        private readonly OnceGate gate = gate;
-        private readonly int index = index;
-        private readonly MaybeInternal<T>[] slots = slots;
+        private readonly MaybeInternal<T>[] slots = new MaybeInternal<T>[count];
 
-        public override void Fire(TransactionInternal trans, T value)
+        internal override Node Node => this.Out.Node;
+
+        internal void Fold(TransactionInternal trans, int index, T value)
         {
-            this.slots[this.index] =
-                this.slots[this.index].TryGetValue(out T earlier)
+            this.slots[index] =
+                this.slots[index].TryGetValue(out T earlier)
                     ? MaybeInternal.Some(this.f(arg1: earlier, arg2: value))
                     : MaybeInternal.Some(value);
 
-            this.gate.Arrived(trans);
+            this.Arrived(trans);
         }
+
+        private protected override void Run(TransactionInternal trans)
+        {
+            MaybeInternal<T> folded = MaybeInternal<T>.None;
+
+            // ReSharper disable once ForCanBeConvertedToForeach - An index, thus the slot can be cleared in place.
+            for (int index = 0; index < this.slots.Length; index++)
+            {
+                if (!this.slots[index].TryGetValue(out T held))
+                {
+                    continue;
+                }
+
+                this.slots[index] = MaybeInternal<T>.None;
+
+                folded =
+                    folded.TryGetValue(out T left)
+                        ? MaybeInternal.Some(this.f(arg1: left, arg2: held))
+                        : MaybeInternal.Some(held);
+            }
+
+            if (folded.TryGetValue(out T value))
+            {
+                this.Out.Send(trans: trans, a: value);
+            }
+        }
+
+        private protected override void Discard() =>
+            Array.Clear(array: this.slots, index: 0, length: this.slots.Length);
+    }
+
+    // The actions of the links above. Each holds what its lambda captured, and is the listener
+    // that the output attaches. See StreamAction.
+    private sealed class MergeInput<T>(in ListMerge<T> merge, in int index) : StreamAction<T>
+    {
+        private readonly int index = index;
+        private readonly ListMerge<T> merge = merge;
+
+        public override void Fire(TransactionInternal trans, T value) =>
+            this.merge.Fold(trans: trans, index: this.index, value: value);
     }
 
     private sealed class FilterSomeAction<T, TMaybe>(in Stream<T> @out, in Action<TMaybe, Action<T>> matchSome)

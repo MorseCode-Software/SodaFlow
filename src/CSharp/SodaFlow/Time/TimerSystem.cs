@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using JetBrains.Annotations;
 using SodaFlow.Functional;
 
@@ -18,7 +17,7 @@ namespace SodaFlow.Time;
 ///     The handler sends events that became due at the same time delivered
 ///     together, and events at different times in different transactions.
 ///     Use <see cref="SystemClockTimerSystem" /> or
-///     <see cref="SecondsTimerSystem" /> unless you a different clock is
+///     <see cref="SecondsTimerSystem" /> unless a different clock is
 ///     necessary, and then derive from
 ///     <see cref="TimerSystemImplementationBase{T}" /> and give it here.
 /// </remarks>
@@ -27,28 +26,9 @@ namespace SodaFlow.Time;
 public class TimerSystem<T> : ITimerSystem<T>
     where T : IComparable<T>
 {
-    // In the sequence of the time of each event, and of its arrival for one time. An implementation
-    // runs a callback out of its lock, and it can run timers on more than one thread. Thus, the
-    // events can get to this set in a different sequence from their times.
-    private readonly SortedSet<Event> eventQueue =
-        new(
-            Comparer<Event>.Create(static (x, y) =>
-            {
-                int timeComparison = x.Time.CompareTo(y.Time);
-                return timeComparison != 0 ? timeComparison : x.Seq.CompareTo(y.Seq);
-            }));
-
-    private readonly ITimerSystemImplementation<T> implementation;
-
-    // The transaction hook. Dispose removes it, and the hook then runs in no transaction after that.
-    private readonly IDisposable startHook;
-
-    // The last value that the OnStart handler sent to Time. Only that handler uses this, and it
-    // runs with the transaction lock.
-    private T lastTime;
-
-    // The arrival number of the next event. Only code that holds the lock on eventQueue uses this.
-    private long nextEventSeq;
+    // The timer system itself is in Core, and the F# package uses the same one. This class gives
+    // its public surface, with Maybe as the optional type.
+    private readonly TimerSystemInternal<T, ITimer> timerSystem;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="TimerSystem{T}" /> class over
@@ -65,60 +45,15 @@ public class TimerSystem<T> : ITimerSystem<T>
     ///     <see cref="Dispose" /> removes it. Thus, make one timer system for the
     ///     process, or dispose each one when its work is complete.
     /// </remarks>
-    public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException)
-    {
-        this.implementation = implementation;
-        this.implementation.Start(handleException);
-        this.lastTime = this.implementation.Now;
-        BehaviorSink<T> timeSink = new(this.lastTime);
-        this.Time = timeSink;
-
-        this.startHook = Transaction.OnStart(() =>
-        {
-            T t = this.implementation.Now;
-            this.implementation.RunTimersTo(t);
-
-            // This runs at the start of each transaction in the process, and most of them have no
-            // event due. That path allocates nothing here: the list exists only when events are
-            // due.
-            while (this.TakeDueEvents(t) is { } events)
-            {
-                T eventTime = events[0].Time;
-
-                // An implementation removes a timer and then runs its callback out of its lock. A
-                // transaction can start between the two and send a time after the time of the event.
-                // The event then gets to the set after that time. Its alarm fires at its own time, and
-                // Time does not go back. An event at the time that Time holds sends nothing.
-                if (eventTime.CompareTo(this.lastTime) > 0)
-                {
-                    timeSink.Send(eventTime);
-                    this.lastTime = eventTime;
-                }
-
-                Transaction.RunVoid(() =>
-                {
-                    foreach (Event ev in events)
-                    {
-                        ev.Alarm.Send(ev.Time);
-                    }
-                });
-            }
-
-            // The clock itself can go back, for example at the end of daylight saving time. Time
-            // follows the clock then, as the clock is the authority for the current time. A clock
-            // that did not move sends nothing: the updates of Time are its changes, as for each
-            // other behavior. Before, this sent at each transaction, and each listener of the
-            // updates ran with the value that Time held.
-            if (t.CompareTo(this.lastTime) != 0)
-            {
-                timeSink.Send(t);
-                this.lastTime = t;
-            }
-        });
-    }
+    public TimerSystem(ITimerSystemImplementation<T> implementation, Action<Exception> handleException) =>
+        this.timerSystem =
+            new TimerSystemInternal<T, ITimer>(
+                implementation: new Implementation(implementation),
+                comparer: Comparer<T>.Default,
+                handleException: handleException);
 
     /// <inheritdoc />
-    public Behavior<T> Time { get; }
+    public Behavior<T> Time => this.timerSystem.Time;
 
     /// <summary>
     ///     Removes the transaction handler, and stops the implementation. After
@@ -132,88 +67,33 @@ public class TimerSystem<T> : ITimerSystem<T>
     // ReSharper disable once InheritdocConsiderUsage
     public void Dispose()
     {
-        this.startHook.Dispose();
-        this.implementation.Stop();
+        this.timerSystem.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    // The earliest events at or before t, which are all at one time, removed from the set. Null
-    // where no event is due. The set is in the sequence of time, thus these are its first events.
-    // Count and Min are properties of the set. FirstOrDefault is the LINQ method, which boxes the
-    // enumerator of the set at each call, and this runs at each start of a transaction. The LINQ
-    // below runs only when events are due, which is rare.
-    private List<Event>? TakeDueEvents(T t)
-    {
-        lock (this.eventQueue)
-        {
-            if (this.eventQueue.Count == 0)
-            {
-                return null;
-            }
-
-            // ReSharper disable once NullableWarningSuppressionIsUsed - The set holds at least one event, thus
-            // Min is not null.
-            Event first = this.eventQueue.Min!;
-
-            if (first.Time.CompareTo(t) > 0)
-            {
-                return null;
-            }
-
-            List<Event> events = [.. this.eventQueue.TakeWhile(ev => ev.Time.CompareTo(first.Time) == 0)];
-
-            foreach (Event ev in events)
-            {
-                this.eventQueue.Remove(ev);
-            }
-
-            return events;
-        }
-    }
-
     /// <inheritdoc />
-    public Stream<T> At(Cell<Maybe<T>> t)
+    public Stream<T> At(Cell<Maybe<T>> t) =>
+        this.timerSystem.At(
+            deadline: t,
+            read: static m => m.Match(onSome: MaybeInternal.Some, onNone: static () => MaybeInternal<T>.None));
+
+    // Passes each member that the Core timer system uses to the public implementation.
+    private sealed class Implementation(in ITimerSystemImplementation<T> implementation)
+        : ITimerSystemImplementationInternal<T, ITimer>
     {
-        StreamSink<T> alarm = new();
-        Maybe<ITimer> currentTimer = Maybe.None;
+        private readonly ITimerSystemImplementation<T> implementation = implementation;
 
-        IListener l =
-            t.Listen(m =>
-            {
-                currentTimer.MatchSome(static timer => timer.Cancel());
+        public T Now => this.implementation.Now;
 
-                currentTimer =
-                    m.Match(
-                        onSome: time =>
-                            Maybe.Some(
-                                this.implementation.SetTimer(
-                                    time: time,
-                                    callback: () =>
-                                    {
-                                        lock (this.eventQueue)
-                                        {
-                                            this.eventQueue.Add(
-                                                new Event(time: time, seq: this.nextEventSeq++, alarm: alarm));
-                                        }
+        public void Start(Action<Exception> handleException) => this.implementation.Start(handleException);
 
-                                        // Open and close a transaction to cause queued
-                                        // events to run.
-                                        Transaction.RunVoid(static () =>
-                                        {
-                                        });
-                                    })),
-                        onNone: static () => Maybe.None);
-            });
+        public void Stop() => this.implementation.Stop();
 
-        return alarm.AttachListenerInternal(l);
-    }
+        public ITimer SetTimer(T time, Action callback) =>
+            this.implementation.SetTimer(time: time, callback: callback);
 
-    private sealed class Event(in T time, in long seq, in StreamSink<T> alarm)
-    {
-        internal readonly StreamSink<T> Alarm = alarm;
+        public void Cancel(ITimer timer) => timer.Cancel();
 
-        internal readonly long Seq = seq;
-
-        internal readonly T Time = time;
+        public void RunTimersTo(T time) => this.implementation.RunTimersTo(time);
     }
 }

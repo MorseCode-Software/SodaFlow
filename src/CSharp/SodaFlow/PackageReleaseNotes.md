@@ -16,6 +16,20 @@ each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a tran
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
 eight. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: the listener surface is smaller. IListener has only Unlisten, GetListenerWithWeakReference is gone from it and
+from the extension methods of MutableListener, and IListenerWithWeakReference is internal. MutableListener and
+MutableListenerExtensionMethods are internal, and Cleanup and CleanupExtensionMethods are removed; the core notes say
+why. A type of yours that implements IListener deletes its GetListenerWithWeakReference.
+
+BREAKING: Stream.CreateLoop, Cell.CreateLoop, and Behavior.CreateLoop are removed, with the StreamLoop<T>, CellLoop<T>,
+and BehaviorLoop<T> they returned. Write a loop with Stream.Loop<T>(), Cell.Loop<T>(), or Behavior.Loop<T>() and
+WithoutCaptures or WithCaptures, or with ForwardReference when an object refers to itself. The explicit form needed a
+later statement to close the loop, and four mistakes failed only at run time: making it outside a transaction, never
+closing it, closing it twice, and closing it in a different transaction. The block form cannot make any of them. A loop
+whose parts seem to need separating still fits: blocks nest, and a recursive function can open one block for each loop
+when the number of loops is known only at run time. Nothing in this repository used the explicit form outside its own
+tests.
+
 BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
 the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
 of every transaction in the process, and a real clock starts a thread; before this release nothing could remove
@@ -73,6 +87,10 @@ and an enumerator on every transaction in the process, and it no longer takes th
 is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
 350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
 behavior derived from it depends on.
+
+The timer system, the scheduling behind TimerSystemImplementationBase<T>, and the clocks now live in SodaFlow.Core, and
+the F# package builds on the same code instead of a copy of its own. No public signature changes and no behavior
+changes.
 
 Transaction.RunVoid no longer wraps its action in a closure and a delegate of its own. With SodaFlow.Core 6.0.0, an
 empty RunVoid from outside a transaction measures 55 ns and 288 bytes to 36 ns and 112 bytes on .NET 10, and one

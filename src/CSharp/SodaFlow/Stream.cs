@@ -43,13 +43,6 @@ public static class Stream
     public static StreamSink<T> CreateSink<T>(Func<T, T, T> coalesce) => StreamInternal.CreateSinkImpl(coalesce);
 
     /// <summary>
-    ///     Makes a <see cref="StreamLoop{T}" />. A caller must call this and close the
-    ///     loop in one transaction.
-    /// </summary>
-    /// <typeparam name="T">The type of values in the stream loop.</typeparam>
-    public static StreamLoop<T> CreateLoop<T>() => new();
-
-    /// <summary>
     ///     Creates a helper to loop over a stream for the specified type.
     /// </summary>
     /// <typeparam name="T">The type of the stream to loop.</typeparam>
