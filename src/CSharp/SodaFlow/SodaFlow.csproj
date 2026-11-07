@@ -47,7 +47,6 @@
         <Compile Include="LoopedBehaviorExtensionMethods.cs"/>
         <Compile Include="LoopedCellExtensionMethods.cs"/>
         <Compile Include="LoopedStreamExtensionMethods.cs"/>
-        <Compile Include="MutableListenerExtensionMethods.cs"/>
         <Compile Include="Operational.cs"/>
         <Compile Include="Stream.cs"/>
         <Compile Include="StreamExtensionMethods.cs"/>

@@ -49,7 +49,6 @@
         <Compile Include="MaybeExtensionMethodsTests.cs"/>
         <Compile Include="MaybeMonadTests.cs"/>
         <Compile Include="MaybeTests.cs"/>
-        <Compile Include="MutableListenerTests.cs"/>
         <Compile Include="PerformanceTests.cs"/>
         <Compile Include="ReadOnlyDictionaryExtensionMethodsTests.cs"/>
         <Compile Include="StreamTests.cs"/>

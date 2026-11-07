@@ -7,8 +7,7 @@ namespace SodaFlow
 ///     A listener is the handle returned by <c>Stream.listen</c>, <c>Stream.listenStrong</c> and
 ///     their cell equivalents. This module operates on the general <c>IListener</c>. See
 ///     <c>WeakListener</c> and <c>StrongListener</c> for the versions that give
-///     <c>IWeakListener</c> and <c>IStrongListener</c>, and <c>MutableListener</c> for a handle
-///     that can point to a different listener.
+///     <c>IWeakListener</c> and <c>IStrongListener</c>.
 /// </remarks>
 module Listener =
     open System.Runtime.CompilerServices
@@ -224,46 +223,3 @@ module StrongListener =
     /// <param name="l2">The second listener.</param>
     /// <returns>A strong listener that stops the two given listeners.</returns>
     let append l1 l2 = fromList (l1 :: l2 :: [])
-
-/// <summary>
-///     Pointing a mutable listener at a listener, and clearing or stopping it.
-/// </summary>
-/// <remarks>
-///     A mutable listener is one handle that can point to a different listener. Use it in an object
-///     with a long life that listens to a sequence of sources with short lives. It is one field
-///     with one life and a target that changes.
-/// </remarks>
-module MutableListener =
-    open System.Runtime.CompilerServices
-
-    /// <summary>
-    ///     Points a mutable listener at a listener, stopping whatever it pointed at before.
-    /// </summary>
-    /// <param name="l">The listener to become the target.</param>
-    /// <param name="m">The mutable listener.</param>
-    /// <remarks>
-    ///     Ownership passes to the mutable listener: stopping it stops <paramref name="l" /> too, as
-    ///     does the next <c>setListener</c> or <c>clearListener</c>.
-    /// </remarks>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let setListener l (m: MutableListener) = m.SetListenerImpl l
-
-    /// <summary>
-    ///     Stops whatever a mutable listener currently points at, leaving it pointing at nothing.
-    /// </summary>
-    /// <param name="m">The mutable listener.</param>
-    /// <remarks>
-    ///     The mutable listener stays usable and can move to a different listener after this. To
-    ///     finish with it fully, use <c>unlisten</c>.
-    /// </remarks>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let clearListener (m: MutableListener) = m.ClearListenerImpl()
-
-    /// <summary>
-    ///     Stops listening, stopping whatever the mutable listener currently points at.
-    /// </summary>
-    /// <param name="m">The mutable listener.</param>
-    /// <remarks>
-    ///     A second call is safe. Each call after the first does nothing.
-    /// </remarks>
-    let unlisten (m: MutableListener) = Listener.unlisten m

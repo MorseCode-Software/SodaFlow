@@ -86,8 +86,8 @@ internal static class ListenerInternal
         new CompositeStrongListener(listeners);
 
     // A listener that a caller wrote has no weak view of its own. Its view holds it, and calls it.
-    // Only a composite listener or a mutable listener can hold such a listener.
-    internal static IListenerWithWeakReference GetListenerWithWeakReference(IListener listener) =>
+    // Only a composite listener can hold such a listener.
+    private static IListenerWithWeakReference GetListenerWithWeakReference(IListener listener) =>
         listener is IListenerInternal l ? l.GetListenerWithWeakReference() : new ExternalListenerView(listener);
 
     private sealed class EmptyListener : IStrongListener, IWeakListenerInternal, IListenerWithWeakReference

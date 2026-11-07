@@ -1,35 +1,30 @@
-using JetBrains.Annotations;
-
 namespace SodaFlow;
 
 /// <summary>
-///     A listener whose target can be replaced while the handle itself stays the
+///     A listener whose target can change while the listener itself stays the
 ///     same.
 /// </summary>
 /// <remarks>
-///     Use this for an object with a long life that listens to a sequence of
-///     sources with short lives. It is one field with one life and a target that
-///     changes. To give it a listener, call <c>SetListener</c>. To release the
-///     current listener, call <c>ClearListener</c>. To stop it fully, call
-///     <c>Unlisten</c>.
+///     A switch holds the link to its current inner source in one. The output of
+///     the switch attaches it one time, and each selection calls
+///     <see cref="SetListener" />.
 /// </remarks>
-[PublicAPI]
-// ReSharper disable once InheritdocConsiderUsage
-public class MutableListener : IListenerInternal
+internal sealed class MutableListener : IListenerInternal
 {
     private readonly WeakMutableListener weakMutableListener = new();
-    private IListener? listener;
+    private IListenerInternal? listener;
 
-    void IListener.Unlisten() => this.listener?.Unlisten();
-    IListenerWithWeakReference IListenerInternal.GetListenerWithWeakReference() => this.weakMutableListener;
+    public void Unlisten() => this.listener?.Unlisten();
+
+    public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakMutableListener;
 
     // The previous target stops after this code sets the new target. Thus, a reader of this
     // listener never finds it with no target between the two. A set of the target that this
     // listener holds now stops nothing. Otherwise, a second set of one listener stops it with no
     // message.
-    internal void SetListenerImpl(IListener listener)
+    internal void SetListener(IListenerInternal listener)
     {
-        IListener? previous = this.listener;
+        IListenerInternal? previous = this.listener;
 
         if (ReferenceEquals(objA: previous, objB: listener))
         {
@@ -37,19 +32,11 @@ public class MutableListener : IListenerInternal
         }
 
         this.listener = listener;
-        this.weakMutableListener.WeakListener = ListenerInternal.GetListenerWithWeakReference(listener);
+        this.weakMutableListener.WeakListener = listener.GetListenerWithWeakReference();
         previous?.Unlisten();
     }
 
-    internal void ClearListenerImpl()
-    {
-        IListener? previous = this.listener;
-        this.listener = null;
-        this.weakMutableListener.WeakListener = null;
-        previous?.Unlisten();
-    }
-
-    private class WeakMutableListener : IListenerWithWeakReference
+    private sealed class WeakMutableListener : IListenerWithWeakReference
     {
         public IListenerWithWeakReference? WeakListener;
 

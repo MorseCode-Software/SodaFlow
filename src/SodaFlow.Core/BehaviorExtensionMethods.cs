@@ -79,7 +79,7 @@ internal static class BehaviorExtensionMethodsInternal
         // set moves its listeners to the root of the new stream at the same time.
         internal void Select(TransactionInternal trans, Stream<T> sa, bool suppressEarlierFirings)
         {
-            this.Current.SetListenerImpl(
+            this.Current.SetListener(
                 sa.Listen(
                     target: this.@out.Node,
                     trans: trans,
