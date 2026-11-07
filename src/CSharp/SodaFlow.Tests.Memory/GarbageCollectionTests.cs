@@ -242,6 +242,59 @@ public sealed class GarbageCollectionTests
             .Because("every operator output a caller holds should still fire after a collection and a sweep");
     }
 
+    // The sweep reads a registered node's first attached listener out of any lock. Before, the node
+    // registered before it stored that listener. A sweep in that window found no listener and no
+    // handle, and read the stream as dead. Its release then stopped the listener that the attach
+    // stored after that: the link of a live stream. A sweeper thread here runs the sweep without
+    // pause while the test builds chains, and each chain must fire.
+    [Test]
+    public async Task AStreamBuiltWhileTheSweepRunsKeepsItsLinks()
+    {
+        StrongBox<bool> stop = new(false);
+
+        Thread sweeper =
+            new(() =>
+            {
+                while (!Volatile.Read(ref stop.Value))
+                {
+                    StreamListenerManager.Sweep();
+                }
+            }) { IsBackground = true, Name = "sweeper" };
+
+        sweeper.Start();
+        List<int> seen = [];
+
+        for (int round = 0; round < 300; round++)
+        {
+            StreamSink<int> s = Stream.CreateSink<int>();
+
+            Stream<int> tail =
+                Transaction.Run(() =>
+                {
+                    Stream<int> chain = s;
+
+                    for (int i = 0; i < 100; i++)
+                    {
+                        chain = chain.Map(static v => v + 1);
+                    }
+
+                    return chain;
+                });
+
+            using (tail.ListenStrong(seen.Add))
+            {
+                s.Send(round);
+            }
+        }
+
+        Volatile.Write(location: ref stop.Value, value: true);
+        sweeper.Join();
+
+        await Assert.That(seen.Count)
+            .IsEqualTo(300)
+            .Because("a chain built while the sweep runs must keep every link");
+    }
+
     [Test]
     public async Task ListenOnceIsCollectedOnceDropped()
     {
