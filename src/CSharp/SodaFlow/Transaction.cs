@@ -114,6 +114,12 @@ public static class Transaction
     ///     TaskCompletionSource, or a callback of a different library, is such code.
     ///     Use <see cref="Post(Action,Action{Exception})" /> for that action, and
     ///     release the waiting code there.
+    ///     <para>
+    ///         Each posted action runs in a transaction of its own, after the
+    ///         transaction that posts it commits. An action that throws does not stop
+    ///         the posted actions after it. Each throw comes out after the last posted
+    ///         action, in one AggregateException when there is more than one.
+    ///     </para>
     /// </remarks>
     /// <param name="action">
     ///     The action to run after the current transaction closes or immediately if
@@ -145,6 +151,12 @@ public static class Transaction
     ///         A throw from <paramref name="onFailure" /> does not replace the
     ///         exception that caused it. The caller gets an AggregateException with
     ///         that exception first, and the throw from the release after it.
+    ///     </para>
+    ///     <para>
+    ///         Each posted action runs in a transaction of its own, after the
+    ///         transaction that posts it commits. An action that throws does not stop
+    ///         the posted actions after it. Each throw comes out after the last posted
+    ///         action, in one AggregateException when there is more than one.
     ///     </para>
     /// </remarks>
     /// <param name="action">
