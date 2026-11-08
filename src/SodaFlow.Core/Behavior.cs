@@ -27,11 +27,14 @@ internal static class BehaviorInternal
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
 public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISampleAction
 {
-    // A constant behavior has no stream until a caller asks for its updates. Most constants
-    // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
-    // does. The field is volatile for the same cause: a reader must not see the reference
-    // before the state of the stream. See the comment on that field.
+    // A constant behavior and a derived behavior have no stream until a caller asks for the
+    // updates. Most of them are only sampled or lifted. Updates makes the stream in the
+    // transaction, as Cell.updates does. The field is volatile for the same cause: a reader must
+    // not see the reference before the state of the stream. See the comment on that field.
     private volatile Stream<T>? stream;
+
+    // The map or the lift that gives a derived behavior its values. See IDerivation.
+    private readonly IDerivation<T>? derivation;
 
     private T valueProperty;
     private MaybeInternal<T> valueUpdate;
@@ -40,6 +43,14 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     // unnecessary. See EnsureValueIsCreated. A lazy cell and a lazy behavior use it, thus it is
     // here and not in a subclass. A cell is a behavior, thus one subclass cannot be the two.
     private LazySample<T>? lazyInitialValue;
+
+    // True until a commit after the derivation gave the initial value. This is the flag of a
+    // derived behavior where lazyInitialValue is the sample of a hold.
+    private bool derivedInitialValuePending;
+
+    // True while the derivation computes the initial value. A second force in that time is a
+    // value that reads itself, as a lazy sample reports.
+    private bool forcingDerivedInitialValue;
 
     internal Behavior(T value) => this.valueProperty = value;
 
@@ -62,6 +73,20 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         : this(stream: stream, initialValue: default!)
     {
         this.lazyInitialValue = lazyInitialValue;
+
+        trans.Sample(this);
+    }
+
+    // A derived behavior. As for a lazy hold, the sample phase of this transaction forces the
+    // initial value, and so does a read that comes first.
+    internal Behavior(TransactionInternal trans, IDerivation<T> derivation)
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed - EnsureValueIsCreated replaces the value before a read.
+        this.valueProperty = default!;
+        this.UsingInitialValue = true;
+        this.derivedInitialValuePending = true;
+        this.derivation = derivation;
+        derivation.Bind(this);
 
         trans.Sample(this);
     }
@@ -93,7 +118,20 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         this.valueUpdate = MaybeInternal.Some(a);
     }
 
-    internal IKeepListenersAlive KeepListenersAlive => this.Updates().KeepListenersAlive;
+    // A derived behavior gives the set of its derivation, and does not make its stream for that.
+    internal IKeepListenersAlive KeepListenersAlive =>
+        this.derivation?.KeepListenersAlive ?? this.Updates().KeepListenersAlive;
+
+    // A derived behavior follows the stream of its updates after a caller asks for it, as a hold
+    // follows its stream. See DerivedCore.
+    internal void Follow(TransactionInternal trans, Stream<T> updates) =>
+        updates.Listen(target: Node<T>.Null, trans: trans, action: this, suppressEarlierFirings: false);
+
+    // The update of a derived behavior arrives on the null rank, after all the ranked entries. The
+    // firing of a held stream arrived there through the link of the hold. Thus, a lift or a
+    // snapshot that reads this behavior in the drain reads the value from before the transaction.
+    internal void QueueUpdate(TransactionInternal trans, T value) =>
+        trans.Prioritized(new UpdateEntry(behavior: this, value: value));
 
     /// <summary>
     ///     Gets or sets the value this behavior reports when sampled not in a
@@ -153,6 +191,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     {
         this.ApplyValueUpdate();
         this.lazyInitialValue = null;
+        this.derivedInitialValuePending = false;
     }
 
     // The lazy initial value stays, thus the next read forces it again. A behavior that released
@@ -161,7 +200,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     {
         this.DiscardValueUpdate();
 
-        if (this.lazyInitialValue != null)
+        if (this.lazyInitialValue != null || this.derivedInitialValuePending)
         {
             this.UsingInitialValue = true;
         }
@@ -225,7 +264,14 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     // The next read then forces the sample again and gets the committed value.
     private void EnsureValueIsCreated()
     {
-        if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
+        if (!this.UsingInitialValue)
+        {
+            return;
+        }
+
+        LazySample<T>? sample = this.lazyInitialValue;
+
+        if (sample == null && !this.derivedInitialValuePending)
         {
             return;
         }
@@ -238,7 +284,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
 
         try
         {
-            this.ValueProperty = sample.Force(trans);
+            this.ValueProperty = sample != null ? sample.Force(trans) : this.ForceDerivedInitialValue();
         }
         finally
         {
@@ -246,6 +292,26 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         }
 
         trans.Last(this);
+    }
+
+    private T ForceDerivedInitialValue()
+    {
+        if (this.forcingDerivedInitialValue)
+        {
+            throw new InvalidOperationException(LazySample<T>.SelfReference);
+        }
+
+        this.forcingDerivedInitialValue = true;
+
+        try
+        {
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Only the constructor that sets the derivation sets the flag.
+            return this.derivation!.Initial();
+        }
+        finally
+        {
+            this.forcingDerivedInitialValue = false;
+        }
     }
 
     void ISampleAction.Sample(TransactionInternal trans) => this.EnsureValueIsCreated();
@@ -257,10 +323,10 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     internal Stream<T> Updates() =>
         this.stream
         ?? TransactionInternal.Apply(
-            code: static (_, _, behavior) =>
+            code: static (trans, _, behavior) =>
                 // ReSharper disable once NonAtomicCompoundOperator - This is fine since the stream field is only
                 // set within a Transaction.
-                behavior.stream ??= new Stream<T>(),
+                behavior.stream ??= behavior.derivation?.CreateUpdates(trans) ?? new Stream<T>(),
             state: this);
 
     /// <summary>
@@ -286,9 +352,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
             state: (Self: this, F: f));
 
     private Behavior<TResult> Map<TResult>(TransactionInternal trans, Func<T, TResult> f) =>
-        this.Updates()
-            .MapImpl(f)
-            .HoldLazyInternal(trans: trans, initialValue: this.SampleLazyMapped(trans: trans, f: f));
+        new(trans: trans, derivation: MapDerivation<T, TResult>.Create(trans: trans, source: this, f: f));
 
     // Lift no longer uses Apply. One call to ApplyImpl for each additional input made each
     // input pay for a Value(), which is a spark stream, a snapshot, a merge, and a coalesce
@@ -515,6 +579,16 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     // its own: six nodes where the lift has one.
     internal Behavior<TResult> ApplyImpl<TResult>(Behavior<Func<T, TResult>> bf) =>
         bf.LiftImpl(b2: this, f: static (function, value) => function(value));
+
+    // The update of a derived behavior on the null rank. See QueueUpdate.
+    private sealed class UpdateEntry(in Behavior<T> behavior, in T value) : TransactionInternal.Entry(Node<T>.Null)
+    {
+        private readonly Behavior<T> behavior = behavior;
+        private readonly T value = value;
+
+        public override void Execute(TransactionInternal trans) =>
+            this.behavior.OnFiring(trans2: trans, a: this.value);
+    }
 
     private sealed class ValueStream(in TransactionInternal trans, in Behavior<T> source, in Stream<T> @out)
         : ValueListener<T>(trans: trans, source: source, target: @out.Node)

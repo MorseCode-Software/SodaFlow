@@ -3,10 +3,10 @@
 namespace SodaFlow;
 
 /// <summary>
-///     The output of a lift while its inputs link into it. It holds the output
-///     stream, and it is the gate through which each input sends. A subclass for
-///     each arity holds the inputs and the function, and gives the step that puts
-///     the inputs together and the initial value.
+///     The derivation of a lift. It is the gate through which each input sends,
+///     and it gives each value to the lifted behavior. A subclass for each arity
+///     holds the inputs and the function, and gives the step that puts the inputs
+///     together and the initial value.
 /// </summary>
 /// <remarks>
 ///     The gate makes one firing for a transaction that updates more than one
@@ -16,45 +16,71 @@ namespace SodaFlow;
 ///     initial value, and a factory of the listeners as three delegates, and the
 ///     factory made an array. Then this object took the step as a closure, and the
 ///     hold took the initial value as a second closure. Now the subclass gives the
-///     two as methods, and it is the source of the lazy sample that the hold
-///     starts from. Thus, a lift has no closure and no delegate of its own.
+///     two as methods. Thus, a lift has no closure and no delegate of its own. The
+///     lift also had an output stream and a hold of it. The lifted behavior now
+///     makes its stream only when a caller asks for the updates. See
+///     <see cref="IDerivation{T}" />.
 /// </remarks>
 /// <typeparam name="TResult">The type of the lifted value.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal abstract class LiftOutput<TResult> : OnceGate, ISampleSource<TResult>
+internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>
 {
-    private readonly Stream<TResult> @out;
+    private DerivedCore<TResult> core;
+
+    // The capture of the first input. It holds this gate, thus a stream of the updates that holds it
+    // keeps the lift alive. See DerivedCore.CreateUpdates.
+    private IListenerInternal? firstCapture;
 
     private protected LiftOutput(IKeepListenersAlive keepListenersAlive) =>
-        this.@out = new Stream<TResult>(keepListenersAlive);
+        this.core = new DerivedCore<TResult>(keepListenersAlive);
 
-    internal override Node Node => this.@out.Node;
+    internal override Node Node => this.core.Node;
 
-    /// <summary>Gives the initial value from the current values of the inputs.</summary>
-    TResult ISampleSource<TResult>.Read() => this.Initial();
+    /// <inheritdoc />
+    public IKeepListenersAlive KeepListenersAlive => this.core.KeepListenersAlive;
 
-    /// <summary>Links one input into the output through the gate.</summary>
+    /// <summary>
+    ///     Links one input into the node of the lift through the gate. The gate
+    ///     holds the capture.
+    /// </summary>
     private protected void Capture<TInput>(
         Behavior<TInput> input,
         TransactionInternal trans,
-        InputCapture<TInput> capture) =>
-        this.@out.UnsafeAttachListener(
-            StreamInternal.Capture(input: input.Updates(), gate: this, trans: trans, capture: capture));
+        InputCapture<TInput> capture)
+    {
+        IListenerInternal listener =
+            StreamInternal.Capture(input: input.Updates(), gate: this, trans: trans, capture: capture);
 
-    /// <summary>Holds the output, with an initial value that the first sample computes.</summary>
-    internal Behavior<TResult> Hold(TransactionInternal trans) =>
-        this.@out.HoldLazyInternal(trans: trans, initialValue: new LazySample<TResult>(source: this));
+        this.firstCapture ??= listener;
 
-    /// <summary>Holds the output in a cell, as <see cref="Hold" /> does in a behavior.</summary>
-    internal Cell<TResult> HoldCell(TransactionInternal trans) =>
-        this.@out.HoldLazyCellInternal(trans: trans, initialValue: new LazySample<TResult>(source: this));
+        // The registry stops the links when no behavior and no stream holds this lift. The weak view
+        // of a capture is its target, thus the registry needs no handle.
+        this.core.Node.Attach(stream: this, listener: listener.GetListenerWithWeakReference());
+    }
+
+    /// <summary>Makes the lifted behavior.</summary>
+    internal Behavior<TResult> Hold(TransactionInternal trans) => new(trans: trans, derivation: this);
+
+    /// <summary>Makes the lifted cell, as <see cref="Hold" /> makes the behavior.</summary>
+    internal Cell<TResult> HoldCell(TransactionInternal trans) => new(trans: trans, derivation: this);
+
+    /// <inheritdoc />
+    public void Bind(Behavior<TResult> behavior) => this.core.Bind(behavior);
+
+    /// <inheritdoc />
+    TResult IDerivation<TResult>.Initial() => this.Initial();
+
+    /// <inheritdoc />
+    public Stream<TResult> CreateUpdates(TransactionInternal trans) =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Create captures each input before it gives the lift to a caller.
+        this.core.CreateUpdates(trans: trans, retained: this.firstCapture!);
 
     private protected abstract TResult Recombine(TransactionInternal trans);
 
     private protected abstract TResult Initial();
 
     private protected override void Run(TransactionInternal trans) =>
-        this.@out.Send(trans: trans, a: this.Recombine(trans));
+        this.core.Arrive(trans: trans, value: this.Recombine(trans));
 }
 
 /// <inheritdoc />

@@ -65,6 +65,11 @@ public class Cell<T> : Behavior<T>
     {
     }
 
+    internal Cell(TransactionInternal trans, IDerivation<T> derivation)
+        : base(trans: trans, derivation: derivation)
+    {
+    }
+
     // SodaFlow creates this in the transaction, thus the test and the set are safe while they
     // hold no lock of their own. The library runs one transaction at a time across the process,
     // thus only one thread can be here. See the remarks on SodaFlow.Transaction.
@@ -98,11 +103,9 @@ public class Cell<T> : Behavior<T>
     internal new Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
-                state.Self.Updates()
-                    .MapImpl(state.F)
-                    .HoldLazyCellInternal(
-                        trans: trans,
-                        initialValue: state.Self.SampleLazyMapped(trans: trans, f: state.F)),
+                new Cell<TResult>(
+                    trans: trans,
+                    derivation: MapDerivation<T, TResult>.Create(trans: trans, source: state.Self, f: state.F)),
             state: (Self: this, F: f));
 
     internal Cell<TResult> LiftImpl<T2, TResult>(
