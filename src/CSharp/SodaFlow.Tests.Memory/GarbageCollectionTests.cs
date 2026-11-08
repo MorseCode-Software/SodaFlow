@@ -268,7 +268,19 @@ public sealed class GarbageCollectionTests
         await Assert.That(map.IsAlive).IsFalse().Because("the map should have been collected");
         await Assert.That(lift.IsAlive).IsFalse().Because("the lift should have been collected");
 
-        await Assert.That(source.GetListenersCopy().Count)
+        // Each collection also wakes the cleanup thread. That thread can take the collected
+        // entries from the registry before this sweep does, and stop their links a short time
+        // later. Thus, the count can stay high for a short time after this sweep returns.
+        int count = source.GetListenersCopy().Count;
+
+        for (int attempt = 0; attempt < 100 && count != before; attempt++)
+        {
+            await Task.Delay(millisecondsDelay: 10, cancellationToken: CancellationToken.None);
+            StreamListenerManager.Sweep();
+            count = source.GetListenersCopy().Count;
+        }
+
+        await Assert.That(count)
             .IsEqualTo(before)
             .Because("the sweep should stop the links of a collected map and lift");
     }
@@ -598,6 +610,38 @@ public sealed class GarbageCollectionTests
             .Because("no root should hold a listener after Unlisten, however many roots the lift has");
     }
 
+    [Test]
+    public async Task AStrongListenerInALoopThroughASwitchOutlivesTheLoop()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+        List<int> @out = [];
+
+        CreateLoopThroughASwitch(kept: kept, @out: @out);
+
+        Collect();
+        @out.Clear();
+        kept.Send(1);
+        kept.Send(2);
+
+        await Assert.That(@out)
+            .IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching)
+            .Because("the sink should hold the listener when nothing holds the loop that the switches go through");
+    }
+
+    [Test]
+    public async Task UnlistenInALoopThroughASwitchReleasesTheListener()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+
+        WeakReference listener = CreateLoopThroughASwitchAndUnlisten(kept);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("no root should hold a listener after Unlisten, when the keep-alive set of a switch reaches itself");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -754,6 +798,35 @@ public sealed class GarbageCollectionTests
         return new WeakReference(listener);
     }
 
+    // An object that switches onto a stream from its own output, and a second switch whose outer
+    // depends on that loop. The keep-alive set of each switch reaches itself through the loop.
+    private static Cell<int> LoopThroughASwitch(Stream<int> kept) =>
+        Transaction.Run(() =>
+            ForwardReference<Looped>.WithoutCaptures(reference =>
+            {
+                Stream<int> fromLoop = reference.Map(static l => l.Output).SwitchS();
+                Cell<int> total = fromLoop.OrElse(kept).Accum(initialState: 0, f: static (x, sum) => sum + x);
+                Stream<int> output = total.Map(_ => kept).SwitchS();
+                return new Looped(output: output.Filter(static x => x < 0), total: total);
+            })).Total;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CreateLoopThroughASwitch(Stream<int> kept, ICollection<int> @out) =>
+        LoopThroughASwitch(kept).ListenStrong(@out.Add);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateLoopThroughASwitchAndUnlisten(Stream<int> kept)
+    {
+        IStrongListener listener =
+            LoopThroughASwitch(kept)
+                .ListenStrong(static _ =>
+                {
+                });
+
+        listener.Unlisten();
+        return new WeakReference(listener);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateLiftListenerAndUnlisten(Cell<int> first, Cell<int> second)
     {
@@ -806,5 +879,12 @@ public sealed class GarbageCollectionTests
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+    }
+
+    private sealed class Looped(Stream<int> output, Cell<int> total)
+    {
+        public Stream<int> Output { get; } = output;
+
+        public Cell<int> Total { get; } = total;
     }
 }
