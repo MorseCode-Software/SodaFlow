@@ -35,6 +35,17 @@ You supply the source stream, two sinks (one for successes, one for failures), t
 itself, and a concurrency strategy. Successful values arrive on `results` in completion order;
 every exception arrives on `errors`. Nothing throws into the transaction.
 
+A listener can still throw while the pipeline delivers an outcome: one on `results`, on `errors`,
+or on `Items`. Delivering an outcome is a single transaction, so it fails as a whole: a listener
+that ran before the throw has seen the outcome, but no cell keeps it, and the item stays in the
+queue. The pipeline then ends the item again without delivering anything, which cancels its
+`Execute` task if it has one and lets the next item start. After that it sends a
+`MapAsyncDeliveryException` on `errors`, in a transaction of its own, with the listener's
+exception as its `InnerException`. An operation's own failure never arrives wrapped, so a handler
+can tell the two apart. If a listener on `errors` throws on that report as well, the pipeline
+still carries on, and the exception surfaces as an unobserved task exception, or from the
+transaction the operation finished in.
+
 The operation gets three arguments, not two: the input, a factory for its answer, and a
 cancellation token. `factory.FromValue(value)` is the answer when you have a plain value, which
 is most of the time. The other answer, `factory.Construct(() => ...)`, is for a result that
@@ -133,6 +144,14 @@ the pipeline already has one in the right order. `Queue` starts an item when not
 and, when items end, starts the first item still `Queued` — but only if nothing is `Running`,
 since a cancellation can end queued items while another is still going. `QueuePerGroup` does the
 same test per group, once for each group an end leaves free.
+
+A strategy also has to cope with hearing about the same end twice. When a listener throws while
+the pipeline delivers an outcome, the transaction that called `OnCompleted` or `OnCanceled` fails,
+and the pipeline calls it again for the same item in a new transaction, publishing nothing from
+that second call. The first call's decision went with the failed transaction, but whatever it
+changed in your state did not. The built-in strategies decide from the queue and give the right
+answer the second time. A strategy that counts ends in its state should not assume each item
+arrives once.
 
 ## Cancellation and status
 
@@ -233,8 +252,9 @@ difference between it and a value that arrived on the source stream. The result 
 one and the strategy publishes it; it carries the operation's exception when it throws and the
 strategy publishes that, and `errors` gets the same exception; and it is canceled when a
 cancellation stops the value, when the strategy refuses it, when the strategy declines to publish
-the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
-result any more, which is a cancellation that arrived late, so the task treats it as one.
+the outcome, when a listener throws while the pipeline delivers the outcome, or when the pipeline
+was already disposed. Declining to publish means nobody wants the result any more, which is a
+cancellation that arrived late, so the task treats it as one.
 
 One thing can leave it pending, and it is outside the position `Execute` is for: a custom strategy
 that parks a value in the queue forever without cancelling it. Nothing ends such an item, so nothing

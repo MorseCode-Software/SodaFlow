@@ -10,6 +10,9 @@ of each:
   that needs a transaction no longer deadlocks.
 - Canceling many items at once, with cancelAll or cancelMatching, no longer takes time that grows with the square of
   their number.
+- A listener that throws while the pipeline delivers an outcome no longer loses the result silently, blames the
+  operation, or stops the pipeline. The item ends without delivering anything, its Execute task is canceled, and
+  errors gets a MapAsyncDeliveryException that wraps the listener's exception.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.

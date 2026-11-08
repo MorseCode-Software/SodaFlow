@@ -1,7 +1,8 @@
 6.0.0
 
-Requires SodaFlow.Core 6.x, which ships in the same release. Nothing in this package's API changes, but a consumer
-that moves to this version moves to that SodaFlow.Core, whose SampleLazy and HoldLazy changed shape.
+Requires SodaFlow.Core 6.x, which ships in the same release. This package's API adds one type,
+MapAsyncDeliveryException, described below, and a consumer that moves to this version moves to that SodaFlow.Core, whose
+SampleLazy and HoldLazy changed shape.
 
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
@@ -25,6 +26,26 @@ for each. A cancelAll or cancelMatching on a long queue ends every item in it to
 more than a few items now builds one dictionary or set and looks each item up in it, and a search for a few still reads
 the queue directly and allocates nothing, so the same cancellation takes 271 us and 543 us. AsyncQueueBenchmarks in
 SodaFlow.Benchmarks measures it. Item ids are still Guids, so nothing about AsyncQueuedItem changes.
+
+Fixed: a listener that threw while the pipeline delivered an outcome could lose the result, blame the operation, and
+stop the pipeline. A delivery is one transaction that sends the result or the error and edits the queue, but it also
+completed the Execute task and disposed the item's cancellation source, and a listener that threw failed the transaction
+without undoing either. The throw then reached the code that ran the operation, which took it for the operation's own
+failure: it ended the item a second time and sent the listener's exception on errors. If a listener on errors threw as
+well, the exception went unobserved, the item stayed Running for good, a Queue strategy never started the next item, and
+Dispose threw ObjectDisposedException, because it canceled a source that the failed delivery had already disposed. The
+task and the source now change only when the delivery commits. A delivery that fails runs again without delivering
+anything, so the item ends, its Execute task is canceled, and the next item can start. The listener's exception then
+goes out on errors in a transaction of its own, wrapped in the new MapAsyncDeliveryException, so a handler can tell it
+from an operation's failure. If that second attempt or that report throws too, both exceptions come out together in an
+AggregateException, as an unobserved task exception or from the transaction the operation ended in. An operation that
+ends inside a transaction now has its outcome delivered once that transaction releases the transaction lock, rather than
+among its posted actions, so a failed delivery no longer comes out of that transaction.
+
+A custom strategy can now be called twice for the same end, OnCompleted or OnCanceled: once in the delivery that failed
+and once when it runs again, whose publish decision is ignored. The first call's decision is discarded with its
+transaction, but any change it made to the strategy's state stays. The built-in strategies decide from the queue and
+give the right answer on the second call.
 
 5.0.1
 
