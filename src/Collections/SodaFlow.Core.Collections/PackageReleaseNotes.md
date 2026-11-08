@@ -139,6 +139,15 @@ cell for each of its keys, .NET 10: at 1,000 keys 2,124 to 1,809 KB and 2.58 to 
 and 52.0 to 45.0 ms, and through a filter view at 1,000 keys 2,426 to 2,114 KB. On .NET Framework 4.7.2 the 10,000 keys
 take 70.8 ms before and 61.7 ms after.
 
+A view stage is two nodes smaller, and a change crosses two fewer nodes on its way through it. The keys that a stage
+gives to other code, and the changes that it fires, each came from a filter and a map: two streams, each with its own
+node and link. Each is now one node that tests and maps in one step, and the change stream tests a result before it
+builds the change, so a result that is dropped builds nothing. The shape cell of a view, built at its first read, and
+the shape cell of the collection itself take the same single node. Measured on .NET 10, one run on each side: a filter
+view of a ten-item collection 8.8 to 8.1 KB and 35.0 to 31.4 µs to build; through a filter, a sort, and a take chained
+on 1,000 items, an edit 7.25 to 6.90 µs and 13.3 to 12.7 KB, an edit that the filter excludes 3.14 to 2.99 µs, and an
+add and a remove 23.1 to 20.7 µs and 38.6 to 37.2 KB.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
