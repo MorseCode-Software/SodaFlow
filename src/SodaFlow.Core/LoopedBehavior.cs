@@ -14,8 +14,6 @@ public class LoopedBehavior<T> : Behavior<T>
 {
     private readonly LoopedStream<T> streamLoop;
 
-    private LazySample<T>? lazyInitialValue;
-
     internal LoopedBehavior()
         : this(new LoopedStream<T>())
     {
@@ -23,60 +21,19 @@ public class LoopedBehavior<T> : Behavior<T>
 
     private LoopedBehavior(LoopedStream<T> streamLoop)
         // ReSharper disable once NullableWarningSuppressionIsUsed - initialValue is assigned to valueProperty on
-        // the base class. Only SampleNoTransaction() reads that value, and this class overrides
-        // that method to make sure that the value is set before the return.
+        // the base class. Only SampleNoTransaction() reads that value, and the base replaces it
+        // with the lazy initial value of the loop before the return.
         : base(stream: streamLoop, initialValue: default!) =>
         this.streamLoop = streamLoop;
 
     internal void Loop(TransactionInternal trans, Behavior<T> b)
     {
         this.streamLoop.Loop(trans: trans, stream: b.Updates());
-        this.lazyInitialValue = b.SampleLazy(trans);
+        this.SetLazyInitialValue(b.SampleLazy(trans));
     }
 
-    internal override T SampleNoTransaction()
-    {
-        if (!this.streamLoop.IsAssigned)
-        {
-            throw new InvalidOperationException("LoopedBehavior was sampled before it was looped.");
-        }
-
-        this.EnsureValueIsCreated();
-
-        return this.ValueProperty;
-    }
-
-    // The transaction that forces the sample can fail after that, and the value then came from a
-    // sample that the failure forgets. Thus, the force queues this behavior as a last action. Its
-    // commit releases the sample, which the behavior does not need after a value. Its discard
-    // makes the behavior use its initial value again, so the next read forces the sample again.
-    private void EnsureValueIsCreated()
-    {
-        if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
-        {
-            return;
-        }
-
-        // Each caller runs in a transaction: a read through SampleImpl, or a sample phase.
-        TransactionInternal trans = TransactionInternal.CurrentTransaction();
-
-        this.ValueProperty = sample.Force(trans);
-        trans.Last(this);
-    }
-
-    private protected override void CommitLast()
-    {
-        base.CommitLast();
-        this.lazyInitialValue = null;
-    }
-
-    private protected override void DiscardLast()
-    {
-        base.DiscardLast();
-
-        if (this.lazyInitialValue != null)
-        {
-            this.UseInitialValueAgain();
-        }
-    }
+    internal override T SampleNoTransaction() =>
+        this.streamLoop.IsAssigned
+            ? base.SampleNoTransaction()
+            : throw new InvalidOperationException("LoopedBehavior was sampled before it was looped.");
 }

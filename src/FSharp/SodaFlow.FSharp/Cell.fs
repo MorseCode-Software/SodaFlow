@@ -139,11 +139,11 @@ let values (cell: Cell<_>) = cell.ValuesImpl
 /// <param name="cell">The cell to view.</param>
 /// <returns>The same value, seen as a behavior, without the stream of its changes.</returns>
 /// <remarks>
-///     This creates nothing and changes nothing. A cell is a behavior with updates attached. Use
+///     This creates nothing and changes nothing. A cell is a behavior, and this is an upcast. Use
 ///     this to give a cell to code that takes a <c>Behavior</c>.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let asBehavior (cell: Cell<_>) = cell.BehaviorImpl
+let asBehavior (cell: Cell<_>) = cell :> Behavior<_>
 
 /// <summary>
 ///     Listens for changes without keeping the cell alive.
@@ -433,8 +433,8 @@ let liftAll f (cells: seq<'Cell>) =
 /// <param name="cell">The cell holding a behavior.</param>
 /// <returns>A behavior whose value is the current value of the currently held behavior.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchB cell =
-    CellExtensionMethodsInternal.SwitchBImpl cell
+let switchB (cell: Cell<'a>) : Behavior<'b> =
+    BehaviorExtensionMethodsInternal.SwitchBImpl<'b, 'a> cell
 
 /// <summary>
 ///     Unwraps a cell of cells into a cell which follows whichever one is current.
@@ -446,8 +446,8 @@ let switchB cell =
 ///     cell to follow.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchC cell =
-    CellExtensionMethodsInternal.SwitchCImpl cell
+let switchC (cell: Cell<'a>) : Cell<'b> =
+    BehaviorExtensionMethodsInternal.SwitchCImpl<'b, 'a> cell
 
 /// <summary>
 ///     Unwraps a cell of streams into a stream which fires whatever the current one fires.
@@ -459,5 +459,5 @@ let switchC cell =
 ///     the start of that transaction. It does not use the firing from the new stream.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let switchS cell =
-    CellExtensionMethodsInternal.SwitchSImpl cell
+let switchS (cell: Cell<'a>) : Stream<'b> =
+    BehaviorExtensionMethodsInternal.SwitchSImpl<'b, 'a> cell

@@ -100,7 +100,7 @@ is already the new one.
 | `c.Values()` | `valuesC c` | Changes, **plus** one firing in the transaction it was obtained in. |
 | `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. Does **not** keep the graph alive. |
 | `c.ListenStrong(handler)` | `listenStrongC handler c` | As above, and keeps the graph alive. |
-| `c.AsBehavior()` | `asBehaviorC c` | View this cell as a behavior. |
+| `c.AsBehavior()` | `asBehaviorC c` | View this cell as a behavior. A cell already is one, so this is an upcast. |
 | `cc.SwitchC()` | `switchC cc` | Flatten `Cell<Cell<T>>`. See [Switch](switch.md). |
 | `cs.SwitchS()` | `switchS cs` | Flatten `Cell<Stream<T>>`. |
 | `cb.SwitchB()` | `switchB cb` | Flatten `Cell<Behavior<T>>`. |
@@ -141,8 +141,11 @@ steps that are meant to be invisible.
 When you genuinely need those steps, `Operational.Updates(b)` and `Operational.Value(b)` will
 hand them over, with the caveats below.
 
-Going the other way, `c.AsBehavior()` converts a cell to a behavior freely, because that
-direction discards information rather than inventing it.
+Going the other way needs no conversion at all: `Cell<T>` derives from `Behavior<T>`, so a cell
+goes anywhere a behavior is expected, and every operation in the table above accepts one. That
+direction discards information rather than inventing it. A lift that mixes cells and behaviors
+gives a behavior, and so does a behavior operation applied to a cell — the result is not a cell,
+so a cast cannot recover steps that its type says are invisible.
 
 ## Transactions
 

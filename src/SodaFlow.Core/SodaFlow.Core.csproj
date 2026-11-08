@@ -51,7 +51,6 @@
         <Compile Include="InputCapture.cs"/>
         <Compile Include="ITimerSystemImplementationInternal.cs"/>
         <Compile Include="KeepListenersAlive.cs"/>
-        <Compile Include="LazyBehavior.cs"/>
         <Compile Include="LazySample.cs"/>
         <Compile Include="LiftOutput.cs"/>
         <Compile Include="Listener.cs"/>

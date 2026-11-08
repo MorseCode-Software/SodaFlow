@@ -25,7 +25,7 @@ internal static class BehaviorInternal
 /// <typeparam name="T">The type of values in the behavior.</typeparam>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself, and the interface is internal.
-public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
+public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISampleAction
 {
     // A constant behavior has no stream until a caller asks for its updates. Most constants
     // are only sampled or lifted. Updates makes the stream in the transaction, as Cell.updates
@@ -35,6 +35,11 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
 
     private T valueProperty;
     private MaybeInternal<T> valueUpdate;
+
+    // The initial value of a hold whose initial value is a LazySample, until a commit makes it
+    // unnecessary. See EnsureValueIsCreated. A lazy cell and a lazy behavior use it, thus it is
+    // here and not in a subclass. A cell is a behavior, thus one subclass cannot be the two.
+    private LazySample<T>? lazyInitialValue;
 
     internal Behavior(T value) => this.valueProperty = value;
 
@@ -48,6 +53,17 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         // this transaction made in this transaction. Thus, the action below can run before the constructor
         // returns.
         TransactionInternal.Apply(code: static (trans1, _, behavior) => behavior.ListenToStream(trans1), state: this);
+    }
+
+    // The sample phase of this transaction forces the initial value, and so does a read that
+    // comes first.
+    internal Behavior(TransactionInternal trans, Stream<T> stream, LazySample<T> lazyInitialValue)
+        // ReSharper disable once NullableWarningSuppressionIsUsed - EnsureValueIsCreated replaces the value before a read.
+        : this(stream: stream, initialValue: default!)
+    {
+        this.lazyInitialValue = lazyInitialValue;
+
+        trans.Sample(this);
     }
 
     // The behavior is the action of its link. The node holds it through the weak reference of
@@ -86,11 +102,11 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
     /// <value>The current value of the behavior.</value>
     /// <remarks>
     ///     A set of this property clears <see cref="UsingInitialValue" />, because a
-    ///     behavior with a new value does not use the value from its construction. A
-    ///     derived type must write through this property and not through the backing
-    ///     field, to keep that flag correct.
+    ///     behavior with a new value does not use the value from its construction.
+    ///     Write through this property and not through the backing field, to keep
+    ///     that flag correct.
     /// </remarks>
-    protected T ValueProperty
+    private T ValueProperty
     {
         get => this.valueProperty;
         set
@@ -108,7 +124,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
     ///     <see langword="true" /> until <see cref="ValueProperty" /> is assigned, and
     ///     <see langword="false" /> afterward.
     /// </value>
-    protected bool UsingInitialValue { get; private set; }
+    private bool UsingInitialValue { get; set; }
 
     private void ApplyValueUpdate()
     {
@@ -130,21 +146,32 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
 
     void ILastAction.Discard() => this.DiscardLast();
 
-    private protected virtual void CommitLast() => this.ApplyValueUpdate();
+    // The commit also releases the lazy initial value, which the behavior does not need after a
+    // value. A transaction that forced the sample and also updated the behavior queued it two
+    // times, and the second run finds nothing to do.
+    private void CommitLast()
+    {
+        this.ApplyValueUpdate();
+        this.lazyInitialValue = null;
+    }
 
-    private protected virtual void DiscardLast() => this.DiscardValueUpdate();
+    // The lazy initial value stays, thus the next read forces it again. A behavior that released
+    // it in an earlier transaction has a value, and keeps it.
+    private void DiscardLast()
+    {
+        this.DiscardValueUpdate();
+
+        if (this.lazyInitialValue != null)
+        {
+            this.UsingInitialValue = true;
+        }
+    }
 
     // The value at the end of this transaction: the pending update when the behavior got one,
     // and the current value when it did not. A lazy sample reads this in the sample phase.
     T ISampleSource<T>.Read() => this.PendingOrCurrent();
 
     internal T PendingOrCurrent() => this.valueUpdate.TryGetValue(out T v) ? v : this.SampleNoTransaction();
-
-    /// <summary>
-    ///     Makes this behavior use its initial value again. A transaction that set
-    ///     the value from a lazy sample failed, thus the value is not correct.
-    /// </summary>
-    protected void UseInitialValueAgain() => this.UsingInitialValue = true;
 
     // A static lambda with the behavior as the state. A lambda that captured this allocated a
     // delegate for each sample made when no transaction was open, such as a two-way value's refresh.
@@ -182,7 +209,46 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         return s;
     }
 
-    internal virtual T SampleNoTransaction() => this.ValueProperty;
+    internal virtual T SampleNoTransaction()
+    {
+        this.EnsureValueIsCreated();
+
+        return this.ValueProperty;
+    }
+
+    // A looped behavior gets its lazy initial value when the loop closes, and not when it is built.
+    private protected void SetLazyInitialValue(LazySample<T> sample) => this.lazyInitialValue = sample;
+
+    // The transaction that forces the sample can fail after that, and the value then came from a
+    // sample that the failure forgets. Thus, the force queues this behavior as a last action. Its
+    // commit releases the sample, and its discard makes the behavior use its initial value again.
+    // The next read then forces the sample again and gets the committed value.
+    private void EnsureValueIsCreated()
+    {
+        if (!this.UsingInitialValue || this.lazyInitialValue is not { } sample)
+        {
+            return;
+        }
+
+        // Each caller runs in a transaction: the sample phase, or a read through SampleImpl.
+        TransactionInternal trans = TransactionInternal.CurrentTransaction();
+
+        // A transaction must not change the internal parts of SodaFlow.
+        trans.InCallback++;
+
+        try
+        {
+            this.ValueProperty = sample.Force(trans);
+        }
+        finally
+        {
+            trans.InCallback--;
+        }
+
+        trans.Last(this);
+    }
+
+    void ISampleAction.Sample(TransactionInternal trans) => this.EnsureValueIsCreated();
 
     // A constant makes its never stream here, at the first ask. SodaFlow creates it in the
     // transaction. Thus, the test and the set are safe while they hold no lock of their own.
@@ -247,7 +313,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
             state: (Self: this, B2: b2, F: f));
 
     private Behavior<TResult> Lift<T2, TResult>(TransactionInternal trans, Behavior<T2> b2, Func<T, T2, TResult> f) =>
-        LiftOutput<T, T2, TResult>.Create(trans: trans, b1: this, b2: b2, f: f);
+        LiftOutput<T, T2, TResult>.Create(trans: trans, b1: this, b2: b2, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, TResult>(
         Behavior<T2> b2,
@@ -262,7 +328,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T2> b2,
         Behavior<T3> b3,
         Func<T, T2, T3, TResult> f) =>
-        LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, f: f);
+        LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, TResult>(
         Behavior<T2> b2,
@@ -280,7 +346,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T3> b3,
         Behavior<T4> b4,
         Func<T, T2, T3, T4, TResult> f) =>
-        LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, f: f);
+        LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, TResult>(
         Behavior<T2> b2,
@@ -300,7 +366,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
         Behavior<T4> b4,
         Behavior<T5> b5,
         Func<T, T2, T3, T4, T5, TResult> f) =>
-        LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, b5: b5, f: f);
+        LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: this, b2: b2, b3: b3, b4: b4, b5: b5, f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, TResult>(
         Behavior<T2> b2,
@@ -337,7 +403,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
             b4: b4,
             b5: b5,
             b6: b6,
-            f: f);
+            f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
         Behavior<T2> b2,
@@ -378,7 +444,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
             b5: b5,
             b6: b6,
             b7: b7,
-            f: f);
+            f: f).Hold(trans);
 
     internal Behavior<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
         Behavior<T2> b2,
@@ -423,7 +489,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>
             b6: b6,
             b7: b7,
             b8: b8,
-            f: f);
+            f: f).Hold(trans);
 
     /// <summary>
     ///     Reads the value of an input for this firing. If the input updated in this

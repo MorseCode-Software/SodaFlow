@@ -1946,7 +1946,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             this.cancelAllListener =
                 this.cancelAll
-                    .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
+                    .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)
                     .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
         }
 
@@ -1955,7 +1955,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.cancelMatchingListener =
                 this.cancelMatching
                     .SnapshotImpl(
-                        c: trackedCell,
+                        b: trackedCell,
                         f: static (toCancel, entries) => (ToCancel: toCancel, Entries: entries))
                     .ListenImpl(pair =>
                     {
@@ -1986,7 +1986,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // and with Listen.
         this.disposeCancelListener =
             this.disposeCancelTrigger
-                .SnapshotImpl(c: trackedCell, f: static (_, entries) => entries)
+                .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)
                 .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
 
         Cell<bool> isRunning =
@@ -2188,7 +2188,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // The transform in Attach is the one caller, and it always runs in a transaction. The test for
     // a transaction records that. It changes no answer, because a call with no transaction finds
     // no owner that is equal, and reads the cell.
-    private Entry[] CurrentQueue(Cell<Entry[]> trackedCell)
+    private Entry[] CurrentQueue(Behavior<Entry[]> trackedCell)
     {
         if (this.completedQueueAndOwner != null)
         {

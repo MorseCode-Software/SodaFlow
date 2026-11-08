@@ -1,35 +1,36 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SodaFlow;
 
 internal static class CellExtensionMethodsInternal
 {
-    internal static Behavior<T> SwitchBImpl<T, T2>(this Cell<T2> cba)
-        where T2 : Behavior<T> =>
-        cba.BehaviorImpl.SwitchBImpl<T, T2>();
-
-    internal static Cell<T> SwitchCImpl<T, T2>(this Cell<T2> cca)
-        where T2 : Cell<T> =>
-        cca.BehaviorImpl.SwitchCImpl<T, T2>();
-
-    internal static Stream<T> SwitchSImpl<T, T2>(this Cell<T2> csa)
-        where T2 : Stream<T> =>
-        csa.BehaviorImpl.SwitchSImpl<T, T2>();
-
     internal static Cell<TResult> LiftCellsImpl<T, T2, TResult>(
         this IEnumerable<T2> c,
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Cell<T> =>
-        new(
-            BehaviorExtensionMethodsInternal.LiftBehaviorsImpl(
-                inputs: [.. c.Select(static i => i.BehaviorImpl)],
-                f: f));
+        LiftCellsImpl(inputs: [.. c], f: f);
 
     internal static Cell<TResult> LiftCellsImpl<T, T2, TResult>(
         this IReadOnlyCollection<T2> c,
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Cell<T> =>
-        c.AsEnumerable().LiftCellsImpl(f);
+        LiftCellsImpl(inputs: [.. c], f: f);
+
+    // The list lift of BehaviorExtensionMethodsInternal, held in a cell. The array is the lift's
+    // own copy, as it is there.
+    private static Cell<TResult> LiftCellsImpl<T, T2, TResult>(T2[] inputs, Func<IReadOnlyList<T>, TResult> f)
+        where T2 : Cell<T> =>
+        TransactionInternal.Apply(
+            code: static (trans1, _, state) =>
+            {
+                (Stream<TResult> @out, LazySample<TResult> initialValue) =
+                    BehaviorExtensionMethodsInternal.LiftBehaviors(
+                        trans1: trans1,
+                        inputs: state.Inputs,
+                        f: state.F);
+
+                return @out.HoldLazyCellInternal(trans: trans1, initialValue: initialValue);
+            },
+            state: (Inputs: inputs, F: f));
 }

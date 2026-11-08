@@ -5,12 +5,12 @@ namespace SodaFlow;
 
 internal static class CellInternal
 {
-    internal static Cell<T> ConstantImpl<T>(T value) => new(BehaviorInternal.ConstantImpl(value));
+    internal static Cell<T> ConstantImpl<T>(T value) => new(value);
 
     internal static Cell<T> ConstantLazyImpl<T>(LazySample<T> value) =>
         TransactionInternal.Apply(
             code: static (trans, _, value) =>
-                new Cell<T>(StreamInternal.NeverImpl<T>().HoldLazyInternal(trans: trans, initialValue: value)),
+                StreamInternal.NeverImpl<T>().HoldLazyCellInternal(trans: trans, initialValue: value),
             state: value);
 
     internal static CellSink<T> CreateSinkImpl<T>(T initialValue) => new(initialValue);
@@ -26,9 +26,14 @@ internal static class CellInternal
 /// <summary>
 ///     A value that changes with time in discrete steps.
 /// </summary>
+/// <remarks>
+///     A cell is also a <see cref="Behavior{T}" />. Thus, an operation that takes a
+///     behavior also takes a cell.
+/// </remarks>
 /// <typeparam name="T">The type of the value.</typeparam>
 [PublicAPI]
-public class Cell<T>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+public class Cell<T> : Behavior<T>
 {
     // SodaFlow builds this on first use and does not hold it in a Lazy. A Lazy and its
     // necessary closure are three objects for each cell. SodaFlow makes a cell for each Hold,
@@ -45,57 +50,90 @@ public class Cell<T>
     // same answer. Volatile prevents the incomplete Stream.
     private volatile Stream<T>? updates;
 
-    internal Cell(Behavior<T> behavior) => this.BehaviorImpl = behavior;
+    internal Cell(T value)
+        : base(value)
+    {
+    }
+
+    internal Cell(Stream<T> stream, T initialValue)
+        : base(stream: stream, initialValue: initialValue)
+    {
+    }
+
+    internal Cell(TransactionInternal trans, Stream<T> stream, LazySample<T> lazyInitialValue)
+        : base(trans: trans, stream: stream, lazyInitialValue: lazyInitialValue)
+    {
+    }
 
     // SodaFlow creates this in the transaction, thus the test and the set are safe while they
     // hold no lock of their own. The library runs one transaction at a time across the process,
     // thus only one thread can be here. See the remarks on SodaFlow.Transaction.
     internal Stream<T> UpdatesImpl =>
-        this.updates ?? TransactionInternal.Apply(code: static (trans, _, cell) => cell.Updates(trans), state: this);
+        this.updates
+        ?? TransactionInternal.Apply(code: static (trans, _, cell) => cell.CoalescedUpdates(trans), state: this);
 
-    internal Stream<T> Updates(TransactionInternal trans) =>
+    // The updates of a cell, one for each transaction. Updates() gives the updates of the behavior,
+    // which are not coalesced.
+    internal Stream<T> CoalescedUpdates(TransactionInternal trans) =>
         // ReSharper disable once NonAtomicCompoundOperator - This is fine since the updates field is only
         // set within a Transaction.
-        this.updates ??= this.BehaviorImpl.Updates().Coalesce(trans1: trans, f: static (_, right) => right);
+        this.updates ??= this.Updates().Coalesce(trans1: trans, f: static (_, right) => right);
 
     internal Stream<T> ValuesImpl =>
-        TransactionInternal.Apply(code: static (trans, _, cell) => cell.BehaviorImpl.Value(trans), state: this);
-
-    internal Behavior<T> BehaviorImpl { get; }
-
-    internal T SampleImpl() => this.BehaviorImpl.SampleImpl();
-
-    internal LazySample<T> SampleLazyImpl() => this.BehaviorImpl.SampleLazyImpl();
-
-    internal LazySample<TResult> SampleLazyMappedImpl<TResult>(Func<T, TResult> f) =>
-        this.BehaviorImpl.SampleLazyMappedImpl(f);
+        TransactionInternal.Apply(code: static (trans, _, cell) => cell.Value(trans), state: this);
 
     internal IStrongListener ListenStrongImpl(Action<T> handler) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
-                state.Self.BehaviorImpl.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
+                state.Self.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
             state: (Self: this, Handler: handler));
 
     internal IWeakListenerInternal ListenImpl(Action<T> handler) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
-                state.Self.BehaviorImpl.Value(trans).ListenImpl(trans: trans, handler: state.Handler),
+                state.Self.Value(trans).ListenImpl(trans: trans, handler: state.Handler),
             state: (Self: this, Handler: handler));
 
-    internal Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) => new(this.BehaviorImpl.MapImpl(f));
+    // This hides the map of the behavior, because the map of a cell is a cell.
+    internal new Cell<TResult> MapImpl<TResult>(Func<T, TResult> f) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.Updates()
+                    .MapImpl(state.F)
+                    .HoldLazyCellInternal(
+                        trans: trans,
+                        initialValue: state.Self.SampleLazyMapped(trans: trans, f: state.F)),
+            state: (Self: this, F: f));
 
-    internal Cell<TResult> LiftImpl<T2, TResult>(Cell<T2> b2, Func<T, T2, TResult> f) =>
-        new(this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, f: f));
+    internal Cell<TResult> LiftImpl<T2, TResult>(
+        Cell<T2> b2,
+        Func<T, T2, TResult> f) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, F: f));
 
-    internal Cell<TResult> LiftImpl<T2, T3, TResult>(Cell<T2> b2, Cell<T3> b3, Func<T, T2, T3, TResult> f) =>
-        new(this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, b3: b3.BehaviorImpl, f: f));
+    internal Cell<TResult> LiftImpl<T2, T3, TResult>(
+        Cell<T2> b2,
+        Cell<T3> b3,
+        Func<T, T2, T3, TResult> f) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, F: f));
 
     internal Cell<TResult> LiftImpl<T2, T3, T4, TResult>(
         Cell<T2> b2,
         Cell<T3> b3,
         Cell<T4> b4,
         Func<T, T2, T3, T4, TResult> f) =>
-        new(this.BehaviorImpl.LiftImpl(b2: b2.BehaviorImpl, b3: b3.BehaviorImpl, b4: b4.BehaviorImpl, f: f));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, T4, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, b4: state.B4, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, B4: b4, F: f));
 
     internal Cell<TResult> LiftImpl<T2, T3, T4, T5, TResult>(
         Cell<T2> b2,
@@ -103,13 +141,11 @@ public class Cell<T>
         Cell<T4> b4,
         Cell<T5> b5,
         Func<T, T2, T3, T4, T5, TResult> f) =>
-        new(
-            this.BehaviorImpl.LiftImpl(
-                b2: b2.BehaviorImpl,
-                b3: b3.BehaviorImpl,
-                b4: b4.BehaviorImpl,
-                b5: b5.BehaviorImpl,
-                f: f));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, T4, T5, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, b4: state.B4, b5: state.B5, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, B4: b4, B5: b5, F: f));
 
     internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, TResult>(
         Cell<T2> b2,
@@ -118,14 +154,11 @@ public class Cell<T>
         Cell<T5> b5,
         Cell<T6> b6,
         Func<T, T2, T3, T4, T5, T6, TResult> f) =>
-        new(
-            this.BehaviorImpl.LiftImpl(
-                b2: b2.BehaviorImpl,
-                b3: b3.BehaviorImpl,
-                b4: b4.BehaviorImpl,
-                b5: b5.BehaviorImpl,
-                b6: b6.BehaviorImpl,
-                f: f));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, T4, T5, T6, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, b4: state.B4, b5: state.B5, b6: state.B6, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, B4: b4, B5: b5, B6: b6, F: f));
 
     internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, TResult>(
         Cell<T2> b2,
@@ -135,15 +168,11 @@ public class Cell<T>
         Cell<T6> b6,
         Cell<T7> b7,
         Func<T, T2, T3, T4, T5, T6, T7, TResult> f) =>
-        new(
-            this.BehaviorImpl.LiftImpl(
-                b2: b2.BehaviorImpl,
-                b3: b3.BehaviorImpl,
-                b4: b4.BehaviorImpl,
-                b5: b5.BehaviorImpl,
-                b6: b6.BehaviorImpl,
-                b7: b7.BehaviorImpl,
-                f: f));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, T4, T5, T6, T7, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, b4: state.B4, b5: state.B5, b6: state.B6, b7: state.B7, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, B4: b4, B5: b5, B6: b6, B7: b7, F: f));
 
     internal Cell<TResult> LiftImpl<T2, T3, T4, T5, T6, T7, T8, TResult>(
         Cell<T2> b2,
@@ -154,19 +183,14 @@ public class Cell<T>
         Cell<T7> b7,
         Cell<T8> b8,
         Func<T, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
-        new(
-            this.BehaviorImpl.LiftImpl(
-                b2: b2.BehaviorImpl,
-                b3: b3.BehaviorImpl,
-                b4: b4.BehaviorImpl,
-                b5: b5.BehaviorImpl,
-                b6: b6.BehaviorImpl,
-                b7: b7.BehaviorImpl,
-                b8: b8.BehaviorImpl,
-                f: f));
+        TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                LiftOutput<T, T2, T3, T4, T5, T6, T7, T8, TResult>.Create(trans: trans, b1: state.Self, b2: state.B2, b3: state.B3, b4: state.B4, b5: state.B5, b6: state.B6, b7: state.B7, b8: state.B8, f: state.F)
+                    .HoldCell(trans),
+            state: (Self: this, B2: b2, B3: b3, B4: b4, B5: b5, B6: b6, B7: b7, B8: b8, F: f));
 
     internal Cell<TResult> ApplyImpl<TResult>(Cell<Func<T, TResult>> bf) =>
-        new(this.BehaviorImpl.ApplyImpl(bf.BehaviorImpl));
+        bf.LiftImpl(b2: this, f: static (function, value) => function(value));
 
     // One transaction for the two samples, the updates, the calm, and the hold. Before, each
     // step opened its own transaction when no transaction was open. One calm then cost four
@@ -178,14 +202,11 @@ public class Cell<T>
 
     private Cell<T> Calm(TransactionInternal trans, Func<T, T, bool> areEqual)
     {
-        LazySample<T> initA = this.BehaviorImpl.SampleLazy(trans);
+        LazySample<T> initA = this.SampleLazy(trans);
+        LazySample<MaybeInternal<T>> mInitA = this.SampleLazyMapped(trans: trans, f: MaybeInternal.Some);
 
-        LazySample<MaybeInternal<T>> mInitA =
-            this.BehaviorImpl.SampleLazyMapped(trans: trans, f: MaybeInternal.Some);
-
-        return new Cell<T>(
-            this.Updates(trans)
-                .Calm(trans1: trans, init: mInitA, areEqual: areEqual)
-                .HoldLazyInternal(trans: trans, initialValue: initA));
+        return this.CoalescedUpdates(trans)
+            .Calm(trans1: trans, init: mInitA, areEqual: areEqual)
+            .HoldLazyCellInternal(trans: trans, initialValue: initA);
     }
 }

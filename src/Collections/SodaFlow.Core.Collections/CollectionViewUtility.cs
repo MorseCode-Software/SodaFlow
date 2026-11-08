@@ -81,7 +81,7 @@ internal static class CollectionViewUtility
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
             collection.ItemChangesStream
                 .SnapshotImpl(
-                    c: stateLoopCell,
+                    b: stateLoopCell,
                     f: (change, state) =>
                         ProcessRoot(change: change, state: state)
                             .Match(
@@ -479,10 +479,10 @@ internal static class CollectionViewUtility
         // gives the snapshot the value from before the transaction, as the lift did.
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream =
             inputStream.SnapshotImpl(
-                c1: stateLoopCell,
-                c2: criteriaCell,
-                c3: upstream.KeysCell,
-                c4: storeSnapshotCell,
+                b1: stateLoopCell,
+                b2: criteriaCell,
+                b3: upstream.KeysCell,
+                b4: storeSnapshotCell,
                 f: (input, state, criteriaBefore, upstreamKeysBefore, snapshotBefore) =>
                 {
                     // Each value in the input is newer than the three samples from before the
@@ -658,7 +658,7 @@ internal static class CollectionViewUtility
     /// </remarks>
     private static Cell<OrderedKeys<TKey, TIdentity, TState>> PublishedKeys<TKey, TIdentity, TState>(
         Stream<StageResult<TKey, TIdentity, TState>> resultsStream,
-        Cell<OrderedKeys<TKey, TIdentity, TState>> stateKeysCell)
+        Behavior<OrderedKeys<TKey, TIdentity, TState>> stateKeysCell)
         where TKey : notnull
         where TIdentity : notnull =>
         resultsStream

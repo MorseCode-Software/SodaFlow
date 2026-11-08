@@ -113,6 +113,44 @@ public sealed class LoopTests
         await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 3, 6], ordering: CollectionOrdering.Matching);
     }
 
+    // A looped cell keeps its own loop stream, and is not a looped behavior. Thus, its message
+    // names the cell.
+    [Test]
+    public async Task ALoopedCellSampledBeforeItsLoopClosesThrows()
+    {
+        Exception? actual = null;
+
+        try
+        {
+            _ = Cell.Loop<int>().WithoutCaptures(static l => Cell.Constant(l.Sample()));
+        }
+        catch (Exception e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual).IsTypeOf<InvalidOperationException>();
+        await Assert.That(actual?.Message).IsEqualTo("LoopedCell was sampled before it was looped.");
+    }
+
+    [Test]
+    public async Task ALoopedBehaviorSampledBeforeItsLoopClosesThrows()
+    {
+        Exception? actual = null;
+
+        try
+        {
+            _ = Behavior.Loop<int>().WithoutCaptures(static l => Behavior.Constant(l.Sample()));
+        }
+        catch (Exception e)
+        {
+            actual = e;
+        }
+
+        await Assert.That(actual).IsTypeOf<InvalidOperationException>();
+        await Assert.That(actual?.Message).IsEqualTo("LoopedBehavior was sampled before it was looped.");
+    }
+
     [Test]
     public async Task FunctionalBehaviorLoopWithCaptures()
     {

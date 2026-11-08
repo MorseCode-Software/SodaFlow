@@ -42,8 +42,12 @@ internal abstract class LiftOutput<TResult> : OnceGate, ISampleSource<TResult>
             StreamInternal.Capture(input: input.Updates(), gate: this, trans: trans, capture: capture));
 
     /// <summary>Holds the output, with an initial value that the first sample computes.</summary>
-    private protected Behavior<TResult> Hold(TransactionInternal trans) =>
+    internal Behavior<TResult> Hold(TransactionInternal trans) =>
         this.@out.HoldLazyInternal(trans: trans, initialValue: new LazySample<TResult>(source: this));
+
+    /// <summary>Holds the output in a cell, as <see cref="Hold" /> does in a behavior.</summary>
+    internal Cell<TResult> HoldCell(TransactionInternal trans) =>
+        this.@out.HoldLazyCellInternal(trans: trans, initialValue: new LazySample<TResult>(source: this));
 
     private protected abstract TResult Recombine(TransactionInternal trans);
 
@@ -67,7 +71,7 @@ internal sealed class LiftOutput<T1, T2, TResult>(
     private readonly InputCapture<T1> p1 = new();
     private readonly InputCapture<T2> p2 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -78,7 +82,7 @@ internal sealed class LiftOutput<T1, T2, TResult>(
         lift.Capture(input: b1, trans: trans, capture: lift.p1);
         lift.Capture(input: b2, trans: trans, capture: lift.p2);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -112,7 +116,7 @@ internal sealed class LiftOutput<T1, T2, T3, TResult>(
     private readonly InputCapture<T2> p2 = new();
     private readonly InputCapture<T3> p3 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -125,7 +129,7 @@ internal sealed class LiftOutput<T1, T2, T3, TResult>(
         lift.Capture(input: b2, trans: trans, capture: lift.p2);
         lift.Capture(input: b3, trans: trans, capture: lift.p3);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -165,7 +169,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, TResult>(
     private readonly InputCapture<T3> p3 = new();
     private readonly InputCapture<T4> p4 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -180,7 +184,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, TResult>(
         lift.Capture(input: b3, trans: trans, capture: lift.p3);
         lift.Capture(input: b4, trans: trans, capture: lift.p4);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -226,7 +230,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, TResult>(
     private readonly InputCapture<T4> p4 = new();
     private readonly InputCapture<T5> p5 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -243,7 +247,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, TResult>(
         lift.Capture(input: b4, trans: trans, capture: lift.p4);
         lift.Capture(input: b5, trans: trans, capture: lift.p5);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -295,7 +299,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, TResult>(
     private readonly InputCapture<T5> p5 = new();
     private readonly InputCapture<T6> p6 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -314,7 +318,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, TResult>(
         lift.Capture(input: b5, trans: trans, capture: lift.p5);
         lift.Capture(input: b6, trans: trans, capture: lift.p6);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -372,7 +376,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, TResult>(
     private readonly InputCapture<T6> p6 = new();
     private readonly InputCapture<T7> p7 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -394,7 +398,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, TResult>(
         lift.Capture(input: b6, trans: trans, capture: lift.p6);
         lift.Capture(input: b7, trans: trans, capture: lift.p7);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>
@@ -458,7 +462,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
     private readonly InputCapture<T7> p7 = new();
     private readonly InputCapture<T8> p8 = new();
 
-    internal static Behavior<TResult> Create(
+    internal static LiftOutput<TResult> Create(
         TransactionInternal trans,
         Behavior<T1> b1,
         Behavior<T2> b2,
@@ -482,7 +486,7 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
         lift.Capture(input: b7, trans: trans, capture: lift.p7);
         lift.Capture(input: b8, trans: trans, capture: lift.p8);
 
-        return lift.Hold(trans);
+        return lift;
     }
 
     private protected override TResult Recombine(TransactionInternal trans) =>

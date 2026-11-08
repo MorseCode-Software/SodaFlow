@@ -326,7 +326,7 @@ public static class StreamExtensionMethods
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Snapshot<T, T1, TResult>(this Stream<T> s, Cell<T1> c, Func<T, T1, TResult> f) =>
-        s.SnapshotImpl(c: c, f: f);
+        s.SnapshotImpl(b: c, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -377,7 +377,7 @@ public static class StreamExtensionMethods
         Cell<T1> c1,
         Cell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -434,7 +434,7 @@ public static class StreamExtensionMethods
         Cell<T2> c2,
         Cell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -497,7 +497,7 @@ public static class StreamExtensionMethods
         Cell<T3> c3,
         Cell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, b4: c4, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -566,7 +566,7 @@ public static class StreamExtensionMethods
         Cell<T4> c4,
         Cell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -641,7 +641,7 @@ public static class StreamExtensionMethods
         Cell<T5> c5,
         Cell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -722,7 +722,7 @@ public static class StreamExtensionMethods
         Cell<T6> c6,
         Cell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -809,7 +809,7 @@ public static class StreamExtensionMethods
         Cell<T7> c7,
         Cell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
-        s.SnapshotImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
+        s.SnapshotImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, b8: c8, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -955,7 +955,7 @@ public static class StreamExtensionMethods
         this Stream<T> s,
         Cell<T1> c,
         Func<T, T1, TResult> f) =>
-        s.SnapshotLatestImpl(c: c, f: f);
+        s.SnapshotLatestImpl(b: c, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1027,7 +1027,7 @@ public static class StreamExtensionMethods
         Cell<T1> c1,
         Cell<T2> c2,
         Func<T, T1, T2, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1101,7 +1101,7 @@ public static class StreamExtensionMethods
         Cell<T2> c2,
         Cell<T3> c3,
         Func<T, T1, T2, T3, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1181,7 +1181,7 @@ public static class StreamExtensionMethods
         Cell<T3> c3,
         Cell<T4> c4,
         Func<T, T1, T2, T3, T4, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, b4: c4, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1267,7 +1267,7 @@ public static class StreamExtensionMethods
         Cell<T4> c4,
         Cell<T5> c5,
         Func<T, T1, T2, T3, T4, T5, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1359,7 +1359,7 @@ public static class StreamExtensionMethods
         Cell<T5> c5,
         Cell<T6> c6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1457,7 +1457,7 @@ public static class StreamExtensionMethods
         Cell<T6> c6,
         Cell<T7> c7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired
@@ -1561,7 +1561,7 @@ public static class StreamExtensionMethods
         Cell<T7> c7,
         Cell<T8> c8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f) =>
-        s.SnapshotLatestImpl(c1: c1, c2: c2, c3: c3, c4: c4, c5: c5, c6: c6, c7: c7, c8: c8, f: f);
+        s.SnapshotLatestImpl(b1: c1, b2: c2, b3: c3, b4: c4, b5: c5, b6: c6, b7: c7, b8: c8, f: f);
 
     /// <summary>
     ///     Gives a stream that fires the result of the given function on the fired

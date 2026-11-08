@@ -11,6 +11,9 @@ Listener.unlistenWeak, are removed, and IListenerWithWeakReference is internal. 
 with the type, which is internal, and the Cleanup module with Cleanup, which is removed; the core notes say why. F#
 never had the explicit loop types that the C# package removes in this release, so loops in F# do not change.
 
+BREAKING: Cell<'T> derives from Behavior<'T>, so the functions of the Behavior module take a cell without asBehavior,
+and lift2 to lift8 take cells and behaviors together and give a behavior. asBehavior stays, as an upcast.
+
 BREAKING: ITimerSystem<'T> inherits IDisposable, ITimerSystemImplementation<'T> has a Stop, and Transaction.onStart
 and onStartT return the registration of the action as an IDisposable, so a call that ignored the result now needs an
 ignore. A timer system's constructor installs a hook that runs at the start of every transaction in the process, and a
