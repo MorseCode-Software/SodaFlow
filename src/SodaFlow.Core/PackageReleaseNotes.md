@@ -326,6 +326,19 @@ while the same action run with no transaction open, which goes through the same 
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
 
+Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
+no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
+each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
+everything that transaction sent had already reached the graph: the actions still queued were dropped and their releases
+ran with the other action's exception, and the transaction's recorded outcome flipped from committed to failed, so code
+that asked it how the transaction ended was told the wrong thing. Each posted action now runs whatever the others do,
+and the elements of Operational.Split, which go through the same queue, follow the same rule. When the queue is done,
+one exception comes out as it is, and several come out together in an AggregateException, in the order the actions were
+posted, each followed by any throw from its own release. The code that ran the transaction gets the exception as before.
+A bindable value whose refresh was queued behind such an action was the visible casualty: with
+BindingScheduler.Immediate its refresh was dropped and it never refreshed again, which
+SodaFlow.Core.Bindable.ObjectModel 5.0.0 fixes on its side as well.
+
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
