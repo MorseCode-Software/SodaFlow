@@ -42,6 +42,13 @@ gets when it asks for the updates in the transaction that changed them. Measured
 of one cell 900 to 625 KB and 1.20 to 0.79 ms, a lift of two cells 1,469 to 1,163 KB and 2.13 to 1.51 ms, and a lift of
 six cells 3,184 to 2,824 KB and 6.54 to 5.00 ms. A send through a lift allocates what it did.
 
+A firing no longer takes a lock that the whole process shares to read the listeners of each stream it reaches. Each node
+keeps a snapshot of its listeners, which changes only when a listener is added or removed. A send now reads the snapshot
+without the lock, and takes the lock only to build a new one after a change. Measured on .NET 10: a send to a sink with
+one listener 171 to 162 ns, through a chain of eight maps 699 to 627 ns, to a fan-out of eight maps 1,045 to 964 ns, and
+to one input of a lift of two cells 443 to 422 ns. On .NET Framework 4.7.2 the chain goes from 1,867 to 1,776 ns. A send
+allocates what it did.
+
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
