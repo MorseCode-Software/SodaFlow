@@ -19,10 +19,12 @@ namespace SodaFlow.Benchmarks;
 ///         quadratic.
 ///     </para>
 ///     <para>
-///         Both benchmarks make the collection, and the second one also makes a
-///         cell for each key and keeps each cell. Thus, no removal finds an entry to
-///         remove, and the difference between the two is the cost of the cells and
-///         of the cache.
+///         Each benchmark makes the collection. Each one after the first also makes
+///         a cell for each key and keeps each cell. Thus, no removal finds an entry
+///         to remove, and the difference from the first is the cost of the cells and
+///         of the cache. The benchmark that asks for each cell two times measures
+///         a hit in the cache. The cells of a filter view measure the builder of a
+///         stage.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -71,6 +73,51 @@ public class PerKeyCellBenchmarks
         for (int key = 0; key < this.KeyCount; key++)
         {
             cells.Add(collection.StateCell(key));
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    ///     Makes the collection and a state cell for each key, and then asks for each
+    ///     cell again. The cache then holds each cell.
+    /// </summary>
+    /// <returns>The cells, as an object because their item type is internal.</returns>
+    [Benchmark(Description = "collection, and a state cell for each key, asked for two times")]
+    public object CollectionAndCellsTwice()
+    {
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = this.CreateCollection();
+        List<Cell<Maybe<ItemState>>> cells = new(this.KeyCount * 2);
+
+        for (int key = 0; key < this.KeyCount; key++)
+        {
+            cells.Add(collection.StateCell(key));
+        }
+
+        for (int key = 0; key < this.KeyCount; key++)
+        {
+            cells.Add(collection.StateCell(key));
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    ///     Makes the collection, a filter view that holds each key, and a state cell
+    ///     for each key of the view.
+    /// </summary>
+    /// <returns>The cells, as an object because their item type is internal.</returns>
+    [Benchmark(Description = "collection, and a state cell for each key of a filter view")]
+    public object CollectionAndViewCells()
+    {
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            this.CreateCollection().Filter(static (_, _) => true);
+
+        List<Cell<Maybe<ItemState>>> cells = new(this.KeyCount);
+
+        for (int key = 0; key < this.KeyCount; key++)
+        {
+            cells.Add(view.StateCell(key));
         }
 
         return cells;
