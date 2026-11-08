@@ -184,7 +184,8 @@ failure to the one line that builds the factory.
 `BindingScheduler.Immediate` runs handlers on the calling thread, which is what tests and headless
 hosts want. With no transaction open it runs them at once. Inside a transaction it runs them as
 soon as that transaction ends and releases its lock, whether it committed or failed, which is when
-a dispatcher would run them too.
+a dispatcher would run them too. Either way it never opens a transaction around a handler, so each
+value a handler sends commits on its own, as it would on the UI thread.
 
 ## Disposal
 

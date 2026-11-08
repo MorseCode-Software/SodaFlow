@@ -69,9 +69,11 @@ counting a refresh that never came, so its setter sent every write to the graph 
 threw stopped the actions behind it, after the transaction had already run its last actions, so a value whose refresh
 was behind it kept the mark that says a refresh is on its way and never posted again. The scheduler now runs a post made
 inside a transaction on the same thread once the transaction releases its lock, whether it committed or failed, and one
-post that throws no longer stops the others; that is what a dispatcher does, minus the change of thread. The note above
-that speaks of a failed transaction discarding the post describes the scheduler before this change.
-IBindingScheduler.Post now states the rule for any scheduler: run the posts of a transaction even when it fails.
+post that throws no longer stops the others; that is what a dispatcher does, minus the change of thread. With no
+transaction open it still runs a post at once, but no longer inside a transaction it opens for the purpose, which held
+the lock while a handler ran and rolled back what a handler sent if it then threw. The note above that speaks of a
+failed transaction discarding the post describes the scheduler before this change. IBindingScheduler.Post now states the
+rule for any scheduler: run the posts of a transaction even when it fails.
 
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
