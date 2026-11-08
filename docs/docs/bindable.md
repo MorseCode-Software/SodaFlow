@@ -124,7 +124,11 @@ a test that sets `Value` directly gets the exception from the setter. And a sett
 an open transaction only queues its write, so the exception comes out of that transaction's close.
 
 If you write your own `IBindingScheduler`, let a posted action throw. A scheduler that catches it
-and carries on hides the bug again.
+and carries on hides the bug again. Two more rules: run posts in the order they were made, and run
+a post made inside a transaction even when that transaction fails. A bindable value marks a
+refresh as on its way when it posts one, and only that refresh clears the mark, so a scheduler
+that drops the posts of a failed transaction leaves the value frozen. A dispatcher behaves this way
+without being asked.
 
 ## Commands
 
@@ -177,8 +181,10 @@ so a view model built on a background thread raised `PropertyChanged` off the UI
 binding engine failed somewhere far from the cause. Requiring the scheduler up front moves that
 failure to the one line that builds the factory.
 
-`BindingScheduler.Immediate` runs handlers inline on purpose, which is what tests and headless
-hosts want.
+`BindingScheduler.Immediate` runs handlers on the calling thread, which is what tests and headless
+hosts want. With no transaction open it runs them at once. Inside a transaction it runs them as
+soon as that transaction ends and releases its lock, whether it committed or failed, which is when
+a dispatcher would run them too.
 
 ## Disposal
 

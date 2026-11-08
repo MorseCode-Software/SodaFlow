@@ -62,6 +62,17 @@ transaction to close, through its post queue, instead of reading the value befor
 fails after posting clears the way for the next update to post again, which matters with BindingScheduler.Immediate,
 where a failed transaction discards the post. What the binding thread sees is unchanged; it is asked less often.
 
+Fixed: with BindingScheduler.Immediate, a bindable value could stop refreshing for good, and a two-way value could stop
+skipping writes equal to what it shows. The scheduler put a post made inside a transaction into that transaction's queue
+of posted actions, and two things dropped the queue. A transaction that failed discarded it, which left a two-way value
+counting a refresh that never came, so its setter sent every write to the graph from then on. And a posted action that
+threw stopped the actions behind it, after the transaction had already run its last actions, so a value whose refresh
+was behind it kept the mark that says a refresh is on its way and never posted again. The scheduler now runs a post made
+inside a transaction on the same thread once the transaction releases its lock, whether it committed or failed, and one
+post that throws no longer stops the others; that is what a dispatcher does, minus the change of thread. The note above
+that speaks of a failed transaction discarding the post describes the scheduler before this change.
+IBindingScheduler.Post now states the rule for any scheduler: run the posts of a transaction even when it fails.
+
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
