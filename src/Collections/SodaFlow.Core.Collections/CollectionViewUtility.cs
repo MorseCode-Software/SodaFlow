@@ -623,19 +623,21 @@ internal static class CollectionViewUtility
         IEqualityComparer<TKey> keyEqualityComparer)
         where TKey : notnull
         where TIdentity : notnull =>
-        resultsStream
-            .MapImpl(result =>
-                new CollectionViewChange<TKey, TIdentity, TState>(
-                    before: result.Before,
-                    after: result.After,
-                    keys: result.Keys,
-                    operations: result.Operations,
-                    isReset: result.IsReset,
-                    movesKeys: result.MovesKeys,
-                    changesMembership: result.ChangesMembership,
-                    reordersOnly: result.ReordersOnly,
-                    keyEqualityComparer: keyEqualityComparer))
-            .FilterImpl(static change => change.IsReset || change.Operations.Count > 0);
+        // The test comes before the change, thus a result with no operation makes no change.
+        resultsStream.ChooseInternal(result =>
+            result.IsReset || result.Operations.Count > 0
+                ? MaybeInternal.Some(
+                    new CollectionViewChange<TKey, TIdentity, TState>(
+                        before: result.Before,
+                        after: result.After,
+                        keys: result.Keys,
+                        operations: result.Operations,
+                        isReset: result.IsReset,
+                        movesKeys: result.MovesKeys,
+                        changesMembership: result.ChangesMembership,
+                        reordersOnly: result.ReordersOnly,
+                        keyEqualityComparer: keyEqualityComparer))
+                : MaybeInternal<CollectionViewChange<TKey, TIdentity, TState>>.None);
 
     /// <summary>
     ///     The keys that a stage gives to other code. They move only at a change of
@@ -664,8 +666,10 @@ internal static class CollectionViewUtility
         where TKey : notnull
         where TIdentity : notnull =>
         resultsStream
-            .FilterImpl(static result => result.MovesKeys)
-            .MapImpl(static result => result.Keys)
+            .ChooseInternal(static result =>
+                result.MovesKeys
+                    ? MaybeInternal.Some(result.Keys)
+                    : MaybeInternal<OrderedKeys<TKey, TIdentity, TState>>.None)
             .HoldLazyImpl(stateKeysCell.SampleLazyImpl());
 
     /// <summary>

@@ -197,8 +197,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         // count, or a change of a key.
         Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
             itemChangesStream
-                .FilterImpl(static change => change.IsStructural)
-                .MapImpl(static change => change.After.Identities)
+                .ChooseInternal(static change =>
+                    change.IsStructural
+                        ? MaybeInternal.Some(change.After.Identities)
+                        : MaybeInternal<IReadOnlyDictionary<TKey, TIdentity>>.None)
                 .HoldLazyImpl(initial.MapImpl(static initial => initial.Identities));
 
         return new RootCollection<TKey, TIdentity, TState>(

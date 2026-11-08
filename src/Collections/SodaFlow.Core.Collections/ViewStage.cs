@@ -81,8 +81,10 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
                     TransactionInternal.Apply(
                         code: static (trans, _, stage) =>
                             stage.KeyChangesStream
-                                .FilterImpl(static change => change.ChangesMembership)
-                                .MapImpl(static change => change.After.Identities)
+                                .ChooseInternal(static change =>
+                                    change.ChangesMembership
+                                        ? MaybeInternal.Some(change.After.Identities)
+                                        : MaybeInternal<IReadOnlyDictionary<TKey, TIdentity>>.None)
                                 .HoldLazyImpl(
                                     stage.SnapshotCell.SampleLazyMapped(
                                         trans: trans,
