@@ -607,10 +607,12 @@ internal static class CollectionViewUtility
             // The cell above it is behind the keys of this stage, and this code builds it
             // only when other code reads it.
             snapshotCell: () =>
-                TransactionInternal.RunImpl(() =>
-                    upstream.SnapshotCell.LiftImpl(
-                        b2: keysCell,
-                        f: static (snapshot, keys) => snapshot.ScopedTo(keys))),
+                TransactionInternal.Apply(
+                    code: static (_, _, state) =>
+                        state.Upstream.SnapshotCell.LiftImpl(
+                            b2: state.KeysCell,
+                            f: static (snapshot, keys) => snapshot.ScopedTo(keys)),
+                    state: (Upstream: upstream, KeysCell: keysCell)),
             keyChangesStream: ToChangesStream(
                 resultsStream: resultsStream,
                 keyEqualityComparer: upstream.Root.KeyEqualityComparer));

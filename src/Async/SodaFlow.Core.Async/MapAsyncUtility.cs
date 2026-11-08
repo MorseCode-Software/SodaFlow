@@ -2388,17 +2388,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             return;
         }
 
-        TransactionInternal.RunImpl(() =>
-        {
-            this.disposed = true;
-
-            if (this.cancelOnDispose)
+        TransactionInternal.Apply(
+            code: static (_, _, self) =>
             {
-                this.disposeCancelTrigger.SendImpl(UnitInternal.Value);
-            }
+                self.disposed = true;
 
-            return UnitInternal.Value;
-        });
+                if (self.cancelOnDispose)
+                {
+                    self.disposeCancelTrigger.SendImpl(UnitInternal.Value);
+                }
+
+                return UnitInternal.Value;
+            },
+            state: this);
 
         this.cancelAllListener?.Unlisten();
         this.cancelMatchingListener?.Unlisten();

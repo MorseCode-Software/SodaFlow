@@ -261,8 +261,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             key: key,
             projection: projection,
             caches: this.stateCaches,
-            create: static (collection, cellKey, cellProjection) =>
+            create: static (trans, collection, cellKey, cellProjection) =>
                 collection.CreateStateCell(
+                    trans: trans,
                     key: cellKey,
                     onPresent: cellProjection.OnPresent,
                     onAbsent: cellProjection.OnAbsent));
@@ -287,8 +288,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             key: key,
             projection: projection,
             caches: this.identityCaches,
-            create: static (collection, cellKey, cellProjection) =>
+            create: static (trans, collection, cellKey, cellProjection) =>
                 collection.CreateIdentityCell(
+                    trans: trans,
                     key: cellKey,
                     onPresent: cellProjection.OnPresent,
                     onAbsent: cellProjection.OnAbsent));
@@ -317,20 +319,23 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             key: key,
             projection: projection,
             caches: this.itemCaches,
-            create: static (collection, cellKey, cellProjection) =>
+            create: static (trans, collection, cellKey, cellProjection) =>
                 collection.CreateItemCell(
+                    trans: trans,
                     key: cellKey,
                     onPresent: cellProjection.OnPresent,
                     onAbsent: cellProjection.OnAbsent));
 
     /// <summary>Builds the cell <see cref="ItemCellImpl{TProjected}" /> will cache.</summary>
     internal abstract Cell<TProjected> CreateItemCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<Item<TIdentity, TState>, TProjected> onPresent,
         Func<TProjected> onAbsent);
 
     /// <summary>Builds the cell <see cref="StateCellImpl{TProjected}" /> will cache.</summary>
     internal abstract Cell<TProjected> CreateStateCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent);
@@ -340,6 +345,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     cache.
     /// </summary>
     internal abstract Cell<TProjected> CreateIdentityCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent);
@@ -374,24 +380,41 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
             }
         }
 
-        return TransactionInternal.RunImpl(() =>
+        // A lambda that captured the parameters made its closure at the entry to this method. Thus,
+        // a hit above also paid for it.
+        return TransactionInternal.Apply(
+            code: static (trans, _, state) =>
+                state.Self.CreateCached(
+                    trans: trans,
+                    key: state.Key,
+                    projection: state.Projection,
+                    caches: state.Caches,
+                    create: state.Create),
+            state: (Self: this, Key: key, Projection: projection, Caches: caches, Create: create));
+    }
+
+    private Cell<TProjected> CreateCached<TSource, TProjected>(
+        TransactionInternal trans,
+        TKey key,
+        CellProjection<TSource, TProjected> projection,
+        Dictionary<CellProjection, object> caches,
+        CellFactory<TSource, TProjected> create)
+    {
+        lock (this.cacheGate)
         {
-            lock (this.cacheGate)
+            ProjectedCellCache<TKey, TProjected> cache = this.CacheFor(projection: projection, caches: caches);
+            Cell<TProjected>? cached = cache.Get(key);
+
+            if (cached is not null)
             {
-                ProjectedCellCache<TKey, TProjected> cache = this.CacheFor(projection: projection, caches: caches);
-                Cell<TProjected>? cached = cache.Get(key);
-
-                if (cached is not null)
-                {
-                    return cached;
-                }
-
-                Cell<TProjected> created = create(collection: this, key: key, projection: projection);
-                cache.Set(key: key, cell: created);
-
-                return created;
+                return cached;
             }
-        });
+
+            Cell<TProjected> created = create(trans: trans, collection: this, key: key, projection: projection);
+            cache.Set(key: key, cell: created);
+
+            return created;
+        }
     }
 
     /// <summary>
@@ -399,6 +422,7 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     ///     The delegate is static, thus a hit allocates nothing for it.
     /// </summary>
     private delegate Cell<TProjected> CellFactory<TSource, TProjected>(
+        TransactionInternal trans,
         ReactiveCollection<TKey, TIdentity, TState> collection,
         TKey key,
         CellProjection<TSource, TProjected> projection);
