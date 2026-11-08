@@ -347,15 +347,24 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     public bool CheckAccess() => true;
 
     /// <summary>
-    ///     Runs the action on the calling thread. When a transaction is open, the
-    ///     action runs after that transaction releases the lock.
+    ///     Runs the action on the calling thread, with no transaction open. When a
+    ///     transaction is open, the action runs after that transaction releases the
+    ///     lock.
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
-    ///     The action of a transaction runs also when that transaction fails, as a
-    ///     post to a dispatcher does. An action that throws does not stop the actions
-    ///     after it. The throw comes out of the transaction after each action ran.
+    ///     <para>
+    ///         The action of a transaction runs also when that transaction fails, as a
+    ///         post to a dispatcher does. An action that throws does not stop the
+    ///         actions after it. The throw comes out of the transaction after each
+    ///         action ran.
+    ///     </para>
+    ///     <para>
+    ///         When no transaction is open, the action runs immediately. This scheduler
+    ///         does not open a transaction for the action. Thus, a send from the action
+    ///         goes into a transaction of its own, as it does on a dispatcher.
+    ///     </para>
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
@@ -365,19 +374,11 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
             throw new ArgumentNullException(nameof(action));
         }
 
-        // With a transaction open, the action runs on this thread after the transaction releases
-        // the lock, also when it fails. At a failure, the transaction discarded a post with its
-        // queue, and a bindable value then kept its refresh flag set and did not refresh again.
-        if (TransactionInternal.HasCurrentTransaction())
-        {
-            TransactionInternal.AfterReleaseImpl(action);
-
-            return;
-        }
-
-        // No transaction is open, which is the usual condition in a test. Thus, the action runs
-        // now.
-        TransactionInternal.PostImpl(action);
+        // The action runs on this thread with no transaction open, also when a transaction fails. The
+        // post queue of a transaction discards its actions at a failure, and a bindable value then
+        // kept its refresh flag set and did not refresh again. A transaction around the action holds
+        // the lock while a handler runs, and puts each send of the handler into one transaction.
+        TransactionInternal.AfterReleaseImpl(action);
     }
 }
 

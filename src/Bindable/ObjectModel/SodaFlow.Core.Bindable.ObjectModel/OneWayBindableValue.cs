@@ -154,10 +154,10 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            // A transaction that fails can drop the post. ImmediateBindingScheduler gives a post made
-            // in a transaction to the post queue of that transaction, and the failure discards the
-            // queue. The discard clears the flag, thus the next update posts again. A scheduler
-            // that delivers the post after the failure runs one refresh more, which finds no change.
+            // A scheduler that drops the post of a transaction that fails breaks the contract on
+            // IBindingScheduler.Post. The discard clears the flag, thus the next update posts again
+            // also with such a scheduler. A scheduler that delivers the post after the failure runs
+            // one refresh more, which finds no change.
             TransactionInternal.GetCurrentTransaction()?.Last(this);
             this.Scheduler.Post(this.refresh);
         }
