@@ -33,8 +33,9 @@ public sealed class BindableValueTests
         return names;
     }
 
-    // With this scheduler, a transaction that fails discards the posts it made. Thus, the value
-    // sees nothing from such a transaction, and holds the value the cell holds.
+    // With this scheduler, a post from a transaction that fails runs after the lock is free, as a
+    // dispatcher runs it. The refresh then reads the cell, which holds the committed value. Thus,
+    // the value sees nothing from such a transaction.
     [Test]
     public async Task OneWayShowsTheCommittedValueAfterATransactionThatFails()
     {
@@ -67,6 +68,87 @@ public sealed class BindableValueTests
         await Assert.That(oneWay.Value).IsEqualTo(7);
         await Assert.That(notifications).IsEqualTo(1);
         oneWay.Dispose();
+    }
+
+    // The root commits before it runs its posted actions. A posted action that throws stopped the
+    // others, and the refresh of the value was one of them. Its flag stayed set, because the last
+    // actions committed first, and the value did not refresh again.
+    [Test]
+    public async Task OneWayKeepsRefreshingAfterAPostedActionThrows()
+    {
+        CellSink<int> cell = Cell.CreateSink(0);
+        IOneWayBindableValue<int> oneWay = OneWay(cell);
+        _ = oneWay.Value;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(static () => throw new InvalidOperationException("posted"));
+                    cell.Send(1);
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(oneWay.Value).IsEqualTo(1).Because("the refresh runs although the posted action threw");
+
+        cell.Send(2);
+        cell.Send(3);
+
+        await Assert.That(oneWay.Value).IsEqualTo(3).Because("the refresh flag is clear");
+        oneWay.Dispose();
+    }
+
+    // The same strand as above, for a two-way value.
+    [Test]
+    public async Task TwoWayKeepsRefreshingAfterAPostedActionThrows()
+    {
+        CellSink<int> cell = Cell.CreateSink(0);
+        ITwoWayBindableValue<int> twoWay = TwoWay(cell);
+        _ = twoWay.Value;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(static () => throw new InvalidOperationException("posted"));
+                    cell.Send(1);
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        cell.Send(5);
+
+        await Assert.That(twoWay.Value).IsEqualTo(5);
+        twoWay.Dispose();
+    }
+
+    // A failure discarded the refresh with the queue of the transaction, and no code decreased the
+    // count of pending refreshes. The setter then skipped its equality test permanently, and sent
+    // each write to the graph.
+    [Test]
+    public async Task TwoWayKeepsItsEqualityTestAfterATransactionThatFails()
+    {
+        CellSink<int> cell = Cell.CreateSink(0);
+        ITwoWayBindableValue<int> twoWay = TwoWay(cell);
+        _ = twoWay.Value;
+        IListener throws = cell.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            await Assert.That(() => cell.Send(7)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        List<int> writes = [];
+        IListener records = cell.Updates().Listen(writes.Add);
+
+        twoWay.Value = twoWay.Value;
+        twoWay.Value = twoWay.Value;
+
+        await Assert.That(writes).IsEmpty().Because("a write equal to the shown value is not sent");
+
+        records.Unlisten();
+        twoWay.Dispose();
     }
 
     [Test]

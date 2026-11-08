@@ -52,4 +52,23 @@ public sealed class TransactionTests
 
         await Assert.That(actual).IsNotNull();
     }
+
+    // The root commits before it runs its posted actions. A posted action that throws made the root
+    // discard itself. Its outcome then showed a failure, although each value that it sent stayed in
+    // the graph.
+    [Test]
+    public async Task ARootKeepsItsCommittedOutcomeWhenAPostedActionThrows()
+    {
+        TransactionOutcome? outcome = null;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    outcome = TransactionInternal.CurrentOutcome();
+                    Transaction.Post(static () => throw new InvalidOperationException("posted"));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(outcome?.Committed).IsTrue();
+    }
 }
