@@ -129,6 +129,16 @@ to 18,607 bytes and 129 to 113 µs, a sort 23,790 to 20,633 bytes and 140 to 112
 collection also pays, once, for the collection's own order of arrival, which is built at the first read of its keys: 8.6
 KB and about 35 µs of the figures above.
 
+A cell for one key, from StateCell, IdentityCell, or ItemCell, allocates about 310 bytes less to make, and a request
+that finds the cell in the cache now allocates nothing. The builder of each cell runs in the transaction that the cache
+opens, where it opened one of its own, and takes its first value through one lazy sample, where it took a sample and a
+map on it. A request that found its cell still paid for the closure of a transaction it never opened, about 56 bytes,
+because that closure captured the arguments as the method began. The folds and the lazy parts of a view stage now hand
+their values to the transaction rather than capture them. Measured in PerKeyCellBenchmarks, a collection and a state
+cell for each of its keys, .NET 10: at 1,000 keys 2,124 to 1,809 KB and 2.58 to 2.41 ms, at 10,000 keys 21.3 to 18.1 MB
+and 52.0 to 45.0 ms, and through a filter view at 1,000 keys 2,426 to 2,114 KB. On .NET Framework 4.7.2 the 10,000 keys
+take 70.8 ms before and 61.7 ms after.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
