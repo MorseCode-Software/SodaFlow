@@ -49,6 +49,45 @@ public sealed class BindingSchedulerTests
         await Assert.That(ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
     }
 
+    // A bindable value keeps a flag and a count for each post, and only the post clears them. Thus,
+    // a post must run if its transaction commits and also if it fails, as a post to a dispatcher
+    // does.
+    [Test]
+    public async Task ImmediateRunsAPostFromATransactionThatFails()
+    {
+        bool ran = false;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    BindingScheduler.Immediate.Post(() => ran = true);
+
+                    throw new InvalidOperationException("the transaction fails");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsTrue();
+    }
+
+    // One action that throws does not stop the actions after it. The throw comes out of the
+    // transaction, after each action ran.
+    [Test]
+    public async Task ImmediateRunsEachPostAfterOneThrows()
+    {
+        List<int> ran = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    BindingScheduler.Immediate.Post(() => ran.Add(1));
+                    BindingScheduler.Immediate.Post(static () => throw new InvalidOperationException("second"));
+                    BindingScheduler.Immediate.Post(() => ran.Add(3));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task ImmediatePreservesOrdering()
     {

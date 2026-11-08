@@ -37,7 +37,8 @@ public interface IBindingScheduler
     /// <summary>
     ///     Puts <paramref name="action" /> in the queue for the binding thread. An
     ///     implementation MUST keep the first-in first-out sequence. It MUST NOT run
-    ///     the action immediately while a transaction is open.
+    ///     the action immediately while a transaction is open. It MUST run the action
+    ///     of a transaction also when that transaction fails.
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <remarks>
@@ -63,6 +64,13 @@ public interface IBindingScheduler
     ///         transaction ran its last actions reads its cell, and that read waits
     ///         for the transaction. The schedulers in this package hold the actions
     ///         of a transaction and send them together after its last actions.
+    ///     </para>
+    ///     <para>
+    ///         A bindable value sets a flag and a count when it posts a refresh, and
+    ///         only that refresh clears them. Thus, an implementation that drops the
+    ///         actions of a transaction that fails stops the value permanently. A
+    ///         dispatcher keeps each post. The schedulers in this package run the
+    ///         actions of a transaction after it ends, also when it fails.
     ///     </para>
     ///     <para>
     ///         An action can throw, and some actions throw by design. A writable value
@@ -339,19 +347,15 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     public bool CheckAccess() => true;
 
     /// <summary>
-    ///     Runs the action on the calling thread, when no transaction is open.
+    ///     Runs the action on the calling thread. When a transaction is open, the
+    ///     action runs after that transaction releases the lock.
     /// </summary>
     /// <param name="action">The action to run.</param>
     /// <exception cref="ArgumentNullException"><paramref name="action" /> is null.</exception>
     /// <remarks>
-    ///     A wait for the close of the current transaction makes the action run while
-    ///     that transaction holds the lock for the full process. Thus, code that this
-    ///     action reaches must not wait for a different thread to open a transaction,
-    ///     because that thread cannot open one until this transaction closes. A
-    ///     <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged" />
-    ///     subscriber is the most probable example. A scheduler on a dispatcher runs
-    ///     its actions after the transaction releases the lock and has no such limit.
-    ///     That is one more cause to use this scheduler only in a test.
+    ///     The action of a transaction runs also when that transaction fails, as a
+    ///     post to a dispatcher does. An action that throws does not stop the actions
+    ///     after it. The throw comes out of the transaction after each action ran.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
@@ -361,9 +365,18 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
             throw new ArgumentNullException(nameof(action));
         }
 
-        // This runs immediately when no transaction is open, which is the usual condition in a
-        // test. If a transaction is open, it runs at the close of that transaction. It never runs
-        // in a callback.
+        // With a transaction open, the action runs on this thread after the transaction releases
+        // the lock, also when it fails. At a failure, the transaction discarded a post with its
+        // queue, and a bindable value then kept its refresh flag set and did not refresh again.
+        if (TransactionInternal.HasCurrentTransaction())
+        {
+            TransactionInternal.AfterReleaseImpl(action);
+
+            return;
+        }
+
+        // No transaction is open, which is the usual condition in a test. Thus, the action runs
+        // now.
         TransactionInternal.PostImpl(action);
     }
 }
