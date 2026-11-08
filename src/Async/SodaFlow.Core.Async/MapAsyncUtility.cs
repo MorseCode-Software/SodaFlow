@@ -376,7 +376,9 @@ public abstract class AsyncMapStatus : IDisposable
 // between the result and the caller.
 internal abstract class ExecuteCompletion<TResult>
 {
-    public abstract void TrySetResult(TResult result);
+    // Makes the output now, and gives the action that answers the Task with it. Flush calls this in
+    // the transaction that publishes, and runs the action only when that transaction commits.
+    public abstract Action PrepareResult(TResult result);
 
     public abstract void TrySetException(Exception error);
 
@@ -387,8 +389,9 @@ internal sealed class ExecuteCompletion<TResult, TOutput>(in Func<TResult, TOutp
     : ExecuteCompletion<TResult>
 {
     // RunContinuationsAsynchronously, and it is necessary and not a preference. Flush answers this
-    // source in the transaction that publishes. Without it, the continuation of the caller that
-    // awaits the Task runs there, on that thread. A send from that continuation throws.
+    // source in a last action of the transaction that publishes. Without it, the continuation of
+    // the caller that awaits the Task runs there, on that thread. A send from that continuation
+    // throws.
     private readonly TaskCompletionSource<TOutput> source =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -396,7 +399,12 @@ internal sealed class ExecuteCompletion<TResult, TOutput>(in Func<TResult, TOutp
 
     public Task<TOutput> Task => this.source.Task;
 
-    public override void TrySetResult(TResult result) => this.source.TrySetResult(this.toOutput(result));
+    public override Action PrepareResult(TResult result)
+    {
+        TOutput output = this.toOutput(result);
+
+        return () => this.source.TrySetResult(output);
+    }
 
     public override void TrySetException(Exception error) => this.source.TrySetException(error);
 
@@ -747,47 +755,6 @@ public abstract class AsyncMapBase
                 AsyncOutcomeKind.Canceled => onCanceled(),
                 _ => throw new InvalidOperationException("Unknown value for kind.")
             };
-
-        /// <summary>
-        ///     Runs the handler for the end of this item. Each handler is optional. Give
-        ///     null for an outcome with no handler, and this method ignores that outcome.
-        /// </summary>
-        /// <param name="onSucceeded">
-        ///     Handles a run that succeeded, with the value that the operation returned.
-        ///     It can be null.
-        /// </param>
-        /// <param name="onFailed">
-        ///     Handles a run with an error, with the exception from the operation. It can
-        ///     be null.
-        /// </param>
-        /// <param name="onCanceled">
-        ///     Handles a canceled run, which can have no start. It
-        ///     can be null.
-        /// </param>
-        public void MatchVoid(
-            Action<TResult>? onSucceeded,
-            Action<Exception>? onFailed,
-            Action? onCanceled)
-        {
-            switch (this.kind)
-            {
-                case AsyncOutcomeKind.Succeeded:
-                    // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
-                    // kind being AsyncOutcomeKind.Succeeded when it sets this.value to a non-null value.
-                    onSucceeded?.Invoke(this.value!);
-                    break;
-                case AsyncOutcomeKind.Failed:
-                    // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
-                    // kind being AsyncOutcomeKind.Failed when it sets this.error to a non-null value.
-                    onFailed?.Invoke(this.error!);
-                    break;
-                case AsyncOutcomeKind.Canceled:
-                    onCanceled?.Invoke();
-                    break;
-                default:
-                    throw new InvalidOperationException("Unknown value for kind.");
-            }
-        }
 
         /// <summary>Builds a Succeeded outcome with the return value of the operation.</summary>
         public static AsyncOutcome<TResult> Succeeded(TResult value) =>
@@ -1244,6 +1211,15 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///         a transaction can hold. A cancellation is the one end that comes in a
     ///         group, and it goes to <see cref="OnCanceled" />.
     ///     </para>
+    ///     <para>
+    ///         The engine can call this method two times for one item. A listener that
+    ///         throws in the transaction of the first call makes that transaction fail.
+    ///         The engine then ends the item again in a new transaction, and publishes
+    ///         nothing from that second call. The decision of the first call goes with
+    ///         that transaction. A change to <paramref name="state" /> from that call
+    ///         stays. Thus, a strategy must give a correct decision for an
+    ///         item that it got before.
+    ///     </para>
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
     /// <param name="item">
@@ -1292,6 +1268,10 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///         reference here.
     ///         Otherwise, the last value stays in memory after the pipeline becomes
     ///         empty.
+    ///     </para>
+    ///     <para>
+    ///         The engine can call this method two times for the same items, for the
+    ///         cause that <see cref="OnCompleted" /> gives.
     ///     </para>
     /// </summary>
     /// <param name="state">The scheduling state of this MapAsync call.</param>
@@ -1867,8 +1847,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     //
     // EndItem gives Flush a transaction of its own in each condition. Where no transaction is
     // open, EndItem calls Flush, and the Apply in Flush opens one. Where one is open, EndItem
-    // defers Flush, and Close runs it in a new transaction after that one. Thus, Owner is always
-    // the transaction of Flush. The read that must find this field is an Admit in that same
+    // defers Flush until that transaction releases the lock, and the Apply in Flush then opens a
+    // new one. Thus, Owner is always the transaction of Flush. The read that must find this field is an Admit in that same
     // transaction. The publish of Flush sends a result, and the graph can send that result back to
     // `source`. An Admit in a different transaction finds a different owner, and the cell holds the
     // value by then.
@@ -2461,6 +2441,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 token1: toStart.StrategyToken,
                 token2: toStart.Item.Cancellation.Token);
 
+        AsyncOutcome<MapAsyncResult<TResult>> pending;
+        CancellationToken? tokenToCheck;
+
+        // The try holds the operation and not the end of the item. A throw from the end is a
+        // failure of a listener, and not a failure of the operation. Before, the catch below got it
+        // and ended the item a second time, as if the operation threw.
         try
         {
             // This code calls the operation inline, on this thread, and awaits it. The
@@ -2477,27 +2463,27 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         token: linked.Token)
                     .ConfigureAwait(false);
 
-            this.EndItem(
-                item: toStart.Item,
-                pending: AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult),
-                trackedCell: trackedCell,
-                tokenToCheck: linked.Token);
+            pending = AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult);
+            tokenToCheck = linked.Token;
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            this.EndItem(
-                item: toStart.Item,
-                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                trackedCell: trackedCell,
-                tokenToCheck: null);
+            pending = AsyncOutcome<MapAsyncResult<TResult>>.Canceled();
+            tokenToCheck = null;
         }
         catch (Exception ex)
         {
+            pending = AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex);
+            tokenToCheck = linked.Token;
+        }
+
+        try
+        {
             this.EndItem(
                 item: toStart.Item,
-                pending: AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex),
+                pending: pending,
                 trackedCell: trackedCell,
-                tokenToCheck: linked.Token);
+                tokenToCheck: tokenToCheck);
         }
         finally
         {
@@ -2555,8 +2541,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // in the queue. The strategy and the pipeline disagreed from that moment.
     //
     // A test for a transaction covers each path to here. A continuation on a thread from the pool
-    // has none and calls Flush. A continuation on the thread of a cancellation has one,
-    // and PostImpl gives the end its own transaction after that one closes.
+    // has none and calls Flush. A continuation on the thread of a cancellation has one, and
+    // AfterReleaseImpl gives the end its own transaction after that one releases the lock.
     private void EndItem(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
@@ -2597,13 +2583,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         // A transaction is open, thus this code can be in a callback, where a send is not legal.
-        // PostImpl gives the Flush a transaction of its own, where a send is legal and the cell
-        // holds the value that this transaction gave it.
+        // AfterReleaseImpl runs the Flush after this transaction releases the lock, and the Apply in
+        // Flush opens a transaction of its own. There, a send is legal and the cell holds the value
+        // that this transaction gave it. PostImpl is not sufficient. A posted action runs in a child
+        // transaction, and a failure of that child goes to the code that ran this transaction. Flush
+        // must see its own failure, because it ends the items again after a failure.
         if (sends)
         {
             List<PendingEnd> alone = [end];
 
-            TransactionInternal.PostImpl(() => this.Flush(ends: alone, sends: true, trackedCell: trackedCell));
+            TransactionInternal.AfterReleaseImpl(() => this.Flush(ends: alone, sends: true, trackedCell: trackedCell));
 
             return;
         }
@@ -2617,7 +2606,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             List<PendingEnd> ends = this.pendingCancellations.Value.Ends;
 
-            TransactionInternal.PostImpl(() => this.Flush(ends: ends, sends: false, trackedCell: trackedCell));
+            TransactionInternal.AfterReleaseImpl(() =>
+                this.Flush(ends: ends, sends: false, trackedCell: trackedCell));
         }
 
         this.pendingCancellations.Value.Ends.Add(end);
@@ -2673,7 +2663,78 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     reads.
     /// </param>
     /// <param name="trackedCell">The cell that holds the queue of this pipeline.</param>
-    private void Flush(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell) =>
+    /// <remarks>
+    ///     <para>
+    ///         A listener can throw in the transaction of this method. That listener
+    ///         can be on the results, on the errors, or on the queue. The transaction
+    ///         then fails, and the edit of the queue and each send go with it. The Task
+    ///         of Execute and the CancellationTokenSource of each item change only when
+    ///         the transaction commits. Thus, after a failure, each item stays live in
+    ///         the queue.
+    ///     </para>
+    ///     <para>
+    ///         This method then ends the items again, in a new transaction that sends
+    ///         nothing. That end cancels the Task of each item, as for a result that
+    ///         the strategy does not publish, and the next item can start. Then this
+    ///         method sends the failure to the errors in a
+    ///         <see cref="MapAsyncDeliveryException" />. That send has a transaction of
+    ///         its own. Thus, a listener on the errors that throws cannot stop the
+    ///         pipeline. A throw from that second end or from that send leaves this
+    ///         method in an AggregateException after the first failure.
+    ///     </para>
+    ///     <para>
+    ///         This method runs only where no transaction is open. Thus, the Apply here
+    ///         opens a transaction, and a failure of that transaction comes back here.
+    ///         See <see cref="EndItem" />.
+    ///     </para>
+    /// </remarks>
+    private void Flush(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell)
+    {
+        try
+        {
+            this.FlushOnce(ends: ends, sends: sends, trackedCell: trackedCell, deliver: true);
+        }
+        catch (Exception failure)
+        {
+            this.Recover(ends: ends, sends: sends, trackedCell: trackedCell, failure: failure);
+        }
+    }
+
+    // The strategy reads the second end also. Its decision from the first end went with the first
+    // transaction, and its state keeps each change of that call. See the remarks of
+    // AsyncConcurrencyStrategy.OnCompleted.
+    private void Recover(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell, Exception failure)
+    {
+        try
+        {
+            this.FlushOnce(ends: ends, sends: sends, trackedCell: trackedCell, deliver: false);
+        }
+        catch (Exception endFailure)
+        {
+            throw new AggregateException(failure, endFailure);
+        }
+
+        MapAsyncDeliveryException report =
+            new(message: MapAsyncDeliveryException.DefaultMessage, innerException: failure);
+
+        try
+        {
+            TransactionInternal.Apply(
+                code: static (_, _, state) =>
+                {
+                    state.Errors.SendImpl(state.Report);
+
+                    return UnitInternal.Value;
+                },
+                state: (Errors: this.errors, Report: report));
+        }
+        catch (Exception reportFailure)
+        {
+            throw new AggregateException(report, reportFailure);
+        }
+    }
+
+    private void FlushOnce(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell, bool deliver) =>
         TransactionInternal.Apply(
             code: static (transaction, _, state) =>
             {
@@ -2681,17 +2742,37 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     transaction: transaction,
                     ends: state.Ends,
                     sends: state.Sends,
-                    trackedCell: state.TrackedCell);
+                    trackedCell: state.TrackedCell,
+                    deliver: state.Deliver);
 
                 return UnitInternal.Value;
             },
-            state: (Self: this, Ends: ends, Sends: sends, TrackedCell: trackedCell));
+            state: (Self: this, Ends: ends, Sends: sends, TrackedCell: trackedCell, Deliver: deliver));
+
+    // Settles the items that one flush ended, when its transaction commits. This answers the Task of
+    // each Execute call first, and then disposes each CancellationTokenSource.
+    private static void Settle(List<PendingEnd> live, Action?[]? settlements)
+    {
+        if (settlements != null)
+        {
+            foreach (Action? settlement in settlements)
+            {
+                settlement?.Invoke();
+            }
+        }
+
+        foreach (PendingEnd end in live)
+        {
+            end.Item.Cancellation.Dispose();
+        }
+    }
 
     private void FlushInTransaction(
         TransactionInternal transaction,
         IReadOnlyList<PendingEnd> ends,
         bool sends,
-        Cell<Entry[]> trackedCell)
+        Cell<Entry[]> trackedCell,
+        bool deliver)
     {
         Entry[] queue = this.CurrentQueue(trackedCell);
 
@@ -2767,7 +2848,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 throw new InvalidOperationException("A canceled end cannot come to OnCompleted.")),
                     tracked: new TrackedItems(tracked));
 
-            publish = decision.Publish;
+            // An end that sends nothing publishes nothing, whatever the strategy says.
+            publish = deliver && decision.Publish;
             next = decision.Next;
         }
         else
@@ -2790,6 +2872,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             publish = false;
         }
 
+        // The answer of each Execute call, at the same index as `live`. These run when this
+        // transaction commits, thus a transaction that fails answers no Task.
+        Action?[]? settlements = null;
+
         for (int i = 0; i < live.Count; i++)
         {
             PendingEnd end = live[i];
@@ -2800,7 +2886,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // A cancellation says that no code wants this result, and a strategy that
                 // does not publish says the same. Thus, Execute answers as a cancellation
                 // answers. The remarks of AsyncCompletion give the same rule.
-                completion?.TrySetCanceled();
+                if (completion != null)
+                {
+                    (settlements ??= new Action?[live.Count])[i] = completion.TrySetCanceled;
+                }
 
                 continue;
             }
@@ -2810,21 +2899,29 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // One send at the most reaches this code, because EndItem gives an end that sends
             // a call of its own. Thus, the send is in the transaction that removed the item,
             // and a graph that reads the queue and the result sees one instant.
-            end.Outcome.MatchVoid(
-                onSucceeded: operationResult =>
-                    this.Publish(
-                        operationResult: operationResult,
-                        tokenToCheck: tokenToCheck,
-                        completion: completion),
-                onFailed: e =>
-                {
-                    this.errors.SendImpl(e);
-                    completion?.TrySetException(e);
-                },
+            Action? settlement =
+                end.Outcome.Match(
+                    onSucceeded: operationResult =>
+                        this.Publish(
+                            operationResult: operationResult,
+                            tokenToCheck: tokenToCheck,
+                            completion: completion),
+                    onFailed: e =>
+                    {
+                        this.errors.SendImpl(e);
 
-                // A canceled end never publishes: OnCanceled makes no publish decision, thus
-                // the test above sends each one to the release of its Task.
-                onCanceled: null);
+                        return completion is null ? null : () => completion.TrySetException(e);
+                    },
+
+                    // A canceled end never publishes: OnCanceled makes no publish decision, thus
+                    // the test above sends each one to the release of its Task.
+                    onCanceled: static () =>
+                        throw new InvalidOperationException("A canceled end cannot publish."));
+
+            if (settlement != null)
+            {
+                (settlements ??= new Action?[live.Count])[i] = settlement;
+            }
         }
 
         Guid[] promote = new Guid[next.Count];
@@ -2857,10 +2954,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         this.queueUpdates.SendImpl(tracked);
 
-        foreach (PendingEnd end in live)
-        {
-            end.Item.Cancellation.Dispose();
-        }
+        // The removal of the entries and the disposal of their sources stay in one transaction.
+        // A last action runs only at the commit. Before, the failure of a flush disposed the source of
+        // an item in the queue. The cancellation at a disposal then threw.
+        transaction.Last(() => Settle(live: live, settlements: settlements));
 
         for (int i = 0; i < next.Count; i++)
         {
@@ -2890,7 +2987,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         throw hides its source.
     ///     </para>
     /// </summary>
-    private void Publish(
+    /// <returns>
+    ///     The action that answers the Task of <paramref name="completion" />, or null
+    ///     where there is no Task. The caller runs it when the transaction commits.
+    /// </returns>
+    private Action? Publish(
         MapAsyncResult<TResult> operationResult,
         CancellationToken? tokenToCheck,
         ExecuteCompletion<TResult>? completion)
@@ -2903,22 +3004,20 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
         {
-            completion?.TrySetCanceled();
-
-            return;
+            return completion is null ? null : completion.TrySetCanceled;
         }
         catch (Exception e)
         {
             this.errors.SendImpl(e);
-            completion?.TrySetException(e);
 
-            return;
+            return completion is null ? null : () => completion.TrySetException(e);
         }
 
         // The stream first, then the Task. The Task gives the same object that the results stream
         // gets, thus a caller of Execute and a listener of that stream see one result.
         this.results.SendImpl(result);
-        completion?.TrySetResult(result);
+
+        return completion?.PrepareResult(result);
     }
 
     // ---- The records of the tracked items. They are private to the execution engine, and a
