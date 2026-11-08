@@ -180,8 +180,9 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 ///     from a run that a different run replaced, or from a run that a cancellation stopped.
 /// </param>
 /// <param name="errors">
-///     The pipeline sends each operation with an error here. There is no call of this function
-///     with no destination for the errors.
+///     The pipeline sends each operation with an error here. It also sends a
+///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> here when a listener stops the
+///     send of an outcome. There is no call of this function with no destination for the errors.
 /// </param>
 /// <param name="operation">
 ///     The asynchronous work for each input. The pipeline calls it inline, thus it does not go to
@@ -256,7 +257,11 @@ let mapAsync
 ///     <c>mapAsync</c> for the full contract of the parameters that the two functions share.
 /// </summary>
 /// <param name="results">The destination of the return value of each operation that succeeded.</param>
-/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="errors">
+///     The destination of each operation with an error, and of a
+///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> for each send of an outcome that a
+///     listener stops.
+/// </param>
 /// <param name="operation">The asynchronous work for each input.</param>
 /// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="inputConverter">
