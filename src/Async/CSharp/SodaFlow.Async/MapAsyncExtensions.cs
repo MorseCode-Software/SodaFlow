@@ -51,8 +51,9 @@ public static class AsyncStreamExtensions
     ///     their ends.
     /// </param>
     /// <param name="errors">
-    ///     The destination of the exception of each run with an
-    ///     error.
+    ///     The destination of the exception of each run with an error. When a
+    ///     listener stops the send of an outcome, the pipeline sends a
+    ///     <see cref="MapAsyncDeliveryException" /> here.
     /// </param>
     /// <param name="operation">The asynchronous work for each input.</param>
     /// <param name="strategy">The control of operations that overlap.</param>
@@ -124,8 +125,9 @@ public static class AsyncStreamExtensions
     ///     their ends.
     /// </param>
     /// <param name="errors">
-    ///     The destination of the exception of each run with an
-    ///     error.
+    ///     The destination of the exception of each run with an error. When a
+    ///     listener stops the send of an outcome, the pipeline sends a
+    ///     <see cref="MapAsyncDeliveryException" /> here.
     /// </param>
     /// <param name="operation">The asynchronous work for each input.</param>
     /// <param name="strategy">The control of operations that overlap.</param>
@@ -214,7 +216,9 @@ public static class AsyncStreamExtensions
     /// </param>
     /// <param name="errors">
     ///     This is necessary. The pipeline sends each operation with an error here.
-    ///     There is no call of this method with no destination for the errors.
+    ///     It also sends a <see cref="MapAsyncDeliveryException" /> here when a
+    ///     listener stops the send of an outcome. There is no call of this method
+    ///     with no destination for the errors.
     /// </param>
     /// <param name="operation">
     ///     The asynchronous work for each input. The pipeline calls it inline, thus it
