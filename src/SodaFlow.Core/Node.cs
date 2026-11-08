@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace SodaFlow;
 
@@ -31,10 +32,6 @@ internal readonly struct TargetSnapshot<TTarget>
     private readonly TTarget[] targets;
 
     internal TargetSnapshot(TTarget[] targets) => this.targets = targets;
-
-    // A default(TargetSnapshot<>) marks a stale snapshot. The null array reference did this
-    // before. A snapshot that holds an empty array is correct and is not stale.
-    internal bool IsStale => this.targets == null;
 
     internal int Count => this.targets?.Length ?? 0;
 
@@ -271,9 +268,9 @@ internal class Node<T> : Node
     // A snapshot of the listeners. SodaFlow builds it again when a caller asks for it. Send reads the
     // listener set on each firing, but the set changes only when SodaFlow connects the graph
     // or removes a dead weak reference. Without this snapshot, each firing allocated a new
-    // array. A default snapshot is stale. SodaFlow resets it below while it holds
-    // ListenersLock.
-    private TargetSnapshot<Target> listenersSnapshot;
+    // array. A null array is stale, and an empty array is correct. Each write holds
+    // ListenersLock and is a volatile write. GetListenersCopy reads it without the lock.
+    private Target[]? listenersSnapshot;
 
     internal Node()
     {
@@ -322,7 +319,7 @@ internal class Node<T> : Node
             }
 
             this.HasListeners = true;
-            this.listenersSnapshot = default;
+            Volatile.Write(location: ref this.listenersSnapshot, value: null);
         }
 
         // No lock on the ranks. Each caller holds a transaction, and a transaction holds the
@@ -334,8 +331,21 @@ internal class Node<T> : Node
         return t;
     }
 
+    // Send calls this for each stream that fires. Thus, a read of a current snapshot does not get
+    // ListenersLock. Only a stale snapshot gets the lock, to build a new array. The volatile write
+    // of a new array occurs after the writes of its elements. Thus, a reader that gets the array
+    // also gets its elements. A Link occurs in a transaction, and the transaction lock orders it
+    // before each subsequent Send. Thus, a Send sees each link. An unlisten can occur on a
+    // different thread with no transaction. A Send can then read the previous array, as a Send
+    // that got the lock immediately before the unlisten did. A queued SendEntry also delivers to a
+    // target that an unlisten removes after the Send.
     internal TargetSnapshot<Target> GetListenersCopy()
     {
+        if (Volatile.Read(location: ref this.listenersSnapshot) is { } snapshot)
+        {
+            return new TargetSnapshot<Target>(snapshot);
+        }
+
         lock (ListenersLock)
         {
             return this.GetListenersSnapshotUnsafe();
@@ -352,7 +362,7 @@ internal class Node<T> : Node
                 {
                     this.firstListener = null;
                     this.HasListeners = false;
-                    this.listenersSnapshot = default;
+                    Volatile.Write(location: ref this.listenersSnapshot, value: null);
                 }
 
                 return;
@@ -360,7 +370,7 @@ internal class Node<T> : Node
 
             this.listeners.Remove(target);
             this.HasListeners = this.listeners.Count > 0;
-            this.listenersSnapshot = default;
+            Volatile.Write(location: ref this.listenersSnapshot, value: null);
 
             // A HashSet does not release space after a removal. Thus, make a new HashSet when
             // that releases a large quantity of space
@@ -378,25 +388,26 @@ internal class Node<T> : Node
     // that read. The previous copy for each call gave the same behavior.
     private TargetSnapshot<Target> GetListenersSnapshotUnsafe()
     {
-        if (this.listenersSnapshot.IsStale)
+        if (this.listenersSnapshot is not { } snapshot)
         {
             if (this.listeners is { Count: > 0 })
             {
-                Target[] snapshot = new Target[this.listeners.Count];
+                snapshot = new Target[this.listeners.Count];
                 this.listeners.CopyTo(snapshot);
-                this.listenersSnapshot = new TargetSnapshot<Target>(snapshot);
             }
             else if (this.firstListener != null)
             {
-                this.listenersSnapshot = new TargetSnapshot<Target>([this.firstListener]);
+                snapshot = [this.firstListener];
             }
             else
             {
-                this.listenersSnapshot = new TargetSnapshot<Target>(NoListeners);
+                snapshot = NoListeners;
             }
+
+            Volatile.Write(location: ref this.listenersSnapshot, value: snapshot);
         }
 
-        return this.listenersSnapshot;
+        return new TargetSnapshot<Target>(snapshot);
     }
 
     protected override TargetSnapshot<Node.Target> GetListenerTargetsUnsafe() =>
