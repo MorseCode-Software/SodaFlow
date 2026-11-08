@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
+using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
@@ -215,6 +216,93 @@ public sealed class TransactionTests
             .ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(seen).IsEmpty();
+    }
+
+    // Each posted action is a transaction of its own, and the transaction that posted it committed
+    // before. Thus, a throw from one posted action does not stop the posted actions after it.
+    [Test]
+    public async Task APostedActionThatThrowsDoesNotStopThePostedActionsAfterIt()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = sink.ListenStrong(seen.Add);
+        InvalidOperationException thrown = new("first");
+
+        InvalidOperationException? caught =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                    {
+                        Transaction.Post(() => throw thrown);
+                        Transaction.Post(() => sink.Send(5));
+                    }))
+                .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(caught).IsSameReferenceAs(thrown);
+        await Assert.That(seen).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+    }
+
+    // The posted action after the throw runs and completes. Thus, its release does not run.
+    [Test]
+    public async Task APostedActionAfterOneThatThrowsRunsNoRelease()
+    {
+        bool ran = false;
+        bool released = false;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(static () => throw new InvalidOperationException("first"));
+                    Transaction.Post(action: () => ran = true, onFailure: _ => released = true);
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsTrue();
+        await Assert.That(released).IsFalse();
+    }
+
+    // Each throw comes out, in the sequence of the posted actions.
+    [Test]
+    public async Task ThePostedActionsThatThrowComeOutTogether()
+    {
+        InvalidOperationException first = new("first");
+        NotSupportedException second = new("second");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                    {
+                        Transaction.Post(() => throw first);
+                        Transaction.Post(() => throw second);
+                    }))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(first);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(second);
+    }
+
+    // A split gives each item a transaction of its own, after the transaction that split them. A
+    // listener that throws for one item does not stop the items after it.
+    [Test]
+    public async Task ASplitItemThatFailsDoesNotStopTheItemsAfterIt()
+    {
+        StreamSink<List<string>> sink = Stream.CreateSink<List<string>>();
+        Stream<string> items = Operational.Split<string, List<string>>(sink);
+        List<string> seen = [];
+
+        using IStrongListener l = items.ListenStrong(item =>
+        {
+            seen.Add(item);
+
+            if (item == "b")
+            {
+                throw new InvalidOperationException("b");
+            }
+        });
+
+        await Assert.That(() => sink.Send(["a", "b", "c"])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: ["a", "b", "c"], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

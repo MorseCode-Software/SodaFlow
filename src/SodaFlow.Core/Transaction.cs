@@ -592,6 +592,11 @@ internal sealed class TransactionInternal
 
     private void Close()
     {
+        // The throws of the posted and split actions. Each one runs in a transaction of its own,
+        // after this transaction committed. Thus, a throw from one does not stop the others and does
+        // not fail this transaction. The throws come out together after the drain.
+        List<Exception>? deferredFailures = null;
+
         try
         {
             EnsureElevated(this);
@@ -732,19 +737,17 @@ internal sealed class TransactionInternal
                         {
                             ExecuteInNewTransaction(action: entry.Action, runStartHooks: true);
                         }
-                        catch (Exception e) when (entry.OnFailure != null)
+                        catch (Exception e)
                         {
-                            // This entry kept no promise, thus its own release runs here. The
-                            // entry is out of the queue, thus the catch of this method does not
-                            // run that release a second time.
-                            Exception? release = RunRelease(onFailure: entry.OnFailure, cause: e);
+                            (deferredFailures ??= []).Add(e);
 
-                            if (release == null)
+                            // This entry kept no promise, thus its own release runs here. A throw
+                            // from the release comes after the throw that caused it.
+                            if (entry.OnFailure != null
+                                && RunRelease(onFailure: entry.OnFailure, cause: e) is { } release)
                             {
-                                throw;
+                                deferredFailures.Add(release);
                             }
-
-                            throw new AggregateException(e, release);
                         }
                     }
 
@@ -775,7 +778,14 @@ internal sealed class TransactionInternal
 
                         foreach (int n in splitIndexes)
                         {
-                            ExecuteInNewTransaction(action: sq[n], runStartHooks: false);
+                            try
+                            {
+                                ExecuteInNewTransaction(action: sq[n], runStartHooks: false);
+                            }
+                            catch (Exception e)
+                            {
+                                (deferredFailures ??= []).Add(e);
+                            }
                         }
                     }
                 }
@@ -791,6 +801,18 @@ internal sealed class TransactionInternal
             }
 
             throw toThrow;
+        }
+
+        // Outside the catch above, because this transaction committed. A discard here made its
+        // outcome show a failure, although each value that it sent stays in the graph.
+        if (deferredFailures != null)
+        {
+            if (deferredFailures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(deferredFailures[0]).Throw();
+            }
+
+            throw new AggregateException(deferredFailures);
         }
     }
 
