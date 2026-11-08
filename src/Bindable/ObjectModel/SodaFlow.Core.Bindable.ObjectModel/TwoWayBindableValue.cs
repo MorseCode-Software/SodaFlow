@@ -228,10 +228,10 @@ public static partial class BindableCoreExtensionMethods
                 //
                 // This runs here, and not in the posted write. When no transaction is open, the
                 // write runs in a transaction of its own, and a throw from the graph stops that
-                // transaction. A scheduler that waits for the close of a transaction, such as
-                // BindingScheduler.Immediate, then loses a refresh that the write posts. This code
-                // runs after that transaction closes. When a transaction is open, the write waits
-                // for its close, and the scheduler runs this refresh after the write.
+                // transaction. This code runs after that transaction closes. Thus, a scheduler that
+                // drops the posts of a transaction that fails does not drop this refresh. When a
+                // transaction is open, the write waits for its close, and the scheduler runs this
+                // refresh after the write.
                 this.ScheduleRefreshFromCell();
 
                 // The refresh comes first. Thus, the cached value agrees with the cell when the throw
