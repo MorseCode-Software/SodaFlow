@@ -125,6 +125,11 @@ let post a = TransactionInternal.PostImpl(Action a)
 ///         release after it.
 ///     </para>
 ///     <para>
+///         Each posted action runs in a transaction of its own, after the transaction that posts it
+///         commits. An action that throws does not stop the posted actions after it. Each throw comes
+///         out after the last posted action, in one AggregateException when there is more than one.
+///     </para>
+///     <para>
 ///         This function is what C# spells as a second overload of Post. F# has no optional
 ///         parameter on a let-bound function, thus the two forms are two names here.
 ///     </para>
