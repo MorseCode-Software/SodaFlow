@@ -105,8 +105,9 @@ implementations already.
 Updates reach the UI through the `IBindingScheduler` the factory was built with. Build one
 factory at startup, on the UI thread, with `SynchronizationContextBindingScheduler.Capture()`,
 and hand it to each view model; the thread a view model is built on then changes nothing.
-There is no process-wide default and no fallback. `BindingScheduler.Immediate` runs handlers
-inline, for tests and headless hosts.
+There is no process-wide default and no fallback. `BindingScheduler.Immediate` runs handlers on
+the calling thread, for tests and headless hosts: at once with no transaction open, or as soon
+as the open transaction ends.
 
 ## Versioning
 

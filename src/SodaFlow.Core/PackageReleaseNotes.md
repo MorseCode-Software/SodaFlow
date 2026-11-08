@@ -96,7 +96,10 @@ the root of the inner it selects on each switch, so the listener lives while the
 and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
 root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
-memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept.
+memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
+loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
+and that switches onto its own output, is an example. The switch stops a call that comes back to it. Thus, the first
+strong listener in such a loop does not go around it until the stack overflows. The memory tests pin that loop too.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -325,6 +328,19 @@ Before, the throw closed the child transaction instead of discarding it, so the 
 while the same action run with no transaction open, which goes through the same path as a transaction body, discarded
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
+
+Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
+no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
+each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
+everything that transaction sent had already reached the graph: the actions still queued were dropped and their releases
+ran with the other action's exception, and the transaction's recorded outcome flipped from committed to failed, so code
+that asked it how the transaction ended was told the wrong thing. Each posted action now runs whatever the others do,
+and the elements of Operational.Split, which go through the same queue, follow the same rule. When the queue is done,
+one exception comes out as it is, and several come out together in an AggregateException, in the order the actions were
+posted, each followed by any throw from its own release. The code that ran the transaction gets the exception as before.
+A bindable value whose refresh was queued behind such an action was the visible casualty: with
+BindingScheduler.Immediate its refresh was dropped and it never refreshed again, which
+SodaFlow.Core.Bindable.ObjectModel 5.0.0 fixes on its side as well.
 
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
