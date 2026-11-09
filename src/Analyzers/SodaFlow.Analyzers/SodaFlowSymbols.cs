@@ -47,8 +47,21 @@ internal static class SodaFlowSymbols
                         && !name.Contains(".Samples.")
         };
 
-    public static bool IsLooper(INamedTypeSymbol type) =>
-        IsSodaFlow(type) && LooperTypes.Contains(type.OriginalDefinition.Name);
+    /// <summary>
+    ///     A method that runs a loop block. The public blocks are
+    ///     <c>WithCaptures</c> and <c>WithoutCaptures</c> on a looper type. The
+    ///     assemblies that build on Core use <c>WithCapturesImpl</c> and
+    ///     <c>WithoutCapturesImpl</c> on <c>LoopedCell</c>, which are internal.
+    /// </summary>
+    public static bool IsLoopBlock(IMethodSymbol method) =>
+        IsSodaFlow(method.ContainingType)
+        && method.Name switch
+        {
+            "WithCaptures" or "WithoutCaptures" =>
+                LooperTypes.Contains(method.ContainingType.OriginalDefinition.Name),
+            "WithCapturesImpl" or "WithoutCapturesImpl" => method.ContainingType.OriginalDefinition.Name == "LoopedCell",
+            _ => false
+        };
 
     /// <summary>
     ///     The state that an expression has from its type alone. Only a

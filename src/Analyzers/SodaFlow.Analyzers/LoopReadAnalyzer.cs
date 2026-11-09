@@ -45,17 +45,23 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
-        if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
-                {
-                    Name: "WithCaptures" or "WithoutCaptures"
-                } method
-            || !SodaFlowSymbols.IsLooper(method.ContainingType))
+        if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || !SodaFlowSymbols.IsLoopBlock(method))
         {
             return;
         }
 
-        if (invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression is not AnonymousFunctionExpressionSyntax
-            lambda)
+        // The block is the argument of the one delegate parameter. A public block takes only that
+        // argument. A Core block also takes the transaction and the state of the block.
+        IMethodSymbol definition = method.OriginalDefinition;
+
+        if (invocation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: position)?.Type
+                        .TypeKind
+                    == TypeKind.Delegate)
+                .FirstOrDefault()
+                ?.Expression is not AnonymousFunctionExpressionSyntax lambda)
         {
             return;
         }
@@ -80,7 +86,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
         // A forward reference closes its loop with a constant cell, which has no links.
         bool checkLinks = looper != "ForwardReference";
-        bool withCaptures = method.Name == "WithCaptures";
+        bool withCaptures = method.Name is "WithCaptures" or "WithCapturesImpl";
 
         IEnumerable<ExpressionSyntax> closings =
             (lambda.ExpressionBody != null

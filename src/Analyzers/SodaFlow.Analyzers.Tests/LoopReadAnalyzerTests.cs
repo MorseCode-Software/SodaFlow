@@ -70,7 +70,9 @@ internal sealed class LoopReadAnalyzerTests
             ["HelperSamplesThroughHelper"] = ["SF1004"],
             ["ConstructorInitializerCallsHelper"] = ["SF1001"],
             ["CloseThroughSinkOfRow"] = ["SF1002"],
-            ["AssertionAtTheArgument"] = ["SF1004"]
+            ["AssertionAtTheArgument"] = ["SF1004"],
+            ["CoreBlockSample"] = ["SF1001"],
+            ["CoreBlockCloseWithPlaceholder"] = ["SF1002"]
         };
 
     [Test]

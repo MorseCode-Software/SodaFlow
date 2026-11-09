@@ -420,6 +420,20 @@ public static class Shapes
             return S.Hold(stored + row.Value);
         });
 
+    // S60. A Core block with captures, read before the close. Only the library can write one, as here.
+    public static Cell<int> CoreBlockSample() =>
+        TransactionInternal.Apply(code: (trans, isNew) =>
+            LoopedCell<int>.WithCapturesImpl(
+                    trans: trans,
+                    state: Plain,
+                    f: static (l, plain) => { int x = l.Sample(); return (Cell: S.Hold(x), Captures: plain); })
+                .Cell);
+
+    // S61. A Core block without captures, closed with its own placeholder.
+    public static Cell<int> CoreBlockCloseWithPlaceholder() =>
+        TransactionInternal.Apply(code: (trans, isNew) =>
+            LoopedCell<int>.WithoutCapturesImpl(trans: trans, state: 0, f: static (l, _) => l));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
