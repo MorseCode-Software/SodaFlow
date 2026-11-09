@@ -169,27 +169,42 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
         // The resolution of an edit uses the state that it resolves against, and the
-        // resolution of the edits makes that state. Thus, this code has an explicit loop.
-        LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
+        // resolution of the edits makes that state. Thus, this code has a loop.
+        (Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell,
+            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream) =
+            LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>>.WithCapturesImpl(
+                trans: trans,
+                state: (
+                    KeyEqualityComparer: keyEqualityComparer,
+                    KeySelector: keySelector,
+                    EditsStream: editsStream,
+                    Initial: initial),
+                f: static (snapshotLoopCell, state) =>
+                {
+                    (IEqualityComparer<TKey> keyEqualityComparer,
+                        Func<TIdentity, TKey> keySelector,
+                        Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream,
+                        LazySample<CollectionSnapshot<TKey, TIdentity, TState>> initial) = state;
 
-        Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
-            editsStream
-                .SnapshotImpl(
-                    b: snapshotLoopCell,
-                    f: (edit, before) =>
-                        Resolve(
-                            keyEqualityComparer: keyEqualityComparer,
-                            keySelector: keySelector,
-                            edit: edit,
-                            before: before))
-                .FilterSomeInternal();
+                    Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
+                        editsStream
+                            .SnapshotImpl(
+                                b: snapshotLoopCell,
+                                f: (edit, before) =>
+                                    Resolve(
+                                        keyEqualityComparer: keyEqualityComparer,
+                                        keySelector: keySelector,
+                                        edit: edit,
+                                        before: before))
+                            .FilterSomeInternal();
 
-        Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
-            itemChangesStream
-                .MapImpl(static change => change.After)
-                .HoldLazyImpl(initial);
+                    Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
+                        itemChangesStream
+                            .MapImpl(static change => change.After)
+                            .HoldLazyImpl(initial);
 
-        snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
+                    return (Cell: snapshotCell, Captures: itemChangesStream);
+                });
 
         // This comes from its own hold on the same stream, and not from a Calm on a map of
         // the snapshot cell. The two holds read the same transaction, thus the two views always
