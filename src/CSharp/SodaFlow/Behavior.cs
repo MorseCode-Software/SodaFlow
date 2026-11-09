@@ -90,9 +90,7 @@ public struct BehaviorLooper<T>
         Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f)
     {
         LoopedBehavior<T> loop = new();
-#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
-#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         loop.Loop(trans: trans, b: result.Behavior);
         return result;
     }

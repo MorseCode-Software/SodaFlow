@@ -119,17 +119,7 @@ public static class Shapes
     public static Cell<int> ReadInNestedTransaction() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Transaction.Run(() => l.Sample()); return S.Hold(x); });
 
-    // S24. Explicit loop, read before Loop. Only the library can write one, as here.
-    public static Cell<int> ExplicitLoop() =>
-        TransactionInternal.Apply(code: (trans, isNew) =>
-        {
-            LoopedCell<int> c = new();
-            int before = c.Sample();
-            Cell<int> definition = S.Snapshot(c, (a, b) => a + b).Hold(before);
-            c.Loop(trans: trans, c: definition);
-            int after = c.Sample();
-            return definition.Map(v => v + after);
-        });
+    // S24 was an explicit loop, which the analyzer does not check.
 
     // S25. A read in a LINQ lambda runs now.
     public static Cell<int> ReadInLinqLambda() =>
@@ -169,16 +159,13 @@ public static class Shapes
     public static StoringRow ForwardReferenceIntoConstructorBare() =>
         ForwardReference<StoringRow>.WithoutCaptures(reference => new StoringRow(reference.Map(r => r.Value)));
 
-    // S32. A list Lift over explicit loops in a list, sampled before the foreach that closes them.
+    // S32. A list Lift over a list that holds the placeholder, sampled in the block.
     public static Cell<int> ListLiftSample() =>
-        TransactionInternal.Apply(code: (trans, isNew) =>
+        Cell.Loop<int>().WithoutCaptures(l =>
         {
-            IReadOnlyList<LoopedCell<int>> loops = [.. Enumerable.Range(0, 3).Select(_ => new LoopedCell<int>())];
-            Cell<int> sum = loops.Lift().Map(v => v.Sum());
-            int now = sum.Sample();
-            foreach (LoopedCell<int> loop in loops) { loop.Loop(trans: trans, c: Cell.Constant(now)); }
-            int after = sum.Sample();
-            return sum.Map(v => v + after);
+            IReadOnlyList<Cell<int>> cells = [l, Plain];
+            int now = cells.Lift().Map(v => v.Sum()).Sample();
+            return S.Hold(now);
         });
 
     // S33. A delegate called with the placeholder, its result sampled.

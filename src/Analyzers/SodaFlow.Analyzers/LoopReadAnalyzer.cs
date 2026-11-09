@@ -13,12 +13,12 @@ namespace SodaFlow.Analyzers;
 ///     and each loop whose definition is linked to its own placeholder.
 /// </summary>
 /// <remarks>
-///     A loop block hands its lambda a placeholder. An explicit loop makes
-///     one with <c>new LoopedCell&lt;T&gt;()</c> and closes it with
-///     <c>Loop</c>. Only the SodaFlow assemblies can make an explicit loop,
-///     because the constructor is internal. Both give a region of code that
-///     runs while the loop is open, and this analyzer checks that region.
-///     See <see cref="LoopStateEvaluator" /> for the model of the operators.
+///     A loop block hands its lambda a placeholder, and the lambda is the code
+///     that runs while the loop is open. This analyzer checks that code. The
+///     analyzer does not check an explicit loop. Only the block methods of the
+///     SodaFlow assemblies make one, and each passes the placeholder directly
+///     to the block of the caller. See <see cref="LoopStateEvaluator" /> for
+///     the model of the operators.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
@@ -38,7 +38,6 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
         context.RegisterSyntaxNodeAction(action: AnalyzeLoopBlock, SyntaxKind.InvocationExpression);
-        context.RegisterSyntaxNodeAction(action: AnalyzeExplicitLoop, SyntaxKind.LocalDeclarationStatement);
     }
 
     private static void AnalyzeLoopBlock(SyntaxNodeAnalysisContext context)
@@ -101,7 +100,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 placeholderState: placeholderState,
                 report: context.ReportDiagnostic);
 
-        region.Analyze(roots: [lambda.Body], closings: closings, checkLinks: checkLinks);
+        region.Analyze(root: lambda.Body, closings: closings, checkLinks: checkLinks);
     }
 
     /// <summary>
@@ -120,104 +119,5 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 a.NameColon?.Name.Identifier.ValueText is "Cell" or "Behavior" or "Stream");
 
         return (named ?? tuple.Arguments[0]).Expression;
-    }
-
-    private static void AnalyzeExplicitLoop(SyntaxNodeAnalysisContext context)
-    {
-        LocalDeclarationStatementSyntax declaration = (LocalDeclarationStatementSyntax)context.Node;
-
-        if (declaration.Parent is not BlockSyntax block)
-        {
-            return;
-        }
-
-        foreach (VariableDeclaratorSyntax declarator in declaration.Declaration.Variables)
-        {
-            if (declarator.Initializer == null
-                || context.SemanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
-            {
-                continue;
-            }
-
-            // A local of a placeholder type is one explicit loop. A local of a collection of them
-            // is a region too, such as a list of loops closed in a for loop. It has no one closing
-            // expression to check.
-            LoopState placeholderState = SodaFlowSymbols.StateOfType(local.Type);
-
-            if (placeholderState is { Pending: false, Linked: false })
-            {
-                continue;
-            }
-
-            bool single =
-                local.Type is INamedTypeSymbol type
-                && SodaFlowSymbols.IsSodaFlow(type)
-                && type.OriginalDefinition.Name
-                    is "LoopedCell"
-                    or "LoopedBehavior"
-                    or "LoopedStream";
-
-            AnalyzeExplicitLoop(
-                context: context,
-                block: block,
-                declaration: declaration,
-                local: local,
-                placeholderState: placeholderState,
-                single: single);
-        }
-    }
-
-    /// <summary>
-    ///     The region of an explicit loop is each statement after its declaration
-    ///     up to the one that calls <c>Loop</c> on it. The argument of that call
-    ///     closes the loop.
-    /// </summary>
-    private static void AnalyzeExplicitLoop(
-        SyntaxNodeAnalysisContext context,
-        BlockSyntax block,
-        StatementSyntax declaration,
-        ISymbol local,
-        LoopState placeholderState,
-        bool single)
-    {
-        int start = block.Statements.IndexOf(declaration) + 1;
-        List<SyntaxNode> roots = [];
-        ExpressionSyntax? closing = null;
-
-        for (int i = start; i < block.Statements.Count; i++)
-        {
-            StatementSyntax statement = block.Statements[i];
-            roots.Add(statement);
-
-            // For one loop, the Loop call on the local. For a collection of loops, the first Loop
-            // call on any placeholder, which is the loop statement that closes them.
-            InvocationExpressionSyntax? close =
-                statement.DescendantNodes(descendIntoChildren: static n => n is not AnonymousFunctionExpressionSyntax)
-                    .OfType<InvocationExpressionSyntax>()
-                    .FirstOrDefault(inv =>
-                        inv.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Loop" } access
-                        && (single
-                            ? SymbolEqualityComparer.Default.Equals(
-                                x: context.SemanticModel.GetSymbolInfo(access.Expression).Symbol,
-                                y: local)
-                            : SodaFlowSymbols.StateOfType(context.SemanticModel.GetTypeInfo(access.Expression).Type)
-                                .Linked));
-
-            if (close != null)
-            {
-                closing = single ? close.ArgumentList.Arguments.LastOrDefault()?.Expression : null;
-
-                break;
-            }
-        }
-
-        LoopRegion region =
-            new(
-                compilation: context.Compilation,
-                placeholder: local,
-                placeholderState: placeholderState,
-                report: context.ReportDiagnostic);
-
-        region.Analyze(roots: roots, closings: closing == null ? [] : [closing], checkLinks: closing != null);
     }
 }

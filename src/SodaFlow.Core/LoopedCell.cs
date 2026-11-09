@@ -35,9 +35,7 @@ public class LoopedCell<T> : Cell<T>
         Func<LoopedCell<T>, TState, Cell<T>> f)
     {
         LoopedCell<T> loop = new();
-#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         Cell<T> result = f(arg1: loop, arg2: state);
-#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         loop.Loop(trans: trans, c: result);
         return result;
     }
@@ -49,9 +47,7 @@ public class LoopedCell<T> : Cell<T>
         Func<LoopedCell<T>, TState, (Cell<T> Cell, TCaptures Captures)> f)
     {
         LoopedCell<T> loop = new();
-#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         (Cell<T> Cell, TCaptures Captures) result = f(arg1: loop, arg2: state);
-#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         loop.Loop(trans: trans, c: result.Cell);
         return result;
     }

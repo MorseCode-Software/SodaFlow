@@ -47,7 +47,6 @@ internal sealed class LoopReadAnalyzerTests
             ["CloseWithUpdatesHold"] = ["SF1002"],
             ["SwitchOverOwnOutput"] = ["SF1002"],
             ["ReadInNestedTransaction"] = ["SF1001"],
-            ["ExplicitLoop"] = ["SF1001"],
             ["ReadInLinqLambda"] = ["SF1001"],
             ["ReadInLocalFunction"] = ["SF1001"],
             ["ForwardReferenceRead"] = ["SF1001"],

@@ -120,9 +120,7 @@ public struct CellLooper<T>
         Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f)
     {
         LoopedCell<T> loop = new();
-#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         (Cell<T> Cell, TCaptures Captures) result = f(loop);
-#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         loop.Loop(trans: trans, c: result.Cell);
         return result;
     }

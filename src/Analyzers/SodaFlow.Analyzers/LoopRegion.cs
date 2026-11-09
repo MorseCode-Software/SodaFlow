@@ -6,8 +6,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     The code that runs while one loop is open: a loop block, or the
-///     statements between an explicit loop's creation and its <c>Loop</c> call.
+///     The code that runs while one loop is open, which is the body of a loop
+///     block.
 /// </summary>
 internal sealed class LoopRegion(
     in Compilation compilation,
@@ -44,15 +44,10 @@ internal sealed class LoopRegion(
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(IEnumerable<SyntaxNode> roots, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
+    public void Analyze(SyntaxNode root, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
     {
         LoopStateEvaluator evaluator = new(this);
-        SinkWalker walker = new(region: this, evaluator: evaluator);
-
-        foreach (SyntaxNode root in roots)
-        {
-            walker.Visit(root);
-        }
+        new SinkWalker(region: this, evaluator: evaluator).Visit(root);
 
         if (!checkLinks)
         {
