@@ -25,6 +25,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -54,6 +55,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (_, factory, token) =>
                 {
                     bool lockWasFree =
@@ -92,6 +94,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -134,6 +137,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -155,8 +159,9 @@ public sealed class MapAsyncImplTests
     }
 
     // The pipeline reports a failure of a listener to the errors, in a transaction of its own. Thus,
-    // a listener on the errors that throws on that report cannot stop the pipeline. Before, the item
-    // stayed Running, the queue never moved, and Dispose threw.
+    // a listener on the errors that throws on that report cannot stop the pipeline. The report and
+    // that second throw go to handleException together. Before, the item stayed Running, the queue
+    // never moved, and Dispose threw.
     [Test]
     public async Task AnErrorsListenerThatThrowsOnTheReportDoesNotStopThePipeline()
     {
@@ -166,6 +171,7 @@ public sealed class MapAsyncImplTests
         InvalidOperationException thrown = new("results listener");
         List<int> received = [];
         List<Exception> reported = [];
+        List<Exception> unhandled = [];
 
         using IStrongListener l = results.ListenStrong(v =>
         {
@@ -192,6 +198,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: unhandled.Add,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -204,25 +211,30 @@ public sealed class MapAsyncImplTests
         await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         await Assert.That(reported.Count).IsEqualTo(1);
         await Assert.That(reported[0]).IsTypeOf<MapAsyncDeliveryException>();
+        await Assert.That(unhandled.Count).IsEqualTo(1);
+        await Assert.That((unhandled[0] as AggregateException)?.InnerExceptions[0]).IsSameReferenceAs(reported[0]);
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
         await Assert.That(status.IsRunning.Sample()).IsFalse();
         await Assert.That(status.Dispose).ThrowsNothing();
     }
 
-    // A listener can stop the result of an item. The Execute call of that item then gets a
-    // cancellation, as for a result that the strategy does not publish.
+    // A listener can stop the result of an item. The Execute call of that item then fails with the
+    // same report that the errors get.
     [Test]
-    public async Task ExecuteIsCanceledWhenItsResultIsNotDelivered()
+    public async Task ExecuteFailsWithTheReportWhenItsResultIsNotDelivered()
     {
         StreamSink<int> source = Stream.CreateSink<int>();
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<Exception> reported = [];
         using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IStrongListener e = errors.ListenStrong(reported.Add);
 
         AsyncMapStatus<int, int> status =
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -231,7 +243,9 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => task.IsCompleted);
 
-        await Assert.That(task.IsCanceled).IsTrue();
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(reported.Count).IsEqualTo(1);
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(reported[0]);
 
         status.Dispose();
     }
@@ -262,6 +276,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -304,6 +319,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw constructionError)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -337,6 +353,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -354,6 +371,42 @@ public sealed class MapAsyncImplTests
         status.Dispose();
     }
 
+    // After a transaction, the report of a failure can fail also. That second failure goes to
+    // handleException, and not to the code that ran the transaction, which has no part in this
+    // pipeline.
+    [Test]
+    public async Task ASecondFailureAfterATransactionGoesToHandleException()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        List<Exception> unhandled = [];
+        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IStrongListener e = errors.ListenStrong(static _ => throw new InvalidOperationException("errors listener"));
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => Transaction.RunVoid(() => op.Release(input: 1, result: 1))).ThrowsNothing();
+
+        TestUtil.WaitUntil(() => unhandled.Count == 1);
+
+        await Assert.That(unhandled[0]).IsTypeOf<AggregateException>();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
     // Here, the send of the result fails, and the second end fails also. The item thus stays in the
     // queue. The pipeline disposes its CancellationTokenSource only when a transaction that ends the
     // item commits. Thus, the cancellation at the disposal finds it live. Before, the first failure
@@ -364,12 +417,14 @@ public sealed class MapAsyncImplTests
         StreamSink<int> source = Stream.CreateSink<int>();
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<Exception> unhandled = [];
         using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: unhandled.Add,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: new FailSecondCompletionStrategy(),
                 inputConverter: static v => v,
@@ -380,6 +435,8 @@ public sealed class MapAsyncImplTests
         // The operation ends synchronously. Thus, the pipeline tried each end of the item before this
         // point.
         await Assert.That(status.Items.Sample().Count).IsEqualTo(1);
+        await Assert.That(unhandled.Count).IsEqualTo(1);
+        await Assert.That(unhandled[0]).IsTypeOf<AggregateException>();
         await Assert.That(status.Dispose).ThrowsNothing();
     }
 
@@ -399,6 +456,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
@@ -431,6 +489,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -487,6 +546,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -530,6 +590,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -557,6 +618,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -587,6 +649,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -623,6 +686,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v,
@@ -666,6 +730,7 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
                 inputConverter: static v => v);
@@ -706,6 +771,7 @@ public sealed class MapAsyncImplTests
                     source: null!,
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -723,6 +789,7 @@ public sealed class MapAsyncImplTests
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     results: null!,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -740,6 +807,26 @@ public sealed class MapAsyncImplTests
                     results: results,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     errors: null!,
+                    handleException: TestUtil.Unexpected,
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task NullHandleExceptionThrowsArgumentNullException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        await Assert.That(() =>
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    handleException: null!,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -757,6 +844,7 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     operation: null!,
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
@@ -775,6 +863,7 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     strategy: null!,

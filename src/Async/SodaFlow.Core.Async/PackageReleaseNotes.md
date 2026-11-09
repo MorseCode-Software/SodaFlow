@@ -35,14 +35,21 @@ failure: it ended the item a second time and sent the listener's exception on er
 well, the exception went unobserved, the item stayed Running for good, a Queue strategy never started the next item, and
 Dispose threw ObjectDisposedException, because it canceled a source that the failed delivery had already disposed. The
 task and the source now change only when the delivery commits. A delivery that fails runs again without delivering
-anything, so the item ends, its Execute task is canceled, and the next item can start. The listener's exception then
-goes out on errors in a transaction of its own, wrapped in the new MapAsyncDeliveryException, so a handler can tell it
-from an operation's failure. When the outcome that was not delivered was itself an exception, from the operation or from
-a Construct function, the report carries it in UndeliveredError, since neither errors nor the Execute task received it.
-If that second attempt or that report throws too, both exceptions come out together in an AggregateException, as an
-unobserved task exception or from the transaction the operation ended in. An operation that ends inside a transaction
-now has its outcome delivered once that transaction releases the transaction lock, rather than among its posted actions,
-so a failed delivery no longer comes out of that transaction.
+anything, so the item ends and the next item can start. The listener's exception then goes out on errors in a
+transaction of its own, wrapped in the new MapAsyncDeliveryException, so a handler can tell it from an operation's
+failure. When the outcome that was not delivered was itself an exception, from the operation or from a Construct
+function, the report carries it in UndeliveredError, since neither errors nor the Execute task received it. The Execute
+task of the item, if it has one, fails with the same MapAsyncDeliveryException. If that second attempt or that report
+throws too, both exceptions go together in an AggregateException to the handleException that MapAsync now takes; see the
+SodaFlow.Async and SodaFlow.FSharp.Async notes. An operation that ends inside a transaction now has its outcome
+delivered once that transaction releases the transaction lock, rather than among its posted actions, so a failed
+delivery no longer comes out of that transaction.
+
+Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
+that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
+exception, and that ends the process on .NET Framework when ThrowUnobservedTaskExceptions is on. Such an exception now
+goes to handleException. A throw from handleException itself is sent to the thread pool, where it ends the process, as a
+throw from the handler of a timer system does.
 
 A custom strategy can now be called twice for the same end, OnCompleted or OnCanceled: once in the delivery that failed
 and once when it runs again, whose publish decision is ignored. The first call's decision is discarded with its

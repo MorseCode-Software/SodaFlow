@@ -37,7 +37,7 @@ public static class AsyncStreamExtensions
     ///     This overload changes each input to <see cref="Unit" /> before the
     ///     strategy, thus it needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -54,6 +54,11 @@ public static class AsyncStreamExtensions
     ///     The destination of the exception of each run with an error. When a
     ///     listener stops the send of an outcome, the pipeline sends a
     ///     <see cref="MapAsyncDeliveryException" /> here.
+    /// </param>
+    /// <param name="handleException">
+    ///     Gets each exception that has no caller and that
+    ///     <paramref name="errors" /> cannot receive. A throw from it ends the
+    ///     process.
     /// </param>
     /// <param name="operation">The asynchronous work for each input.</param>
     /// <param name="strategy">The control of operations that overlap.</param>
@@ -75,13 +80,14 @@ public static class AsyncStreamExtensions
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />,
-    ///     <paramref name="errors" />, <paramref name="operation" />, or
-    ///     <paramref name="strategy" /> is null.
+    ///     <paramref name="errors" />, <paramref name="handleException" />,
+    ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
     public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
+        Action<Exception> handleException,
         MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<Unit> strategy,
         Stream<Unit>? cancelAll = null,
@@ -90,6 +96,7 @@ public static class AsyncStreamExtensions
         source.MapAsyncImpl(
             results: results,
             errors: errors,
+            handleException: handleException,
             operation: operation,
             strategy: strategy,
             inputConverter: static _ => Unit.Value,
@@ -102,7 +109,7 @@ public static class AsyncStreamExtensions
     ///     the <typeparamref name="TStrategyInput" /> of the strategy or a subtype of
     ///     it, thus this overload needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -129,6 +136,11 @@ public static class AsyncStreamExtensions
     ///     listener stops the send of an outcome, the pipeline sends a
     ///     <see cref="MapAsyncDeliveryException" /> here.
     /// </param>
+    /// <param name="handleException">
+    ///     Gets each exception that has no caller and that
+    ///     <paramref name="errors" /> cannot receive. A throw from it ends the
+    ///     process.
+    /// </param>
     /// <param name="operation">The asynchronous work for each input.</param>
     /// <param name="strategy">The control of operations that overlap.</param>
     /// <param name="cancelAll">
@@ -149,13 +161,14 @@ public static class AsyncStreamExtensions
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />,
-    ///     <paramref name="errors" />, <paramref name="operation" />, or
-    ///     <paramref name="strategy" /> is null.
+    ///     <paramref name="errors" />, <paramref name="handleException" />,
+    ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
     public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
+        Action<Exception> handleException,
         MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Stream<Unit>? cancelAll = null,
@@ -165,6 +178,7 @@ public static class AsyncStreamExtensions
         source.MapAsyncImpl(
             results: results,
             errors: errors,
+            handleException: handleException,
             operation: operation,
             strategy: strategy,
             inputConverter: static v => v,
@@ -219,6 +233,14 @@ public static class AsyncStreamExtensions
     ///     It also sends a <see cref="MapAsyncDeliveryException" /> here when a
     ///     listener stops the send of an outcome. There is no call of this method
     ///     with no destination for the errors.
+    /// </param>
+    /// <param name="handleException">
+    ///     This is necessary. The pipeline gives it each exception that has no caller
+    ///     and that <paramref name="errors" /> cannot receive. A listener can stop a
+    ///     send, and the pipeline can then fail to end the item or to report that
+    ///     failure. A defect in the pipeline also comes here. The pipeline continues
+    ///     after each call. A throw from this action ends the process, as a throw from
+    ///     the handler of a timer system does.
     /// </param>
     /// <param name="operation">
     ///     The asynchronous work for each input. The pipeline calls it inline, thus it
@@ -277,13 +299,14 @@ public static class AsyncStreamExtensions
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />,
-    ///     <paramref name="errors" />, <paramref name="operation" />, or
-    ///     <paramref name="strategy" /> is null.
+    ///     <paramref name="errors" />, <paramref name="handleException" />,
+    ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
     /// </exception>
     public static AsyncMapStatus<TInput, TResult> MapAsync<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
+        Action<Exception> handleException,
         MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Func<TInput, TStrategyInput> inputConverter,
@@ -293,6 +316,7 @@ public static class AsyncStreamExtensions
         source.MapAsyncImpl(
             results: results,
             errors: errors,
+            handleException: handleException,
             operation: operation,
             strategy: strategy,
             inputConverter: inputConverter,

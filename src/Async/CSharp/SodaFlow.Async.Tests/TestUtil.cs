@@ -10,6 +10,16 @@ namespace SodaFlow.Async.Tests;
 internal static class TestUtil
 {
     /// <summary>
+    ///     The handleException of a pipeline in a test that expects no exception
+    ///     there. It throws, thus the pipeline sends the throw to the thread pool,
+    ///     and that ends the test run with the exception.
+    /// </summary>
+    public static void Unexpected(Exception error) =>
+        throw new InvalidOperationException(
+            message: "The pipeline gave an exception to handleException where the test expected none.",
+            innerException: error);
+
+    /// <summary>
     ///     Reads <paramref name="condition" /> until it is true, or fails the test at
     ///     a timeout.
     /// </summary>

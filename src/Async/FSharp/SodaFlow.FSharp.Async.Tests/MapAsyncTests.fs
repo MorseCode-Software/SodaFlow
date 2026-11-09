@@ -145,7 +145,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             source |> sendS "a"
             source |> sendS "b"
@@ -174,7 +174,7 @@ type ``MapAsync Tests``() =
             let l = results |> listenStrongS received.Add
 
             let status =
-                source |> mapAsync results errors op.Operation (queueStrategy ()) None None true
+                source |> mapAsync results errors unexpected op.Operation (queueStrategy ()) None None true
 
             source |> sendS "a"
             source |> sendS "b"
@@ -205,7 +205,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (switchLatestStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (switchLatestStrategy ()) None None true
 
             source |> sendS "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -238,7 +238,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
+                |> mapAsyncWithInputConverter results errors unexpected op.Operation strategy id None None true
 
             source |> sendS "g1-a"
             source |> sendS "g1-b"
@@ -279,7 +279,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsyncWithInputConverter results errors op.Operation strategy id None None true
+                |> mapAsyncWithInputConverter results errors unexpected op.Operation strategy id None None true
 
             source |> sendS "A-1"
             source |> sendS "a-2"
@@ -311,7 +311,7 @@ type ``MapAsync Tests``() =
             let operation (_: string) (resultFactory: ResultFactory<unit>) (_: CancellationToken) =
                 Task.FromResult(resultFactory.FromValue(()))
 
-            let status = source |> mapAsync results errors operation strategy None None true
+            let status = source |> mapAsync results errors unexpected operation strategy None None true
 
             source |> sendS "a"
             source |> sendS "b"
@@ -336,7 +336,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) (Some cancelAll) None true
 
             source |> sendS "a"
             source |> sendS "b"
@@ -364,7 +364,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None (Some cancelMatching) true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None (Some cancelMatching) true
 
             source |> sendS "a"
             source |> sendS "b"
@@ -394,7 +394,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             source |> sendS "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -419,7 +419,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None false
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None false
 
             source |> sendS "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -447,7 +447,7 @@ type ``MapAsync Tests``() =
                 Task.FromException<MapAsyncResult<string>>(thrown)
 
             let status =
-                source |> mapAsync results errors operation (parallelStrategy ()) None None true
+                source |> mapAsync results errors unexpected operation (parallelStrategy ()) None None true
 
             source |> sendS "hello"
             waitUntil (fun () -> received.Count = 1)
@@ -466,7 +466,7 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (queueStrategy ()) None None true
+                source |> mapAsync results errors unexpected op.Operation (queueStrategy ()) None None true
 
             do! Expect.False(status.IsRunning |> sampleC)
             do! Expect.Equal(0, (status.Items |> sampleC).Count)
@@ -498,7 +498,7 @@ type ``MapAsync Tests``() =
             let op = ControlledOperation<string, string>()
 
             let status =
-                source |> mapAsync results errors op.Operation (queueStrategy ()) None None true
+                source |> mapAsync results errors unexpected op.Operation (queueStrategy ()) None None true
 
             let first = status.Execute "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -533,7 +533,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) (Some cancelAll) None true
 
             let task = status.Execute "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -557,7 +557,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             // The call that the documentation gives for F#, with no parentheses.
             let task = status.Execute input
@@ -587,7 +587,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             let task = status.Execute input
 
@@ -614,7 +614,7 @@ type ``MapAsync Tests``() =
                 Task.FromResult(factory.FromValue(v.ToUpperInvariant()))
 
             let status =
-                source |> mapAsync results errors operation (parallelStrategy ()) None None true
+                source |> mapAsync results errors unexpected operation (parallelStrategy ()) None None true
 
             let task = status.Execute input
             waitUntil (fun () -> task.IsCompleted)
@@ -638,7 +638,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             // A sample in this transaction gives None. The call defers, thus the read is in a new
             // transaction, where the cell holds Some.
@@ -667,7 +667,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             // A sample in this transaction gives Some, but the cell holds None in the transaction of
             // the send. Thus, a test at the call admits "a", and a test at the send admits nothing.
@@ -699,7 +699,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) (Some cancelAll) None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) (Some cancelAll) None true
 
             let task = status.Execute input
             waitUntil (fun () -> op.HasStarted "a")
@@ -724,7 +724,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             let task = status.Execute input
             waitUntil (fun () -> op.HasStarted "a")
@@ -751,7 +751,7 @@ type ``MapAsync Tests``() =
 
             let status =
                 source
-                |> mapAsync results errors op.Operation (parallelStrategy ()) None None true
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) None None true
 
             do!
                 Expect.Throws<ArgumentNullException>(
@@ -773,7 +773,7 @@ type ``MapAsync Tests``() =
                 Task.FromResult(factory.FromValue(defaultArg v "none"))
 
             let status =
-                source |> mapAsync results errors operation (parallelStrategy ()) None None true
+                source |> mapAsync results errors unexpected operation (parallelStrategy ()) None None true
 
             // A Cell<'TInput> goes to the intrinsic overload, which admits None as a value.
             let plain = status.Execute(sinkC (None: string option))

@@ -61,6 +61,10 @@ public class AsyncQueueBenchmarks
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: static e =>
+                    throw new InvalidOperationException(
+                        message: "The pipeline gave an exception to handleException.",
+                        innerException: e),
                 operation: static async (value, factory, token) =>
                 {
                     await Task.Delay(millisecondsDelay: Timeout.Infinite, cancellationToken: token);

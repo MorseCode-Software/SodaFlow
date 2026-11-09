@@ -184,6 +184,13 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 ///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> here when a listener stops the
 ///     send of an outcome. There is no call of this function with no destination for the errors.
 /// </param>
+/// <param name="handleException">
+///     The pipeline gives it each exception that has no caller and that <paramref name="errors" />
+///     cannot receive. A listener can stop a send, and the pipeline can then fail to end the item or
+///     to report that failure. A defect in the pipeline also comes here. The pipeline continues
+///     after each call. A throw from this function ends the process, as a throw from the handler
+///     of a timer system does.
+/// </param>
 /// <param name="operation">
 ///     The asynchronous work for each input. The pipeline calls it inline, thus it does not go to
 ///     a thread pool before its own await. It receives a CancellationToken that combines the
@@ -231,6 +238,7 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 let mapAsync
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
     (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<unit>)
     (cancelAll: Stream<unit> option)
@@ -242,6 +250,7 @@ let mapAsync
         source,
         results,
         errors,
+        Action<exn> handleException,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _>(fun (_: 'TInput) -> ()),
@@ -261,6 +270,10 @@ let mapAsync
 ///     The destination of each operation with an error, and of a
 ///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> for each send of an outcome that a
 ///     listener stops.
+/// </param>
+/// <param name="handleException">
+///     Gets each exception that has no caller and that <paramref name="errors" /> cannot receive.
+///     A throw from it ends the process.
 /// </param>
 /// <param name="operation">The asynchronous work for each input.</param>
 /// <param name="strategy">The control of operations that overlap.</param>
@@ -286,6 +299,7 @@ let mapAsync
 let mapAsyncWithInputConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
     (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput>)
     (inputConverter: 'TInput -> 'TStrategyInput)
@@ -298,6 +312,7 @@ let mapAsyncWithInputConverter
         source,
         results,
         errors,
+        Action<exn> handleException,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _> inputConverter,

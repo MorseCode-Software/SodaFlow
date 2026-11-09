@@ -16,11 +16,10 @@ namespace SodaFlow.Async;
 ///         <see cref="Exception.InnerException" /> is the exception of that listener.
 ///     </para>
 ///     <para>
-///         The pipeline then ends the item, and sends nothing for it. That end
-///         cancels the Task of an Execute call for that item, and the next item can
-///         start.
-///         The pipeline sends this exception after that end, in a transaction of
-///         its own.
+///         The pipeline then ends the item, and sends nothing for it. The next item
+///         can start. The pipeline sends this exception after that end, in a
+///         transaction of its own. The Task of an Execute call for that item fails
+///         with this same exception.
 ///     </para>
 ///     <para>
 ///         The outcome that the pipeline did not send can be an exception. Then
@@ -79,8 +78,8 @@ public sealed class MapAsyncDeliveryException : Exception
     ///         An operation that throws gives this error. A function from
     ///         <see cref="ResultFactory{TResult}.Construct" /> that throws gives it
     ///         also. The failure of the transaction stopped the send of that error. A
-    ///         listener after the throw did not get it, and the pipeline canceled the
-    ///         Task of Execute. Thus, this property is the one record of the error.
+    ///         listener after the throw did not get it, and the Task of Execute did not
+    ///         get it. Thus, this property is the one record of the error.
     ///     </para>
     ///     <para>
     ///         This property is nullable, and it is not a Maybe. SodaFlow.Core.Async
