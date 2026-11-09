@@ -172,6 +172,13 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
     ///     Each value that the pipeline tracks now, Queued or Running. The sequence is
     ///     not specified, but each update is one snapshot that agrees with itself.
     /// </summary>
+    /// <remarks>
+    ///     An item enters this list in the transaction of the value that the pipeline
+    ///     admits. An item leaves the list in a subsequent transaction, when the item
+    ///     ends. A cancellation does not end an item in the transaction of the
+    ///     cancellation stream. A Queued item leaves immediately after that
+    ///     transaction. A Running item leaves when its operation ends.
+    /// </remarks>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
 }
 
