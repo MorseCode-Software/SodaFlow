@@ -54,7 +54,8 @@ internal static class SodaFlowSymbols
     ///     <c>WithoutCapturesImpl</c> on <c>LoopedCell</c>, which are internal.
     /// </summary>
     public static bool IsLoopBlock(IMethodSymbol method) =>
-        IsSodaFlow(method.ContainingType)
+        IsLoopBlockName(method.Name)
+        && IsSodaFlow(method.ContainingType)
         && method.Name switch
         {
             "WithCaptures" or "WithoutCaptures" =>
@@ -62,6 +63,13 @@ internal static class SodaFlowSymbols
             "WithCapturesImpl" or "WithoutCapturesImpl" => method.ContainingType.OriginalDefinition.Name == "LoopedCell",
             _ => false
         };
+
+    /// <summary>
+    ///     True for each name that <see cref="IsLoopBlock" /> accepts. The name of
+    ///     an invocation is in its syntax, thus this check needs no symbol.
+    /// </summary>
+    public static bool IsLoopBlockName(string name) =>
+        name is "WithCaptures" or "WithoutCaptures" or "WithCapturesImpl" or "WithoutCapturesImpl";
 
     /// <summary>
     ///     The state that an expression has from its type alone. Only a

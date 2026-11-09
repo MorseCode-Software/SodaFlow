@@ -44,7 +44,20 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
-        if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+        // The name of the method is in the syntax. This action runs for each invocation in the
+        // compilation, thus it asks for the symbol only where the name is the name of a block.
+        SimpleNameSyntax? name =
+            invocation.Expression switch
+            {
+                MemberAccessExpressionSyntax access => access.Name,
+                MemberBindingExpressionSyntax binding => binding.Name,
+                SimpleNameSyntax simple => simple,
+                _ => null
+            };
+
+        if (name == null
+            || !SodaFlowSymbols.IsLoopBlockName(name.Identifier.ValueText)
+            || context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
             || !SodaFlowSymbols.IsLoopBlock(method))
         {
             return;
