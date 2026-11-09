@@ -25,6 +25,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -54,6 +56,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (_, factory, token) =>
                 {
                     bool lockWasFree =
@@ -92,6 +96,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -103,6 +109,346 @@ public sealed class MapAsyncImplTests
 
         status.Dispose();
         l.Unlisten();
+    }
+
+    // A listener on the results that throws stops the send of that result. The item ends, the next
+    // item starts, and the errors get the failure of the listener in a wrapper. Before, the pipeline
+    // reported the exception of the listener as a failure of the operation.
+    [Test]
+    public async Task AResultsListenerThatThrowsEndsTheItemAndReportsADeliveryFailure()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException thrown = new("results listener");
+        List<int> received = [];
+        List<Exception> failures = [];
+
+        using IStrongListener l = results.ListenStrong(v =>
+        {
+            if (v == 1)
+            {
+                throw thrown;
+            }
+
+            received.Add(v);
+        });
+
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+        await Assert.That(failures.Count).IsEqualTo(1);
+        await Assert.That(failures[0]).IsTypeOf<TestDeliveryException>();
+        await Assert.That(failures[0].InnerException).IsSameReferenceAs(thrown);
+        await Assert.That((failures[0] as TestDeliveryException)?.UndeliveredError.HasValue()).IsFalse();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
+
+        status.Dispose();
+    }
+
+    // The pipeline reports a failure of a listener to the errors, in a transaction of its own. Thus,
+    // a listener on the errors that throws on that report cannot stop the pipeline. The report and
+    // that second throw go to handleException together. Before, the item stayed Running, the queue
+    // never moved, and Dispose threw.
+    [Test]
+    public async Task AnErrorsListenerThatThrowsOnTheReportDoesNotStopThePipeline()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException thrown = new("results listener");
+        List<int> received = [];
+        List<Exception> reported = [];
+        List<Exception> unhandled = [];
+
+        using IStrongListener l = results.ListenStrong(v =>
+        {
+            if (v == 1)
+            {
+                throw thrown;
+            }
+
+            received.Add(v);
+        });
+
+        // This throws on the failure of the results listener, also when it is in a wrapper.
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            reported.Add(error);
+
+            if (ReferenceEquals(objA: error, objB: thrown) || ReferenceEquals(objA: error.InnerException, objB: thrown))
+            {
+                throw new InvalidOperationException("errors listener");
+            }
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+        await Assert.That(reported.Count).IsEqualTo(1);
+        await Assert.That(reported[0]).IsTypeOf<TestDeliveryException>();
+        await Assert.That(unhandled.Count).IsEqualTo(1);
+        await Assert.That((unhandled[0] as AggregateException)?.InnerExceptions[0]).IsSameReferenceAs(reported[0]);
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+        await Assert.That(status.IsRunning.Sample()).IsFalse();
+        await Assert.That(status.Dispose).ThrowsNothing();
+    }
+
+    // A listener can stop the result of an item. The Execute call of that item then fails with the
+    // same report that the errors get.
+    [Test]
+    public async Task ExecuteFailsWithTheReportWhenItsResultIsNotDelivered()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<Exception> reported = [];
+        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IStrongListener e = errors.ListenStrong(reported.Add);
+
+        AsyncMapStatus<int, int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        Task<int> task = status.Execute(1);
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(reported.Count).IsEqualTo(1);
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(reported[0]);
+
+        status.Dispose();
+    }
+
+    // A listener on the errors that throws on the error of an operation stops the send of that error.
+    // The report then holds that error, because no other record of it stays.
+    [Test]
+    public async Task AnErrorThatAListenerStopsComesInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException operationError = new("operation");
+        InvalidOperationException listenerError = new("errors listener");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: operationError))
+            {
+                throw listenerError;
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        TestDeliveryException? report = reported[0] as TestDeliveryException;
+        await Assert.That(report).IsNotNull();
+        await Assert.That(report?.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report?.UndeliveredError).IsEqualTo(MaybeInternal.Some<Exception>(operationError));
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // A function from Construct that throws gives an error in the transaction of the send. A
+    // listener that stops the send of that error makes the report hold it, as for an operation.
+    [Test]
+    public async Task AConstructionErrorThatAListenerStopsComesInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException constructionError = new("construction");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: constructionError))
+            {
+                throw new InvalidOperationException("errors listener");
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw constructionError)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        TestDeliveryException? report = reported[0] as TestDeliveryException;
+        await Assert.That(report).IsNotNull();
+        await Assert.That(report?.UndeliveredError).IsEqualTo(MaybeInternal.Some<Exception>(constructionError));
+
+        status.Dispose();
+    }
+
+    // An operation can end in a transaction, here the one that releases it. The pipeline sends its
+    // result after that transaction, and a failure of that send stays in the pipeline. Before, the
+    // failure came out of the transaction that released the operation.
+    [Test]
+    public async Task AFailedDeliveryAfterATransactionDoesNotReachTheCodeThatRanIt()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        List<Exception> failures = [];
+        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => Transaction.RunVoid(() => op.Release(input: 1, result: 1))).ThrowsNothing();
+
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        await Assert.That(failures[0]).IsTypeOf<TestDeliveryException>();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // After a transaction, the report of a failure can fail also. That second failure goes to
+    // handleException, and not to the code that ran the transaction, which has no part in this
+    // pipeline.
+    [Test]
+    public async Task ASecondFailureAfterATransactionGoesToHandleException()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        List<Exception> unhandled = [];
+        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IStrongListener e = errors.ListenStrong(static _ => throw new InvalidOperationException("errors listener"));
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => Transaction.RunVoid(() => op.Release(input: 1, result: 1))).ThrowsNothing();
+
+        TestUtil.WaitUntil(() => unhandled.Count == 1);
+
+        await Assert.That(unhandled[0]).IsTypeOf<AggregateException>();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // Here, the send of the result fails, and the second end fails also. The item thus stays in the
+    // queue. The pipeline disposes its CancellationTokenSource only when a transaction that ends the
+    // item commits. Thus, the cancellation at the disposal finds it live. Before, the first failure
+    // disposed it, and Dispose threw ObjectDisposedException.
+    [Test]
+    public async Task AnItemThatCannotEndKeepsALiveCancellationForDispose()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        List<Exception> unhandled = [];
+        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: new FailSecondCompletionStrategy(),
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        source.Send(1);
+
+        // The operation ends synchronously. Thus, the pipeline tried each end of the item before this
+        // point.
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(1);
+        await Assert.That(unhandled.Count).IsEqualTo(1);
+        await Assert.That(unhandled[0]).IsTypeOf<AggregateException>();
+        await Assert.That(status.Dispose).ThrowsNothing();
     }
 
     [Test]
@@ -121,6 +467,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
@@ -153,6 +501,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -209,6 +559,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -252,6 +604,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -279,6 +633,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -309,6 +665,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -345,6 +703,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v,
@@ -388,6 +748,8 @@ public sealed class MapAsyncImplTests
             source.MapAsyncImpl(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
                 inputConverter: static v => v);
@@ -428,6 +790,8 @@ public sealed class MapAsyncImplTests
                     source: null!,
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -445,6 +809,8 @@ public sealed class MapAsyncImplTests
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     results: null!,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -462,6 +828,48 @@ public sealed class MapAsyncImplTests
                     results: results,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     errors: null!,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task NullHandleExceptionThrowsArgumentNullException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        await Assert.That(() =>
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    handleException: null!,
+                    createDeliveryException: TestDeliveryException.Create,
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task NullCreateDeliveryExceptionThrowsArgumentNullException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        await Assert.That(() =>
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    createDeliveryException: null!,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -479,6 +887,8 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     operation: null!,
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
@@ -497,6 +907,8 @@ public sealed class MapAsyncImplTests
                 source.MapAsyncImpl(
                     results: results,
                     errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     strategy: null!,
@@ -542,6 +954,39 @@ public sealed class MapAsyncImplTests
             IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
             AsyncStrategyResult<TStrategyInput>.None;
+    }
+
+    /// <summary>
+    ///     Starts each item immediately, and throws from each call of OnCompleted
+    ///     after the first.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class FailSecondCompletionStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        private int completions;
+
+        protected override object? CreateState() => null;
+
+        protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            [new(incoming)];
+
+        protected internal override AsyncStrategyResult<int> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            Interlocked.Increment(ref this.completions) > 1
+                ? throw new InvalidOperationException("second completion")
+                : new AsyncStrategyResult<int>(publish: true, next: AsyncStrategyResult<int>.None);
+
+        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            AsyncStrategyResult<int>.None;
     }
 
     /// <summary>

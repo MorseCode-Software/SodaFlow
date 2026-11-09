@@ -27,6 +27,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -36,6 +37,78 @@ public sealed class MapAsyncExtensionsTests
 
         status.Dispose();
         l.Unlisten();
+    }
+
+    [Test]
+    public async Task MapAsync_ListenerStopsAResult_SendsADeliveryExceptionWithNoUndeliveredError()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException listenerError = new("results listener");
+        List<Exception> failures = [];
+
+        using IStrongListener r = results.ListenStrong(_ => throw listenerError);
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        await Assert.That(failures[0]).IsTypeOf<MapAsyncDeliveryException>();
+        MapAsyncDeliveryException report = (MapAsyncDeliveryException)failures[0];
+        await Assert.That(report.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report.UndeliveredError).IsEqualTo(Maybe<Exception>.None);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task MapAsync_ListenerStopsAnError_SendsThatErrorAsSomeInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException operationError = new("operation");
+        InvalidOperationException listenerError = new("errors listener");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: operationError))
+            {
+                throw listenerError;
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        await Assert.That(reported[0]).IsTypeOf<MapAsyncDeliveryException>();
+        MapAsyncDeliveryException report = (MapAsyncDeliveryException)reported[0];
+        await Assert.That(report.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report.UndeliveredError).IsEqualTo(Maybe.Some<Exception>(operationError));
+
+        status.Dispose();
     }
 
     [Test]
@@ -53,6 +126,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (_, factory, _) => Task.FromResult(factory.FromValue("done")),
                 strategy: strategy);
 
@@ -80,6 +154,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
@@ -109,6 +184,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
@@ -142,6 +218,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelMatching: cancelMatching);
@@ -175,6 +252,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
@@ -213,6 +291,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
@@ -258,6 +337,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
@@ -311,6 +391,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
@@ -350,6 +431,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy,
                 cancelMatching: cancelMatching);
@@ -391,6 +473,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy,
                 cancelMatching: cancelMatching);
@@ -452,6 +535,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelOnDispose: true);
@@ -481,6 +565,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelOnDispose: false);
@@ -511,6 +596,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -534,6 +620,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -572,6 +659,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -605,6 +693,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (v, factory, _) =>
                     Task.FromResult(
                         factory.Construct(() =>
@@ -642,6 +731,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (v, factory, _) =>
                     Task.FromResult(
                         factory.Construct(() =>
@@ -686,6 +776,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (v, factory, _) =>
                     Task.Run(
                         function: () =>
@@ -739,6 +830,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw thrown)),
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -765,6 +857,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) =>
                     v == "fail"
                         ? Task.FromException<MapAsyncResult<string>>(new InvalidOperationException("no"))
@@ -797,6 +890,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy);
 
@@ -834,6 +928,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy);
 
@@ -874,6 +969,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -934,7 +1030,12 @@ public sealed class MapAsyncExtensionsTests
             });
 
         AsyncMapStatus<string, string> status =
-            source.MapAsync(results: results, errors: errors, operation: op.Operation, strategy: strategy);
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy);
 
         source.Send("a");
         source.Send("b");
@@ -986,6 +1087,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1021,6 +1123,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1056,6 +1159,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
@@ -1085,6 +1189,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: new DropEverythingStrategy());
 
@@ -1113,6 +1218,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: new RefuseEverythingStrategy());
 
@@ -1141,6 +1247,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1169,6 +1276,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -1210,6 +1318,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -1267,6 +1376,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1306,6 +1416,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1343,6 +1454,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1398,6 +1510,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1437,6 +1550,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1472,6 +1586,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: (v, factory, _) =>
                 {
                     started.Enqueue(v);
@@ -1517,6 +1632,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1568,6 +1684,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1621,6 +1738,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
@@ -1652,6 +1770,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1679,6 +1798,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1735,6 +1855,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) =>
                     Task.FromResult(factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
                 strategy: AsyncConcurrencyStrategy.Parallel());
@@ -1765,6 +1886,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (v, factory, _) =>
                     Task.FromResult(factory.FromValue(v.Match(onSome: static s => s, onNone: static () => "none"))),
                 strategy: AsyncConcurrencyStrategy.Parallel());
@@ -1804,6 +1926,7 @@ public sealed class MapAsyncExtensionsTests
             innerSource.MapAsync(
                 results: innerResults,
                 errors: innerErrors,
+                handleException: TestUtil.Unexpected,
                 operation: innerOp.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -1817,6 +1940,7 @@ public sealed class MapAsyncExtensionsTests
             outerSource.MapAsync(
                 results: outerResults,
                 errors: outerErrors,
+                handleException: TestUtil.Unexpected,
                 operation: async (value, factory, _) =>
                 {
                     string first = await runInner(value + "1").ConfigureAwait(false);
@@ -1863,6 +1987,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1935,6 +2060,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -1982,6 +2108,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -2040,6 +2167,7 @@ public sealed class MapAsyncExtensionsTests
             input.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -2089,6 +2217,7 @@ public sealed class MapAsyncExtensionsTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 

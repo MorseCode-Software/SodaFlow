@@ -316,18 +316,30 @@ internal static class StreamExtensionMethodsInternal
         Func<TTime, TDeadline> arm,
         TDeadline disarmed)
     {
-        LoopedCell<TDeadline> deadline = new();
-        Stream<TTime> alarm = at(deadline);
+        (Stream<TTime> alarm, Cell<MaybeInternal<T>> latest) =
+            LoopedCell<TDeadline>.WithCapturesImpl(
+                    trans: trans,
+                    state: (S: s, Time: time, At: at, Arm: arm, Disarmed: disarmed),
+                    f: static (deadline, state) =>
+                    {
+                        (Stream<T> s, Behavior<TTime> time, Func<Cell<TDeadline>, Stream<TTime>> at,
+                            Func<TTime, TDeadline> arm, TDeadline disarmed) = state;
 
-        // The value of each firing, for the alarm to read. This holds MaybeInternal and not
-        // the optional type of a caller. The alarm comes after a firing, thus the first value of
-        // this cell never reaches the result.
-        Cell<MaybeInternal<T>> latest = s.MapImpl(MaybeInternal.Some).HoldImpl(MaybeInternal<T>.None);
+                        Stream<TTime> alarm = at(deadline);
 
-        Stream<TDeadline> armed = s.SnapshotImpl(b: time, f: (_, now) => arm(now));
-        Stream<TDeadline> cleared = alarm.MapToImpl(disarmed);
+                        // The value of each firing, for the alarm to read. This holds MaybeInternal and not
+                        // the optional type of a caller. The alarm comes after a firing, thus the first value of
+                        // this cell never reaches the result.
+                        Cell<MaybeInternal<T>> latest = s.MapImpl(MaybeInternal.Some).HoldImpl(MaybeInternal<T>.None);
 
-        deadline.Loop(trans: trans, c: armed.OrElseImpl(cleared).HoldImpl(disarmed));
+                        Stream<TDeadline> armed = s.SnapshotImpl(b: time, f: (_, now) => arm(now));
+                        Stream<TDeadline> cleared = alarm.MapToImpl(disarmed);
+
+                        return (
+                            Cell: armed.OrElseImpl(cleared).HoldImpl(disarmed),
+                            Captures: (Alarm: alarm, Latest: latest));
+                    })
+                .Captures;
 
         return alarm.SnapshotImpl(latest).FilterSomeInternal();
     }

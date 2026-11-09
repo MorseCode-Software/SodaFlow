@@ -27,6 +27,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -64,6 +65,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
@@ -111,6 +113,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
@@ -148,6 +151,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy);
 
@@ -189,6 +193,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: strategy,
                 cancelMatching: cancelMatching);
@@ -230,6 +235,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
@@ -263,6 +269,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.SwitchLatest(),
                 cancelAll: cancelAll);
@@ -350,6 +357,7 @@ public sealed class AsyncConcurrencyStrategyTests
             source.MapAsync(
                 results: results,
                 errors: errors,
+                handleException: TestUtil.Unexpected,
                 operation: static (_, factory, _) => Task.FromResult(factory.FromValue(Unit.Value)),
                 strategy: strategy);
 
