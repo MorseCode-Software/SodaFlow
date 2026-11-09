@@ -91,44 +91,21 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
 
     /// <summary>
     ///     Gives a stream that fires at the time that <paramref name="deadline" />
-    ///     holds. A change of the cell cancels the timer that it set.
+    ///     holds. A change of the cell that commits cancels the timer that the
+    ///     previous value set.
     /// </summary>
+    /// <remarks>
+    ///     The timer follows the cell through a transaction that fails. The cell
+    ///     then keeps the deadline it had, and the alarm fires at that deadline.
+    /// </remarks>
     /// <param name="deadline">The time of the alarm, or no time.</param>
     /// <param name="read">Gives the time in a value of the cell.</param>
     internal Stream<T> At<TDeadline>(Cell<TDeadline> deadline, Func<TDeadline, MaybeInternal<T>> read)
     {
         StreamSink<T> alarm = new();
-        MaybeInternal<TTimer> currentTimer = MaybeInternal<TTimer>.None;
+        DeadlineTimer<TDeadline> timer = new(system: this, alarm: alarm, read: read);
 
-        IListenerInternal l =
-            deadline.ListenImpl(d =>
-            {
-                if (currentTimer.TryGetValue(out TTimer timer))
-                {
-                    this.implementation.Cancel(timer);
-                }
-
-                currentTimer =
-                    read(d).TryGetValue(out T t)
-                        ? MaybeInternal.Some(
-                            this.implementation.SetTimer(time: t, callback: () => this.Arrive(time: t, alarm: alarm)))
-                        : MaybeInternal<TTimer>.None;
-            });
-
-        return alarm.AttachListenerInternal(l);
-    }
-
-    private void Arrive(T time, StreamSink<T> alarm)
-    {
-        lock (this.eventQueue)
-        {
-            this.eventQueue.Add(new Event(time: time, seq: this.nextEventSeq++, alarm: alarm));
-        }
-
-        // A transaction that opens and closes runs the hook, which sends the events in the queue.
-        TransactionInternal.RunVoidImpl(static () =>
-        {
-        });
+        return alarm.AttachListenerInternal(deadline.ListenImpl(timer.Change));
     }
 
     private void OnStart()
@@ -205,6 +182,167 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
             }
 
             return events;
+        }
+    }
+
+    // The timer of one At. Only code in a transaction uses this object, thus the transaction lock
+    // guards its fields.
+    //
+    // A change of the deadline sets the new timer in the transaction, and does not wait for the
+    // commit. SetTimer throws on a stopped implementation. In the transaction, that throw fails
+    // the transaction and the cell keeps its deadline. A throw after the commit comes when the
+    // cell holds the new deadline, and that deadline then has no timer.
+    //
+    // The cancel of the previous timer waits for the commit. Before, the listener canceled it
+    // immediately. When the transaction then did not commit, the cell kept its deadline with no
+    // timer. The alarm fired at the deadline that did not commit.
+    private sealed class DeadlineTimer<TDeadline>(
+        in TimerSystemInternal<T, TTimer> system,
+        in StreamSink<T> alarm,
+        in Func<TDeadline, MaybeInternal<T>> read) : ILastAction
+    {
+        private readonly StreamSink<T> alarm = alarm;
+        private readonly Func<TDeadline, MaybeInternal<T>> read = read;
+        private readonly TimerSystemInternal<T, TTimer> system = system;
+
+        // The timer of the deadline that the cell holds.
+        private MaybeInternal<AlarmTimer> current;
+
+        // True while the transaction that changed the deadline is open.
+        private bool isChanged;
+
+        // The timer of the deadline that the open transaction gave.
+        private MaybeInternal<AlarmTimer> pending;
+
+        internal void Change(TDeadline deadline)
+        {
+            if (this.isChanged)
+            {
+                // A second value in one transaction replaces the first.
+                this.RevokePending();
+            }
+            else
+            {
+                this.isChanged = true;
+                TransactionInternal.CurrentTransaction().Last(this);
+            }
+
+            if (this.read(deadline).TryGetValue(out T time))
+            {
+                this.pending =
+                    MaybeInternal.Some(AlarmTimer.Create(system: this.system, time: time, alarm: this.alarm));
+            }
+        }
+
+        void ILastAction.Commit()
+        {
+            // A cancel and not a revoke. The timer that the commit replaces was correct until this
+            // transaction, thus an event that it queued before the cancel is a true alarm.
+            if (this.current.TryGetValue(out AlarmTimer replaced))
+            {
+                replaced.Cancel();
+            }
+
+            this.current = this.pending;
+            this.pending = MaybeInternal<AlarmTimer>.None;
+            this.isChanged = false;
+        }
+
+        void ILastAction.Discard()
+        {
+            this.RevokePending();
+            this.isChanged = false;
+        }
+
+        private void RevokePending()
+        {
+            if (!this.pending.TryGetValue(out AlarmTimer timer))
+            {
+                return;
+            }
+
+            this.pending = MaybeInternal<AlarmTimer>.None;
+            timer.Revoke();
+        }
+    }
+
+    // One timer that At set. A transaction that fails revokes the timer that it set, and a
+    // revoked timer sends no alarm. A cancel is not sufficient for that. The implementation can
+    // fire the timer on its own thread while the transaction is open. The event is then in the
+    // queue before the transaction fails.
+    private sealed class AlarmTimer
+    {
+        private readonly StreamSink<T> alarm;
+        private readonly TimerSystemInternal<T, TTimer> system;
+        private readonly T time;
+
+        // The handle from the implementation. Only code in a transaction uses this.
+        private MaybeInternal<TTimer> handle;
+
+        // Code that holds the lock on eventQueue uses the two fields below.
+        private bool isRevoked;
+
+        private MaybeInternal<Event> queued;
+
+        private AlarmTimer(TimerSystemInternal<T, TTimer> system, T time, StreamSink<T> alarm)
+        {
+            this.system = system;
+            this.time = time;
+            this.alarm = alarm;
+        }
+
+        // The implementation can run the callback before it gives the handle. The callback does
+        // not use the handle, thus that is safe.
+        internal static AlarmTimer Create(TimerSystemInternal<T, TTimer> system, T time, StreamSink<T> alarm)
+        {
+            AlarmTimer timer = new(system: system, time: time, alarm: alarm);
+            timer.handle = MaybeInternal.Some(system.implementation.SetTimer(time: time, callback: timer.Arrive));
+
+            return timer;
+        }
+
+        internal void Cancel()
+        {
+            if (this.handle.TryGetValue(out TTimer timer))
+            {
+                this.system.implementation.Cancel(timer);
+            }
+        }
+
+        // The cancel is out of the lock, because it calls the code of the implementation.
+        internal void Revoke()
+        {
+            lock (this.system.eventQueue)
+            {
+                this.isRevoked = true;
+
+                if (this.queued.TryGetValue(out Event ev))
+                {
+                    this.system.eventQueue.Remove(ev);
+                }
+            }
+
+            this.Cancel();
+        }
+
+        private void Arrive()
+        {
+            lock (this.system.eventQueue)
+            {
+                if (this.isRevoked)
+                {
+                    return;
+                }
+
+                Event ev = new(time: this.time, seq: this.system.nextEventSeq++, alarm: this.alarm);
+                this.queued = MaybeInternal.Some(ev);
+                this.system.eventQueue.Add(ev);
+            }
+
+            // A transaction that opens and closes runs the hook, which sends the events in the queue.
+            TransactionInternal.RunVoidImpl(static () =>
+            {
+            });
         }
     }
 

@@ -136,6 +136,15 @@ its own transaction, but leaves Time where it is. This holds for any implementat
 Not changed: Time still follows the clock. If the clock itself goes back, as DateTime.Now does when daylight saving
 time ends, Time goes back with it, as before.
 
+Fixed: a transaction that fails no longer moves an alarm. When the cell given to the At member of a timer system
+changes, At cancels the timer of the old deadline and sets one for the new deadline, and it did both while the
+transaction was still open. If something later in that transaction threw, the cell kept its old deadline, but the timers
+had already changed: the alarm fired at a deadline the cell never held, and never at the one it did. debounce is built
+on At, so a failed transaction could make it fire early, late, or not at all. The old timer is now canceled only when
+the transaction commits, and a transaction that fails takes back the timer it set, even one that had already fired on
+the timer thread. A disposed timer system still refuses a new deadline by failing the transaction that sends it, as
+before. The fix is in SodaFlow.Core, so it reaches an implementation you write as well.
+
 Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
 counts with a Stopwatch, which only measures time going by.
