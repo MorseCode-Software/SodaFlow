@@ -304,11 +304,12 @@ public static class Shapes
         return d;
     }
 
-    // S49. A hold of the row, mapped to its plain member and switched, as the close.
+    // S49. A hold of the row, mapped to its plain member and switched, as the close. The loop is
+    // then the plain member, which is zero, thus this share adds and does not divide.
     public static Cell<decimal> CloseThroughHeldRowPlainMember() =>
         Cell.Loop<decimal>().WithoutCaptures(total =>
         {
-            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a + b));
             return Stream.Never<Row>().Hold(row).Map(r => r.Plain).SwitchC();
         });
 
