@@ -31,7 +31,7 @@
 
     <ItemGroup>
         <Compile Include="AssemblyInfo.cs"/>
-        <Compile Include="MapAsyncDeliveryException.cs"/>
+        <Compile Include="MapAsyncDeliveryExceptionBase.cs"/>
         <Compile Include="MapAsyncUtility.cs"/>
     </ItemGroup>
 

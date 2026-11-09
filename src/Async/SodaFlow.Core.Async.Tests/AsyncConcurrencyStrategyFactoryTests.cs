@@ -26,6 +26,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -65,6 +66,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -114,6 +116,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
                 inputConverter: static v => v);
@@ -157,6 +160,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.QueuePerGroup<string, string, string>(GetGroup),
                 inputConverter: static v => v);
@@ -202,6 +206,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.SwitchLatest<string>(),
                 inputConverter: static v => v);
@@ -251,6 +256,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results1,
                 errors: errors1,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op1.Operation,
                 strategy: sharedQueue,
                 inputConverter: static v => v);
@@ -260,6 +266,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
                 results: results2,
                 errors: errors2,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op2.Operation,
                 strategy: sharedQueue,
                 inputConverter: static v => v);

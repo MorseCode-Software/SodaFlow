@@ -26,6 +26,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -56,6 +57,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (_, factory, token) =>
                 {
                     bool lockWasFree =
@@ -95,6 +97,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<string>>(thrown),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -138,6 +141,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -149,9 +153,9 @@ public sealed class MapAsyncImplTests
 
         await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         await Assert.That(failures.Count).IsEqualTo(1);
-        await Assert.That(failures[0]).IsTypeOf<MapAsyncDeliveryException>();
+        await Assert.That(failures[0]).IsTypeOf<TestDeliveryException>();
         await Assert.That(failures[0].InnerException).IsSameReferenceAs(thrown);
-        await Assert.That((failures[0] as MapAsyncDeliveryException)?.UndeliveredError).IsNull();
+        await Assert.That((failures[0] as TestDeliveryException)?.UndeliveredError.HasValue()).IsFalse();
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
         await Assert.That(status.IsRunning.Sample()).IsFalse();
 
@@ -199,6 +203,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -210,7 +215,7 @@ public sealed class MapAsyncImplTests
 
         await Assert.That(received).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         await Assert.That(reported.Count).IsEqualTo(1);
-        await Assert.That(reported[0]).IsTypeOf<MapAsyncDeliveryException>();
+        await Assert.That(reported[0]).IsTypeOf<TestDeliveryException>();
         await Assert.That(unhandled.Count).IsEqualTo(1);
         await Assert.That((unhandled[0] as AggregateException)?.InnerExceptions[0]).IsSameReferenceAs(reported[0]);
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
@@ -235,6 +240,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -277,6 +283,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -285,10 +292,10 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => reported.Count == 1);
 
-        MapAsyncDeliveryException? report = reported[0] as MapAsyncDeliveryException;
+        TestDeliveryException? report = reported[0] as TestDeliveryException;
         await Assert.That(report).IsNotNull();
         await Assert.That(report?.InnerException).IsSameReferenceAs(listenerError);
-        await Assert.That(report?.UndeliveredError).IsSameReferenceAs(operationError);
+        await Assert.That(report?.UndeliveredError).IsEqualTo(MaybeInternal.Some<Exception>(operationError));
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
 
         status.Dispose();
@@ -320,6 +327,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw constructionError)),
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -328,9 +336,9 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => reported.Count == 1);
 
-        MapAsyncDeliveryException? report = reported[0] as MapAsyncDeliveryException;
+        TestDeliveryException? report = reported[0] as TestDeliveryException;
         await Assert.That(report).IsNotNull();
-        await Assert.That(report?.UndeliveredError).IsSameReferenceAs(constructionError);
+        await Assert.That(report?.UndeliveredError).IsEqualTo(MaybeInternal.Some<Exception>(constructionError));
 
         status.Dispose();
     }
@@ -354,6 +362,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -365,7 +374,7 @@ public sealed class MapAsyncImplTests
 
         TestUtil.WaitUntil(() => failures.Count == 1);
 
-        await Assert.That(failures[0]).IsTypeOf<MapAsyncDeliveryException>();
+        await Assert.That(failures[0]).IsTypeOf<TestDeliveryException>();
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
 
         status.Dispose();
@@ -390,6 +399,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v);
@@ -425,6 +435,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: new FailSecondCompletionStrategy(),
                 inputConverter: static v => v,
@@ -457,6 +468,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v.ToUpperInvariant())),
                 strategy: strategy,
                 inputConverter: static v => v.Length);
@@ -490,6 +502,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -547,6 +560,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: strategy,
                 inputConverter: static v => v);
@@ -591,6 +605,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v);
@@ -619,6 +634,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -650,6 +666,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                 inputConverter: static v => v,
@@ -687,6 +704,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
                 inputConverter: static v => v,
@@ -731,6 +749,7 @@ public sealed class MapAsyncImplTests
                 results: results,
                 errors: errors,
                 handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategyFactory.Queue<string>(),
                 inputConverter: static v => v);
@@ -772,6 +791,7 @@ public sealed class MapAsyncImplTests
                     results: results,
                     errors: errors,
                     handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -790,6 +810,7 @@ public sealed class MapAsyncImplTests
                     results: null!,
                     errors: errors,
                     handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -808,6 +829,7 @@ public sealed class MapAsyncImplTests
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     errors: null!,
                     handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -827,6 +849,27 @@ public sealed class MapAsyncImplTests
                     errors: errors,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     handleException: null!,
+                    createDeliveryException: TestDeliveryException.Create,
+                    operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                    strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
+                    inputConverter: static v => v))
+            .ThrowsExactly<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task NullCreateDeliveryExceptionThrowsArgumentNullException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        await Assert.That(() =>
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+                    createDeliveryException: null!,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
                     inputConverter: static v => v))
@@ -845,6 +888,7 @@ public sealed class MapAsyncImplTests
                     results: results,
                     errors: errors,
                     handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     operation: null!,
                     strategy: AsyncConcurrencyStrategyFactory.Parallel("unused"),
@@ -864,6 +908,7 @@ public sealed class MapAsyncImplTests
                     results: results,
                     errors: errors,
                     handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
                     operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
                     // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
                     strategy: null!,

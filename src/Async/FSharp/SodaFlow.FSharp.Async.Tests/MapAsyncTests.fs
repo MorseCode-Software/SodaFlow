@@ -791,3 +791,71 @@ type ``MapAsync Tests``() =
 
             status.Dispose()
         }
+
+    [<Test>]
+    member _.``a listener that stops a result gives a MapAsyncDeliveryException with no undelivered error``() =
+        task {
+            let source = sinkS<int> ()
+            let results = sinkS<int> ()
+            let errors = sinkS<exn> ()
+            let listenerError = InvalidOperationException("results listener")
+            let failures = List<exn>()
+            let r = results |> listenStrongS (fun (_: int) -> raise listenerError)
+            let e = errors |> listenStrongS failures.Add
+
+            let operation (v: int) (factory: ResultFactory<int>) (_: CancellationToken) =
+                Task.FromResult(factory.FromValue v)
+
+            let status =
+                source |> mapAsync results errors unexpected operation (parallelStrategy ()) None None true
+
+            source |> sendS 1
+            waitUntil (fun () -> failures.Count = 1)
+
+            match failures[0] with
+            | :? MapAsyncDeliveryException as report ->
+                do! Expect.Same(listenerError, report.InnerException)
+                do! Expect.Equal(None, report.UndeliveredError)
+            | other -> failwith $"The errors got {other.GetType()}, and not MapAsyncDeliveryException."
+
+            status.Dispose()
+            r |> unlistenL
+            e |> unlistenL
+        }
+
+    [<Test>]
+    member _.``a listener that stops an error gives that error as Some in the report``() =
+        task {
+            let source = sinkS<int> ()
+            let results = sinkS<int> ()
+            let errors = sinkS<exn> ()
+            let operationError = InvalidOperationException("operation")
+            let listenerError = InvalidOperationException("errors listener")
+            let reported = List<exn>()
+
+            let e =
+                errors
+                |> listenStrongS (fun error ->
+                    if obj.ReferenceEquals(error, operationError) then
+                        raise listenerError
+
+                    reported.Add error)
+
+            let operation (_: int) (_: ResultFactory<int>) (_: CancellationToken) =
+                Task.FromException<MapAsyncResult<int>>(operationError)
+
+            let status =
+                source |> mapAsync results errors unexpected operation (parallelStrategy ()) None None true
+
+            source |> sendS 1
+            waitUntil (fun () -> reported.Count = 1)
+
+            match reported[0] with
+            | :? MapAsyncDeliveryException as report ->
+                do! Expect.Same(listenerError, report.InnerException)
+                do! Expect.Equal(Some(operationError :> exn), report.UndeliveredError)
+            | other -> failwith $"The errors got {other.GetType()}, and not MapAsyncDeliveryException."
+
+            status.Dispose()
+            e |> unlistenL
+        }

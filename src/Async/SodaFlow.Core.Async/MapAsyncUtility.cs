@@ -423,6 +423,13 @@ internal delegate void ExecuteIfSomeAction<TInput, TResult>(
     ExecuteCompletion<TResult> completion,
     Action onNone);
 
+// Makes the report of a MapAsync pipeline. Each language package gives one that makes its own
+// sealed type. This is a named delegate and not a Func, for the same cause as ExecuteIfSomeAction.
+internal delegate MapAsyncDeliveryExceptionBase MapAsyncDeliveryExceptionFactory(
+    string message,
+    Exception innerException,
+    MaybeInternal<Exception> undeliveredError);
+
 /// <summary>
 ///     The shared base of the two parts of a MapAsync pipeline: the strategy (
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />) and the engine that
@@ -984,6 +991,13 @@ internal static class AsyncStreamUtility
     ///     A throw from this action ends the process, as a throw from the handler of a
     ///     timer system does.
     /// </param>
+    /// <param name="createDeliveryException">
+    ///     This is necessary. It makes the exception that the pipeline sends when a
+    ///     listener stops the send of an outcome. Its arguments are the message, the
+    ///     exception of the listener, and the error that the pipeline did not send.
+    ///     Each language package gives the function that makes its own sealed type.
+    ///     See <see cref="MapAsyncDeliveryExceptionBase" />.
+    /// </param>
     /// <param name="operation">
     ///     The asynchronous work for each input. The pipeline calls it inline, thus it
     ///     does not go to a thread pool before its own await. It receives a
@@ -1043,13 +1057,15 @@ internal static class AsyncStreamUtility
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="source" />, <paramref name="results" />,
     ///     <paramref name="errors" />, <paramref name="handleException" />,
-    ///     <paramref name="operation" />, or <paramref name="strategy" /> is null.
+    ///     <paramref name="createDeliveryException" />, <paramref name="operation" />,
+    ///     or <paramref name="strategy" /> is null.
     /// </exception>
     internal static AsyncMapStatus<TInput, TResult> MapAsyncImpl<TInput, TResult, TStrategyInput>(
         this Stream<TInput> source,
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
         Action<Exception> handleException,
+        MapAsyncDeliveryExceptionFactory createDeliveryException,
         MapAsyncOperation<TInput, TResult> operation,
         AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Func<TInput, TStrategyInput> inputConverter,
@@ -1077,6 +1093,11 @@ internal static class AsyncStreamUtility
             throw new ArgumentNullException(nameof(handleException));
         }
 
+        if (createDeliveryException is null)
+        {
+            throw new ArgumentNullException(nameof(createDeliveryException));
+        }
+
         if (operation is null)
         {
             throw new ArgumentNullException(nameof(operation));
@@ -1093,6 +1114,7 @@ internal static class AsyncStreamUtility
             results: results,
             errors: errors,
             handleException: handleException,
+            createDeliveryException: createDeliveryException,
             operation: operation,
             cancelAll: cancelAll,
             cancelMatching: cancelMatching,
@@ -1104,7 +1126,7 @@ internal static class AsyncStreamUtility
 ///     The face of a strategy that is not generic over <c>TState</c>. It is the
 ///     type that
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     and its overloads accept. This keeps the <c>TState</c> of a strategy out of
 ///     each MapAsync signature. A caller and the execution engine see only
 ///     <see cref="AsyncConcurrencyStrategyBase{TInput}" />, and never
@@ -1143,7 +1165,7 @@ public abstract class AsyncConcurrencyStrategyBase<TInput>
 ///     call can use the same strategy instance safely, at the same time. The
 ///     execution engine (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     ) holds the <typeparamref name="TState" /> of each call, and it is the only
 ///     code that gives that state back to the strategy. <see cref="Admit" /> and
 ///     <see cref="OnCompleted" /> cannot use the result sink, the error sink, or a
@@ -1170,7 +1192,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     Makes a new scheduling state for one MapAsync call. The engine calls this
     ///     one time for each call. See
     ///     <see
-    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
     ///     Thus, two pipelines with the same strategy instance never read the state of
     ///     the other, also when the two run at the same time.
     /// </summary>
@@ -1750,7 +1772,7 @@ internal static class AsyncConcurrencyStrategyFactory
 ///     and this class does the operations in that answer. This code makes one
 ///     instance for each MapAsync call (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
 ///     ), and that instance holds the one state of the call. This code makes that
 ///     state at the start and never shares it between two calls. Thus, more than
 ///     one call can use the same strategy instance safely, at the same time. This
@@ -1801,6 +1823,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // Gets each exception that has no caller and that the errors cannot receive. Report is the one
     // caller. See the handleException parameter of MapAsyncImpl.
     private readonly Action<Exception> handleException;
+
+    // Makes the report of Recover. See the createDeliveryException parameter of MapAsyncImpl.
+    private readonly MapAsyncDeliveryExceptionFactory createDeliveryException;
 
     // Each value that Execute puts into this pipeline, with the ExecuteCompletion that the
     // Task of that call answers. This sink is private to this manager, thus Execute is the one
@@ -1900,6 +1925,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         StreamSink<TResult> results,
         StreamSink<Exception> errors,
         Action<Exception> handleException,
+        MapAsyncDeliveryExceptionFactory createDeliveryException,
         MapAsyncOperation<TInput, TResult> operation,
         Stream<UnitInternal>? cancelAll,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching,
@@ -1910,6 +1936,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         this.results = results;
         this.errors = errors;
         this.handleException = handleException;
+        this.createDeliveryException = createDeliveryException;
         this.operation = operation;
         this.cancelAll = cancelAll;
         this.cancelMatching = cancelMatching;
@@ -2721,7 +2748,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         nothing. That end cancels the Task of each item, as for a result that
     ///         the strategy does not publish, and the next item can start. Then this
     ///         method sends the failure to the errors in a
-    ///         <see cref="MapAsyncDeliveryException" />. That send has a transaction of
+    ///         <see cref="MapAsyncDeliveryExceptionBase" />. That send has a transaction of
     ///         its own. Thus, a listener on the errors that throws cannot stop the
     ///         pipeline. A throw from that second end or from that send goes to
     ///         handleException in an AggregateException after the first failure.
@@ -2752,11 +2779,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     {
         // The error that the first transaction sent, where it sent one. A listener after the throw
         // did not get it. It stays only in the report and in the Task of Execute.
-        MapAsyncDeliveryException report =
-            new(
-                message: MapAsyncDeliveryException.DefaultMessage,
+        MapAsyncDeliveryExceptionBase report =
+            this.createDeliveryException(
+                message: MapAsyncDeliveryExceptionBase.DefaultMessage,
                 innerException: failure,
-                undeliveredError: sends ? ends[0].SentError : null);
+                undeliveredError: sends ? ends[0].SentError : MaybeInternal<Exception>.None);
 
         try
         {
@@ -2793,7 +2820,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         IReadOnlyList<PendingEnd> ends,
         bool sends,
         Cell<Entry[]> trackedCell,
-        MapAsyncDeliveryException? report) =>
+        MapAsyncDeliveryExceptionBase? report) =>
         TransactionInternal.Apply(
             code: static (transaction, _, state) =>
             {
@@ -2831,7 +2858,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         IReadOnlyList<PendingEnd> ends,
         bool sends,
         Cell<Entry[]> trackedCell,
-        MapAsyncDeliveryException? report)
+        MapAsyncDeliveryExceptionBase? report)
     {
         Entry[] queue = this.CurrentQueue(trackedCell);
 
@@ -2970,7 +2997,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             completion: completion),
                     onFailed: e =>
                     {
-                        end.SentError = e;
+                        end.SentError = MaybeInternal.Some(e);
                         this.errors.SendImpl(e);
 
                         return completion is null ? null : () => completion.TrySetException(e);
@@ -3071,7 +3098,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
         catch (Exception e)
         {
-            end.SentError = e;
+            end.SentError = MaybeInternal.Some(e);
             this.errors.SendImpl(e);
 
             return completion is null ? null : () => completion.TrySetException(e);
@@ -3102,7 +3129,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // The exception that the flush of this end sent to the errors, where it sent one. The
         // flush writes it in its transaction. Recover reads it after that transaction fails, on the
         // same thread, and puts it in the report.
-        public Exception? SentError { get; set; }
+        public MaybeInternal<Exception> SentError { get; set; }
 
         // True when a flush published the outcome of this end. The second end reads it, because the
         // strategy can give a different decision on its second call. SwitchLatest does that.

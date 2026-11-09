@@ -40,6 +40,78 @@ public sealed class MapAsyncExtensionsTests
     }
 
     [Test]
+    public async Task MapAsync_ListenerStopsAResult_SendsADeliveryExceptionWithNoUndeliveredError()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException listenerError = new("results listener");
+        List<Exception> failures = [];
+
+        using IStrongListener r = results.ListenStrong(_ => throw listenerError);
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v)),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        await Assert.That(failures[0]).IsTypeOf<MapAsyncDeliveryException>();
+        MapAsyncDeliveryException report = (MapAsyncDeliveryException)failures[0];
+        await Assert.That(report.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report.UndeliveredError).IsEqualTo(Maybe<Exception>.None);
+
+        status.Dispose();
+    }
+
+    [Test]
+    public async Task MapAsync_ListenerStopsAnError_SendsThatErrorAsSomeInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException operationError = new("operation");
+        InvalidOperationException listenerError = new("errors listener");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: operationError))
+            {
+                throw listenerError;
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        await Assert.That(reported[0]).IsTypeOf<MapAsyncDeliveryException>();
+        MapAsyncDeliveryException report = (MapAsyncDeliveryException)reported[0];
+        await Assert.That(report.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report.UndeliveredError).IsEqualTo(Maybe.Some<Exception>(operationError));
+
+        status.Dispose();
+    }
+
+    [Test]
     public async Task MapAsync_TStrategyInputWithoutConverter_AcceptsTInputAsSubtypeOfTStrategyInput()
     {
         StreamSink<Dog> source = Stream.CreateSink<Dog>();
