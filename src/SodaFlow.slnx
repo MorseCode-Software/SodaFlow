@@ -47,6 +47,7 @@
         <Project Path="Collections/FSharp/SodaFlow.FSharp.Collections/SodaFlow.FSharp.Collections.fsproj"/>
     </Folder>
     <Folder Name="/CSharp/">
+        <Project Path="CSharp/SodaFlow.Benchmarks.Blotter/SodaFlow.Benchmarks.Blotter.csproj"/>
         <Project Path="CSharp/SodaFlow.Benchmarks/SodaFlow.Benchmarks.csproj"/>
         <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj"/>

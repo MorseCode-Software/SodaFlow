@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SodaFlow;
 
@@ -19,8 +20,15 @@ namespace SodaFlow;
 ///         A caller locks the set of its own stream before a call. A fan-out locks
 ///         each member before it calls into it. Thus, two fan-outs that share a root
 ///         cannot change the set of that root at the same time. The locks nest from
-///         an output toward its inputs only, and the inputs of a stream cannot
-///         include the stream. Thus, the locks cannot deadlock.
+///         an output toward its inputs only. Outside a loop, the inputs of a stream
+///         cannot include the stream, thus the locks cannot deadlock.
+///     </para>
+///     <para>
+///         A switch over a loop can reach its own set again through the outer or
+///         the inner. The thread that comes back gets a lock that it already has,
+///         which a lock lets it do. The set of the switch then stops that call. Two
+///         threads that start calls in the same loop at the same time can each wait
+///         for a lock that the other has.
 ///     </para>
 /// </remarks>
 internal interface IKeepListenersAlive
@@ -198,29 +206,30 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : I
     private IKeepListenersAlive? inner;
     private Dictionary<IListener, int>? listeners;
 
+    // The outer or the inner can reach this set again through a loop. For example, a view model
+    // can switch onto a stream that comes from its own output. A call that comes back here while
+    // this set forwards stops, because this set already does its part of that call. Without this
+    // stop, the call goes around the loop until the stack overflows.
+    private bool forwarding;
+
     public void KeepListenerAlive(IListener listener)
     {
+        if (this.forwarding)
+        {
+            return;
+        }
+
         this.listeners ??= [];
         this.listeners.TryGetValue(key: listener, value: out int count);
         this.listeners[listener] = count + 1;
-
-        lock (this.outer)
-        {
-            this.outer.KeepListenerAlive(listener);
-        }
-
-        if (this.inner != null)
-        {
-            lock (this.inner)
-            {
-                this.inner.KeepListenerAlive(listener);
-            }
-        }
+        this.Forward(call: static (set, value) => set.KeepListenerAlive(value), argument: listener);
     }
 
     public void StopKeepingListenerAlive(IListener listener)
     {
-        if (this.listeners == null || !this.listeners.TryGetValue(key: listener, value: out int count))
+        if (this.forwarding
+            || this.listeners == null
+            || !this.listeners.TryGetValue(key: listener, value: out int count))
         {
             return;
         }
@@ -234,59 +243,31 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : I
             this.listeners[listener] = count - 1;
         }
 
-        lock (this.outer)
-        {
-            this.outer.StopKeepingListenerAlive(listener);
-        }
-
-        if (this.inner != null)
-        {
-            lock (this.inner)
-            {
-                this.inner.StopKeepingListenerAlive(listener);
-            }
-        }
+        this.Forward(call: static (set, value) => set.StopKeepingListenerAlive(value), argument: listener);
     }
 
     public void Use(IKeepListenersAlive childKeepListenersAlive)
     {
+        if (this.forwarding)
+        {
+            return;
+        }
+
         this.childKeepListenersAliveList ??= [];
         this.childKeepListenersAliveList.Add(childKeepListenersAlive);
-
-        lock (this.outer)
-        {
-            this.outer.Use(childKeepListenersAlive);
-        }
-
-        if (this.inner != null)
-        {
-            lock (this.inner)
-            {
-                this.inner.Use(childKeepListenersAlive);
-            }
-        }
+        this.Forward(call: static (set, value) => set.Use(value), argument: childKeepListenersAlive);
     }
 
     public void StopUsing(IKeepListenersAlive childKeepListenersAlive)
     {
-        if (this.childKeepListenersAliveList == null
+        if (this.forwarding
+            || this.childKeepListenersAliveList == null
             || !this.childKeepListenersAliveList.Remove(childKeepListenersAlive))
         {
             return;
         }
 
-        lock (this.outer)
-        {
-            this.outer.StopUsing(childKeepListenersAlive);
-        }
-
-        if (this.inner != null)
-        {
-            lock (this.inner)
-            {
-                this.inner.StopUsing(childKeepListenersAlive);
-            }
-        }
+        this.Forward(call: static (set, value) => set.StopUsing(value), argument: childKeepListenersAlive);
     }
 
     /// <summary>
@@ -307,13 +288,50 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : I
                 return;
             }
 
-            if (this.inner != null)
+            // The next inner can reach this set through a loop, as the previous inner can. The
+            // calls that come back here while the move runs stop, as they do in Forward.
+            this.forwarding = true;
+
+            try
             {
-                this.Transfer(set: this.inner, keep: false);
+                if (this.inner != null)
+                {
+                    this.Transfer(set: this.inner, keep: false);
+                }
+
+                this.inner = next;
+                this.Transfer(set: next, keep: true);
+            }
+            finally
+            {
+                this.forwarding = false;
+            }
+        }
+    }
+
+    // Sends a call to the set of the outer and to the set of the current inner.
+    private void Forward<T>(Action<IKeepListenersAlive, T> call, T argument)
+    {
+        this.forwarding = true;
+
+        try
+        {
+            lock (this.outer)
+            {
+                call(arg1: this.outer, arg2: argument);
             }
 
-            this.inner = next;
-            this.Transfer(set: next, keep: true);
+            if (this.inner != null)
+            {
+                lock (this.inner)
+                {
+                    call(arg1: this.inner, arg2: argument);
+                }
+            }
+        }
+        finally
+        {
+            this.forwarding = false;
         }
     }
 

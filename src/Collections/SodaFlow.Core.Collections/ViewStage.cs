@@ -59,11 +59,17 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
         // entered, the keys that left, and the keys that changed. Thus, this code changes the shape
         // of the data and does not calculate it again. A read of it also never makes the stage sort
         // itself, which is the contract of the item stream of the collection.
+        //
+        // Each factory reads the stage through this, and not a parameter of the constructor. A
+        // lambda that captured a parameter made a closure for each stage at its construction.
         this.itemChangesStream =
             new Lazy<Stream<ItemChange<TKey, TIdentity, TState>>>(
                 valueFactory: () =>
-                    TransactionInternal.RunImpl(() =>
-                        this.KeyChangesStream.MapImpl(change => change.ToItemChange(source.Root.KeyEqualityComparer))),
+                    TransactionInternal.Apply(
+                        code: static (_, _, stage) =>
+                            stage.KeyChangesStream.MapImpl(change =>
+                                change.ToItemChange(stage.source.Root.KeyEqualityComparer)),
+                        state: this),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
 
         // Only a change of the members changes this, thus it costs less to hold than the snapshot.
@@ -72,12 +78,18 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
         this.shapeCell =
             new Lazy<Cell<IReadOnlyDictionary<TKey, TIdentity>>>(
                 valueFactory: () =>
-                    TransactionInternal.RunImpl(() =>
-                        this.KeyChangesStream
-                            .FilterImpl(static change => change.ChangesMembership)
-                            .MapImpl(static change => change.After.Identities)
-                            .HoldLazyImpl(
-                                this.SnapshotCell.SampleLazyMappedImpl(static snapshot => snapshot.Identities))),
+                    TransactionInternal.Apply(
+                        code: static (trans, _, stage) =>
+                            stage.KeyChangesStream
+                                .ChooseInternal(static change =>
+                                    change.ChangesMembership
+                                        ? MaybeInternal.Some(change.After.Identities)
+                                        : MaybeInternal<IReadOnlyDictionary<TKey, TIdentity>>.None)
+                                .HoldLazyImpl(
+                                    stage.SnapshotCell.SampleLazyMapped(
+                                        trans: trans,
+                                        f: static snapshot => snapshot.Identities)),
+                        state: this),
                 mode: LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -110,6 +122,7 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     ///     it measures the same as an observer on the collection.
     /// </remarks>
     internal override Cell<TProjected> CreateStateCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TState, TProjected> onPresent,
         Func<TProjected> onAbsent)
@@ -120,17 +133,17 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
         // fifth of an edit.
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return TransactionInternal.RunImpl(() =>
-            this.KeyChangesStream
-                .ChooseInternal(change =>
-                    change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .HoldLazyImpl(
-                    this.KeysCell.SampleLazyImpl()
-                        .MapImpl(keys =>
-                            keys.Contains(key)
-                            && root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState? state)
-                                ? onPresent(state)
-                                : onAbsent())));
+        return this.KeyChangesStream
+            .ChooseInternal(change =>
+                change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.KeysCell.SampleLazyMapped(
+                    trans: trans,
+                    f: keys =>
+                        keys.Contains(key)
+                        && root.SnapshotCell.SampleImpl().States.TryGetState(key: key, state: out TState? state)
+                            ? onPresent(state)
+                            : onAbsent()));
     }
 
     /// <inheritdoc />
@@ -140,24 +153,25 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     ///     from one of these.
     /// </remarks>
     internal override Cell<TProjected> CreateItemCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<Item<TIdentity, TState>, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return TransactionInternal.RunImpl(() =>
-            this.KeyChangesStream
-                .ChooseInternal(change =>
-                    change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .HoldLazyImpl(
-                    this.KeysCell.SampleLazyImpl()
-                        .MapImpl(keys =>
-                            keys.Contains(key)
-                            && root.SnapshotCell.SampleImpl()
-                                .TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
-                                ? onPresent(item)
-                                : onAbsent())));
+        return this.KeyChangesStream
+            .ChooseInternal(change =>
+                change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.KeysCell.SampleLazyMapped(
+                    trans: trans,
+                    f: keys =>
+                        keys.Contains(key)
+                        && root.SnapshotCell.SampleImpl()
+                            .TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
+                            ? onPresent(item)
+                            : onAbsent()));
     }
 
     /// <inheritdoc />
@@ -168,24 +182,25 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     ///     leaves it.
     /// </remarks>
     internal override Cell<TProjected> CreateIdentityCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent)
     {
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return TransactionInternal.RunImpl(() =>
-            this.KeyChangesStream
-                .ChooseInternal(change =>
-                    change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .HoldLazyImpl(
-                    this.KeysCell.SampleLazyImpl()
-                        .MapImpl(keys =>
-                            keys.Contains(key)
-                            && root.SnapshotCell.SampleImpl()
-                                .TryGetIdentity(key: key, identity: out TIdentity? identity)
-                                ? onPresent(identity)
-                                : onAbsent())));
+        return this.KeyChangesStream
+            .ChooseInternal(change =>
+                change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.KeysCell.SampleLazyMapped(
+                    trans: trans,
+                    f: keys =>
+                        keys.Contains(key)
+                        && root.SnapshotCell.SampleImpl()
+                            .TryGetIdentity(key: key, identity: out TIdentity? identity)
+                            ? onPresent(identity)
+                            : onAbsent()));
     }
 }
 

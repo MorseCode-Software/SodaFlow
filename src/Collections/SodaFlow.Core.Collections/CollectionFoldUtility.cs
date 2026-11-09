@@ -57,31 +57,48 @@ internal static class CollectionFoldUtility
         Func<TAccumulate, TAccumulate, TAccumulate> subtract)
         where TKey : notnull
         where TIdentity : notnull =>
-        TransactionInternal.RunImpl(() =>
-        {
-            // The first value comes from the store, because a fold of no changes is a fold of the
-            // items that the collection holds now. A view gives its own items here: the States of a
-            // scoped snapshot hold the keys of that view alone.
-            CollectionSnapshot<TKey, TIdentity, TState> snapshot = collection.SnapshotCell.SampleImpl();
+        TransactionInternal.Apply(
+            code: static (_, _, state) =>
+                Fold(
+                    collection: state.Collection,
+                    select: state.Select,
+                    zero: state.Zero,
+                    add: state.Add,
+                    subtract: state.Subtract),
+            state: (Collection: collection, Select: select, Zero: zero, Add: add, Subtract: subtract));
 
-            TAccumulate initial =
-                snapshot.States.Pairs.Aggregate(
-                    seed: zero,
-                    func: (running, pair) =>
-                        add(
-                            arg1: running,
-                            arg2: select(arg1: IdentityOf(snapshot: snapshot, key: pair.Key), arg2: pair.Value)));
+    private static Cell<TAccumulate> Fold<TKey, TIdentity, TState, TAccumulate>(
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TIdentity, TState, TAccumulate> select,
+        TAccumulate zero,
+        Func<TAccumulate, TAccumulate, TAccumulate> add,
+        Func<TAccumulate, TAccumulate, TAccumulate> subtract)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        // The first value comes from the store, because a fold of no changes is a fold of the
+        // items that the collection holds now. A view gives its own items here: the States of a
+        // scoped snapshot hold the keys of that view alone.
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot = collection.SnapshotCell.SampleImpl();
 
-            return collection.ItemChangesStream.AccumImpl(
-                initialState: initial,
-                f: (change, running) =>
-                    Apply(
-                        change: change,
-                        running: running,
-                        select: select,
-                        add: add,
-                        subtract: subtract));
-        });
+        TAccumulate initial =
+            snapshot.States.Pairs.Aggregate(
+                seed: zero,
+                func: (running, pair) =>
+                    add(
+                        arg1: running,
+                        arg2: select(arg1: IdentityOf(snapshot: snapshot, key: pair.Key), arg2: pair.Value)));
+
+        return collection.ItemChangesStream.AccumImpl(
+            initialState: initial,
+            f: (change, running) =>
+                Apply(
+                    change: change,
+                    running: running,
+                    select: select,
+                    add: add,
+                    subtract: subtract));
+    }
 
     /// <summary>
     ///     Folds the identity of each item of a collection into one cell. The cell
@@ -125,28 +142,45 @@ internal static class CollectionFoldUtility
         Func<TAccumulate, TAccumulate, TAccumulate> subtract)
         where TKey : notnull
         where TIdentity : notnull =>
-        TransactionInternal.RunImpl(() =>
-        {
-            // The Identities of a scoped snapshot hold the keys of the view alone, as its States
-            // do in FoldImpl.
-            TAccumulate initial =
-                collection.SnapshotCell.SampleImpl()
-                    .Identities.Aggregate(
-                        seed: zero,
-                        func: (running, pair) => add(arg1: running, arg2: select(pair.Value)));
+        TransactionInternal.Apply(
+            code: static (_, _, state) =>
+                FoldByIdentity(
+                    collection: state.Collection,
+                    select: state.Select,
+                    zero: state.Zero,
+                    add: state.Add,
+                    subtract: state.Subtract),
+            state: (Collection: collection, Select: select, Zero: zero, Add: add, Subtract: subtract));
 
-            return collection.ItemChangesStream
-                .FilterImpl(static change => change.IsStructural || change.IsReset)
-                .AccumImpl(
-                    initialState: initial,
-                    f: (change, running) =>
-                        ApplyIdentities(
-                            change: change,
-                            running: running,
-                            select: select,
-                            add: add,
-                            subtract: subtract));
-        });
+    private static Cell<TAccumulate> FoldByIdentity<TKey, TIdentity, TState, TAccumulate>(
+        ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TIdentity, TAccumulate> select,
+        TAccumulate zero,
+        Func<TAccumulate, TAccumulate, TAccumulate> add,
+        Func<TAccumulate, TAccumulate, TAccumulate> subtract)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        // The Identities of a scoped snapshot hold the keys of the view alone, as its States
+        // do in FoldImpl.
+        TAccumulate initial =
+            collection.SnapshotCell.SampleImpl()
+                .Identities.Aggregate(
+                    seed: zero,
+                    func: (running, pair) => add(arg1: running, arg2: select(pair.Value)));
+
+        return collection.ItemChangesStream
+            .FilterImpl(static change => change.IsStructural || change.IsReset)
+            .AccumImpl(
+                initialState: initial,
+                f: (change, running) =>
+                    ApplyIdentities(
+                        change: change,
+                        running: running,
+                        select: select,
+                        add: add,
+                        subtract: subtract));
+    }
 
     /// <summary>
     ///     The accumulated value after one change. This adds the new value of each key

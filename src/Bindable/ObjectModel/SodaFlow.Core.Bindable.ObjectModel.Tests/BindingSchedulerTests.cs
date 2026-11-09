@@ -27,6 +27,42 @@ public sealed class BindingSchedulerTests
         await Assert.That(ran).IsTrue().Because("with nothing in flight there is nothing to wait for");
     }
 
+    // The scheduler does not open a transaction for the action. Thus, a send from the action commits
+    // in a transaction of its own, and a throw after it does not discard it. A dispatcher does the
+    // same.
+    [Test]
+    public async Task ImmediateOpensNoTransactionForAnAction()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = sink.ListenStrong(seen.Add);
+
+        await Assert.That(() =>
+                BindingScheduler.Immediate.Post(() =>
+                {
+                    sink.Send(1);
+
+                    throw new InvalidOperationException("after the send");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
+    // The action runs while no thread holds the transaction lock. Thus, the action can wait for a
+    // transaction on a different thread.
+    [Test]
+    public async Task ImmediateHoldsNoLockWhileAnActionRuns()
+    {
+        bool completed = false;
+
+        BindingScheduler.Immediate.Post(() =>
+            completed = Task.Run(static () => Transaction.RunVoid(static () => { }))
+                .Wait(TimeSpan.FromSeconds(10)));
+
+        await Assert.That(completed).IsTrue();
+    }
+
     [Test]
     public async Task ImmediateDefersUntilTheTransactionCloses()
     {
@@ -47,6 +83,45 @@ public sealed class BindingSchedulerTests
             .Because("running here would be inside the transaction");
 
         await Assert.That(ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
+    }
+
+    // A bindable value keeps a flag and a count for each post, and only the post clears them. Thus,
+    // a post must run if its transaction commits and also if it fails, as a post to a dispatcher
+    // does.
+    [Test]
+    public async Task ImmediateRunsAPostFromATransactionThatFails()
+    {
+        bool ran = false;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    BindingScheduler.Immediate.Post(() => ran = true);
+
+                    throw new InvalidOperationException("the transaction fails");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsTrue();
+    }
+
+    // One action that throws does not stop the actions after it. The throw comes out of the
+    // transaction, after each action ran.
+    [Test]
+    public async Task ImmediateRunsEachPostAfterOneThrows()
+    {
+        List<int> ran = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    BindingScheduler.Immediate.Post(() => ran.Add(1));
+                    BindingScheduler.Immediate.Post(static () => throw new InvalidOperationException("second"));
+                    BindingScheduler.Immediate.Post(() => ran.Add(3));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
     }
 
     [Test]

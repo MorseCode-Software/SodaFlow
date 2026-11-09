@@ -21,8 +21,33 @@ MutableListener, and nothing outside the library needed one; its ClearListener, 
 used, is removed with it. Nothing in the library used Cleanup. It ran an action when the garbage collector removed it,
 at a time the collector chose, and its own documentation advised IDisposable for a release at a known time.
 
+BREAKING: Cell<T> derives from Behavior<T>. A cell was a second object that held a behavior; now it is the behavior, so
+a cell goes wherever a behavior is expected, and each cell is one object fewer. A behavior that an operation derives is
+still not a cell, even when a cell feeds it, so a cast cannot recover the steps of a value whose type says it is
+continuous. LoopedCell<T> is a Cell<T> and no longer holds a LoopedBehavior<T>. Behavior<T> loses three protected
+members, ValueProperty, UsingInitialValue, and UseInitialValueAgain, which nothing outside the library could reach,
+because its constructors are internal.
+
 Changed: a looped behavior sampled before its loop closes throws an InvalidOperationException whose message names
 LoopedBehavior, where it named BehaviorLoop, which the C# package removes in this release.
+
+Changed: a looped cell sampled before its loop closes throws an InvalidOperationException whose message names
+LoopedCell, where it named LoopedBehavior.
+
+A map or a lift of a cell or a behavior is its own node, where it was a hold of an output stream: the operator sent into
+a stream, and the behavior listened to it. The value now arrives at the behavior directly, the initial value comes from
+the operator without a lazy sample, and the stream of the updates is made only when something asks for it: a listener, a
+lift or other operator on top, or Updates and Values. What a caller sees does not change, including the value a listener
+gets when it asks for the updates in the transaction that changed them. Measured on building a thousand, .NET 10: a map
+of one cell 900 to 625 KB and 1.20 to 0.79 ms, a lift of two cells 1,469 to 1,163 KB and 2.13 to 1.51 ms, and a lift of
+six cells 3,184 to 2,824 KB and 6.54 to 5.00 ms. A send through a lift allocates what it did.
+
+A firing no longer takes a lock that the whole process shares to read the listeners of each stream it reaches. Each node
+keeps a snapshot of its listeners, which changes only when a listener is added or removed. A send now reads the snapshot
+without the lock, and takes the lock only to build a new one after a change. Measured on .NET 10: a send to a sink with
+one listener 171 to 162 ns, through a chain of eight maps 699 to 627 ns, to a fan-out of eight maps 1,045 to 964 ns, and
+to one input of a lift of two cells 443 to 422 ns. On .NET Framework 4.7.2 the chain goes from 1,867 to 1,776 ns. A send
+allocates what it did.
 
 A send on a sink from outside a transaction allocates two objects fewer: the transaction's send queue holds an entry
 with the sink and the value as fields, where it held a closure and a delegate, and the send enters the transaction
@@ -71,7 +96,10 @@ the root of the inner it selects on each switch, so the listener lives while the
 and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
 root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
-memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept.
+memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
+loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
+and that switches onto its own output, is an example. The switch stops a call that comes back to it. Thus, the first
+strong listener in such a loop does not go around it until the stack overflows. The memory tests pin that loop too.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -300,6 +328,19 @@ Before, the throw closed the child transaction instead of discarding it, so the 
 while the same action run with no transaction open, which goes through the same path as a transaction body, discarded
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
+
+Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
+no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
+each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
+everything that transaction sent had already reached the graph: the actions still queued were dropped and their releases
+ran with the other action's exception, and the transaction's recorded outcome flipped from committed to failed, so code
+that asked it how the transaction ended was told the wrong thing. Each posted action now runs whatever the others do,
+and the elements of Operational.Split, which go through the same queue, follow the same rule. When the queue is done,
+one exception comes out as it is, and several come out together in an AggregateException, in the order the actions were
+posted, each followed by any throw from its own release. The code that ran the transaction gets the exception as before.
+A bindable value whose refresh was queued behind such an action was the visible casualty: with
+BindingScheduler.Immediate its refresh was dropped and it never refreshed again, which
+SodaFlow.Core.Bindable.ObjectModel 5.0.0 fixes on its side as well.
 
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed

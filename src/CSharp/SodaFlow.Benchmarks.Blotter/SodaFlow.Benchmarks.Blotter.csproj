@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        An order blotter view model of the size and shape a real application has, and the benchmarks
+        of building it and of sending through it. See README.md for what is measured and how to run it.
+
+        This project builds the same source against one of two copies of the libraries, chosen by the
+        SodaFlowSource property:
+
+        - Projects, the default: the projects under src/, which is what main is now. This is the
+          form the solution and CI build.
+        - Release: the published packages at the version of their last tags. This is what a consumer
+          has today.
+
+        Run the benchmarks once each way and compare the two reports: the difference is what the
+        unreleased changes give. The view model uses only API that both copies have, so one source
+        is a fair comparison. Where the two differ, the release notes say why, and this file pins
+        the versions that the comparison is against.
+
+        The property is read from the environment as well as from the command line, because MSBuild
+        reads environment variables as properties. That is what lets BenchmarkDotNet's own build of
+        this project, out of process, see the same choice as the run that started it. Set it in the
+        environment rather than with -p, which that inner build never receives.
+
+        The two choices restore different graphs, so each has its own lock file, and both are
+        committed. A release that moves a pinned version below moves its lock file with it.
+    -->
+    <PropertyGroup>
+        <SodaFlowSource Condition="'$(SodaFlowSource)' == ''">Projects</SodaFlowSource>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <!-- net10.0 only. The libraries also target net472, and SodaFlow.Benchmarks measures both,
+             but a whole view model run on two frameworks and two copies of the libraries is four
+             long runs, and the question here is what the unreleased changes give, which net10.0
+             answers. Add net472 here to measure it there too: both copies support it. -->
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <AssemblyName>SodaFlow.Benchmarks.Blotter</AssemblyName>
+        <RootNamespace>SodaFlow.Benchmarks.Blotter</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(SodaFlowSource)' == 'Release'">
+        <NuGetLockFilePath>packages.release.lock.json</NuGetLockFilePath>
+        <DefineConstants>$(DefineConstants);SODAFLOW_RELEASE</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" Version="0.15.8"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="BlotterBenchmarks.cs"/>
+        <Compile Include="BlotterViewModel.cs"/>
+        <Compile Include="IBlotterViewModel.cs"/>
+        <Compile Include="OrderRowViewModel.cs"/>
+        <Compile Include="Orders.cs"/>
+        <Compile Include="Program.cs"/>
+        <Compile Include="SortSelection.cs"/>
+        <None Include="README.md"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(SodaFlowSource)' == 'Projects'">
+        <ProjectReference
+                Include="..\..\Bindable\ObjectModel\CSharp\SodaFlow.Bindable.ObjectModel\SodaFlow.Bindable.ObjectModel.csproj"/>
+        <ProjectReference Include="..\..\Collections\CSharp\SodaFlow.Collections\SodaFlow.Collections.csproj"/>
+        <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
+    </ItemGroup>
+
+    <!--
+        The last tag of each package, as the Accounts sample pins them. The core packages under each
+        come through these at the floors that each release declares, and the release lock file
+        records what they resolved to.
+    -->
+    <ItemGroup Condition="'$(SodaFlowSource)' == 'Release'">
+        <PackageReference Include="SodaFlow" Version="5.0.1"/>
+        <PackageReference Include="SodaFlow.Collections" Version="2.0.0"/>
+        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.4"/>
+    </ItemGroup>
+
+    <Target Name="CheckSodaFlowSource" BeforeTargets="Restore;Build">
+        <Error Condition="'$(SodaFlowSource)' != 'Projects' And '$(SodaFlowSource)' != 'Release'"
+               Text="SodaFlowSource is '$(SodaFlowSource)'. Use Projects or Release."/>
+    </Target>
+
+</Project>

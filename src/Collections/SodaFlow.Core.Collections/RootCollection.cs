@@ -121,7 +121,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         TransactionInternal trans,
         Func<TIdentity, TKey> keySelector,
         IEqualityComparer<TKey> keyEqualityComparer,
-        Cell<IEnumerable<Item<TIdentity, TState>>> initialEntries,
+        Behavior<IEnumerable<Item<TIdentity, TState>>> initialEntries,
         params Stream<CollectionEdit<TKey, TIdentity, TState>>[] editStreams)
     {
         // The builders live inside the function, because the function can run more than one
@@ -169,27 +169,42 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream = MergeEdits(editStreams);
 
         // The resolution of an edit uses the state that it resolves against, and the
-        // resolution of the edits makes that state. Thus, this code has an explicit loop.
-        LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotLoopCell = new();
+        // resolution of the edits makes that state. Thus, this code has a loop.
+        (Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell,
+            Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream) =
+            LoopedCell<CollectionSnapshot<TKey, TIdentity, TState>>.WithCapturesImpl(
+                trans: trans,
+                state: (
+                    KeyEqualityComparer: keyEqualityComparer,
+                    KeySelector: keySelector,
+                    EditsStream: editsStream,
+                    Initial: initial),
+                f: static (snapshotLoopCell, state) =>
+                {
+                    (IEqualityComparer<TKey> keyEqualityComparer,
+                        Func<TIdentity, TKey> keySelector,
+                        Stream<CollectionEdit<TKey, TIdentity, TState>> editsStream,
+                        LazySample<CollectionSnapshot<TKey, TIdentity, TState>> initial) = state;
 
-        Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
-            editsStream
-                .SnapshotImpl(
-                    c: snapshotLoopCell,
-                    f: (edit, before) =>
-                        Resolve(
-                            keyEqualityComparer: keyEqualityComparer,
-                            keySelector: keySelector,
-                            edit: edit,
-                            before: before))
-                .FilterSomeInternal();
+                    Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream =
+                        editsStream
+                            .SnapshotImpl(
+                                b: snapshotLoopCell,
+                                f: (edit, before) =>
+                                    Resolve(
+                                        keyEqualityComparer: keyEqualityComparer,
+                                        keySelector: keySelector,
+                                        edit: edit,
+                                        before: before))
+                            .FilterSomeInternal();
 
-        Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
-            itemChangesStream
-                .MapImpl(static change => change.After)
-                .HoldLazyImpl(initial);
+                    Cell<CollectionSnapshot<TKey, TIdentity, TState>> snapshotCell =
+                        itemChangesStream
+                            .MapImpl(static change => change.After)
+                            .HoldLazyImpl(initial);
 
-        snapshotLoopCell.Loop(trans: trans, c: snapshotCell);
+                    return (Cell: snapshotCell, Captures: itemChangesStream);
+                });
 
         // This comes from its own hold on the same stream, and not from a Calm on a map of
         // the snapshot cell. The two holds read the same transaction, thus the two views always
@@ -197,8 +212,10 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         // count, or a change of a key.
         Cell<IReadOnlyDictionary<TKey, TIdentity>> shapeCell =
             itemChangesStream
-                .FilterImpl(static change => change.IsStructural)
-                .MapImpl(static change => change.After.Identities)
+                .ChooseInternal(static change =>
+                    change.IsStructural
+                        ? MaybeInternal.Some(change.After.Identities)
+                        : MaybeInternal<IReadOnlyDictionary<TKey, TIdentity>>.None)
                 .HoldLazyImpl(initial.MapImpl(static initial => initial.Identities));
 
         return new RootCollection<TKey, TIdentity, TState>(
@@ -221,19 +238,20 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     ///     surface never give each other an incorrect cell.
     /// </remarks>
     internal override Cell<TProjected> CreateIdentityCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
-        TransactionInternal.RunImpl(() =>
-            this.ItemChangesStream
-                .ChooseInternal(change =>
-                    change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .HoldLazyImpl(
-                    this.SnapshotCell.SampleLazyImpl()
-                        .MapImpl(snapshot =>
-                            snapshot.TryGetIdentity(key: key, identity: out TIdentity? identity)
-                                ? onPresent(identity)
-                                : onAbsent())));
+        this.ItemChangesStream
+            .ChooseInternal(change =>
+                change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.SnapshotCell.SampleLazyMapped(
+                    trans: trans,
+                    f: snapshot =>
+                        snapshot.TryGetIdentity(key: key, identity: out TIdentity? identity)
+                            ? onPresent(identity)
+                            : onAbsent()));
 
     /// <summary>
     ///     Merges the input streams into one stream. Edits from different streams in
@@ -349,53 +367,47 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     ///     of the lazy seed.
     /// </remarks>
     internal override Cell<TProjected> CreateItemCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<Item<TIdentity, TState>, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
-        TransactionInternal.RunImpl(() =>
-            this.ItemChangesStream
-                .ChooseInternal(change =>
-                    change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                .HoldLazyImpl(
-                    this.SnapshotCell.SampleLazyImpl()
-                        .MapImpl(snapshot =>
-                            snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
-                                ? onPresent(item)
-                                : onAbsent())));
+        this.ItemChangesStream
+            .ChooseInternal(change =>
+                change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.SnapshotCell.SampleLazyMapped(
+                    trans: trans,
+                    f: snapshot =>
+                        snapshot.TryGetItem(key: key, item: out Item<TIdentity, TState>? item)
+                            ? onPresent(item)
+                            : onAbsent()));
 
     internal override Cell<TProjected> CreateStateCell<TProjected>(
+        TransactionInternal trans,
         TKey key,
         Func<TState, TProjected> onPresent,
-        Func<TProjected> onAbsent)
-    {
-        Cell<TProjected> stateCell =
-            TransactionInternal.RunImpl(() =>
-                // This reads the new value from the event and does not sample the snapshot cell.
-                // A sample of a cell in a transaction gives the value from before the
-                // transaction.
-                //
-                // The seed is lazy for the same cause. This code can build this cell in the
-                // transaction that adds its key, for example a row from a structural change. The
-                // change stream then sent its value before this construction, thus the seed is the
-                // only source for the cell. A sample here, before the lazy step, reads the
-                // snapshot from before the transaction, which does not have the key, and the cell
-                // then has no value until the next edit to that key. A lazy sample runs after the
-                // transaction is stable and gives the correct value.
-                //
-                // The projection is in this one node and not in a map after it, thus the optional
-                // type of a wrapper costs no more nodes. The node maps and filters together. A cell
-                // for each key of a large collection showed that a second node was a quarter of the
-                // cost of a cell.
-                this.ItemChangesStream
-                    .ChooseInternal(change =>
-                        change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
-                    .HoldLazyImpl(
-                        this.SnapshotCell.SampleLazyImpl()
-                            .MapImpl(snapshot =>
-                                snapshot.States.TryGetState(key: key, state: out TState? state)
-                                    ? onPresent(state)
-                                    : onAbsent())));
-
-        return stateCell;
-    }
+        Func<TProjected> onAbsent) =>
+        // This reads the new value from the event and does not sample the snapshot cell. A sample
+        // of a cell in a transaction gives the value from before the transaction.
+        //
+        // The seed is lazy for the same cause. This code can build this cell in the transaction
+        // that adds its key, for example a row from a structural change. The change stream then
+        // sent its value before this construction, thus the seed is the only source for the cell.
+        // A sample here, before the lazy step, reads the snapshot from before the transaction,
+        // which does not have the key, and the cell then has no value until the next edit to that
+        // key. A lazy sample runs after the transaction is stable and gives the correct value.
+        //
+        // The projection is in this one node and not in a map after it, thus the optional type of
+        // a wrapper costs no more nodes. The node maps and filters together. A cell for each key
+        // of a large collection showed that a second node was a quarter of the cost of a cell.
+        this.ItemChangesStream
+            .ChooseInternal(change =>
+                change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
+            .HoldLazyImpl(
+                this.SnapshotCell.SampleLazyMapped(
+                    trans: trans,
+                    f: snapshot =>
+                        snapshot.States.TryGetState(key: key, state: out TState? state)
+                            ? onPresent(state)
+                            : onAbsent()));
 }

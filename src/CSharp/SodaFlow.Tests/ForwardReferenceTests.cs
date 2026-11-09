@@ -118,6 +118,32 @@ public sealed class ForwardReferenceTests
     }
 
     [Test]
+    public async Task TestAStrongListenerOnAnObjectThatSwitchesOntoItsOwnOutput()
+    {
+        // The object switches onto a stream that comes from its own output, and a second switch
+        // has an outer that depends on that loop. The keep-alive set of each switch can then
+        // reach itself. A strong listener went around that loop until the stack overflowed.
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+
+        Looped looped =
+            Transaction.Run(() =>
+                ForwardReference<Looped>.WithoutCaptures(reference =>
+                {
+                    Stream<int> fromLoop = reference.Map(static l => l.Output).SwitchS();
+                    Cell<int> total = fromLoop.OrElse(sink).Accum(initialState: 0, f: static (x, sum) => sum + x);
+                    Stream<int> output = total.Map(Stream<int> (_) => sink).SwitchS();
+                    return new Looped(output: output.Filter(static x => x < 0), total: total);
+                }));
+
+        using IStrongListener listener = looped.Total.ListenStrong(seen.Add);
+        sink.Send(1);
+        sink.Send(2);
+
+        await Assert.That(seen).IsEquivalentTo(expected: [0, 1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
     public async Task TestReferenceCannotBeReadDuringConstruction() =>
         // The reference is a promise about the value, and not the value. A read of it before the
         // construction function returns has no answer.
@@ -127,6 +153,13 @@ public sealed class ForwardReferenceTests
                 ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))
             .ThrowsExactly<InvalidOperationException>();
 #pragma warning restore SF1001 // The read before the close is the subject of this test.
+
+    private sealed class Looped(Stream<int> output, Cell<int> total)
+    {
+        public Stream<int> Output { get; } = output;
+
+        public Cell<int> Total { get; } = total;
+    }
 
     private sealed class Child(Cell<Node> parent)
     {

@@ -30,6 +30,12 @@ whose parts seem to need separating still fits: blocks nest, and a recursive fun
 when the number of loops is known only at run time. Nothing in this repository used the explicit form outside its own
 tests.
 
+BREAKING: Cell<T> derives from Behavior<T>, so a cell goes wherever a behavior is expected without AsBehavior, and the
+Behavior extension methods take it. Where a cell method and a behavior method share a name, the cell's still wins for a
+cell, and this repository's tests of the public API compile without a change. A Lift or Snapshot that mixes cells and
+behaviors now compiles and gives a behavior. AsBehavior on a cell stays, as an upcast. Code that tests for Behavior<T>
+and handles a cell differently has to test for Cell<T> first.
+
 BREAKING: ITimerSystem<T> is IDisposable, ITimerSystemImplementation<T> has a Stop, and Transaction.OnStart returns
 the registration of the action as an IDisposable. A timer system's constructor installs a hook that runs at the start
 of every transaction in the process, and a real clock starts a thread; before this release nothing could remove

@@ -157,6 +157,13 @@ in a transaction of its own, under the same rule as a block: if it throws, nothi
 reaches the graph, every cell keeps its previous value, and the exception continues to whoever
 ran the transaction that posted it.
 
+Posted actions run one after another, each in its own transaction, once the transaction that
+posted them has committed. One that throws does not stop the ones after it, and it does not undo
+the transaction that posted it, whose sends have already reached the graph. When the queue is
+done, a single exception is rethrown as it is, and several come out together in an
+`AggregateException`, in the order the actions were posted. The elements of `Operational.Split`
+follow the same rule: one element whose listeners throw does not stop the elements after it.
+
 Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may
 be called from inside a handler. If you need that, `Post` it.

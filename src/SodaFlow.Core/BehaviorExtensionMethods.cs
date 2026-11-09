@@ -10,24 +10,33 @@ internal static class BehaviorExtensionMethodsInternal
         where T2 : Behavior<T> =>
         TransactionInternal.Apply(
             code: static (trans, _, bba) =>
-                BehaviorSwitch<T, T2>.Create(
-                    trans: trans,
-                    outer: bba,
-                    select: static ba => ba,
-                    sampleInitial: static ba => ba.SampleImpl()),
+            {
+                (Stream<T> @out, LazySample<T> initialValue) =
+                    BehaviorSwitch<T, T2>.Create(
+                        trans: trans,
+                        outer: bba,
+                        select: static ba => ba,
+                        sampleInitial: static ba => ba.SampleImpl());
+
+                return @out.HoldLazyInternal(trans: trans, initialValue: initialValue);
+            },
             state: bba);
 
     internal static Cell<T> SwitchCImpl<T, T2>(this Behavior<T2> bca)
         where T2 : Cell<T> =>
-        new(
-            TransactionInternal.Apply(
-                code: static (trans, _, bca) =>
+        TransactionInternal.Apply(
+            code: static (trans, _, bca) =>
+            {
+                (Stream<T> @out, LazySample<T> initialValue) =
                     BehaviorSwitch<T, T2>.Create(
                         trans: trans,
                         outer: bca,
-                        select: static c => c.BehaviorImpl,
-                        sampleInitial: static c => c.SampleImpl()),
-                state: bca));
+                        select: static c => c,
+                        sampleInitial: static c => c.SampleImpl());
+
+                return @out.HoldLazyCellInternal(trans: trans, initialValue: initialValue);
+            },
+            state: bca);
 
     internal static Stream<T> SwitchSImpl<T, T2>(this Behavior<T2> bsa)
         where T2 : Stream<T> =>
@@ -111,11 +120,19 @@ internal static class BehaviorExtensionMethodsInternal
         Func<IReadOnlyList<T>, TResult> f)
         where T2 : Behavior<T> =>
         TransactionInternal.Apply(
-            code: static (trans1, _, state) => LiftBehaviors(trans1: trans1, inputs: state.Inputs, f: state.F),
+            code: static (trans1, _, state) =>
+            {
+                (Stream<TResult> @out, LazySample<TResult> initialValue) =
+                    LiftBehaviors(trans1: trans1, inputs: state.Inputs, f: state.F);
+
+                return @out.HoldLazyInternal(trans: trans1, initialValue: initialValue);
+            },
             state: (Inputs: inputs, F: f));
 
+    // The output and its initial value, which the caller holds. LiftBehaviorsImpl holds them in a
+    // behavior, and LiftCellsImpl holds them in a cell.
     // ReSharper disable once SuggestBaseTypeForParameter - CA1859 asks for the array, which the one caller makes, and the indexer and Length of an array cost less than the interface.
-    private static Behavior<TResult> LiftBehaviors<T, T2, TResult>(
+    internal static (Stream<TResult> Out, LazySample<TResult> InitialValue) LiftBehaviors<T, T2, TResult>(
         TransactionInternal trans1,
         T2[] inputs,
         Func<IReadOnlyList<T>, TResult> f)
@@ -140,8 +157,8 @@ internal static class BehaviorExtensionMethodsInternal
                         suppressEarlierFirings: false);
         }
 
-        return lift.Out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners))
-            .HoldLazyInternal(trans: trans1, initialValue: new LazySample<TResult>(source: lift));
+        return (Out: lift.Out.UnsafeAttachListener(ListenerInternal.CreateCompositeImpl(listeners)),
+            InitialValue: new LazySample<TResult>(source: lift));
     }
 
     // The mechanism of Behavior.LiftImpl, with a slot for each input in an array. Before, each

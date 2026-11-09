@@ -357,6 +357,90 @@ public sealed class CellTests
         await Assert.That(@out).IsEquivalentTo(expected: [3, 5, 4, 7], ordering: CollectionOrdering.Matching);
     }
 
+    [Test]
+    public async Task ACellIsABehavior()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        Behavior<int> b = c;
+
+        c.Send(2);
+
+        await Assert.That(ReferenceEquals(objA: c.AsBehavior(), objB: c)).IsTrue();
+        await Assert.That(b.Sample()).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task ALiftOfACellAndABehaviorIsABehaviorThatFollowsBoth()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        BehaviorSink<int> b = Behavior.CreateSink(10);
+
+        Behavior<int> sum = c.Lift(b2: b, f: static (x, y) => x + y);
+
+        c.Send(2);
+        int afterCell = sum.Sample();
+        b.Send(20);
+
+        await Assert.That(afterCell).IsEqualTo(12);
+        await Assert.That(sum.Sample()).IsEqualTo(22);
+        await Assert.That(sum is Cell<int>).IsFalse();
+    }
+
+    // A behavior that a cell feeds is not a cell. Thus, a cast cannot give the steps of a value
+    // that the type says is continuous.
+    [Test]
+    public async Task ABehaviorMapOfACellIsNotACell()
+    {
+        CellSink<int> c = Cell.CreateSink(1);
+        Behavior<int> mapped = c.AsBehavior().Map(static v => v * 2);
+
+        c.Send(3);
+
+        await Assert.That(mapped.Sample()).IsEqualTo(6);
+        await Assert.That(mapped is Cell<int>).IsFalse();
+    }
+
+    // A map makes the stream of its updates only when a caller asks for it. A caller can ask after
+    // the map got a value in the same transaction. That caller must still get the value, as a
+    // listener on an output stream got the earlier firings. A listener runs after each ranked
+    // entry, thus the map got the value before the handler asks.
+    [Test]
+    public async Task TheUpdatesOfAMapAskedForAfterItsSourceFiredGiveThatFiring()
+    {
+        CellSink<int> source = Cell.CreateSink(1);
+        Cell<int> mapped = source.Map(static v => v * 10);
+
+        await Assert.That(UpdatesAskedForInTheFiringTransaction(source: source, derived: mapped))
+            .IsEquivalentTo(expected: [20, 30], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task TheUpdatesOfALiftAskedForAfterItsSourceFiredGiveThatFiring()
+    {
+        CellSink<int> source = Cell.CreateSink(1);
+        CellSink<int> other = Cell.CreateSink(100);
+        Cell<int> lifted = source.Lift(c2: other, f: static (x, y) => x + y);
+
+        await Assert.That(UpdatesAskedForInTheFiringTransaction(source: source, derived: lifted))
+            .IsEquivalentTo(expected: [102, 103], ordering: CollectionOrdering.Matching);
+    }
+
+    private static List<int> UpdatesAskedForInTheFiringTransaction(CellSink<int> source, Behavior<int> derived)
+    {
+        List<int> @out = [];
+        IStrongListener? late = null;
+
+        using (Operational.Updates(source)
+                   .ListenStrong(_ => late ??= Operational.Updates(derived).ListenStrong(@out.Add)))
+        {
+            source.Send(2);
+            source.Send(3);
+        }
+
+        late?.Unlisten();
+        return @out;
+    }
+
     private sealed class Test(int initialValue)
     {
         public CellSink<int> Value { get; } = Cell.CreateSink(initialValue);
