@@ -23,6 +23,9 @@ package, and its notes have the details of each:
 - A listener that throws while the pipeline delivers an outcome no longer loses the result silently, blames the
   operation, or stops the pipeline. The item ends without delivering anything, errors gets a MapAsyncDeliveryException
   that wraps the listener's exception, and the item's Execute task fails with that same exception.
+- A transaction that fails no longer cancels anything through cancelAll or cancelMatching. The cancel now runs once the
+  transaction that fired the stream has committed. An exception from a callback registered on an operation's token goes
+  to handleException, and no longer stops the rest of the items from being canceled.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.

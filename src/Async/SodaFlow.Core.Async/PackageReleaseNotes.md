@@ -47,6 +47,22 @@ AggregateException to the handleException that MapAsync now takes; see the SodaF
 notes. An operation that ends inside a transaction now has its outcome delivered once that transaction releases the
 transaction lock, rather than among its posted actions, so a failed delivery no longer comes out of that transaction.
 
+Fixed: a transaction that fails no longer cancels anything. The pipeline listens to cancelAll and cancelMatching, and
+its listener canceled the tokens of the matching items, and ended the queued ones, while the transaction that fired the
+stream was still open. When something later in that transaction threw, the graph went back to where it was, but the
+operations were already canceled and the queued items were already gone, although no cancellation had committed. The
+listener now only selects the items, and the cancel runs as a posted action, which a transaction runs once it has
+committed and discards when it fails. Two things follow from running after the commit. An item that ends in the same
+transaction as its cancellation, as when the cancellation stream is made from results, has had its cancellation source
+disposed by then, and the cancel passes over it. And an exception from a callback registered on an operation's token no
+longer fails the transaction that asked for the cancel, which has already committed: every selected item is still
+canceled, and the exception goes to handleException. Before, that exception stopped the cancel at the first item whose
+callback threw. For cancelMatching, the comparison of input values still runs in the transaction, so a throw from an
+Equals or GetHashCode of yours fails that transaction and cancels nothing.
+
+Not changed: disposal. A status disposed with cancelOnDispose cancels as it did before, without waiting for a commit,
+because a transaction that fails does not undo a disposal.
+
 Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
 that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
 exception, and that ends the process on .NET Framework when ThrowUnobservedTaskExceptions is on. Such an exception now

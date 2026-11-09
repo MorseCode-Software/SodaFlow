@@ -174,6 +174,12 @@ everything tracked, and `cancelMatching`, where a firing cancels tracked operati
 value. By default (`cancelOnDispose: true`) disposing the returned status also cancels
 whatever is in flight.
 
+A cancellation from either stream takes effect once the transaction that fired the stream has
+committed. If that transaction fails, nothing is canceled: a running operation keeps its token,
+and a queued item stays queued. If a callback you registered on an operation's token throws while
+the pipeline cancels it, the other items are still canceled, and the exception goes to
+`handleException`.
+
 The returned status is itself reactive, which makes progress reporting straightforward:
 `IsRunning` is a `Cell<bool>`, and `Items` is a `Cell<IReadOnlyList<AsyncItem<TInput>>>` describing
 what is queued and running. Bind them directly to your UI. Disposing the status tears the pipeline
