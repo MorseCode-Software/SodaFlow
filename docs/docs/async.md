@@ -180,6 +180,14 @@ and a queued item stays queued. If a callback you registered on an operation's t
 the pipeline cancels it, the other items are still canceled, and the exception goes to
 `handleException`.
 
+A cancellation is a request, and every item ends on its own terms. Only entry into the queue is
+synchronous with your input: an item enters `Items` in the same transaction as the value that
+admitted it. A canceled item leaves in a later transaction. A queued item leaves right after the
+transaction that fired the cancellation stream. A running item leaves when its operation ends,
+which is when it honors its token, or when it finishes if it ignores the token. So a graph that
+reads a cancellation stream together with `Items` or `IsRunning` sees the request first, with the
+queue as it was, and the change after it.
+
 The returned status is itself reactive, which makes progress reporting straightforward:
 `IsRunning` is a `Cell<bool>`, and `Items` is a `Cell<IReadOnlyList<AsyncItem<TInput>>>` describing
 what is queued and running. Bind them directly to your UI. Disposing the status tears the pipeline
