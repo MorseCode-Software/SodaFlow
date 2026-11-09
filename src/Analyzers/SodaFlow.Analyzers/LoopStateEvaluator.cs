@@ -607,14 +607,33 @@ internal sealed class LoopStateEvaluator
         ImmutableArray<IParameterSymbol> parameters,
         IEnumerable<SyntaxNode> evaluated)
     {
-        List<SyntaxNode> covered = [.. evaluated];
+        // To get the symbol of an identifier is slow, and the scope of a constructor is its full
+        // type. Thus, this code reads each identifier one time. It gets the symbol only when the
+        // text of the identifier is the name of a parameter. It gets no more symbols for a parameter
+        // after it finds one use that is not in a covered expression.
+        Dictionary<string, IParameterSymbol> byName = [];
+
+        foreach (IParameterSymbol parameter in parameters)
+        {
+            byName[parameter.Name] = parameter;
+        }
+
+        HashSet<SyntaxNode> covered = [.. evaluated];
+        HashSet<ISymbol> used = new(SymbolEqualityComparer.Default);
+
+        foreach (IdentifierNameSyntax use in scope.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (byName.TryGetValue(key: use.Identifier.ValueText, value: out IParameterSymbol? candidate)
+                && !used.Contains(candidate)
+                && SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(use).Symbol, y: candidate)
+                && !use.AncestorsAndSelf().Any(covered.Contains))
+            {
+                used.Add(candidate);
+            }
+        }
 
         return parameters
-            .Where(parameter =>
-                scope.DescendantNodes()
-                    .OfType<IdentifierNameSyntax>()
-                    .Where(use => SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(use).Symbol, y: parameter))
-                    .All(use => use.AncestorsAndSelf().Any(covered.Contains)))
+            .Where(parameter => !used.Contains(parameter))
             .ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
     }
 
