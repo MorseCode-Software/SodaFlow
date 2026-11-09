@@ -2714,8 +2714,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             throw new AggregateException(failure, endFailure);
         }
 
+        // The error that the first transaction sent, where it sent one. No other record of it stays.
+        // The second end canceled the Task of Execute, and a listener after the throw did not get it.
         MapAsyncDeliveryException report =
-            new(message: MapAsyncDeliveryException.DefaultMessage, innerException: failure);
+            new(
+                message: MapAsyncDeliveryException.DefaultMessage,
+                innerException: failure,
+                undeliveredError: sends ? ends[0].SentError : null);
 
         try
         {
@@ -2894,8 +2899,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 continue;
             }
 
-            CancellationToken? tokenToCheck = end.TokenToCheck;
-
             // One send at the most reaches this code, because EndItem gives an end that sends
             // a call of its own. Thus, the send is in the transaction that removed the item,
             // and a graph that reads the queue and the result sees one instant.
@@ -2903,11 +2906,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 end.Outcome.Match(
                     onSucceeded: operationResult =>
                         this.Publish(
+                            end: end,
                             operationResult: operationResult,
-                            tokenToCheck: tokenToCheck,
                             completion: completion),
                     onFailed: e =>
                     {
+                        end.SentError = e;
                         this.errors.SendImpl(e);
 
                         return completion is null ? null : () => completion.TrySetException(e);
@@ -2992,8 +2996,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///     where there is no Task. The caller runs it when the transaction commits.
     /// </returns>
     private Action? Publish(
+        PendingEnd end,
         MapAsyncResult<TResult> operationResult,
-        CancellationToken? tokenToCheck,
         ExecuteCompletion<TResult>? completion)
     {
         TResult result;
@@ -3002,12 +3006,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             result = operationResult.GetResult();
         }
-        catch (OperationCanceledException) when (tokenToCheck is { IsCancellationRequested: true })
+        catch (OperationCanceledException) when (end.TokenToCheck is { IsCancellationRequested: true })
         {
             return completion is null ? null : completion.TrySetCanceled;
         }
         catch (Exception e)
         {
+            end.SentError = e;
             this.errors.SendImpl(e);
 
             return completion is null ? null : () => completion.TrySetException(e);
@@ -3034,6 +3039,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         public AsyncOutcome<MapAsyncResult<TResult>> Outcome { get; } = outcome;
 
         public CancellationToken? TokenToCheck { get; } = tokenToCheck;
+
+        // The exception that the flush of this end sent to the errors, where it sent one. The
+        // flush writes it in its transaction. Recover reads it after that transaction fails, on the
+        // same thread, and puts it in the report.
+        public Exception? SentError { get; set; }
     }
 
     // One value that this pipeline admits: the value, and the ExecuteCompletion of the Execute

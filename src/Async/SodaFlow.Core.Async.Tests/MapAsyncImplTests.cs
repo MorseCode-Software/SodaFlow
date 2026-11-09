@@ -147,6 +147,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(failures.Count).IsEqualTo(1);
         await Assert.That(failures[0]).IsTypeOf<MapAsyncDeliveryException>();
         await Assert.That(failures[0].InnerException).IsSameReferenceAs(thrown);
+        await Assert.That((failures[0] as MapAsyncDeliveryException)?.UndeliveredError).IsNull();
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
         await Assert.That(status.IsRunning.Sample()).IsFalse();
 
@@ -231,6 +232,89 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => task.IsCompleted);
 
         await Assert.That(task.IsCanceled).IsTrue();
+
+        status.Dispose();
+    }
+
+    // A listener on the errors that throws on the error of an operation stops the send of that error.
+    // The report then holds that error, because no other record of it stays.
+    [Test]
+    public async Task AnErrorThatAListenerStopsComesInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException operationError = new("operation");
+        InvalidOperationException listenerError = new("errors listener");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: operationError))
+            {
+                throw listenerError;
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                operation: (_, _, _) => Task.FromException<MapAsyncResult<int>>(operationError),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        MapAsyncDeliveryException? report = reported[0] as MapAsyncDeliveryException;
+        await Assert.That(report).IsNotNull();
+        await Assert.That(report?.InnerException).IsSameReferenceAs(listenerError);
+        await Assert.That(report?.UndeliveredError).IsSameReferenceAs(operationError);
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // A function from Construct that throws gives an error in the transaction of the send. A
+    // listener that stops the send of that error makes the report hold it, as for an operation.
+    [Test]
+    public async Task AConstructionErrorThatAListenerStopsComesInTheReport()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException constructionError = new("construction");
+        List<Exception> reported = [];
+
+        using IStrongListener e = errors.ListenStrong(error =>
+        {
+            if (ReferenceEquals(objA: error, objB: constructionError))
+            {
+                throw new InvalidOperationException("errors listener");
+            }
+
+            reported.Add(error);
+        });
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                operation: (_, factory, _) => Task.FromResult(factory.Construct(() => throw constructionError)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        TestUtil.WaitUntil(() => reported.Count == 1);
+
+        MapAsyncDeliveryException? report = reported[0] as MapAsyncDeliveryException;
+        await Assert.That(report).IsNotNull();
+        await Assert.That(report?.UndeliveredError).IsSameReferenceAs(constructionError);
 
         status.Dispose();
     }
