@@ -35,6 +35,7 @@
     <ItemGroup>
         <Compile Include="..\..\..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
+        <Compile Include="..\..\..\..\TestUnobservedTaskExceptions.cs" Link="TestUnobservedTaskExceptions.cs"/>
         <Compile Include="BindableFactoryTests.cs"/>
     </ItemGroup>
 
