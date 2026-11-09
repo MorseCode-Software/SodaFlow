@@ -658,6 +658,38 @@ public sealed class GarbageCollectionTests
             .Because("no root should hold a listener after Unlisten, when a switch in its loop moved out of the loop before");
     }
 
+    [Test]
+    public async Task AWeakListenerIsCollectedOnceDroppedWhileASwitchInTheLoopMoves()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        CellSink<bool> inLoop = Cell.CreateSink(true);
+        List<string> seen = [];
+
+        // The strong listener stays for the whole test. Thus, its registration passes the switches
+        // in the loop, and each move of the second switch walks it again.
+        (IStrongListener strong, WeakReference[] weak) =
+            CreateThreeSwitchLoopWithWeakListeners(kept: kept, other: other, inLoop: inLoop, seen: seen);
+
+        inLoop.Send(false);
+        inLoop.Send(true);
+        Collect();
+        seen.Clear();
+        kept.Send(1);
+        inLoop.Send(false);
+        other.Send(2);
+        bool anyAlive = weak.Any(static w => w.IsAlive);
+        strong.Unlisten();
+
+        await Assert.That(anyAlive)
+            .IsFalse()
+            .Because("a keep-alive registration that passes a switch should not hold a weak listener, its handler, or a stream that only the weak listener holds");
+
+        await Assert.That(seen)
+            .IsEmpty()
+            .Because("the handler of a weak listener that was collected should not run");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -845,24 +877,27 @@ public sealed class GarbageCollectionTests
 
     // Three switches in one loop. The first selects the output of the object, which is the second.
     // The second selects the third while inLoop is true. The outer of the third is a cell made from
-    // the first, thus the inner of the second reaches the first. Then the second moves to other,
-    // which is outside the loop.
+    // the first, thus the inner of the second reaches the first. When inLoop is false, the second
+    // selects other, which is outside the loop.
+    private static SwitchLoop ThreeSwitchLoop(Stream<int> kept, Stream<int> other, Cell<bool> inLoop) =>
+        Transaction.Run(() =>
+            ForwardReference<SwitchLoop>.WithoutCaptures(reference =>
+            {
+                Stream<int> first = reference.Map(static l => l.Output).SwitchS();
+                Cell<int> total = first.OrElse(kept).Accum(initialState: 0, f: static (x, sum) => sum + x);
+                Stream<int> third = total.Map(_ => kept).SwitchS();
+                Stream<int> second = inLoop.Map(on => on ? third : other).SwitchS();
+                return new SwitchLoop(output: second, first: first);
+            }));
+
+    // The second switch moves out of the loop, then the listener stops.
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateThreeSwitchLoopMoveAndUnlisten(
         Stream<int> kept,
         Stream<int> other,
         CellSink<bool> inLoop)
     {
-        SwitchLoop loop =
-            Transaction.Run(() =>
-                ForwardReference<SwitchLoop>.WithoutCaptures(reference =>
-                {
-                    Stream<int> first = reference.Map(static l => l.Output).SwitchS();
-                    Cell<int> total = first.OrElse(kept).Accum(initialState: 0, f: static (x, sum) => sum + x);
-                    Stream<int> third = total.Map(_ => kept).SwitchS();
-                    Stream<int> second = inLoop.Map(on => on ? third : other).SwitchS();
-                    return new SwitchLoop(output: second, first: first);
-                }));
+        SwitchLoop loop = ThreeSwitchLoop(kept: kept, other: other, inLoop: inLoop);
 
         IStrongListener listener =
             loop.First.ListenStrong(static _ =>
@@ -872,6 +907,45 @@ public sealed class GarbageCollectionTests
         inLoop.Send(false);
         listener.Unlisten();
         return new WeakReference(listener);
+    }
+
+    // A strong listener on the first switch, and weak listeners on the first switch, on the
+    // second, and on a map of the second. The second switch moves out of the loop and back while
+    // the weak listeners are in use. The caller gets the strong listener and a weak reference to
+    // each weak listener, each handler, and the map.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (IStrongListener Strong, WeakReference[] Weak) CreateThreeSwitchLoopWithWeakListeners(
+        StreamSink<int> kept,
+        StreamSink<int> other,
+        CellSink<bool> inLoop,
+        List<string> seen)
+    {
+        SwitchLoop loop = ThreeSwitchLoop(kept: kept, other: other, inLoop: inLoop);
+
+        IStrongListener strong =
+            loop.First.ListenStrong(static _ =>
+            {
+            });
+
+        Stream<int> map = loop.Output.Map(static v => v + 1);
+        List<WeakReference> weak = [new(map)];
+        List<IWeakListener> listeners = [];
+
+        foreach ((Stream<int> stream, string tag) in new[] { (loop.First, "first"), (loop.Output, "second"), (map, "map") })
+        {
+            Action<int> handler = Mark<int>(seen: seen, tag: tag);
+            IWeakListener listener = stream.Listen(handler);
+            weak.Add(new WeakReference(handler));
+            weak.Add(new WeakReference(listener));
+            listeners.Add(listener);
+        }
+
+        kept.Send(1);
+        inLoop.Send(false);
+        other.Send(2);
+        inLoop.Send(true);
+        GC.KeepAlive(listeners);
+        return (Strong: strong, Weak: [.. weak]);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
