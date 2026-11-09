@@ -45,10 +45,13 @@ start. After that it sends a `MapAsyncDeliveryException` on `errors`, in a trans
 with the listener's exception as its `InnerException`. When the outcome that did not get through
 was itself an exception, from the operation or from a `factory.Construct` function, the report
 also carries it as `UndeliveredError`, because neither `errors` nor the `Execute` task received
-it. It is null when the outcome was a result. An operation's own failure never arrives wrapped, so
-a handler can tell the two apart. If the item has an `Execute` task, that task fails with the same
-exception. If a listener on `errors` throws on that report as well, the pipeline still carries on,
-and both exceptions go to `handleException` together in an `AggregateException`.
+it. It is `None` when the outcome was a result: the property is a `Maybe<Exception>` in C# and an
+`exn option` in F#. Each language package has its own sealed `MapAsyncDeliveryException`, derived
+from `MapAsyncDeliveryExceptionBase` in SodaFlow.Core.Async, and a pipeline always sends the one
+from the package that built it, so test for that type. An operation's own failure never arrives
+wrapped, so a handler can tell the two apart. If the item has an `Execute` task, that task fails
+with the same exception. If a listener on `errors` throws on that report as well, the pipeline
+still carries on, and both exceptions go to `handleException` together in an `AggregateException`.
 
 `handleException` is for exceptions that have no caller to go to and that `errors` cannot take:
 the case above, the rarer one where ending the item fails too, and a bug in the pipeline itself.

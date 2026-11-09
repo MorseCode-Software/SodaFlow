@@ -1,8 +1,8 @@
 6.0.0
 
 Requires SodaFlow.Core 6.x, which ships in the same release. This package's API adds one type,
-MapAsyncDeliveryException, described below, and a consumer that moves to this version moves to that SodaFlow.Core, whose
-SampleLazy and HoldLazy changed shape.
+MapAsyncDeliveryExceptionBase, described below, and a consumer that moves to this version moves to that SodaFlow.Core,
+whose SampleLazy and HoldLazy changed shape.
 
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
@@ -36,14 +36,16 @@ well, the exception went unobserved, the item stayed Running for good, a Queue s
 Dispose threw ObjectDisposedException, because it canceled a source that the failed delivery had already disposed. The
 task and the source now change only when the delivery commits. A delivery that fails runs again without delivering
 anything, so the item ends and the next item can start. The listener's exception then goes out on errors in a
-transaction of its own, wrapped in the new MapAsyncDeliveryException, so a handler can tell it from an operation's
-failure. When the outcome that was not delivered was itself an exception, from the operation or from a Construct
-function, the report carries it in UndeliveredError, since neither errors nor the Execute task received it. The Execute
-task of the item, if it has one, fails with the same MapAsyncDeliveryException. If that second attempt or that report
-throws too, both exceptions go together in an AggregateException to the handleException that MapAsync now takes; see the
-SodaFlow.Async and SodaFlow.FSharp.Async notes. An operation that ends inside a transaction now has its outcome
-delivered once that transaction releases the transaction lock, rather than among its posted actions, so a failed
-delivery no longer comes out of that transaction.
+transaction of its own, wrapped in a MapAsyncDeliveryException, so a handler can tell it from an operation's failure.
+That type comes from the language package: SodaFlow.Async and SodaFlow.FSharp.Async each derive their own sealed
+MapAsyncDeliveryException from the new abstract MapAsyncDeliveryExceptionBase, whose constructors are internal so that
+only they can, and give the pipeline a function that makes it. When the outcome that was not delivered was itself an
+exception, from the operation or from a Construct function, the report carries it in UndeliveredError, since neither
+errors nor the Execute task received it. The Execute task of the item, if it has one, fails with the same
+MapAsyncDeliveryException. If that second attempt or that report throws too, both exceptions go together in an
+AggregateException to the handleException that MapAsync now takes; see the SodaFlow.Async and SodaFlow.FSharp.Async
+notes. An operation that ends inside a transaction now has its outcome delivered once that transaction releases the
+transaction lock, rather than among its posted actions, so a failed delivery no longer comes out of that transaction.
 
 Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
 that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
