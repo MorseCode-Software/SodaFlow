@@ -123,6 +123,42 @@ type ``Timer Tests``() =
             do! Expect.Sequence([ 12 ], times)
         }
 
+    /// A transaction that fails leaves the cell with the deadline it had. The timer has to stay with
+    /// it: the alarm fires at 10, and not at the 20 that did not commit. The two maps put the
+    /// listener that throws after the listener of At, which has thus set its timer before the throw.
+    [<Test>]
+    member _.``A failed transaction that moves a deadline keeps the timer of the committed deadline``() =
+        task {
+            let implementation = ManualImplementation()
+            use timerSystem = new TimerSystem<int>(implementation, (fun _ -> ()))
+            let timers = timerSystem :> ITimerSystem<int>
+            let deadline = sinkC (Some 10)
+            let alarms = List<int>()
+            let l = timers.At deadline |> Stream.listenStrong alarms.Add
+
+            let thrower =
+                deadline
+                |> updatesC
+                |> Stream.map id
+                |> Stream.map id
+                |> Stream.listenStrong (fun d ->
+                    if d = Some 20 then
+                        raise (InvalidOperationException "The test fails this transaction."))
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> deadline |> sendC (Some 20))
+            do! Expect.Equal(Some 10, deadline |> Cell.sample)
+
+            advanceTo implementation 10
+
+            do! Expect.Sequence([ 10 ], alarms)
+
+            advanceTo implementation 25
+            thrower |> StrongListener.unlisten
+            l |> StrongListener.unlisten
+
+            do! Expect.Sequence([ 10 ], alarms)
+        }
+
     /// A disposed timer system removes its hook and stops its clock. Thus, Time keeps the last value
     /// it had, and an alarm that comes due after the disposal does not fire.
     [<Test>]
