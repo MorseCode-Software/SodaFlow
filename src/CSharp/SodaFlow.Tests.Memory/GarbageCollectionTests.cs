@@ -642,6 +642,22 @@ public sealed class GarbageCollectionTests
             .Because("no root should hold a listener after Unlisten, when the keep-alive set of a switch reaches itself");
     }
 
+    [Test]
+    public async Task UnlistenReleasesTheListenerAfterASwitchInTheLoopMovesOutOfIt()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        CellSink<bool> inLoop = Cell.CreateSink(true);
+
+        WeakReference listener = CreateThreeSwitchLoopMoveAndUnlisten(kept: kept, other: other, inLoop: inLoop);
+
+        Collect();
+
+        await Assert.That(listener.IsAlive)
+            .IsFalse()
+            .Because("no root should hold a listener after Unlisten, when a switch in its loop moved out of the loop before");
+    }
+
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
     // the caller collects, at each decision the JIT makes about what to keep in memory.
 
@@ -827,6 +843,37 @@ public sealed class GarbageCollectionTests
         return new WeakReference(listener);
     }
 
+    // Three switches in one loop. The first selects the output of the object, which is the second.
+    // The second selects the third while inLoop is true. The outer of the third is a cell made from
+    // the first, thus the inner of the second reaches the first. Then the second moves to other,
+    // which is outside the loop.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateThreeSwitchLoopMoveAndUnlisten(
+        Stream<int> kept,
+        Stream<int> other,
+        CellSink<bool> inLoop)
+    {
+        SwitchLoop loop =
+            Transaction.Run(() =>
+                ForwardReference<SwitchLoop>.WithoutCaptures(reference =>
+                {
+                    Stream<int> first = reference.Map(static l => l.Output).SwitchS();
+                    Cell<int> total = first.OrElse(kept).Accum(initialState: 0, f: static (x, sum) => sum + x);
+                    Stream<int> third = total.Map(_ => kept).SwitchS();
+                    Stream<int> second = inLoop.Map(on => on ? third : other).SwitchS();
+                    return new SwitchLoop(output: second, first: first);
+                }));
+
+        IStrongListener listener =
+            loop.First.ListenStrong(static _ =>
+            {
+            });
+
+        inLoop.Send(false);
+        listener.Unlisten();
+        return new WeakReference(listener);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateLiftListenerAndUnlisten(Cell<int> first, Cell<int> second)
     {
@@ -879,6 +926,13 @@ public sealed class GarbageCollectionTests
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+    }
+
+    private sealed class SwitchLoop(Stream<int> output, Stream<int> first)
+    {
+        public Stream<int> Output { get; } = output;
+
+        public Stream<int> First { get; } = first;
     }
 
     private sealed class Looped(Stream<int> output, Cell<int> total)
