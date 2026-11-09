@@ -324,6 +324,236 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    // A cancellation is an effect out of the graph, and a transaction that fails must not make it.
+    // The operation keeps its token, and its result arrives as usual.
+    [Test]
+    public async Task CancelAll_InATransactionThatFails_CancelsNoOperation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        IListener thrower = TestUtil.ThrowAfterTheCancellation(cancelAll);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => cancelAll.Send(Unit.Value)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that asked for the cancel failed");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        thrower.Unlisten();
+        l.Unlisten();
+    }
+
+    [Test]
+    public async Task CancelMatching_InATransactionThatFails_CancelsNoOperation()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelMatching: cancelMatching);
+
+        IListener thrower = TestUtil.ThrowAfterTheCancellation(cancelMatching);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => cancelMatching.Send(["a"])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that asked for the cancel failed");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        thrower.Unlisten();
+        l.Unlisten();
+    }
+
+    // A queued item runs no operation, thus the cancellation itself ends it. That end must also
+    // wait for the commit: after the failure, "b" is in the queue and runs at its turn.
+    [Test]
+    public async Task CancelMatching_InATransactionThatFails_LeavesAQueuedItemInTheQueue()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelMatching: cancelMatching);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        IListener thrower = TestUtil.ThrowAfterTheCancellation(cancelMatching);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+        source.Send("b");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 2);
+
+        await Assert.That(() => cancelMatching.Send(["b"])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(Transaction.Run(tracked.Sample).Select(static item => item.Value + ":" + item.Status))
+            .IsEquivalentTo(expected: ["a:Running", "b:Queued"], ordering: CollectionOrdering.Matching)
+            .Because("the transaction that asked for the cancel failed");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+        op.Release(input: "b", result: "B");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        thrower.Unlisten();
+        l.Unlisten();
+    }
+
+    // The cancellation comes from the result of "a", thus it is in the transaction that ends "a".
+    // That transaction disposes the source of "a" at its commit, and the cancel runs after the
+    // commit. The cancel of "a" must then do nothing, and the cancel of "b" must occur.
+    [Test]
+    public async Task CancelAll_FromTheResultThatEndsAnItem_CancelsTheOtherItemsAndReportsNothing()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        List<Exception> reported = [];
+        IListener l = results.ListenStrong(received.Add);
+        IListener errorListener = errors.ListenStrong(reported.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: results.Map(static _ => Unit.Value));
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(op.IsCanceled("b")).IsTrue();
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+        await Assert.That(reported).IsEmpty();
+
+        status.Dispose();
+        errorListener.Unlisten();
+        l.Unlisten();
+    }
+
+    // A callback on the token of an operation can throw, and Cancel gives that throw to its
+    // caller. The transaction that asked for the cancel committed before the cancel ran, thus the
+    // throw has no caller there. It goes to handleException, and it does not stop the cancel of
+    // the items after it.
+    [Test]
+    public async Task CancelAll_WhenACallbackOfATokenThrows_CancelsEachItemAndGivesTheThrowToHandleException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+        ConcurrentQueue<Exception> handled = new();
+        InvalidOperationException fromCallback = new("The callback of the token throws.");
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: handled.Enqueue,
+                operation: (input, resultFactory, token) =>
+                {
+                    if (input == "a")
+                    {
+                        // The registration lives as long as the token, which the pipeline owns.
+                        _ = token.Register(() => throw fromCallback);
+                    }
+
+                    return op.Operation(input: input, resultFactory: resultFactory, token: token);
+                },
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        cancelAll.Send(Unit.Value);
+
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+        await Assert.That(op.IsCanceled("b")).IsTrue();
+        await Assert.That(handled.Count).IsEqualTo(1);
+
+        // The token of the operation is a linked one. Thus, the throw comes in two
+        // AggregateException objects: one from the linked source, and one from the source of
+        // the item.
+        Exception only = handled.Single();
+
+        await Assert.That(only).IsTypeOf<AggregateException>();
+
+        await Assert.That(((AggregateException)only).Flatten().InnerExceptions.Single())
+            .IsSameReferenceAs(fromCallback);
+
+        status.Dispose();
+    }
+
     [Test]
     public async Task CancelMatching_EndsSeveralQueuedItemsInOneStep()
     {
