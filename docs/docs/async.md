@@ -27,13 +27,37 @@ StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 AsyncMapStatus<string> status = queries.MapAsync(
     results: results,
     errors: errors,
+    handleException: ReportUnhandled,
     operation: async (query, factory, token) => factory.FromValue(await SearchAsync(query, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 ```
 
-You supply the source stream, two sinks (one for successes, one for failures), the operation
-itself, and a concurrency strategy. Successful values arrive on `results` in completion order;
-every exception arrives on `errors`. Nothing throws into the transaction.
+You supply the source stream, two sinks (one for successes, one for failures), a handler for the
+rare exception that cannot go to `errors`, the operation itself, and a concurrency strategy.
+Successful values arrive on `results` in completion order; every exception arrives on `errors`.
+Nothing throws into the transaction.
+
+A listener can still throw while the pipeline delivers an outcome: one on `results`, on `errors`,
+or on `Items`. Delivering an outcome is a single transaction, so it fails as a whole: a listener
+that ran before the throw has seen the outcome, but no cell keeps it, and the item stays in the
+queue. The pipeline then ends the item again without delivering anything, which lets the next item
+start. After that it sends a `MapAsyncDeliveryException` on `errors`, in a transaction of its own,
+with the listener's exception as its `InnerException`. When the outcome that did not get through
+was itself an exception, from the operation or from a `factory.Construct` function, the report
+also carries it as `UndeliveredError`, because neither `errors` nor the `Execute` task received
+it. It is `None` when the outcome was a result: the property is a `Maybe<Exception>` in C# and an
+`exn option` in F#. Each language package has its own sealed `MapAsyncDeliveryException`, derived
+from `MapAsyncDeliveryExceptionBase` in SodaFlow.Core.Async, and a pipeline always sends the one
+from the package that built it, so test for that type. An operation's own failure never arrives
+wrapped, so a handler can tell the two apart. If the item has an `Execute` task, that task fails
+with the same exception. If a listener on `errors` throws on that report as well, the pipeline
+still carries on, and both exceptions go to `handleException` together in an `AggregateException`.
+
+`handleException` is for exceptions that have no caller to go to and that `errors` cannot take:
+the case above, the rarer one where ending the item fails too, and a bug in the pipeline itself.
+The pipeline keeps running after each one. Log it, or fail fast if that is your policy, but do not
+throw from it: a throw there ends the process, the same as a throw from the handler you give a
+timer system. The pipeline never leaves an exception in a task that nobody observes.
 
 The operation gets three arguments, not two: the input, a factory for its answer, and a
 cancellation token. `factory.FromValue(value)` is the answer when you have a plain value, which
@@ -63,6 +87,7 @@ document, per connection. You supply the function that says which group a firing
 AsyncMapStatus<SaveRequest> status = saves.MapAsync(
     results: saved,
     errors: saveErrors,
+    handleException: ReportUnhandled,
     operation: static async (request, factory, token) =>
         factory.FromValue(await SaveAsync(request, token)),
     strategy: AsyncConcurrencyStrategy
@@ -134,6 +159,14 @@ and, when items end, starts the first item still `Queued` — but only if nothin
 since a cancellation can end queued items while another is still going. `QueuePerGroup` does the
 same test per group, once for each group an end leaves free.
 
+A strategy also has to cope with hearing about the same end twice. When a listener throws while
+the pipeline delivers an outcome, the transaction that called `OnCompleted` or `OnCanceled` fails,
+and the pipeline calls it again for the same item in a new transaction, publishing nothing from
+that second call. The first call's decision went with the failed transaction, but whatever it
+changed in your state did not. The built-in strategies decide from the queue and give the right
+answer the second time. A strategy that counts ends in its state should not assume each item
+arrives once.
+
 ## Cancellation and status
 
 `MapAsync` takes two optional cancellation streams: `cancelAll`, where any firing cancels
@@ -156,6 +189,7 @@ model that shows a busy indicator and owns the pipeline's lifetime can hold the 
 AsyncMapStatus status = queries.MapAsync(
     results: results,
     errors: errors,
+    handleException: ReportUnhandled,
     operation: async (query, factory, token) => factory.FromValue(await SearchAsync(query, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
@@ -178,6 +212,7 @@ calls the inner one, and the inner strategy decides when each save actually runs
 AsyncMapStatus<SaveRequest, SaveReceipt> saver = saveRequests.MapAsync(
     results: saved,
     errors: saveErrors,
+    handleException: ReportUnhandled,
     operation: static async (request, factory, token) =>
         factory.FromValue(await SaveAsync(request, token)),
     strategy: AsyncConcurrencyStrategy
@@ -188,6 +223,7 @@ AsyncMapStatus<SaveRequest, SaveReceipt> saver = saveRequests.MapAsync(
 AsyncMapStatus<Batch, BatchReceipt> batcher = batches.MapAsync(
     results: batchesDone,
     errors: batchErrors,
+    handleException: ReportUnhandled,
     operation: async (batch, factory, _) =>
     {
         List<SaveReceipt> receipts = [];
@@ -231,10 +267,12 @@ difference between it and a value that arrived on the source stream. The result 
 
 **The task finishes**, with one exception below. It carries the result when the operation returns
 one and the strategy publishes it; it carries the operation's exception when it throws and the
-strategy publishes that, and `errors` gets the same exception; and it is canceled when a
-cancellation stops the value, when the strategy refuses it, when the strategy declines to publish
-the outcome, or when the pipeline was already disposed. Declining to publish means nobody wants the
-result any more, which is a cancellation that arrived late, so the task treats it as one.
+strategy publishes that, and `errors` gets the same exception; it carries the
+`MapAsyncDeliveryException` that `errors` gets when a listener throws while the pipeline delivers
+the outcome; and it is canceled when a cancellation stops the value, when the strategy refuses it,
+when the strategy declines to publish the outcome, or when the pipeline was already disposed.
+Declining to publish means nobody wants the result any more, which is a cancellation that arrived
+late, so the task treats it as one.
 
 One thing can leave it pending, and it is outside the position `Execute` is for: a custom strategy
 that parks a value in the queue forever without cancelling it. Nothing ends such an item, so nothing
@@ -304,6 +342,7 @@ StreamSink<Exception> documentErrors = Stream.CreateSink<Exception>();
 AsyncMapStatus status = requests.MapAsync(
     results: documents,
     errors: documentErrors,
+    handleException: ReportUnhandled,
     operation: async (request, factory, token) =>
     {
         // Outside the transaction: the slow part.

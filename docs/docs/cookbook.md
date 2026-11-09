@@ -144,6 +144,7 @@ StreamSink<Exception> errors = Stream.CreateSink<Exception>();
 AsyncMapStatus<string> status = queries.Calm().MapAsync(
     results: results,
     errors: errors,
+    handleException: ReportUnhandled,
     operation: async (q, factory, token) => factory.FromValue(await SearchAsync(q, token)),
     strategy: AsyncConcurrencyStrategy.SwitchLatest());
 

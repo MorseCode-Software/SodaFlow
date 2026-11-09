@@ -6,6 +6,7 @@
 [assembly: InternalsVisibleTo("SodaFlow.FSharp")]
 [assembly: InternalsVisibleTo("SodaFlow.FSharp.Tests.Internal")]
 [assembly: InternalsVisibleTo("SodaFlow.Core.Async")]
+[assembly: InternalsVisibleTo("SodaFlow.Core.Async.Tests")]
 [assembly: InternalsVisibleTo("SodaFlow.Async")]
 [assembly: InternalsVisibleTo("SodaFlow.FSharp.Async")]
 [assembly: InternalsVisibleTo("SodaFlow.Core.Bindable.ObjectModel")]

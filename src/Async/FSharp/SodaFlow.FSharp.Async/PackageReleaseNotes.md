@@ -1,15 +1,28 @@
 6.0.0
 
-No change in this package's API. This release raises the dependency floor, so that a new install gets
-SodaFlow.Core.Async 6.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is why
-this is a major version. SodaFlow.Core.Async 6.0.0 has changes that reach this package, and its notes have the details
-of each:
+Changed: mapAsync and mapAsyncWithInputConverter take a required handleException, an exn -> unit after errors. The
+pipeline gives it each exception that has no caller and that errors cannot take: a report of a failed delivery that
+throws as well, an item that cannot be ended, and a bug in the pipeline. It must not throw; a throw from it ends the
+process, as a throw from the handler of a timer system does. Before, those exceptions became unobserved task exceptions,
+or came out of an unrelated transaction. Every mapAsync and mapAsyncWithInputConverter call needs the new argument.
+
+Added: MapAsyncDeliveryException, the exception that errors gets when a listener stops the delivery of an outcome. It
+derives from MapAsyncDeliveryExceptionBase in SodaFlow.Core.Async, and its UndeliveredError is an exn option: Some with
+the error that was not delivered, when the outcome was the operation's exception or a Construct function's, and None
+when it was a result. It has the usual exception constructors, so code that handles errors can make one in a test.
+
+This release also raises the dependency floor, so that a new install gets SodaFlow.Core.Async 6.0.0 and with it
+SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape. SodaFlow.Core.Async 6.0.0 has changes that reach this
+package, and its notes have the details of each:
 
 - An operation starts after the transaction that started it has released the transaction lock, so slow synchronous
   work at the start of an operation no longer stalls every thread's transactions, and waiting there on another thread
   that needs a transaction no longer deadlocks.
 - Canceling many items at once, with cancelAll or cancelMatching, no longer takes time that grows with the square of
   their number.
+- A listener that throws while the pipeline delivers an outcome no longer loses the result silently, blames the
+  operation, or stops the pipeline. The item ends without delivering anything, errors gets a MapAsyncDeliveryException
+  that wraps the listener's exception, and the item's Execute task fails with that same exception.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
