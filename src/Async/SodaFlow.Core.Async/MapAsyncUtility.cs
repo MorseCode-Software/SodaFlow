@@ -2010,153 +2010,155 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     // The cell that holds the queue, built in the transaction that attaches the source. A static
     // lambda passes this and the source as the state, thus Attach captures nothing.
-    private Cell<Entry[]> BuildTrackedCell(TransactionInternal trans, Stream<TInput> source)
-        {
-        // CurrentQueue reads this cell at the first edit of each transaction. The loop is
-        // necessary because the transform below is upstream of the cell and reads it.
-        LoopedCell<Entry[]> trackedCellLoop = new();
-
-        // Map runs as usual transaction code and is not a registered listener callback.
-        // Thus, it runs in the transaction of the source. It must not Send. The
-        // transaction counts it as a callback while a send drives it. Thus, it returns the
-        // new queue into the graph, and Flush sends the edits that it makes.
-        //
-        // The pipeline tracks each admitted value from this moment. It adds the value with
-        // the Queued status, and then promotes it to Running for each ToStart that Admit
-        // returns. For the strategies in the library, that is usually the value itself.
-        // After a disposal this code does nothing permanently, because no code calls Admit
-        // again and thus no value goes to the queue or starts.
-        Stream<Entry[]> starts =
-            source.MapImpl(static o => new Admission(value: o, completion: null))
-                .OrElseImpl(this.executeRequests)
-                .MapImpl(admission =>
-                {
-                    TInput o = admission.Value;
-
-                    if (this.disposed)
-                    {
-                        // Execute answers in each condition, thus a value that arrives after a
-                        // disposal is a cancellation and not a value that disappears.
-                        admission.Completion?.TrySetCanceled();
-
-                        return this.CurrentQueue(trackedCellLoop);
-                    }
-
-                    CancellationTokenSource cancellation = new();
-
-                    Guid newEntryId = Guid.NewGuid();
-
-                    // Here inputConverter changes TInput into TStrategyInput. This is the input
-                    // edge, and the class remarks give more. The newEntry below keeps the
-                    // initial TInput, because the result of inputConverter usually has no
-                    // inverse.
-                    AsyncQueuedItem<TStrategyInput> incoming =
-                        new(
-                            value: this.inputConverter(o),
-                            id: newEntryId,
-                            cancellation: cancellation);
-
-                    Entry newEntry =
-                        new(
-                            item: new AsyncQueuedItem<TInput>(
-                                value: o,
-                                id: newEntryId,
-                                cancellation: cancellation),
-                            tracked: new AsyncTrackedItem<TStrategyInput>(
-                                item: incoming,
-                                status: AsyncItemStatus.Queued),
-                            value: o,
-                            completion: admission.Completion);
-
-                    // The queue that the strategy reads holds each item that this pipeline
-                    // tracks now. That is the value after each edit of this transaction. It
-                    // does not hold `incoming`, because the edit below is what adds that one.
-                    Entry[] tracked = this.CurrentQueue(trackedCellLoop);
-
-                    IReadOnlyList<AsyncToStart<TStrategyInput>> toStart =
-                        this.stateManager.Admit(
-                            incoming: incoming,
-                            tracked: new TrackedItems(tracked));
-
-                    Guid[] promote = new Guid[toStart.Count];
-                    TInput[] values = new TInput[toStart.Count];
-                    EntryIndex trackedIndex = new(entries: tracked, lookups: toStart.Count);
-
-                    for (int i = 0; i < toStart.Count; i++)
-                    {
-                        promote[i] = toStart[i].Item.Id;
-
-                        if (newEntryId == promote[i])
+    //
+    // CurrentQueue reads this cell at the first edit of each transaction. The loop is necessary
+    // because the transform below is upstream of the cell and reads it. The block gets the source
+    // as its state and captures only this.
+    private Cell<Entry[]> BuildTrackedCell(TransactionInternal trans, Stream<TInput> source) =>
+        LoopedCell<Entry[]>.WithoutCapturesImpl(
+            trans: trans,
+            state: source,
+            f: (trackedCellLoop, source) =>
+            {
+                // Map runs as usual transaction code and is not a registered listener callback.
+                // Thus, it runs in the transaction of the source. It must not Send. The
+                // transaction counts it as a callback while a send drives it. Thus, it returns the
+                // new queue into the graph, and Flush sends the edits that it makes.
+                //
+                // The pipeline tracks each admitted value from this moment. It adds the value with
+                // the Queued status, and then promotes it to Running for each ToStart that Admit
+                // returns. For the strategies in the library, that is usually the value itself.
+                // After a disposal this code does nothing permanently, because no code calls Admit
+                // again and thus no value goes to the queue or starts.
+                Stream<Entry[]> starts =
+                    source.MapImpl(static o => new Admission(value: o, completion: null))
+                        .OrElseImpl(this.executeRequests)
+                        .MapImpl(admission =>
                         {
-                            values[i] = o;
-                        }
-                        else
-                        {
-                            int position = trackedIndex.IndexOf(promote[i]);
+                            TInput o = admission.Value;
 
-                            if (position < 0)
+                            if (this.disposed)
                             {
-                                throw new InvalidOperationException("Could not find item to start.");
+                                // Execute answers in each condition, thus a value that arrives after a
+                                // disposal is a cancellation and not a value that disappears.
+                                admission.Completion?.TrySetCanceled();
+
+                                return this.CurrentQueue(trackedCellLoop);
                             }
 
-                            values[i] = tracked[position].Value;
-                        }
-                    }
+                            CancellationTokenSource cancellation = new();
 
-                    // A strategy refuses a value where it cancels `incoming` and does not
-                    // promote it. The entry then keeps the Queued status permanently, thus no
-                    // end comes for it, and Execute gets no answer from that path. A promoted item that a
-                    // cancellation holds is different: PromoteAndLaunch ends that one, and the
-                    // usual end path answers the Task.
-                    if (admission.Completion != null
-                        && cancellation.IsCancellationRequested
-                        && Array.IndexOf(array: promote, value: newEntryId) < 0)
-                    {
-                        admission.Completion.TrySetCanceled();
-                    }
+                            Guid newEntryId = Guid.NewGuid();
 
-                    for (int i = 0; i < toStart.Count; i++)
-                    {
-                        this.PromoteAndLaunch(
-                            toStart: toStart[i],
-                            value: values[i],
-                            trackedCell: trackedCellLoop);
-                    }
+                            // Here inputConverter changes TInput into TStrategyInput. This is the input
+                            // edge, and the class remarks give more. The newEntry below keeps the
+                            // initial TInput, because the result of inputConverter usually has no
+                            // inverse.
+                            AsyncQueuedItem<TStrategyInput> incoming =
+                                new(
+                                    value: this.inputConverter(o),
+                                    id: newEntryId,
+                                    cancellation: cancellation);
 
-                    // One edit: the add of `incoming`, and the promotion of each item that
-                    // starts. Apply removes, then adds, then promotes, thus the promotion of
-                    // `incoming` in this same edit finds the entry that the add put there.
-                    return Apply(
-                        list: tracked,
-                        mutation: new Mutation(
-                            remove: [],
-                            promote: promote,
-                            add: [newEntry]));
-                });
+                            Entry newEntry =
+                                new(
+                                    item: new AsyncQueuedItem<TInput>(
+                                        value: o,
+                                        id: newEntryId,
+                                        cancellation: cancellation),
+                                    tracked: new AsyncTrackedItem<TStrategyInput>(
+                                        item: incoming,
+                                        status: AsyncItemStatus.Queued),
+                                    value: o,
+                                    completion: admission.Completion);
 
-        // Hold and not Accum. This class makes the queue itself, with Apply, and
-        // the cell carries the value that it made. One sequence of edits makes the value
-        // that a strategy reads and the value that the cell takes. Thus, the two cannot
-        // disagree about the queue, or about the sequence of the edits.
-        //
-        // OrElse, and the sequence of the two is what makes it correct. One transaction
-        // gives at most one value here from each side. `source` is a stream, thus it fires
-        // one time for each transaction. One transaction holds one call of Flush,
-        // because a continuation opens its own transaction and the deferred path opens one
-        // for each action.
-        //
-        // Where the two fire together, the graph of the caller makes `source` from the
-        // results. The value of `starts` then comes after the value of Flush. Flush
-        // sends in its own body. The publish operation that admits the next value goes to
-        // `source` when this transaction sends the values it holds, which is after that
-        // body. OrElse takes the value on the left, thus `starts` is on the left.
-        Cell<Entry[]> trackedCell =
-            starts.OrElseImpl(this.queueUpdates).HoldImpl([]);
+                            // The queue that the strategy reads holds each item that this pipeline
+                            // tracks now. That is the value after each edit of this transaction. It
+                            // does not hold `incoming`, because the edit below is what adds that one.
+                            Entry[] tracked = this.CurrentQueue(trackedCellLoop);
 
-        trackedCellLoop.Loop(trans: trans, c: trackedCell);
+                            IReadOnlyList<AsyncToStart<TStrategyInput>> toStart =
+                                this.stateManager.Admit(
+                                    incoming: incoming,
+                                    tracked: new TrackedItems(tracked));
 
-        return trackedCell;
-    }
+                            Guid[] promote = new Guid[toStart.Count];
+                            TInput[] values = new TInput[toStart.Count];
+                            EntryIndex trackedIndex = new(entries: tracked, lookups: toStart.Count);
+
+                            for (int i = 0; i < toStart.Count; i++)
+                            {
+                                promote[i] = toStart[i].Item.Id;
+
+                                if (newEntryId == promote[i])
+                                {
+                                    values[i] = o;
+                                }
+                                else
+                                {
+                                    int position = trackedIndex.IndexOf(promote[i]);
+
+                                    if (position < 0)
+                                    {
+                                        throw new InvalidOperationException("Could not find item to start.");
+                                    }
+
+                                    values[i] = tracked[position].Value;
+                                }
+                            }
+
+                            // A strategy refuses a value where it cancels `incoming` and does not
+                            // promote it. The entry then keeps the Queued status permanently, thus no
+                            // end comes for it, and Execute gets no answer from that path. A promoted item that a
+                            // cancellation holds is different: PromoteAndLaunch ends that one, and the
+                            // usual end path answers the Task.
+                            if (admission.Completion != null
+                                && cancellation.IsCancellationRequested
+                                && Array.IndexOf(array: promote, value: newEntryId) < 0)
+                            {
+                                admission.Completion.TrySetCanceled();
+                            }
+
+                            for (int i = 0; i < toStart.Count; i++)
+                            {
+                                this.PromoteAndLaunch(
+                                    toStart: toStart[i],
+                                    value: values[i],
+                                    trackedCell: trackedCellLoop);
+                            }
+
+                            // One edit: the add of `incoming`, and the promotion of each item that
+                            // starts. Apply removes, then adds, then promotes, thus the promotion of
+                            // `incoming` in this same edit finds the entry that the add put there.
+                            return Apply(
+                                list: tracked,
+                                mutation: new Mutation(
+                                    remove: [],
+                                    promote: promote,
+                                    add: [newEntry]));
+                        });
+
+                // Hold and not Accum. This class makes the queue itself, with Apply, and
+                // the cell carries the value that it made. One sequence of edits makes the value
+                // that a strategy reads and the value that the cell takes. Thus, the two cannot
+                // disagree about the queue, or about the sequence of the edits.
+                //
+                // OrElse, and the sequence of the two is what makes it correct. One transaction
+                // gives at most one value here from each side. `source` is a stream, thus it fires
+                // one time for each transaction. One transaction holds one call of Flush,
+                // because a continuation opens its own transaction and the deferred path opens one
+                // for each action.
+                //
+                // Where the two fire together, the graph of the caller makes `source` from the
+                // results. The value of `starts` then comes after the value of Flush. Flush
+                // sends in its own body. The publish operation that admits the next value goes to
+                // `source` when this transaction sends the values it holds, which is after that
+                // body. OrElse takes the value on the left, thus `starts` is on the left.
+                Cell<Entry[]> trackedCell =
+                    starts.OrElseImpl(this.queueUpdates).HoldImpl([]);
+
+                return trackedCell;
+            });
 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
     // The try, the catch, and the finally in StartOperation cover all conditions, thus its Task
