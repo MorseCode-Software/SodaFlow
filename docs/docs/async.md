@@ -41,10 +41,13 @@ that ran before the throw has seen the outcome, but no cell keeps it, and the it
 queue. The pipeline then ends the item again without delivering anything, which cancels its
 `Execute` task if it has one and lets the next item start. After that it sends a
 `MapAsyncDeliveryException` on `errors`, in a transaction of its own, with the listener's
-exception as its `InnerException`. An operation's own failure never arrives wrapped, so a handler
-can tell the two apart. If a listener on `errors` throws on that report as well, the pipeline
-still carries on, and the exception surfaces as an unobserved task exception, or from the
-transaction the operation finished in.
+exception as its `InnerException`. When the outcome that did not get through was itself an
+exception, from the operation or from a `factory.Construct` function, the report also carries it
+as `UndeliveredError`, because neither `errors` nor the `Execute` task received it. It is null
+when the outcome was a result. An operation's own failure never arrives wrapped, so a handler can
+tell the two apart. If a listener on `errors` throws on that report as well, the pipeline still
+carries on, and the exception surfaces as an unobserved task exception, or from the transaction
+the operation finished in.
 
 The operation gets three arguments, not two: the input, a factory for its answer, and a
 cancellation token. `factory.FromValue(value)` is the answer when you have a plain value, which
