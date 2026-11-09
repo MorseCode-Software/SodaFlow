@@ -153,8 +153,8 @@ Task("Test")
     // nothing merged. Scoping and exclusions live in coverage.runsettings, which the platform takes
     // unchanged: --coverage-settings reads the same file --settings used to.
     //
-    // SodaFlow.Benchmarks contributes no tests: it is a console application driving
-    // BenchmarkDotNet, not a test project, and the run does not mind.
+    // SodaFlow.Benchmarks and SodaFlow.Benchmarks.Blotter contribute no tests: each is a console
+    // application driving BenchmarkDotNet, not a test project, and the run does not mind.
     //
     // Three earlier approaches are recorded so they are not retried blindly. The NUnit console
     // runner under OpenCover profiled cleanly but took close to ten minutes here and failed tests
