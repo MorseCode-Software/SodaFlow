@@ -60,7 +60,8 @@ internal static class SodaFlowSymbols
         {
             "WithCaptures" or "WithoutCaptures" =>
                 LooperTypes.Contains(method.ContainingType.OriginalDefinition.Name),
-            "WithCapturesImpl" or "WithoutCapturesImpl" => method.ContainingType.OriginalDefinition.Name == "LoopedCell",
+            "WithCapturesImpl" or "WithoutCapturesImpl" =>
+                method.ContainingType.OriginalDefinition.Name == "LoopedCell",
             _ => false
         };
 
