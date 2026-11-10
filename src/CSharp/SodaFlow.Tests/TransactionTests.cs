@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -485,6 +486,119 @@ public sealed class TransactionTests
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(seen).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    // Two splits in one transaction share the transactions of their items. The items at one
+    // position of each list fire together, and the positions come in their sequence. The merge
+    // shows the two that fire together as one value.
+    [Test]
+    public async Task TwoSplitsOfOneTransactionFireTheirItemsPositionByPosition()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+
+        Stream<string> two =
+            Operational.Split<string, List<string>>(source.Map(static _ => new List<string> { "a0", "a1" }));
+
+        Stream<string> three =
+            Operational.Split<string, List<string>>(source.Map(static _ => new List<string> { "b0", "b1", "b2" }));
+
+        List<string> seen = [];
+        using IStrongListener l = two.Merge(s2: three, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+
+        source.Send(1);
+
+        await Assert.That(seen)
+            .IsEquivalentTo(expected: ["a0+b0", "a1+b1", "b2"], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same with lists that are long. The drain puts the items of the two lists in the sequence
+    // of their positions. With lists of this length, an incorrect sort shows as an item out of
+    // sequence.
+    [Test]
+    public async Task TwoLongSplitsOfOneTransactionFireTheirItemsPositionByPosition()
+    {
+        const int fewer = 300;
+        const int more = 500;
+        StreamSink<int> source = Stream.CreateSink<int>();
+
+        Stream<string> shorter =
+            Operational.Split<string, List<string>>(
+                source.Map(static _ => Enumerable.Range(start: 0, count: fewer).Select(static i => "a" + i).ToList()));
+
+        Stream<string> longer =
+            Operational.Split<string, List<string>>(
+                source.Map(static _ => Enumerable.Range(start: 0, count: more).Select(static i => "b" + i).ToList()));
+
+        List<string> seen = [];
+        using IStrongListener l = shorter.Merge(s2: longer, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+
+        source.Send(1);
+
+        List<string> expected =
+        [
+            .. Enumerable.Range(start: 0, count: more).Select(static i => i < fewer ? "a" + i + "+b" + i : "b" + i)
+        ];
+
+        await Assert.That(seen).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+    }
+
+    // Each item of the split defers its value, and the deferred values of one round share a
+    // transaction. The listener gets them in the sequence of the items.
+    [Test]
+    public async Task ADeferFromEachSplitItemDeliversTheValuesInTheSequenceOfTheItems()
+    {
+        StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
+        List<int> seen = [];
+        using IStrongListener l = Operational.Defer(Operational.Split<int, List<int>>(sink)).ListenStrong(seen.Add);
+
+        sink.Send([1, 2, 3]);
+        sink.Send([4, 5]);
+
+        await Assert.That(seen).IsEquivalentTo(expected: [1, 2, 3, 4, 5], ordering: CollectionOrdering.Matching);
+    }
+
+    // Four rounds of deferred work, one after the other, and two transactions that each start
+    // them. A queue that the drain uses again must hold nothing from the round before.
+    [Test]
+    public async Task ADeferOfADeferOfADeferOfADeferDeliversEachValueOneTime()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+
+        using IStrongListener l =
+            Operational.Defer(Operational.Defer(Operational.Defer(Operational.Defer(sink)))).ListenStrong(seen.Add);
+
+        sink.Send(7);
+        sink.Send(8);
+
+        await Assert.That(seen).IsEquivalentTo(expected: [7, 8], ordering: CollectionOrdering.Matching);
+    }
+
+    // This sends two lists into a split, then a defer, then a second split. The defer puts the
+    // two lists in one transaction. Thus, the second split gets each position two times, and the
+    // drain must put them in sequence. The two items at one position fire in one transaction, in
+    // the sequence that the lists had. A sort that does not keep that sequence shows here.
+    [Test]
+    public async Task ItemsAtOnePositionKeepTheSequenceInWhichTheyWereSplit()
+    {
+        const int count = 200;
+        StreamSink<List<List<int>>> sink = Stream.CreateSink<List<List<int>>>();
+        Stream<List<int>> together = Operational.Defer(Operational.Split<List<int>, List<List<int>>>(sink));
+        List<int> seen = [];
+        using IStrongListener l = Operational.Split<int, List<int>>(together).ListenStrong(seen.Add);
+
+        sink.Send(
+        [
+            [.. Enumerable.Range(start: 0, count: count)],
+            [.. Enumerable.Range(start: 1000, count: count)]
+        ]);
+
+        List<int> expected =
+        [
+            .. Enumerable.Range(start: 0, count: count).SelectMany(static i => new[] { i, 1000 + i })
+        ];
+
+        await Assert.That(seen).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
     }
 
     // A split gives each item a transaction of its own, after the transaction that split them. A
