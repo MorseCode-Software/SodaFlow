@@ -518,6 +518,7 @@ internal sealed class LoopStateEvaluator
 
         List<LoopState> argumentStates = [];
         List<ITypeSymbol?> argumentTypes = [];
+        bool sortsByPendingOrder = false;
 
         // In a static call of an extension method, the receiver is one of the arguments. It is not
         // also an argument of the operator.
@@ -528,14 +529,19 @@ internal sealed class LoopStateEvaluator
                 continue;
             }
 
-            argumentStates.Add(
+            IParameterSymbol? parameter = ParameterFor(method: method, argument: arguments[i], position: i);
+
+            LoopState argumentState =
                 this.EvalArgument(
                     argument: arguments[i].Expression,
-                    runsNow: OperatorTable.RunsFunction(
-                        method: method,
-                        parameter: ParameterFor(method: method, argument: arguments[i], position: i))));
+                    runsNow: OperatorTable.RunsFunction(method: method, parameter: parameter));
 
+            argumentStates.Add(argumentState);
             argumentTypes.Add(this.region.TypeOf(arguments[i].Expression));
+
+            sortsByPendingOrder |=
+                argumentState.ContentPending
+                && OperatorTable.IsOrderCell(symbols: this.region.Symbols, parameter: parameter);
         }
 
         LoopState inputs = argumentStates.Aggregate(seed: receiverState, func: static (a, b) => a.Join(b));
@@ -645,14 +651,16 @@ internal sealed class LoopStateEvaluator
             };
 
         // The function of a map, a lift, or a view computes the value of the result at the first
-        // read of it. A function that reads a pending value makes that value pending.
+        // read of it. A function that reads a pending value makes that value pending. A view that
+        // sorts by the order in a cell runs the function of that order.
         if (!state.Pending
-            && OperatorTable.ComputesValueWithFunction(
-                symbols: this.region.Symbols,
-                method: method,
-                receiverType: receiverType)
-            && this.CanUseState(invocation: invocation, given: inputs.Content)
-            && this.Quiet().FunctionReadsPending(invocation: invocation, given: inputs.Content))
+            && (sortsByPendingOrder
+                || (OperatorTable.ComputesValueWithFunction(
+                        symbols: this.region.Symbols,
+                        method: method,
+                        receiverType: receiverType)
+                    && this.CanUseState(invocation: invocation, given: inputs.Content)
+                    && this.Quiet().FunctionReadsPending(invocation: invocation, given: inputs.Content))))
         {
             state = state.WithPending(true);
         }

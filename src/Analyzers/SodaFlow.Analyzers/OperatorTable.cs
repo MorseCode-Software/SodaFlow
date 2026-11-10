@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -312,8 +313,9 @@ internal static class OperatorTable
             "Update");
 
     // The operators whose function computes the current value of the result. Map, Lift, and
-    // Defer are for a cell, a behavior, and a lazy sample. The others are the views of a
-    // collection.
+    // Defer are for a cell, a behavior, and a lazy sample. The filters and the sorts are the
+    // views of a collection. The last six make a sort order. A view that sorts by that order
+    // runs the function of the order, and the pending state of the order tells the view so.
     private static readonly ImmutableHashSet<string> ValueFromFunction =
         ImmutableHashSet.Create(
             "Map",
@@ -324,7 +326,13 @@ internal static class OperatorTable
             "SortBy",
             "SortByDescending",
             "SortByIdentity",
-            "SortByIdentityDescending");
+            "SortByIdentityDescending",
+            "By",
+            "ByIdentity",
+            "ThenBy",
+            "ThenByDescending",
+            "ThenByIdentity",
+            "ThenByIdentityDescending");
 
     /// <summary>
     ///     True for an operator that computes the current value of its result
@@ -332,6 +340,10 @@ internal static class OperatorTable
     ///     samples a pending value then makes the result pending. An operator of a
     ///     stream runs its function at a firing, which is after the close.
     /// </summary>
+    /// <remarks>
+    ///     A sort order has no current value. It is pending because a view that
+    ///     sorts by it runs its function, at the first read of the view.
+    /// </remarks>
     public static bool ComputesValueWithFunction(
         SodaFlowSymbols symbols,
         IMethodSymbol method,
@@ -339,6 +351,17 @@ internal static class OperatorTable
         ValueFromFunction.Contains(LoopStateEvaluator.OperatorName(method))
         && !symbols.IsStreamType(receiverType)
         && !symbols.IsStreamType(method.ReturnType);
+
+    /// <summary>
+    ///     True for a parameter that gets a cell of sort orders. A view sorts by
+    ///     the order that the cell holds, and runs the function of that order at
+    ///     the first read of the view.
+    /// </summary>
+    public static bool IsOrderCell(SodaFlowSymbols symbols, IParameterSymbol? parameter) =>
+        parameter?.Type is INamedTypeSymbol cell
+        && symbols.IsCellOrBehaviorType(cell)
+        && cell.TypeArguments.FirstOrDefault() is INamedTypeSymbol { Name: "KeyOrder" } order
+        && symbols.IsSodaFlow(order);
 
     /// <summary>
     ///     True when a library method runs, in the call, the function that it

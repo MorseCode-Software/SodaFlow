@@ -178,7 +178,15 @@ internal sealed class LoopReadAnalyzerTests
             ["LazyOfAMadeFunctionCalled"] = ["SF1001"],
             ["LazyKeptByAConstructorOfThisCode"] = ["SF1005"],
             ["LazyFromAHelperRead"] = ["SF1005"],
-            ["HeldInitialCellRead"] = ["SF1001"]
+            ["HeldInitialCellRead"] = ["SF1001"],
+            ["SortByAnOrderThatReads"] = ["SF1001"],
+            ["SortByAnOrderCellThatReads"] = ["SF1001"],
+            ["ThenByThatReads"] = ["SF1001"],
+            ["OrderByIdentityThatReads"] = ["SF1001"],
+            ["OrderFromAHelper"] = ["SF1001"],
+            ["OrderOfALocalFunction"] = ["SF1001"],
+            ["OrderCellMappedToAnOrderThatReads"] = ["SF1001"],
+            ["CloseWithAViewSortedByAnOrderCell"] = ["SF1006"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

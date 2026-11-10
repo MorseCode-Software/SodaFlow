@@ -1698,6 +1698,134 @@ public static class Shapes
             return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
         });
 
+    // S219. A sort order whose function samples the placeholder. The block reads the keys of a
+    // view that sorts by that order.
+    public static Cell<int> SortByAnOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            int count = Items().SortBy(order: order).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S220. The same view, which the block only keeps.
+    public static Cell<int> SortByAnOrderThatReadsKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            Kept.Add(Items().SortBy(order: order));
+            return S.Hold(0);
+        });
+
+    // S221. The same order in a cell. The view sorts by the order that the cell holds.
+    public static Cell<int> SortByAnOrderCellThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            int count = Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S222. A cell of an order whose function reads no cell.
+    public static Cell<int> SortByAPlainOrderCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state);
+            int count = Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Snapshot(l, (a, b) => a + b + count).Hold(0);
+        });
+
+    // S223. The second function of an order samples the placeholder.
+    public static Cell<int> ThenByThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order =
+                KeyOrder<int, ItemId, int>.By((_, state) => state).ThenBy((_, state) => state + l.Sample());
+
+            int count = Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S224. An order by identity whose function samples the placeholder.
+    public static Cell<int> OrderByIdentityThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByIdentity(id => id.Number + l.Sample());
+            int count = Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S225. A helper makes the order, and the function of the order samples the parameter of the
+    // helper.
+    public static Cell<int> OrderFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = Items().SortBy(orderCell: Cell.Constant(OrderThatReads(l))).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    private static KeyOrder<int, ItemId, int> OrderThatReads(Cell<int> c) =>
+        KeyOrder<int, ItemId, int>.By((_, state) => state + c.Sample());
+
+    // S226. A local function is the function of the order.
+    public static Cell<int> OrderOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By<int>(Selector);
+            int count = Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Hold(count);
+
+            int Selector(ItemId id, int state) => state + l.Sample();
+        });
+
+    // S227. The block makes the order and no view.
+    public static Cell<int> OrderOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample()));
+            return S.Hold(0);
+        });
+
+    // S228. Only a callback makes the view and reads its keys.
+    public static Cell<int> OrderUsedInACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            return S.Snapshot(l, (a, b) => a + b + Items().SortBy(order: order).KeysCell.Sample().Count).Hold(0);
+        });
+
+    // S229. A map of a cell of orders adds a function that samples the placeholder.
+    public static Cell<int> OrderCellMappedToAnOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<KeyOrder<int, ItemId, int>> orders =
+                Cell.Constant(KeyOrder<int, ItemId, int>.By((_, state) => state))
+                    .Map(order => order.ThenBy((_, state) => state + l.Sample()));
+
+            int count = Items().SortBy(orderCell: orders).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S230. A cell of orders starts with a plain order. A firing gives the order that reads, which
+    // is after the close.
+    public static Cell<int> OrderCellThatStartsPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> plain = KeyOrder<int, ItemId, int>.By((_, state) => state);
+            KeyOrder<int, ItemId, int> reading = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            int count = Items().SortBy(orderCell: S.Map(_ => reading).Hold(plain)).KeysCell.Sample().Count;
+            return S.Snapshot(l, (a, b) => a + b + count).Hold(0);
+        });
+
+    // S231. The loop closes with the keys of a view. The view sorts by an order cell, and the
+    // function of the order samples the placeholder.
+    public static Cell<int> CloseWithAViewSortedByAnOrderCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.By((_, state) => state + l.Sample());
+            return Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Map(keys => keys.Count);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
