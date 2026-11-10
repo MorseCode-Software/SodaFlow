@@ -26,8 +26,9 @@ package, and its notes have the details of each:
 - A transaction that fails no longer cancels anything through cancelAll or cancelMatching. The cancel now runs once the
   transaction that fired the stream has committed. An exception from a callback registered on an operation's token goes
   to handleException, and no longer stops the rest of the items from being canceled.
-- Dispose inside an open transaction now cancels the tracked items when cancelOnDispose is set, as that transaction
-  ends, whether it commits or fails. Before, such a disposal canceled nothing, and the operations ran on.
+- Dispose inside an open transaction now cancels the tracked items when cancelOnDispose is set, whether that transaction
+  commits or fails, and Dispose inside a listener callback no longer throws. Before, such a disposal canceled nothing,
+  and the operations ran on; in a callback it also failed the transaction that called it.
 - An Execute in a transaction that fails cancels its Task and admits nothing, however the transaction fails. Before, a
   throw from the body of the transaction still admitted the value, and so did a failure of a posted action that made the
   call.
