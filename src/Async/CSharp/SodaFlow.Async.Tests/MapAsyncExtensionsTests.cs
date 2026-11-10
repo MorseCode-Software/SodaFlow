@@ -1600,6 +1600,101 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    // The Task of a refused value gets its answer when the transaction of the admission commits, as
+    // each other answer of a Task does. Before, the admission step canceled the Task in that
+    // transaction, thus a listener of the same transaction found a Task that was complete.
+    [Test]
+    public async Task Execute_WhereTheStrategyRefusesTheValue_CancelsTheTaskAtTheCommitAndNotBefore()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: new RefuseEverythingStrategy());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Func<string, Task<string>> execute = status.Execute;
+        Task<string>? task = null;
+        List<bool> completedInTheAdmission = [];
+
+        // The refused value enters the queue with the Queued status, thus Items updates in the
+        // transaction of the admission, and this listener runs in it.
+        IListener probe =
+            Transaction.Run(() =>
+                tracked.Updates().ListenStrong(_ => completedInTheAdmission.Add(task is { IsCompleted: true })));
+
+        // Execute in a transaction, thus the Task exists before its admission runs.
+        Transaction.RunVoid(() => task = execute("a"));
+
+        Task<string> started = task ?? throw new InvalidOperationException("Execute gave no Task.");
+
+        TestUtil.WaitUntil(() => started.IsCompleted);
+
+        await Assert.That(completedInTheAdmission)
+            .IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching)
+            .Because("the Task gets its answer at the commit");
+
+        await Assert.That(started.IsCanceled).IsTrue();
+
+        probe.Unlisten();
+        status.Dispose();
+    }
+
+    // The admission of an Execute value runs in a transaction of its own, and a listener can fail
+    // that transaction. The value then does not enter the queue, and the release of the admission
+    // cancels the Task. That holds for a value that the strategy refuses and for a value that it
+    // starts.
+    [Test]
+    public async Task Execute_WhereTheTransactionOfTheAdmissionFails_CancelsTheTaskAndAdmitsNothing()
+    {
+        foreach (bool refuses in new[] { true, false })
+        {
+            StreamSink<string> source = Stream.CreateSink<string>();
+            StreamSink<string> results = Stream.CreateSink<string>();
+            StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+            ControlledOperation<string, string> op = new();
+
+            AsyncMapStatus<string, string> status =
+                source.MapAsync(
+                    results: results,
+                    errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    operation: op.Operation,
+                    strategy: refuses ? new RefuseEverythingStrategy() : AsyncConcurrencyStrategy.Parallel());
+
+            Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+            Func<string, Task<string>> execute = status.Execute;
+            Task<string>? task = null;
+
+            IListener thrower =
+                Transaction.Run(() =>
+                    tracked.Updates()
+                        .ListenStrong(static _ =>
+                            throw new InvalidOperationException("The test fails this transaction.")));
+
+            await Assert.That(() => Transaction.RunVoid(() => task = execute("a")))
+                .ThrowsExactly<InvalidOperationException>();
+
+            Task<string> started = task ?? throw new InvalidOperationException("Execute gave no Task.");
+
+            TestUtil.WaitUntil(() => started.IsCompleted);
+
+            await Assert.That(started.IsCanceled).IsTrue();
+            await Assert.That(op.HasStarted("a")).IsFalse();
+            await Assert.That(Transaction.Run(tracked.Sample)).IsEmpty();
+
+            thrower.Unlisten();
+            status.Dispose();
+        }
+    }
+
     [Test]
     public async Task Execute_IsCanceledAfterADisposal()
     {

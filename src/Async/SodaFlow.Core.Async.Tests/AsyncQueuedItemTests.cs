@@ -11,7 +11,7 @@ namespace SodaFlow.Async.Tests;
 
 /// <summary>
 ///     Covers the cancel of one tracked item. A cancellation is an effect out of
-///     the graph, thus a cancel in a transaction waits for the commit, and a
+///     the graph. Thus, a cancel in a transaction waits for the commit, and a
 ///     transaction that fails cancels nothing.
 /// </summary>
 public sealed class AsyncQueuedItemTests
@@ -62,6 +62,54 @@ public sealed class AsyncQueuedItemTests
             .ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(cancellation.IsCancellationRequested).IsFalse();
+    }
+
+    // The test for a transaction reads the transaction of this thread. A transaction that a
+    // different thread holds open at the same time is not the transaction of this cancel. Thus,
+    // the cancel runs immediately, and does not wait for that transaction to end.
+    [Test]
+    public async Task Cancel_WhileADifferentThreadHoldsATransactionOpen_CancelsTheTokenNow()
+    {
+        using CancellationTokenSource cancellation = new();
+        AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
+        using ManualResetEventSlim otherOpened = new(false);
+        using ManualResetEventSlim otherCanEnd = new(false);
+        using ManualResetEventSlim otherEnded = new(false);
+
+        // The wait has a limit. Thus, a cancel that waits for this transaction ends the test with a
+        // failure, and does not stop the test run.
+        // ReSharper disable AccessToDisposedClosure - The test awaits this task before the disposals.
+        // ReSharper disable once MethodSupportsCancellation - The token of this test belongs to the item, and its
+        // cancel must not end this task.
+        Task other =
+            Task.Run(() =>
+                TransactionInternal.Apply((_, _) =>
+                {
+                    otherOpened.Set();
+                    otherCanEnd.Wait(TimeSpan.FromSeconds(5));
+                    otherEnded.Set();
+
+                    return UnitInternal.Value;
+                }));
+
+        // ReSharper restore AccessToDisposedClosure
+
+        bool opened = otherOpened.Wait(TimeSpan.FromSeconds(5));
+
+        item.Cancel();
+
+        bool canceled = cancellation.IsCancellationRequested;
+        bool ended = otherEnded.IsSet;
+
+        otherCanEnd.Set();
+        await other;
+
+        await Assert.That(opened).IsTrue();
+        await Assert.That(canceled).IsTrue();
+
+        await Assert.That(ended)
+            .IsFalse()
+            .Because("the cancel must not wait for the transaction of a different thread");
     }
 
     // The pipeline reads this record where it must know of a cancel before the commit: for a value

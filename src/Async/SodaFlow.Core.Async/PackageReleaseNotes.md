@@ -109,6 +109,12 @@ its start ends as canceled with no call to its operation. That keeps a strategy 
 one call from running anything, as before, and it also stops a call that used to be made with a token already canceled:
 a queued item that a cancellation stream ends in the same transaction that promotes it.
 
+Changed with it: the Task of an Execute value that a strategy refuses, or that arrives after a disposal, is canceled
+when the transaction of its admission commits, as every other answer of such a Task is given. It was canceled inside
+that transaction, so a listener in the same transaction could find the Task complete before the commit. The outcome is
+the same. Where that transaction fails, the release of the admission cancels the Task, as it already did for a value
+that the strategy starts.
+
 Changed: an Execute in a transaction whose body throws now cancels its Task and admits nothing. Execute defers its value
 into the post queue of the open transaction, with a release that cancels the Task. SodaFlow.Core 6.0.0 makes a throw
 from the body of a transaction fail that transaction, where it used to close it, so the post is discarded and the
