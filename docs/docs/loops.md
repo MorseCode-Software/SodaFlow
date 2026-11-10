@@ -285,25 +285,37 @@ conversion, a property setter or an event accessor, a `Deconstruct`, `ToString` 
 string or a concatenation, `Dispose` at the end of a `using`, the enumerator behind a `foreach`,
 and the `Add` behind a collection initializer.
 
+The platform calls members of your types as well, with no call in your code at all. A sort calls
+`CompareTo`. A search such as `Contains` calls `Equals`. A set or a dictionary calls `GetHashCode`,
+and `Equals` when two hash codes match. `string.Join`, `string.Format`, and the other methods that
+build text call `ToString`. A LINQ query, a collection constructor, or a spread enumerates a
+sequence type of yours. The analyzer has a table of the collection, LINQ, and text methods of the
+platform that do this, and it reads the member where the call is. A method that gets a comparer
+calls the comparer and not these members, and the analyzer knows that too.
+
 It does not see everything, and in a few places it guesses on the careful side:
 
 - A collection has the state of everything put into it. A list that holds one pending cell and one
-  plain one reports a read of either.
+  plain one reports a read of either. A collection kept in a variable of type `object` is read as
+  if it were one of its items when you call a member on it.
 - A field set on an object the analyzer did not see built counts for every object of that type,
   to the end of the block.
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
-  read: a sort calls it only when two items tie, and the analyzer does not know your data.
+  read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
+  `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort
+  of a single item.
+- When the platform compares two of your objects, the analyzer does not know which of them gets
+  the call. A `CompareTo` or an `Equals` that reads only its own object is reported for either.
 - A LINQ query built in the block is read as if it were enumerated there. If you enumerate it only
   after the block, a read in its lambda is reported although it is fine. An iterator method of
-  yours is read the same way, at the call.
+  yours is read the same way, at the call, and so is a sequence type of yours that a query takes.
 - A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
 - A function kept by a constructor outside your project is not read when the block then uses that
   object. That covers a comparer kept by a `SortedSet<T>`. `Lazy<T>` is the exception, and a
   `Lazy<T>` handed to code outside your project is taken as kept, not forced.
-- Code outside your project can call back into a type of yours through an interface or a virtual
-  method it knows: `CompareTo` from a sort, `Equals` and `GetHashCode` from `Contains` or a set,
-  `ToString` from `string.Join`, `GetEnumerator` from a LINQ query. A read in such a member is not
-  seen. A comparer is the exception.
+- The table of platform methods that call a member of yours holds the common ones, not all of
+  them, and nothing outside the platform. A read in a member that some other method calls is not
+  seen.
 - A virtual method is read as the method the code names, unless the analyzer saw the object built.
 
 The runtime check stays behind all of these.
