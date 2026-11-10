@@ -376,6 +376,14 @@ under the transaction lock, and at one id per nanosecond the count takes about 5
 "the id of a transaction is never zero", which the capture slot depends on, now holds without a condition. The cost is
 one comparison per id.
 
+Added, for the two language packages: a one-shot listener that gives the outcome of the transaction of its firing, which
+ListenOnceAsync and listenOnceAsync now use. It gives the value once that transaction has committed, and the exception
+of a transaction that fails after the stream fired, also where the transaction fails before the listener runs. For that,
+a transaction that fails now tells each queued step that it discards which exception failed it, and a step that carried
+a firing passes that on to a listener that asks for it. Nothing changes for any other listener, and the path of a
+transaction that commits is the same, with one allocation fewer where a listener attaches to a stream that already fired
+in the same transaction.
+
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
 each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
