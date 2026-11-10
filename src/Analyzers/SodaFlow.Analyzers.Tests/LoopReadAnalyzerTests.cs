@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SodaFlow.Bindable.ObjectModel;
+using SodaFlow.Collections;
 using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -77,7 +78,10 @@ internal sealed class LoopReadAnalyzerTests
             ["CoreBlockCloseWithPlaceholder"] = ["SF1002"],
             ["NamedArgumentsReorderedToTheLoop"] = ["SF1001"],
             ["GenericHelperSamples"] = ["SF1004"],
-            ["GenericRowSamples"] = ["SF1004"]
+            ["GenericRowSamples"] = ["SF1004"],
+            ["ViewFilteredByTheLoopRead"] = ["SF1001"],
+            ["ViewFilteredByTheLoopAsTheClose"] = ["SF1002"],
+            ["FilterOfPendingViewRead"] = ["SF1001"]
         };
 
     // The shapes that the run-time test does not call.
@@ -95,7 +99,9 @@ internal sealed class LoopReadAnalyzerTests
         typeof(CellExtensionMethods).Assembly,
         typeof(Maybe<>).Assembly,
         typeof(IBindableFactory).Assembly,
-        typeof(IOneWayBindableValue<>).Assembly
+        typeof(IOneWayBindableValue<>).Assembly,
+        typeof(IIdentity<>).Assembly,
+        typeof(CollectionExtensionMethods).Assembly
     ];
 
     private static Task<string> ReadShapes() =>

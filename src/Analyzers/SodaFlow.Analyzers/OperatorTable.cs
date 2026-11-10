@@ -201,7 +201,26 @@ internal static class OperatorTable
             "FromUpdates",
             "IdentityCell",
             "ItemCell",
-            "StateCell");
+            "StateCell",
+            // A collection, and the views of a collection. A view is pending when its upstream is. A
+            // cell that the view reads also makes the view pending. Such a cell is the criteria of a
+            // filter, the order of a sort, or the limits of a slice. Filter and Map have a row for a
+            // stream or a cell. The methods of those names on a collection get this rule also.
+            "Create",
+            "FilterByIdentity",
+            "Slice",
+            "SortBy",
+            "SortByArrival",
+            "SortByDescending",
+            "SortByIdentity",
+            "SortByIdentityDescending",
+            "SortByKey",
+            "SortByKeyDescending",
+            "Take",
+            // A bindable is pending when its cell is. A read of its value is a read of the cell.
+            "CreateBindableAction",
+            "CreateOneWay",
+            "CreateTwoWay");
 
     /// <summary>
     ///     The rule for a library method, by its name and the type of its
@@ -212,6 +231,11 @@ internal static class OperatorTable
         string name = LoopStateEvaluator.OperatorName(method);
         bool lazy = SodaFlowSymbols.IsLazySampleType(receiverType);
         bool stream = SodaFlowSymbols.IsStreamType(receiverType);
+
+        // The rows for the operators of a stream apply to a stream. A method of a different type
+        // can have the same name, as the Filter of a collection view has. That method gets the
+        // default rule.
+        bool ofStreams = stream || SodaFlowSymbols.IsStreamType(method.ReturnType);
 
         return name switch
         {
@@ -227,15 +251,16 @@ internal static class OperatorTable
             "Lift" or "Apply" or "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.Combine,
             "SwitchC" or "SwitchB" => OperatorRule.SwitchValue,
             "SwitchS" => OperatorRule.SwitchStream,
-            "Hold" => OperatorRule.Hold,
-            "HoldLazy" or "AccumLazy" or "CollectLazy" => OperatorRule.HoldLazy,
+            "Hold" when ofStreams => OperatorRule.Hold,
+            "HoldLazy" or "AccumLazy" or "CollectLazy" when ofStreams => OperatorRule.HoldLazy,
             "ConstantLazy" => OperatorRule.ConstantLazy,
             "Constant" or "CreateSink" or "CreateStreamSink" => OperatorRule.Content,
-            "Accum" or "Collect" => OperatorRule.Fold,
+            "Accum" or "Collect" when ofStreams => OperatorRule.Fold,
             "Updates" or "Values" => OperatorRule.Updates,
-            "MapTo" => OperatorRule.MapTo,
-            "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once" => OperatorRule.StreamFromReceiver,
-            "Merge" or "OrElse" => OperatorRule.MergeStreams,
+            "MapTo" when ofStreams => OperatorRule.MapTo,
+            "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
+                OperatorRule.StreamFromReceiver,
+            "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
             "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default

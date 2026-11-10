@@ -17,11 +17,13 @@ namespace SodaFlow.Analyzers.Tests;
 ///     library.
 /// </summary>
 /// <remarks>
-///     An operator with no row falls to the default rule, which keeps the
-///     state of its inputs. That is correct for most operators. It is incorrect
-///     for one that crosses a transaction or reads a value at construction. Thus,
-///     a new operator has to say which it is, with a row in the table or an entry
-///     in <see cref="OperatorTable.DefaultIsSound" />. This test fails until it
+///     An operator is a public method that returns a cell, a behavior, a
+///     stream, a lazy sample, a sink, a collection, or a bindable. An operator
+///     with no row falls to the default rule, which keeps the state of its
+///     inputs. That is correct for most operators. It is incorrect for one that
+///     crosses a transaction or reads a value at construction. Thus, a new
+///     operator has to say which it is, with a row in the table or an entry in
+///     <see cref="OperatorTable.DefaultIsSound" />. This test fails until it
 ///     does.
 /// </remarks>
 internal sealed class OperatorTableTests
@@ -35,7 +37,13 @@ internal sealed class OperatorTableTests
         "CellSink`1",
         "BehaviorSink`1",
         "StreamSink`1",
-        "CellStreamSink`1"
+        "CellStreamSink`1",
+        "ReactiveCollection`3",
+        "MappedItems`1",
+        "IOneWayBindableValue`1",
+        "ITwoWayBindableValue`1",
+        "IBindableAction",
+        "IBindableAction`1"
     ];
 
     [Test]
@@ -64,8 +72,10 @@ internal sealed class OperatorTableTests
                 // A property getter is not an operator: it has no inputs of its own.
                 .Where(static method => !method.IsSpecialName)
                 .Where(static method =>
-                    method.ReturnType.IsGenericType
-                    && ResultTypes.Contains(method.ReturnType.GetGenericTypeDefinition().Name))
+                    ResultTypes.Contains(
+                        method.ReturnType.IsGenericType
+                            ? method.ReturnType.GetGenericTypeDefinition().Name
+                            : method.ReturnType.Name))
                 .Select(static method => method.Name)
                 .Distinct()
                 .OrderBy(keySelector: static name => name, comparer: StringComparer.Ordinal)

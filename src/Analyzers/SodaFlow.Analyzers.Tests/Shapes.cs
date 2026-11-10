@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SodaFlow;
+using SodaFlow.Collections;
 
 namespace SodaFlow.Analyzers.Shapes;
 
@@ -457,6 +458,48 @@ public static class Shapes
             return S.Snapshot(row.Cell, (a, b) => a + b).Hold(0);
         });
 
+    // S68. A collection view filtered by a looped criteria cell, read in the block.
+    public static Cell<bool> ViewFilteredByTheLoopRead() =>
+        Cell.Loop<bool>().WithoutCaptures(l =>
+        {
+            ReactiveCollection<int, ItemId, int> view =
+                Items().Filter(criteriaCell: l, predicate: (show, _, state) => show || state > 10);
+            int count = view.KeysCell.Sample().Count;
+            return Cell.Constant(count > 0);
+        });
+
+    // S69. The same view, with its keys as the close. The keys are linked to the loop.
+    public static Cell<bool> ViewFilteredByTheLoopAsTheClose() =>
+        Cell.Loop<bool>().WithoutCaptures(l =>
+        {
+            ReactiveCollection<int, ItemId, int> view =
+                Items().Filter(criteriaCell: l, predicate: (show, _, state) => show || state > 10);
+            return view.KeysCell.Map(keys => keys.Count > 0);
+        });
+
+    // S70. A view that gets its limit from the loop, then a plain predicate, read in the block.
+    public static Cell<int> FilterOfPendingViewRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = Items().Take(limitCell: l).Filter(predicate: (_, state) => state > 10).KeysCell.Sample().Count;
+            return Cell.Constant(count);
+        });
+
+    // S71. The view filtered by the loop, kept as a capture and read after the block.
+    public static int ViewFilteredByTheLoopReadAfter()
+    {
+        (Cell<bool> _, ReactiveCollection<int, ItemId, int> view) =
+            Cell.Loop<bool>().WithCaptures(l =>
+                (Cell: Cell.Constant(true),
+                    Captures: Items().Filter(criteriaCell: l, predicate: (show, _, state) => show || state > 10)));
+        return view.KeysCell.Sample().Count;
+    }
+
+    private static ReactiveCollection<int, ItemId, int> Items() =>
+        ReactiveCollection.Create<int, ItemId, int>(
+            initialEntries: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
+            Stream.Never<CollectionEdit<int, ItemId, int>>());
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -518,6 +561,11 @@ public static class Shapes
     public sealed class GenericStoringRow<T>(Cell<T> cell)
     {
         public Cell<T> Cell { get; } = cell;
+    }
+
+    public sealed record ItemId(int Number) : IIdentity<int>
+    {
+        public int Key => this.Number;
     }
 }
 
