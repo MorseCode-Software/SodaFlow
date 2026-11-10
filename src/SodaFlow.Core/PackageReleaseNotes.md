@@ -340,6 +340,27 @@ while the same action run with no transaction open, which goes through the same 
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
 
+Fixed: a posted action, or an element of a split, whose transaction fails no longer leaves behind the work it deferred.
+Each of them runs in a child transaction of the transaction that deferred it, and a Post or a Split from inside a child
+went straight into the queues of that first transaction. When the child then failed, by a throw from the action or from
+a listener while it propagated, nothing took that work out again: the actions it had posted ran, their releases did not,
+and the values it had sent through Defer or Split arrived in later transactions, although the transaction that produced
+them was discarded. The first transaction always dropped what it had deferred when it failed, so the two paths
+disagreed. A child now holds its posts and its splits apart until it commits, and only then do they join the queues, in
+the order they had before. When it fails they go with it, and the release of each post runs with the child's exception
+as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for the first
+transaction.
+
+The work a child holds waits in two lists that the whole process shares under the transaction lock, so a child that
+defers allocates nothing for it, and a transaction no longer keeps a reference to the one it defers into, which makes
+each transaction 8 bytes smaller. DeferredWorkBenchmarks in SodaFlow.Benchmarks measures the paths where nothing fails,
+on .NET 10: a post from a transaction 456 B to 440 B, a post from a posted action 672 to 648, a defer 1,376 to 1,360, a
+defer after a defer 2,208 to 2,184, and a defer from each of 8 split elements 8,720 to 8,640. The empty transaction that
+an entry above measured at 112 bytes is 104. The time on .NET 10 is the same within the noise of the run. On .NET
+Framework 4.7.2 a child that defers pays for the extra step: a post from a posted action measures 369 ns to 393 ns, a
+defer after a defer 1,599 ns to 1,655 ns, and the 8 split elements 7,381 ns to 7,525 ns, which is 2% to 7%. A post or a
+defer from the first transaction is unchanged there.
+
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
 each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although

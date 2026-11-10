@@ -164,6 +164,12 @@ done, a single exception is rethrown as it is, and several come out together in 
 `AggregateException`, in the order the actions were posted. The elements of `Operational.Split`
 follow the same rule: one element whose listeners throw does not stop the elements after it.
 
+A posted action that fails also takes with it whatever it deferred in turn. The actions it posted
+do not run, and if one was posted with a release, the release runs with the exception that failed
+the action. A value it pushed through `Operational.Defer` or `Operational.Split` does not arrive.
+An element of `Split` whose transaction fails behaves the same way. This is the rule for any
+transaction: one that fails leaves nothing behind for later.
+
 Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may
 be called from inside a handler. If you need that, `Post` it.
