@@ -194,8 +194,8 @@ internal sealed class LoopStateEvaluator
                     // or one element of a tuple from a loop block.
                     ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
 
-                    if (SodaFlowSymbols.IsCarrierType(memberType)
-                        || SodaFlowSymbols.IsStreamType(memberType)
+                    if (this.region.Symbols.IsCarrierType(memberType)
+                        || this.region.Symbols.IsStreamType(memberType)
                         || symbol.ContainingType.IsTupleType)
                     {
                         fromOwner = owner;
@@ -218,10 +218,11 @@ internal sealed class LoopStateEvaluator
             return this.TypeState(invocation);
         }
 
-        ExpressionSyntax? receiver = ReceiverOf(invocation: invocation, method: method);
+        ExpressionSyntax? receiver =
+            ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
         LoopState receiverState = this.Eval(receiver);
         ITypeSymbol? receiverType = receiver == null ? null : model.GetTypeInfo(receiver).Type;
-        bool runsNow = RunsNow(method);
+        bool runsNow = RunsNow(symbols: this.region.Symbols, method: method);
 
         List<LoopState> argumentStates = [];
         List<ITypeSymbol?> argumentTypes = [];
@@ -237,7 +238,7 @@ internal sealed class LoopStateEvaluator
 
         LoopState inputs = argumentStates.Aggregate(seed: receiverState, func: static (a, b) => a.Join(b));
 
-        if (!SodaFlowSymbols.IsSodaFlow(method))
+        if (!this.region.Symbols.IsSodaFlow(method))
         {
             return this.EvalForeignCall(
                 invocation: invocation,
@@ -249,7 +250,7 @@ internal sealed class LoopStateEvaluator
         LoopState firstArgument = argumentStates.Count > 0 ? argumentStates[0] : LoopState.None;
         LoopState source = receiver != null ? receiverState : firstArgument;
 
-        return OperatorTable.Rule(method: method, receiverType: receiverType) switch
+        return OperatorTable.Rule(symbols: this.region.Symbols, method: method, receiverType: receiverType) switch
         {
             OperatorRule.RunsNow => firstArgument,
             OperatorRule.Read => LoopState.None,
@@ -322,6 +323,7 @@ internal sealed class LoopStateEvaluator
             OperatorRule.MergeStreams => new LoopState(
                 pending: false,
                 linked: LinkedStreamInput(
+                    symbols: this.region.Symbols,
                     receiverState: receiverState,
                     receiverType: receiverType,
                     argumentStates: argumentStates,
@@ -336,7 +338,10 @@ internal sealed class LoopStateEvaluator
                 contentLinked: false),
             // A defer, a split, a timer, a debounce, a listener, and a send: no state.
             OperatorRule.Break => LoopState.None,
-            OperatorRule.Default => DefaultLibraryResult(method: method, inputs: inputs),
+            OperatorRule.Default => DefaultLibraryResult(
+                symbols: this.region.Symbols,
+                method: method,
+                inputs: inputs),
             _ => throw new ArgumentOutOfRangeException(paramName: nameof(method), message: "An operator rule has no case.")
         };
     }
@@ -364,7 +369,7 @@ internal sealed class LoopStateEvaluator
         Construction? construction =
             this.depth < MaxInlineDepth
             && model.GetSymbolInfo(creation).Symbol is IMethodSymbol constructor
-            && !SodaFlowSymbols.IsSodaFlow(constructor)
+            && !this.region.Symbols.IsSodaFlow(constructor)
                 ? this.FollowConstruction(constructor: constructor, arguments: arguments?.Arguments ?? default)
                 : null;
 
@@ -490,7 +495,7 @@ internal sealed class LoopStateEvaluator
             && chainArguments != null
             && inner.depth < MaxInlineDepth
             && model.GetSymbolInfo(chain).Symbol is IMethodSymbol chained
-            && !SodaFlowSymbols.IsSodaFlow(chained)
+            && !this.region.Symbols.IsSodaFlow(chained)
             && inner.FollowConstruction(constructor: chained, arguments: chainArguments.Arguments) is { } first)
         {
             foreach (KeyValuePair<ISymbol, LoopState> pair in first.Members)
@@ -610,18 +615,18 @@ internal sealed class LoopStateEvaluator
                 receiverState: receiverState,
                 argumentStates: argumentStates);
 
-        return (inlined ?? LoopState.None).Join(SodaFlowSymbols.StateOfType(method.ReturnType));
+        return (inlined ?? LoopState.None).Join(this.region.Symbols.StateOfType(method.ReturnType));
     }
 
     /// <summary>
     ///     A method with no rule here gives its result the state of its inputs,
     ///     where the result type can hold one. This is the conservative default.
     /// </summary>
-    private static LoopState DefaultLibraryResult(IMethodSymbol method, LoopState inputs)
+    private static LoopState DefaultLibraryResult(SodaFlowSymbols symbols, IMethodSymbol method, LoopState inputs)
     {
         ITypeSymbol returnType = method.ReturnType;
 
-        if (SodaFlowSymbols.IsStreamType(returnType))
+        if (symbols.IsStreamType(returnType))
         {
             return new LoopState(
                 pending: false,
@@ -630,7 +635,7 @@ internal sealed class LoopStateEvaluator
                 contentLinked: inputs.ContentLinked);
         }
 
-        return SodaFlowSymbols.IsCarrierType(returnType) ? inputs : LoopState.None;
+        return symbols.IsCarrierType(returnType) ? inputs : LoopState.None;
     }
 
     /// <summary>
@@ -838,7 +843,7 @@ internal sealed class LoopStateEvaluator
             if (read.Expression is MemberAccessExpressionSyntax access
                 && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
                 && model.GetSymbolInfo(read).Symbol is IMethodSymbol readMethod
-                && SodaFlowSymbols.IsSodaFlow(readMethod)
+                && this.region.Symbols.IsSodaFlow(readMethod)
                 && this.Eval(access.Expression).Pending)
             {
                 return true;
@@ -931,20 +936,21 @@ internal sealed class LoopStateEvaluator
         expressions.Aggregate(seed: LoopState.None, func: (state, e) => state.Join(this.Eval(e)));
 
     private LoopState TypeState(ExpressionSyntax expression) =>
-        SodaFlowSymbols.StateOfType(this.region.ModelFor(expression).GetTypeInfo(expression).Type);
+        this.region.Symbols.StateOfType(this.region.ModelFor(expression).GetTypeInfo(expression).Type);
 
     private static bool LinkedStreamInput(
+        SodaFlowSymbols symbols,
         LoopState receiverState,
         ITypeSymbol? receiverType,
         IReadOnlyList<LoopState> argumentStates,
         IReadOnlyList<ITypeSymbol?> argumentTypes)
     {
         bool linked =
-            receiverState.Linked && (receiverType == null || !SodaFlowSymbols.IsCellOrBehaviorType(receiverType));
+            receiverState.Linked && (receiverType == null || !symbols.IsCellOrBehaviorType(receiverType));
 
         for (int i = 0; i < argumentStates.Count; i++)
         {
-            linked |= argumentStates[i].Linked && !SodaFlowSymbols.IsCellOrBehaviorType(argumentTypes[i]);
+            linked |= argumentStates[i].Linked && !symbols.IsCellOrBehaviorType(argumentTypes[i]);
         }
 
         return linked;
@@ -955,8 +961,8 @@ internal sealed class LoopStateEvaluator
     ///     the loop closes. Every other operator keeps its lambda for a firing after
     ///     the close.
     /// </summary>
-    public static bool RunsNow(IMethodSymbol method) =>
-        SodaFlowSymbols.IsSodaFlow(method)
+    public static bool RunsNow(SodaFlowSymbols symbols, IMethodSymbol method) =>
+        symbols.IsSodaFlow(method)
         && method.Name is "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures";
 
     /// <summary>
@@ -980,7 +986,10 @@ internal sealed class LoopStateEvaluator
     ///     <c>receiver.M()</c> or <c>receiver?.M()</c>. For an extension method of
     ///     the library, it can also be <c>Extensions.M(receiver)</c>.
     /// </summary>
-    public static ExpressionSyntax? ReceiverOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    public static ExpressionSyntax? ReceiverOf(
+        SodaFlowSymbols symbols,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method)
     {
         if (method.ReducedFrom != null || !method.IsStatic)
         {
@@ -993,7 +1002,7 @@ internal sealed class LoopStateEvaluator
         }
 
         // A static call. Only an operator of the library has a rule that asks for its receiver.
-        if (!method.IsExtensionMethod || !SodaFlowSymbols.IsSodaFlow(method))
+        if (!method.IsExtensionMethod || !symbols.IsSodaFlow(method))
         {
             return null;
         }

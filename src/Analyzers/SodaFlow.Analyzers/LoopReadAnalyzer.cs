@@ -38,10 +38,24 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(action: AnalyzeLoopBlock, SyntaxKind.InvocationExpression);
+
+        context.RegisterCompilationStartAction(static start =>
+        {
+            SodaFlowSymbols symbols = new(start.Compilation);
+
+            // Code that does not reference the library has no loop block.
+            if (!symbols.HasLibrary)
+            {
+                return;
+            }
+
+            start.RegisterSyntaxNodeAction(
+                action: node => AnalyzeLoopBlock(context: node, symbols: symbols),
+                SyntaxKind.InvocationExpression);
+        });
     }
 
-    private static void AnalyzeLoopBlock(SyntaxNodeAnalysisContext context)
+    private static void AnalyzeLoopBlock(SyntaxNodeAnalysisContext context, SodaFlowSymbols symbols)
     {
         InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -59,7 +73,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         if (name == null
             || !SodaFlowSymbols.IsLoopBlockName(name.Identifier.ValueText)
             || context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
-            || !SodaFlowSymbols.IsLoopBlock(method))
+            || !symbols.IsLoopBlock(method))
         {
             return;
         }
@@ -96,6 +110,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         LoopRegion region =
             new(
                 compilation: context.Compilation,
+                symbols: symbols,
                 placeholder: placeholder,
                 placeholderState: placeholderState,
                 report: context.ReportDiagnostic);

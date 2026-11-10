@@ -93,8 +93,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         this.Visit(node.Expression);
 
-        bool library = SodaFlowSymbols.IsSodaFlow(method);
-        bool runsNow = LoopStateEvaluator.RunsNow(method);
+        bool library = this.region.Symbols.IsSodaFlow(method);
+        bool runsNow = LoopStateEvaluator.RunsNow(symbols: this.region.Symbols, method: method);
         bool defers = (library && !runsNow) || RunsOnAnotherThread(method.ContainingType);
 
         foreach (ArgumentSyntax argument in node.ArgumentList.Arguments.Where(argument =>
@@ -103,11 +103,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Visit(argument);
         }
 
-        ExpressionSyntax? receiver = LoopStateEvaluator.ReceiverOf(invocation: node, method: method);
+        ExpressionSyntax? receiver =
+            LoopStateEvaluator.ReceiverOf(symbols: this.region.Symbols, invocation: node, method: method);
 
         // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
         // members count on a library receiver too, and not only on a library method.
-        bool libraryReceiver = receiver != null && SodaFlowSymbols.IsCarrierType(model.GetTypeInfo(receiver).Type);
+        bool libraryReceiver = receiver != null && this.region.Symbols.IsCarrierType(model.GetTypeInfo(receiver).Type);
 
         if (library || libraryReceiver)
         {
@@ -256,7 +257,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        if (SodaFlowSymbols.IsSodaFlow(property)
+        if (this.region.Symbols.IsSodaFlow(property)
             && SodaFlowSymbols.ReadMembers.Contains(property.Name)
             && this.evaluator.Eval(owner).Pending)
         {
@@ -268,7 +269,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.region.PlaceholderName));
         }
 
-        if (!SodaFlowSymbols.IsSodaFlow(property) && this.evaluator.ConstructionOf(owner) is { } construction)
+        if (!this.region.Symbols.IsSodaFlow(property) && this.evaluator.ConstructionOf(owner) is { } construction)
         {
             this.CheckMemberRead(member: property, construction: construction, location: node);
         }
@@ -418,7 +419,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         if (arguments == null
             || this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IMethodSymbol constructor
-            || SodaFlowSymbols.IsSodaFlow(constructor))
+            || this.region.Symbols.IsSodaFlow(constructor))
         {
             return;
         }
@@ -476,7 +477,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // where the caller sends it, as it does with the looped types. The walk checks its reads
         // through its construction.
         if (!this.evaluator.Eval(argument).Pending
-            || !SodaFlowSymbols.IsCarrierType(this.region.ModelFor(argument).GetTypeInfo(argument).Type))
+            || !this.region.Symbols.IsCarrierType(this.region.ModelFor(argument).GetTypeInfo(argument).Type))
         {
             return;
         }
@@ -572,7 +573,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (call.Expression is MemberAccessExpressionSyntax access
                 && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
-                && SodaFlowSymbols.IsSodaFlow(next)
+                && this.region.Symbols.IsSodaFlow(next)
                 && SymbolEqualityComparer.Default.Equals(
                     x: model.GetSymbolInfo(access.Expression).Symbol,
                     y: parameter))
@@ -580,7 +581,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 return true;
             }
 
-            if (SodaFlowSymbols.IsSodaFlow(next))
+            if (this.region.Symbols.IsSodaFlow(next))
             {
                 continue;
             }
@@ -641,7 +642,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (list == null
                 || model.GetSymbolInfo(chain).Symbol is not IMethodSymbol next
-                || SodaFlowSymbols.IsSodaFlow(next))
+                || this.region.Symbols.IsSodaFlow(next))
             {
                 continue;
             }

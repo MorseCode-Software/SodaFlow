@@ -8,10 +8,38 @@ namespace SodaFlow.Analyzers;
 
 /// <summary>
 ///     Questions about symbols that the analyzer asks of the SodaFlow
-///     assemblies.
+///     assemblies. One instance is for one compilation.
 /// </summary>
-internal static class SodaFlowSymbols
+internal sealed class SodaFlowSymbols
 {
+    /// <summary>
+    ///     The names of the assemblies of the library. These are the projects of
+    ///     the solution that make a package, and a test holds this list to the
+    ///     solution.
+    /// </summary>
+    /// <remarks>
+    ///     A name must be equal to one in the list. An assembly of a different
+    ///     owner can have a name that starts with <c>SodaFlow.</c>, and that
+    ///     assembly is not the library. The analyzer follows its code, or reports
+    ///     that it cannot.
+    /// </remarks>
+    public static readonly ImmutableHashSet<string> LibraryAssemblyNames =
+        ImmutableHashSet.Create(
+            StringComparer.Ordinal,
+            "SodaFlow",
+            "SodaFlow.Async",
+            "SodaFlow.Bindable.ObjectModel",
+            "SodaFlow.Collections",
+            "SodaFlow.Core",
+            "SodaFlow.Core.Async",
+            "SodaFlow.Core.Bindable.ObjectModel",
+            "SodaFlow.Core.Collections",
+            "SodaFlow.FSharp",
+            "SodaFlow.FSharp.Async",
+            "SodaFlow.FSharp.Bindable.ObjectModel",
+            "SodaFlow.FSharp.Collections",
+            "SodaFlow.Functional");
+
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
         ImmutableHashSet.Create("LoopedCell", "LoopedBehavior");
 
@@ -28,24 +56,29 @@ internal static class SodaFlowSymbols
     public static readonly ImmutableHashSet<string> ReadMembers =
         ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
+    private readonly ImmutableHashSet<IAssemblySymbol> library;
+
     /// <summary>
-    ///     A member of one of the library's own assemblies, and not of a test, a
-    ///     benchmark, or a sample, which share the prefix.
+    ///     Finds the assemblies of the library in a compilation: the compilation
+    ///     itself when it is one of them, and each one that it references.
     /// </summary>
-    /// <remarks>
-    ///     A prefix is a prototype's rule. A shipped analyzer marks the library
-    ///     assemblies with an attribute and reads that.
-    /// </remarks>
-    public static bool IsSodaFlow(ISymbol? symbol) =>
-        symbol?.ContainingAssembly?.Name switch
-        {
-            null => false,
-            "SodaFlow" => true,
-            { } name => name.StartsWith(value: "SodaFlow.", comparisonType: StringComparison.Ordinal)
-                        && !name.Contains(".Tests")
-                        && !name.Contains(".Benchmarks")
-                        && !name.Contains(".Samples.")
-        };
+    /// <param name="compilation">The compilation.</param>
+    public SodaFlowSymbols(Compilation compilation) =>
+        this.library =
+            compilation.SourceModule.ReferencedAssemblySymbols
+                .Add(compilation.Assembly)
+                .Where(static assembly => LibraryAssemblyNames.Contains(assembly.Name))
+                .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     False for a compilation that is not the library and does not reference
+    ///     it. That code has no loop block.
+    /// </summary>
+    public bool HasLibrary => !this.library.IsEmpty;
+
+    /// <summary>A member of one of the assemblies of the library.</summary>
+    public bool IsSodaFlow(ISymbol? symbol) =>
+        symbol?.ContainingAssembly is { } assembly && this.library.Contains(assembly);
 
     /// <summary>
     ///     A method that runs a loop block. The public blocks are
@@ -53,9 +86,9 @@ internal static class SodaFlowSymbols
     ///     assemblies that build on Core use <c>WithCapturesImpl</c> and
     ///     <c>WithoutCapturesImpl</c> on <c>LoopedCell</c>, which are internal.
     /// </summary>
-    public static bool IsLoopBlock(IMethodSymbol method) =>
+    public bool IsLoopBlock(IMethodSymbol method) =>
         IsLoopBlockName(method.Name)
-        && IsSodaFlow(method.ContainingType)
+        && this.IsSodaFlow(method.ContainingType)
         && method.Name switch
         {
             "WithCaptures" or "WithoutCaptures" =>
@@ -77,9 +110,9 @@ internal static class SodaFlowSymbols
     ///     placeholder has a placeholder type, so the type says that the value is
     ///     pending.
     /// </summary>
-    public static LoopState StateOfType(ITypeSymbol? type) => StateOfType(type: type, depth: 0);
+    public LoopState StateOfType(ITypeSymbol? type) => this.StateOfType(type: type, depth: 0);
 
-    private static LoopState StateOfType(ITypeSymbol? type, int depth)
+    private LoopState StateOfType(ITypeSymbol? type, int depth)
     {
         // An array of placeholders is pending as one value, as a list of them is.
         while (type is IArrayTypeSymbol array)
@@ -93,7 +126,7 @@ internal static class SodaFlowSymbols
             return LoopState.None;
         }
 
-        if (IsSodaFlow(named))
+        if (this.IsSodaFlow(named))
         {
             string name = named.OriginalDefinition.Name;
 
@@ -110,7 +143,7 @@ internal static class SodaFlowSymbols
         return depth == 0
             ? named.TypeArguments.Aggregate(
                 seed: LoopState.None,
-                func: static (state, argument) => state.Join(StateOfType(type: argument, depth: 1)))
+                func: (state, argument) => state.Join(this.StateOfType(type: argument, depth: 1)))
             : LoopState.None;
     }
 
@@ -134,22 +167,24 @@ internal static class SodaFlowSymbols
             : null;
     }
 
-    public static bool IsStreamType(ITypeSymbol? type) =>
-        type is INamedTypeSymbol named && IsSodaFlow(named) && IsStreamName(named.OriginalDefinition.Name);
+    public bool IsStreamType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol named && this.IsSodaFlow(named) && IsStreamName(named.OriginalDefinition.Name);
 
-    public static bool IsCellOrBehaviorType(ITypeSymbol? type) =>
-        type is INamedTypeSymbol named && IsSodaFlow(named) && IsCellOrBehaviorName(named.OriginalDefinition.Name);
+    public bool IsCellOrBehaviorType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol named
+        && this.IsSodaFlow(named)
+        && IsCellOrBehaviorName(named.OriginalDefinition.Name);
 
-    public static bool IsLazySampleType(ITypeSymbol? type) =>
-        type is INamedTypeSymbol { OriginalDefinition.Name: "LazySample" } named && IsSodaFlow(named);
+    public bool IsLazySampleType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.Name: "LazySample" } named && this.IsSodaFlow(named);
 
     /// <summary>
     ///     A type whose values can hold a pending read: a cell, a behavior, a
     ///     lazy sample, or a bindable.
     /// </summary>
-    public static bool IsCarrierType(ITypeSymbol? type) =>
+    public bool IsCarrierType(ITypeSymbol? type) =>
         type is INamedTypeSymbol named
-        && IsSodaFlow(named)
+        && this.IsSodaFlow(named)
         && !IsStreamName(named.OriginalDefinition.Name)
         && named.SpecialType == SpecialType.None
         && !IsListenerName(named.OriginalDefinition.Name);

@@ -114,6 +114,11 @@ internal sealed class LoopReadAnalyzerTests
             ["MethodBlockSnapshots"] = "BlockThatSnapshots"
         };
 
+    // Core lets an assembly with this name use its internals. The Core block shapes must use them,
+    // because only the library can call a Core block. The name is not one of the library, thus
+    // the analyzer reads the shapes as code that uses the library.
+    private const string ShapesAssembly = "SodaFlow.Tests.Internal";
+
     // The shapes that the run-time test does not call.
     private static readonly HashSet<string> NotRun =
     [
@@ -145,7 +150,10 @@ internal sealed class LoopReadAnalyzerTests
         IReadOnlyList<Diagnostic> diagnostics =
             await AnalyzerHarness.Analyze(
                 analyzer: new LoopReadAnalyzer(),
-                compilation: AnalyzerHarness.Compile(source: source, libraries: ShapeLibraries));
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: ShapesAssembly));
 
         SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
         SyntaxNode root = await tree.GetRootAsync();
@@ -223,7 +231,11 @@ internal sealed class LoopReadAnalyzerTests
     public async Task EachShapeDoesAtRunTimeWhatItsRulesSay()
     {
         Assembly assembly =
-            AnalyzerHarness.Load(AnalyzerHarness.Compile(source: await ReadShapes(), libraries: ShapeLibraries));
+            AnalyzerHarness.Load(
+                AnalyzerHarness.Compile(
+                    source: await ReadShapes(),
+                    libraries: ShapeLibraries,
+                    assemblyName: ShapesAssembly));
 
         Type shapes =
             assembly.GetType("SodaFlow.Analyzers.Shapes.Shapes")

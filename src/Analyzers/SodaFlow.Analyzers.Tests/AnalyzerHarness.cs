@@ -24,8 +24,12 @@ internal static class AnalyzerHarness
     /// </summary>
     /// <param name="source">The sample.</param>
     /// <param name="libraries">The library assemblies that the sample references.</param>
+    /// <param name="assemblyName">
+    ///     The name of the assembly of the sample. The analyzer knows the library
+    ///     by the names of its assemblies, thus the name is part of the sample.
+    /// </param>
     /// <returns>The compilation, which has no errors.</returns>
-    public static CSharpCompilation Compile(string source, IEnumerable<Assembly> libraries)
+    public static CSharpCompilation Compile(string source, IEnumerable<Assembly> libraries, string assemblyName)
     {
         List<MetadataReference> references =
         [
@@ -35,11 +39,7 @@ internal static class AnalyzerHarness
 
         CSharpCompilation compilation =
             CSharpCompilation.Create(
-                // Core lets an assembly with this name use its internals. The Core block shapes
-                // must use them, because only the library can call a Core block. The analyzer
-                // counts an assembly whose name has ".Tests" as code that uses the library, as it
-                // counts the shapes.
-                assemblyName: "SodaFlow.Tests.Internal",
+                assemblyName: assemblyName,
                 syntaxTrees:
                 [
                     CSharpSyntaxTree.ParseText(

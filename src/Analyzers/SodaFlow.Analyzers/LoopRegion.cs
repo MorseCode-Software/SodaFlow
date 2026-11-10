@@ -11,6 +11,7 @@ namespace SodaFlow.Analyzers;
 /// </summary>
 internal sealed class LoopRegion(
     in Compilation compilation,
+    in SodaFlowSymbols symbols,
     in ISymbol placeholder,
     in LoopState placeholderState,
     in Action<Diagnostic> report)
@@ -18,6 +19,9 @@ internal sealed class LoopRegion(
     private readonly Compilation compilation = compilation;
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Action<Diagnostic> report = report;
+
+    /// <summary>The assemblies of the library, as this compilation sees them.</summary>
+    public SodaFlowSymbols Symbols { get; } = symbols;
 
     public ISymbol Placeholder { get; } = placeholder;
 

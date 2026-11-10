@@ -226,16 +226,16 @@ internal static class OperatorTable
     ///     The rule for a library method, by its name and the type of its
     ///     receiver.
     /// </summary>
-    public static OperatorRule Rule(IMethodSymbol method, ITypeSymbol? receiverType)
+    public static OperatorRule Rule(SodaFlowSymbols symbols, IMethodSymbol method, ITypeSymbol? receiverType)
     {
         string name = LoopStateEvaluator.OperatorName(method);
-        bool lazy = SodaFlowSymbols.IsLazySampleType(receiverType);
-        bool stream = SodaFlowSymbols.IsStreamType(receiverType);
+        bool lazy = symbols.IsLazySampleType(receiverType);
+        bool stream = symbols.IsStreamType(receiverType);
 
         // The rows for the operators of a stream apply to a stream. A method of a different type
         // can have the same name, as the Filter of a collection view has. That method gets the
         // default rule.
-        bool ofStreams = stream || SodaFlowSymbols.IsStreamType(method.ReturnType);
+        bool ofStreams = stream || symbols.IsStreamType(method.ReturnType);
 
         return name switch
         {
