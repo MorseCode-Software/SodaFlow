@@ -20,13 +20,13 @@ internal static class TestUtil
             innerException: error);
 
     /// <summary>
-    ///     A listener that fails each transaction in which
-    ///     <paramref name="cancellation" /> fires. The two maps put it after the
-    ///     listener of the pipeline on that stream, which is one step from the
-    ///     stream. Thus, the pipeline gets the cancellation before the throw.
+    ///     A listener that fails each transaction in which <paramref name="stream" />
+    ///     fires. The two maps put it after the listener of the pipeline on that
+    ///     stream, which is one step from the stream. Thus, the pipeline gets the
+    ///     value before the throw.
     /// </summary>
-    public static IStrongListener ThrowAfterTheCancellation<T>(Stream<T> cancellation) =>
-        cancellation.Map(static value => value)
+    public static IStrongListener ThrowAfterThePipeline<T>(Stream<T> stream) =>
+        stream.Map(static value => value)
             .Map(static value => value)
             .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
 
