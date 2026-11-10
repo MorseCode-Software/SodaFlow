@@ -214,8 +214,14 @@ internal sealed class LoopStateEvaluator
             && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
         {
+            // A parameter starts with the state of its argument, which has the type of the object.
+            // The callee gives this state back, and the object of the caller keeps its type.
             LoopState known =
-                this.locals.TryGetValue(key: holder, value: out LoopState? existing) ? existing : LoopState.None;
+                this.locals.TryGetValue(key: holder, value: out LoopState? existing)
+                    ? existing
+                    : this.bound.TryGetValue(key: holder, value: out LoopState? given)
+                        ? given
+                        : LoopState.None;
 
             this.locals[holder] =
                 known.WithMembers((known.Members ?? Construction.Empty).With(member: member, state: state));
@@ -2259,8 +2265,7 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
-        // The collection has the state of the comparer that its constructor got. A comparer that
-        // the code calls a method on is not a collection.
+        // The collection has the state of the comparer that its constructor got.
         IEnumerable<ExpressionSyntax> holders =
             method.MethodKind == MethodKind.Constructor
                 ? operands.Any(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
@@ -2268,7 +2273,7 @@ internal sealed class LoopStateEvaluator
                         .Where(static operand => SodaFlowSymbols.IsComparer(operand.Parameter))
                         .Select(static operand => operand.Written)
                     : []
-                : keeper != null && !SodaFlowSymbols.IsComparer(this.region.TypeOf(keeper))
+                : keeper != null
                     ? [keeper]
                     : [];
 

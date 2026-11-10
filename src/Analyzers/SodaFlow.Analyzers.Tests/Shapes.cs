@@ -4106,6 +4106,22 @@ public static class Shapes
     public static Cell<int> ComparerKeptBySortedSetOfObjects() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new(new RankedByOffset(l.Map(v => v))); set.Add(new Ranked(Plain)); set.Add(new Ranked(Plain)); return S.Hold(set.Count); });
 
+    // S714. An object that a method filled is not a container. In a local of the type object, it is the object.
+    public static Cell<int> ToStringOfAnObjectFilledByAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledSlot slot = new(l.Map(v => v)); FillTitled(slot, l.Map(v => v)); object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S715. CompareExchange with a comparand that is a different object leaves the old value in the location.
+    public static Cell<int> SlotAfterACompareExchangeThatDoesNotExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object other = new Plainly(); Interlocked.CompareExchange(ref slot, new Plainly(), other); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S716. A serializer does not write a static property.
+    public static Cell<int> ObjectWithAStaticGetterSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialStaticRow.Shared = l.Map(v => v); Kept.Add(JsonSerializer.Serialize(new SerialStaticRow())); return S.Hold(0); });
+
+    // S717. A serializer enumerates a sequence of the compilation.
+    public static Cell<int> SequenceOfTheCompilationSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack sack = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(sack)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4862,6 +4878,24 @@ public static class Shapes
     public sealed class RankedByOffset(Cell<int> offset) : IComparer<Ranked>
     {
         public int Compare(Ranked? x, Ranked? y) => offset.Sample();
+    }
+
+    private static void FillTitled(TitledSlot slot, Cell<int> one) => slot.Share = one;
+
+    public sealed class TitledSlot(Cell<int> first)
+    {
+        public Cell<int>? Share { get; set; }
+
+        public override string ToString() => first.Sample().ToString();
+    }
+
+    public sealed class SerialStaticRow
+    {
+        public static Cell<int>? Shared { get; set; }
+
+        public static int Now => Shared!.Sample();
+
+        public int Three => 3;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

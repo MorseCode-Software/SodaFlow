@@ -513,7 +513,10 @@ internal sealed class LoopReadAnalyzerTests
             ["ComparerKeptByAPriorityQueueThenEnqueueRange"] = ["SF1005"],
             ["ComparerAndItemsInTheConstructorOfAPriorityQueue"] = ["SF1005"],
             ["PrioritiesOfAPriorityQueueCompared"] = ["SF1004", "SF1005"],
-            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"]
+            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"],
+            ["ToStringOfAnObjectFilledByAHelper"] = ["SF1005"],
+            ["SlotAfterACompareExchangeThatDoesNotExchange"] = ["SF1005"],
+            ["SequenceOfTheCompilationSerialized"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -697,7 +700,9 @@ internal sealed class LoopReadAnalyzerTests
     ///     The analyzer skips the search for a member that the platform calls
     ///     when the compilation declares no such member. A comparer is one of
     ///     them. The shapes file declares each kind, thus it cannot show that the
-    ///     search runs for a compilation that declares only a comparer.
+    ///     search runs for a compilation that declares only a comparer. The
+    ///     search has one gate for a call and one for an indexer, and the code has
+    ///     the two.
     /// </summary>
     [Test]
     public async Task AKeptComparerIsReadInACompilationThatDeclaresNoOtherMember()
@@ -721,6 +726,16 @@ internal sealed class LoopReadAnalyzerTests
                         return S.Hold(set.Count);
                     });
 
+                public static Cell<int> KeptByAnIndexer() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        SortedDictionary<int, int> all = new(new ByOffset(l.Map(v => v)));
+                        all[1] = 1;
+                        all[2] = 2;
+
+                        return S.Hold(all.Count);
+                    });
+
                 public sealed class ByOffset(Cell<int> offset) : IComparer<int>
                 {
                     public int Compare(int x, int y) => x.CompareTo(y + offset.Sample());
@@ -736,7 +751,8 @@ internal sealed class LoopReadAnalyzerTests
                     libraries: ShapeLibraries,
                     assemblyName: "OnlyAComparer"));
 
-        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["SF1005", "SF1005"]);
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1005", "SF1005", "SF1005", "SF1005"]);
     }
 
     private static Outcome OutcomeOf(string rule) =>

@@ -1452,7 +1452,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     /// <remarks>
     ///     An object of this compilation can keep a query that no property gives.
-    ///     The serializer does not get that query. Thus, the walk reads the queries
+    ///     The serializer does not get that query. Thus, the walk reads the members
     ///     of such an object only through its getters.
     /// </remarks>
     private void Serialize(SyntaxNode written, LoopState state, IMethodSymbol serializer, int depth)
@@ -1463,12 +1463,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        bool typed = state.Members is { HasType: true };
-
-        if (!typed || state.IsContainer)
-        {
-            this.Run(state);
-        }
+        this.Run(state);
 
         // An object in an object in an object: the depth has an end, as a followed call has.
         if (state.Members is not { } members || depth > 3)
@@ -1477,7 +1472,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         // An anonymous object or a tuple: the serializer writes each value in it.
-        if (!typed)
+        if (!members.HasType)
         {
             foreach (KeyValuePair<ISymbol, LoopState> member in members.Members)
             {
