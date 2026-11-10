@@ -141,15 +141,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case RecursivePatternSyntax recursive:
             {
                 this.DeclareDesignation(designation: recursive.Designation, state: state);
-                SemanticModel model = this.region.ModelFor(pattern);
-
                 foreach (SubpatternSyntax part in recursive.PropertyPatternClause?.Subpatterns ?? default)
                 {
                     ExpressionSyntax? name = part.NameColon?.Name ?? part.ExpressionColon?.Expression;
 
                     this.DeclarePattern(
                         pattern: part.Pattern,
-                        state: state.Members != null && name != null && model.GetSymbolInfo(name).Symbol is { } member
+                        state: state.Members != null && name != null && this.region.SymbolOf(name) is { } member
                             ? state.Members.StateOf(member).FromIfUnknown(state.Origin)
                             : state);
                 }
@@ -304,8 +302,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </param>
     private void AssignState(ExpressionSyntax target, LoopState state, bool replaces)
     {
-        SemanticModel model = this.region.ModelFor(target);
-
         switch (target)
         {
             case DeclarationExpressionSyntax declaration:
@@ -327,7 +323,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 return;
         }
 
-        switch (model.GetSymbolInfo(target).Symbol)
+        switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 if (replaces)
@@ -374,9 +370,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitInvocationExpression(InvocationExpressionSyntax node)
     {
-        SemanticModel model = this.region.ModelFor(node);
-
-        if (model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
+        if (this.region.SymbolOf(node) is not IMethodSymbol method)
         {
             base.VisitInvocationExpression(node);
 
@@ -389,7 +383,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
         ExpressionSyntax? receiver = LoopStateEvaluator.ReceiverOf(symbols: symbols, invocation: node, method: method);
         CalleeKind kind = this.evaluator.Classify(call: node, method: method);
-        Followed? followed = this.evaluator.Follow(node);
+
+        // An operator that keeps its function has nothing for the evaluator to follow.
+        Followed? followed =
+            kind == CalleeKind.Library
+            && !OperatorTable.FunctionsInTheCall.Contains(LoopStateEvaluator.OperatorName(method))
+                ? null
+                : this.evaluator.Follow(node);
 
         // A lambda written at the call is code that the walk reads here when the callee runs it
         // in the call.
@@ -456,7 +456,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // members count on a library receiver too, and not only on a library method.
         if (receiver != null
             && SodaFlowSymbols.ReadMembers.Contains(LoopStateEvaluator.OperatorName(method))
-            && (kind == CalleeKind.Library || symbols.IsCarrierType(model.GetTypeInfo(receiver).Type)))
+            && (kind == CalleeKind.Library || symbols.IsCarrierType(this.region.TypeOf(receiver))))
         {
             this.CheckRead(node: node, owner: receiver, name: method.Name);
         }
@@ -483,7 +483,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         BaseArgumentListSyntax? arguments,
         InitializerExpressionSyntax? initializer)
     {
-        if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IMethodSymbol constructor)
+        if (this.region.SymbolOf(node) is not IMethodSymbol constructor)
         {
             this.Visit(arguments);
             this.Visit(initializer);
@@ -621,7 +621,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
-            && this.region.ModelFor(node).GetSymbolInfo(node).Symbol is IPropertySymbol { IsStatic: false })
+            && this.region.SymbolOf(node) is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 })
         {
             this.Report(this.evaluator.Follow(node));
         }
@@ -633,14 +633,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     private void CheckPropertyRead(ExpressionSyntax node, ExpressionSyntax owner)
     {
-        if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IPropertySymbol property)
+        if (this.region.SymbolOf(node) is not IPropertySymbol property)
         {
             return;
         }
 
         if (!this.region.Symbols.IsSodaFlow(property))
         {
-            this.Report(this.evaluator.Follow(node));
+            // Only a property of this compilation has a getter that the evaluator can read.
+            if (property.DeclaringSyntaxReferences.Length > 0)
+            {
+                this.Report(this.evaluator.Follow(node));
+            }
         }
         else if (SodaFlowSymbols.ReadMembers.Contains(property.Name))
         {
@@ -705,7 +709,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // where the caller sends it, as it does with the looped types. The walk checks its reads
         // through its members.
         if (!state.Pending
-            || !this.region.Symbols.IsCarrierType(this.region.ModelFor(argument).GetTypeInfo(argument).Type)
+            || !this.region.Symbols.IsCarrierType(this.region.TypeOf(argument))
             || LoopStateEvaluator.IsAsserted(argument))
         {
             return;

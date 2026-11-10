@@ -29,6 +29,11 @@ internal sealed class LoopRegion(
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Action<Diagnostic> report = report;
     private readonly HashSet<(string Id, Location Location)> reported = [];
+
+    // The walk and the evaluator get the symbol and the type of one node many times. The compiler
+    // computes them again at each call, thus the region keeps them.
+    private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
+    private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
 
     /// <summary>The assemblies of the library, as this compilation sees them.</summary>
@@ -85,6 +90,30 @@ internal sealed class LoopRegion(
     }
 
     public SemanticModel ModelFor(SyntaxNode node) => this.ModelFor(node.SyntaxTree);
+
+    /// <summary>The symbol that a node names, or null when it names none.</summary>
+    public ISymbol? SymbolOf(SyntaxNode node)
+    {
+        if (!this.symbolOf.TryGetValue(key: node, value: out ISymbol? symbol))
+        {
+            symbol = this.ModelFor(node).GetSymbolInfo(node).Symbol;
+            this.symbolOf[node] = symbol;
+        }
+
+        return symbol;
+    }
+
+    /// <summary>The type of an expression.</summary>
+    public ITypeSymbol? TypeOf(ExpressionSyntax expression)
+    {
+        if (!this.typeOf.TryGetValue(key: expression, value: out ITypeSymbol? type))
+        {
+            type = this.ModelFor(expression).GetTypeInfo(expression).Type;
+            this.typeOf[expression] = type;
+        }
+
+        return type;
+    }
 
     /// <summary>
     ///     Reports a diagnostic one time. The walk can read the same lambda or

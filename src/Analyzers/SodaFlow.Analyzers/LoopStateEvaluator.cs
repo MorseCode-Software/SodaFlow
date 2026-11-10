@@ -34,6 +34,7 @@ internal sealed class LoopStateEvaluator
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
     private readonly int depth;
     private readonly Dictionary<SyntaxNode, Followed?> followed = [];
+    private readonly Dictionary<SyntaxNode, CalleeKind> kinds = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
@@ -146,7 +147,7 @@ internal sealed class LoopStateEvaluator
     public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state)
     {
         if (owner is IdentifierNameSyntax
-            && this.region.ModelFor(owner).GetSymbolInfo(owner).Symbol is { } holder
+            && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
         {
             LoopState known =
@@ -180,7 +181,7 @@ internal sealed class LoopStateEvaluator
             return;
         }
 
-        switch (this.region.ModelFor(target).GetSymbolInfo(target).Symbol)
+        switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 this.Declare(local: local, state: state);
@@ -299,8 +300,7 @@ internal sealed class LoopStateEvaluator
 
     private LoopState EvalName(ExpressionSyntax expression)
     {
-        SemanticModel model = this.region.ModelFor(expression);
-        ISymbol? symbol = model.GetSymbolInfo(expression).Symbol;
+        ISymbol? symbol = this.region.SymbolOf(expression);
 
         switch (symbol)
         {
@@ -334,8 +334,10 @@ internal sealed class LoopStateEvaluator
                 return this.EvalMethodGroup(expression: expression, group: group);
             case IPropertySymbol or IFieldSymbol:
             {
-                // A property with a getter has the state of what the getter returns.
-                if (symbol is IPropertySymbol && this.Follow(expression) is { } getter)
+                // A property with a getter has the state of what the getter returns. Only a
+                // property of this compilation has a getter that the evaluator can read.
+                if (symbol is IPropertySymbol { DeclaringSyntaxReferences.Length: > 0 }
+                    && this.Follow(expression) is { } getter)
                 {
                     return getter.State.Join(this.TypeState(expression));
                 }
@@ -451,9 +453,7 @@ internal sealed class LoopStateEvaluator
 
     private LoopState EvalInvocation(InvocationExpressionSyntax invocation)
     {
-        SemanticModel model = this.region.ModelFor(invocation);
-
-        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        if (this.region.SymbolOf(invocation) is not IMethodSymbol method)
         {
             return this.TypeState(invocation);
         }
@@ -479,7 +479,7 @@ internal sealed class LoopStateEvaluator
             ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
 
         LoopState receiverState = this.Eval(receiver);
-        ITypeSymbol? receiverType = receiver == null ? null : model.GetTypeInfo(receiver).Type;
+        ITypeSymbol? receiverType = receiver == null ? null : this.region.TypeOf(receiver);
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
 
         List<LoopState> argumentStates = [];
@@ -501,7 +501,7 @@ internal sealed class LoopStateEvaluator
                         method: method,
                         parameter: ParameterFor(method: method, argument: arguments[i], position: i))));
 
-            argumentTypes.Add(model.GetTypeInfo(arguments[i].Expression).Type);
+            argumentTypes.Add(this.region.TypeOf(arguments[i].Expression));
         }
 
         LoopState inputs = argumentStates.Aggregate(seed: receiverState, func: static (a, b) => a.Join(b));
@@ -615,6 +615,7 @@ internal sealed class LoopStateEvaluator
                 symbols: this.region.Symbols,
                 method: method,
                 receiverType: receiverType)
+            && this.CanUseState(invocation: invocation, given: inputs.Content)
             && this.Quiet().FunctionReadsPending(invocation: invocation, given: inputs.Content))
         {
             state = state.WithPending(true);
@@ -658,12 +659,10 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private LoopState WithInitializer(LoopState state, InitializerExpressionSyntax initializer)
     {
-        SemanticModel model = this.region.ModelFor(initializer);
-
         foreach (ExpressionSyntax expression in initializer.Expressions)
         {
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
-                && model.GetSymbolInfo(name).Symbol is { } member and (IPropertySymbol or IFieldSymbol))
+                && this.region.SymbolOf(name) is { } member and (IPropertySymbol or IFieldSymbol))
             {
                 state =
                     state.WithMembers(
@@ -686,6 +685,17 @@ internal sealed class LoopStateEvaluator
     ///     the library.
     /// </summary>
     public CalleeKind Classify(SyntaxNode call, IMethodSymbol method)
+    {
+        if (!this.kinds.TryGetValue(key: call, value: out CalleeKind kind))
+        {
+            kind = this.ClassifyUncached(call: call, method: method);
+            this.kinds[call] = kind;
+        }
+
+        return kind;
+    }
+
+    private CalleeKind ClassifyUncached(SyntaxNode call, IMethodSymbol method)
     {
         if (this.region.Symbols.IsSodaFlow(method))
         {
@@ -870,7 +880,7 @@ internal sealed class LoopStateEvaluator
             };
 
         return arguments != null
-               && this.region.ModelFor(creation).GetSymbolInfo(creation).Symbol is IMethodSymbol constructor
+               && this.region.SymbolOf(creation) is IMethodSymbol constructor
                && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
             ? this.MovedArguments(
                 definition: constructor.OriginalDefinition,
@@ -882,9 +892,7 @@ internal sealed class LoopStateEvaluator
 
     private Followed? FollowInvocation(InvocationExpressionSyntax invocation)
     {
-        SemanticModel model = this.region.ModelFor(invocation);
-
-        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        if (this.region.SymbolOf(invocation) is not IMethodSymbol method)
         {
             return null;
         }
@@ -894,7 +902,7 @@ internal sealed class LoopStateEvaluator
         // A call of a delegate runs the functions that the delegate can be.
         if (method.MethodKind == MethodKind.DelegateInvoke)
         {
-            ExpressionSyntax target = DelegateOf(invocation: invocation, model: model);
+            ExpressionSyntax target = this.DelegateOf(invocation);
             LoopState targetState = this.Eval(target);
 
             return targetState.Functions.IsEmpty
@@ -907,9 +915,16 @@ internal sealed class LoopStateEvaluator
                     arguments: arguments);
         }
 
+        if (this.region.Symbols.IsSodaFlow(method))
+        {
+            return OperatorTable.FunctionsInTheCall.Contains(OperatorName(method))
+                ? this.FollowGivenFunctions(invocation: invocation, method: method)
+                : null;
+        }
+
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        if (this.region.Symbols.IsSodaFlow(method) || BodyOf(definition) is not { } body)
+        if (BodyOf(definition) is not { } body)
         {
             return this.FollowGivenFunctions(invocation: invocation, method: method);
         }
@@ -1132,7 +1147,7 @@ internal sealed class LoopStateEvaluator
     }
 
     private Followed? FollowCreation(ExpressionSyntax creation, BaseArgumentListSyntax? arguments) =>
-        this.region.ModelFor(creation).GetSymbolInfo(creation).Symbol is IMethodSymbol constructor
+        this.region.SymbolOf(creation) is IMethodSymbol constructor
         && !this.region.Symbols.IsSodaFlow(constructor)
             ? this.FollowConstructor(
                 call: creation,
@@ -1147,7 +1162,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private Followed? FollowChain(SyntaxNode chain, ArgumentListSyntax? arguments)
     {
-        if (this.region.ModelFor(chain).GetSymbolInfo(chain).Symbol is not IMethodSymbol constructor
+        if (this.region.SymbolOf(chain) is not IMethodSymbol constructor
             || this.region.Symbols.IsSodaFlow(constructor))
         {
             return null;
@@ -1313,7 +1328,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private Followed? FollowGetter(ExpressionSyntax access)
     {
-        if (this.region.ModelFor(access).GetSymbolInfo(access).Symbol is not IPropertySymbol property
+        if (this.region.SymbolOf(access) is not IPropertySymbol property
             || this.region.Symbols.IsSodaFlow(property)
             || GetterOf(property.OriginalDefinition) is not { } body)
         {
@@ -1725,11 +1740,11 @@ internal sealed class LoopStateEvaluator
     ///     The delegate that an invocation calls: <c>f</c> in <c>f(x)</c>, in
     ///     <c>f.Invoke(x)</c>, and in <c>f?.Invoke(x)</c>.
     /// </summary>
-    private static ExpressionSyntax DelegateOf(InvocationExpressionSyntax invocation, SemanticModel model) =>
+    private ExpressionSyntax DelegateOf(InvocationExpressionSyntax invocation) =>
         invocation.Expression switch
         {
             MemberAccessExpressionSyntax access
-                when model.GetSymbolInfo(access).Symbol is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } =>
+                when this.region.SymbolOf(access) is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke } =>
                 access.Expression,
             MemberBindingExpressionSyntax binding when ConditionalReceiver(binding) is { } receiver => receiver,
             _ => invocation.Expression
@@ -1838,6 +1853,84 @@ internal sealed class LoopStateEvaluator
         return false;
     }
 
+    /// <summary>
+    ///     False when no function in the arguments can use a value with a state.
+    ///     This is a check of the syntax only. For most functions, the evaluator
+    ///     then does not read the function. A function gets such a value through
+    ///     its parameters, or through a name that has a state. It can also get one
+    ///     through a call with no owner, which can be a local function or a member
+    ///     of this object.
+    /// </summary>
+    private bool CanUseState(InvocationExpressionSyntax invocation, LoopState given)
+    {
+        HashSet<string>? names = null;
+
+        foreach (ExpressionSyntax written in invocation.ArgumentList.Arguments
+                     .Select(static argument => argument.Expression))
+        {
+            if (written is not AnonymousFunctionExpressionSyntax lambda)
+            {
+                // A name can be a function of this compilation.
+                if (this.region.SymbolOf(written) is IMethodSymbol
+                    || this.region.TypeOf(written)?.TypeKind == TypeKind.Delegate)
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (!CanRead(lambda.Body))
+            {
+                continue;
+            }
+
+            if (!given.IsNone || this.region.HasFields)
+            {
+                return true;
+            }
+
+            names ??= this.NamesWithState();
+
+            if (lambda.Body.DescendantNodesAndSelf()
+                .Any(node =>
+                    node switch
+                    {
+                        ThisExpressionSyntax => this.thisMembers.Count > 0,
+                        InvocationExpressionSyntax { Expression: IdentifierNameSyntax or GenericNameSyntax } => true,
+                        IdentifierNameSyntax name => names.Contains(name.Identifier.ValueText),
+                        _ => false
+                    }))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private HashSet<string> NamesWithState()
+    {
+        HashSet<string> names = [this.region.PlaceholderName];
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in this.locals.Where(static pair => !pair.Value.IsNone))
+        {
+            names.Add(pair.Key.Name);
+        }
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in this.bound.Where(static pair => !pair.Value.IsNone))
+        {
+            names.Add(pair.Key.Name);
+        }
+
+        foreach (ISymbol member in this.thisMembers.Keys)
+        {
+            names.Add(member.Name);
+        }
+
+        return names;
+    }
+
     private static bool CanRead(SyntaxNode body) =>
         body.DescendantNodesAndSelf()
             .Any(static node =>
@@ -1942,7 +2035,7 @@ internal sealed class LoopStateEvaluator
         expressions.Aggregate(seed: LoopState.None, func: (state, e) => state.Join(this.Eval(e)));
 
     private LoopState TypeState(ExpressionSyntax expression) =>
-        this.region.Symbols.StateOfType(this.region.ModelFor(expression).GetTypeInfo(expression).Type);
+        this.region.Symbols.StateOfType(this.region.TypeOf(expression));
 
     private static bool LinkedStreamInput(
         SodaFlowSymbols symbols,
