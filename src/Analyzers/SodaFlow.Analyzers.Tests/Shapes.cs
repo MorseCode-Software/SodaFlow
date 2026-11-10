@@ -1298,6 +1298,86 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S164. The function of a Map samples the loop. The block samples the result.
+    public static Cell<int> MapFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(v => v + l.Sample()).Sample(); return S.Hold(x); });
+
+    // S165. The same Map, which the block only keeps. Its function runs at the first read.
+    public static Cell<int> MapFunctionReadsNotSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Plain.Map(v => v + l.Sample())); return S.Hold(0); });
+
+    // S166. The function of a Lift samples the loop.
+    public static Cell<int> LiftFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Plain.Lift(Plain, (a, b) => a + b + l.Sample()).Sample();
+            return S.Hold(x);
+        });
+
+    // S167. The function of a Map of a behavior samples the loop.
+    public static Cell<int> BehaviorMapFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Behavior.Constant(1).Map(v => v + l.Sample()).Sample();
+            return S.Hold(x);
+        });
+
+    // S168. The function of a Map of a lazy sample samples the loop.
+    public static Cell<int> LazyMapFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Cell.ConstantLazy(Plain.SampleLazy().Map(v => v + l.Sample())).Sample();
+            return S.Hold(x);
+        });
+
+    // S169. The predicate of a view samples the loop. The block samples the keys of the view.
+    public static Cell<int> ViewPredicateReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = Items().Filter(predicate: (_, state) => state > l.Sample()).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S170. The same view, which the block only keeps.
+    public static Cell<int> ViewPredicateReadsNotSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(Items().Filter(predicate: (_, state) => state > l.Sample()));
+            return S.Hold(0);
+        });
+
+    // S171. A close with a Map whose function samples the loop. The value of the loop reads itself.
+    public static Cell<int> CloseWithMapWhoseFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => Plain.Map(v => v + l.Sample()));
+
+    // S172. The function of a Calm samples the loop. Calm does not run it for the first value.
+    public static Cell<int> CalmFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Plain.Calm((a, b) => l.Sample() == 0 && a == b).Sample();
+            return S.Hold(x);
+        });
+
+    // S173. The function of an Accum samples the loop. It runs at a firing.
+    public static Cell<int> AccumFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = S.Accum(0, (v, a) => a + v + l.Sample()).Sample();
+            return S.Hold(x);
+        });
+
+    // S174. The function of a Map samples the loop through a helper.
+    public static Cell<int> MapFunctionReadsThroughHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(v => v + ReadIt(l)).Sample(); return S.Hold(x); });
+
+    // S175. A Map of a Map whose function samples the loop.
+    public static Cell<int> MapOfMapFunctionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Plain.Map(v => v + l.Sample()).Map(v => v + 1).Sample();
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

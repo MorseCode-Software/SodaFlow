@@ -36,6 +36,10 @@ internal sealed class LoopStateEvaluator
     private readonly Dictionary<SyntaxNode, Followed?> followed = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
+
+    // True for an evaluator that reads code that does not run now, to learn what that code reads.
+    // It has copies of the locals and the members, and it does not set a field of the region.
+    private readonly bool quiet;
     private readonly LoopRegion region;
     private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
@@ -47,7 +51,8 @@ internal sealed class LoopStateEvaluator
             frame: new LoopFrame(),
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
-            thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default))
+            thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            quiet: false)
     {
     }
 
@@ -58,7 +63,8 @@ internal sealed class LoopStateEvaluator
         LoopFrame frame,
         Dictionary<ISymbol, LoopState> locals,
         HashSet<ISymbol> assigned,
-        Dictionary<ISymbol, LoopState> thisMembers)
+        Dictionary<ISymbol, LoopState> thisMembers,
+        bool quiet)
     {
         this.region = region;
         this.bound = bound;
@@ -67,7 +73,30 @@ internal sealed class LoopStateEvaluator
         this.locals = locals;
         this.assigned = assigned;
         this.thisMembers = thisMembers;
+        this.quiet = quiet;
     }
+
+    /// <summary>
+    ///     An evaluator for the same code that changes nothing that the walk
+    ///     keeps. It reads a function that does not run now, to learn if the
+    ///     function reads a pending value.
+    /// </summary>
+    private LoopStateEvaluator Quiet() =>
+        this.quiet
+            ? this
+            : new LoopStateEvaluator(
+                region: this.region,
+                bound: this.bound,
+                depth: this.depth,
+                frame: this.Frame,
+                locals: new Dictionary<ISymbol, LoopState>(
+                    dictionary: this.locals,
+                    comparer: SymbolEqualityComparer.Default),
+                assigned: new HashSet<ISymbol>(collection: this.assigned, comparer: SymbolEqualityComparer.Default),
+                thisMembers: new Dictionary<ISymbol, LoopState>(
+                    dictionary: this.thisMembers,
+                    comparer: SymbolEqualityComparer.Default),
+                quiet: true);
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -129,7 +158,15 @@ internal sealed class LoopStateEvaluator
             return;
         }
 
-        this.region.SetField(field: member, state: state);
+        this.SetField(field: member, state: state);
+    }
+
+    private void SetField(ISymbol field, LoopState state)
+    {
+        if (!this.quiet)
+        {
+            this.region.SetField(field: field, state: state);
+        }
     }
 
     /// <summary>
@@ -154,7 +191,7 @@ internal sealed class LoopStateEvaluator
                 this.SetMember(member: member, state: state);
                 break;
             case { } field and (IFieldSymbol or IPropertySymbol):
-                this.region.SetField(field: field, state: state);
+                this.SetField(field: field, state: state);
                 break;
         }
     }
@@ -555,9 +592,8 @@ internal sealed class LoopStateEvaluator
                         argumentTypes: argumentTypes),
                     contentPending: inputs.ContentPending,
                     contentLinked: inputs.ContentLinked),
-                // A deferred read is pending when the function reads a pending value.
                 OperatorRule.DeferLazy => new LoopState(
-                    pending: firstArgument.Pending || this.LambdaReadsPending(invocation),
+                    pending: firstArgument.Pending,
                     linked: false,
                     contentPending: false,
                     contentLinked: false),
@@ -571,6 +607,18 @@ internal sealed class LoopStateEvaluator
                     paramName: nameof(invocation),
                     message: "An operator rule has no case.")
             };
+
+        // The function of a map, a lift, or a view computes the value of the result at the first
+        // read of it. A function that reads a pending value makes that value pending.
+        if (!state.Pending
+            && OperatorTable.ComputesValueWithFunction(
+                symbols: this.region.Symbols,
+                method: method,
+                receiverType: receiverType)
+            && this.Quiet().FunctionReadsPending(invocation: invocation, given: inputs.Content))
+        {
+            state = state.WithPending(true);
+        }
 
         // The result of an operator came into this code as its inputs did.
         return state.FromIfUnknown(inputs.Origin);
@@ -1338,6 +1386,13 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
+        // A function of the walk, read by an evaluator that changes nothing: it gets a copy of
+        // the locals of its code also.
+        if (this.quiet && definer != null)
+        {
+            definer = definer.Quiet();
+        }
+
         LoopStateEvaluator inner = this.Inner(bindings: bindings, definer: definer, members: members);
         List<Finding> found = [];
         new SinkWalker(region: this.region, evaluator: inner, sink: found.Add).Visit(body);
@@ -1384,7 +1439,8 @@ internal sealed class LoopStateEvaluator
             frame: definer?.Frame ?? new LoopFrame(),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
-            thisMembers: definer?.thisMembers ?? members);
+            thisMembers: definer?.thisMembers ?? members,
+            quiet: this.quiet);
     }
 
     /// <summary>
@@ -1743,39 +1799,51 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True when the function given to an operator reads a pending value,
-    ///     which a deferred sample then reads when it is forced.
+    ///     True when a function given to an operator reads a pending value. The
+    ///     evaluator reads the function as a call of it, with each parameter bound
+    ///     to the given state. This evaluator must be a quiet one, because the
+    ///     function does not run now.
     /// </summary>
-    private bool LambdaReadsPending(InvocationExpressionSyntax invocation)
+    private bool FunctionReadsPending(InvocationExpressionSyntax invocation, LoopState given)
     {
-        AnonymousFunctionExpressionSyntax? lambda =
-            invocation.ArgumentList.Arguments
-                .Select(static a => a.Expression)
-                .OfType<AnonymousFunctionExpressionSyntax>()
-                .FirstOrDefault();
-
-        if (lambda == null)
+        foreach (ExpressionSyntax written in invocation.ArgumentList.Arguments
+                     .Select(static argument => argument.Expression))
         {
-            return false;
-        }
-
-        SemanticModel model = this.region.ModelFor(lambda);
-
-        foreach (InvocationExpressionSyntax read in lambda.Body.DescendantNodesAndSelf()
-                     .OfType<InvocationExpressionSyntax>())
-        {
-            if (read.Expression is MemberAccessExpressionSyntax access
-                && SodaFlowSymbols.ReadMembers.Contains(access.Name.Identifier.ValueText)
-                && model.GetSymbolInfo(read).Symbol is IMethodSymbol readMethod
-                && this.region.Symbols.IsSodaFlow(readMethod)
-                && this.Eval(access.Expression).Pending)
+            // A lambda with no call and no property that reads cannot read a value.
+            if (written is AnonymousFunctionExpressionSyntax lambda && !CanRead(lambda.Body))
             {
-                return true;
+                continue;
+            }
+
+            LoopState functions = this.Eval(written);
+
+            foreach (FunctionValue function in functions.Functions)
+            {
+                Followed? followed =
+                    this.FollowFunction(
+                        call: invocation,
+                        name: NameOf(written),
+                        function: function,
+                        target: functions,
+                        arguments: default,
+                        each: (written, given));
+
+                if (followed != null && followed.Findings.Any(static finding => !finding.Escape))
+                {
+                    return true;
+                }
             }
         }
 
         return false;
     }
+
+    private static bool CanRead(SyntaxNode body) =>
+        body.DescendantNodesAndSelf()
+            .Any(static node =>
+                node is InvocationExpressionSyntax
+                    or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
+                    or MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" });
 
     /// <summary>
     ///     The state of an argument of a library operator. A function that the
@@ -1840,7 +1908,8 @@ internal sealed class LoopStateEvaluator
                     frame: this.Frame,
                     locals: this.locals,
                     assigned: this.assigned,
-                    thisMembers: this.thisMembers);
+                    thisMembers: this.thisMembers,
+                    quiet: this.quiet);
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);
     }

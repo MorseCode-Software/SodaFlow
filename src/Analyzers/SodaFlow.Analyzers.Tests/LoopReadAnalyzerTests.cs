@@ -146,7 +146,15 @@ internal sealed class LoopReadAnalyzerTests
             ["BindableValueIsAPendingCell"] = ["SF1001"],
             ["ForeachOverASampledList"] = ["SF1001"],
             ["ReassignedLocalInABranch"] = ["SF1001"],
-            ["ReassignedLocalToThePendingValue"] = ["SF1001"]
+            ["ReassignedLocalToThePendingValue"] = ["SF1001"],
+            ["MapFunctionReads"] = ["SF1001"],
+            ["LiftFunctionReads"] = ["SF1001"],
+            ["BehaviorMapFunctionReads"] = ["SF1001"],
+            ["LazyMapFunctionReads"] = ["SF1001"],
+            ["ViewPredicateReads"] = ["SF1001"],
+            ["CloseWithMapWhoseFunctionReads"] = ["SF1006"],
+            ["MapFunctionReadsThroughHelper"] = ["SF1001"],
+            ["MapOfMapFunctionReads"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

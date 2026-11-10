@@ -304,6 +304,35 @@ internal static class OperatorTable
             "ThenByIdentityDescending",
             "Update");
 
+    // The operators whose function computes the current value of the result. Map, Lift, and
+    // Defer are for a cell, a behavior, and a lazy sample. The others are the views of a
+    // collection.
+    private static readonly ImmutableHashSet<string> ValueFromFunction =
+        ImmutableHashSet.Create(
+            "Map",
+            "Lift",
+            "Defer",
+            "Filter",
+            "FilterByIdentity",
+            "SortBy",
+            "SortByDescending",
+            "SortByIdentity",
+            "SortByIdentityDescending");
+
+    /// <summary>
+    ///     True for an operator that computes the current value of its result
+    ///     with its function, at the first read of that value. A function that
+    ///     samples a pending value then makes the result pending. An operator of a
+    ///     stream runs its function at a firing, which is after the close.
+    /// </summary>
+    public static bool ComputesValueWithFunction(
+        SodaFlowSymbols symbols,
+        IMethodSymbol method,
+        ITypeSymbol? receiverType) =>
+        ValueFromFunction.Contains(LoopStateEvaluator.OperatorName(method))
+        && !symbols.IsStreamType(receiverType)
+        && !symbols.IsStreamType(method.ReturnType);
+
     /// <summary>
     ///     True when a library method runs, in the call, the function that it
     ///     gets for the given parameter.
