@@ -1119,4 +1119,111 @@ public sealed class BindableValueConcurrencyTests
 
         await Assert.That(b.Value).IsEqualTo(2);
     }
+
+    // A scheduler that drops the posts of a transaction that fails breaks the contract on
+    // IBindingScheduler.Post. The value must lose nothing that its next refresh does not bring
+    // back. Before, the two-way value counted each refresh in the queue, and only the refresh took
+    // the count back. A dropped refresh kept the count above zero. The setter then sent each write
+    // to the graph, also a write equal to the value on the screen.
+    [Test]
+    public async Task ATwoWayValueRecoversFromARefreshThatTheSchedulerDropped()
+    {
+        DroppingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        _ = b.Value;
+
+        IListener throws = c.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            await Assert.That(() => c.Send(7)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        int ranAfterTheFailure = scheduler.RunAll();
+
+        c.Send(5);
+        scheduler.RunAll();
+
+        List<int> writes = [];
+        IListener records = c.Updates().Listen(writes.Add);
+
+        b.Value = b.Value;
+        b.Value = b.Value;
+        scheduler.RunAll();
+
+        records.Unlisten();
+
+        await Assert.That(ranAfterTheFailure).IsEqualTo(0).Because("precondition: the scheduler dropped the refresh");
+        await Assert.That(b.Value).IsEqualTo(5).Because("the next update posts a refresh again");
+        await Assert.That(writes).IsEmpty().Because("a write equal to the shown value is not sent");
+    }
+
+    // The same for a one-way value, which holds no count. This held before also.
+    [Test]
+    public async Task AOneWayValueRecoversFromARefreshThatTheSchedulerDropped()
+    {
+        DroppingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        _ = b.Value;
+
+        IListener throws = c.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            await Assert.That(() => c.Send(7)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        int ranAfterTheFailure = scheduler.RunAll();
+
+        c.Send(5);
+        scheduler.RunAll();
+
+        await Assert.That(ranAfterTheFailure).IsEqualTo(0).Because("precondition: the scheduler dropped the refresh");
+        await Assert.That(b.Value).IsEqualTo(5);
+    }
+
+    /// <summary>
+    ///     Queues as <see cref="QueueingScheduler" /> does, but drops the posts of a
+    ///     transaction that fails. A transaction discards its posted actions when it
+    ///     fails, and this scheduler puts each post in the queue with one.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage - The summary says what this scheduler breaks, which the
+    // interface cannot.
+    private sealed class DroppingScheduler : IBindingScheduler
+    {
+        private readonly Queue<Action> queue = new();
+
+        /// <inheritdoc />
+        public bool CheckAccess() => true;
+
+        /// <inheritdoc />
+        public void Post(Action action) => Transaction.Post(() => this.queue.Enqueue(action));
+
+        internal int RunAll()
+        {
+            int ran = 0;
+
+            while (this.queue.Count > 0)
+            {
+                this.queue.Dequeue()();
+                ran++;
+            }
+
+            return ran;
+        }
+    }
 }

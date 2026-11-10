@@ -109,11 +109,29 @@ public static partial class BindableCoreExtensionMethods
         private T lastNotifiedValue;
 
         /// <summary>
-        ///     The number of refresh operations in the queue that did not run. A value
-        ///     more than zero means that the cached value can disagree with the cell. The
-        ///     equality test in the setter needs this before it can discard a write.
+        ///     The number of refresh operations that this object posted. See
+        ///     <see cref="postsAtLastSample" />.
         /// </summary>
-        private int pendingRefreshes;
+        private long refreshPosts;
+
+        /// <summary>
+        ///     The value of <see cref="refreshPosts" /> at the start of the last refresh
+        ///     that sampled the cell. A smaller value than the count means that the cached
+        ///     value can disagree with the cell. The equality test in the setter needs
+        ///     the two to be equal before it can discard a write. Only the binding thread
+        ///     reads and writes this field, for the cause that applies to the cached
+        ///     value.
+        /// </summary>
+        /// <remarks>
+        ///     Before, a count of the refresh operations in the queue did this, and only
+        ///     a refresh took the count back. A scheduler that drops the post of a
+        ///     transaction that fails then kept the count high permanently, and the
+        ///     setter sent each write. A discard cannot take the count back. A scheduler
+        ///     that keeps its contract runs the post after the discard, and that refresh
+        ///     takes the count back a second time. This field changes only when a refresh
+        ///     samples, thus the next refresh corrects it with each scheduler.
+        /// </remarks>
+        private long postsAtLastSample;
 
         /// <param name="cell">The authoritative value shown to the view.</param>
         /// <param name="write">
@@ -187,9 +205,9 @@ public static partial class BindableCoreExtensionMethods
                 // that cached value is the value of the cell. The cached value is a record of the
                 // cell at the last sample. Thus, between an update and the refresh that it queues,
                 // the two disagree, and this code can discard a write that is equal to the stale
-                // value although the graph never got it. While the queue holds work, send the
-                // value and let the refresh decide.
-                if (Volatile.Read(ref this.pendingRefreshes) == 0
+                // value although the graph never got it. While a refresh came after the last
+                // sample, send the value and let the refresh decide.
+                if (Volatile.Read(ref this.refreshPosts) == this.postsAtLastSample
                     && this.comparer.Equals(x: this.cachedValue, y: value))
                 {
                     return;
@@ -309,9 +327,10 @@ public static partial class BindableCoreExtensionMethods
         ///     <para>
         ///         This method posts only when no refresh is in the queue. The refresh
         ///         operations in the queue give the same result, because they all sample
-        ///         the same stable cell, thus one is sufficient. The flag is not
-        ///         pendingRefreshes. That field means "the cache can disagree with the
-        ///         cell" and not "a post is in the queue", and the setter reads it. The flag is
+        ///         the same stable cell, thus one is sufficient. The flag is not what the
+        ///         setter reads. The setter compares <see cref="refreshPosts" /> with
+        ///         <see cref="postsAtLastSample" />. That tells it if the cache can disagree
+        ///         with the cell, and not if a post is in the queue. The flag is
         ///         set with the post and cleared when the refresh starts, before the
         ///         sample, and the two are full fences. Thus, a cause that finds the flag
         ///         set comes before the sample of the refresh in the queue. A cause after
@@ -331,7 +350,7 @@ public static partial class BindableCoreExtensionMethods
 
             // This counts before the post and not in it. Thus, a setter that runs between the
             // two sees that the refresh is in the queue.
-            Interlocked.Increment(ref this.pendingRefreshes);
+            Interlocked.Increment(ref this.refreshPosts);
 
             // See OneWayBindableValue.PostRefresh: a transaction that fails can drop the post, and
             // its discard clears the flag.
@@ -352,25 +371,29 @@ public static partial class BindableCoreExtensionMethods
         {
             Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
 
-            try
+            if (this.IsDisposed)
             {
-                if (this.IsDisposed)
-                {
-                    return;
-                }
+                return;
+            }
 
-                // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
-                if (Volatile.Read(ref this.latestUpdate) is { Committed: false }
-                    && TransactionInternal.GetCurrentTransaction() != null)
-                {
-                    TransactionInternal.PostImpl(action: static self => self.ScheduleRefreshFromCell(), state: this);
+            // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
+            if (Volatile.Read(ref this.latestUpdate) is { Committed: false }
+                && TransactionInternal.GetCurrentTransaction() != null)
+            {
+                TransactionInternal.PostImpl(action: static self => self.ScheduleRefreshFromCell(), state: this);
 
-                    return;
-                }
+                return;
+            }
 
-                this.ResolveInitialValue();
+            // The read comes after the clear of the flag, and the clear is a full fence. A post
+            // after the read finds the flag clear, thus it posts a refresh that comes after this
+            // one. A post before the read comes before the sample below, thus the sample covers
+            // it.
+            long posts = Volatile.Read(ref this.refreshPosts);
 
-                T authoritative = this.Cell.SampleImpl();
+            this.ResolveInitialValue();
+
+            T authoritative = this.Cell.SampleImpl();
 
                 // Two values can be behind the cell, and each one is a cause to announce.
                 // Thus, there is no work only when the two agree with the cell.
@@ -389,29 +412,27 @@ public static partial class BindableCoreExtensionMethods
                 // The short-circuit is deliberate. A first test that fails shows that
                 // this is not the return above. Thus, the second test adds no answer,
                 // and a comparer is code that this class does not control.
-                if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
-                    && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
-                {
-                    return;
-                }
-
-                // This code writes the field only on the path that announces. On the early
-                // return the cached value is equal, and a write there replaces the value of
-                // the control with the value of the graph and tells no observer. A comparer
-                // that ignores part of a value shows that difference. A comparer
-                // that ignores letter case is such a comparer, and nothing corrects the
-                // difference.
-                this.cachedValue = authoritative;
-                this.lastNotifiedValue = authoritative;
-                this.RaiseValueChanged();
-            }
-            finally
+            if (this.comparer.Equals(x: this.cachedValue, y: authoritative)
+                && this.comparer.Equals(x: this.lastNotifiedValue, y: authoritative))
             {
-                // This runs in a finally block. Thus, a disposal, or a throw from the
-                // comparer, cannot leave the count too high. A count that is too high stops
-                // the equality test for the full life of this object.
-                Interlocked.Decrement(ref this.pendingRefreshes);
+                this.postsAtLastSample = posts;
+
+                return;
             }
+
+            // This code writes the field only on the path that announces. On the early
+            // return the cached value is equal, and a write there replaces the value of
+            // the control with the value of the graph and tells no observer. A comparer
+            // that ignores part of a value shows that difference. A comparer
+            // that ignores letter case is such a comparer, and nothing corrects the
+            // difference.
+            this.cachedValue = authoritative;
+            this.lastNotifiedValue = authoritative;
+
+            // This comes before the notification. A handler that writes the property then finds
+            // that the cache agrees with the cell.
+            this.postsAtLastSample = posts;
+            this.RaiseValueChanged();
         }
 
         /// <summary>
