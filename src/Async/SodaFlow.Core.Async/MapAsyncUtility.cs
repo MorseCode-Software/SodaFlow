@@ -744,27 +744,27 @@ public abstract class AsyncMapBase
             };
 
         /// <summary>
-        ///     Runs the handler for the end of this item. Each handler is optional. Give
-        ///     null for an end with no handler, and this method ignores that end.
+        ///     Runs the handler for the end of this item. The two handlers are
+        ///     necessary, as they are for <see cref="Match{T}" />. Thus, a strategy
+        ///     cannot read one end and ignore the other.
         /// </summary>
-        /// <param name="onSucceeded">Handles an operation that returned. It can be null.</param>
+        /// <param name="onSucceeded">Handles an operation that returned.</param>
         /// <param name="onFailed">
-        ///     Handles a run with an error, with the exception from the operation. It can
-        ///     be null.
+        ///     Handles a run with an error, with the exception from the operation.
         /// </param>
         public void MatchVoid(
-            Action? onSucceeded,
-            Action<Exception>? onFailed)
+            Action onSucceeded,
+            Action<Exception> onFailed)
         {
             switch (this.kind)
             {
                 case AsyncCompletionKind.Succeeded:
-                    onSucceeded?.Invoke();
+                    onSucceeded();
                     break;
                 case AsyncCompletionKind.Failed:
                     // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with
                     // kind being AsyncCompletionKind.Failed when it sets this.error to a non-null value.
-                    onFailed?.Invoke(this.error!);
+                    onFailed(this.error!);
                     break;
                 default:
                     throw new InvalidOperationException("Unknown value for kind.");
