@@ -2218,8 +2218,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             if (this.disposed)
                             {
                                 // Execute answers in each condition, thus a value that arrives after a
-                                // disposal is a cancellation and not a value that disappears.
-                                admission.Completion?.TrySetCanceled();
+                                // disposal is a cancellation and not a value that disappears. The
+                                // answer waits for the commit. See CancelAtTheCommit.
+                                if (admission.Completion != null)
+                                {
+                                    CancelAtTheCommit(admission.Completion);
+                                }
 
                                 return this.CurrentQueue(trackedCellLoop);
                             }
@@ -2297,7 +2301,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 && incoming.IsCancelAsked()
                                 && Array.IndexOf(array: promote, value: newEntryId) < 0)
                             {
-                                admission.Completion.TrySetCanceled();
+                                CancelAtTheCommit(admission.Completion);
                             }
 
                             for (int i = 0; i < toStart.Count; i++)
@@ -2340,6 +2344,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                 return trackedCell;
             });
+
+    // Cancels the Task of an Execute call when the transaction of its admission commits. A Task
+    // gets each other answer at a commit also. See Settle. Before, the admission step canceled the
+    // Task in the transaction, thus a listener of that transaction found a complete Task before
+    // the commit. A transaction that fails runs no last action. The release of the admission
+    // cancels the Task then. See SendAdmission.
+    private static void CancelAtTheCommit(ExecuteCompletion<TResult> completion) =>
+        TransactionInternal.CurrentTransaction().Last(completion.TrySetCanceled);
 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
     // StartOperation catches each exception and gives it to Report, which never throws. Thus, its
