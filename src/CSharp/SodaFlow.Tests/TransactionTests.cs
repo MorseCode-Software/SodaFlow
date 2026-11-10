@@ -667,6 +667,113 @@ public sealed class TransactionTests
         await Assert.That(seen).IsEquivalentTo(expected: ["a", "b", "c"], ordering: CollectionOrdering.Matching);
     }
 
+    // A value that goes back to its own source through a defer makes one more round of deferred
+    // work each time. With nothing that stops it, the drain comes to its limit and throws. Before,
+    // the call that closed the loop did not return.
+    [Test]
+    public async Task ADeferThatFeedsItselfWithNoEndThrows() =>
+        await Assert.That(static () =>
+            {
+                _ = Cell.Loop<int>().WithoutCaptures(static l => Operational.Defer(Operational.Value(l)).Hold(0));
+            })
+            .ThrowsExactly<DeferredChainLimitException>();
+
+    // The same chain with a filter that stops it. Each step is one round of deferred work.
+    [Test]
+    public async Task ADeferThatFeedsItselfAndStopsReturns()
+    {
+        Cell<int> count =
+            Cell.Loop<int>()
+                .WithoutCaptures(static l =>
+                    Operational.Defer(Operational.Value(l))
+                        .Filter(static v => v < 1000)
+                        .Map(static v => v + 1)
+                        .Hold(0));
+
+        await Assert.That(count.Sample()).IsEqualTo(1000);
+    }
+
+    // A posted action that posts itself is a chain also.
+    [Test]
+    public async Task APostedActionThatPostsItselfWithNoEndThrows()
+    {
+        await Assert.That(static () => Transaction.RunVoid(static () => Transaction.Post(PostAgain)))
+            .ThrowsExactly<DeferredChainLimitException>();
+
+        return;
+
+        static void PostAgain() => Transaction.Post(PostAgain);
+    }
+
+    // The post that remains at the limit does not run. Thus, its release runs, with the
+    // exception of the limit as the cause.
+    [Test]
+    public async Task APostThatRemainsAtTheLimitRunsItsRelease()
+    {
+        List<Exception> causes = [];
+
+        await Assert.That(() => Transaction.RunVoid(PostAgain)).ThrowsExactly<DeferredChainLimitException>();
+
+        await Assert.That(causes.Count).IsEqualTo(1);
+        await Assert.That(causes[0]).IsTypeOf<DeferredChainLimitException>();
+
+        return;
+
+        void PostAgain() => Transaction.Post(action: PostAgain, onFailure: causes.Add);
+    }
+
+    // A posted action that throws does not hide the limit. Its exception comes out first, and the
+    // exception of the limit comes out after it.
+    [Test]
+    public async Task TheLimitComesOutAfterAPostedActionThatThrows()
+    {
+        InvalidOperationException first = new("first");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                    {
+                        Transaction.Post(() => throw first);
+                        Transaction.Post(PostAgain);
+                    }))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(first);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsTypeOf<DeferredChainLimitException>();
+
+        return;
+
+        static void PostAgain() => Transaction.Post(PostAgain);
+    }
+
+    // Each transaction before the limit committed. Its value stays in the graph, and the graph
+    // works after the exception.
+    [Test]
+    public async Task AfterTheLimitTheGraphKeepsItsValuesAndWorks()
+    {
+        StreamSink<int> start = Stream.CreateSink<int>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+
+        (_, (Cell<int> Steps, Cell<int> Other) cells) =
+            Stream.Loop<int>()
+                .WithCaptures(back =>
+                {
+                    Stream<int> steps = start.OrElse(back);
+
+                    return (
+                        Stream: Operational.Defer(steps.Map(static v => v + 1)),
+                        Captures: (Steps: steps.Hold(0), Other: other.Hold(0)));
+                });
+
+        await Assert.That(() => start.Send(0)).ThrowsExactly<DeferredChainLimitException>();
+        await Assert.That(cells.Steps.Sample()).IsGreaterThan(0);
+
+        other.Send(7);
+
+        await Assert.That(cells.Other.Sample()).IsEqualTo(7);
+    }
+
     [Test]
     public async Task Post()
     {
