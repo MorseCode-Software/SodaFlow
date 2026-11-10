@@ -4042,6 +4042,70 @@ public static class Shapes
     public static Cell<int> ObjectWithNoSetterSerializedByXmlSerializer() =>
         Cell.Loop<int>().WithoutCaptures(l => { XmlFixedRow row = new(l.Map(v => v)); new XmlSerializer(typeof(XmlFixedRow)).Serialize(TextWriter.Null, row); return S.Hold(0); });
 
+    // S698. A sorted set keeps the comparer that its constructor gets. The second Add calls it.
+    public static Cell<int> ComparerKeptBySortedSetThenTwoAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); set.Add(1); set.Add(2); return S.Hold(set.Count); });
+
+    // S699. The constructor keeps the comparer and calls nothing.
+    public static Cell<int> ComparerKeptBySortedSetOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); Kept.Add(set); return S.Hold(set.Count); });
+
+    // S700. The same for the indexer of a sorted dictionary.
+    public static Cell<int> ComparerKeptBySortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<int, int> d = new(new ReadingComparer(l.Map(v => v))); d[1] = 1; d[2] = 2; return S.Hold(d.Count); });
+
+    // S701. A dictionary keeps an equality comparer. The indexer calls GetHashCode of it.
+    public static Cell<int> EqualityKeptByDictionaryThenSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> d = new(new ReadingEquality(l.Map(v => v))); d[1] = 1; return S.Hold(d.Count); });
+
+    // S702. The constructor of a hash set keeps the equality comparer and calls nothing.
+    public static Cell<int> EqualityKeptByHashSetOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> set = new(new ReadingEquality(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S703. A constructor that gets items and a comparer calls the comparer.
+    public static Cell<int> ComparerAndItemsInTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(Numbers, new ReadingComparer(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S704. Clear and Max of the set call nothing.
+    public static Cell<int> ComparerKeptThenClearAndMax() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); set.Clear(); return S.Hold(set.Max); });
+
+    // S705. A collection initializer calls Add, and Add calls the comparer.
+    public static Cell<int> ComparerKeptThenACollectionInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))) { 1, 2 }; return S.Hold(set.Count); });
+
+    // S706. An initializer with an index calls the indexer.
+    public static Cell<int> EqualityKeptThenAnInitializerWithAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> d = new(new ReadingEquality(l.Map(v => v))) { [1] = 1 }; return S.Hold(d.Count); });
+
+    // S707. A priority queue keeps a comparer for its priorities. The second Enqueue calls it.
+    public static Cell<int> ComparerKeptByAPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.Enqueue(1, 1); queue.Enqueue(2, 2); return S.Hold(queue.Count); });
+
+    // S708. EnqueueDequeue on a queue with one element calls the comparer.
+    public static Cell<int> ComparerKeptByAPriorityQueueThenEnqueueDequeue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.Enqueue(1, 1); return S.Hold(queue.EnqueueDequeue(2, 2)); });
+
+    // S709. EnqueueRange calls the comparer.
+    public static Cell<int> ComparerKeptByAPriorityQueueThenEnqueueRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.EnqueueRange([(1, 1), (2, 2)]); return S.Hold(queue.Count); });
+
+    // S710. The constructor of a priority queue that gets items and a comparer calls the comparer.
+    public static Cell<int> ComparerAndItemsInTheConstructorOfAPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new([(1, 1), (2, 2)], new ReadingComparer(l.Map(v => v))); return S.Hold(queue.Count); });
+
+    // S711. A priority queue with no comparer calls CompareTo of its priorities.
+    public static Cell<int> PrioritiesOfAPriorityQueueCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, Ranked> queue = new(); queue.Enqueue(1, new Ranked(l.Map(v => v))); queue.Enqueue(2, new Ranked(Plain)); return S.Hold(queue.Count); });
+
+    // S712. A priority queue does not compare its elements.
+    public static Cell<int> ElementsOfAPriorityQueueNotCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<Ranked, int> queue = new(); queue.Enqueue(new Ranked(l.Map(v => v)), 1); queue.Enqueue(new Ranked(Plain), 2); return S.Hold(queue.Count); });
+
+    // S713. A sorted set of objects with a comparer calls the comparer, and not CompareTo of the objects.
+    public static Cell<int> ComparerKeptBySortedSetOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new(new RankedByOffset(l.Map(v => v))); set.Add(new Ranked(Plain)); set.Add(new Ranked(Plain)); return S.Hold(set.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4793,6 +4857,11 @@ public static class Shapes
         public XmlFixedRow(Cell<int> share) => this.share = share;
 
         public int Fixed => this.share?.Sample() ?? 0;
+    }
+
+    public sealed class RankedByOffset(Cell<int> offset) : IComparer<Ranked>
+    {
+        public int Compare(Ranked? x, Ranked? y) => offset.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

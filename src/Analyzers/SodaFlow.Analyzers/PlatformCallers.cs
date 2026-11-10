@@ -90,6 +90,8 @@ internal static class PlatformCallers
             Row(type: "SortedSet", callbacks: PlatformCallbacks.Compare, ".ctor", "Add", "Contains"),
             Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Compare, "Add", "set_Item"),
             Row(type: "SortedList", callbacks: PlatformCallbacks.Compare, "Add"),
+            Row(type: "PriorityQueue", callbacks: PlatformCallbacks.Compare,
+                ".ctor", "Enqueue", "EnqueueRange", "EnqueueDequeue"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Equals, "Equals"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "String", callbacks: PlatformCallbacks.Text, "Join", "Concat", "Format"),
@@ -129,7 +131,7 @@ internal static class PlatformCallers
 
     /// <summary>
     ///     The types of the values that a method compares. A method with a type
-    ///     parameter for a key compares keys. Each other generic method compares
+    ///     parameter for a key or for a priority compares those. Each other generic method compares
     ///     values of its type arguments, and those of its type. A tuple compares
     ///     its elements. The result is empty for a method with no type argument,
     ///     which gets its values as <c>object</c>.
@@ -144,8 +146,8 @@ internal static class PlatformCallers
 
         (ITypeParameterSymbol Parameter, ITypeSymbol Argument)[] pairs = [.. all];
 
-        return (pairs.Any(static pair => pair.Parameter.Name == "TKey")
-                ? pairs.Where(static pair => pair.Parameter.Name == "TKey")
+        return (pairs.Any(static pair => pair.Parameter.Name is "TKey" or "TPriority")
+                ? pairs.Where(static pair => pair.Parameter.Name is "TKey" or "TPriority")
                 : pairs)
             .SelectMany(static pair => Parts(pair.Argument))
             .ToImmutableArray();

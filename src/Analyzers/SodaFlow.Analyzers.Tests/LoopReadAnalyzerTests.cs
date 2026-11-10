@@ -501,7 +501,19 @@ internal sealed class LoopReadAnalyzerTests
             ["QuerySerializedByJsonConvert"] = ["SF1001"],
             ["ObjectSerializedByJsonConvert"] = ["SF1005"],
             ["TupleOfAQuerySerializedByJsonConvert"] = ["SF1001"],
-            ["ObjectSerializedByXmlSerializer"] = ["SF1005"]
+            ["ObjectSerializedByXmlSerializer"] = ["SF1005"],
+            ["ComparerKeptBySortedSetThenTwoAdds"] = ["SF1005", "SF1005"],
+            ["ComparerKeptBySortedDictionary"] = ["SF1005", "SF1005"],
+            ["EqualityKeptByDictionaryThenSet"] = ["SF1005"],
+            ["ComparerAndItemsInTheConstructor"] = ["SF1005"],
+            ["ComparerKeptThenACollectionInitializer"] = ["SF1005"],
+            ["EqualityKeptThenAnInitializerWithAnIndex"] = ["SF1005"],
+            ["ComparerKeptByAPriorityQueue"] = ["SF1005", "SF1005"],
+            ["ComparerKeptByAPriorityQueueThenEnqueueDequeue"] = ["SF1005", "SF1005"],
+            ["ComparerKeptByAPriorityQueueThenEnqueueRange"] = ["SF1005"],
+            ["ComparerAndItemsInTheConstructorOfAPriorityQueue"] = ["SF1005"],
+            ["PrioritiesOfAPriorityQueueCompared"] = ["SF1004", "SF1005"],
+            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -679,6 +691,52 @@ internal sealed class LoopReadAnalyzerTests
         await Assert.That(mismatches).IsEmpty();
 
         await Assert.That(count).IsGreaterThanOrEqualTo(1).Because("the test found shapes to run");
+    }
+
+    /// <summary>
+    ///     The analyzer skips the search for a member that the platform calls
+    ///     when the compilation declares no such member. A comparer is one of
+    ///     them. The shapes file declares each kind, thus it cannot show that the
+    ///     search runs for a compilation that declares only a comparer.
+    /// </summary>
+    [Test]
+    public async Task AKeptComparerIsReadInACompilationThatDeclaresNoOtherMember()
+    {
+        const string Source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+
+                public static Cell<int> Kept() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        SortedSet<int> set = new(new ByOffset(l.Map(v => v)));
+                        set.Add(1);
+                        set.Add(2);
+
+                        return S.Hold(set.Count);
+                    });
+
+                public sealed class ByOffset(Cell<int> offset) : IComparer<int>
+                {
+                    public int Compare(int x, int y) => x.CompareTo(y + offset.Sample());
+                }
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: Source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyAComparer"));
+
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["SF1005", "SF1005"]);
     }
 
     private static Outcome OutcomeOf(string rule) =>

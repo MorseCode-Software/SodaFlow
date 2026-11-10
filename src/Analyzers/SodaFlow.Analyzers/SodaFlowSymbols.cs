@@ -81,6 +81,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
+    private readonly Lazy<bool> declaresCompare;
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
@@ -118,8 +119,14 @@ internal sealed class SodaFlowSymbols
                 | (declaresGetHashCode.Value ? PlatformCallbacks.Hash : PlatformCallbacks.None)
                 | (this.declaresToString.Value ? PlatformCallbacks.Text : PlatformCallbacks.None));
 
+        // Compare of a comparer, which a collection of the platform that keeps the comparer calls.
+        this.declaresCompare = Declares(compilation: compilation, name: "Compare");
+
         this.declaresPlatformMembers =
-            new Lazy<bool>(() => this.DeclaresEnumerators || this.DeclaredCallbacks != PlatformCallbacks.None);
+            new Lazy<bool>(() =>
+                this.DeclaresEnumerators
+                || this.DeclaredCallbacks != PlatformCallbacks.None
+                || this.declaresCompare.Value);
 
         this.declaresOperators =
             new Lazy<bool>(() =>
@@ -205,9 +212,10 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True when the compilation declares a member that a collection of the
-    ///     platform calls on an element or a key.
+    ///     platform calls on an element, on a key, or on a comparer that it keeps.
     /// </summary>
-    public bool DeclaresKeyMembers => (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None;
+    public bool DeclaresKeyMembers =>
+        (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None || this.declaresCompare.Value;
 
     /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
     public IMethodSymbol? ObjectToString { get; }

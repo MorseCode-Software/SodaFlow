@@ -33,6 +33,7 @@ internal sealed class PlatformCallersTests
         typeof(SortedSet<>),
         typeof(SortedDictionary<,>),
         typeof(SortedList<,>),
+        typeof(PriorityQueue<,>),
         typeof(ValueTuple<,>),
         typeof(string),
         typeof(StringBuilder),

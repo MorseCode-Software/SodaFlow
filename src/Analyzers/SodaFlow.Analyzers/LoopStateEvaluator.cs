@@ -1973,6 +1973,7 @@ internal sealed class LoopStateEvaluator
         return this.FollowPlatform(
             method: method,
             operands: operands,
+            keeper: method.ReducedFrom == null ? receiver : null,
             also: LoopState.None,
             given: () => this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement,
             returned: () => this.Follow(invocation)?.State ?? LoopState.None);
@@ -1995,6 +1996,7 @@ internal sealed class LoopStateEvaluator
                                 ?.Type,
                             isReceiver: false))
                 ],
+                keeper: null,
                 also: LoopState.None,
                 given: null,
                 returned: null)
@@ -2032,6 +2034,7 @@ internal sealed class LoopStateEvaluator
                         parameter: position < parameters.Length ? parameters[position].Type : null,
                         isReceiver: false))
             ],
+            keeper: collection,
             also: this.Eval(collection),
             given: null,
             returned: null);
@@ -2120,6 +2123,7 @@ internal sealed class LoopStateEvaluator
     private Followed? FollowPlatform(
         IMethodSymbol method,
         IReadOnlyCollection<Operand> operands,
+        ExpressionSyntax? keeper,
         LoopState also,
         Func<LoopState>? given,
         Func<LoopState>? returned)
@@ -2132,6 +2136,8 @@ internal sealed class LoopStateEvaluator
                     seed: (Followed?)null,
                     func: (followed, operand) =>
                         Both(first: followed, second: this.FollowEnumeration(operand.Written)));
+
+        all = Both(first: all, second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
 
         PlatformCallbacks callbacks = PlatformCallers.Of(method) & this.region.Symbols.DeclaredCallbacks;
 
@@ -2228,6 +2234,62 @@ internal sealed class LoopStateEvaluator
                                     owner: owner.State,
                                     arguments: member.Parameters.Length == 1 ? one : [])));
             });
+    }
+
+    /// <summary>
+    ///     The calls that a method of the platform makes on a comparer of this
+    ///     compilation which its collection keeps. The constructor of a sorted set
+    ///     keeps the comparer that it gets, and calls nothing. Then, each method
+    ///     of the set that compares calls the comparer. A constructor that gets
+    ///     items and a comparer calls the comparer itself.
+    /// </summary>
+    /// <param name="method">The method of the platform.</param>
+    /// <param name="operands">The values that the method gets.</param>
+    /// <param name="keeper">The collection that the code calls the method on. Null when there is none.</param>
+    private Followed? FollowKeptComparer(
+        IMethodSymbol method,
+        IReadOnlyCollection<Operand> operands,
+        ExpressionSyntax? keeper)
+    {
+        const PlatformCallbacks Comparing =
+            PlatformCallbacks.Compare | PlatformCallbacks.Equals | PlatformCallbacks.Hash;
+
+        if ((PlatformCallers.Of(method) & Comparing) == PlatformCallbacks.None)
+        {
+            return null;
+        }
+
+        // The collection has the state of the comparer that its constructor got. A comparer that
+        // the code calls a method on is not a collection.
+        IEnumerable<ExpressionSyntax> holders =
+            method.MethodKind == MethodKind.Constructor
+                ? operands.Any(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
+                    ? operands
+                        .Where(static operand => SodaFlowSymbols.IsComparer(operand.Parameter))
+                        .Select(static operand => operand.Written)
+                    : []
+                : keeper != null && !SodaFlowSymbols.IsComparer(this.region.TypeOf(keeper))
+                    ? [keeper]
+                    : [];
+
+        Followed? all = null;
+
+        foreach (ExpressionSyntax holder in holders)
+        {
+            if (this.Eval(holder) is not { Members: { HasType: true } members } kept)
+            {
+                continue;
+            }
+
+            foreach (IMethodSymbol member in members.Implementations(SodaFlowSymbols.IsComparerInterface))
+            {
+                all = Both(
+                    first: all,
+                    second: this.FollowImplied(call: holder, member: member, owner: kept, arguments: []));
+            }
+        }
+
+        return all;
     }
 
     /// <summary>
