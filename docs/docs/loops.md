@@ -268,25 +268,28 @@ placeholder early do it with a pragma and a reason, as in
 wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning` in its
 `.editorconfig`.
 
-The analyzer follows a value through locals, the elements of a tuple, collections, fields the
-block sets, `foreach`, deconstructions, patterns, and `out` arguments. It follows it into your own
-helpers, constructors, getters, records, and object initializers, and through an interface to the
-object you built behind it. It knows which library methods run a function at once: a transaction,
-a loop block, and the `Fold` of a collection. Code outside the library that takes a function, such
-as `List<T>.ForEach` or `Maybe.Match`, is taken to run it in the call, and a constructor is taken
-to keep it. A `Lazy<T>` keeps its function until something reads `Value`, so the analyzer reads
-the function at that read, including through the `Map` and `Lift` of `SodaFlow.Functional`. A
-lambda that one of your own constructors or helpers keeps is read where it finally runs, and
-reported there. A property pattern reads a property just as a member access does, so
-`row is { Total: > 0 }` is checked like `row.Total > 0`.
+The analyzer follows a value through locals, the elements of a tuple, collections, fields the block
+sets, `foreach`, deconstructions, patterns, and `out` arguments. A value keeps what the analyzer
+knows about it when a platform type holds it or hands it back, as in `pair.Value`, `task.Result`, or
+`list.First()`, and also where its type is only `object`. It follows it into your own helpers,
+constructors, getters, records, and object initializers, and through an interface to the object you
+built behind it. It knows which library methods run a function at once: a transaction, a loop block,
+and the `Fold` of a collection. Code outside the library that takes a function, such as
+`List<T>.ForEach` or `Maybe.Match`, is taken to run it in the call, and a constructor is taken to
+keep it. A `Lazy<T>` keeps its function until something reads `Value`, so the analyzer reads the
+function at that read, including through the `Map` and `Lift` of `SodaFlow.Functional`. A lambda
+that one of your own constructors or helpers keeps is read where it finally runs, and reported
+there. A property pattern reads a property just as a member access does, so `row is { Total: > 0 }`
+is checked like `row.Total > 0`.
 
 A LINQ query runs nothing when you build it. `Select`, `Where`, `OrderBy`, and the other methods of
-`Enumerable` that return a sequence keep their functions until something enumerates the result, a
-query expression does the same, and so does the body of an iterator method of yours. The analyzer
-reads that code at the place that enumerates the sequence: a `foreach`, a spread, a method such as
-`ToList`, `First`, or `string.Join`, or any other code without source that takes it as a sequence.
-It follows the query there through locals, fields, collections, helpers, and a `Lazy<T>`. A query
-that the block only builds and keeps, to be enumerated after the close, is not reported.
+`Enumerable` that return a sequence keep their functions until something enumerates the result. A
+query expression does the same, and so do `Choose` and `WhereSome` of `SodaFlow.Functional` and the
+body of an iterator method of yours. The analyzer reads that code at the place that enumerates the
+sequence: a `foreach`, a spread, a method such as `ToList`, `First`, or `string.Join`, or any other
+code without source that takes it as a sequence. It follows the query there through locals, fields,
+collections, helpers, and a `Lazy<T>`. A query that the block only builds and keeps, to be
+enumerated after the close, is not reported.
 
 It also reads the members of yours that C# calls without call syntax: an indexer, an operator, a
 conversion, a property setter or an event accessor, a `Deconstruct`, `ToString` in an interpolated
@@ -305,10 +308,10 @@ not these members, and the analyzer knows that too.
 It does not see everything, and in a few places it guesses on the careful side:
 
 - A collection has the state of everything put into it. A list that holds one pending cell and one
-  plain one reports a read of either. The analyzer tells a collection from one of its items by the
-  type of the expression, and where that type is `object` or a type parameter, by how the value
-  was made. A collection taken out of another collection and then held as `object` is still read
-  as an item.
+  plain one reports a read of either, and so does a pair with a pending value and a plain key of the
+  same type. The analyzer tells a collection from one of its items by the type of the expression,
+  and where that type is `object` or a type parameter, by how the value was made. A collection taken
+  out of another collection and then held as `object` is still read as an item.
 - A field set on an object the analyzer did not see built counts for every object of that type,
   to the end of the block.
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
@@ -322,9 +325,11 @@ It does not see everything, and in a few places it guesses on the careful side:
   seen.
 - A sequence of queries is not told apart from one query, so enumerating the outer sequence is
   read as enumerating each query in it.
-- Only the methods of `System.Linq.Enumerable` are known to wait. A method of another library that
-  returns a sequence is taken to run its function in the call, and an iterator property of yours
-  is read where the property is read.
+- Only the methods of `System.Linq.Enumerable` and of `SodaFlow.Functional` are known to wait. A
+  method of another library that returns a sequence is taken to run its function in the call, and
+  an iterator property of yours is read where the property is read.
+- Reflection is not followed. An object from `Activator.CreateInstance`, or a result of
+  `MethodInfo.Invoke`, carries nothing the analyzer knows.
 - A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
 - A function kept by a constructor outside your project is not read when the block then uses that
   object. That covers a comparer kept by a `SortedSet<T>`. `Lazy<T>` is the exception, and a
