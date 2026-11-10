@@ -594,8 +594,12 @@ internal sealed class LoopStateEvaluator
                     // owner contains, as the value of a pair is.
                     ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
 
+                    // SyncRoot of a collection is an object to lock, and not a value in it.
                     if (symbol.ContainingType.IsTupleType
-                        || this.region.Symbols.CanHoldState(type: memberType, compilation: this.region.Assembly))
+                        || (symbol.Name != "SyncRoot"
+                            && this.region.Symbols.CanHoldState(
+                                type: memberType,
+                                compilation: this.region.Assembly)))
                     {
                         fromOwner = fromOwner.Join(SodaFlowSymbols.IsSequence(memberType) ? owner : owner.AsElement);
                     }
@@ -1036,7 +1040,12 @@ internal sealed class LoopStateEvaluator
         bool holdsState =
             this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly);
 
-        if (!holdsState && !SodaFlowSymbols.CanHoldQuery(method.ReturnType))
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        // Reflection makes an object or calls a method that the analyzer cannot follow. Its
+        // result is not one of the values that it got.
+        if ((!holdsState && !SodaFlowSymbols.CanHoldQuery(method.ReturnType))
+            || SodaFlowSymbols.IsReflection(definition))
         {
             return LoopState.None;
         }
@@ -1062,7 +1071,18 @@ internal sealed class LoopStateEvaluator
             }
         }
 
-        return holdsState ? Returned(state: result, type: method.ReturnType) : result.OnlyQueries;
+        if (!holdsState)
+        {
+            return result.OnlyQueries;
+        }
+
+        // A callee that has a sequence gives one of its values, as First does. A callee with no
+        // sequence gives back what it got.
+        bool takesOneOut =
+            this.region.Symbols.TakesASequence(definition)
+            || (!definition.IsStatic && SodaFlowSymbols.IsEnumerated(definition.ContainingType));
+
+        return Returned(state: result, type: method.ReturnType, takesOneOut: takesOneOut);
     }
 
     /// <summary>
@@ -1071,11 +1091,19 @@ internal sealed class LoopStateEvaluator
     ///     sequence contains those values. Each other result can be one of them, as
     ///     the result of <c>First</c> is.
     /// </summary>
-    private static LoopState Returned(LoopState state, ITypeSymbol type)
+    /// <param name="state">The state of the values that the method got.</param>
+    /// <param name="type">The type of the result.</param>
+    /// <param name="takesOneOut">
+    ///     True when the receiver or a parameter of the method is a sequence. A
+    ///     result whose type says nothing is then one value of that sequence. False
+    ///     for a method that can only give back what it got. A list that it got as
+    ///     <c>object</c> stays a list.
+    /// </param>
+    private static LoopState Returned(LoopState state, ITypeSymbol type, bool takesOneOut)
     {
         if (!SodaFlowSymbols.IsSequence(type))
         {
-            return state.AsElement;
+            return takesOneOut || !Construction.SaysNothing(type) ? state.AsElement : state;
         }
 
         // A method can give back a sequence that it got, as AsEnumerable does. That sequence can

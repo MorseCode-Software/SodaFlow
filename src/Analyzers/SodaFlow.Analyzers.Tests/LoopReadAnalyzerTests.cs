@@ -424,7 +424,31 @@ internal sealed class LoopReadAnalyzerTests
             ["ValueOfAPairInAGenericHelper"] = ["SF1004"],
             ["MemberOfTheValueOfAPair"] = ["SF1001"],
             ["ValueOfAPairOfAGenericObject"] = ["SF1005"],
-            ["CellOfAPair"] = ["SF1001"]
+            ["CellOfAPair"] = ["SF1001"],
+            ["FirstOfAListOfObjects"] = ["SF1005"],
+            ["SingleOfAListOfObjects"] = ["SF1005"],
+            ["FindInAListOfObjects"] = ["SF1005"],
+            ["DequeueOfAQueueOfObjects"] = ["SF1005"],
+            ["PeekOfAStackOfObjects"] = ["SF1005"],
+            ["FirstValueOfADictionaryOfObjects"] = ["SF1005"],
+            ["ElementOfAnArrayFromAListOfObjects"] = ["SF1005"],
+            ["FirstOfARepeatedObject"] = ["SF1005"],
+            ["ElementOfASpanOfObjects"] = ["SF1005"],
+            ["ElementAtOfASequenceOfObjects"] = ["SF1005"],
+            ["FirstAfterACastToObjects"] = ["SF1005"],
+            ["LastOrDefaultOfAnArrayOfObjects"] = ["SF1005"],
+            ["MaxByOfAnArrayOfObjects"] = ["SF1005"],
+            ["GetValueOrDefaultOfADictionaryOfObjects"] = ["SF1005"],
+            ["ObjectFromAMethodThatReturnsItsArgument"] = ["SF1005"],
+            ["CurrentOfAnEnumeratorOfPlainObjects"] = ["SF1005"],
+            ["ItemOfATupleOfAnObject"] = ["SF1005"],
+            ["ValueOfAPairOfAnObject"] = ["SF1005"],
+            ["ResultOfATaskOfAPlainObject"] = ["SF1005"],
+            ["TargetOfAWeakReference"] = ["SF1005"],
+            ["PopOfAStackThatIsNotGeneric"] = ["SF1005"],
+            ["CurrentOfAnEnumeratorThatIsNotGeneric"] = ["SF1005"],
+            ["ValueOfADictionaryEntry"] = ["SF1005"],
+            ["CellFromAListOfObjects"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

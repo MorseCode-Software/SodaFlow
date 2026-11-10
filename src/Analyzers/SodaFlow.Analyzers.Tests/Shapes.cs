@@ -3581,6 +3581,140 @@ public static class Shapes
     public static Cell<int> ValuesOfADictionaryInAPatternInAnObjectLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Titled> d = new() { ["a"] = new Titled(l.Map(v => v)) }; if (d is { Values: var vs }) { object o = vs; Kept.Add(o.ToString()!); } return S.Hold(0); });
 
+    // S585. A value of the type object can be an object that has members, or a cell. A method of the
+    // platform that returns object gives its result the state of what it got. First gives one element
+    // as object.
+    public static Cell<int> FirstOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(all.First().ToString()!); return S.Hold(0); });
+
+    // S586. The element goes to a local of the type object.
+    public static Cell<int> SingleOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; object back = all.Single(); Kept.Add(back.ToString()!); return S.Hold(0); });
+
+    // S587. Find gives one element.
+    public static Cell<int> FindInAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(all.Find(x => true)!.ToString()!); return S.Hold(0); });
+
+    // S588. The queue got the object from Enqueue.
+    public static Cell<int> DequeueOfAQueueOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Queue<object> q = new(); q.Enqueue(new Titled(l.Map(v => v))); Kept.Add(q.Dequeue().ToString()!); return S.Hold(0); });
+
+    // S589. The same for a stack.
+    public static Cell<int> PeekOfAStackOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stack<object> st = new(); st.Push(new Titled(l.Map(v => v))); Kept.Add(st.Peek().ToString()!); return S.Hold(0); });
+
+    // S590. The values of a dictionary are a sequence of objects.
+    public static Cell<int> FirstValueOfADictionaryOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, object> d = new() { ["a"] = new Titled(l.Map(v => v)) }; Kept.Add(d.Values.First().ToString()!); return S.Hold(0); });
+
+    // S591. An array of objects can hold a state also.
+    public static Cell<int> ElementOfAnArrayFromAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; object[] copy = all.ToArray(); Kept.Add(copy[0].ToString()!); return S.Hold(0); });
+
+    // S592. A sequence of objects that a method of the platform makes.
+    public static Cell<int> FirstOfARepeatedObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Enumerable.Repeat<object>(new Titled(l.Map(v => v)), 1).First().ToString()!); return S.Hold(0); });
+
+    // S593. A span of objects.
+    public static Cell<int> ElementOfASpanOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] all = [new Titled(l.Map(v => v))]; Kept.Add(all.AsSpan()[0].ToString()!); return S.Hold(0); });
+
+    // S594. ElementAt gives one element.
+    public static Cell<int> ElementAtOfASequenceOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<object> all = new List<object> { new Titled(l.Map(v => v)) }; Kept.Add(all.ElementAt(0).ToString()!); return S.Hold(0); });
+
+    // S595. Cast makes a sequence of objects from a list with a type.
+    public static Cell<int> FirstAfterACastToObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; object first = all.Cast<object>().First(); Kept.Add(first.ToString()!); return S.Hold(0); });
+
+    // S596. LastOrDefault gives one element.
+    public static Cell<int> LastOrDefaultOfAnArrayOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] all = [new Titled(l.Map(v => v))]; Kept.Add(all.LastOrDefault()!.ToString()!); return S.Hold(0); });
+
+    // S597. MaxBy gives one element.
+    public static Cell<int> MaxByOfAnArrayOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] all = [new Titled(l.Map(v => v))]; Kept.Add(all.MaxBy(x => 1)!.ToString()!); return S.Hold(0); });
+
+    // S598. A method of the platform gives the value for a key.
+    public static Cell<int> GetValueOrDefaultOfADictionaryOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, object> d = new() { ["a"] = new Titled(l.Map(v => v)) }; Kept.Add(d.GetValueOrDefault("a")!.ToString()!); return S.Hold(0); });
+
+    // S599. A method that returns object gives back the object that it got.
+    public static Cell<int> ObjectFromAMethodThatReturnsItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(new Titled(l.Map(v => v)))!; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S600. A property of the type object, of an enumerator of objects.
+    public static Cell<int> CurrentOfAnEnumeratorOfPlainObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; using IEnumerator<object> e = all.GetEnumerator(); e.MoveNext(); Kept.Add(e.Current.ToString()!); return S.Hold(0); });
+
+    // S601. The same for a Tuple.
+    public static Cell<int> ItemOfATupleOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<object, int> t = Tuple.Create<object, int>(new Titled(l.Map(v => v)), 1); Kept.Add(t.Item1.ToString()!); return S.Hold(0); });
+
+    // S602. The same for a pair.
+    public static Cell<int> ValueOfAPairOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, object> p = new("a", new Titled(l.Map(v => v))); Kept.Add(p.Value.ToString()!); return S.Hold(0); });
+
+    // S603. The same for a task.
+    public static Cell<int> ResultOfATaskOfAPlainObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<object> t = Task.FromResult<object>(new Titled(l.Map(v => v))); Kept.Add(t.Result.ToString()!); return S.Hold(0); });
+
+    // S604. Target of a WeakReference has the type object.
+    public static Cell<int> TargetOfAWeakReference() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled n = new(l.Map(v => v)); WeakReference w = new(n); Kept.Add(w.Target!.ToString()!); GC.KeepAlive(n); return S.Hold(0); });
+
+    // S605. A collection that is not generic has objects as its elements.
+    public static Cell<int> PopOfAStackThatIsNotGeneric() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.Stack st = new(); st.Push(new Titled(l.Map(v => v))); Kept.Add(st.Pop()!.ToString()!); return S.Hold(0); });
+
+    // S606. The same for its enumerator.
+    public static Cell<int> CurrentOfAnEnumeratorThatIsNotGeneric() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.ArrayList all = new() { new Titled(l.Map(v => v)) }; System.Collections.IEnumerator e = all.GetEnumerator(); e.MoveNext(); Kept.Add(e.Current!.ToString()!); return S.Hold(0); });
+
+    // S607. The same for an entry of a Hashtable.
+    public static Cell<int> ValueOfADictionaryEntry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.Hashtable h = new() { ["a"] = new Titled(l.Map(v => v)) }; foreach (System.Collections.DictionaryEntry entry in h) { Kept.Add(entry.Value!.ToString()!); } return S.Hold(0); });
+
+    // S608. The element is a cell, and a cast gives it its type again.
+    public static Cell<int> CellFromAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> cells = [l.Map(v => v)]; return S.Hold(((Cell<int>)cells.First()).Sample()); });
+
+    // S609. The object has a plain cell. Each shape from here to the end of the group returns.
+    public static Cell<int> FirstOfAListOfPlainObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(Plain)]; Kept.Add(all.First().ToString()!); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S610. The method gives back a list, and ToString of a list calls nothing.
+    public static Cell<int> ListFromAMethodThatReturnsItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; object o = System.Runtime.CompilerServices.RuntimeHelpers.GetObjectValue(all)!; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S611. Reflection makes a new object, which is not the object that it got.
+    public static Cell<int> ObjectMadeByReflectionFromAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Activator.CreateInstance(typeof(ObjectWrapper), new Titled(l.Map(v => v)))!; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S612. The result of a method that reflection calls is not the object of the call.
+    public static Cell<int> ResultOfAMethodCalledByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled n = new(l.Map(v => v)); object r = typeof(object).GetMethod("GetHashCode")!.Invoke(n, null)!; Kept.Add(r.ToString()!); return S.Hold(0); });
+
+    // S613. SyncRoot is an object to lock, and not an element.
+    public static Cell<int> SyncRootOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; object sync = ((System.Collections.ICollection)all).SyncRoot; Kept.Add(sync.ToString()!); return S.Hold(0); });
+
+    // S614. A number in a local of the type object has no state.
+    public static Cell<int> CountOfAListOfObjectsInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; object n = all.Count; Kept.Add(n.ToString()!); return S.Hold(0); });
+
+    // S615. The same for a collection that is not generic.
+    public static Cell<int> CountOfAnArrayListInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.ArrayList all = new() { new Titled(l.Map(v => v)) }; object n = all.Count; Kept.Add(n.ToString()!); return S.Hold(0); });
+
+    // S616. GetType calls no member of the object.
+    public static Cell<int> TypeOfAnObjectFromAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; object type = all.First().GetType(); Kept.Add(type.ToString()!); return S.Hold(0); });
+
+    // S617. The object has no Equals of its own.
+    public static Cell<int> EqualsOnAnObjectFromAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; return S.Hold(all.First().Equals(null) ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4122,6 +4256,11 @@ public static class Shapes
     public sealed class Plainly
     {
         public override string ToString() => "plain";
+    }
+
+    public sealed class ObjectWrapper(object inner)
+    {
+        public override string ToString() => inner.GetType().Name;
     }
 
     private static Ranked Itself(Ranked r) => r;

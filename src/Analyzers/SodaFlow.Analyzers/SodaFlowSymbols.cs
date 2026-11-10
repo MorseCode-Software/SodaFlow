@@ -270,6 +270,11 @@ internal sealed class SodaFlowSymbols
             ITypeParameterSymbol => true,
             IArrayTypeSymbol array =>
                 this.CanHoldState(type: array.ElementType, compilation: compilation, depth: depth),
+            // An object can be a value of each type, thus it can be one that has a state.
+            INamedTypeSymbol { SpecialType: SpecialType.System_Object } => true,
+            // A collection that is not generic has objects as its elements, and its enumerator
+            // gives them.
+            INamedTypeSymbol { IsGenericType: false } collection when IsEnumerated(collection) => true,
             INamedTypeSymbol { SpecialType: not SpecialType.None } or INamedTypeSymbol { TypeKind: TypeKind.Enum } =>
                 false,
             INamedTypeSymbol named =>
@@ -375,6 +380,15 @@ internal sealed class SodaFlowSymbols
     ///     a sequence, or an enumerator that the callee moves.
     /// </summary>
     public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
+
+    /// <summary>
+    ///     True for a member of <c>System.Activator</c>, or of a type in
+    ///     <c>System.Reflection</c>.
+    /// </summary>
+    public static bool IsReflection(ISymbol member) =>
+        member.ContainingType is { } owner
+        && (owner.ContainingNamespace?.ToDisplayString() == "System.Reflection"
+            || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
 
     /// <summary>
     ///     True for a method that has a parameter whose values a callee
