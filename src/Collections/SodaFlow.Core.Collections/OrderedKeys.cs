@@ -103,6 +103,24 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
         Func<TKey, bool> keeps,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
         this.Order.CreateFrom(keys: this.Where(keeps), snapshot: snapshot);
+
+    /// <summary>
+    ///     This set with the members of <paramref name="members" />, from edits of this
+    ///     set. The answer is null when a new build costs less, or when this form has
+    ///     no entries to keep.
+    /// </summary>
+    /// <param name="members">The keys that the result holds, in any order.</param>
+    /// <param name="snapshot">The collection that gives the sort value of each key that comes.</param>
+    /// <returns>The set, or null for a new build.</returns>
+    /// <remarks>
+    ///     A sort calls this at a reset from the stage above, in a transaction that
+    ///     edited no item. No sort value changed, thus each key that stays keeps its
+    ///     entry. This form answers null.
+    /// </remarks>
+    internal virtual OrderedKeys<TKey, TIdentity, TState>? Rebase(
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        null;
 }
 
 /// <summary>A key with the sort value of its position.</summary>
@@ -948,6 +966,106 @@ file sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TK
         return failed.Count * 3 <= kept * 2 ? this.Without(failed) : this.OnlyAround(failed);
     }
 
+    /// <inheritdoc />
+    internal override OrderedKeys<TKey, TIdentity, TState>? Rebase(
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
+        this.RebaseSorted(members: members, snapshot: snapshot);
+
+    /// <summary><see cref="Rebase" />, with the result as this type.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         This code removes each entry whose key is not in the members. It adds
+    ///         an entry for each member that this set does not hold. One builder for
+    ///         each tree does the two. A key that comes costs a sort value, an entry,
+    ///         and a path through each tree, and a key that leaves costs a path only.
+    ///     </para>
+    ///     <para>
+    ///         A test compared the edits against a build of the new set. It used 7,000
+    ///         entries and 100,000 entries, with the keys spread through the order.
+    ///         Keys that leave cost less as edits up to a half of the set, and about
+    ///         the same at a half. Keys that come cost less as edits up to two thirds
+    ///         of the set, and each one cost about two keys that leave. Thus, this code
+    ///         counts one for each key that leaves and two for each key that comes. It
+    ///         stops, and answers null, when the count passes the number of members.
+    ///     </para>
+    /// </remarks>
+    internal SortedKeys<TKey, TIdentity, TState, TSortKey>? RebaseSorted(
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        int cost = 0;
+        List<SortedEntry<TKey, TSortKey>>? leaving = null;
+
+        // ReSharper disable once ForeachCanBePartlyConvertedToQueryUsingAnotherGetEnumerator - The loop
+        // stops when the count passes its limit. A query reads the set through IEnumerable, which
+        // boxes its enumerator, and allocates a closure.
+        foreach (SortedEntry<TKey, TSortKey> entry in this.entries)
+        {
+            if (members.Contains(entry.Key))
+            {
+                continue;
+            }
+
+            if (++cost > members.Count)
+            {
+                return null;
+            }
+
+            (leaving ??= []).Add(entry);
+        }
+
+        List<TKey>? coming = null;
+
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - The loop stops when the count
+        // passes its limit, and a query allocates a closure.
+        foreach (TKey key in members)
+        {
+            if (this.byKey.ContainsKey(key))
+            {
+                continue;
+            }
+
+            cost += 2;
+
+            if (cost > members.Count)
+            {
+                return null;
+            }
+
+            (coming ??= []).Add(key);
+        }
+
+        if (leaving is null && coming is null)
+        {
+            return this;
+        }
+
+        ImmutableSortedSet<SortedEntry<TKey, TSortKey>>.Builder ordering = this.entries.ToBuilder();
+        ImmutableDictionary<TKey, SortedEntry<TKey, TSortKey>>.Builder map = this.byKey.ToBuilder();
+
+        foreach (SortedEntry<TKey, TSortKey> entry in leaving ?? [])
+        {
+            ordering.Remove(entry);
+            map.Remove(entry.Key);
+        }
+
+        foreach (TKey key in coming ?? [])
+        {
+            // This throws an exception for a key that the snapshot does not hold. See
+            // ProjectedKeyOrder.Project.
+            SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: this.order.Project(key: key, snapshot: snapshot));
+
+            ordering.Add(entry);
+            map[key] = entry;
+        }
+
+        return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
+            order: this.order,
+            entries: ordering.ToImmutable(),
+            byKey: map.ToImmutable());
+    }
+
     /// <summary>
     ///     <see cref="Add" />, with the result as this type. A set read from its end
     ///     adds through this method and keeps the result as its source.
@@ -1144,6 +1262,24 @@ file sealed class ReversedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<
         return ReferenceEquals(objA: source, objB: this.Source)
             ? this
             : new ReversedKeys<TKey, TIdentity, TState, TSortKey>(source: source, order: this.order);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The set in its own direction keeps the entries, and this view reads them
+    ///     from the end. Thus, the edits go to that set, as each add goes there.
+    /// </remarks>
+    internal override OrderedKeys<TKey, TIdentity, TState>? Rebase(
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        SortedKeys<TKey, TIdentity, TState, TSortKey>? source = this.Source.RebaseSorted(members: members, snapshot: snapshot);
+
+        return source is null
+            ? null
+            : ReferenceEquals(objA: source, objB: this.Source)
+                ? this
+                : new ReversedKeys<TKey, TIdentity, TState, TSortKey>(source: source, order: this.order);
     }
 
     public override IEnumerator<TKey> GetEnumerator()

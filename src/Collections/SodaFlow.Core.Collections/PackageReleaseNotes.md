@@ -193,6 +193,24 @@ that move no key or 100 keys do not build, and allocate what they did. Their tim
 direction between the two runs, which is the noise of those runs. BlotterSendBenchmarks has a search and its clear over
 about 7,000 orders. That took 27.9 ms and 5,687 KB, and takes 11.2 ms and 2,716 KB.
 
+Changed: a sort below a filter keeps its list at a reset from the filter, in a transaction that edited no item. A change
+of criteria that moves more keys than the limit of the filter is a reset. Before, the sort below the filter built its
+set again from nothing at that reset. No item changed in that transaction, thus each key that stays has its sort value.
+The sort now removes the keys that left and adds the keys that came, with one builder for each tree. It does this when
+the keys that leave, and two for each key that comes, are at most the number of keys above. Over that count, it builds
+as before. A comparison on 7,000 and on 100,000 entries set that count, because a key that comes cost about two keys
+that leave. The test for an edited item compares the identity map and the state map before and after the transaction, as
+objects. A sort that reads its set from the end edits the set in its first direction, which the view reads. A sort
+reports what it reported before. New tests take a sort on the state and a sort on the identity through each kind of
+change. A test does the same with a sort that reads its set from the end. One more test edits a score in the transaction
+that changes the criteria, where the sort must build.
+
+Measured against the change above, in BlotterSendBenchmarks on .NET 10, with one run on each side. A search and its
+clear over about 7,000 orders took 11.2 ms and 2,715 KB, and takes 10.4 ms and 2,123 KB. A run of the two builds in turn
+gave 11.3 ms and 10.8 ms in the fastest runs. In KeyedCollectionViewBenchmarks, a change of the threshold moves one key,
+which is no reset, and allocates what it did. Its times in the two runs were up to a third apart. The times of the arm
+with no view were also that far apart. A run of the two builds in turn gave the same times.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

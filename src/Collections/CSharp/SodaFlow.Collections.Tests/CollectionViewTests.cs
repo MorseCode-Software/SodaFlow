@@ -3026,6 +3026,162 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>The sort value of the sorts below a filter. It is the same instance at each use.</summary>
+    private static readonly Func<ItemIdentity, ItemState, int> ByScore = static (_, state) => state.Score;
+
+    /// <summary>The sort value of the sorts below a filter that read the identity.</summary>
+    private static readonly Func<ItemIdentity, int> ByNumber = static identity => identity.Number;
+
+    /// <summary>The order on the score, in one direction.</summary>
+    private static KeyOrder<int, ItemIdentity, ItemState> OnScore(bool isDescending) =>
+        KeyOrder<int, ItemIdentity, ItemState>.By(
+            selector: ByScore,
+            sortComparer: Comparer<int>.Default,
+            keyComparer: Comparer<int>.Default,
+            isDescending: isDescending);
+
+    /// <summary>
+    ///     The keys of <see cref="FiveThousand" /> that a filter of
+    ///     <see cref="DropMultiples" /> keeps, from the highest score to the lowest.
+    /// </summary>
+    private static List<int> NotMultiplesOfDescending(int step) => [.. NotMultiplesOf(step).AsEnumerable().Reverse()];
+
+    /// <summary>
+    ///     A sort below a filter gets a reset when the criteria of the filter change
+    ///     over its limit. Keys leave the sort, keys come to it, or both. The sort
+    ///     gives the keys of the filter in its own order after each change, and
+    ///     reports a reset.
+    /// </summary>
+    private static async Task ASortBelowAFilterFollowsEachChangeOverTheLimit(bool sortsOnTheState)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> multiple = Cell.CreateSink(0);
+
+        KeyOrder<int, ItemIdentity, ItemState> order =
+            sortsOnTheState
+                ? OnScore(isDescending: true)
+                : KeyOrder<int, ItemIdentity, ItemState>.ByIdentity(
+                    selector: ByNumber,
+                    sortComparer: Comparer<int>.Default,
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: true);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            DropMultiples(collection: FiveThousand(edits), multiple: multiple, byIdentity: true).SortBy(order);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOfDescending(0), ordering: CollectionOrdering.Matching);
+
+        (List<bool> reported, List<string> _, IListener listener) = RecordPositions(view);
+
+        // Each change but the last two moves more keys than the limit of the filter. The last two
+        // move 833 keys, thus the sort gets operations and not a reset.
+        foreach ((int step, bool resets) in new[] { (4, true), (0, true), (2, true), (3, true), (0, true), (6, false), (0, false) })
+        {
+            reported.Clear();
+            multiple.Send(step);
+
+            await Assert.That(reported).IsEquivalentTo(expected: [resets], ordering: CollectionOrdering.Matching);
+
+            await Assert.That(KeysOf(view))
+                .IsEquivalentTo(expected: NotMultiplesOfDescending(step), ordering: CollectionOrdering.Matching);
+        }
+
+        listener.Unlisten();
+    }
+
+    [Test]
+    public Task ASortOnTheStateBelowAFilterFollowsEachChangeOverTheLimit() =>
+        ASortBelowAFilterFollowsEachChangeOverTheLimit(sortsOnTheState: true);
+
+    [Test]
+    public Task ASortOnTheIdentityBelowAFilterFollowsEachChangeOverTheLimit() =>
+        ASortBelowAFilterFollowsEachChangeOverTheLimit(sortsOnTheState: false);
+
+    /// <summary>
+    ///     A transaction that changes the criteria of the filter and edits the store
+    ///     gives the sort a reset with new sort values. The sort files each key at its
+    ///     new value, and the key whose score changed moves.
+    /// </summary>
+    [Test]
+    public async Task ASortBelowAFilterFilesANewScoreFromTheSameTransaction()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> multiple = Cell.CreateSink(0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            DropMultiples(collection: FiveThousand(edits), multiple: multiple, byIdentity: true)
+                .SortBy(OnScore(isDescending: true));
+
+        IListener listener =
+            view.KeyChangesStream.Listen(static _ =>
+            {
+            });
+
+        // The key 1 has the lowest score. In the same transaction it gets the highest score, and
+        // 1,250 keys leave the filter, which is over its limit.
+        Transaction.RunVoid(() =>
+        {
+            multiple.Send(4);
+            edits.Send(TestUtil.Score(key: 1, score: 10_000));
+        });
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(
+                expected: [1, .. NotMultiplesOfDescending(4).Where(static n => n != 1)],
+                ordering: CollectionOrdering.Matching);
+
+        // The same with keys that come back, and the key 1 back at the lowest score.
+        Transaction.RunVoid(() =>
+        {
+            multiple.Send(0);
+            edits.Send(TestUtil.Score(key: 1, score: 1));
+        });
+
+        listener.Unlisten();
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOfDescending(0), ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A sort that reads its set from its end gets the same resets from the
+    ///     filter above, and gives the keys in its new direction.
+    /// </summary>
+    [Test]
+    public async Task ASortReadFromItsEndBelowAFilterFollowsEachChangeOverTheLimit()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> multiple = Cell.CreateSink(0);
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(OnScore(isDescending: true));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            DropMultiples(collection: FiveThousand(edits), multiple: multiple, byIdentity: true).SortBy(order);
+
+        IListener listener =
+            view.KeyChangesStream.Listen(static _ =>
+            {
+            });
+
+        // The sort reads its set from the end, and does not sort a key again.
+        order.Send(OnScore(isDescending: false));
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
+
+        foreach (int step in new[] { 4, 0, 3, 0 })
+        {
+            multiple.Send(step);
+
+            await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(step), ordering: CollectionOrdering.Matching);
+        }
+
+        listener.Unlisten();
+    }
+
     // A negative count or offset is an error in the arithmetic of the caller. The constant
     // overloads throw at the call, where the clamp hid it.
     [Test]

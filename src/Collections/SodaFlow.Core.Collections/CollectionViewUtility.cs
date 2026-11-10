@@ -171,7 +171,8 @@ internal static class CollectionViewUtility
             rebuild: RebuildFilter,
             processNewCriteria: ProcessFilterNewCriteria,
             process: ProcessFilter,
-            reorder: ReorderFilter);
+            reorder: ReorderFilter,
+            rebase: null);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a generic
@@ -219,7 +220,8 @@ internal static class CollectionViewUtility
             rebuild: RebuildFilterByIdentity,
             processNewCriteria: ProcessFilterByIdentityNewCriteria,
             process: ProcessFilterByIdentity,
-            reorder: ReorderFilter);
+            reorder: ReorderFilter,
+            rebase: null);
 
     /// <summary>
     ///     Reorders the view by a value from the immutable part of each item only. A
@@ -304,7 +306,10 @@ internal static class CollectionViewUtility
             process: static (_, keys, change) => ProcessSort(state: keys, change: change),
             // The order of the stage and its members do not change, thus the list that it holds
             // is the list from a new build.
-            reorder: static (state, _) => state);
+            reorder: static (state, _) => state,
+            // In a transaction that edited no item, each key that stays has its sort value. Thus, the
+            // stage can edit the list that it holds, and does not sort each key again.
+            rebase: static (state, members, snapshot) => state.Rebase(members: members, snapshot: snapshot));
 
     /// <summary>
     ///     The first <c>limit</c> keys of the upstream, which are the highest keys of
@@ -424,7 +429,8 @@ internal static class CollectionViewUtility
             processNewCriteria: static (_, createResultFromRebuild, _, _, _, _, _) => createResultFromRebuild(),
             process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change),
             // A change of the order above a window changes the keys in the window.
-            reorder: null);
+            reorder: null,
+            rebase: null);
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -432,7 +438,8 @@ internal static class CollectionViewUtility
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
-        Reorder<TKey, TIdentity, TState>? reorder)
+        Reorder<TKey, TIdentity, TState>? reorder,
+        Rebase<TKey, TIdentity, TState>? rebase)
         where TKey : notnull
         where TIdentity : notnull =>
         TransactionInternal.Apply(
@@ -444,14 +451,16 @@ internal static class CollectionViewUtility
                     rebuild: state.Rebuild,
                     processNewCriteria: state.ProcessNewCriteria,
                     process: state.Process,
-                    reorder: state.Reorder),
+                    reorder: state.Reorder,
+                    rebase: state.Rebase),
             state: (
                 Upstream: upstream,
                 CriteriaCell: criteriaCell,
                 Rebuild: rebuild,
                 ProcessNewCriteria: processNewCriteria,
                 Process: process,
-                Reorder: reorder));
+                Reorder: reorder,
+                Rebase: rebase));
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         TransactionInternal trans,
@@ -460,7 +469,8 @@ internal static class CollectionViewUtility
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
-        Reorder<TKey, TIdentity, TState>? reorder)
+        Reorder<TKey, TIdentity, TState>? reorder,
+        Rebase<TKey, TIdentity, TState>? rebase)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -474,7 +484,8 @@ internal static class CollectionViewUtility
                     Rebuild: rebuild,
                     ProcessNewCriteria: processNewCriteria,
                     Process: process,
-                    Reorder: reorder),
+                    Reorder: reorder,
+                    Rebase: rebase),
                 f: static (stateLoopCell, state) =>
                 {
                     (ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -482,7 +493,8 @@ internal static class CollectionViewUtility
                         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
                         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
                         Process<TCriteria, TKey, TIdentity, TState> process,
-                        Reorder<TKey, TIdentity, TState>? reorder) = state;
+                        Reorder<TKey, TIdentity, TState>? reorder,
+                        Rebase<TKey, TIdentity, TState>? rebase) = state;
 
                     // This is the store, and not the view of the store in the stage above. A read of
                     // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
@@ -542,7 +554,7 @@ internal static class CollectionViewUtility
                                         onSome: change =>
                                             !hasCriteriaChange && change.ReordersOnly && reorder is not null
                                                 ? CreateReorder(reorder(state: state, change: change))
-                                                : Rebuild(),
+                                                : RebaseOrRebuild(change),
                                         onNone: Rebuild);
                                 }
 
@@ -591,6 +603,17 @@ internal static class CollectionViewUtility
 
                                 StageResult<TKey, TIdentity, TState> CreateReorder(OrderedKeys<TKey, TIdentity, TState> keys) =>
                                     CreateReset(keys: keys, reordersOnly: true);
+
+                                // A reset from above, with no criteria of this stage, in a transaction
+                                // that edited no item. Each key that stays has its value from before.
+                                StageResult<TKey, TIdentity, TState> RebaseOrRebuild(
+                                    CollectionViewChange<TKey, TIdentity, TState> change) =>
+                                    !hasCriteriaChange
+                                    && rebase is not null
+                                    && EditsNoItem(before: snapshotBefore, after: change.After)
+                                    && rebase(state: state, members: change.Keys, snapshot: snapshot) is { } rebased
+                                        ? CreateReset(keys: rebased, reordersOnly: false)
+                                        : Rebuild();
 
                                 StageResult<TKey, TIdentity, TState> Rebuild() =>
                                     CreateReset(
@@ -781,6 +804,35 @@ internal static class CollectionViewUtility
         OrderedKeys<TKey, TIdentity, TState> state)
         where TKey : notnull
         where TIdentity : notnull;
+
+    /// <summary>
+    ///     The keys of a stage after a reset from the stage above, in a transaction
+    ///     that edited no item, or null for a new build.
+    /// </summary>
+    /// <param name="state">The current content of the stage.</param>
+    /// <param name="members">The keys of the stage above after the reset.</param>
+    /// <param name="snapshot">The store after the transaction.</param>
+    private delegate OrderedKeys<TKey, TIdentity, TState>? Rebase<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    /// <summary>True when a transaction edited no item of the store.</summary>
+    /// <remarks>
+    ///     The collection makes a new identity map at a structural edit and a new
+    ///     state map at each edit of a state. It keeps each map when an edit does not
+    ///     change it. Thus, the same two maps before and after mean the same items
+    ///     with the same states.
+    /// </remarks>
+    private static bool EditsNoItem<TKey, TIdentity, TState>(
+        CollectionSnapshot<TKey, TIdentity, TState> before,
+        CollectionSnapshot<TKey, TIdentity, TState> after)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        ReferenceEquals(objA: before.IdentitiesImpl, objB: after.IdentitiesImpl)
+        && ReferenceEquals(objA: before.StatesImpl, objB: after.StatesImpl);
 
     /// <summary>
     ///     The keys of a stage after the stage above it changed its order and nothing
