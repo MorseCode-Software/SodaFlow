@@ -100,13 +100,27 @@ sensibly will do.
 
 You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TState>`, with the
 `AsyncConcurrencyStrategy<TState>` shorthand when the strategy does not read the input either.
-`CreateState` makes the bookkeeping for one `MapAsync` call, `Admit` decides what starts, and two
+`CreateState` makes the first state for one `MapAsync` call, `Admit` decides what starts, and two
 hooks handle the ends: `OnCompleted` for an operation that returned or threw, `OnCanceled` for a
 cancellation.
 
+**A strategy does not change its state; it returns the next one.** Every hook is handed the
+current state and returns its decision together with the state for the next call. `Admit` and
+`OnCanceled` return `new AsyncStrategyStep<TInput, TState>(state, start)`, and `OnCompleted`
+returns `new AsyncStrategyResult<TInput, TState>(state, publish, next)`. Return the state you were
+given when nothing changes.
+
+The pipeline keeps that state and treats it like the rest of its graph. If the transaction a hook
+ran in fails, the state the hook returned is discarded along with the queue edit, and the next
+call gets the state from before. That only works if the state is a value you replace. A strategy
+that changes an object inside its state and returns the same object keeps the change after a
+failure, so build the state from immutable types: a record, a tuple, an immutable collection, a
+`Maybe<T>`.
+
 **`OnCompleted` gets one item.** It takes the `AsyncQueuedItem` that ended, an `AsyncCompletion`
 saying which of the two ends it was, and the queue; it returns
-`new AsyncStrategyResult<TInput>(publish: bool, next: ...)`. One item and not a list, because a
+`new AsyncStrategyResult<TInput, TState>(state, publish: bool, next: ...)`. One item and not a
+list, because a
 stream carries one value per transaction and the queue edit for that end happens in the same
 transaction as its send — so a graph that reads `Items` and `results` together never sees two
 instants where the pipeline made one. `publish: false` means nobody wants this result; the pipeline
@@ -120,11 +134,11 @@ not model two results at one instant.
 **`OnCanceled` gets a list, and makes no publish decision.** `cancelAll` and `cancelMatching` can
 end several queued items and a running one at the same instant, and a canceled item sends nothing to
 `results` or `errors` — so they arrive as one call and one `Items` edit, rather than a sequence of
-decisions each of which still sees the others. There is nothing to publish, so the return type is
-just the items to start: `IReadOnlyList<AsyncToStart<TInput>>`, the same as `Admit` returns, with
-`AsyncStrategyResult<TInput>.None` for none. This is where a queueing strategy starts the next item
-after a cancellation frees its slot, and where a strategy holding a reference to its current run
-clears it.
+decisions each of which still sees the others. There is nothing to publish, so the return type
+has no publish decision: an `AsyncStrategyStep<TInput, TState>`, the same as `Admit` returns, with
+`AsyncToStart<TInput>.None` when nothing starts. This is where a queueing strategy starts the next
+item after a cancellation frees its slot, and where a strategy that holds its current run in its
+state returns a state without it.
 
 `AsyncCompletion` says only that the operation returned or that it threw (with the exception), never
 the result itself. That is what lets the pipeline build a result only for an item it is going to
@@ -159,27 +173,24 @@ and, when items end, starts the first item still `Queued` — but only if nothin
 since a cancellation can end queued items while another is still going. `QueuePerGroup` does the
 same test per group, once for each group an end leaves free.
 
-A strategy also has to cope with hearing about the same end twice. When a listener throws while
-the pipeline delivers an outcome, the transaction that called `OnCompleted` or `OnCanceled` fails,
-and the pipeline calls it again for the same item in a new transaction, publishing nothing from
-that second call. The first call's decision went with the failed transaction, but whatever it
-changed in your state did not. The built-in strategies decide from the queue and give the right
-answer the second time. A strategy that counts ends in its state should not assume each item
-arrives once.
+A strategy can hear about the same end twice. When a listener throws while the pipeline delivers
+an outcome, the transaction that called `OnCompleted` or `OnCanceled` fails, and the pipeline
+calls it again for the same item in a new transaction, publishing nothing from that second call.
+The first call's decision and its state both went with the failed transaction, so the second call
+gets exactly what the first one got. A strategy that only reads its arguments gives the same
+answer and needs no special handling. One that does something else in a hook, such as counting
+calls in a field of its own, should not assume each item arrives once.
 
-`Admit` has a matching caveat. It runs in the input stream's transaction, before that transaction
-commits. If a listener throws later in the same transaction, the value is not admitted after all:
-the queue goes back, no operation starts, and no hook is called for that value again. Whatever
-`Admit` changed in your state stays changed, so a strategy that records the incoming item cannot
-assume the pipeline holds it. The built-in strategies are safe here: `Queue` and `QueuePerGroup`
-keep no state, and `SwitchLatest` puts its record of the current run back when the transaction
-fails.
+`Admit` is covered the same way. It runs in the input stream's transaction, before that
+transaction commits. If a listener throws later in the same transaction, the value is not admitted
+after all: the queue goes back, no operation starts, no hook is called for that value again, and
+the state `Admit` returned is discarded.
 
-`Cancel()` needs no such care. Every hook runs in a transaction, and a cancel asked for inside one
-takes effect when that transaction commits; a transaction that fails cancels nothing. Two things
-follow. The item's token still reads as not canceled for the rest of the hook. And an exception
-thrown by a callback registered on that token goes to `handleException`, because by then the
-transaction has finished and there is no caller left to throw to.
+`Cancel()` follows the transaction too. Every hook runs in a transaction, and a cancel asked for
+inside one takes effect when that transaction commits; a transaction that fails cancels nothing.
+Two things follow. The item's token still reads as not canceled for the rest of the hook. And an
+exception thrown by a callback registered on that token goes to `handleException`, because by then
+the transaction has finished and there is no caller left to throw to.
 
 ## Cancellation and status
 

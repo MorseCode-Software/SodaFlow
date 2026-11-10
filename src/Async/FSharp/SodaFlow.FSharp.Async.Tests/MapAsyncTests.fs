@@ -53,7 +53,7 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
 
     override _.Admit
         (
-            _state: EmptyState,
+            state: EmptyState,
             incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
@@ -62,11 +62,11 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         let v = incoming.Value
         lock admittedValues (fun () -> admittedValues.Add(v))
         let toStart = AsyncMapBase.AsyncToStart<'TStrategyInput>(incoming)
-        [| toStart |] :> IReadOnlyList<_>
+        AsyncMapBase.AsyncStrategyStep<'TStrategyInput, EmptyState>(state, ([| toStart |] :> IReadOnlyList<_>))
 
     override _.OnCompleted
         (
-            _state: EmptyState,
+            state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
             completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
@@ -77,11 +77,15 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
 
         lock completions (fun () -> completions.Add(how))
 
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput, EmptyState>(
+            state,
+            true,
+            AsyncMapBase.AsyncToStart<'TStrategyInput>.None
+        )
 
     override _.OnCanceled
         (
-            _state: EmptyState,
+            state: EmptyState,
             canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
@@ -89,7 +93,10 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         for _ in 0 .. canceled.Count - 1 do
             lock completions (fun () -> completions.Add("canceled"))
 
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
+        AsyncMapBase.AsyncStrategyStep<'TStrategyInput, EmptyState>(
+            state,
+            AsyncMapBase.AsyncToStart<'TStrategyInput>.None
+        )
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
 /// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
@@ -106,30 +113,71 @@ type private CountingStrategy() =
 
     override _.Admit
         (
-            _state: EmptyState,
+            state: EmptyState,
             incoming: AsyncMapBase.AsyncQueuedItem<unit>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
         count <- count + 1
         let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
-        [| toStart |] :> IReadOnlyList<_>
+        AsyncMapBase.AsyncStrategyStep<unit, EmptyState>(state, ([| toStart |] :> IReadOnlyList<_>))
 
     override _.OnCompleted
         (
-            _state: EmptyState,
+            state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<unit>,
             _completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
+        AsyncMapBase.AsyncStrategyResult<unit, EmptyState>(state, true, AsyncMapBase.AsyncToStart<unit>.None)
 
     override _.OnCanceled
         (
-            _state: EmptyState,
+            state: EmptyState,
             _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>.None
+        AsyncMapBase.AsyncStrategyStep<unit, EmptyState>(state, AsyncMapBase.AsyncToStart<unit>.None)
+
+/// Counts the admissions in its state, through the short AsyncConcurrencyStrategy<'TState> of the
+/// F# module, and records the state that each call gets. Each method returns the next state and
+/// changes nothing, thus the pipeline puts the state back where a transaction fails.
+type private StateCountingStrategy() =
+    inherit AsyncConcurrencyStrategy<int>()
+
+    let calls = ResizeArray<string>()
+
+    member _.Calls = calls
+
+    override _.CreateState() = 0
+
+    override _.Admit
+        (
+            state: int,
+            incoming: AsyncMapBase.AsyncQueuedItem<unit>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "admit:%d" state))
+        let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
+        AsyncMapBase.AsyncStrategyStep<unit, int>(state + 1, ([| toStart |] :> IReadOnlyList<_>))
+
+    override _.OnCompleted
+        (
+            state: int,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "completed:%d" state))
+        AsyncMapBase.AsyncStrategyResult<unit, int>(state + 10, true, AsyncMapBase.AsyncToStart<unit>.None)
+
+    override _.OnCanceled
+        (
+            state: int,
+            _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "canceled:%d" state))
+        AsyncMapBase.AsyncStrategyStep<unit, int>(state + 100, AsyncMapBase.AsyncToStart<unit>.None)
 
 type ``MapAsync Tests``() =
 
@@ -263,6 +311,41 @@ type ``MapAsync Tests``() =
 
             status.Dispose()
             l |> unlistenL
+        }
+
+    /// A strategy returns its next state, and the pipeline keeps it. A transaction that fails
+    /// discards the state that its call returned, thus the next call gets the state from before.
+    [<Test>]
+    member _.``a custom strategy gets its state back after an admission that fails``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+            let strategy = StateCountingStrategy()
+
+            let status = source |> mapAsync results errors unexpected op.Operation strategy None None true
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let thrower =
+                source
+                |> Stream.map id
+                |> Stream.map id
+                |> listenStrongS (fun (_: string) ->
+                    raise (InvalidOperationException "The test fails this transaction."))
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> source |> sendS "b")
+
+            thrower |> unlistenL
+
+            source |> sendS "c"
+            waitUntil (fun () -> op.HasStarted "c")
+
+            do! Expect.Sequence([ "admit:0"; "admit:1"; "admit:1" ], strategy.Calls)
+
+            status.Dispose()
         }
 
     [<Test>]

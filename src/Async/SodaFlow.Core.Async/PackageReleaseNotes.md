@@ -1,8 +1,35 @@
 6.0.0
 
 Requires SodaFlow.Core 6.x, which ships in the same release. This package's API adds one type,
-MapAsyncDeliveryExceptionBase, described below, and a consumer that moves to this version moves to that SodaFlow.Core,
-whose SampleLazy and HoldLazy changed shape.
+MapAsyncDeliveryExceptionBase, and changes what the methods of a custom strategy return, both described below. A
+consumer that moves to this version moves to that SodaFlow.Core, whose SampleLazy and HoldLazy changed shape.
+
+BREAKING: a strategy returns its next state, where it changed its state in place. Admit and OnCanceled return an
+AsyncStrategyStep<TInput, TState>, which holds the state for the next call and the items to start, where each returned
+only the list of items. OnCompleted returns an AsyncStrategyResult<TInput, TState>, which holds the state, the publish
+decision, and the items to start, where it returned an AsyncStrategyResult<TInput>. That type is gone, and its empty
+list, AsyncStrategyResult<TInput>.None, is now AsyncToStart<TInput>.None. CreateState still makes the state for one
+MapAsync call, and it is now the first state of that call and no longer the only one. Every custom strategy has to
+change: return the state it was given where nothing changes, and a new value where something does.
+
+The reason is what happens when a transaction fails. Each of the three methods runs in a transaction, and a listener can
+fail that transaction after the call. The pipeline's queue goes back, because it is a cell, but a state object that the
+strategy had changed did not, so the two disagreed from then on. The SwitchLatest entry below is one case of it. The
+pipeline now keeps the state that each call returns, discards it with the transaction when the transaction fails, and
+gives the next call the state from before. Two calls in one transaction still see each other: when a result feeds the
+input stream, Admit gets the state that OnCompleted returned. All of this holds for a state that is a value. A strategy
+that changes an object inside its state and returns the same object keeps that change after a failure, so make the state
+immutable.
+
+Two warnings in the documentation go away with it. A second call for the same end, after a listener fails the first,
+gets the state that the first call got, where it used to get a state that the first call had changed. And an Admit whose
+transaction fails leaves nothing behind in the state. A strategy that only reads its arguments needs no handling for
+either. The cost is one small object for each call of a strategy method.
+
+AsyncCompletion.MatchVoid also changes while this surface is open: its two handlers are required, as the handlers of
+Match are. It accepted null for an end with no handler, which let a strategy read one end and skip the other, and Match
+is the only path to the data so that a strategy cannot. Pass a handler that does nothing for an end to ignore on
+purpose.
 
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
@@ -71,7 +98,8 @@ value that the pipeline did not. The old run then ended as one that a newer run 
 for it, whether or not its operation honored the token. Two changes fix it. Cancel on a tracked item, which is how a
 strategy cancels, now waits for the commit when a transaction is open, as the cancellation streams do above, and a
 transaction that fails cancels nothing. That covers a custom strategy that cancels in Admit, OnCompleted, or OnCanceled.
-And SwitchLatest puts its own record back when the transaction fails.
+And the state of SwitchLatest goes back when the transaction fails, as the state of every strategy now does: see the
+BREAKING entry above.
 
 Three things follow from a cancel that waits. Inside the hook that asked for it, the item's token does not read as
 canceled yet. An exception from a callback registered on that token goes to handleException, because the transaction has
@@ -86,11 +114,6 @@ when the transaction of its admission commits, as every other answer of such a T
 that transaction, so a listener in the same transaction could find the Task complete before the commit. The outcome is
 the same. Where that transaction fails, the release of the admission cancels the Task, as it already did for a value
 that the strategy starts.
-
-Not changed: the state of a custom strategy. Admit can run for a value that is then not admitted, when the transaction
-fails after the call, and the pipeline calls no hook for that value afterwards. Whatever Admit changed in the state
-stays changed, as the remarks on OnCompleted already say of its second call. A strategy that records the incoming item
-cannot assume that the pipeline holds it.
 
 Changed: an Execute in a transaction whose body throws now cancels its Task and admits nothing. Execute defers its value
 into the post queue of the open transaction, with a release that cancels the Task. SodaFlow.Core 6.0.0 makes a throw

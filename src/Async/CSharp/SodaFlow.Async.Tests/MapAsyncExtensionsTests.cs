@@ -2714,12 +2714,11 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(new StrategyResultProbe().WithNullNext)
             .ThrowsExactly<ArgumentNullException>();
 
-    /// <summary>
-    ///     Queues each item and starts one at a time, as the Queue strategy in the
-    ///     library does, but with no queue of its own: it reads the queue of the
-    ///     pipeline. It also records what that queue held at each call.
-    /// </summary>
-    // ReSharper disable once InheritdocConsiderUsage
+    [Test]
+    public async Task AsyncStrategyStep_WithNoStartList_Throws() =>
+        await Assert.That(new StrategyResultProbe().WithNullStart)
+            .ThrowsExactly<ArgumentNullException>();
+
     [Test]
     public async Task ResultThatFeedsTheInputStartsTheNextItemInTheSameTransaction()
     {
@@ -2827,62 +2826,66 @@ public sealed class MapAsyncExtensionsTests
     {
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, Unit> Admit(
             Unit state,
             AsyncQueuedItem<Unit> incoming,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             incoming.Cancel();
 
-            return AsyncStrategyResult<Unit>.None;
+            return new AsyncStrategyStep<Unit, Unit>(state: state, start: AsyncToStart<Unit>.None);
         }
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            new(state: state, publish: true, next: AsyncToStart<Unit>.None);
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+        protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            new(state: state, start: AsyncToStart<Unit>.None);
     }
 
     /// <summary>
-    ///     Reaches the constructor of AsyncStrategyResult, which a custom strategy can
-    ///     see and other code cannot. Publish was a bool before this release, thus a
-    ///     null list is a new path.
+    ///     Reaches the constructors of AsyncStrategyResult and AsyncStrategyStep,
+    ///     which a custom strategy can see and other code cannot. Each one refuses a
+    ///     null list.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class StrategyResultProbe : AsyncConcurrencyStrategy<Unit>
     {
         public void WithNullNext() =>
             // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
-            _ = new AsyncStrategyResult<Unit>(publish: false, next: null!);
+            _ = new AsyncStrategyResult<Unit, Unit>(state: Unit.Value, publish: false, next: null!);
+
+        public void WithNullStart() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Testing for exception on null.
+            _ = new AsyncStrategyStep<Unit, Unit>(state: Unit.Value, start: null!);
 
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, Unit> Admit(
             Unit state,
             AsyncQueuedItem<Unit> incoming,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            new(state: state, start: AsyncToStart<Unit>.None);
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            new(state: state, publish: true, next: AsyncToStart<Unit>.None);
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+        protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            new(state: state, start: AsyncToStart<Unit>.None);
     }
 
     private class Animal;
@@ -2900,12 +2903,13 @@ public sealed class MapAsyncExtensionsTests
 
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, Unit> Admit(
             Unit state,
             AsyncQueuedItem<Unit> incoming,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) => [new(incoming)];
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(state: state, start: [new AsyncToStart<Unit>(incoming)]);
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
@@ -2916,10 +2920,10 @@ public sealed class MapAsyncExtensionsTests
                 this.Completions.Add("completed");
             }
 
-            return new AsyncStrategyResult<Unit>(publish: false, next: AsyncStrategyResult<Unit>.None);
+            return new AsyncStrategyResult<Unit, Unit>(state: state, publish: false, next: AsyncToStart<Unit>.None);
         }
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+        protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
@@ -2932,10 +2936,16 @@ public sealed class MapAsyncExtensionsTests
                 }
             }
 
-            return AsyncStrategyResult<Unit>.None;
+            return new AsyncStrategyStep<Unit, Unit>(state: state, start: AsyncToStart<Unit>.None);
         }
     }
 
+    /// <summary>
+    ///     Queues each item and starts one at a time, as the Queue strategy in the
+    ///     library does, but with no queue of its own: it reads the queue of the
+    ///     pipeline. It also records what that queue held at each call.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
     private sealed class QueueFromTrackedStrategy : AsyncConcurrencyStrategy<string, Unit>
     {
         public readonly List<string> AdmitSaw = [];
@@ -2944,7 +2954,7 @@ public sealed class MapAsyncExtensionsTests
 
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<string>> Admit(
+        protected override AsyncStrategyStep<string, Unit> Admit(
             Unit state,
             AsyncQueuedItem<string> incoming,
             IReadOnlyList<AsyncTrackedItem<string>> tracked)
@@ -2957,10 +2967,12 @@ public sealed class MapAsyncExtensionsTests
             // Nothing runs when no tracked item has the Running status.
             bool idle = tracked.All(static item => item.Status != AsyncItemStatus.Running);
 
-            return idle ? [new AsyncToStart<string>(incoming)] : [];
+            return new AsyncStrategyStep<string, Unit>(
+                state: state,
+                start: idle ? [new AsyncToStart<string>(incoming)] : []);
         }
 
-        protected override AsyncStrategyResult<string> OnCompleted(
+        protected override AsyncStrategyResult<string, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<string> item,
             AsyncCompletion completion,
@@ -2968,10 +2980,10 @@ public sealed class MapAsyncExtensionsTests
         {
             this.Record(hook: "completed", values: item.Value, tracked: tracked);
 
-            return new AsyncStrategyResult<string>(publish: true, next: StartOne(tracked));
+            return new AsyncStrategyResult<string, Unit>(state: state, publish: true, next: StartOne(tracked));
         }
 
-        protected override IReadOnlyList<AsyncToStart<string>> OnCanceled(
+        protected override AsyncStrategyStep<string, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<string>> canceled,
             IReadOnlyList<AsyncTrackedItem<string>> tracked)
@@ -2981,7 +2993,7 @@ public sealed class MapAsyncExtensionsTests
                 values: string.Join(separator: ",", values: canceled.Select(static c => c.Value)),
                 tracked: tracked);
 
-            return StartOne(tracked);
+            return new AsyncStrategyStep<string, Unit>(state: state, start: StartOne(tracked));
         }
 
         // The queue holds no item that ends now, thus this takes the first Queued item with no test
@@ -2991,7 +3003,7 @@ public sealed class MapAsyncExtensionsTests
             AsyncTrackedItem<string>? next =
                 tracked.FirstOrDefault(predicate: static candidate => candidate.Status == AsyncItemStatus.Queued);
 
-            return next is null ? AsyncStrategyResult<string>.None : [new AsyncToStart<string>(next.Item)];
+            return next is null ? AsyncToStart<string>.None : [new AsyncToStart<string>(next.Item)];
         }
 
         private static string Describe(IEnumerable<AsyncTrackedItem<string>> tracked) =>
@@ -3031,7 +3043,7 @@ public sealed class MapAsyncExtensionsTests
 
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
+        protected override AsyncStrategyStep<TStrategyInput, Unit> Admit(
             Unit state,
             AsyncQueuedItem<TStrategyInput> incoming,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
@@ -3041,10 +3053,12 @@ public sealed class MapAsyncExtensionsTests
                 this.AdmittedValues.Add(incoming.Value);
             }
 
-            return [new AsyncToStart<TStrategyInput>(incoming)];
+            return new AsyncStrategyStep<TStrategyInput, Unit>(
+                state: state,
+                start: [new AsyncToStart<TStrategyInput>(incoming)]);
         }
 
-        protected override AsyncStrategyResult<TStrategyInput> OnCompleted(
+        protected override AsyncStrategyResult<TStrategyInput, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<TStrategyInput> item,
             AsyncCompletion completion,
@@ -3062,12 +3076,13 @@ public sealed class MapAsyncExtensionsTests
                     onFailed: e => this.Completions.Add("failed:" + e.Message));
             }
 
-            return new AsyncStrategyResult<TStrategyInput>(
+            return new AsyncStrategyResult<TStrategyInput, Unit>(
+                state: state,
                 publish: true,
-                next: AsyncStrategyResult<TStrategyInput>.None);
+                next: AsyncToStart<TStrategyInput>.None);
         }
 
-        protected override IReadOnlyList<AsyncToStart<TStrategyInput>> OnCanceled(
+        protected override AsyncStrategyStep<TStrategyInput, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
@@ -3086,7 +3101,7 @@ public sealed class MapAsyncExtensionsTests
                 }
             }
 
-            return AsyncStrategyResult<TStrategyInput>.None;
+            return new AsyncStrategyStep<TStrategyInput, Unit>(state: state, start: AsyncToStart<TStrategyInput>.None);
         }
     }
 }
