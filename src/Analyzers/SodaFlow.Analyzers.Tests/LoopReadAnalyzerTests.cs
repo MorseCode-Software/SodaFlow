@@ -399,7 +399,18 @@ internal sealed class LoopReadAnalyzerTests
             ["QueryOfAGetterEnumerated"] = ["SF1005"],
             ["QueryOfAReturnedLambdaEnumerated"] = ["SF1005"],
             ["QueryFromALocalFunctionOfSelectMany"] = ["SF1001"],
-            ["QueryExpressionWithAJoin"] = ["SF1001"]
+            ["QueryExpressionWithAJoin"] = ["SF1001"],
+            ["InterpolationOfAGenericObject"] = ["SF1005"],
+            ["InterpolationOfAnObjectInAGenericType"] = ["SF1005"],
+            ["ForEachOverAGenericSequence"] = ["SF1005"],
+            ["UsingOfAGenericObject"] = ["SF1005"],
+            ["SumOfAGenericSequence"] = ["SF1005"],
+            ["StringJoinOfGenericObjects"] = ["SF1005"],
+            ["MinOfGenericObjects"] = ["SF1004", "SF1005"],
+            ["InterfaceMethodOfAGenericObject"] = ["SF1005"],
+            ["VirtualMethodOfAGenericObject"] = ["SF1005"],
+            ["ToStringOfAGenericObject"] = ["SF1005"],
+            ["PropertyOfAGenericObject"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

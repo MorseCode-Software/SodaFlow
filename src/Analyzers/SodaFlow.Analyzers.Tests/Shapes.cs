@@ -3431,6 +3431,61 @@ public static class Shapes
     public static Cell<int> QueryExpressionWithAJoin() =>
         Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); IEnumerable<int> both = from x in Numbers join y in q on x equals y select x; return S.Hold(both.Count()); });
 
+    // S549. The evaluator knows an object of a generic type by the definition of that type. The code
+    // names the type with its type arguments, and the two are the same type for the object. An
+    // interpolation calls ToString of the object.
+    public static Cell<int> InterpolationOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericLabel<int> x = new(l.Map(v => v)); Kept.Add($"{x}"); return S.Hold(0); });
+
+    // S550. The type of the object is in a generic type, and has the type parameters of that type.
+    public static Cell<int> InterpolationOfAnObjectInAGenericType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericOuter<int>.Label label = new(l.Map(v => v)); Kept.Add($"{label}"); return S.Hold(0); });
+
+    // S551. A foreach calls GetEnumerator of the object.
+    public static Cell<int> ForEachOverAGenericSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericPile<int> pile = new(l.Map(v => v)); int n = 0; foreach (int v in pile) { n += v; } return S.Hold(n); });
+
+    // S552. A using calls Dispose of the object.
+    public static Cell<int> UsingOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (new GenericCloser<int>(l.Map(v => v))) { } return S.Hold(0); });
+
+    // S553. A method of the platform enumerates the object.
+    public static Cell<int> SumOfAGenericSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericPile<int> pile = new(l.Map(v => v)); return S.Hold(pile.Sum()); });
+
+    // S554. Join calls ToString of each element.
+    public static Cell<int> StringJoinOfGenericObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericLabel<int>[] all = [new(l.Map(v => v))]; return S.Hold(string.Join(",", (IEnumerable<GenericLabel<int>>)all).Length); });
+
+    // S555. Min calls CompareTo of the elements.
+    public static Cell<int> MinOfGenericObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericGrade<int>[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.Min()!); return S.Hold(0); });
+
+    // S556. A call through an interface runs the method of the object.
+    public static Cell<int> InterfaceMethodOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = new GenericLabel<int>(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S557. The same for a method of a base type.
+    public static Cell<int> VirtualMethodOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ShownBase s = new GenericShower<int>(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S558. A call of ToString that the code writes.
+    public static Cell<int> ToStringOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericLabel<int> x = new(l.Map(v => v)); Kept.Add(x.ToString()); return S.Hold(0); });
+
+    // S559. A property of the object has the state that the constructor gave it.
+    public static Cell<int> PropertyOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericBox<Cell<int>> box = new(l.Map(v => v)); return S.Hold(box.Value.Sample()); });
+
+    // S560. A list of such objects is not one of them. This shape and the one after it return.
+    public static Cell<int> ListOfGenericObjectsToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<GenericLabel<int>> all = [new(l.Map(v => v))]; Kept.Add(all.ToString()!); return S.Hold(0); });
+
+    // S561. The sequence is not generic, thus the type arguments of its interface are known. A sequence of
+    // strings cannot be that object.
+    public static Cell<int> QueryOfTextOverASequenceWithToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledPile pile = new(l.Map(v => v)); IEnumerable<string> names = pile.Select(x => "a"); Kept.Add(names.ToString()!); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -3895,6 +3950,76 @@ public static class Shapes
         {
             yield return share.Sample();
         }
+    }
+
+    public sealed class GenericBox<T>(T value)
+    {
+        public T Value { get; } = value;
+    }
+
+    public interface IShown
+    {
+        string Show();
+    }
+
+    public sealed class GenericLabel<T>(Cell<T> share) : IShown
+    {
+        public string Show() => share.Sample()!.ToString()!;
+
+        public override string ToString() => share.Sample()!.ToString()!;
+    }
+
+    public sealed class GenericPile<T>(Cell<T> share) : IEnumerable<T>
+    {
+        public IEnumerator<T> GetEnumerator()
+        {
+            yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class GenericGrade<T>(Cell<T> share) : IComparable<GenericGrade<T>>
+        where T : IComparable<T>
+    {
+        public int CompareTo(GenericGrade<T>? other) => this.Read().CompareTo(other == null ? default! : other.Read());
+
+        private T Read() => share.Sample();
+    }
+
+    public sealed class GenericCloser<T>(Cell<T> share) : IDisposable
+    {
+        public void Dispose() => Kept.Add(share.Sample()!);
+    }
+
+    public abstract class ShownBase
+    {
+        public abstract string Show();
+    }
+
+    public sealed class GenericShower<T>(Cell<T> share) : ShownBase
+    {
+        public override string Show() => share.Sample()!.ToString()!;
+    }
+
+    public static class GenericOuter<T>
+    {
+        public sealed class Label(Cell<T> share)
+        {
+            public override string ToString() => share.Sample()!.ToString()!;
+        }
+    }
+
+    public sealed class TitledPile(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator()
+        {
+            yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+
+        public override string ToString() => share.Sample().ToString();
     }
 
     private static Ranked Itself(Ranked r) => r;

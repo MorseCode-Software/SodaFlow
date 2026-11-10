@@ -23,6 +23,9 @@ namespace SodaFlow.Analyzers;
 /// </param>
 internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> members, in INamedTypeSymbol? type)
 {
+    // The type is the definition of the type of the object. For a generic type, the code names
+    // that type with its type arguments, which the definition does not have.
+    private readonly bool isGeneric = HasTypeParameters(type);
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
     private readonly INamedTypeSymbol? type = type;
 
@@ -72,13 +75,34 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
 
         for (INamedTypeSymbol? current = this.type; current != null; current = current.BaseType)
         {
-            if (SymbolEqualityComparer.Default.Equals(x: current, y: type))
+            if (this.IsSame(candidate: current, type: type))
             {
                 return true;
             }
         }
 
-        return this.type.AllInterfaces.Any(contract => SymbolEqualityComparer.Default.Equals(x: contract, y: type));
+        return this.type.AllInterfaces.Any(contract => this.IsSame(candidate: contract, type: type));
+    }
+
+    // The type arguments of a generic object are not known here. For such an object, two types
+    // are the same when they have one definition.
+    private bool IsSame(ISymbol candidate, ISymbol type) =>
+        SymbolEqualityComparer.Default.Equals(x: candidate, y: type)
+        || (this.isGeneric
+            && SymbolEqualityComparer.Default.Equals(x: candidate.OriginalDefinition, y: type.OriginalDefinition));
+
+    // A type in a generic type has the type parameters of that type.
+    private static bool HasTypeParameters(INamedTypeSymbol? type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.ContainingType)
+        {
+            if (!current.TypeParameters.IsEmpty)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
