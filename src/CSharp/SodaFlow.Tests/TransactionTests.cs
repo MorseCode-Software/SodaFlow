@@ -446,6 +446,48 @@ public sealed class TransactionTests
         await Assert.That(seen).IsEmpty();
     }
 
+    // The first transaction here defers nothing itself, thus it has no queue for splits when the
+    // posted action runs. The posted action makes that queue, and the first transaction must
+    // keep it, or the listener does not get the value.
+    [Test]
+    public async Task APostedActionThatCommitsDefersItsValue()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
+
+        Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1)));
+
+        await Assert.That(seen).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
+    // The first transaction here posts nothing itself, thus the item 1 makes the queue for posts,
+    // and the item 1 is the one that fails. Its post must not run, and the release of that post
+    // must run. The posts of the items 2 and 3 run.
+    [Test]
+    public async Task TheFirstSplitItemToPostCanFail()
+    {
+        StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
+        Stream<int> items = Operational.Split<int, List<int>>(sink);
+        List<int> posted = [];
+        List<int> released = [];
+
+        using IStrongListener l =
+            items.ListenStrong(item =>
+                Transaction.Post(action: () => posted.Add(item), onFailure: _ => released.Add(item)));
+
+        using IStrongListener thrower =
+            items.Map(static item => item)
+                .Map(static item => item)
+                .Filter(static item => item == 1)
+                .ListenStrong(static _ => throw new InvalidOperationException("1"));
+
+        await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(posted).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(released).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
     // A split item also has a transaction of its own. The item 2 fails that transaction after its
     // listener posted, and the posts of the items 1 and 3 run.
     [Test]
