@@ -91,6 +91,10 @@ Transaction.RunVoid no longer wraps its action in a closure and a delegate of it
 empty RunVoid from outside a transaction measures 55 ns and 288 bytes to 36 ns and 112 bytes on .NET 10, and one
 inside an open transaction 27 ns and 176 bytes to 6 ns and nothing; the core notes have the rest.
 
+Operational.Defer and Operational.Split allocate less with SodaFlow.Core 6.0.0, which keeps the splits of a transaction
+in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
+elements 8,720 to 7,208; the core notes have the rest.
+
 FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with SodaFlow.Functional 4.0.0. They call
 MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.
 Nothing in this package changed for it.

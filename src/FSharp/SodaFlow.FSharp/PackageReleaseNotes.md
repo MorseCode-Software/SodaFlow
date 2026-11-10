@@ -63,6 +63,10 @@ Transaction.run no longer allocates a closure and a delegate of its own. With So
 a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
 the rest.
 
+Operational.defer and Operational.split allocate less with SodaFlow.Core 6.0.0, which keeps the splits of a transaction
+in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
+elements 8,720 to 7,208; the core notes have the rest.
+
 Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
 takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local
 time moves with the machine's clock at a daylight saving change, and a wait across that change waits for the wrong

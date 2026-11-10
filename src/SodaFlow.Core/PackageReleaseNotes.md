@@ -346,20 +346,22 @@ went straight into the queues of that first transaction. When the child then fai
 a listener while it propagated, nothing took that work out again: the actions it had posted ran, their releases did not,
 and the values it had sent through Defer or Split arrived in later transactions, although the transaction that produced
 them was discarded. The first transaction always dropped what it had deferred when it failed, so the two paths
-disagreed. A child now holds its posts and its splits apart until it commits, and only then do they join the queues, in
-the order they had before. When it fails they go with it, and the release of each post runs with the child's exception
-as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for the first
-transaction.
+disagreed. What a child defers is at the end of each queue, after whatever was there when the child started, so a child
+that fails now has the queues put back to where they were, and the release of each post that goes runs with the child's
+exception as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for
+the first transaction.
 
-The work a child holds waits in two lists that the whole process shares under the transaction lock, so a child that
-defers allocates nothing for it, and a transaction no longer keeps a reference to the one it defers into, which makes
-each transaction 8 bytes smaller. DeferredWorkBenchmarks in SodaFlow.Benchmarks measures the paths where nothing fails,
-on .NET 10: a post from a transaction 456 B to 440 B, a post from a posted action 672 to 648, a defer 1,376 to 1,360, a
-defer after a defer 2,208 to 2,184, and a defer from each of 8 split elements 8,720 to 8,640. The empty transaction that
-an entry above measured at 112 bytes is 104. The time on .NET 10 is the same within the noise of the run. On .NET
-Framework 4.7.2 a child that defers pays for the extra step: a post from a posted action measures 369 ns to 393 ns, a
-defer after a defer 1,599 ns to 1,655 ns, and the 8 split elements 7,381 ns to 7,525 ns, which is 2% to 7%. A post or a
-defer from the first transaction is unchanged there.
+Changed: the queue behind Defer and Split is a list in order of arrival, sorted by position when a round of it runs,
+where it was a dictionary from a position to one delegate that joined every split at that position. The splits at one
+position still run in one transaction, in the order they were made, and the positions still run in order. That is what
+lets a failed child's splits be cut off the end, and it allocates less: no dictionary and key array for each round, and
+no delegate that grows when several splits share a position. A transaction also no longer keeps a reference to the one
+it defers into, which makes each transaction 8 bytes smaller. DeferredWorkBenchmarks in SodaFlow.Benchmarks measures the
+paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B to 440 B, a post from a posted action
+672 to 648, a defer 1,376 to 1,208, a defer after a defer 2,208 to 1,880, and a defer from each of 8 split elements
+8,720 to 7,208. The empty transaction that an entry above measured at 112 bytes is 104. Time on .NET Framework 4.7.2,
+where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
+posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
 
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
