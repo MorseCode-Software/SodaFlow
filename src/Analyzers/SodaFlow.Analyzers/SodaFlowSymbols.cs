@@ -76,6 +76,8 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresEnumerators;
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
+    private readonly Lazy<PlatformCallbacks> declaredCallbacks;
+    private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
@@ -101,15 +103,40 @@ internal sealed class SodaFlowSymbols
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
+        Lazy<bool> declaresCompareTo = Declares(compilation: compilation, name: "CompareTo");
+        Lazy<bool> declaresEquals = Declares(compilation: compilation, name: "Equals");
+        Lazy<bool> declaresGetHashCode = Declares(compilation: compilation, name: "GetHashCode");
+
+        this.declaredCallbacks =
+            new Lazy<PlatformCallbacks>(() =>
+                (declaresCompareTo.Value ? PlatformCallbacks.Compare : PlatformCallbacks.None)
+                | (declaresEquals.Value ? PlatformCallbacks.Equals : PlatformCallbacks.None)
+                | (declaresGetHashCode.Value ? PlatformCallbacks.Hash : PlatformCallbacks.None)
+                | (this.declaresToString.Value ? PlatformCallbacks.Text : PlatformCallbacks.None));
+
+        this.declaresPlatformMembers =
+            new Lazy<bool>(() => this.DeclaresEnumerators || this.DeclaredCallbacks != PlatformCallbacks.None);
+
         this.declaresOperators =
             new Lazy<bool>(() =>
                 compilation.ContainsSymbolsWithName(
                     predicate: static name => name.StartsWith(value: "op_", comparisonType: StringComparison.Ordinal),
                     filter: SymbolFilter.Member));
 
+        INamedTypeSymbol root = compilation.GetSpecialType(SpecialType.System_Object);
+
         this.ObjectToString =
-            compilation.GetSpecialType(SpecialType.System_Object)
-                .GetMembers("ToString")
+            root.GetMembers("ToString")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(static method => method.Parameters.IsEmpty);
+
+        this.ObjectEquals =
+            root.GetMembers("Equals")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(static method => method is { IsStatic: false, Parameters.Length: 1 });
+
+        this.ObjectGetHashCode =
+            root.GetMembers("GetHashCode")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(static method => method.Parameters.IsEmpty);
 
@@ -125,11 +152,12 @@ internal sealed class SodaFlowSymbols
     ///     A collection initializer can call it.
     /// </summary>
     /// <remarks>
-    ///     This and the six properties after it are the same test for different
-    ///     names. The walk asks one before it asks the compiler what a node calls.
-    ///     Most compilations declare few of these members, and the question to the
-    ///     compiler is most of the cost of the analyzer. The answer comes from the
-    ///     names that the compilation declares, with no binding.
+    ///     Each property with a name that starts with <c>Declares</c> is the same
+    ///     test for a different name. The walk asks one before it asks the compiler
+    ///     what a node calls. Most compilations declare few of these members, and
+    ///     the question to the compiler is most of the cost of the analyzer. The
+    ///     answer comes from the names that the compilation declares, with no
+    ///     binding.
     /// </remarks>
     public bool DeclaresAdd => this.declaresAdd.Value;
 
@@ -148,6 +176,13 @@ internal sealed class SodaFlowSymbols
     /// <summary>True when the compilation declares an operator or a conversion.</summary>
     public bool DeclaresOperators => this.declaresOperators.Value;
 
+    /// <summary>
+    ///     True when the compilation declares a member that code of the platform
+    ///     calls on an object which it gets. Most compilations declare one, and a
+    ///     compilation that declares none has no such call to follow.
+    /// </summary>
+    public bool DeclaresPlatformMembers => this.declaresPlatformMembers.Value;
+
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;
 
@@ -157,8 +192,27 @@ internal sealed class SodaFlowSymbols
     /// </summary>
     public bool DeclaresTruth => this.declaresTruth.Value;
 
+    /// <summary>
+    ///     The members that the compilation declares, of those that code of the
+    ///     platform calls on an object which it gets. They are <c>CompareTo</c>,
+    ///     <c>Equals</c>, <c>GetHashCode</c>, and <c>ToString</c>.
+    /// </summary>
+    public PlatformCallbacks DeclaredCallbacks => this.declaredCallbacks.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a member that a collection of the
+    ///     platform calls on an element or a key.
+    /// </summary>
+    public bool DeclaresKeyMembers => (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None;
+
     /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
     public IMethodSymbol? ObjectToString { get; }
+
+    /// <summary><c>Equals</c> of <c>object</c>, with one parameter.</summary>
+    public IMethodSymbol? ObjectEquals { get; }
+
+    /// <summary><c>GetHashCode</c> of <c>object</c>.</summary>
+    public IMethodSymbol? ObjectGetHashCode { get; }
 
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
@@ -255,6 +309,79 @@ internal sealed class SodaFlowSymbols
     public static bool IsComparerInterface(INamedTypeSymbol type) =>
         type is { TypeKind: TypeKind.Interface, Name: "IComparer" or "IEqualityComparer" }
         && type.ContainingNamespace?.ToDisplayString() is "System.Collections.Generic" or "System.Collections";
+
+    /// <summary>True for an <c>IComparable</c> interface of the platform.</summary>
+    public static bool IsComparableInterface(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Interface, Name: "IComparable" } && IsSystem(type.ContainingNamespace);
+
+    /// <summary>True for <c>IEquatable</c> of the platform.</summary>
+    public static bool IsEquatableInterface(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Interface, Name: "IEquatable" } && IsSystem(type.ContainingNamespace);
+
+    /// <summary>True for an <c>IEnumerable</c> interface of the platform.</summary>
+    public static bool IsEnumerableInterface(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Interface, Name: "IEnumerable" } && IsCollections(type.ContainingNamespace);
+
+    /// <summary>True for an <c>IEnumerator</c> interface of the platform.</summary>
+    public static bool IsEnumeratorInterface(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Interface, Name: "IEnumerator" } && IsCollections(type.ContainingNamespace);
+
+    /// <summary>
+    ///     The type of the elements of a sequence: an array, or a type that is
+    ///     <c>IEnumerable</c> of some type. Null for each other type, and for a
+    ///     string.
+    /// </summary>
+    public static ITypeSymbol? ElementTypeOf(ITypeSymbol? type) =>
+        type switch
+        {
+            IArrayTypeSymbol array => array.ElementType,
+            INamedTypeSymbol { SpecialType: SpecialType.System_String } => null,
+            INamedTypeSymbol named =>
+                named.AllInterfaces
+                    .Insert(index: 0, item: named)
+                    .FirstOrDefault(static candidate => candidate.IsGenericType && IsEnumerableInterface(candidate))
+                    ?.TypeArguments[0],
+            _ => null
+        };
+
+    /// <summary>
+    ///     True for a type whose values a callee enumerates or reads as elements:
+    ///     an array, a span, or a type that is <c>IEnumerable</c>. A string is not
+    ///     one here.
+    /// </summary>
+    public static bool IsSequence(ITypeSymbol? type) =>
+        type switch
+        {
+            IArrayTypeSymbol => true,
+            INamedTypeSymbol { SpecialType: SpecialType.System_String } => false,
+            INamedTypeSymbol named =>
+                IsEnumerableInterface(named)
+                || named.AllInterfaces.Any(IsEnumerableInterface)
+                || (named.Name is "Span" or "ReadOnlySpan" && IsSystem(named.ContainingNamespace)),
+            _ => false
+        };
+
+    /// <summary>
+    ///     True for a symbol of the platform: one in the <c>System</c> namespace,
+    ///     or in a namespace in it.
+    /// </summary>
+    public static bool IsPlatform(ISymbol symbol)
+    {
+        INamespaceSymbol? space = symbol.ContainingNamespace;
+
+        while (space is { ContainingNamespace.IsGlobalNamespace: false })
+        {
+            space = space.ContainingNamespace;
+        }
+
+        return IsSystem(space);
+    }
+
+    private static bool IsSystem(INamespaceSymbol? space) =>
+        space is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
+
+    private static bool IsCollections(ISymbol? space) =>
+        space?.ToDisplayString() is "System.Collections.Generic" or "System.Collections";
 
     /// <summary>True for the <c>Value</c> property of <c>System.Lazy</c>.</summary>
     public static bool IsLazyValue(IPropertySymbol property) =>

@@ -858,11 +858,21 @@ internal sealed class LoopStateEvaluator
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
 
+        // The receiver of an extension method is the argument of its first parameter. A callee
+        // that enumerates a sequence of this compilation gets its elements also.
+        LoopState seed =
+            !withReceiver
+                ? LoopState.None
+                : method.ReducedFrom == null
+                    ? this.Eval(receiver)
+                    : this.Eval(receiver)
+                        .Join(this.Enumerated(written: receiver, parameter: definition.Parameters[0].Type));
+
         return this.MovedArguments(
             definition: definition,
             arguments: invocation.ArgumentList.Arguments,
             offset: method.ReducedFrom != null ? 1 : 0,
-            seed: withReceiver ? this.Eval(receiver) : LoopState.None);
+            seed: seed);
     }
 
     private LoopState MovedArguments(
@@ -884,11 +894,18 @@ internal sealed class LoopStateEvaluator
         // A function for a delegate parameter is code for the callee to run, and not a value that
         // it moves.
         return arguments
-            .Where((argument, position) =>
-                keepsFunctions
-                || SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: position + offset)
-                    is not { Type.TypeKind: TypeKind.Delegate })
-            .Aggregate(seed: seed, func: (moved, argument) => moved.Join(this.Eval(argument.Expression)));
+            .Select((argument, position) =>
+                (Written: argument.Expression,
+                    Parameter: SodaFlowSymbols.ParameterOf(
+                        callee: definition,
+                        argument: argument,
+                        position: position + offset)))
+            .Where(given => keepsFunctions || given.Parameter is not { Type.TypeKind: TypeKind.Delegate })
+            .Aggregate(
+                seed: seed,
+                func: (moved, given) =>
+                    moved.Join(this.Eval(given.Written))
+                        .Join(this.Enumerated(written: given.Written, parameter: given.Parameter?.Type)));
     }
 
     /// <summary>
@@ -1674,6 +1691,389 @@ internal sealed class LoopStateEvaluator
         && this.Self(resource) is { Members: not null } owner
             ? this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: [])
             : null;
+
+    /// <summary>
+    ///     The members of objects of this compilation that a call to code of the
+    ///     platform runs, with no call of them in this code.
+    ///     <see cref="PlatformCallers" /> says which members a method calls. A
+    ///     callee that gets a sequence of this compilation also enumerates it.
+    /// </summary>
+    /// <remarks>
+    ///     A report about such a member is at the value that has it, and not at
+    ///     the call. One call can give two values, and each has its own members.
+    /// </remarks>
+    public Followed? FollowPlatformCall(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!this.region.Symbols.DeclaresPlatformMembers)
+        {
+            return null;
+        }
+
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        List<Operand> operands = [];
+
+        // In a static call of an extension method, the receiver is one of the arguments. In a call
+        // on the receiver, it is the argument of the first parameter.
+        if (receiver != null && arguments.All(argument => argument.Expression != receiver))
+        {
+            operands.Add(
+                method.ReducedFrom != null
+                    ? new Operand(written: receiver, parameter: definition.Parameters[0].Type, isReceiver: false)
+                    : new Operand(written: receiver, parameter: null, isReceiver: true));
+        }
+
+        operands.AddRange(
+            arguments.Select((argument, position) =>
+                new Operand(
+                    written: argument.Expression,
+                    parameter: ParameterFor(method: method, argument: argument, position: position)?.Type,
+                    isReceiver: false)));
+
+        return this.FollowPlatform(
+            method: method,
+            operands: operands,
+            also: LoopState.None,
+            given: () => this.Moved(invocation: invocation, method: method, withReceiver: true),
+            returned: () => this.Follow(invocation)?.State ?? LoopState.None);
+    }
+
+    /// <summary>The same as <see cref="FollowPlatformCall" />, for a constructor of the platform.</summary>
+    public Followed? FollowPlatformCreation(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        this.region.Symbols.DeclaresPlatformMembers
+            ? this.FollowPlatform(
+                method: constructor,
+                operands:
+                [
+                    .. arguments.Select((argument, position) =>
+                        new Operand(
+                            written: argument.Expression,
+                            parameter: SodaFlowSymbols.ParameterOf(
+                                    callee: constructor.OriginalDefinition,
+                                    argument: argument,
+                                    position: position)
+                                ?.Type,
+                            isReceiver: false))
+                ],
+                also: LoopState.None,
+                given: null,
+                returned: null)
+            : null;
+
+    /// <summary>
+    ///     The same as <see cref="FollowPlatformCall" />, for a member of the
+    ///     platform that the code calls with no call syntax. It is the
+    ///     <c>Add</c> of a collection initializer or of a collection expression, or
+    ///     an accessor of an indexer.
+    /// </summary>
+    /// <param name="member">The method or the accessor.</param>
+    /// <param name="collection">The collection, which has the values that it got before.</param>
+    /// <param name="values">The values that the member gets, in the order of its parameters.</param>
+    public Followed? FollowPlatformMember(
+        IMethodSymbol member,
+        ExpressionSyntax? collection,
+        IEnumerable<ExpressionSyntax> values)
+    {
+        if (!this.region.Symbols.DeclaresKeyMembers
+            || PlatformCallers.Of(member) == PlatformCallbacks.None)
+        {
+            return null;
+        }
+
+        ImmutableArray<IParameterSymbol> parameters = member.OriginalDefinition.Parameters;
+
+        return this.FollowPlatform(
+            method: member,
+            operands:
+            [
+                .. values.Select((value, position) =>
+                    new Operand(
+                        written: value,
+                        parameter: position < parameters.Length ? parameters[position].Type : null,
+                        isReceiver: false))
+            ],
+            also: this.Eval(collection),
+            given: null,
+            returned: null);
+    }
+
+    /// <summary>
+    ///     The calls that code of the platform makes when it enumerates a sequence
+    ///     of this compilation. The first is <c>GetEnumerator</c>. The others are
+    ///     <c>MoveNext</c> and <c>Current</c> of an enumerator of this compilation.
+    ///     The result has the state of the elements. It is null for a value that is
+    ///     not such a sequence.
+    /// </summary>
+    /// <remarks>
+    ///     A query of the platform enumerates its source when something
+    ///     enumerates the query, which can be after the block. The analyzer reads
+    ///     the call as the time, as it does for a function that a query gets.
+    /// </remarks>
+    public Followed? FollowEnumeration(ExpressionSyntax written)
+    {
+        if (!this.region.Symbols.DeclaresEnumerators
+            || this.Self(written) is not { Members: { HasType: true } members } sequence)
+        {
+            return null;
+        }
+
+        IMethodSymbol[] starts = [.. members.Implementations(SodaFlowSymbols.IsEnumerableInterface)];
+
+        // The method for the generic interface. The other one calls it.
+        IMethodSymbol? start =
+            starts.FirstOrDefault(static method => method.ReturnType is INamedTypeSymbol { IsGenericType: true })
+            ?? starts.FirstOrDefault();
+
+        if (start == null
+            || this.FollowImplied(call: written, member: start, owner: sequence, arguments: []) is not { } enumerator)
+        {
+            return null;
+        }
+
+        // An iterator has no enumerator object of this compilation, and a method can give the
+        // enumerator of a collection of the platform. The result then has the state of the
+        // elements.
+        if (enumerator.State.Members is not { } made || !made.Is(start.ReturnType))
+        {
+            return enumerator;
+        }
+
+        Followed? all = enumerator;
+        LoopState elements = LoopState.None;
+
+        foreach (IMethodSymbol member in made.Implementations(SodaFlowSymbols.IsEnumeratorInterface))
+        {
+            if (member.Name is "Reset" || !member.Parameters.IsEmpty)
+            {
+                continue;
+            }
+
+            Followed? step = this.FollowImplied(call: written, member: member, owner: enumerator.State, arguments: []);
+            all = Both(first: all, second: step);
+
+            if (member.MethodKind == MethodKind.PropertyGet)
+            {
+                elements = elements.Join(step?.State ?? LoopState.None);
+            }
+        }
+
+        return new Followed(
+            state: elements,
+            findings: all?.Findings ?? ImmutableArray<Finding>.Empty,
+            outs: Followed.Nothing.Outs);
+    }
+
+    /// <summary>
+    ///     The call that the getter of an indexer of the platform makes on its
+    ///     key, as the indexer of a dictionary does.
+    /// </summary>
+    public Followed? FollowPlatformIndexer(ElementAccessExpressionSyntax access) =>
+        this.region.Symbols.DeclaresKeyMembers
+        && this.region.SymbolOf(access)
+            is IPropertySymbol { GetMethod: { DeclaringSyntaxReferences.IsEmpty: true } getter }
+            ? this.FollowPlatformMember(
+                member: getter,
+                collection: access.Expression,
+                values: access.ArgumentList.Arguments.Select(static index => index.Expression))
+            : null;
+
+    private Followed? FollowPlatform(
+        IMethodSymbol method,
+        IReadOnlyCollection<Operand> operands,
+        LoopState also,
+        Func<LoopState>? given,
+        Func<LoopState>? returned)
+    {
+        // A callee that gets a sequence enumerates it.
+        Followed? all =
+            operands
+                .Where(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
+                .Aggregate(
+                    seed: (Followed?)null,
+                    func: (followed, operand) =>
+                        Both(first: followed, second: this.FollowEnumeration(operand.Written)));
+
+        PlatformCallbacks callbacks = PlatformCallers.Of(method) & this.region.Symbols.DeclaredCallbacks;
+
+        // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
+        // GetHashCode of an object.
+        if (operands.Any(static operand => IsComparison(operand.Parameter)))
+        {
+            callbacks &= PlatformCallbacks.Text;
+        }
+
+        if (callbacks == PlatformCallbacks.None)
+        {
+            return all;
+        }
+
+        ImmutableArray<ITypeSymbol> compared = PlatformCallers.ComparedTypes(method);
+
+        // A callee that gets a function compares what the function returns, as a sort by a key
+        // does. It does not compare the values that it gives to the function.
+        bool byFunction = operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
+        List<(ExpressionSyntax Written, LoopState State, Construction Members)> owners = [];
+
+        foreach (Operand operand in operands)
+        {
+            if (byFunction)
+            {
+                if (given != null && operand.Written is AnonymousFunctionExpressionSyntax lambda)
+                {
+                    LoopState parameters = given();
+
+                    LoopState result =
+                        this.EvalLambdaResult(
+                            lambda: lambda,
+                            boundParameters: ParametersOf(lambda).Select(_ => parameters).ToImmutableArray());
+
+                    owners.AddRange(
+                        CallbackOwners(state: result, written: null, asSequence: false, compared: compared)
+                            .Select(owner => (operand.Written, owner.State, owner.Members)));
+                }
+                else if (returned != null && operand.Parameter?.TypeKind == TypeKind.Delegate)
+                {
+                    // A method, a local function, or a lambda in a local. The evaluator follows it
+                    // as the call of it, and that result has the state of what it returns.
+                    owners.AddRange(
+                        CallbackOwners(state: returned(), written: null, asSequence: false, compared: compared)
+                            .Select(owner => (operand.Written, owner.State, owner.Members)));
+                }
+
+                continue;
+            }
+
+            // A method that makes text from its arguments does not read its receiver, which has
+            // the text so far.
+            if (callbacks == PlatformCallbacks.Text && operand.IsReceiver && operands.Count > 1)
+            {
+                continue;
+            }
+
+            owners.AddRange(
+                CallbackOwners(
+                        state: this.Eval(operand.Written),
+                        written: this.TypeBeforeObject(operand.Written),
+                        asSequence: operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter),
+                        compared: compared)
+                    .Select(owner => (operand.Written, owner.State, owner.Members)));
+        }
+
+        if (owners.Count == 0)
+        {
+            return all;
+        }
+
+        // The platform gives one object to a member of a second one, as a sort does to CompareTo.
+        // The analyzer does not know which of them gets the call. Thus, each object can be the
+        // parameter.
+        LoopState others = owners.Aggregate(seed: also, func: static (joined, owner) => joined.Join(owner.State));
+
+        return owners.Aggregate(
+            seed: all,
+            func: (followed, owner) =>
+            {
+                // A member with a parameter gets one more of the objects.
+                (ExpressionSyntax Written, LoopState State)[] one = [(owner.Written, others)];
+
+                return this.CallbackMembers(members: owner.Members, callbacks: callbacks)
+                    .Aggregate(
+                        seed: followed,
+                        func: (found, member) =>
+                            Both(
+                                first: found,
+                                second: this.FollowImplied(
+                                    call: owner.Written,
+                                    member: member,
+                                    owner: owner.State,
+                                    arguments: member.Parameters.Length == 1 ? one : [])));
+            });
+    }
+
+    /// <summary>
+    ///     The objects of this compilation in a value that a method of the
+    ///     platform gets, when the method can call a member of them. The value is
+    ///     such an object, a sequence of them, or a tuple that has one.
+    /// </summary>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="written">The type of the expression for the value. Null when it is not known.</param>
+    /// <param name="asSequence">True when the method reads the elements of a sequence that it gets here.</param>
+    /// <param name="compared">The types of the values that the method compares. Empty for each type.</param>
+    private static IEnumerable<(LoopState State, Construction Members)> CallbackOwners(
+        LoopState state,
+        ITypeSymbol? written,
+        bool asSequence,
+        ImmutableArray<ITypeSymbol> compared)
+    {
+        if (state.Members is not { } members)
+        {
+            return [];
+        }
+
+        if (!members.HasType)
+        {
+            return members.TupleElements.SelectMany(element =>
+                CallbackOwners(state: element, written: null, asSequence: false, compared: compared));
+        }
+
+        // A list has the members of its elements in its state. The list is one of those objects
+        // only for a method that reads elements.
+        bool isOwner =
+            written == null
+            || members.Is(written)
+            || (asSequence && members.Is(SodaFlowSymbols.ElementTypeOf(written)));
+
+        return isOwner && (compared.IsEmpty || compared.Any(members.Is)) ? [(state, members)] : [];
+    }
+
+    private IEnumerable<IMethodSymbol> CallbackMembers(Construction members, PlatformCallbacks callbacks)
+    {
+        SodaFlowSymbols symbols = this.region.Symbols;
+
+        if ((callbacks & PlatformCallbacks.Compare) != PlatformCallbacks.None)
+        {
+            foreach (IMethodSymbol compare in members.Implementations(SodaFlowSymbols.IsComparableInterface))
+            {
+                yield return compare;
+            }
+        }
+
+        if ((callbacks & PlatformCallbacks.Equals) != PlatformCallbacks.None)
+        {
+            foreach (IMethodSymbol typed in members.Implementations(SodaFlowSymbols.IsEquatableInterface))
+            {
+                yield return typed;
+            }
+
+            if (symbols.ObjectEquals is { } general)
+            {
+                yield return general;
+            }
+        }
+
+        if ((callbacks & PlatformCallbacks.Hash) != PlatformCallbacks.None && symbols.ObjectGetHashCode is { } hash)
+        {
+            yield return hash;
+        }
+
+        if ((callbacks & PlatformCallbacks.Text) != PlatformCallbacks.None && symbols.ObjectToString is { } text)
+        {
+            yield return text;
+        }
+    }
+
+    // A comparer, or a delegate of the type Comparison, which a sort can get.
+    private static bool IsComparison(ITypeSymbol? type) =>
+        SodaFlowSymbols.IsComparer(type)
+        || type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, Name: "Comparison" };
+
+    // The elements that a callee gets from a sequence of this compilation, when the callee
+    // enumerates what it gets for the parameter.
+    private LoopState Enumerated(ExpressionSyntax? written, ITypeSymbol? parameter) =>
+        written != null && SodaFlowSymbols.IsSequence(parameter)
+            ? this.FollowEnumeration(written)?.State ?? LoopState.None
+            : LoopState.None;
 
     /// <summary>
     ///     The call of a <c>Deconstruct</c> method. Each parameter gets an
@@ -2660,6 +3060,17 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>One argument of a call, with the parameter of the callee that gets it.</summary>
+    // One value that a call gives to code of the platform. The parameter is the type that the
+    // definition of the callee has for it. It is null for the receiver of a method of the callee.
+    private readonly struct Operand(in ExpressionSyntax written, in ITypeSymbol? parameter, in bool isReceiver)
+    {
+        public ExpressionSyntax Written { get; } = written;
+
+        public ITypeSymbol? Parameter { get; } = parameter;
+
+        public bool IsReceiver { get; } = isReceiver;
+    }
+
     private readonly struct Binding(in IParameterSymbol parameter, in ExpressionSyntax argument, in LoopState state)
     {
         public IParameterSymbol Parameter { get; } = parameter;

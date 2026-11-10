@@ -36,6 +36,7 @@
         <Compile Include="LibraryAssembliesTests.cs"/>
         <Compile Include="LoopReadAnalyzerTests.cs"/>
         <Compile Include="OperatorTableTests.cs"/>
+        <Compile Include="PlatformCallersTests.cs"/>
     </ItemGroup>
 
     <!--

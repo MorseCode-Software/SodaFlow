@@ -45,6 +45,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // operator, or a conversion.
         this.Report(this.evaluator.FollowExpression(expression));
 
+        // The indexer of a dictionary of the platform calls a member of the key.
+        if (expression is ElementAccessExpressionSyntax keyed)
+        {
+            this.Report(this.evaluator.FollowPlatformIndexer(keyed));
+        }
+
         if (ConvertsHere(expression))
         {
             this.Report(this.evaluator.FollowConversion(expression));
@@ -563,8 +569,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 _ => null
             };
 
-        if (accessor == null || accessor.DeclaringSyntaxReferences.IsEmpty)
+        if (accessor == null)
         {
+            return;
+        }
+
+        if (accessor.DeclaringSyntaxReferences.IsEmpty)
+        {
+            // The indexer of a dictionary of the platform calls a member of the key.
+            if (node.Left is ElementAccessExpressionSyntax keyed)
+            {
+                this.Report(
+                    this.evaluator.FollowPlatformMember(
+                        member: accessor,
+                        collection: keyed.Expression,
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+            }
+
             return;
         }
 
@@ -850,6 +871,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    public override void VisitCollectionExpression(CollectionExpressionSyntax node)
+    {
+        base.VisitCollectionExpression(node);
+
+        // A spread enumerates its value.
+        foreach (SpreadElementSyntax spread in node.Elements.OfType<SpreadElementSyntax>())
+        {
+            this.Report(this.evaluator.FollowEnumeration(spread.Expression));
+        }
+
+        // A collection expression for a set of the platform calls Add for each element, and that
+        // Add calls a member of the element.
+        if (!this.region.Symbols.DeclaresKeyMembers
+            || this.region.ModelFor(node).GetTypeInfo(node).ConvertedType is not INamedTypeSymbol made
+            || !SodaFlowSymbols.IsPlatform(made)
+            || made.GetMembers("Add").OfType<IMethodSymbol>().FirstOrDefault(static add => add.Parameters.Length == 1)
+                is not { } add)
+        {
+            return;
+        }
+
+        this.Report(
+            this.evaluator.FollowPlatformMember(
+                member: add,
+                collection: node,
+                values: node.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression)));
+    }
+
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
         // An object initializer names a member and gives it a value. Only the value is code that
@@ -885,6 +934,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (setsMembers)
         {
+            // An initializer with an index calls the indexer, and the indexer of a dictionary of
+            // the platform calls a member of the key.
+            if (expression is AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax keyed }
+                && this.region.Symbols.DeclaresKeyMembers
+                && this.region.SymbolOf(keyed) is IPropertySymbol { SetMethod: { } indexer })
+            {
+                this.Report(
+                    this.evaluator.FollowPlatformMember(
+                        member: indexer,
+                        collection: made,
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+            }
+
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
                 && this.region.SymbolOf(name) is IPropertySymbol
                 {
@@ -903,7 +965,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         if (!initializer.IsKind(SyntaxKind.CollectionInitializerExpression)
-            || !this.region.Symbols.DeclaresAdd
+            || !(this.region.Symbols.DeclaresAdd || this.region.Symbols.DeclaresKeyMembers)
             || this.region.ModelFor(expression).GetCollectionInitializerSymbolInfo(expression).Symbol
                 is not IMethodSymbol add)
         {
@@ -915,6 +977,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // the other arm, and the conversion gives an empty list.
         IEnumerable<ExpressionSyntax> values =
             expression is InitializerExpressionSyntax several ? several.Expressions : new[] { expression };
+
+        // An Add of the platform can call a member of the element, as the Add of a set does.
+        if (add.DeclaringSyntaxReferences.IsEmpty)
+        {
+            this.Report(this.evaluator.FollowPlatformMember(member: add, collection: made, values: values));
+
+            return;
+        }
 
         // An extension method gets the collection as its first argument.
         IEnumerable<ExpressionSyntax> given = add.IsStatic ? values.Prepend(made) : values;
@@ -984,6 +1054,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 }
 
                 this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved);
+
+                // The callee can call a member of an object that it gets, as a sort calls CompareTo.
+                this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
 
                 break;
             }
@@ -1075,9 +1148,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(initializer);
         this.Report(this.evaluator.Follow(node));
 
-        if (kind == CalleeKind.Unknown && arguments != null)
+        if (arguments == null)
         {
-            this.CheckEscapes(callee: constructor, arguments: arguments.Arguments);
+            return;
+        }
+
+        switch (kind)
+        {
+            case CalleeKind.Unknown:
+                this.CheckEscapes(callee: constructor, arguments: arguments.Arguments);
+
+                break;
+            // A constructor of the platform can call a member of an object that it gets, as the
+            // constructor of a set does.
+            case CalleeKind.Mover:
+                this.Report(
+                    this.evaluator.FollowPlatformCreation(
+                        constructor: constructor,
+                        arguments: arguments.Arguments));
+
+                break;
+            // The evaluator followed the body, and the library has no constructor to read.
+            case CalleeKind.Body:
+            case CalleeKind.Library:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(paramName: nameof(node), message: "A callee kind has no case.");
         }
     }
 

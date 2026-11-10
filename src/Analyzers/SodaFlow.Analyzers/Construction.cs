@@ -89,6 +89,15 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     /// </summary>
     public bool CanBe(ITypeSymbol? type) => this.type == null || type == null || this.Is(type);
 
+    /// <summary>True when the evaluator knows the type of this object.</summary>
+    public bool HasType => this.type != null;
+
+    /// <summary>The state of each element, when this object is a tuple.</summary>
+    public IEnumerable<LoopState> TupleElements =>
+        this.members
+            .Where(static pair => pair.Key.ContainingType is { IsTupleType: true })
+            .Select(static pair => pair.Value);
+
     /// <summary>True when the evaluator knows a state for the member.</summary>
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
 

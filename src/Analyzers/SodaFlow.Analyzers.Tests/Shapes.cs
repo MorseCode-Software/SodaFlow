@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using SodaFlow;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -2508,6 +2510,371 @@ public static class Shapes
     public static Cell<int> AddInACollectionInitializerThatSamplesAPlainValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { Bin bin = new() { Plain }; Kept.Add(bin); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
 
+    // S322. Code of the platform calls a member of an object of this file. The default comparer calls
+    // CompareTo, which samples a pending member.
+    public static Cell<int> DefaultComparerComparesObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int c = Comparer<Ranked>.Default.Compare(new Ranked(l.Map(v => v)), new Ranked(Plain)); return S.Hold(c); });
+
+    // S323. Min of a query calls CompareTo.
+    public static Cell<int> MinOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.Min()!); return S.Hold(0); });
+
+    // S324. A sort by a key calls CompareTo of the keys.
+    public static Cell<int> OrderByAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Ranked first = all.OrderBy(a => a).First(); Kept.Add(first); return S.Hold(0); });
+
+    // S325. The same for the second key of a sort.
+    public static Cell<int> ThenByAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(a => 0).ThenBy(a => a).First()); return S.Hold(0); });
+
+    // S326. The key function is a method, and not a lambda at the call.
+    public static Cell<int> OrderByAMethodThatGivesAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(Itself).First()); return S.Hold(0); });
+
+    // S327. The key function is a local function.
+    public static Cell<int> OrderByALocalFunctionThatGivesAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Ranked Key(Ranked r) => r; Kept.Add(all.OrderBy(Key).First()); return S.Hold(0); });
+
+    // S328. The key function is a lambda in a local.
+    public static Cell<int> OrderByAFunctionInALocalThatGivesAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Func<Ranked, Ranked> key = r => r; Kept.Add(all.OrderBy(key).First()); return S.Hold(0); });
+
+    // S329. A method that gives a plain key.
+    public static Cell<int> OrderByAMethodThatGivesAPlainKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(Zero).First()); return S.Hold(0); });
+
+    // S330. GroupBy with a method for the key function calls GetHashCode of the keys.
+    public static Cell<int> GroupByAMethodThatGivesAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; int n = all.GroupBy(SameHashed).Count(); return S.Hold(n); });
+
+    // S331. MaxBy calls CompareTo of the keys.
+    public static Cell<int> MaxByAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.MaxBy(a => a)!); return S.Hold(0); });
+
+    // S332. A tuple key compares its elements.
+    public static Cell<int> OrderByATupleKeyWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(a => (a, 1)).First()); return S.Hold(0); });
+
+    // S333. The objects are the result of a query of the platform.
+    public static Cell<int> MaxOfObjectsFromAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.Select(a => a).Max()!); return S.Hold(0); });
+
+    // S334. A sorted set calls CompareTo at each Add of its initializer.
+    public static Cell<int> SortedSetInitializerOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new() { new Ranked(l.Map(v => v)), new Ranked(Plain) }; Kept.Add(set); return S.Hold(0); });
+
+    // S335. The same with a call of Add.
+    public static Cell<int> SortedSetAddOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new(); set.Add(new Ranked(l.Map(v => v))); set.Add(new Ranked(Plain)); return S.Hold(set.Count); });
+
+    // S336. A sorted dictionary compares its keys.
+    public static Cell<int> SortedDictionaryAddOfObjectKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> d = new(); d.Add(new Ranked(l.Map(v => v)), 1); d.Add(new Ranked(Plain), 2); return S.Hold(d.Count); });
+
+    // S337. The same through the indexer.
+    public static Cell<int> SortedDictionaryIndexerOfObjectKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> d = new() { [new Ranked(Plain)] = 0 }; d[new Ranked(l.Map(v => v))] = 1; return S.Hold(d.Count); });
+
+    // S338. A search in a sorted set calls CompareTo.
+    public static Cell<int> SortedSetContainsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new() { new Ranked(Plain) }; bool has = set.Contains(new Ranked(l.Map(v => v))); return S.Hold(has ? 1 : 0); });
+
+    // S339. A sort by a plain key does not call CompareTo of the objects.
+    public static Cell<int> OrderByAPlainKeyOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(a => 1).First()); return S.Hold(0); });
+
+    // S340. A sort that gets a comparer calls the comparer, and not CompareTo.
+    public static Cell<int> OrderByAnObjectKeyWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.OrderBy(a => a, Comparer<Ranked>.Create((x, y) => 0)).First()); return S.Hold(0); });
+
+    // S341. The same for a sort that gets a function that compares.
+    public static Cell<int> SortOfObjectsWithAComparison() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; all.Sort((x, y) => 0); return S.Hold(0); });
+
+    // S342. CompareTo of objects with plain cells reads nothing that is pending.
+    public static Cell<int> MinOfPlainObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(Plain), new(Plain)]; Kept.Add(all.Min()!); return S.Snapshot(l, (p, q) => p + q).Hold(0); });
+
+    // S343. A search in a list calls Equals.
+    public static Cell<int> ListContainsWithAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(l.Map(v => v))]; bool has = all.Contains(new Alike(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S344. The same when the object that the search is for is the pending one.
+    public static Cell<int> ListContainsAPendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(Plain)]; bool has = all.Contains(new Alike(l.Map(v => v))); return S.Hold(has ? 1 : 0); });
+
+    // S345. Equals of an element of the list samples a member of the object that it gets.
+    public static Cell<int> ListContainsAnObjectThatEqualsReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikePeer> all = [new(Plain)]; bool has = all.Contains(new AlikePeer(l.Map(v => v))); return S.Hold(has ? 1 : 0); });
+
+    // S346. IndexOf calls Equals.
+    public static Cell<int> ListIndexOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(l.Map(v => v))]; int i = all.IndexOf(new Alike(Plain)); return S.Hold(i); });
+
+    // S347. Remove calls Equals.
+    public static Cell<int> ListRemoveOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(l.Map(v => v))]; bool gone = all.Remove(new Alike(Plain)); return S.Hold(gone ? 1 : 0); });
+
+    // S348. Array.IndexOf calls Equals.
+    public static Cell<int> ArrayIndexOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] all = [new(l.Map(v => v))]; int i = Array.IndexOf(all, new Alike(Plain)); return S.Hold(i); });
+
+    // S349. Contains on an array calls Equals.
+    public static Cell<int> ArrayContainsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] all = [new(l.Map(v => v))]; bool has = all.Contains(new Alike(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S350. Contains of a query calls Equals.
+    public static Cell<int> QueryContainsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Alike> all = new List<Alike> { new(l.Map(v => v)) }.Where(a => true); bool has = all.Contains(new Alike(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S351. SequenceEqual calls Equals.
+    public static Cell<int> SequenceEqualOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> a = [new(l.Map(v => v))]; List<Alike> b = [new(Plain)]; bool e = a.SequenceEqual(b); return S.Hold(e ? 1 : 0); });
+
+    // S352. Equals of object with two arguments calls Equals of the first one.
+    public static Cell<int> StaticEqualsOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool e = Equals(new Alike(l.Map(v => v)), new Alike(Plain)); return S.Hold(e ? 1 : 0); });
+
+    // S353. The default equality comparer calls Equals.
+    public static Cell<int> DefaultEqualityComparerOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool e = EqualityComparer<Alike>.Default.Equals(new Alike(l.Map(v => v)), new Alike(Plain)); return S.Hold(e ? 1 : 0); });
+
+    // S354. A search calls Equals of IEquatable when the type has it.
+    public static Cell<int> ListContainsAnEquatableObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Equatable> all = [new(l.Map(v => v))]; bool has = all.Contains(new Equatable(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S355. Equals of a tuple calls Equals of its elements.
+    public static Cell<int> TupleEqualsWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Alike, int) a = (new Alike(l.Map(v => v)), 1); bool e = a.Equals((new Alike(Plain), 1)); return S.Hold(e ? 1 : 0); });
+
+    // S356. Distinct calls GetHashCode.
+    public static Cell<int> DistinctOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; int n = all.Distinct().Count(); return S.Hold(n); });
+
+    // S357. GroupBy calls GetHashCode of the keys.
+    public static Cell<int> GroupByAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; int n = all.GroupBy(a => a).Count(); return S.Hold(n); });
+
+    // S358. ToDictionary calls GetHashCode of the keys.
+    public static Cell<int> ToDictionaryWithObjectKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; Kept.Add(all.ToDictionary(a => a, a => 1)); return S.Hold(0); });
+
+    // S359. ToHashSet calls GetHashCode.
+    public static Cell<int> ToHashSetOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; Kept.Add(all.ToHashSet()); return S.Hold(0); });
+
+    // S360. Except calls GetHashCode.
+    public static Cell<int> ExceptOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] a = [new(l.Map(v => v))]; Hashed[] b = [new(Plain)]; int n = a.Except(b).Count(); return S.Hold(n); });
+
+    // S361. Join calls GetHashCode of the keys.
+    public static Cell<int> JoinOnObjectKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; Hashed[] more = [new(Plain)]; int n = all.Join(more, x => x, y => y, (x, y) => 1).Count(); return S.Hold(n); });
+
+    // S362. A set calls GetHashCode at each Add of its initializer.
+    public static Cell<int> HashSetInitializerOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Hashed> set = new() { new Hashed(l.Map(v => v)) }; return S.Hold(set.Count); });
+
+    // S363. The same with a collection expression.
+    public static Cell<int> HashSetExpressionOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Hashed> set = [new Hashed(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S364. The same with a call of Add.
+    public static Cell<int> HashSetAddOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Hashed> set = new(); set.Add(new Hashed(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S365. The constructor of a set calls GetHashCode of each element that it gets.
+    public static Cell<int> HashSetConstructorWithObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; HashSet<Hashed> set = new(all); return S.Hold(set.Count); });
+
+    // S366. A search in a set calls GetHashCode.
+    public static Cell<int> HashSetContainsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Hashed> set = [new Hashed(Plain)]; bool has = set.Contains(new Hashed(l.Map(v => v))); return S.Hold(has ? 1 : 0); });
+
+    // S367. A set calls Equals for two objects with one hash code.
+    public static Cell<int> HashSetOfObjectsWithOneHashCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new Alike(l.Map(v => v)), new Alike(Plain)]; return S.Hold(set.Count); });
+
+    // S368. A dictionary calls GetHashCode of a key.
+    public static Cell<int> DictionaryAddOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new(); d.Add(new Hashed(l.Map(v => v)), 1); return S.Hold(d.Count); });
+
+    // S369. The same through the setter of the indexer.
+    public static Cell<int> DictionaryIndexerSetOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new(); d[new Hashed(l.Map(v => v))] = 1; return S.Hold(d.Count); });
+
+    // S370. The same through the getter of the indexer.
+    public static Cell<int> DictionaryIndexerGetOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new() { [new Hashed(Plain)] = 0 }; int found = d.TryGetValue(new Hashed(Plain), out int f) ? f : d[new Hashed(l.Map(v => v))]; return S.Hold(found); });
+
+    // S371. The same in an initializer with an index.
+    public static Cell<int> DictionaryIndexerInitializerOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new() { [new Hashed(l.Map(v => v))] = 1 }; return S.Hold(d.Count); });
+
+    // S372. The same in an initializer that calls Add.
+    public static Cell<int> DictionaryAddInitializerOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new() { { new Hashed(l.Map(v => v)), 1 } }; return S.Hold(d.Count); });
+
+    // S373. ContainsKey calls GetHashCode.
+    public static Cell<int> DictionaryContainsAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new() { [new Hashed(Plain)] = 0 }; bool has = d.ContainsKey(new Hashed(l.Map(v => v))); return S.Hold(has ? 1 : 0); });
+
+    // S374. TryGetValue calls GetHashCode.
+    public static Cell<int> DictionaryTryGetValueOfAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> d = new() { [new Hashed(Plain)] = 0 }; d.TryGetValue(new Hashed(l.Map(v => v)), out int found); return S.Hold(found); });
+
+    // S375. The == operator of a class with no operator compares references, and calls nothing.
+    public static Cell<int> ReferenceEqualityOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike a = new(l.Map(v => v)); Alike b = new(Plain); bool e = a == b; return S.Hold(e ? 1 : 0); });
+
+    // S376. A search in a list does not call GetHashCode, and the type has no Equals.
+    public static Cell<int> ListContainsAnObjectWithoutEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Hashed> all = [new(l.Map(v => v))]; bool has = all.Contains(new Hashed(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S377. A search that gets a comparer calls the comparer, and not Equals.
+    public static Cell<int> QueryContainsAnObjectWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(l.Map(v => v))]; bool has = all.Contains(new Alike(Plain), EqualityComparer<Alike>.Create((x, y) => true)); return S.Hold(has ? 1 : 0); });
+
+    // S378. Equals of a record compares the cells, and samples none.
+    public static Cell<int> ListContainsARecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Tagged> all = [new(l.Map(v => v))]; bool has = all.Contains(new Tagged(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S379. DistinctBy with a plain key does not call GetHashCode of the objects.
+    public static Cell<int> DistinctByAPlainKeyOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v))]; int n = all.DistinctBy(a => 1).Count(); return S.Hold(n); });
+
+    // S380. A dictionary calls no member of its values.
+    public static Cell<int> DictionaryWithObjectValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, Alike> d = new() { [1] = new Alike(l.Map(v => v)) }; bool has = d.ContainsKey(1); return S.Hold(has ? 1 : 0); });
+
+    // S381. string.Join calls ToString of each element.
+    public static Cell<int> JoinOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; string s = string.Join(",", all); return S.Hold(s.Length); });
+
+    // S382. The same for objects that are arguments.
+    public static Cell<int> JoinOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string s = string.Join(",", new Titled(l.Map(v => v)), new Titled(Plain)); return S.Hold(s.Length); });
+
+    // S383. string.Concat calls ToString.
+    public static Cell<int> ConcatOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string s = string.Concat(new Titled(l.Map(v => v)), "x"); return S.Hold(s.Length); });
+
+    // S384. string.Format calls ToString.
+    public static Cell<int> FormatOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string s = string.Format("{0}", new Titled(l.Map(v => v))); return S.Hold(s.Length); });
+
+    // S385. Append of a StringBuilder calls ToString.
+    public static Cell<int> BuilderAppendOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StringBuilder b = new(); b.Append(new Titled(l.Map(v => v))); return S.Hold(b.Length); });
+
+    // S386. AppendJoin calls ToString of each element.
+    public static Cell<int> BuilderAppendJoinOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; StringBuilder b = new(); b.AppendJoin(",", all); return S.Hold(b.Length); });
+
+    // S387. Write of a TextWriter calls ToString.
+    public static Cell<int> WriterWriteOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StringWriter w = new(); w.Write(new Titled(l.Map(v => v))); return S.Hold(w.ToString().Length); });
+
+    // S388. Convert.ToString calls ToString.
+    public static Cell<int> ConvertToStringOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string? s = Convert.ToString(new Titled(l.Map(v => v))); return S.Hold(s?.Length ?? 0); });
+
+    // S389. ToString of a tuple calls ToString of its elements.
+    public static Cell<int> TupleToStringWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string s = (new Titled(l.Map(v => v)), 1).ToString(); return S.Hold(s.Length); });
+
+    // S390. string.Join of strings calls no member of an object that is only kept.
+    public static Cell<int> JoinOfStringsBesideAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string[] names = ["a"]; Titled n = new(l.Map(v => v)); Kept.Add(n); string s = string.Join(",", names); return S.Hold(s.Length); });
+
+    // S391. A list of the platform calls no member of an object that it keeps.
+    public static Cell<int> ObjectOnlyKeptInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S392. ToString of an object with a plain cell reads nothing that is pending.
+    public static Cell<int> FormatOfAPlainObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string s = string.Format("{0}", new Titled(Plain)); return S.Snapshot(l, (p, q) => p + q + s.Length).Hold(0); });
+
+    // S393. The query gives strings, and string.Join does not get the objects.
+    public static Cell<int> JoinOfStringsFromObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; string s = string.Join(",", all.Select(a => "x")); return S.Hold(s.Length); });
+
+    // S394. A second Append does not call ToString of what the builder got before.
+    public static Cell<int> BuilderAppendAfterAPlainObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StringBuilder b = new(); Titled plain = new(Plain); b.Append(plain); Kept.Add(new Titled(l.Map(v => v))); b.Append("x"); return S.Hold(b.Length); });
+
+    // S395. ToString of a writer is not ToString of an object that it wrote.
+    public static Cell<int> WriterToStringAfterAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StringWriter w = new(); w.Write(new Titled(Plain)); Kept.Add(new Titled(l.Map(v => v))); return S.Hold(w.ToString().Length); });
+
+    // S396. A query of the platform enumerates a sequence of this file, whose iterator samples a pending member.
+    public static Cell<int> SumOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); int t = bag.Sum(); return S.Hold(t); });
+
+    // S397. ToList enumerates the sequence.
+    public static Cell<int> ToListOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); Kept.Add(bag.ToList()); return S.Hold(0); });
+
+    // S398. The constructor of a list enumerates the sequence that it gets.
+    public static Cell<int> ListConstructorWithASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); List<int> all = new(bag); return S.Hold(all.Count); });
+
+    // S399. AddRange enumerates the sequence.
+    public static Cell<int> AddRangeOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); List<int> all = new(); all.AddRange(bag); return S.Hold(all.Count); });
+
+    // S400. string.Join enumerates the sequence.
+    public static Cell<int> JoinOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); string s = string.Join(",", bag); return S.Hold(s.Length); });
+
+    // S401. A spread in a collection expression enumerates the sequence.
+    public static Cell<int> SpreadOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); int[] all = [.. bag]; return S.Hold(all.Length); });
+
+    // S402. The sequence is in a local with the type of the interface.
+    public static Cell<int> SumOfASequenceThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> seq = new Sack(l.Map(v => v)); int t = seq.Sum(); return S.Hold(t); });
+
+    // S403. The same query as a static call.
+    public static Cell<int> SumOfASequenceInAStaticCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); int t = Enumerable.Sum(bag); return S.Hold(t); });
+
+    // S404. The enumerator is an object of this file, and its Current samples a pending member.
+    public static Cell<int> SumOfASequenceWithAnEnumeratorObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stroll walk = new(l.Map(v => v)); int t = walk.Sum(); return S.Hold(t); });
+
+    // S405. The sequence gives a pending cell to the function of the query, which samples it.
+    public static Cell<int> QueryFunctionSamplesAnElementOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(l.Map(v => v)); int t = cells.Select(c => c.Sample()).Sum(); return S.Hold(t); });
+
+    // S406. ToList makes a list from the sequence, and the body of the foreach samples an element.
+    public static Cell<int> ForEachOverAListFromASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(l.Map(v => v)); int t = 0; foreach (Cell<int> c in cells.ToList()) { t += c.Sample(); } return S.Hold(t); });
+
+    // S407. The iterator gives the cell and samples nothing.
+    public static Cell<int> ToListOfASequenceOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(l.Map(v => v)); Kept.Add(cells.ToList()); return S.Hold(0); });
+
+    // S408. The iterator samples a plain cell.
+    public static Cell<int> SumOfAPlainSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(Plain); int t = bag.Sum(); return S.Snapshot(l, (p, q) => p + q + t).Hold(0); });
+
+    // S409. A query that calls no member of the objects.
+    public static Cell<int> QueryOverObjectsThatReadsNoMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; int t = all.Select(a => 1).Sum(); return S.Hold(t); });
+
+    // S410. The constructor of a list calls no member of the elements.
+    public static Cell<int> ListConstructorWithObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(new List<Ranked>(all)); return S.Hold(0); });
+
+    // S411. A search in a list does not call CompareTo.
+    public static Cell<int> ListContainsAComparableObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v))]; bool has = all.Contains(new Ranked(Plain)); return S.Hold(has ? 1 : 0); });
+
+    // S412. Distinct does not call CompareTo.
+    public static Cell<int> DistinctOfComparableObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; int n = all.Distinct().Count(); return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2889,6 +3256,68 @@ public static class Shapes
         public IEnumerator<int> GetEnumerator() => this.values.GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    private static Ranked Itself(Ranked r) => r;
+
+    private static int Zero(Ranked r) => 0;
+
+    private static Hashed SameHashed(Hashed h) => h;
+
+    public sealed class Ranked(Cell<int> share) : IComparable<Ranked>
+    {
+        public int CompareTo(Ranked? other) => this.Read().CompareTo(other?.Read() ?? 0);
+
+        private int Read() => share.Sample();
+    }
+
+    // Equals reads only the object that it gets.
+    public sealed class AlikePeer(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => obj is AlikePeer other && other.Read() >= 0;
+
+        public override int GetHashCode() => 1;
+
+        private int Read() => share.Sample();
+    }
+
+    public sealed class Equatable(Cell<int> share) : IEquatable<Equatable>
+    {
+        public bool Equals(Equatable? other) => other != null && other.Read() == this.Read();
+
+        public override bool Equals(object? obj) => obj is Equatable other && this.Equals(other);
+
+        public override int GetHashCode() => 1;
+
+        private int Read() => share.Sample();
+    }
+
+    public sealed record Tagged(Cell<int> Share);
+
+    public sealed class Stroll(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator() => new Stroller(share);
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Stroller(Cell<int> share) : IEnumerator<int>
+    {
+        private int steps;
+
+        public int Current => share.Sample();
+
+        object System.Collections.IEnumerator.Current => this.Current;
+
+        public bool MoveNext() => this.steps++ < 1;
+
+        public void Reset()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
