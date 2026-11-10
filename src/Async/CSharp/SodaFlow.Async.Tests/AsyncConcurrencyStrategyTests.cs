@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -329,6 +330,222 @@ public sealed class AsyncConcurrencyStrategyTests
         status.Dispose();
     }
 
+    // SwitchLatest cancels the run in flight for each new value, and records the new value as its
+    // current run. The cancel is an effect out of the graph, and the record is state out of the
+    // graph. A transaction that fails must leave the two as they were. Before, the run in flight
+    // lost its token. Where its operation ignored the token, the strategy did not publish its
+    // result, because the strategy held a value that the pipeline did not admit.
+    [Test]
+    public async Task SwitchLatest_ASendThatFails_KeepsTheRunInFlightAndPublishesItsResult()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that replaced the run failed");
+        await Assert.That(op.HasStarted("b")).IsFalse();
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching)
+            .Because("the run in flight is still the current run of the strategy");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    // The strategy must hold the run in flight as its current run after a send that fails, and
+    // not the value of that send. Thus, the next send cancels the run in flight.
+    [Test]
+    public async Task SwitchLatest_AfterASendThatFails_TheNextSendReplacesTheRunInFlight()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+        TestUtil.WaitUntil(() => op.IsCanceled("a"));
+
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["C"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    // A callback on the token of the run that a new value replaces can throw. Before, the cancel
+    // ran in the Admit of the strategy, thus the throw failed the transaction of the new value.
+    // The cancel now runs after the commit. There the throw has no caller, and it goes to
+    // handleException.
+    [Test]
+    public async Task SwitchLatest_WhenACallbackOfTheReplacedRunThrows_AdmitsTheValueAndGivesTheThrowToHandleException()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        ConcurrentQueue<Exception> handled = new();
+        InvalidOperationException fromCallback = new("The callback of the token throws.");
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: handled.Enqueue,
+                operation: (input, resultFactory, token) =>
+                {
+                    if (input == "a")
+                    {
+                        // The registration lives as long as the token, which the pipeline owns.
+                        _ = token.Register(() => throw fromCallback);
+                    }
+
+                    return op.Operation(input: input, resultFactory: resultFactory, token: token);
+                },
+                strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        source.Send("b");
+
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+        TestUtil.WaitUntil(() => handled.Count == 1);
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+
+        // The token of the operation is a linked one. Thus, the throw comes in two
+        // AggregateException objects: one from the linked source, and one from the source of
+        // the item.
+        Exception only = handled.Single();
+
+        await Assert.That(only).IsTypeOf<AggregateException>();
+
+        await Assert.That(((AggregateException)only).Flatten().InnerExceptions.Single())
+            .IsSameReferenceAs(fromCallback);
+
+        status.Dispose();
+    }
+
+    // A custom strategy cancels through the same call as SwitchLatest. This one keeps no state: it
+    // cancels each item that the pipeline tracks. A transaction that fails cancels nothing, and
+    // the same strategy in a transaction that commits cancels as before.
+    [Test]
+    public async Task CustomStrategy_ACancelInAnAdmitWhoseTransactionFails_CancelsNothing()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: new ReplaceEachRunStrategy());
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that asked for the cancel failed");
+        await Assert.That(op.HasStarted("b")).IsFalse();
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+        TestUtil.WaitUntil(() => op.IsCanceled("a"));
+
+        status.Dispose();
+    }
+
+    // A strategy can cancel a value and start it in one call. The cancel waits for the commit,
+    // thus the promotion does not find it. The start of the operation does, and the pipeline ends
+    // the item and does not call the operation.
+    [Test]
+    public async Task CustomStrategy_AValueThatItCancelsAndStarts_RunsNoOperationAndEnds()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: new CancelAndStartStrategy());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        Task<string> task = status.Execute("a");
+
+        TestUtil.WaitUntil(() => task.IsCompleted);
+
+        await Assert.That(task.IsCanceled).IsTrue();
+        await Assert.That(op.HasStarted("a")).IsFalse().Because("a canceled item runs no operation");
+        await Assert.That(Transaction.Run(tracked.Sample)).IsEmpty();
+
+        status.Dispose();
+    }
+
     [Test]
     public async Task Parallel_Queue_SwitchLatest_EachReturnTheSameCachedInstanceEveryCall()
     {
@@ -404,6 +621,72 @@ public sealed class AsyncConcurrencyStrategyTests
 
         protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
             int state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+    }
+
+    /// <summary>
+    ///     Starts each value immediately and cancels each other item that the
+    ///     pipeline tracks, as SwitchLatest does, with no state of its own.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ReplaceEachRunStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            foreach (AsyncTrackedItem<Unit> other in tracked)
+            {
+                other.Item.Cancel();
+            }
+
+            return [new AsyncToStart<Unit>(incoming)];
+        }
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            AsyncStrategyResult<Unit>.None;
+    }
+
+    /// <summary>Cancels each value and starts it in the same call.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class CancelAndStartStrategy : AsyncConcurrencyStrategy<Unit>
+    {
+        protected override Unit CreateState() => Unit.Value;
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+            Unit state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            incoming.Cancel();
+
+            return [new AsyncToStart<Unit>(incoming)];
+        }
+
+        protected override AsyncStrategyResult<Unit> OnCompleted(
+            Unit state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+
+        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
             AsyncStrategyResult<Unit>.None;

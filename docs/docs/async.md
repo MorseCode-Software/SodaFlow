@@ -167,6 +167,20 @@ changed in your state did not. The built-in strategies decide from the queue and
 answer the second time. A strategy that counts ends in its state should not assume each item
 arrives once.
 
+`Admit` has a matching caveat. It runs in the input stream's transaction, before that transaction
+commits. If a listener throws later in the same transaction, the value is not admitted after all:
+the queue goes back, no operation starts, and no hook is called for that value again. Whatever
+`Admit` changed in your state stays changed, so a strategy that records the incoming item cannot
+assume the pipeline holds it. The built-in strategies are safe here: `Queue` and `QueuePerGroup`
+keep no state, and `SwitchLatest` puts its record of the current run back when the transaction
+fails.
+
+`Cancel()` needs no such care. Every hook runs in a transaction, and a cancel asked for inside one
+takes effect when that transaction commits; a transaction that fails cancels nothing. Two things
+follow. The item's token still reads as not canceled for the rest of the hook. And an exception
+thrown by a callback registered on that token goes to `handleException`, because by then the
+transaction has finished and there is no caller left to throw to.
+
 ## Cancellation and status
 
 `MapAsync` takes two optional cancellation streams: `cancelAll`, where any firing cancels
