@@ -582,48 +582,273 @@ public sealed class AsyncConcurrencyStrategyTests
         source.Send("b");
 
         TestUtil.WaitUntil(() => received.Count == 2);
-        await Assert.That(strategy.AdmittedCount).IsEqualTo(2);
+
+        int admissions =
+            strategy.Calls.Count(static call =>
+                call.StartsWith(value: "admit:", comparisonType: StringComparison.Ordinal));
+
+        await Assert.That(admissions).IsEqualTo(2);
 
         status.Dispose();
         l.Unlisten();
     }
 
+    // A strategy returns its next state, and the pipeline gives that state to the next call. The
+    // strategy here adds 1 for an admission, 10 for an end, and 100 for a cancellation.
+    [Test]
+    public async Task CustomStrategy_EachCallGetsTheStateThatTheCallBeforeItReturned()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+        CountingStrategy strategy = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelAll: cancelAll);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        cancelAll.Send(Unit.Value);
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+
+        await Assert.That(strategy.Calls)
+            .IsEquivalentTo(
+                expected: ["admit:0", "admit:1", "completed:2", "canceled:12", "admit:112"],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    // The state of a strategy follows the transaction. A listener fails the transaction of the
+    // second admission, thus the pipeline discards the state that the call returned, and the third
+    // admission gets the state that the second one got.
+    [Test]
+    public async Task CustomStrategy_AnAdmitWhoseTransactionFails_LeavesTheStateAsItWas()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        CountingStrategy strategy = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+
+        await Assert.That(strategy.Calls)
+            .IsEquivalentTo(expected: ["admit:0", "admit:1", "admit:1"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // A listener on the results throws, thus the transaction that ends "a" fails, and the pipeline
+    // ends "a" again in a new transaction. The second call gets the state that the first call
+    // got, and the state that the second call returns is the one that stays.
+    [Test]
+    public async Task CustomStrategy_AnEndWhoseTransactionFails_GetsTheSameStateInItsSecondCall()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        CountingStrategy strategy = new();
+        List<Exception> failures = [];
+
+        using IStrongListener r =
+            results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy);
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        await Assert.That(strategy.Calls)
+            .IsEquivalentTo(
+                expected: ["admit:0", "completed:1", "completed:1", "admit:11"],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // The input depends on the result, thus the end of "a" and the admission of "ax" are in one
+    // transaction. The second call of that transaction must get the state that the first call
+    // returned, and not the state from the start of the transaction.
+    [Test]
+    public async Task CustomStrategy_TwoCallsInOneTransaction_TheSecondGetsTheStateOfTheFirst()
+    {
+        StreamSink<string> trigger = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        CountingStrategy strategy = new();
+
+        Stream<string> input = trigger.OrElse(results.Filter(static r => r.Length < 2).Map(static r => r + "x"));
+
+        AsyncMapStatus<string> status =
+            input.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy);
+
+        trigger.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        op.Release(input: "a", result: "a");
+        TestUtil.WaitUntil(() => op.HasStarted("ax"));
+
+        await Assert.That(strategy.Calls)
+            .IsEquivalentTo(expected: ["admit:0", "completed:1", "admit:11"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // The two calls of one transaction, and then a listener fails that transaction. The pipeline
+    // discards the state of the two calls together. The second end of "a" gets the state from
+    // before the transaction, and the admission after it gets the state of that second end.
+    [Test]
+    public async Task CustomStrategy_TwoCallsInOneTransactionThatFails_PutsTheStateBackOneTime()
+    {
+        StreamSink<string> trigger = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        CountingStrategy strategy = new();
+        List<Exception> failures = [];
+
+        using IStrongListener r =
+            results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+
+        using IStrongListener e = errors.ListenStrong(failures.Add);
+
+        Stream<string> input = trigger.OrElse(results.Filter(static r => r.Length < 2).Map(static r => r + "x"));
+
+        AsyncMapStatus<string> status =
+            input.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy);
+
+        trigger.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        op.Release(input: "a", result: "a");
+        TestUtil.WaitUntil(() => failures.Count == 1);
+
+        await Assert.That(op.HasStarted("ax")).IsFalse().Because("the transaction that admitted it failed");
+
+        trigger.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("b"));
+
+        await Assert.That(strategy.Calls)
+            .IsEquivalentTo(
+                expected: ["admit:0", "completed:1", "admit:11", "completed:1", "admit:11"],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
     /// <summary>
     ///     A small custom strategy on the short
     ///     <see cref="AsyncConcurrencyStrategy{TState}" /> shape, where the input type
-    ///     is <see cref="Unit" />. Each value starts immediately, as Parallel does,
-    ///     and this strategy also counts the admissions.
+    ///     is <see cref="Unit" />. Each value starts immediately, as Parallel does.
+    ///     The state is a count: an admission adds 1, an end adds 10, and a
+    ///     cancellation adds 100. The strategy records the state that each call gets,
+    ///     thus a test can read which state the pipeline gave it.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class CountingStrategy : AsyncConcurrencyStrategy<int>
     {
-        private int count;
+        private readonly ConcurrentQueue<string> calls = new();
 
-        public int AdmittedCount => this.count;
+        public string[] Calls => [.. this.calls];
 
         protected override int CreateState() => 0;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, int> Admit(
             int state,
             AsyncQueuedItem<Unit> incoming,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
-            Interlocked.Increment(ref this.count);
-            return [new AsyncToStart<Unit>(incoming)];
+            this.calls.Enqueue("admit:" + state);
+
+            return new AsyncStrategyStep<Unit, int>(state: state + 1, start: [new AsyncToStart<Unit>(incoming)]);
         }
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, int> OnCompleted(
             int state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            this.calls.Enqueue("completed:" + state);
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+            return new AsyncStrategyResult<Unit, int>(state: state + 10, publish: true, next: AsyncToStart<Unit>.None);
+        }
+
+        protected override AsyncStrategyStep<Unit, int> OnCanceled(
             int state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
-            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            this.calls.Enqueue("canceled:" + state);
+
+            return new AsyncStrategyStep<Unit, int>(state: state + 100, start: AsyncToStart<Unit>.None);
+        }
     }
 
     /// <summary>
@@ -635,7 +860,7 @@ public sealed class AsyncConcurrencyStrategyTests
     {
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, Unit> Admit(
             Unit state,
             AsyncQueuedItem<Unit> incoming,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
@@ -645,21 +870,21 @@ public sealed class AsyncConcurrencyStrategyTests
                 other.Item.Cancel();
             }
 
-            return [new AsyncToStart<Unit>(incoming)];
+            return new AsyncStrategyStep<Unit, Unit>(state: state, start: [new AsyncToStart<Unit>(incoming)]);
         }
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            new(state: state, publish: true, next: AsyncToStart<Unit>.None);
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+        protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            new(state: state, start: AsyncToStart<Unit>.None);
     }
 
     /// <summary>Cancels each value and starts it in the same call.</summary>
@@ -668,27 +893,27 @@ public sealed class AsyncConcurrencyStrategyTests
     {
         protected override Unit CreateState() => Unit.Value;
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> Admit(
+        protected override AsyncStrategyStep<Unit, Unit> Admit(
             Unit state,
             AsyncQueuedItem<Unit> incoming,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
         {
             incoming.Cancel();
 
-            return [new AsyncToStart<Unit>(incoming)];
+            return new AsyncStrategyStep<Unit, Unit>(state: state, start: [new AsyncToStart<Unit>(incoming)]);
         }
 
-        protected override AsyncStrategyResult<Unit> OnCompleted(
+        protected override AsyncStrategyResult<Unit, Unit> OnCompleted(
             Unit state,
             AsyncQueuedItem<Unit> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<Unit>.None);
+            new(state: state, publish: true, next: AsyncToStart<Unit>.None);
 
-        protected override IReadOnlyList<AsyncToStart<Unit>> OnCanceled(
+        protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
-            AsyncStrategyResult<Unit>.None;
+            new(state: state, start: AsyncToStart<Unit>.None);
     }
 }

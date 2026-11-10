@@ -932,28 +932,30 @@ public sealed class MapAsyncImplTests
 
         protected override object? CreateState() => null;
 
-        protected internal override IReadOnlyList<AsyncToStart<TStrategyInput>> Admit(
+        protected internal override AsyncStrategyStep<TStrategyInput, object?> Admit(
             object? state,
             AsyncQueuedItem<TStrategyInput> incoming,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked)
         {
             this.admittedValues.Add(incoming.Value);
 
-            return [new AsyncToStart<TStrategyInput>(incoming)];
+            return new AsyncStrategyStep<TStrategyInput, object?>(
+                state: state,
+                start: [new AsyncToStart<TStrategyInput>(incoming)]);
         }
 
-        protected internal override AsyncStrategyResult<TStrategyInput> OnCompleted(
+        protected internal override AsyncStrategyResult<TStrategyInput, object?> OnCompleted(
             object? state,
             AsyncQueuedItem<TStrategyInput> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<TStrategyInput>.None);
+            new(state: state, publish: true, next: AsyncToStart<TStrategyInput>.None);
 
-        protected internal override IReadOnlyList<AsyncToStart<TStrategyInput>> OnCanceled(
+        protected internal override AsyncStrategyStep<TStrategyInput, object?> OnCanceled(
             object? state,
             IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
-            AsyncStrategyResult<TStrategyInput>.None;
+            new(state: state, start: AsyncToStart<TStrategyInput>.None);
     }
 
     /// <summary>
@@ -967,26 +969,26 @@ public sealed class MapAsyncImplTests
 
         protected override object? CreateState() => null;
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
+        protected internal override AsyncStrategyStep<int, object?> Admit(
             object? state,
             AsyncQueuedItem<int> incoming,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            [new(incoming)];
+            new(state: state, start: [new AsyncToStart<int>(incoming)]);
 
-        protected internal override AsyncStrategyResult<int> OnCompleted(
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             Interlocked.Increment(ref this.completions) > 1
                 ? throw new InvalidOperationException("second completion")
-                : new AsyncStrategyResult<int>(publish: true, next: AsyncStrategyResult<int>.None);
+                : new AsyncStrategyResult<int, object?>(state: state, publish: true, next: AsyncToStart<int>.None);
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
             object? state,
             IReadOnlyList<AsyncQueuedItem<int>> canceled,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            AsyncStrategyResult<int>.None;
+            new(state: state, start: AsyncToStart<int>.None);
     }
 
     /// <summary>
@@ -1002,7 +1004,7 @@ public sealed class MapAsyncImplTests
     {
         protected override object? CreateState() => null;
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
+        protected internal override AsyncStrategyStep<int, object?> Admit(
             object? state,
             AsyncQueuedItem<int> incoming,
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
@@ -1010,24 +1012,24 @@ public sealed class MapAsyncImplTests
             if (incoming.Value < 0)
             {
                 incoming.Cancel();
-                return AsyncStrategyResult<int>.None;
+                return new AsyncStrategyStep<int, object?>(state: state, start: AsyncToStart<int>.None);
             }
 
-            return [new AsyncToStart<int>(incoming)];
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
         }
 
-        protected internal override AsyncStrategyResult<int> OnCompleted(
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<int>.None);
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
             object? state,
             IReadOnlyList<AsyncQueuedItem<int>> canceled,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            AsyncStrategyResult<int>.None;
+            new(state: state, start: AsyncToStart<int>.None);
     }
 
     /// <summary>
@@ -1048,23 +1050,23 @@ public sealed class MapAsyncImplTests
 
         protected override object? CreateState() => null;
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> Admit(
+        protected internal override AsyncStrategyStep<int, object?> Admit(
             object? state,
             AsyncQueuedItem<int> incoming,
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             incoming.Cancel();
-            return [new AsyncToStart<int>(incoming)];
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
         }
 
-        protected internal override AsyncStrategyResult<int> OnCompleted(
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
             object? state,
             AsyncQueuedItem<int> item,
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
-            new(publish: true, next: AsyncStrategyResult<int>.None);
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
 
-        protected internal override IReadOnlyList<AsyncToStart<int>> OnCanceled(
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
             object? state,
             IReadOnlyList<AsyncQueuedItem<int>> canceled,
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
@@ -1074,7 +1076,7 @@ public sealed class MapAsyncImplTests
                 this.CanceledCounts.Add(canceled.Count);
             }
 
-            return AsyncStrategyResult<int>.None;
+            return new AsyncStrategyStep<int, object?>(state: state, start: AsyncToStart<int>.None);
         }
     }
 }
