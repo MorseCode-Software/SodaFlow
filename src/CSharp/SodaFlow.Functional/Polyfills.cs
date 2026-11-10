@@ -6,6 +6,9 @@ using JetBrains.Annotations;
 
 namespace System.Diagnostics.CodeAnalysis;
 
+// Nothing makes these attributes at run time. The compiler and the trimmer only read them. Thus, no test can run
+// their lines, and coverage leaves them out.
+
 #if !NETCOREAPP3_0_OR_GREATER && !NETSTANDARD2_1_OR_GREATER
 /// <summary>
 ///     Specifies that the parameter is not null when a method returns
@@ -13,6 +16,7 @@ namespace System.Diagnostics.CodeAnalysis;
 ///     parameter permits null.
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter)]
+[ExcludeFromCodeCoverage]
 internal sealed class NotNullWhenAttribute : Attribute
 {
     /// <summary>Initializes the attribute with the specified return value condition.</summary>
@@ -30,7 +34,7 @@ internal sealed class NotNullWhenAttribute : Attribute
 
 /// <summary>
 ///     Stops a report of the trim analysis for the code that it is on. The compiler
-///     keeps it in the assembly, thus the trimmer also reads it later.
+///     keeps it in the assembly, thus the trimmer also reads it.
 /// </summary>
 /// <remarks>
 ///     The trimmer finds the attribute by its full name. The net6.0 and net8.0
@@ -38,6 +42,7 @@ internal sealed class NotNullWhenAttribute : Attribute
 ///     netstandard2.0 builds compile the same source.
 /// </remarks>
 [AttributeUsage(AttributeTargets.All, Inherited = false, AllowMultiple = true)]
+[ExcludeFromCodeCoverage]
 internal sealed class UnconditionalSuppressMessageAttribute : Attribute
 {
     /// <summary>Initializes the attribute with the category and the identifier of the report.</summary>
