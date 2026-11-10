@@ -172,6 +172,13 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
     ///     Each value that the pipeline tracks now, Queued or Running. The sequence is
     ///     not specified, but each update is one snapshot that agrees with itself.
     /// </summary>
+    /// <remarks>
+    ///     An item enters this list in the transaction of the value that the pipeline
+    ///     admits. An item leaves the list in a subsequent transaction, when the item
+    ///     ends. A cancellation does not end an item in the transaction of the
+    ///     cancellation stream. A Queued item leaves immediately after that
+    ///     transaction. A Running item leaves when its operation ends.
+    /// </remarks>
     public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
 }
 
@@ -1952,10 +1959,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         // Snapshot puts each send on a cancellation stream with the value of `tracked` from
         // the start of that transaction. Thus, a cancellation and an admission in one transaction
-        // cannot race each other. Cancel() is a usual BCL call and not a SodaFlow send(), thus a
-        // listener callback can call it. This applies to a Queued item and to a Running item in
-        // the same manner, because each tracked entry has its own CancellationTokenSource from
-        // its admission, at each status.
+        // cannot race each other. This applies to a Queued item and to a Running item in the same
+        // manner, because each tracked entry has its own CancellationTokenSource from its
+        // admission, at each status.
+        //
+        // The listener selects the entries, and CancelAfterCommit cancels them after the
+        // transaction commits. A cancellation is an effect out of the graph, and nothing can
+        // remove that effect. Before, the listener called Cancel() in its callback. A subsequent
+        // throw in that transaction did not stop the cancel, although no cancellation committed.
         //
         // This code uses Listen and not ListenStrong. The caller gives cancelAll and
         // cancelMatching, and those streams can continue after one MapAsync call. For example,
@@ -1975,7 +1986,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.cancelAllListener =
                 this.cancelAll
                     .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)
-                    .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
+                    .ListenImpl(entries => this.CancelAfterCommit(entries: entries, trackedCell: trackedCell));
         }
 
         if (this.cancelMatching != null)
@@ -1996,13 +2007,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         // which is Entry.Value, with the default equality comparer for TInput.
                         // cancelMatching uses TInput and not TStrategyInput, thus this code needs
                         // no conversion.
+                        //
+                        // The selection runs here, in the transaction, and not with the cancel
+                        // after it. It calls the equality of TInput, which is code of the caller.
+                        // A throw from that code here fails the transaction and cancels nothing.
                         HashSet<TInput> targets =
                             new(collection: pair.ToCancel, comparer: EqualityComparer<TInput>.Default);
 
-                        this.CancelTracked(
-                            entries: pair.Entries,
-                            trackedCell: trackedCell,
-                            shouldCancel: e => targets.Contains(e.Item.Value));
+                        this.CancelAfterCommit(
+                            entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Item.Value)),
+                            trackedCell: trackedCell);
                     });
         }
 
@@ -2564,7 +2578,69 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
     }
 
-    // Cancels each entry that the test selects, and ends the Queued ones here.
+    // Gives the cancel of the entries to the transaction of the listener as a posted action. That
+    // action runs after the transaction commits, and a transaction that fails discards it. It
+    // runs in a transaction of its own. Thus, EndItem collects the ends of the Queued entries for
+    // one Flush, as before.
+    private void CancelAfterCommit(Entry[] entries, Cell<Entry[]> trackedCell)
+    {
+        if (entries.Length == 0)
+        {
+            return;
+        }
+
+        TransactionInternal.PostImpl(
+            action: static state => state.Self.CancelCommitted(entries: state.Entries, trackedCell: state.TrackedCell),
+            state: (Self: this, Entries: entries, TrackedCell: trackedCell));
+    }
+
+    // Cancels each entry of a cancellation that committed, and ends the Queued ones.
+    //
+    // The entries are from the start of the transaction that asked for the cancel. An item of
+    // them can end in that same transaction, for example where the cancellation stream comes from
+    // the results. The Flush of that end disposes the source of the item at the commit, which is
+    // before this code. Thus, this code uses Cancel() of the item, which does nothing for a
+    // disposed source.
+    //
+    // Cancel() of a source runs the callbacks on its token and throws what they throw. That throw
+    // must not stop the cancel of the entries after it, because the cancellation committed for
+    // each of them. It has no caller: the transaction that asked for the cancel is complete.
+    // Thus, each throw goes to handleException after the last entry.
+    private void CancelCommitted(IEnumerable<Entry> entries, Cell<Entry[]> trackedCell)
+    {
+        List<Exception>? failures = null;
+
+        foreach (Entry e in entries)
+        {
+            try
+            {
+                e.Item.Cancel();
+            }
+            catch (Exception failure)
+            {
+                (failures ??= []).Add(failure);
+            }
+
+            if (e.Status != AsyncItemStatus.Queued)
+            {
+                continue;
+            }
+
+            this.EndItem(
+                item: e.Tracked.Item,
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
+                trackedCell: trackedCell,
+                tokenToCheck: null);
+        }
+
+        if (failures != null)
+        {
+            this.Report(failures.Count == 1 ? failures[0] : new AggregateException(failures));
+        }
+    }
+
+    // Cancels each entry at a disposal, and ends the Queued ones here. This does not wait for a
+    // commit, because the pipeline stays disposed after a transaction that fails.
     //
     // A Running item observes its token and its operation ends, thus EndItem runs for it on the
     // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,
@@ -2576,19 +2652,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // send is not legal there. A canceled end sends nothing, thus a cancellation of more than one
     // item gives the strategy one call and not one call for each item. That call reads the queue
     // that holds no item of those ends.
-    private void CancelTracked(
-        IEnumerable<Entry> entries,
-        Cell<Entry[]> trackedCell,
-        Func<Entry, bool>? shouldCancel = null)
+    private void CancelTracked(IEnumerable<Entry> entries, Cell<Entry[]> trackedCell)
     {
-        // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
         foreach (Entry e in entries)
         {
-            if (shouldCancel != null && !shouldCancel(e))
-            {
-                continue;
-            }
-
             e.Item.Cancellation.Cancel();
 
             if (e.Status != AsyncItemStatus.Queued)

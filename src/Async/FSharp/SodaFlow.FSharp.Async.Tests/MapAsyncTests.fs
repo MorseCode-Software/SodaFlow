@@ -351,6 +351,45 @@ type ``MapAsync Tests``() =
             l |> unlistenL
         }
 
+    /// A cancellation is an effect out of the graph, and a transaction that fails must not make it.
+    /// The two maps put the listener that throws after the listener of the pipeline on the stream.
+    /// Thus, the pipeline gets the cancellation before the throw.
+    [<Test>]
+    member _.``cancelAll in a transaction that fails cancels no operation``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelAll = sinkS<unit> ()
+            let op = ControlledOperation<string, string>()
+            let received = List<string>()
+            let l = results |> listenStrongS received.Add
+
+            let status =
+                source
+                |> mapAsync results errors unexpected op.Operation (parallelStrategy ()) (Some cancelAll) None true
+
+            let thrower =
+                cancelAll
+                |> Stream.map id
+                |> Stream.map id
+                |> listenStrongS (fun () -> raise (InvalidOperationException "The test fails this transaction."))
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> cancelAll |> sendS ())
+
+            op.Release("a", "A")
+            waitUntil (fun () -> received.Count = 1)
+
+            do! Expect.Sequence([ "A" ], received)
+
+            status.Dispose()
+            thrower |> unlistenL
+            l |> unlistenL
+        }
+
     [<Test>]
     member _.``cancelMatching cancels only tracked operations for matching input values``() =
         task {
