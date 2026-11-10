@@ -33,7 +33,7 @@ public class StreamSendBenchmarks
     private readonly StreamSink<int> single = Stream.CreateSink<int>();
     private readonly StreamSink<int> fanOut = Stream.CreateSink<int>();
     private readonly StreamSink<int> chain = Stream.CreateSink<int>();
-    private readonly List<IStrongListener> listeners = [];
+    private readonly List<IListener> listeners = [];
 
     private int value;
 
@@ -41,12 +41,12 @@ public class StreamSendBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        this.listeners.Add(this.single.ListenStrong(Handler));
+        this.listeners.Add(this.single.Listen(Handler));
 
         for (int i = 0; i < Width; i++)
         {
             int offset = i;
-            this.listeners.Add(this.fanOut.Map(x => x + offset).ListenStrong(Handler));
+            this.listeners.Add(this.fanOut.Map(x => x + offset).Listen(Handler));
         }
 
         Stream<int> last = this.chain;
@@ -56,14 +56,14 @@ public class StreamSendBenchmarks
             last = last.Map(static x => x + 1);
         }
 
-        this.listeners.Add(last.ListenStrong(Handler));
+        this.listeners.Add(last.Listen(Handler));
     }
 
     /// <summary>Removes the listeners.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {
-        foreach (IStrongListener listener in this.listeners)
+        foreach (IListener listener in this.listeners)
         {
             listener.Unlisten();
         }

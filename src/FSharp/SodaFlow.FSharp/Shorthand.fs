@@ -83,28 +83,6 @@ let inline postT a = Transaction.post a
 let inline unlistenL listener = Listener.unlisten listener
 
 /// <summary>
-/// Stops listening.
-/// </summary>
-/// <param name="listener">The listener to stop.</param>
-/// <remarks>
-/// Shorthand for <c>WeakListener.unlisten</c>. See it for the full contract.
-///
-/// A second call is safe. Each call after the first does nothing.
-/// </remarks>
-let inline unlistenWeakL listener = WeakListener.unlisten listener
-
-/// <summary>
-/// Stops listening.
-/// </summary>
-/// <param name="listener">The listener to stop.</param>
-/// <remarks>
-/// Shorthand for <c>StrongListener.unlisten</c>. See it for the full contract.
-///
-/// A second call is safe and does nothing. A disposal of the listener has the same result.
-/// </remarks>
-let inline unlistenStrongL listener = StrongListener.unlisten listener
-
-/// <summary>
 /// Makes a lazy sample from a function. SodaFlow runs the function when it reads the sample.
 /// </summary>
 /// <param name="f">Gives the value.</param>
@@ -236,72 +214,37 @@ let inline loopS f = Stream.loop f
 let inline loopWithNoCapturesS f = Stream.loopWithNoCaptures f
 
 /// <summary>
-/// Listens for firings without keeping the stream alive.
+/// Listens for firings while the caller keeps the handle.
 /// </summary>
 /// <param name="handler">Run with each fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
+/// <returns>A listener. <c>Listener.unlisten</c> stops it, and a disposal also stops it.</returns>
 /// <remarks>
 /// Shorthand for <c>Stream.listen</c>. See it for the full contract.
 ///
-/// The listener stops when a GC collects the stream, thus this is the correct selection where there is no
-/// clear moment to stop the listener. Keep the handle from this call in a field of the object doing the
-/// listening, and the two go away together. Where other code must keep the stream kept alive for as long
-/// as something is listening, use <c>listenStrong</c>.
+/// The handle from this call keeps the stream and the graph behind it in memory, and only the caller
+/// keeps the handle. Keep the handle in a field of the object that listens, and the two go out of memory
+/// together. A call that discards the handle compiles, and the handler then stops with no message when a
+/// GC collects the handle.
 /// </remarks>
 let inline listenS handler stream = Stream.listen handler stream
 
 /// <summary>
-/// Listens for firings, keeping the stream alive while the listener lives.
-/// </summary>
-/// <param name="handler">Run with each fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>
-/// A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.listenStrong</c>. See it for the full contract.
-///
-/// The listener roots the stream, so the graph behind it stays alive for as long as the
-/// returned handle is reachable. Keep the handle and stop it when finished, or use
-/// <c>listen</c> where there is no good moment to do that.
-///
-/// The handler runs with the transaction lock held, thus it must return quickly. Give work
-/// that takes a long time, and work that blocks, to a different thread.
-/// </remarks>
-let inline listenStrongS handler stream = Stream.listenStrong handler stream
-
-/// <summary>
-/// Listens for the next firing only, then stops, without keeping the stream alive.
+/// Listens for the next firing only, then stops.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
+/// <returns>
+/// A listener. <c>Listener.unlisten</c> stops it before that first firing, and a disposal also stops it.
+/// </returns>
 /// <remarks>
 /// Shorthand for <c>Stream.listenOnce</c>. See it for the full contract.
 ///
 /// The handle from this call is the only thing that keeps the handler alive, thus hold it until
-/// that first firing arrives. Where the caller does not keep the handle, use
-/// <c>listenOnceStrongS</c>.
+/// that first firing arrives. Where the caller cannot keep the handle, use
+/// <c>listenOnceAsyncS</c>.
 /// </remarks>
 let inline listenOnceS handler stream = Stream.listenOnce handler stream
-
-/// <summary>
-/// Listens for the next firing only, then stops, and keeps the stream alive until that firing.
-/// </summary>
-/// <param name="handler">Run with the first fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>
-/// A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
-/// disposal also stops it.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Stream.listenOnceStrong</c>. See it for the full contract.
-///
-/// The listener roots the stream until that first firing, thus the handler runs when the caller
-/// discards the handle.
-/// </remarks>
-let inline listenOnceStrongS handler stream = Stream.listenOnceStrong handler stream
 
 /// <summary>
 /// Waits asynchronously for the next firing.
@@ -2168,42 +2111,22 @@ let inline valuesC cell = Cell.values cell
 let inline asBehaviorC cell = Cell.asBehavior cell
 
 /// <summary>
-/// Listens for changes without keeping the cell alive.
+/// Listens for changes while the caller keeps the handle.
 /// </summary>
 /// <param name="handler">Run with each new value.</param>
 /// <param name="cell">The cell to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
+/// <returns>A listener. <c>Listener.unlisten</c> stops it, and a disposal also stops it.</returns>
 /// <remarks>
 /// Shorthand for <c>Cell.listen</c>. See it for the full contract.
 ///
-/// The listener stops when a GC collects the cell, thus this is the correct selection where there
-/// is no clear moment to stop the listener. Keep the handle from this call in a field of the
-/// object doing the listening, and the two go away together. Where other code must keep the cell
-/// alive for as long as something is listening, use <c>listenStrong</c>.
+/// The handle from this call keeps the cell and the graph behind it in memory, and only the caller
+/// keeps the handle. Keep the handle in a field of the object that listens, and the two go out of
+/// memory together. A call that discards the handle compiles, and the handler then stops with no
+/// message when a GC collects the handle.
 ///
 /// Fires the current value immediately, in the transaction of this call.
 /// </remarks>
 let inline listenC handler cell = Cell.listen handler cell
-
-/// <summary>
-/// Listens for changes, keeping the cell alive while the listener lives.
-/// </summary>
-/// <param name="handler">Run with each new value.</param>
-/// <param name="cell">The cell to listen to.</param>
-/// <returns>
-/// A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
-/// </returns>
-/// <remarks>
-/// Shorthand for <c>Cell.listenStrong</c>. See it for the full contract.
-///
-/// The listener roots the cell, so the graph behind it stays alive for as long as the returned
-/// handle is reachable. Keep the handle and stop it when finished, or use <c>listen</c>
-/// where there is no good moment to do that.
-///
-/// Fires the current value immediately, in the transaction of this call. The handler runs
-/// with the transaction lock held, thus it must return quickly.
-/// </remarks>
-let inline listenStrongC handler cell = Cell.listenStrong handler cell
 
 /// <summary>
 /// Applies a cell of functions to a cell of values.

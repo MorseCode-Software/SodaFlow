@@ -116,7 +116,7 @@ public class EditStreamMergeBenchmarks
                 IListener listener =
                     collection.StateCell(EditedKey)
                         .Updates()
-                        .ListenStrong(static _ =>
+                        .Listen(static _ =>
                         {
                         });
 

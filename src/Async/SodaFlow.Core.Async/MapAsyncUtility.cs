@@ -1968,16 +1968,17 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // remove that effect. Before, the listener called Cancel() in its callback. A subsequent
         // throw in that transaction did not stop the cancel, although no cancellation committed.
         //
-        // This code uses Listen and not ListenStrong. The caller gives cancelAll and
-        // cancelMatching, and those streams can continue after one MapAsync call. For example,
-        // one "Cancel" stream can serve a full view. With ListenStrong, the source stream keeps
-        // this pipeline in memory permanently. That pipeline is this execution manager, the
-        // result sink, the error sink, and each object that `tracked` reaches. It stays in memory
-        // at each state of the references from the caller to IsRunning and Items, and Dispose
-        // becomes the only path to release it. With Listen, the subscription continues only while
-        // other code keeps this execution manager reachable, which is usually the caller with
-        // IsRunning and Items. When no code keeps it, the GC can collect the full graph and this
-        // callback stops. This is a protection against a Dispose that a caller forgets, and not a
+        // A field of this execution manager keeps each of these listeners, and the source stream
+        // does not. The caller gives cancelAll and cancelMatching, and those streams can continue
+        // after one MapAsync call. For example, one "Cancel" stream can serve a full view. A
+        // listener that the source stream keeps holds this pipeline in memory permanently. That
+        // pipeline is this execution manager, the result sink, the error sink, and each object
+        // that `tracked` reaches. It stays in memory at each state of the references from the
+        // caller to IsRunning and Items, and Dispose becomes the only path to release it. With the
+        // listener in a field, the subscription continues only while other code keeps this
+        // execution manager reachable. That code is usually the caller. The caller holds IsRunning
+        // and Items. When no code keeps it, the GC can collect the full graph and this callback
+        // stops. This is a protection against a Dispose that a caller forgets, and not a
         // replacement for that call. The time of a GC is not deterministic, and a GC does nothing
         // for a Task that runs. Such a Task continues to its end, at each state of the listeners
         // for a cancellation.
@@ -2021,11 +2022,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         // This code always connects this, and a cancelAll stream from the caller does not change
-        // that. A Dispose() with cancelOnDispose true sends into it. This also uses Listen, for
-        // consistency, but the selection is less important here. disposeCancelTrigger is a field
-        // of this class, thus this pair is always in the reference graph of this execution
-        // manager, and the .NET GC collects a cycle that no code can get to, with ListenStrong
-        // and with Listen.
+        // that. A Dispose() with cancelOnDispose true sends into it. disposeCancelTrigger is a
+        // field of this class, thus this pair is always in the reference graph of this execution
+        // manager. The .NET GC collects a cycle that no code can get to.
         this.disposeCancelListener =
             this.disposeCancelTrigger
                 .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)

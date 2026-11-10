@@ -25,10 +25,10 @@ internal static class TestUtil
     ///     listener of the pipeline on that stream, which is one step from the
     ///     stream. Thus, the pipeline gets the cancellation before the throw.
     /// </summary>
-    public static IStrongListener ThrowAfterTheCancellation<T>(Stream<T> cancellation) =>
+    public static IListener ThrowAfterTheCancellation<T>(Stream<T> cancellation) =>
         cancellation.Map(static value => value)
             .Map(static value => value)
-            .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+            .Listen(static _ => throw new InvalidOperationException("The test fails this transaction."));
 
     /// <summary>
     ///     Reads <paramref name="condition" /> until it is true, or fails the test at

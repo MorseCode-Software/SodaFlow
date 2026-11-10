@@ -9,8 +9,8 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Internal;
 
 /// <summary>
-///     Covers ListenOnce and ListenOnceStrong for a stream that fires two times in
-///     one transaction. A sink cannot do that, because it combines its sends, thus
+///     Covers ListenOnce, and the rooted one-shot listener of ListenOnceAsync,
+///     for a stream that fires two times in one transaction. A sink cannot do that, because it combines its sends, thus
 ///     these tests send on the stream directly.
 /// </summary>
 public sealed class ListenOnceTests
@@ -24,9 +24,9 @@ public sealed class ListenOnceTests
     }
 
     [Test]
-    public async Task ListenOnceStrongCallsTheHandlerOnlyForTheFirstOfTwoFiringsInOneTransaction()
+    public async Task ARootedListenOnceCallsTheHandlerOnlyForTheFirstOfTwoFiringsInOneTransaction()
     {
-        List<int> @out = ListenThenFireTwice(static (s, handler) => s.ListenOnceStrong(handler));
+        List<int> @out = ListenThenFireTwice(Rooted);
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
@@ -40,11 +40,19 @@ public sealed class ListenOnceTests
     }
 
     [Test]
-    public async Task ListenOnceStrongAfterTwoFiringsInItsTransactionCallsTheHandlerOnlyForTheFirst()
+    public async Task ARootedListenOnceAfterTwoFiringsInItsTransactionCallsTheHandlerOnlyForTheFirst()
     {
-        List<int> @out = FireTwiceThenListen(static (s, handler) => s.ListenOnceStrong(handler));
+        List<int> @out = FireTwiceThenListen(Rooted);
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
+    // The one-shot listener that ListenOnceAsync makes. A root holds it from the start.
+    private static IListener Rooted(Stream<int> s, Action<int> handler)
+    {
+        IRootableListener listener = s.ListenOnceRootableImpl(handler);
+        listener.Root();
+        return listener;
     }
 
     // Each firing queues an entry for the listener, and the Unlisten after the first firing does

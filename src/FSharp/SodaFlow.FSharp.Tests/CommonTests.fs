@@ -11,7 +11,7 @@ type ``Common Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
             s |> sendS "a"
             s |> sendS "b"
             l |> unlistenL
@@ -24,7 +24,7 @@ type ``Common Tests``() =
             let a = sinkS ()
             let b = a |> Operational.split
             let out = List<_>()
-            let l = b |> listenStrongS out.Add
+            let l = b |> listenS out.Add
             a |> sendS [| "a"; "b" |]
             l |> unlistenL
             do! Expect.Sequence([ "a"; "b" ], out)
@@ -36,12 +36,12 @@ type ``Common Tests``() =
             let a = sinkS ()
             let b = a |> Operational.defer
             let out = List<_>()
-            let l = b |> listenStrongS out.Add
+            let l = b |> listenS out.Add
             a |> sendS "a"
             l |> unlistenL
             do! Expect.Sequence([ "a" ], out)
             let out = List<_>()
-            let l = b |> listenStrongS out.Add
+            let l = b |> listenS out.Add
             a |> sendS "b"
             l |> unlistenL
             do! Expect.Sequence([ "b" ], out)
@@ -54,12 +54,12 @@ type ``Common Tests``() =
             let b = sinkS ()
             let c = (a |> Operational.defer, b) |> orElseS
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
             a |> sendS "a"
             l |> unlistenL
             do! Expect.Sequence([ "a" ], out)
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
 
             runT (fun () ->
                 a |> sendS "b"
@@ -76,17 +76,17 @@ type ``Common Tests``() =
             let b = sinkS ()
             let c = (a, b) |> orElseS
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
             a |> sendS 0
             l |> unlistenL
             do! Expect.Sequence([ 0 ], out)
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
             b |> sendS 10
             l |> unlistenL
             do! Expect.Sequence([ 10 ], out)
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
 
             runT (fun () ->
                 a |> sendS 2
@@ -95,7 +95,7 @@ type ``Common Tests``() =
             l |> unlistenL
             do! Expect.Sequence([ 2 ], out)
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
             b |> sendS 30
             l |> unlistenL
             do! Expect.Sequence([ 30 ], out)
@@ -108,12 +108,12 @@ type ``Common Tests``() =
             let b = sinkS ()
             let c = (a |> Operational.defer, b |> Operational.defer) |> orElseS
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
             a |> sendS "A"
             l |> unlistenL
             do! Expect.Sequence([ "A" ], out)
             let out = List<_>()
-            let l = c |> listenStrongS out.Add
+            let l = c |> listenS out.Add
 
             runT (fun () ->
                 a |> sendS "b"

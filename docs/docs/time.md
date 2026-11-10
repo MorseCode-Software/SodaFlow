@@ -323,7 +323,7 @@ ITimerSystem<double> timers = new TimerSystem<double>(clock, static ex => throw 
 CellSink<Maybe<double>> alarm = Cell.CreateSink(Maybe.Some(5.0));
 List<double> fired = [];
 
-using (timers.At(alarm).ListenStrong(fired.Add))
+using (timers.At(alarm).Listen(fired.Add))
 {
     clock.AdvanceTo(4.9);
     // fired is still empty.

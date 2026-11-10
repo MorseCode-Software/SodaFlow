@@ -36,7 +36,7 @@ public sealed class MutableListenerTests
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> seen = [];
         MutableListener m = new();
-        IWeakListenerInternal l = s.ListenImpl(seen.Add);
+        IListenerInternal l = s.ListenImpl(seen.Add);
 
         m.SetListener(l);
         m.SetListener(l);

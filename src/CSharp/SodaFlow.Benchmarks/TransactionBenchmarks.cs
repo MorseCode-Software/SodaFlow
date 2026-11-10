@@ -33,15 +33,15 @@ public class TransactionBenchmarks
     private readonly StreamSink<int> sink = Stream.CreateSink<int>();
     private readonly StreamSink<int> chainSource = Stream.CreateSink<int>();
 
-    private IStrongListener? listener;
-    private IStrongListener? chainListener;
+    private IListener? listener;
+    private IListener? chainListener;
 
     /// <summary>Gives the sink one listener, and builds the chain of maps with one listener at its end.</summary>
     [GlobalSetup]
     public void Setup()
     {
         this.listener =
-            this.sink.ListenStrong(static _ =>
+            this.sink.Listen(static _ =>
             {
             });
 
@@ -53,7 +53,7 @@ public class TransactionBenchmarks
         }
 
         this.chainListener =
-            chain.ListenStrong(static _ =>
+            chain.Listen(static _ =>
             {
             });
     }

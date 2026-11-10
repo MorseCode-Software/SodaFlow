@@ -42,7 +42,7 @@ public sealed class CalmTests
                     });
 
                 return Calm(source: s, init: init)
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     });
             });
@@ -74,7 +74,7 @@ public sealed class CalmTests
                         return MaybeInternal<int>.None;
                     });
 
-                return Calm(source: s, init: init).ListenStrong(@out.Add);
+                return Calm(source: s, init: init).Listen(@out.Add);
             });
 
         s.Send(1);
@@ -106,7 +106,7 @@ public sealed class CalmTests
         IListener l =
             TransactionInternal.Apply((_, _) =>
                 Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal.Some(7)))
-                    .ListenStrong(@out.Add));
+                    .Listen(@out.Add));
 
         s.Send(7);
         s.Send(8);
@@ -131,7 +131,7 @@ public sealed class CalmTests
         IListener l =
             TransactionInternal.Apply((_, _) =>
                 Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None))
-                    .ListenStrong(@out.Add));
+                    .Listen(@out.Add));
 
         s.Send(1);
         s.Send(1);
@@ -164,8 +164,8 @@ public sealed class CalmTests
             TransactionInternal.Apply((_, _) =>
                 Calm(source: s, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None)));
 
-        IListener good = calmed.ListenStrong(@out.Add);
-        IListener boom = calmed.ListenStrong(static _ => throw new InvalidOperationException("abort"));
+        IListener good = calmed.Listen(@out.Add);
+        IListener boom = calmed.Listen(static _ => throw new InvalidOperationException("abort"));
 
         await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
 
@@ -195,7 +195,7 @@ public sealed class CalmTests
         IListener l =
             TransactionInternal.Apply((_, _) =>
                 Calm(source: merged, init: new LazySample<MaybeInternal<int>>(static _ => MaybeInternal<int>.None))
-                    .ListenStrong(@out.Add));
+                    .Listen(@out.Add));
 
         Transaction.RunVoid(() =>
         {

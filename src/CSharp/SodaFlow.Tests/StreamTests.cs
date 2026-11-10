@@ -18,7 +18,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         s.Send(5);
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
@@ -34,7 +34,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
 
-        using (s.ListenStrong(s2.Send))
+        using (s.Listen(s2.Send))
         {
             try
             {
@@ -63,7 +63,7 @@ public sealed class StreamTests
                        s2.Send(v);
                        return Unit.Value;
                    })
-                   .ListenStrong(static _ =>
+                   .Listen(static _ =>
                    {
                    }))
         {
@@ -96,7 +96,7 @@ public sealed class StreamTests
                            s2.Send(v);
                            return Unit.Value;
                        })
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -129,7 +129,7 @@ public sealed class StreamTests
                                s2.Send(5);
                                return Unit.Value;
                            })
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -162,7 +162,7 @@ public sealed class StreamTests
         try
         {
             using (c.Apply(c2)
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -183,7 +183,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<string> m = s.Map(static x => (x + 2).ToString());
         List<string> @out = [];
-        IListener l = m.ListenStrong(@out.Add);
+        IListener l = m.Listen(@out.Add);
         s.Send(5);
         s.Send(3);
         l.Unlisten();
@@ -196,7 +196,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s1.OrElse(s2).ListenStrong(@out.Add);
+        IListener l = s1.OrElse(s2).Listen(@out.Add);
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
@@ -210,7 +210,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>(static (_, r) => r);
         StreamSink<int> s2 = Stream.CreateSink<int>(static (_, r) => r);
         List<int> @out = [];
-        IListener l = s2.OrElse(s1).ListenStrong(@out.Add);
+        IListener l = s2.OrElse(s1).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -257,7 +257,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s.OrElse(s2).ListenStrong(@out.Add);
+        IListener l = s.OrElse(s2).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
         l.Unlisten();
@@ -270,7 +270,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s2.OrElse(s).ListenStrong(@out.Add);
+        IListener l = s2.OrElse(s).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
         l.Unlisten();
@@ -283,7 +283,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s1.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        IListener l = s1.Merge(s2: s2, f: static (x, y) => x + y).Listen(@out.Add);
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
@@ -304,7 +304,7 @@ public sealed class StreamTests
         IListener l =
             new[] { a.AsStream(), b.AsStream(), c.AsStream() }
                 .Merge(static (left, right) => left + "," + right)
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -331,7 +331,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        IListener l = s.Merge(s2: s2, f: static (x, y) => x + y).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
         l.Unlisten();
@@ -343,7 +343,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -365,7 +365,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -394,7 +394,7 @@ public sealed class StreamTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IListener l = s.Filter(char.IsUpper).ListenStrong(@out.Add);
+        IListener l = s.Filter(char.IsUpper).Listen(@out.Add);
         s.Send('H');
         s.Send('o');
         s.Send('I');
@@ -407,7 +407,7 @@ public sealed class StreamTests
     {
         StreamSink<Maybe<string>> s = Stream.CreateSink<Maybe<string>>();
         List<string> @out = [];
-        IListener l = s.FilterSome().ListenStrong(@out.Add);
+        IListener l = s.FilterSome().Listen(@out.Add);
         s.Send(Maybe.Some("tomato"));
         s.Send(Maybe.None);
         s.Send(Maybe.Some("peach"));
@@ -427,7 +427,7 @@ public sealed class StreamTests
 
         IListener l =
             s.Choose(static v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None)
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         s.Send("1");
         s.Send("tomato");
@@ -447,8 +447,8 @@ public sealed class StreamTests
 
         Func<string, Maybe<int>> f = static v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None;
 
-        IListener l1 = s.Choose(f).ListenStrong(chosen.Add);
-        IListener l2 = s.Map(f).FilterSome().ListenStrong(mapped.Add);
+        IListener l1 = s.Choose(f).Listen(chosen.Add);
+        IListener l2 = s.Map(f).FilterSome().Listen(mapped.Add);
 
         s.Send("1");
         s.Send("tomato");
@@ -466,7 +466,7 @@ public sealed class StreamTests
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<int> @out = [];
-        IListener l = s.Choose(static _ => Maybe<int>.None).ListenStrong(@out.Add);
+        IListener l = s.Choose(static _ => Maybe<int>.None).Listen(@out.Add);
         s.Send("1");
         s.Send("2");
         l.Unlisten();
@@ -491,9 +491,9 @@ public sealed class StreamTests
         List<int> @out = [];
         List<int> out2 = [];
         List<int> out3 = [];
-        IListener l = sb.ListenStrong(@out.Add);
-        IListener l2 = sb2.ListenStrong(out2.Add);
-        IListener l3 = sc.ListenStrong(out3.Add);
+        IListener l = sb.Listen(@out.Add);
+        IListener l2 = sb2.Listen(out2.Add);
+        IListener l3 = sc.Listen(out3.Add);
         sa.Send(2);
         sa.Send(52);
         l3.Unlisten();
@@ -522,9 +522,9 @@ public sealed class StreamTests
         List<int> @out = [];
         List<int> out2 = [];
         List<int> out3 = [];
-        IListener l = cb.ListenStrong(@out.Add);
-        IListener l2 = cb2.ListenStrong(out2.Add);
-        IListener l3 = cc.ListenStrong(out3.Add);
+        IListener l = cb.Listen(@out.Add);
+        IListener l2 = cb2.Listen(out2.Add);
+        IListener l3 = cc.Listen(out3.Add);
         ca.Send(2);
         ca.Send(52);
         l3.Unlisten();
@@ -541,7 +541,7 @@ public sealed class StreamTests
         StreamSink<char?> sc = Stream.CreateSink<char?>();
         BehaviorSink<bool> cGate = Behavior.CreateSink(true);
         List<char?> @out = [];
-        IListener l = sc.Gate(cGate).ListenStrong(@out.Add);
+        IListener l = sc.Gate(cGate).Listen(@out.Add);
         sc.Send('H');
         cGate.Send(false);
         sc.Send('O');
@@ -560,7 +560,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.Calm().ListenStrong(@out.Add);
+        IListener l = s.Calm().Listen(@out.Add);
         s.Send(2);
         s.Send(2);
         s.Send(2);
@@ -619,7 +619,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.Calm().ListenStrong(@out.Add);
+        IListener l = s.Calm().Listen(@out.Add);
         s.Send(2);
         s.Send(4);
         s.Send(2);
@@ -645,7 +645,7 @@ public sealed class StreamTests
         Stream<int> merged = a.Merge(s2: b, f: static (x, y) => x + y);
 
         List<int> @out = [];
-        IListener l = merged.Calm().ListenStrong(@out.Add);
+        IListener l = merged.Calm().Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -687,7 +687,7 @@ public sealed class StreamTests
                     return (ReturnValue: outputValue, State: (Value: outputValue, Test: outputValue % 2 == 0));
                 });
 
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         sa.Send(5);
         sa.Send(7);
         sa.Send(1);
@@ -705,7 +705,7 @@ public sealed class StreamTests
         StreamSink<int> sa = Stream.CreateSink<int>();
         List<int> @out = [];
         Cell<int> sum = sa.Accum(initialState: 100, f: static (a, s) => a + s);
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         sa.Send(5);
         sa.Send(7);
         sa.Send(1);
@@ -738,7 +738,7 @@ public sealed class StreamTests
                     f: static (v, s) =>
                         (ReturnValue: s.Total + v + "/" + (s.Count + 1),
                             State: (Total: s.Total + v, Count: s.Count + 1)))
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -769,7 +769,7 @@ public sealed class StreamTests
         Stream<int> merged = a.Merge(s2: b, f: static (x, y) => x + y);
 
         List<int> @out = [];
-        IListener l = merged.Accum(initialState: 0, f: static (v, s) => s + v).ListenStrong(@out.Add);
+        IListener l = merged.Accum(initialState: 0, f: static (v, s) => s + v).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -795,7 +795,7 @@ public sealed class StreamTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IListener l = s.Once().ListenStrong(@out.Add);
+        IListener l = s.Once().Listen(@out.Add);
         s.Send('A');
         s.Send('B');
         s.Send('C');
@@ -809,7 +809,7 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
@@ -823,7 +823,7 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = s.Snapshot(c).ListenStrong(@out.Add);
+        IListener l = s.Snapshot(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
@@ -837,7 +837,7 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = Operational.Defer(s).Snapshot(c).ListenStrong(@out.Add);
+        IListener l = Operational.Defer(s).Snapshot(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
@@ -851,7 +851,7 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = s.SnapshotLatest(c).ListenStrong(@out.Add);
+        IListener l = s.SnapshotLatest(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
@@ -868,10 +868,10 @@ public sealed class StreamTests
         List<string> latest = [];
 
         IListener l1 =
-            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(snapshot.Add);
+            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").Listen(snapshot.Add);
 
         IListener l2 =
-            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(latest.Add);
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").Listen(latest.Add);
 
         // The cell updates after the stream fires.
         Transaction.RunVoid(() =>
@@ -911,10 +911,10 @@ public sealed class StreamTests
         List<string> expected = [];
         List<string> actual = [];
 
-        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").ListenStrong(expected.Add);
+        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").Listen(expected.Add);
 
         IListener l2 =
-            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(actual.Add);
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").Listen(actual.Add);
 
         Random random = new(1234);
 
@@ -1110,7 +1110,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1121,7 +1121,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<string> s2 = Stream.CreateSink<string>();
         List<(Maybe<int>, Maybe<string>)> @out = [];
-        IListener l = s1.Merge(s2).ListenStrong(@out.Add);
+        IListener l = s1.Merge(s2).Listen(@out.Add);
 
         s1.Send(1);
         s2.Send("a");
@@ -1255,7 +1255,7 @@ public sealed class StreamTests
         List<TOut> ListenTo<TOut>(Stream<TOut> stream)
         {
             List<TOut> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1580,7 +1580,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1740,7 +1740,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1754,7 +1754,7 @@ public sealed class StreamTests
 
         IListener l =
             Transaction.Run(() =>
-                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).ListenStrong(@out.Add));
+                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).Listen(@out.Add));
 
         Transaction.RunVoid(() =>
         {
@@ -1772,7 +1772,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         BehaviorSink<int> b = Behavior.CreateSink(0);
         List<int> @out = [];
-        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).ListenStrong(@out.Add);
+        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -1796,7 +1796,7 @@ public sealed class StreamTests
         IListener l =
             c1.Updates()
                 .SnapshotLatest(c2.Lift(c2: c3, f: static (b, c) => b + c))
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -1824,7 +1824,7 @@ public sealed class StreamTests
 
         ((Action)(() =>
         {
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
             s.Send(2);
@@ -1856,7 +1856,7 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IWeakListener l = s2.Listen(@out.Add);
+                IListener l = s2.Listen(@out.Add);
 
                 s.Send(1);
                 s.Send(2);
@@ -1869,7 +1869,7 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IWeakListener l = s2.Listen(@out.Add);
+                IListener l = s2.Listen(@out.Add);
 
                 s.Send(3);
                 s.Send(4);
@@ -1897,7 +1897,7 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IStrongListener l = s.ListenStrong(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
@@ -1922,7 +1922,7 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
@@ -1947,7 +1947,7 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IStrongListener l = s.ListenStrong(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
@@ -1975,7 +1975,7 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
@@ -2007,24 +2007,11 @@ public sealed class StreamTests
     }
 
     [Test]
-    public async Task TestListenOnceStrong()
+    public async Task TestListenOnceUnlistenBeforeTheFirstFiring()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IStrongListener l = s.ListenOnceStrong(@out.Add);
-        s.Send('A');
-        s.Send('B');
-        s.Send('C');
-        l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task TestListenOnceStrongUnlistenBeforeTheFirstFiring()
-    {
-        StreamSink<char> s = Stream.CreateSink<char>();
-        List<char> @out = [];
-        IStrongListener l = s.ListenOnceStrong(@out.Add);
+        IListener l = s.ListenOnce(@out.Add);
         l.Unlisten();
         s.Send('A');
         await Assert.That(@out).IsEmpty();
@@ -2128,7 +2115,7 @@ public sealed class StreamTests
                                 .Hold(0));
 
                 IListener lLocal =
-                    result.ListenStrong(_ =>
+                    result.Listen(_ =>
                     {
                         Task.Run(async () =>
                         {
@@ -2142,7 +2129,7 @@ public sealed class StreamTests
 
         // ReSharper disable once UnusedVariable
         List<int> calledResults = [];
-        IListener l2 = called.ListenStrong(calledResults.Add);
+        IListener l2 = called.Listen(calledResults.Add);
 
         await Task.Delay(500);
         a.Send(2);
@@ -2168,7 +2155,7 @@ public sealed class StreamTests
                 });
 
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         streamSink.Send(3);
         streamSink.Send(4);
         streamSink.Send(7);
@@ -2189,7 +2176,7 @@ public sealed class StreamTests
                     Operational.Defer(streamSink.OrElse(streamLoop).Filter(static v => v < 5).Map(static v => v + 1)));
 
         List<int> @out = [];
-        IListener l = stream.ListenStrong(@out.Add);
+        IListener l = stream.Listen(@out.Add);
         streamSink.Send(2);
         l.Unlisten();
 
@@ -2215,7 +2202,7 @@ public sealed class StreamTests
             }
 
             List<int> @out = [];
-            IListener l = stream.ListenStrong(@out.Add);
+            IListener l = stream.Listen(@out.Add);
             s.Send(0);
             l.Unlisten();
 
@@ -2226,7 +2213,7 @@ public sealed class StreamTests
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();
         List<int> shallowOut = [];
-        IListener shallowListener = shallowSink.Map(static v => v + 1).ListenStrong(shallowOut.Add);
+        IListener shallowListener = shallowSink.Map(static v => v + 1).Listen(shallowOut.Add);
         shallowSink.Send(1);
         shallowListener.Unlisten();
 

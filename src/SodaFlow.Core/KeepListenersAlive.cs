@@ -3,8 +3,8 @@
 namespace SodaFlow;
 
 /// <summary>
-///     The set in which <c>ListenStrong</c> roots a listener, and in which a loop
-///     keeps its own set alive.
+///     The set in which <c>ListenOnceAsync</c> roots its listener, and in which a
+///     loop keeps its own set alive.
 /// </summary>
 /// <remarks>
 ///     <para>

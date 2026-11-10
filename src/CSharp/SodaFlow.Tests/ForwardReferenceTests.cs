@@ -58,7 +58,7 @@ public sealed class ForwardReferenceTests
 
         List<Node> @out = [];
 
-        using (node.Child.Parent.ListenStrong(@out.Add))
+        using (node.Child.Parent.Listen(@out.Add))
         {
         }
 
@@ -118,13 +118,13 @@ public sealed class ForwardReferenceTests
     }
 
     [Test]
-    public async Task TestAStrongListenerOnAnObjectThatSwitchesOntoItsOwnOutput()
+    public async Task TestAWaitOnAnObjectThatSwitchesOntoItsOwnOutput()
     {
         // The object switches onto a stream that comes from its own output, and a second switch
         // has an outer that depends on that loop. The keep-alive set of each switch can then
-        // reach itself. A strong listener went around that loop until the stack overflowed.
+        // reach itself. A listener that a root holds went around that loop until the stack
+        // overflowed. ListenOnceAsync makes the one listener that a root holds.
         StreamSink<int> sink = Stream.CreateSink<int>();
-        List<int> seen = [];
 
         Looped looped =
             Transaction.Run(() =>
@@ -136,11 +136,13 @@ public sealed class ForwardReferenceTests
                     return new Looped(output: output.Filter(static x => x < 0), total: total);
                 }));
 
-        using IStrongListener listener = looped.Total.ListenStrong(seen.Add);
+        Task<int> first = looped.Total.Updates().ListenOnceAsync();
         sink.Send(1);
+        Task<int> second = looped.Total.Updates().ListenOnceAsync();
         sink.Send(2);
 
-        await Assert.That(seen).IsEquivalentTo(expected: [0, 1, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(await first).IsEqualTo(1);
+        await Assert.That(await second).IsEqualTo(3);
     }
 
     [Test]

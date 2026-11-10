@@ -141,7 +141,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -171,7 +171,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source |> mapAsync results errors unexpected op.Operation (queueStrategy ()) None None true
@@ -201,7 +201,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -231,7 +231,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let getGroup (v: string) = v.Split('-').[0]
             let strategy = queuePerGroupStrategy getGroup
@@ -268,7 +268,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             // The group comparer is not sensitive to a capital letter, thus "A-1" and "a-2" have
             // one group.
@@ -305,7 +305,7 @@ type ``MapAsync Tests``() =
             let results = sinkS<unit> ()
             let errors = sinkS<exn> ()
             let received = List<unit>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
             let strategy = CountingStrategy()
 
             let operation (_: string) (resultFactory: ResultFactory<unit>) (_: CancellationToken) =
@@ -332,7 +332,7 @@ type ``MapAsync Tests``() =
             let cancelAll = sinkS<unit> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -363,7 +363,7 @@ type ``MapAsync Tests``() =
             let cancelAll = sinkS<unit> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -373,7 +373,7 @@ type ``MapAsync Tests``() =
                 cancelAll
                 |> Stream.map id
                 |> Stream.map id
-                |> listenStrongS (fun () -> raise (InvalidOperationException "The test fails this transaction."))
+                |> listenS (fun () -> raise (InvalidOperationException "The test fails this transaction."))
 
             source |> sendS "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -399,7 +399,7 @@ type ``MapAsync Tests``() =
             let cancelMatching = sinkS<IReadOnlyCollection<string>> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -429,7 +429,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -454,7 +454,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -480,7 +480,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let thrown = InvalidOperationException("boom")
             let received = List<exn>()
-            let l = errors |> listenStrongS received.Add
+            let l = errors |> listenS received.Add
 
             let operation (_: string) (_: ResultFactory<string>) (_: CancellationToken) : Task<MapAsyncResult<string>> =
                 Task.FromException<MapAsyncResult<string>>(thrown)
@@ -839,8 +839,8 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let listenerError = InvalidOperationException("results listener")
             let failures = List<exn>()
-            let r = results |> listenStrongS (fun (_: int) -> raise listenerError)
-            let e = errors |> listenStrongS failures.Add
+            let r = results |> listenS (fun (_: int) -> raise listenerError)
+            let e = errors |> listenS failures.Add
 
             let operation (v: int) (factory: ResultFactory<int>) (_: CancellationToken) =
                 Task.FromResult(factory.FromValue v)
@@ -874,7 +874,7 @@ type ``MapAsync Tests``() =
 
             let e =
                 errors
-                |> listenStrongS (fun error ->
+                |> listenS (fun error ->
                     if obj.ReferenceEquals(error, operationError) then
                         raise listenerError
 

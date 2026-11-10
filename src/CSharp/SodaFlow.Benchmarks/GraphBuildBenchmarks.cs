@@ -253,9 +253,9 @@ public class GraphBuildBenchmarks
         return keep;
     }
 
-    /// <summary>Strong listeners on one sink.</summary>
-    [Benchmark(Description = "ListenStrong on one stream")]
-    public List<IListener> ListenStrongOnOneStream()
+    /// <summary>Listeners on one sink.</summary>
+    [Benchmark(Description = "Listen on one stream")]
+    public List<IListener> ListenOnOneStream()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<IListener> keep = new(Count);
@@ -265,7 +265,7 @@ public class GraphBuildBenchmarks
             for (int i = 0; i < Count; i++)
             {
                 keep.Add(
-                    sink.ListenStrong(static _ =>
+                    sink.Listen(static _ =>
                     {
                     }));
             }
@@ -274,9 +274,9 @@ public class GraphBuildBenchmarks
         return keep;
     }
 
-    /// <summary>Strong listeners on one cell.</summary>
-    [Benchmark(Description = "ListenStrong on one cell")]
-    public List<IListener> ListenStrongOnOneCell()
+    /// <summary>Listeners on one cell.</summary>
+    [Benchmark(Description = "Listen on one cell")]
+    public List<IListener> ListenOnOneCell()
     {
         CellSink<int> a = Cell.CreateSink(1);
         List<IListener> keep = new(Count);
@@ -286,7 +286,7 @@ public class GraphBuildBenchmarks
             for (int i = 0; i < Count; i++)
             {
                 keep.Add(
-                    a.ListenStrong(static _ =>
+                    a.Listen(static _ =>
                     {
                     }));
             }

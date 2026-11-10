@@ -187,7 +187,7 @@ public class SelectAllBenchmarks
                     objectsAndIsSelected
                         .Map(static oo => oo.Count(static o => o.IsSelected))
                         .Updates()
-                        .ListenStrong(static _ =>
+                        .Listen(static _ =>
                         {
                         }));
 

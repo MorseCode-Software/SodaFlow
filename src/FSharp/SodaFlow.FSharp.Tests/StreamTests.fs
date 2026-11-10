@@ -96,7 +96,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
             s |> sendS 5
             l |> unlistenL
             do! Expect.Sequence([ 5 ], out)
@@ -111,7 +111,7 @@ type ``Stream Tests``() =
             let s2 = sinkS ()
 
             let actual =
-                (use _let = s |> listenStrongS (s2 |> flip sendS)
+                (use _let = s |> listenS (s2 |> flip sendS)
 
                  try
                      s |> sendS 5
@@ -131,7 +131,7 @@ type ``Stream Tests``() =
             let s2 = sinkS ()
 
             let actual =
-                (use _let = s |> mapS (s2 |> flip sendS) |> listenStrongS id
+                (use _let = s |> mapS (s2 |> flip sendS) |> listenS id
 
                  try
                      s |> sendS 5
@@ -152,7 +152,7 @@ type ``Stream Tests``() =
 
             let actual =
                 (try
-                    use _let = c |> mapC (s2 |> flip sendS) |> listenStrongC id
+                    use _let = c |> mapC (s2 |> flip sendS) |> listenC id
                     None
                  with :? InvalidOperationException as e ->
                      Some e)
@@ -171,7 +171,7 @@ type ``Stream Tests``() =
 
             let actual =
                 (try
-                    use _let = (c, c2) |> lift2C (fun _ _ -> s2 |> sendS 5) |> listenStrongC id
+                    use _let = (c, c2) |> lift2C (fun _ _ -> s2 |> sendS 5) |> listenC id
                     None
                  with :? InvalidOperationException as e ->
                      Some e)
@@ -190,7 +190,7 @@ type ``Stream Tests``() =
 
             let actual =
                 (try
-                    use _let = c |> applyC c2 |> listenStrongC id
+                    use _let = c |> applyC c2 |> listenC id
                     None
                  with :? InvalidOperationException as e ->
                      Some e)
@@ -206,7 +206,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let m = s |> mapS ((+) 2 >> string)
             let out = List<_>()
-            let l = m |> listenStrongS out.Add
+            let l = m |> listenS out.Add
             s |> sendS 5
             s |> sendS 3
             l |> unlistenL
@@ -219,7 +219,7 @@ type ``Stream Tests``() =
             let s1 = sinkS ()
             let s2 = sinkS ()
             let out = List<_>()
-            let l = (s1, s2) |> orElseS |> listenStrongS out.Add
+            let l = (s1, s2) |> orElseS |> listenS out.Add
             s1 |> sendS 7
             s1 |> sendS 9
             s1 |> sendS 8
@@ -233,7 +233,7 @@ type ``Stream Tests``() =
             let s1 = sinkWithCoalesceS (fun _ r -> r)
             let s2 = sinkWithCoalesceS (fun _ r -> r)
             let out = List<_>()
-            let l = (s2, s1) |> orElseS |> listenStrongS out.Add
+            let l = (s2, s1) |> orElseS |> listenS out.Add
 
             runT (fun () ->
                 s1 |> sendS 7
@@ -269,7 +269,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let s2 = s |> mapS ((*) 2)
             let out = List<_>()
-            let l = (s, s2) |> orElseS |> listenStrongS out.Add
+            let l = (s, s2) |> orElseS |> listenS out.Add
             s |> sendS 7
             s |> sendS 9
             l |> unlistenL
@@ -282,7 +282,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let s2 = s |> mapS ((*) 2)
             let out = List<_>()
-            let l = (s2, s) |> orElseS |> listenStrongS out.Add
+            let l = (s2, s) |> orElseS |> listenS out.Add
             s |> sendS 7
             s |> sendS 9
             l |> unlistenL
@@ -295,7 +295,7 @@ type ``Stream Tests``() =
             let s1 = sinkS ()
             let s2 = sinkS ()
             let out = List<_>()
-            let l = (s1, s2) |> mergeS (+) |> listenStrongS out.Add
+            let l = (s1, s2) |> mergeS (+) |> listenS out.Add
             s1 |> sendS 7
             s1 |> sendS 9
             s1 |> sendS 8
@@ -309,7 +309,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let s2 = s |> mapS ((*) 2)
             let out = List<_>()
-            let l = (s, s2) |> mergeS (+) |> listenStrongS out.Add
+            let l = (s, s2) |> mergeS (+) |> listenS out.Add
             s |> sendS 7
             s |> sendS 9
             l |> unlistenL
@@ -325,7 +325,7 @@ type ``Stream Tests``() =
             let b = sinkS ()
             let c = sinkS ()
             let out = List<_>()
-            let l = [ a; b; c ] |> mergeAllS (fun left right -> left + "," + right) |> listenStrongS out.Add
+            let l = [ a; b; c ] |> mergeAllS (fun left right -> left + "," + right) |> listenS out.Add
 
             runT (fun () ->
                 c |> sendS "c"
@@ -346,7 +346,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkWithCoalesceS (+)
             let out = List<_>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
             runT (fun () -> s |> sendS 2)
 
             runT (fun () ->
@@ -362,7 +362,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkWithCoalesceS (+)
             let out = List<_>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
             runT (fun () -> Seq.init 5 ((+) 1) |> Seq.iter (s |> flip sendS))
             runT (fun () -> Seq.init 5 ((+) 6) |> Seq.iter (s |> flip sendS))
             l |> unlistenL
@@ -374,7 +374,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> filterS Char.IsUpper |> listenStrongS out.Add
+            let l = s |> filterS Char.IsUpper |> listenS out.Add
             s |> sendS 'H'
             s |> sendS 'o'
             s |> sendS 'I'
@@ -387,7 +387,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> filterSomeS |> listenStrongS out.Add
+            let l = s |> filterSomeS |> listenS out.Add
             s |> sendS (Some "tomato")
             s |> sendS None
             s |> sendS (Some "peach")
@@ -406,7 +406,7 @@ type ``Stream Tests``() =
             let l =
                 s
                 |> chooseS (fun (v: string) -> if v.Length > 4 then Some v.Length else None)
-                |> listenStrongS out.Add
+                |> listenS out.Add
 
             s |> sendS "tomato"
             s |> sendS "fig"
@@ -427,8 +427,8 @@ type ``Stream Tests``() =
             let f (v: string) =
                 if v.Length > 4 then Some v.Length else None
 
-            let l1 = s |> chooseS f |> listenStrongS chosen.Add
-            let l2 = s |> mapS f |> filterSomeS |> listenStrongS mapped.Add
+            let l1 = s |> chooseS f |> listenS chosen.Add
+            let l2 = s |> mapS f |> filterSomeS |> listenS mapped.Add
             s |> sendS "tomato"
             s |> sendS "fig"
             s |> sendS "peach"
@@ -443,7 +443,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> chooseS (fun (_: string) -> Option<int>.None) |> listenStrongS out.Add
+            let l = s |> chooseS (fun (_: string) -> Option<int>.None) |> listenS out.Add
             s |> sendS "tomato"
             s |> sendS "peach"
             l |> unlistenL
@@ -463,8 +463,8 @@ type ``Stream Tests``() =
 
             let out = List<_>()
             let out2 = List<_>()
-            let l = sb |> listenStrongS out.Add
-            let l2 = sc |> listenStrongS out2.Add
+            let l = sb |> listenS out.Add
+            let l2 = sc |> listenS out2.Add
             sa |> sendS 2
             sa |> sendS 52
             l2 |> unlistenL
@@ -486,8 +486,8 @@ type ``Stream Tests``() =
 
             let out = List<_>()
             let out2 = List<_>()
-            let l = cb |> listenStrongC out.Add
-            let l2 = cc |> listenStrongC out2.Add
+            let l = cb |> listenC out.Add
+            let l2 = cc |> listenC out2.Add
             ca |> sendC 2
             ca |> sendC 52
             l2 |> unlistenL
@@ -502,7 +502,7 @@ type ``Stream Tests``() =
             let sc = sinkS ()
             let cGate = sinkB true
             let out = List<_>()
-            let l = sc |> gateB cGate |> listenStrongS out.Add
+            let l = sc |> gateB cGate |> listenS out.Add
             sc |> sendS 'H'
             cGate |> sendB false
             sc |> sendS 'O'
@@ -517,7 +517,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> calmS |> listenStrongS out.Add
+            let l = s |> calmS |> listenS out.Add
             s |> sendS 2
             s |> sendS 2
             s |> sendS 2
@@ -572,7 +572,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> calmS |> listenStrongS out.Add
+            let l = s |> calmS |> listenS out.Add
             s |> sendS 2
             s |> sendS 4
             s |> sendS 2
@@ -596,7 +596,7 @@ type ``Stream Tests``() =
                     let outputValue = value + if test then a * 3 else a
                     struct (outputValue, struct (outputValue, outputValue % 2 = 0)))
 
-            let l = sum |> listenStrongS out.Add
+            let l = sum |> listenS out.Add
             sa |> sendS 5
             sa |> sendS 7
             sa |> sendS 1
@@ -612,7 +612,7 @@ type ``Stream Tests``() =
             let sa = sinkS ()
             let out = List<_>()
             let sum = sa |> accumS 100 (+)
-            let l = sum |> listenStrongC out.Add
+            let l = sum |> listenC out.Add
             sa |> sendS 5
             sa |> sendS 7
             sa |> sendS 1
@@ -627,7 +627,7 @@ type ``Stream Tests``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> onceS |> listenStrongS out.Add
+            let l = s |> onceS |> listenS out.Add
             s |> sendS 'A'
             s |> sendS 'B'
             s |> sendS 'C'
@@ -641,7 +641,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let c = s |> holdS ' '
             let out = List<_>()
-            let l = c |> listenStrongC out.Add
+            let l = c |> listenC out.Add
             s |> sendS 'C'
             s |> sendS 'B'
             s |> sendS 'A'
@@ -655,7 +655,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let c = s |> holdS ' '
             let out = List<_>()
-            let l = s |> snapshotAndTakeC c |> listenStrongS out.Add
+            let l = s |> snapshotAndTakeC c |> listenS out.Add
             s |> sendS 'C'
             s |> sendS 'B'
             s |> sendS 'A'
@@ -669,7 +669,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let c = s |> holdS ' '
             let out = List<_>()
-            let l = s |> Operational.defer |> snapshotAndTakeC c |> listenStrongS out.Add
+            let l = s |> Operational.defer |> snapshotAndTakeC c |> listenS out.Add
             s |> sendS 'C'
             s |> sendS 'B'
             s |> sendS 'A'
@@ -683,7 +683,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let c = s |> holdS ' '
             let out = List<_>()
-            let l = s |> snapshotLatestAndTakeC c |> listenStrongS out.Add
+            let l = s |> snapshotLatestAndTakeC c |> listenS out.Add
             s |> sendS 'C'
             s |> sendS 'B'
             s |> sendS 'A'
@@ -703,13 +703,13 @@ type ``Stream Tests``() =
                 c1
                 |> updatesC
                 |> snapshotC c2 (fun a b -> $"{a},{b}")
-                |> listenStrongS snapshot.Add
+                |> listenS snapshot.Add
 
             let l2 =
                 c1
                 |> updatesC
                 |> snapshotLatestC c2 (fun a b -> $"{a},{b}")
-                |> listenStrongS latest.Add
+                |> listenS latest.Add
 
             // The cell updates after the stream fires.
             runT (fun () ->
@@ -782,7 +782,7 @@ type ``Stream Tests``() =
                   s
                   |> snapshotLatest8B b1 b2 b3 b4 b5 b6 b7 b8 (fun a v1 v2 v3 v4 v5 v6 v7 v8 ->
                       [ a; v1; v2; v3; v4; v5; v6; v7; v8 ]) ]
-                |> List.map (listenStrongS out.Add)
+                |> List.map (listenS out.Add)
 
             // The stream fires between the updates of the cells. Each result must see the new value of
             // each cell that this transaction updates, and the current value of the others.
@@ -851,7 +851,7 @@ type ``Stream Tests``() =
 
             let listenTo stream =
                 let out = List<string>()
-                listeners.Add(stream |> listenStrongS out.Add)
+                listeners.Add(stream |> listenS out.Add)
                 out
 
             let check name actual expected =
@@ -992,13 +992,13 @@ type ``Stream Tests``() =
             let out8 = List<_>()
 
             let listeners =
-                [ (s1, s2) |> mergeOptions2S |> listenStrongS out2.Add
-                  (s1, s2, s3) |> mergeOptions3S |> listenStrongS out3.Add
-                  (s1, s2, s3, s4) |> mergeOptions4S |> listenStrongS out4.Add
-                  (s1, s2, s3, s4, s5) |> mergeOptions5S |> listenStrongS out5.Add
-                  (s1, s2, s3, s4, s5, s6) |> mergeOptions6S |> listenStrongS out6.Add
-                  (s1, s2, s3, s4, s5, s6, s7) |> mergeOptions7S |> listenStrongS out7.Add
-                  (s1, s2, s3, s4, s5, s6, s7, s8) |> mergeOptions8S |> listenStrongS out8.Add ]
+                [ (s1, s2) |> mergeOptions2S |> listenS out2.Add
+                  (s1, s2, s3) |> mergeOptions3S |> listenS out3.Add
+                  (s1, s2, s3, s4) |> mergeOptions4S |> listenS out4.Add
+                  (s1, s2, s3, s4, s5) |> mergeOptions5S |> listenS out5.Add
+                  (s1, s2, s3, s4, s5, s6) |> mergeOptions6S |> listenS out6.Add
+                  (s1, s2, s3, s4, s5, s6, s7) |> mergeOptions7S |> listenS out7.Add
+                  (s1, s2, s3, s4, s5, s6, s7, s8) |> mergeOptions8S |> listenS out8.Add ]
 
             s1 |> sendS 1
             s3 |> sendS 'c'
@@ -1081,7 +1081,7 @@ type ``Stream Tests``() =
             let s = sinkS ()
             let b = sinkB 0
             let out = List<_>()
-            let l = s |> snapshotLatestB b (+) |> listenStrongS out.Add
+            let l = s |> snapshotLatestB b (+) |> listenS out.Add
 
             runT (fun () ->
                 s |> sendS 1
@@ -1113,7 +1113,7 @@ type ``Stream Tests``() =
             let out = List<_>()
 
             let a () =
-                let l = s |> listenStrongS out.Add
+                let l = s |> listenS out.Add
                 s |> sendS 1
                 l |> unlistenL
                 s |> sendS 2
@@ -1149,7 +1149,7 @@ type ``Stream Tests``() =
             let out = List<_>()
 
             let a () =
-                let l = s |> listenStrongS out.Add
+                let l = s |> listenS out.Add
                 s |> sendS 1
                 l |> unlistenL
                 l |> unlistenL
@@ -1196,24 +1196,11 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
-    member _.``Test ListenOnceStrong``() =
+    member _.``Test ListenOnce Unlisten Before The First Firing``() =
         task {
             let s = sinkS ()
             let out = List<_>()
-            let l = s |> listenOnceStrongS out.Add
-            s |> sendS 'A'
-            s |> sendS 'B'
-            s |> sendS 'C'
-            l |> unlistenL
-            do! Expect.Sequence([ 'A' ], out)
-        }
-
-    [<Test>]
-    member _.``Test ListenOnceStrong Unlisten Before The First Firing``() =
-        task {
-            let s = sinkS ()
-            let out = List<_>()
-            let l = s |> listenOnceStrongS out.Add
+            let l = s |> listenOnceS out.Add
             l |> unlistenL
             s |> sendS 'A'
             do! Expect.Sequence([], out)
@@ -1327,7 +1314,7 @@ type ``Stream Tests``() =
         }
 
     [<Test>]
-    member _.``Test ListenStrong Async``() =
+    member _.``Test Listen Async``() =
         task {
             let a = sinkC 1
             let a1 = a |> mapC ((+) 1)
@@ -1349,7 +1336,7 @@ type ``Stream Tests``() =
 
                     let l =
                         result
-                        |> listenStrongC (fun v ->
+                        |> listenC (fun v ->
                             async {
                                 do! Async.Sleep 900
                                 results.Add v
@@ -1360,7 +1347,7 @@ type ``Stream Tests``() =
                     struct (called, struct (results, l)))
 
             let calledResults = List<_>()
-            let l2 = called |> listenStrongC calledResults.Add
+            let l2 = called |> listenC calledResults.Add
             do! Async.Sleep 500
             a |> sendC 2
             do! Async.Sleep 500
@@ -1381,7 +1368,7 @@ type ``Stream Tests``() =
                     streamSink |> snapshotC c (+))
 
             let out = List<_>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
             streamSink |> sendS 3
             streamSink |> sendS 4
             streamSink |> sendS 7
@@ -1404,7 +1391,7 @@ type ``Stream Tests``() =
                     |> Operational.defer)
 
             let out = List<_>()
-            let l = stream |> listenStrongS out.Add
+            let l = stream |> listenS out.Add
             streamSink |> sendS 2
             l |> unlistenL
             do! Expect.Sequence([ 3; 4; 5 ], out)

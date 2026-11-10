@@ -34,7 +34,7 @@ type ``Transaction Tests``() =
             let sink = sinkS<int> ()
 
             let listener =
-                sink |> listenStrongS (fun _ -> raise (InvalidOperationException "listener"))
+                sink |> listenS (fun _ -> raise (InvalidOperationException "listener"))
 
             let thrown =
                 try
@@ -229,7 +229,7 @@ type ``Transaction Tests``() =
             let s = sinkS ()
             let held = s |> holdS 0
             let out = List<int>()
-            let l = s |> listenStrongS out.Add
+            let l = s |> listenS out.Add
 
             let thrown =
                 try
@@ -246,7 +246,7 @@ type ``Transaction Tests``() =
             do! Expect.Equal(0, held |> sampleC)
 
             s |> sendS 2
-            l |> unlistenStrongL
+            l |> unlistenL
 
             do! Expect.Sequence([ 2 ], out)
             do! Expect.Equal(2, held |> sampleC)

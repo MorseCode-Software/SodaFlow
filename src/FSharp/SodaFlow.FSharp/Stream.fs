@@ -67,73 +67,41 @@ let loopWithNoCaptures f =
     l
 
 /// <summary>
-///     Listens for firings without keeping the stream alive.
+///     Listens for firings while the caller keeps the handle.
 /// </summary>
 /// <param name="handler">Run with each fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
+/// <returns>A listener. <c>Listener.unlisten</c> stops it, and a disposal also stops it.</returns>
 /// <remarks>
-///     The listener stops when a GC collects the stream, thus this is the correct selection where there is no
-///     clear moment to stop the listener. Keep the handle from this call in a field of the object doing the
-///     listening, and the two go away together. Where other code must keep the stream kept alive for as long
-///     as something is listening, use <c>listenStrong</c>.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (stream: Stream<_>) = stream.ListenImpl(Action<_> handler)
-
-/// <summary>
-///     Listens for firings, keeping the stream alive while the listener lives.
-/// </summary>
-/// <param name="handler">Run with each fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>
-///     A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
-/// </returns>
-/// <remarks>
-///     The listener roots the stream, so the graph behind it stays alive for as long as the
-///     returned handle is reachable. Keep the handle and stop it when finished, or use
-///     <c>listen</c> where there is no good moment to do that.
+///     The handle from this call keeps the stream and the graph behind it in memory, and only the caller
+///     keeps the handle. Keep the handle in a field of the object that listens, and the two go out of memory
+///     together. A call that discards the handle compiles, and the handler then stops with no message when a
+///     GC collects the handle.
 ///
 ///     The handler runs with the transaction lock held, thus it must return quickly. Give work
 ///     that takes a long time, and work that blocks, to a different thread.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (stream: Stream<_>) =
-    stream.ListenStrongImpl(Action<_> handler)
+let listen handler (stream: Stream<_>) : IListener =
+    stream.ListenImpl(Action<_> handler) :> IListener
 
 /// <summary>
-///     Listens for the next firing only, then stops, without keeping the stream alive.
-/// </summary>
-/// <param name="handler">Run with the first fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
-/// <remarks>
-///     The handle from this call is the only thing that keeps the handler alive, thus hold it until
-///     that first firing arrives. A call that discards the handle compiles, and the handler then runs
-///     or does not run according to when a GC collects it. Use <c>listenOnceStrong</c> where the
-///     caller does not keep the handle.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenOnce handler (stream: Stream<_>) =
-    stream.ListenOnceImpl(Action<_> handler)
-
-/// <summary>
-///     Listens for the next firing only, then stops, and keeps the stream alive until that firing.
+///     Listens for the next firing only, then stops.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
 /// <returns>
-///     A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
-///     disposal also stops it.
+///     A listener. <c>Listener.unlisten</c> stops it before that first firing, and a disposal also stops it.
 /// </returns>
 /// <remarks>
-///     The listener roots the stream until that first firing, thus the handler runs when the caller
-///     discards the handle. The root ends with that firing, or with an earlier stop. Use
-///     <c>listenOnce</c> where the listener must not extend the lifetime of what it observes.
+///     The handle from this call is the only thing that keeps the handler alive, thus hold it until
+///     that first firing arrives. A call that discards the handle compiles, and the handler then runs
+///     or does not run according to when a GC collects it. Use <c>listenOnceAsync</c> where the
+///     caller cannot keep the handle.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenOnceStrong handler (stream: Stream<_>) =
-    stream.ListenOnceStrongImpl(Action<_> handler)
+let listenOnce handler (stream: Stream<_>) =
+    stream.ListenOnceImpl(Action<_> handler)
 
 // Async.AwaitTask sends a canceled task to the exception continuation, thus the async faults. This
 // sends it to the cancellation continuation, thus the async cancels. Only listenOnceAsync completes

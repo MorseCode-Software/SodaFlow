@@ -86,7 +86,7 @@ type ``Collections Tests``() =
             let l =
                 seven
                 |> updatesC
-                |> listenStrongS (fun state ->
+                |> listenS (fun state ->
                     seen.Add(
                         match state with
                         | Some s -> s.Name
@@ -114,7 +114,7 @@ type ``Collections Tests``() =
             let l =
                 seven
                 |> updatesC
-                |> listenStrongS (fun item ->
+                |> listenS (fun item ->
                     seen.Add(
                         match item with
                         | Some i -> i.Identity.Code + ":" + i.State.Name
@@ -657,7 +657,7 @@ type ``Collections Tests``() =
                 collection |> foldByIdentity (fun identity -> identity.Number) 0 (+) (-)
 
             let seen = ResizeArray<int>()
-            use _ = numbers |> updatesC |> listenStrongS seen.Add
+            use _ = numbers |> updatesC |> listenS seen.Add
 
             do! Expect.Equal(3, numbers |> sampleC)
 

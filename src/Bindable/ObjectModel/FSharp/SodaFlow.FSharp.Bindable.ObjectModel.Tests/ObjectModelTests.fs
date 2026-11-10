@@ -67,7 +67,7 @@ type ``Object Model Tests``() =
             let sink = sinkS<unit> ()
             let fired = List<unit>()
             use a = immediate.ToBindableAction sink
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             a.Execute "whatever the XAML author bound"
             do! Expect.Equal(1, fired.Count)
         }
@@ -80,7 +80,7 @@ type ``Object Model Tests``() =
 
             use a = immediate.ToBindableAction sink
 
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             a.Execute 42
             do! Expect.Sequence([ 42 ], fired)
         }
@@ -115,7 +115,7 @@ type ``Object Model Tests``() =
             let sink = sinkS<int option> ()
             let fired = List<int option>()
             use a = immediate.ToBindableOptionAction sink
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             a.Execute 1
             a.Execute(Some 2)
             a.Execute null
@@ -132,7 +132,7 @@ type ``Object Model Tests``() =
             let enabled = sinkC true
             let fired = List<unit>()
             use a = immediate.ToBindableAction(sinkS<unit> (), enabled)
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             executeThenDisable a null enabled
             enableThenExecute a null enabled
             do! Expect.Equal(1, fired.Count)
@@ -144,7 +144,7 @@ type ``Object Model Tests``() =
             let enabled = sinkC true
             let fired = List<int>()
             use a = immediate.ToBindableAction(sinkS<int> (), enabled)
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             executeThenDisable a 1 enabled
             enableThenExecute a 2 enabled
             do! Expect.Sequence([ 2 ], fired)
@@ -156,7 +156,7 @@ type ``Object Model Tests``() =
             let enabled = sinkC true
             let fired = List<int option>()
             use a = immediate.ToBindableOptionAction(sinkS<int option> (), enabled)
-            use _ = a.FiringsStream |> listenStrongS fired.Add
+            use _ = a.FiringsStream |> listenS fired.Add
             executeThenDisable a null enabled
             enableThenExecute a 2 enabled
             do! Expect.Sequence([ Some 2 ], fired)

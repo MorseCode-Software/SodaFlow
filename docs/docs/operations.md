@@ -66,11 +66,9 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.Collect(initial, f)` | `collectS initial f s` | Mealy machine: emit an output and a new state. |
 | `s.CollectLazy(initial, f)` | `collectLazyS initial f s` | As above with a `LazySample<T>` initial state. |
 | `s.Once()` | `onceS s` | Only the next firing, then never again. |
-| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns `IWeakListener`; does **not** keep the graph alive. |
-| `s.ListenStrong(handler)` | `listenStrongS handler s` | Subscribe and keep the graph alive. Returns `IStrongListener`. |
-| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Returns `IWeakListener`; does **not** keep the graph alive. |
-| `s.ListenOnceStrong(handler)` | `listenOnceStrongS handler s` | As above, keeping the graph alive until that firing. Returns `IStrongListener`. |
-| `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. |
+| `s.Listen(handler)` | `listenS handler s` | Subscribe. Returns an `IListener`, and the handler runs only while you hold it. See [Listener lifetimes](lifetimes.md). |
+| `s.ListenOnce(handler)` | `listenOnceS handler s` | Subscribe, then unsubscribe after one firing. Hold the `IListener` until that firing. |
+| `s.ListenOnceAsync()` | `listenOnceAsyncS s` | The next firing as a `Task<T>`. Needs no handle: the sources of the stream hold the wait. |
 
 The `Snapshot` family is the workhorse. `Gate` is `Snapshot` plus `Filter`; `MapTo` is `Map`
 with a constant. Reach for the specific one — it reads better and does less work.
@@ -98,8 +96,7 @@ is already the new one.
 | `c.Calm()` | `calmC c` | Suppress updates equal to the previous value. |
 | `c.Updates()` | `updatesC c` | The stream of changes. Does **not** fire on subscribe. |
 | `c.Values()` | `valuesC c` | Changes, **plus** one firing in the transaction it was obtained in. |
-| `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. Does **not** keep the graph alive. |
-| `c.ListenStrong(handler)` | `listenStrongC handler c` | As above, and keeps the graph alive. |
+| `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. The handler runs only while you hold the `IListener`. |
 | `c.AsBehavior()` | `asBehaviorC c` | View this cell as a behavior. A cell already is one, so this is an upcast. |
 | `cc.SwitchC()` | `switchC cc` | Flatten `Cell<Cell<T>>`. See [Switch](switch.md). |
 | `cs.SwitchS()` | `switchS cs` | Flatten `Cell<Stream<T>>`. |

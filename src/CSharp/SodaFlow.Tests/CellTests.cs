@@ -27,8 +27,8 @@ public sealed class CellTests
 
         List<int> output1 = [];
         List<int> output2 = [];
-        IListener l = c.ListenStrong(output1.Add);
-        IListener l2 = c.Updates().ListenStrong(output2.Add);
+        IListener l = c.Listen(output1.Add);
+        IListener l2 = c.Updates().Listen(output2.Add);
 
         s.Send(5);
         s.Send(7);
@@ -46,7 +46,7 @@ public sealed class CellTests
         List<int> @out = [];
         CellSink<int> cellSink = Cell.CreateSink(1);
         Cell<int> cell = cellSink.Map(static v => 2 * v);
-        IListener l = cellSink.Lift(c2: cell, f: static (x, y) => x + y).Updates().ListenStrong(@out.Add);
+        IListener l = cellSink.Lift(c2: cell, f: static (x, y) => x + y).Updates().Listen(@out.Add);
 
         cellSink.Send(2);
         cellSink.Send(7);
@@ -67,10 +67,10 @@ public sealed class CellTests
         Cell<IReadOnlyList<int>> c = v.Map(static oo => oo.Select(static o => o.Value).Lift()).SwitchC();
 
         List<IReadOnlyList<int>> streamOutput = [];
-        IListener l = c.Updates().ListenStrong(streamOutput.Add);
+        IListener l = c.Updates().Listen(streamOutput.Add);
 
         List<IReadOnlyList<int>> cellOutput = [];
-        IListener l2 = c.ListenStrong(cellOutput.Add);
+        IListener l2 = c.Listen(cellOutput.Add);
 
         list1[2].Value.Send(12);
         list2[1].Value.Send(16);
@@ -132,10 +132,10 @@ public sealed class CellTests
             v.Map(static oo => oo.Select(static o => o.Value).Lift()).Map(static o => o).SwitchC();
 
         List<IReadOnlyList<int>> streamOutput = [];
-        IListener l = c.Updates().ListenStrong(streamOutput.Add);
+        IListener l = c.Updates().Listen(streamOutput.Add);
 
         List<IReadOnlyList<int>> cellOutput = [];
-        IListener l2 = c.ListenStrong(cellOutput.Add);
+        IListener l2 = c.Listen(cellOutput.Add);
 
         list1[2].Value.Send(12);
         list2[1].Value.Send(16);
@@ -192,7 +192,7 @@ public sealed class CellTests
         CellSink<int> s = Cell.CreateSink(0);
         Cell<Cell<int>> c = Cell.Constant(Cell.Constant(1));
         Cell<Cell<int>> r = c.Map(c2 => c2.Lift(c2: s, f: static (v1, v2) => v1 + v2));
-        IListener l = r.SwitchC().ListenStrong(@out.Add);
+        IListener l = r.SwitchC().Listen(@out.Add);
         s.Send(2);
         s.Send(4);
         l.Unlisten();
@@ -206,7 +206,7 @@ public sealed class CellTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<Cell<int>> c = Cell.Constant(1).Map(_ => s.Hold(0));
         s.Send(1);
-        IListener l = c.SwitchC().ListenStrong(@out.Add);
+        IListener l = c.SwitchC().Listen(@out.Add);
         s.Send(3);
         s.Send(5);
         l.Unlisten();
@@ -230,7 +230,7 @@ public sealed class CellTests
                                    .Values()
                                    .Map(static v => (Current: v, Previous: Maybe<int>.None)));
 
-                   return r.ListenStrong(@out.Add);
+                   return r.Listen(@out.Add);
                }))
         {
             s.Send(1);
@@ -270,7 +270,7 @@ public sealed class CellTests
                                    .Map(static v => (Current: v, Previous: Maybe<int>.None)));
 
                    s.Send(1);
-                   return r.ListenStrong(@out.Add);
+                   return r.Listen(@out.Add);
                }))
         {
             s.Send(2);
@@ -337,7 +337,7 @@ public sealed class CellTests
 
         List<int> @out = [];
 
-        using (resultCell.ListenStrong(@out.Add))
+        using (resultCell.Listen(@out.Add))
         {
             innerCell.Sample().S.Send(5);
             innerStreamSink.Send(new Inner(resultCell.SampleLazy().Map(static v => v - 1)));
@@ -418,10 +418,10 @@ public sealed class CellTests
     private static List<int> UpdatesAskedForInTheFiringTransaction(CellSink<int> source, Behavior<int> derived)
     {
         List<int> @out = [];
-        IStrongListener? late = null;
+        IListener? late = null;
 
         using (Operational.Updates(source)
-                   .ListenStrong(_ => late ??= Operational.Updates(derived).ListenStrong(@out.Add)))
+                   .Listen(_ => late ??= Operational.Updates(derived).Listen(@out.Add)))
         {
             source.Send(2);
             source.Send(3);

@@ -146,7 +146,7 @@ public sealed class PrioritizedTests
         Cell<int> switched = selector.SwitchC();
         List<int> updates = [];
 
-        using IStrongListener l = switched.Updates().ListenStrongImpl(updates.Add);
+        using IListener l = switched.Updates().ListenImpl(updates.Add);
 
         selector.Send(deep);
 

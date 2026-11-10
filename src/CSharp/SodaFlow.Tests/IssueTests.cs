@@ -122,7 +122,7 @@ public sealed class IssueTests
 
         List<int> submissions = [];
 
-        using (input.ListenStrong(submissions.Add))
+        using (input.Listen(submissions.Add))
         {
             // The quantity to add, which the code can use immediately with the threshold.
             // Pool must stay at zero after the transaction completes.

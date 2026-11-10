@@ -157,7 +157,7 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
                 edits: edits,
                 total: total,
                 listener: total.Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }));
         });
@@ -236,7 +236,7 @@ internal sealed class IncrementalAggregateShape : IKeyedAggregateShape
                 edits: edits,
                 total: total,
                 listener: total.Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }));
         });

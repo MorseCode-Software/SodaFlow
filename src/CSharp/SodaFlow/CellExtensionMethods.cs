@@ -42,7 +42,7 @@ public static class CellExtensionMethods
     ///         .
     ///     </para>
     ///     <para>
-    ///         Usually, use <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> as a
+    ///         Usually, use <see cref="Listen{T}(Cell{T}, Action{T})" /> as a
     ///         replacement, thus the code keeps each update. But this method is
     ///         correct in many conditions.
     ///     </para>
@@ -50,7 +50,7 @@ public static class CellExtensionMethods
     ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or
     ///         <see cref="Transaction.RunVoid(Action)" />). For example, a c.Sample()
-    ///         in an explicit transaction, with a c.Updates().ListenStrong(...),
+    ///         in an explicit transaction, with a c.Updates().Listen(...),
     ///         captures the current value and each update. The code keeps each value
     ///         between the two.
     ///     </para>
@@ -120,17 +120,19 @@ public static class CellExtensionMethods
     public static Behavior<T> AsBehavior<T>(this Cell<T> c) => c;
 
     /// <summary>
-    ///     Listen for updates to the value of this cell, keeping the cell alive for as
-    ///     long as the returned listener is reachable. A disposal of the
-    ///     <see cref="IStrongListener" /> from this call stops the listener. This is
-    ///     an OPERATIONAL mechanism for the boundary between the world of I/O and FRP.
+    ///     Listen for updates to the value of this cell. The listener from this call
+    ///     listens while the caller keeps it. A call to
+    ///     <see cref="IListener.Unlisten" /> or a disposal stops the listener, and the
+    ///     listener also stops when a GC collects it. This is an OPERATIONAL mechanism
+    ///     for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="handler">The handler to run with each value.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" />. A disposal of it stops the
-    ///     listener.
+    ///     An <see cref="IListener" />. Keep it for as long as the handler must run.
+    ///     A call to its <see cref="IListener.Unlisten" /> or a disposal of it stops
+    ///     the listener.
     /// </returns>
     /// <remarks>
     ///     <para>
@@ -142,57 +144,15 @@ public static class CellExtensionMethods
     ///         primitive.
     ///     </para>
     ///     <para>
-    ///         With no disposal of the <see cref="IStrongListener" />, the listener
-    ///         continues until a GC collects this cell.
-    ///     </para>
-    ///     <para>
-    ///         This roots the cell, thus a GC cannot collect the graph behind it while
-    ///         the listener from this call is reachable. Use
-    ///         <see cref="Listen{T}(Cell{T}, Action{T})" /> where that is not wanted.
+    ///         The listener from this call keeps the cell and the graph behind it in
+    ///         memory. Only the caller keeps the listener in memory. Thus, keep the
+    ///         listener in a field or in a <c>using</c> statement for as long as the
+    ///         handler must run. Code that discards the listener compiles, and the
+    ///         handler then stops with no message when a GC collects the listener.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IStrongListener ListenStrong<T>(this Cell<T> c, Action<T> handler) => c.ListenStrongImpl(handler);
-
-    /// <summary>
-    ///     Listen for updates to the value of this cell, without keeping the cell
-    ///     alive. The returned <see cref="IWeakListener" />. A call to
-    ///     <see cref="IListener.Unlisten" /> stops the listener, and the listener also
-    ///     stops when a GC collects it. This is an OPERATIONAL mechanism for
-    ///     interfacing between the world of I/O and FRP.
-    /// </summary>
-    /// <typeparam name="T">The type of the cell.</typeparam>
-    /// <param name="c">The cell.</param>
-    /// <param name="handler">The handler to run with each value.</param>
-    /// <returns>
-    ///     An <see cref="IWeakListener" />. A call to its
-    ///     <see cref="IListener.Unlisten" /> stops the listener. Only
-    ///     <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
-    /// </returns>
-    /// <remarks>
-    ///     <para>
-    ///         Make no assumption about the thread that calls the handler, and the
-    ///         handler must not block. The handler must not call
-    ///         <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an
-    ///         exception, because this method is not for the definition of a new
-    ///         primitive.
-    ///     </para>
-    ///     <para>
-    ///         With no call to <see cref="IListener.Unlisten" />, the listener
-    ///         continues. It stops when a GC collects the cell, or when a GC collects
-    ///         the listener.
-    ///     </para>
-    ///     <para>
-    ///         This does not root the cell. Nothing here keeps the monitored graph in
-    ///         memory, thus the listener stops when a GC collects the cell. Keep the
-    ///         listener from this call where that matters, or use
-    ///         <see cref="ListenStrong{T}(Cell{T}, Action{T})" /> to keep the cell in
-    ///         memory.
-    ///     </para>
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IWeakListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
+    public static IListener Listen<T>(this Cell<T> c, Action<T> handler) => c.ListenImpl(handler);
 
     /// <summary>
     ///     Transforms the values of a cell with the given function. The cell from this

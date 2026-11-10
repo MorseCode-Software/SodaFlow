@@ -96,7 +96,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            collection.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         // A removal and an add of one key in one transaction replaces an item, and the new item is
         // a new arrival.
@@ -309,7 +309,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            byScore.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            byScore.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -340,7 +340,7 @@ public sealed class CollectionViewTests
         List<int> scores = [];
 
         IListener l =
-            byScore.StateCell(1).ListenStrong(state => state.MatchSome(state => scores.Add(state.Score)));
+            byScore.StateCell(1).Listen(state => state.MatchSome(state => scores.Add(state.Score)));
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -367,7 +367,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            collection.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            collection.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         // The root uses the order of arrival, thus this moves no key. A stage below can sort on
         // the state that changed, thus this code must send the change to it.
@@ -401,7 +401,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            passing.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            passing.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         edits.Send(TestUtil.Score(key: 2, score: 99));
 
@@ -481,7 +481,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
-        IListener l = passing.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+        IListener l = passing.KeyChangesStream.Listen(change => resets.Add(change.IsReset));
 
         threshold.Send(5);
 
@@ -513,7 +513,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            evens.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            evens.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         // The key is in the view. A change of score cannot move it out, thus this reports the
         // update and nothing more. The membership cannot change here.
@@ -559,7 +559,7 @@ public sealed class CollectionViewTests
         List<bool> resets = [];
 
         IListener l =
-            view.KeyChangesStream.ListenStrong(change =>
+            view.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
                 operations.AddRange(change.Operations.Select(Describe));
@@ -617,7 +617,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            view.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            view.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         minimum.Send(2);
 
@@ -691,7 +691,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            odds.KeyChangesStream.ListenStrong(change =>
+            odds.KeyChangesStream.Listen(change =>
                 operations.AddRange(
                     change.Operations.Select(static operation =>
                         operation is ViewMove<int> move
@@ -863,7 +863,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            byCode.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            byCode.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         // A change of score cannot change a code, thus this reports the update and moves no key.
         // The selector on the identity only gives that permission.
@@ -1478,7 +1478,7 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
-        IListener l = sorted.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+        IListener l = sorted.KeyChangesStream.Listen(change => resets.Add(change.IsReset));
 
         order.Send(byName);
 
@@ -1629,7 +1629,7 @@ public sealed class CollectionViewTests
             collection.Filter(static (_, state) => state.Score >= 20);
 
         List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = passing.KeyChangesStream.ListenStrong(changes.Add);
+        IListener l = passing.KeyChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -1700,7 +1700,7 @@ public sealed class CollectionViewTests
 
         IListener l =
             cell.Updates()
-                .ListenStrong(item =>
+                .Listen(item =>
                     seen.Add(
                         item.Match(
                             onSome: static value => value.Identity.Code + ":" + value.State.Name,
@@ -1749,8 +1749,8 @@ public sealed class CollectionViewTests
         List<Maybe<ItemIdentity>> onCollection = [];
         List<Maybe<ItemIdentity>> onView = [];
 
-        IListener a = collection.IdentityCell(2).Updates().ListenStrong(onCollection.Add);
-        IListener b = passing.IdentityCell(2).Updates().ListenStrong(onView.Add);
+        IListener a = collection.IdentityCell(2).Updates().Listen(onCollection.Add);
+        IListener b = passing.IdentityCell(2).Updates().Listen(onView.Add);
 
         // An identity cannot change while its key stays in the collection, thus no observer gets a
         // value. The new name gives none, and the change of order from the score edit gives
@@ -1783,8 +1783,8 @@ public sealed class CollectionViewTests
         List<ItemChange<int, ItemIdentity, ItemState>> onView = [];
         List<ItemChange<int, ItemIdentity, ItemState>> onCollection = [];
 
-        IListener a = passing.ItemChangesStream.ListenStrong(onView.Add);
-        IListener b = collection.ItemChangesStream.ListenStrong(onCollection.Add);
+        IListener a = passing.ItemChangesStream.Listen(onView.Add);
+        IListener b = collection.ItemChangesStream.Listen(onCollection.Add);
 
         // An item that the view does not hold changes. The collection gets that change and the
         // view does not.
@@ -1840,7 +1840,7 @@ public sealed class CollectionViewTests
             .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Any);
 
         List<IReadOnlyDictionary<int, ItemIdentity>> shapes = [];
-        IListener l = passing.ShapeCell.Updates().ListenStrong(shapes.Add);
+        IListener l = passing.ShapeCell.Updates().Listen(shapes.Add);
 
         // A new name changes no members, thus no cell sends a value.
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
@@ -1928,11 +1928,11 @@ public sealed class CollectionViewTests
         int pageUpdates = 0;
         List<string> pageOperations = [];
 
-        IListener collectionListener = collection.KeysCell.Updates().ListenStrong(_ => collectionUpdates++);
-        IListener pageListener = page.KeysCell.Updates().ListenStrong(_ => pageUpdates++);
+        IListener collectionListener = collection.KeysCell.Updates().Listen(_ => collectionUpdates++);
+        IListener pageListener = page.KeysCell.Updates().Listen(_ => pageUpdates++);
 
         IListener operationsListener =
-            page.KeyChangesStream.ListenStrong(change => pageOperations.AddRange(change.Operations.Select(Describe)));
+            page.KeyChangesStream.Listen(change => pageOperations.AddRange(change.Operations.Select(Describe)));
 
         IReadOnlyList<string> before = rows.Items.Sample();
 
@@ -2091,7 +2091,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            highScores.KeyChangesStream.ListenStrong(change =>
+            highScores.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
                 operations.AddRange(change.Operations.Select(Describe));
@@ -2125,7 +2125,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            collection.KeyChangesStream.ListenStrong(change =>
+            collection.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
                 operations.AddRange(change.Operations.Select(Describe));
@@ -2175,7 +2175,7 @@ public sealed class CollectionViewTests
         List<string> kinds = [];
 
         IListener listener =
-            view.KeyChangesStream.ListenStrong(change =>
+            view.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
 
@@ -2366,7 +2366,7 @@ public sealed class CollectionViewTests
         List<int> operationCounts = [];
 
         IListener l =
-            collection.KeyChangesStream.ListenStrong(change =>
+            collection.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
                 operationCounts.Add(change.Operations.Count);
@@ -2412,7 +2412,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            passing.KeyChangesStream.ListenStrong(change => operations.AddRange(change.Operations.Select(Describe)));
+            passing.KeyChangesStream.Listen(change => operations.AddRange(change.Operations.Select(Describe)));
 
         // One key enters at the front and no key leaves.
         threshold.Send(5);
@@ -2458,7 +2458,7 @@ public sealed class CollectionViewTests
                 predicate: static (limit, _, state) => state.Score >= limit);
 
         int changes = 0;
-        IListener l = passing.KeyChangesStream.ListenStrong(_ => changes++);
+        IListener l = passing.KeyChangesStream.Listen(_ => changes++);
 
         // This is a different limit that accepts the same two items.
         threshold.Send(15);
@@ -2499,7 +2499,7 @@ public sealed class CollectionViewTests
         List<string> operations = [];
 
         IListener l =
-            sorted.KeyChangesStream.ListenStrong(change =>
+            sorted.KeyChangesStream.Listen(change =>
             {
                 resets.Add(change.IsReset);
                 operations.AddRange(change.Operations.Select(Describe));

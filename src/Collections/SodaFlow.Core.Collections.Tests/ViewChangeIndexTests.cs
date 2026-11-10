@@ -46,7 +46,7 @@ public sealed class ViewChangeIndexTests
         HashSet<int> stateWoke = [];
         HashSet<int> itemWoke = [];
         HashSet<int> identityWoke = [];
-        List<IListener> listeners = [view.KeyChangesStream.ListenStrong(changes.Add)];
+        List<IListener> listeners = [view.KeyChangesStream.Listen(changes.Add)];
 
         // Two keys that no side holds are in the range too. Thus, a lookup for a key that is in no
         // operation is in the comparison.
@@ -55,15 +55,15 @@ public sealed class ViewChangeIndexTests
             int cellKey = key;
 
             listeners.Add(
-                view.StateCellImpl(key: key, projection: Score).Updates().ListenStrong(_ => stateWoke.Add(cellKey)));
+                view.StateCellImpl(key: key, projection: Score).Updates().Listen(_ => stateWoke.Add(cellKey)));
 
             listeners.Add(
-                view.ItemCellImpl(key: key, projection: ItemScore).Updates().ListenStrong(_ => itemWoke.Add(cellKey)));
+                view.ItemCellImpl(key: key, projection: ItemScore).Updates().Listen(_ => itemWoke.Add(cellKey)));
 
             listeners.Add(
                 view.IdentityCellImpl(key: key, projection: Number)
                     .Updates()
-                    .ListenStrong(_ => identityWoke.Add(cellKey)));
+                    .Listen(_ => identityWoke.Add(cellKey)));
         }
 
         SendWideEdit(edits);
@@ -118,14 +118,14 @@ public sealed class ViewChangeIndexTests
 
         List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
         HashSet<int> woke = [];
-        List<IListener> listeners = [view.KeyChangesStream.ListenStrong(changes.Add)];
+        List<IListener> listeners = [view.KeyChangesStream.Listen(changes.Add)];
 
         for (int key = 0; key < ItemCount; key++)
         {
             int cellKey = key;
 
             listeners.Add(
-                view.StateCellImpl(key: key, projection: Score).Updates().ListenStrong(_ => woke.Add(cellKey)));
+                view.StateCellImpl(key: key, projection: Score).Updates().Listen(_ => woke.Add(cellKey)));
         }
 
         edits.Send(TestUtil.Score(key: 3, score: 1000));
@@ -154,14 +154,14 @@ public sealed class ViewChangeIndexTests
         ReactiveCollection<int, ItemIdentity, ItemState> view = View(edits);
 
         List<CollectionViewChange<int, ItemIdentity, ItemState>> changes = [];
-        List<IListener> listeners = [view.KeyChangesStream.ListenStrong(changes.Add)];
+        List<IListener> listeners = [view.KeyChangesStream.Listen(changes.Add)];
 
         for (int key = 0; key < cellCount; key++)
         {
             listeners.Add(
                 view.StateCellImpl(key: key, projection: Score)
                     .Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }));
         }

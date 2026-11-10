@@ -45,7 +45,7 @@ public static class BehaviorExtensionMethods
     ///         It can be best to use this method in an explicit transaction (using
     ///         <see cref="Transaction.Run{T}(Func{T})" /> or
     ///         <see cref="Transaction.RunVoid(Action)" />). For example, a b.Sample()
-    ///         in an explicit transaction, with a b.Updates().ListenStrong(...),
+    ///         in an explicit transaction, with a b.Updates().Listen(...),
     ///         captures the current value and each update. The code keeps each value
     ///         between the two.
     ///     </para>

@@ -34,7 +34,7 @@ internal interface IStreamAction<in T>
 /// </remarks>
 /// <typeparam name="T">The type of the values of the source stream.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal abstract class StreamAction<T> : IStreamAction<T>, IWeakListenerInternal
+internal abstract class StreamAction<T> : IStreamAction<T>, IListenerInternal
 {
     // ReSharper disable once NotAccessedField.Local - Holds the source stream, see the remarks.
     private Stream<T>? source;
@@ -56,6 +56,9 @@ internal abstract class StreamAction<T> : IStreamAction<T>, IWeakListenerInterna
 
     /// <inheritdoc />
     public void Unlisten() => this.target?.Unlisten();
+
+    /// <inheritdoc />
+    public void Dispose() => this.Unlisten();
 
     // ReSharper disable once NullableWarningSuppressionIsUsed - Listen links the action before it gives it to a
     // caller.

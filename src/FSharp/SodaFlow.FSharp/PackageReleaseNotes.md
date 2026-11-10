@@ -6,6 +6,16 @@ transaction that fails forget its value; the core notes say why. New: the LazySa
 function, map, and lift2 to lift8, and the lazySample alias for defer in Shorthand. A function given to any of them
 can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: Stream.listenStrong, Stream.listenOnceStrong, and Cell.listenStrong are removed, with their aliases
+listenStrongS, listenOnceStrongS, and listenStrongC. listen and listenOnce answer with an IListener, which is now an
+IDisposable, so use can keep it and stop it. The WeakListener and StrongListener modules are removed, with
+Listener.fromWeakList, fromStrongList, fromWeakSeq, fromStrongSeq, and the aliases unlistenWeakL and unlistenStrongL:
+use the Listener module and unlistenL. A handler runs while the caller holds its listener, and stops when the garbage
+collector removes a listener that no caller holds. A strong listener that a caller dropped continued for as long as a
+source of its stream lived, and nothing could stop it after that. Each use of a removed name stops compiling, which
+marks the places to change. Keep the listener there. A call that changes to listen and discards the result compiles, and
+its handler stops at a garbage collection with no message. listenOnceAsync does not change.
+
 BREAKING: getListenerWithWeakReference in the Listener, WeakListener, StrongListener, and MutableListener modules, and
 Listener.unlistenWeak, are removed, and IListenerWithWeakReference is internal. The MutableListener module is removed
 with the type, which is internal, and the Cleanup module with Cleanup, which is removed; the core notes say why. F#
@@ -82,8 +92,8 @@ that reach this package, and its notes have the details of each:
   and the result was wrong until the first input updated again.
 - switchB and switchC no longer keep a switch that a failed transaction made. Before, the output went on following the
   behavior the transaction had switched to, although the outer cell still held the one from before the failure.
-- listenOnce and listenOnceStrong no longer call the handler twice when the stream fires on another thread at the
-  moment the listener is attached.
+- listenOnce no longer calls the handler twice when the stream fires on another thread at the moment the listener is
+  attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
   map of a cell from switchC or switchB from running its function a wasted second time when the switch moves to an inner
   cell of higher rank than its output.
@@ -94,7 +104,7 @@ NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 wo
 5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
 floor is what keeps a consumer from pairing them.
 
-Changed: listenOnceAsync is now built on listenOnceStrong, so it gets the same fix. It used to carry its own copy of
+Changed: listenOnceAsync is now built on the one-shot listener of the core, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The result still arrived only once, but the listener could stay attached until the
 stream fired again.
 

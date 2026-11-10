@@ -81,7 +81,7 @@ public sealed class CellProjectionCacheTests
 
         Cell<int>? scoreOfOne = null;
 
-        IListener listener = collection.ItemChangesStream.ListenStrong(_ =>
+        IListener listener = collection.ItemChangesStream.Listen(_ =>
         {
             scoreOfOne = collection.StateCellImpl(key: 1, projection: Score);
 

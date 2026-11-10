@@ -146,41 +146,23 @@ let values (cell: Cell<_>) = cell.ValuesImpl
 let asBehavior (cell: Cell<_>) = cell :> Behavior<_>
 
 /// <summary>
-///     Listens for changes without keeping the cell alive.
+///     Listens for changes while the caller keeps the handle.
 /// </summary>
 /// <param name="handler">Run with each new value.</param>
 /// <param name="cell">The cell to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
+/// <returns>A listener. <c>Listener.unlisten</c> stops it, and a disposal also stops it.</returns>
 /// <remarks>
-///     The listener stops when a GC collects the cell, thus this is the correct selection where there
-///     is no clear moment to stop the listener. Keep the handle from this call in a field of the
-///     object doing the listening, and the two go away together. Where other code must keep the cell
-///     alive for as long as something is listening, use <c>listenStrong</c>.
-///
-///     Fires the current value immediately, in the transaction of this call.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (cell: Cell<_>) = cell.ListenImpl(Action<_> handler)
-
-/// <summary>
-///     Listens for changes, keeping the cell alive while the listener lives.
-/// </summary>
-/// <param name="handler">Run with each new value.</param>
-/// <param name="cell">The cell to listen to.</param>
-/// <returns>
-///     A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
-/// </returns>
-/// <remarks>
-///     The listener roots the cell, so the graph behind it stays alive for as long as the returned
-///     handle is reachable. Keep the handle and stop it when finished, or use <c>listen</c>
-///     where there is no good moment to do that.
+///     The handle from this call keeps the cell and the graph behind it in memory, and only the caller
+///     keeps the handle. Keep the handle in a field of the object that listens, and the two go out of
+///     memory together. A call that discards the handle compiles, and the handler then stops with no
+///     message when a GC collects the handle.
 ///
 ///     Fires the current value immediately, in the transaction of this call. The handler runs
 ///     with the transaction lock held, thus it must return quickly.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (cell: Cell<_>) =
-    cell.ListenStrongImpl(Action<_> handler)
+let listen handler (cell: Cell<_>) : IListener =
+    cell.ListenImpl(Action<_> handler) :> IListener
 
 /// <summary>
 ///     Transforms a cell with a function.

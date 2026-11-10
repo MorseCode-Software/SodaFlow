@@ -53,7 +53,7 @@ type ``Forward Reference Tests``() =
             // The cell loop with one value. The reference resolves one time and stays.
             let node = forwardReferenceWithNoCaptures nodeHolding
             let out = List<_>()
-            let l = node.Child.Parent |> listenStrongC out.Add
+            let l = node.Child.Parent |> listenC out.Add
             l |> unlistenL
 
             do! Expect.Sequence([ node ], out)

@@ -22,7 +22,7 @@ public sealed class TransactionTests
     private static Exception RunFailingTransaction(Action inTransaction)
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        IListener listener = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        IListener listener = sink.Listen(static _ => throw new InvalidOperationException("listener"));
 
         try
         {
@@ -167,7 +167,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -205,7 +205,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.Post(() =>
@@ -225,7 +225,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
         InvalidOperationException thrown = new("first");
 
         InvalidOperationException? caught =
@@ -290,7 +290,7 @@ public sealed class TransactionTests
         Stream<string> items = Operational.Split<string, List<string>>(sink);
         List<string> seen = [];
 
-        using IStrongListener l = items.ListenStrong(item =>
+        using IListener l = items.Listen(item =>
         {
             seen.Add(item);
 

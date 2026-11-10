@@ -19,7 +19,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -58,8 +58,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<object> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        IListener l2 = errors.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
+        IListener l2 = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -109,7 +109,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -153,7 +153,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -199,7 +199,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -242,14 +242,14 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors1 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op1 = new();
         List<string> received1 = [];
-        IListener l1 = results1.ListenStrong(received1.Add);
+        IListener l1 = results1.Listen(received1.Add);
 
         StreamSink<string> source2 = Stream.CreateSink<string>();
         StreamSink<string> results2 = Stream.CreateSink<string>();
         StreamSink<Exception> errors2 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op2 = new();
         List<string> received2 = [];
-        IListener l2 = results2.ListenStrong(received2.Add);
+        IListener l2 = results2.Listen(received2.Add);
 
         AsyncMapStatus<string> status1 =
             source1.MapAsyncImpl(

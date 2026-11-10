@@ -21,7 +21,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -58,8 +58,8 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<object> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        IListener l2 = errors.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
+        IListener l2 = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -107,7 +107,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -142,7 +142,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncConcurrencyStrategyBase<string> strategy =
             AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
@@ -184,7 +184,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncConcurrencyStrategyBase<string> strategy =
             AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
@@ -229,7 +229,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -283,7 +283,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         IListener probe =
             Transaction.Run(() =>
-                tracked.ListenStrong(items =>
+                tracked.Listen(items =>
                 {
                     lock (statuses)
                     {
@@ -349,7 +349,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Unit> results = Stream.CreateSink<Unit>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<Unit> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         CountingStrategy strategy = new();
 

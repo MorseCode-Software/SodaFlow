@@ -26,7 +26,7 @@ namespace SodaFlow;
 /// <typeparam name="T">The type of the value of the behavior.</typeparam>
 internal interface IDerivation<T>
 {
-    /// <summary>The set that roots a strong listener on the updates.</summary>
+    /// <summary>The set that roots a wait on the updates.</summary>
     IKeepListenersAlive KeepListenersAlive { get; }
 
     /// <summary>Records the behavior that each value arrives at.</summary>
@@ -59,7 +59,7 @@ internal interface IDerivation<T>
 ///         Until a caller asks for the updates, each value goes to the behavior.
 ///         After that, each value goes to the stream, and the behavior follows the
 ///         stream through a link on the null rank, as a hold does. The derivation
-///         then does not hold the behavior. Thus, a strong listener on the updates
+///         then does not hold the behavior. Thus, a listener on the updates
 ///         does not keep the behavior alive, and a collected behavior costs a send
 ///         nothing.
 ///     </para>
@@ -106,7 +106,7 @@ internal struct DerivedCore<T>(in IKeepListenersAlive keepListenersAlive)
     /// <param name="trans">The current transaction.</param>
     /// <param name="retained">
     ///     The listener that keeps the derivation alive while the stream lives. A
-    ///     strong listener on the stream holds the stream and not the behavior.
+    ///     listener on the stream holds the stream and not the behavior.
     /// </param>
     internal Stream<T> CreateUpdates(TransactionInternal trans, IListenerInternal retained)
     {
@@ -136,7 +136,7 @@ internal struct DerivedCore<T>(in IKeepListenersAlive keepListenersAlive)
 /// <typeparam name="TSource">The type of the value of the source.</typeparam>
 /// <typeparam name="T">The type of the value of the map.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal sealed class MapDerivation<TSource, T> : IDerivation<T>, IStreamAction<TSource>, IWeakListenerInternal
+internal sealed class MapDerivation<TSource, T> : IDerivation<T>, IStreamAction<TSource>, IListenerInternal
 {
     // The map holds its source, thus the stream of the source lives while the map does. See the
     // remarks on StreamAction.
@@ -184,6 +184,9 @@ internal sealed class MapDerivation<TSource, T> : IDerivation<T>, IStreamAction<
 
     /// <inheritdoc />
     public void Unlisten() => this.target.Unlisten();
+
+    /// <inheritdoc />
+    public void Dispose() => this.Unlisten();
 
     /// <inheritdoc />
     public IListenerWithWeakReference GetListenerWithWeakReference() => this.target;

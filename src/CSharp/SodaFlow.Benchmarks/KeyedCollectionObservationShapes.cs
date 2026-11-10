@@ -164,7 +164,7 @@ internal sealed class ObservationShape
             [
                 .. ObservedKeys(itemCount)
                     .Select(key => Observe(collection: collection, view: view, key: key, style: style)),
-                view.KeyChangesStream.ListenStrong(static _ =>
+                view.KeyChangesStream.Listen(static _ =>
                 {
                 })
             ];
@@ -260,27 +260,27 @@ internal sealed class ObservationShape
             ObservationStyle.IdentityOnRoot =>
                 collection.IdentityCell(key)
                     .Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }),
 
             ObservationStyle.IdentityThroughView =>
                 view.IdentityCell(key)
                     .Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }),
 
             ObservationStyle.IdentityShapeMapped => collection.ShapeCell
                 .Map(identities => identities.TryGetValue(key))
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 }),
 
             _ => StateCellFor(collection: collection, view: view, key: key, style: style)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 })
         };

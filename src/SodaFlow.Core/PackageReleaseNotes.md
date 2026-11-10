@@ -16,6 +16,18 @@ caller that implemented IListener, as the composite factories invite, had to wri
 library's. Every listener the library makes still has its weak view, now behind an internal interface, and a stream
 attaches only that interface, so the compiler checks that each attached listener has one.
 
+BREAKING: the strong listener is removed, and one kind of listener is left. IStrongListener and IWeakListener are gone,
+and IListener is an IDisposable whose Dispose does what Unlisten does. A listener listens while a caller holds it, it
+keeps the stream that it monitors in memory, and the garbage collector removes it after no caller holds it.
+ListenStrongImpl and ListenOnceStrongImpl, which the language packages gave as ListenStrong and ListenOnceStrong, are
+removed with the strong and weak composite and empty listeners. ListenImpl, ListenOnceImpl, the composite, and the empty
+listener give an IListener. A strong listener that a caller dropped continued for as long as a source of its stream
+lived, and nothing could stop it after that. A caller that used one must keep its listener, in a field or in a using
+statement, and a type that implements IListener must add Dispose. The keep-alive sets stay for the one-shot listener of
+ListenOnceAsync, because an await has no place to keep a listener. Where a note below names ListenStrong in a
+measurement, the measurement is from before this removal, and the benchmark of that name now attaches the listener that
+is left.
+
 BREAKING: MutableListener is internal, and Cleanup is removed. The switches hold their inner listener in a
 MutableListener, and nothing outside the library needed one; its ClearListener, which only callers outside the library
 used, is removed with it. Nothing in the library used Cleanup. It ran an action when the garbage collector removed it,
@@ -87,22 +99,21 @@ to 976 bytes, Apply 760 to 442 ns on the argument and 769 to 463 ns on the funct
 326 to 276 ns, SnapshotLatest 421 to 280 ns on the stream and 405 to 265 ns on the cell, and Merge of two types 457
 to 309 ns. On .NET Framework the figures are about twice those and move the same way.
 
-Fixed: a strong listener on a stream with more than one input is rooted by every root of that stream, so it lives while
-any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the keep-alive set
-of their first input only. A listener on a lift whose first cell the application dropped, while it kept sending into the
-second, was collected and stopped without a message, and a switch over a constant cell,
-Cell.Constant(s).SwitchS().ListenStrong(h), was an unrooted cycle from the start. A switch now moves its listeners to
-the root of the inner it selects on each switch, so the listener lives while the outer cell or the selected inner lives,
-and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
-root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
+Fixed: the wait of ListenOnceAsync on a stream with more than one input is held by every root of that stream, so it
+lives while any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the
+keep-alive set of their first input only. A wait on a lift whose first cell the application dropped, while it kept
+sending into the second, was collected, and its task did not complete. A wait on a switch over a constant cell,
+Cell.Constant(s).SwitchS().ListenOnceAsync(), was an unrooted cycle from the start. A switch now moves the waits that
+pass it to the root of the inner it selects on each switch, so a wait lives while the outer cell or the selected inner
+lives, and a cancellation still releases the wait from every root. The cost is one small object per such stream and one
+entry per root per wait. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
 memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
 loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
-and that switches onto its own output, is an example. A walk with a visited set finds the roots of a strong listener, so
-the walk ends where the loop comes back. A switch that selects a new inner walks again for each strong listener that
-passes it, and changes only the roots that changed. Thus, Unlisten releases the listener from every root, also after a
-switch in its loop moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot wait for
-each other. The memory tests pin both loops.
+and that switches onto its own output, is an example. A walk with a visited set finds the roots of a wait, so the walk
+ends where the loop comes back. A switch that selects a new inner walks again for each wait that passes it, and changes
+only the roots that changed. Thus, a cancellation releases the wait from every root, also after a switch in its loop
+moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot block each other. The memory tests pin both loops.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -144,7 +155,7 @@ sample actions, which the transaction holds as objects where it held delegates, 
 Calm, which also allocated a delegate in every transaction that fired, now allocates nothing for the protocol. A lazy
 sample of a behavior reads the behavior itself in the sample phase, and a sample of a behavior through a function, which
 Map, Calm, and the switches take as their initial value, is one object where it was two samples with a closure each.
-Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, and both switches, is one stream: its updates
+Value, which is under Cell.Listen, Cell.Values, and both switches, is one stream: its updates
 arrive at a bare node that links into the output, and the right-wins coalesce runs on the output node, where before a
 second stream with its own listener did that one node later. Measured in GraphBuildBenchmarks, per thousand, .NET 10: a
 map of one cell 2.22 ms and 2,078 KB to 1.78 ms and 1,340 KB, an accum 2.30 ms and 2,191 KB to 1.94 ms and 1,585 KB,
@@ -154,8 +165,8 @@ collection of ten 75.5 ms and 17,160 KB to 66.0 ms and 15,483 KB. A send that sw
 3.79 µs and 4,345 B to 3.03 µs and 3,260 B, and a send into a lift of two is unchanged at 437 ns and 928 B.
 
 A switch builds for half of what it did and switches for less than two thirds. The value of a behavior is a listener
-object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen,
-Cell.ListenStrong, and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
+object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen
+and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
 and SwitchC are that object on the outer behavior, and each behavior they select gets one whose consumer sends into the
 output, where before the switch built a Value and a listener on it for the outer behavior and again for every selection,
 with a closure and two delegates for the commit. SwitchC selects the behavior of each cell through a function on the
@@ -223,8 +234,8 @@ nested Apply that found the transaction open and allocated a closure for nothing
 the samples are captured at the end of whichever transaction closes them either way, and a calm built from outside is
 now atomic with respect to a send from another thread. Measured in the scratch harness on .NET 10, built from outside
 a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 ns to 2,030; an accum 1,673 bytes to
-1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
-allocate the same.
+1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen goes through one transaction as before and
+allocates the same.
 
 Transaction.Post allocates nothing of its own when no transaction is open, where it allocated four objects: two to
 wrap the action in the delegate type of the post queue, and two to capture it for the transaction it opened. The
@@ -275,7 +286,7 @@ reference to either, so the collected path works as before.
 A link is one object where it was three, and an operator's output stream takes no weak handle. The action of a link was
 a lambda, which is a closure and a delegate, and a listener object held the delegate alive because the node holds the
 action through a weak reference. An operator's action is now one object that holds what the lambda captured, is the
-action, and is the listener that the output attaches; a handler given to Listen or ListenStrong goes behind such an
+action, and is the listener that the output attaches; a handler given to Listen goes behind such an
 object too, and a behavior is the action of its own link. The registry, which stopped the links of a collected stream
 through a weak handle to that stream, asks the weak reference that the first attached link already holds, because that
 link's action holds the stream, so no operator stream allocates a handle. Nothing observable changes. Measured in
@@ -299,7 +310,7 @@ an entry on a new node of its own, so that the entry sat at rank zero, and an en
 allocates the node's entry list at the first registration: a node, a list, and the list's array, about 150 bytes, for a
 rank that nothing can raise because nothing links into a node that nothing holds. The one shared node takes those
 entries now, and an entry on it goes into no list. A switch makes two value listeners, and Cell.Listen,
-Cell.ListenStrong, Cell.Values, and every bindable value make one. Nothing observable changes. Measured in
+Cell.Values, and every bindable value make one. Nothing observable changes. Measured in
 GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a switch of a constant cell
 8.87 to 9.14 ms and 3,171 to 2,877 KB, and 9.41 to 9.09 ms; ListenStrong on one cell 2.88 to 2.67 ms and 1,693 to 1,546
 KB, and 3.56 to 3.46 ms. The switch's .NET 10 time moves inside its error of 0.18 ms either way. In the scratch probe on
@@ -442,11 +453,11 @@ the queue, so it ran a second time in the same transaction. A Map on the switche
 the same value both times, and a listener on the cell still saw one update. Only a function with side effects, which a
 Map must not have, could tell.
 
-Fixed: ListenOnceImpl and ListenOnceStrongImpl, which the language packages give as ListenOnce and ListenOnceStrong,
+Fixed: ListenOnceImpl, which the language packages give as ListenOnce, and the one-shot listener under ListenOnceAsync
 could call the handler twice when the stream fired on another thread. The listener stops itself through its own handle,
 and it got that handle only after the transaction that attached it had closed and released the lock. A firing on
 another thread in that gap ran the handler but could leave the listener attached, and the next firing ran the handler
-again. A stress test that called ListenOnceStrong over and over on a sink while another thread sent to it saw the
+again. A stress test that attached a one-shot listener over and over on a sink while another thread sent to it saw the
 handler run twice 726 times in 163,783 calls. The listener now gets its handle inside the transaction that attaches it,
 so nothing can fire in between, and the same test saw no double call in 137,524 calls. It also costs less: Listen
 now runs in that one transaction rather than opening a nested one, so each call allocates 112 bytes less on .NET 10

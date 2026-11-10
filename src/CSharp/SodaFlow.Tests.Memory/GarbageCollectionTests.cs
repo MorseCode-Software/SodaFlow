@@ -36,6 +36,9 @@ namespace SodaFlow.Tests.Memory;
 /// </remarks>
 public sealed class GarbageCollectionTests
 {
+    // The one value that completes the wait of the last test.
+    private const int LastValue = 99;
+
     [Test]
     public async Task MappedStreamIsCollectedOnceDroppedAndUnlistened()
     {
@@ -101,7 +104,7 @@ public sealed class GarbageCollectionTests
     }
 
     [Test]
-    public async Task ListenerIsKeptAliveWhileStillListening()
+    public async Task ListenIsCollectedOnceDropped()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
@@ -110,18 +113,48 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // This is deliberate, and not an oversight. ListenStrong roots the listener in the keep-alive
-        // set of the stream for this cause: a caller that ignores the return value receives values.
-        // Without this, a listener stops to fire with no message.
+        // Listen roots nothing. The listener from the call is the only thing that holds the
+        // handler, thus a caller that drops it gets no more values.
         await Assert.That(listener.IsAlive)
-            .IsTrue()
-            .Because("an active listener should stay alive even once the caller drops it");
+            .IsFalse()
+            .Because("a listener should be collected once the caller drops it");
 
         s.Send(5);
 
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching)
-            .Because("a rooted listener should still be firing");
+        await Assert.That(@out).IsEmpty().Because("a collected listener should not fire");
+    }
+
+    [Test]
+    public async Task ListenOnceAsyncWaitsOnAStreamThatOnlyTheWaitHolds()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+
+        // The task holds no listener, and nothing holds the map. Only the root set of the sink
+        // keeps the wait.
+        Task<int> next = CreateListenOnceAsyncOnAMap(s);
+
+        Collect();
+        s.Send(5);
+
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("a source that can fire the stream should hold a wait that no caller holds");
+
+        await Assert.That(await next).IsEqualTo(6);
+    }
+
+    [Test]
+    public async Task ACanceledListenOnceAsyncLeavesTheRoot()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+
+        WeakReference mapped = CreateListenOnceAsyncOnAMapAndCancel(s);
+
+        await Assert.That(await IsCollectedSoon(mapped))
+            .IsTrue()
+            .Because("a cancellation should take the wait out of the root set of the sink, which lives");
+
+        GC.KeepAlive(s);
     }
 
     [Test]
@@ -187,38 +220,38 @@ public sealed class GarbageCollectionTests
             "split", "map of a cell", "lift of two sinks"
         ];
 
-        List<IStrongListener> listeners =
+        List<IListener> listeners =
             Transaction.Run(() =>
-                new List<IStrongListener>
+                new List<IListener>
                 {
-                    a.Map(static v => v + 1).Map(static v => v * 2).ListenStrong(Mark<int>(seen: seen, tag: "map")),
-                    a.Filter(static v => v > 0).ListenStrong(Mark<int>(seen: seen, tag: "filter")),
-                    a.Choose(Maybe.Some).ListenStrong(Mark<int>(seen: seen, tag: "choose")),
-                    a.Snapshot(c: c, f: static (v, w) => v + w).ListenStrong(Mark<int>(seen: seen, tag: "snapshot")),
+                    a.Map(static v => v + 1).Map(static v => v * 2).Listen(Mark<int>(seen: seen, tag: "map")),
+                    a.Filter(static v => v > 0).Listen(Mark<int>(seen: seen, tag: "filter")),
+                    a.Choose(Maybe.Some).Listen(Mark<int>(seen: seen, tag: "choose")),
+                    a.Snapshot(c: c, f: static (v, w) => v + w).Listen(Mark<int>(seen: seen, tag: "snapshot")),
                     a.SnapshotLatest(c: c, f: static (v, w) => v + w)
-                        .ListenStrong(Mark<int>(seen: seen, tag: "snapshot latest")),
-                    a.OrElse(b).ListenStrong(Mark<int>(seen: seen, tag: "or else")),
-                    a.Merge(b).ListenStrong(Mark<(Maybe<int>, Maybe<int>)>(seen: seen, tag: "merge of two types")),
+                        .Listen(Mark<int>(seen: seen, tag: "snapshot latest")),
+                    a.OrElse(b).Listen(Mark<int>(seen: seen, tag: "or else")),
+                    a.Merge(b).Listen(Mark<(Maybe<int>, Maybe<int>)>(seen: seen, tag: "merge of two types")),
                     new[] { a, b, Stream.Never<int>() }.OrElse()
-                        .ListenStrong(Mark<int>(seen: seen, tag: "or else of three")),
+                        .Listen(Mark<int>(seen: seen, tag: "or else of three")),
                     a.Accum(initialState: 0, f: static (v, total) => total + v)
-                        .ListenStrong(Mark<int>(seen: seen, tag: "accum")),
-                    a.Calm().ListenStrong(Mark<int>(seen: seen, tag: "calm")),
+                        .Listen(Mark<int>(seen: seen, tag: "accum")),
+                    a.Calm().Listen(Mark<int>(seen: seen, tag: "calm")),
                     a.Collect(initialState: 0, f: static (v, state) => (v, state + 1))
-                        .ListenStrong(Mark<int>(seen: seen, tag: "collect")),
+                        .Listen(Mark<int>(seen: seen, tag: "collect")),
                     c.Map(static v => v + 1).Lift(c2: c, f: static (x, y) => x + y)
-                        .ListenStrong(Mark<int>(seen: seen, tag: "lift")),
+                        .Listen(Mark<int>(seen: seen, tag: "lift")),
                     new[] { c, c.Map(static v => v) }.Lift()
-                        .ListenStrong(Mark<IReadOnlyList<int>>(seen: seen, tag: "lift of a list")),
-                    selector.SwitchS().ListenStrong(Mark<int>(seen: seen, tag: "switch s")),
-                    cellSelector.SwitchC().ListenStrong(Mark<int>(seen: seen, tag: "switch c")),
+                        .Listen(Mark<IReadOnlyList<int>>(seen: seen, tag: "lift of a list")),
+                    selector.SwitchS().Listen(Mark<int>(seen: seen, tag: "switch s")),
+                    cellSelector.SwitchC().Listen(Mark<int>(seen: seen, tag: "switch c")),
                     Stream.Loop<int>().WithoutCaptures(_ => a.Map(static v => v * 3))
-                        .ListenStrong(Mark<int>(seen: seen, tag: "loop")),
+                        .Listen(Mark<int>(seen: seen, tag: "loop")),
                     Operational.Split<int, int[]>(a.Map(static v => new[] { v }))
-                        .ListenStrong(Mark<int>(seen: seen, tag: "split")),
-                    c.Map(static v => v + 1).ListenStrong(Mark<int>(seen: seen, tag: "map of a cell")),
+                        .Listen(Mark<int>(seen: seen, tag: "split")),
+                    c.Map(static v => v + 1).Listen(Mark<int>(seen: seen, tag: "map of a cell")),
                     c.Lift(c2: Cell.Constant(1), f: static (x, y) => x + y)
-                        .ListenStrong(Mark<int>(seen: seen, tag: "lift of two sinks"))
+                        .Listen(Mark<int>(seen: seen, tag: "lift of two sinks"))
                 });
 
         // The cell listens fired at the construction. Only what fires after the sweep counts.
@@ -235,7 +268,7 @@ public sealed class GarbageCollectionTests
 
         c.Send(20);
 
-        foreach (IStrongListener listener in listeners)
+        foreach (IListener listener in listeners)
         {
             listener.Unlisten();
         }
@@ -286,15 +319,15 @@ public sealed class GarbageCollectionTests
     }
 
     // The stream of the updates of a derived cell holds the derivation, and the derivation lets the
-    // cell go when the stream comes. A strong listener on that stream must keep the link from the
+    // cell go when the stream comes. A listener on that stream must keep the link from the
     // source after the garbage collector removes the cell, and must not keep the cell.
     [Test]
-    public async Task AStrongListenerOnTheUpdatesOfADerivedCellOutlivesTheCell()
+    public async Task AListenerOnTheUpdatesOfADerivedCellOutlivesTheCell()
     {
         CellSink<int> c = Cell.CreateSink(1);
         List<int> @out = [];
 
-        (WeakReference cell, IStrongListener listener) = CreateMapAndListenToItsUpdates(source: c, @out: @out);
+        (WeakReference cell, IListener listener) = CreateMapAndListenToItsUpdates(source: c, @out: @out);
 
         Collect();
         StreamListenerManager.Sweep();
@@ -344,7 +377,7 @@ public sealed class GarbageCollectionTests
                     return chain;
                 });
 
-            using (tail.ListenStrong(seen.Add))
+            using (tail.Listen(seen.Add))
             {
                 s.Send(round);
             }
@@ -368,60 +401,15 @@ public sealed class GarbageCollectionTests
 
         Collect();
 
-        // The mirror image of ListenerIsKeptAliveWhileStillListening. It shows why ListenOnce and
-        // ListenOnceStrong are two methods. ListenOnce roots nothing, thus the listener from the call
-        // is the only thing that holds the handler. A caller that drops it loses that firing.
+        // ListenOnce roots nothing, thus the listener from the call is the only thing that holds
+        // the handler. A caller that drops it loses that firing.
         await Assert.That(listener.IsAlive)
             .IsFalse()
-            .Because("a weak one-shot listener should be collected once the caller drops it");
+            .Because("a one-shot listener should be collected once the caller drops it");
 
         s.Send(5);
 
         await Assert.That(@out).IsEmpty().Because("a collected one-shot listener should not fire");
-    }
-
-    [Test]
-    public async Task ListenOnceStrongKeepsFiringOnceDropped()
-    {
-        StreamSink<int> s = Stream.CreateSink<int>();
-        List<int> @out = [];
-
-        WeakReference listener = CreateListenOnceStrongAndDropTheReference(s: s, @out: @out);
-
-        Collect();
-
-        await Assert.That(listener.IsAlive)
-            .IsTrue()
-            .Because("a strong one-shot listener should stay rooted until its first firing");
-
-        s.Send(5);
-        s.Send(6);
-
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching)
-            .Because("a rooted one-shot listener should fire exactly one time");
-    }
-
-    [Test]
-    public async Task ListenOnceStrongReleasesItsRootAfterTheFirstFiring()
-    {
-        StreamSink<int> s = Stream.CreateSink<int>();
-        List<int> @out = [];
-
-        // The one-shot listener stops itself, and that must release the keep-alive root and the
-        // node. A release of only the node lets each ListenOnceStrong call add an object to the
-        // stream that nothing removes.
-        WeakReference listener = CreateListenOnceStrongAndFire(s: s, @out: @out);
-
-        Collect();
-
-        await Assert.That(listener.IsAlive)
-            .IsFalse()
-            .Because("a one-shot listener should stop rooting itself when it stops listening");
-
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
-            .Because("the one firing should have arrived before the listener stopped");
     }
 
     [Test]
@@ -511,165 +499,161 @@ public sealed class GarbageCollectionTests
 
         await Assert.That(await task).IsEqualTo(1);
 
-        // A continuation on the thread pool removes the registration. Thus, the stream can stay
-        // alive for a short time after the task completes.
-        bool collected = false;
-
-        for (int attempt = 0; attempt < 100 && !collected; attempt++)
-        {
-            Collect();
-            collected = !stream.IsAlive;
-
-            if (!collected)
-            {
-                await Task.Delay(millisecondsDelay: 10, cancellationToken: CancellationToken.None);
-            }
-        }
-
-        await Assert.That(collected)
+        await Assert.That(await IsCollectedSoon(stream))
             .IsTrue()
             .Because("a cancellation token that lives on should not root the stream after the task completes");
     }
 
+    // The tests from here to the helpers are for the keep-alive sets. ListenOnceAsync is the one
+    // caller that roots a listener. Its task holds no listener and no stream. Thus, a wait that the
+    // garbage collector removed leaves a task that does not complete, and each test reads
+    // IsCompleted before it awaits the task.
+
     [Test]
-    public async Task AStrongListenerOnALiftOutlivesTheFirstRoot()
+    public async Task AWaitOnALiftOutlivesTheFirstRoot()
     {
         CellSink<int> kept = Cell.CreateSink(2);
-        List<int> @out = [];
 
-        CreateLiftWithADroppedFirstRoot(kept: kept, @out: @out);
+        Task<int> next = CreateLiftWithADroppedFirstRoot(kept);
 
         Collect();
-        @out.Clear();
         kept.Send(10);
 
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [11], ordering: CollectionOrdering.Matching)
-            .Because("the root that lives should hold the listener, whichever input of the lift it feeds");
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root that lives should hold the wait, whichever input of the lift it feeds");
+
+        await Assert.That(await next).IsEqualTo(11);
     }
 
     [Test]
-    public async Task AStrongListenerOnAMergeOutlivesTheLeftRoot()
+    public async Task AWaitOnAMergeOutlivesTheLeftRoot()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
-        List<int> @out = [];
 
-        CreateMergeWithADroppedLeftRoot(kept: kept, @out: @out);
+        Task<int> next = CreateMergeWithADroppedLeftRoot(kept);
 
         Collect();
         kept.Send(10);
 
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
-            .Because("the root that lives should hold the listener, whichever side of the merge it feeds");
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root that lives should hold the wait, whichever side of the merge it feeds");
+
+        await Assert.That(await next).IsEqualTo(10);
     }
 
     [Test]
-    public async Task AStrongListenerOnASwitchOutlivesTheOuterRoot()
+    public async Task AWaitOnASwitchOutlivesTheOuterRoot()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
-        List<int> @out = [];
 
-        CreateSwitchOfAConstantCell(kept: kept, @out: @out);
+        Task<int> next = CreateSwitchOfAConstantCell(kept);
 
         Collect();
         kept.Send(10);
 
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching)
-            .Because("the root of the selected inner should hold the listener when nothing holds the outer cell");
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root of the selected inner should hold the wait when nothing holds the outer cell");
+
+        await Assert.That(await next).IsEqualTo(10);
     }
 
     [Test]
-    public async Task AStrongListenerOnASwitchLeavesTheInnerTheSwitchLeft()
+    public async Task AWaitOnASwitchLeavesTheInnerTheSwitchLeft()
     {
         StreamSink<int> first = Stream.CreateSink<int>();
-        List<int> @out = [];
 
-        WeakReference listener = CreateSwitchThenSelectADroppedInner(first: first, @out: @out);
+        WeakReference switched = CreateSwitchThenSelectADroppedInner(first);
 
         Collect();
 
-        await Assert.That(listener.IsAlive)
+        await Assert.That(switched.IsAlive)
             .IsFalse()
-            .Because("an inner stream the switch left should no longer hold the listener");
+            .Because("an inner stream the switch left should no longer hold the wait");
+
+        GC.KeepAlive(first);
     }
 
     [Test]
-    public async Task UnlistenOnALiftReleasesTheListenerFromEveryRoot()
+    public async Task ACanceledWaitOnALiftLeavesEveryRoot()
     {
         CellSink<int> first = Cell.CreateSink(1);
         CellSink<int> second = Cell.CreateSink(2);
 
-        WeakReference listener = CreateLiftListenerAndUnlisten(first: first, second: second);
+        WeakReference updates = CreateWaitOnALiftAndCancel(first: first, second: second);
 
-        Collect();
+        await Assert.That(await IsCollectedSoon(updates))
+            .IsTrue()
+            .Because("no root should hold a wait after a cancellation, however many roots the lift has");
 
-        await Assert.That(listener.IsAlive)
-            .IsFalse()
-            .Because("no root should hold a listener after Unlisten, however many roots the lift has");
+        GC.KeepAlive(first);
+        GC.KeepAlive(second);
     }
 
     [Test]
-    public async Task AStrongListenerInALoopThroughASwitchOutlivesTheLoop()
+    public async Task AWaitInALoopThroughASwitchOutlivesTheLoop()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
-        List<int> @out = [];
 
-        CreateLoopThroughASwitch(kept: kept, @out: @out);
+        Task<int> next = CreateWaitInALoopThroughASwitch(kept);
 
         Collect();
-        @out.Clear();
         kept.Send(1);
-        kept.Send(2);
 
-        await Assert.That(@out)
-            .IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching)
-            .Because("the sink should hold the listener when nothing holds the loop that the switches go through");
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the sink should hold the wait when nothing holds the loop that the switches go through");
+
+        await Assert.That(await next).IsEqualTo(1);
     }
 
     [Test]
-    public async Task UnlistenInALoopThroughASwitchReleasesTheListener()
+    public async Task ACanceledWaitInALoopThroughASwitchLeavesTheRoot()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
 
-        WeakReference listener = CreateLoopThroughASwitchAndUnlisten(kept);
+        WeakReference updates = CreateWaitInALoopThroughASwitchAndCancel(kept);
 
-        Collect();
+        await Assert.That(await IsCollectedSoon(updates))
+            .IsTrue()
+            .Because("no root should hold a wait after a cancellation, when the keep-alive set of a switch reaches itself");
 
-        await Assert.That(listener.IsAlive)
-            .IsFalse()
-            .Because("no root should hold a listener after Unlisten, when the keep-alive set of a switch reaches itself");
+        GC.KeepAlive(kept);
     }
 
     [Test]
-    public async Task UnlistenReleasesTheListenerAfterASwitchInTheLoopMovesOutOfIt()
+    public async Task ACanceledWaitLeavesEachRootAfterASwitchInTheLoopMovesOutOfIt()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
         StreamSink<int> other = Stream.CreateSink<int>();
         CellSink<bool> inLoop = Cell.CreateSink(true);
 
-        WeakReference listener = CreateThreeSwitchLoopMoveAndUnlisten(kept: kept, other: other, inLoop: inLoop);
+        WeakReference first = CreateThreeSwitchLoopMoveAndCancel(kept: kept, other: other, inLoop: inLoop);
 
-        Collect();
+        await Assert.That(await IsCollectedSoon(first))
+            .IsTrue()
+            .Because("no root should hold a wait after a cancellation, when a switch in its loop moved out of the loop before");
 
-        await Assert.That(listener.IsAlive)
-            .IsFalse()
-            .Because("no root should hold a listener after Unlisten, when a switch in its loop moved out of the loop before");
+        GC.KeepAlive(kept);
+        GC.KeepAlive(other);
+        GC.KeepAlive(inLoop);
     }
 
     [Test]
-    public async Task AWeakListenerIsCollectedOnceDroppedWhileASwitchInTheLoopMoves()
+    public async Task AListenerIsCollectedOnceDroppedWhileASwitchInTheLoopMoves()
     {
         StreamSink<int> kept = Stream.CreateSink<int>();
         StreamSink<int> other = Stream.CreateSink<int>();
         CellSink<bool> inLoop = Cell.CreateSink(true);
         List<string> seen = [];
 
-        // The strong listener stays for the whole test. Thus, its registration passes the switches
-        // in the loop, and each move of the second switch walks it again.
-        (IStrongListener strong, WeakReference[] weak) =
-            CreateThreeSwitchLoopWithWeakListeners(kept: kept, other: other, inLoop: inLoop, seen: seen);
+        // The wait stays until the last send of the test, because its filter passes only that
+        // value. Thus, its registration passes the switches in the loop, and each move of the
+        // second switch walks it again.
+        (Task<int> wait, WeakReference[] dropped) =
+            CreateThreeSwitchLoopWithAWaitAndListeners(kept: kept, other: other, inLoop: inLoop, seen: seen);
 
         inLoop.Send(false);
         inLoop.Send(true);
@@ -678,16 +662,25 @@ public sealed class GarbageCollectionTests
         kept.Send(1);
         inLoop.Send(false);
         other.Send(2);
-        bool anyAlive = weak.Any(static w => w.IsAlive);
-        strong.Unlisten();
+        bool anyAlive = dropped.Any(static w => w.IsAlive);
+
+        bool completedEarly = wait.IsCompleted;
+        inLoop.Send(true);
+        kept.Send(LastValue);
 
         await Assert.That(anyAlive)
             .IsFalse()
-            .Because("a keep-alive registration that passes a switch should not hold a weak listener, its handler, or a stream that only the weak listener holds");
+            .Because("a keep-alive registration that passes a switch should not hold a listener that the caller dropped, its handler, or a stream that only that listener holds");
 
         await Assert.That(seen)
             .IsEmpty()
-            .Because("the handler of a weak listener that was collected should not run");
+            .Because("the handler of a listener that was collected should not run");
+
+        await Assert.That(completedEarly).IsFalse().Because("the wait should be there for the whole test");
+
+        await Assert.That(wait.IsCompleted)
+            .IsTrue()
+            .Because("the roots should hold the wait through each move of the switch, or this test shows nothing");
     }
 
     // Each of these runs in its own non-inlined method. Thus, the locals are out of scope before
@@ -702,7 +695,7 @@ public sealed class GarbageCollectionTests
             Stream<int> mapped = s.Map(static v => v + 1);
 
             IListener listener =
-                mapped.ListenStrong(static _ =>
+                mapped.Listen(static _ =>
                 {
                 });
 
@@ -714,7 +707,7 @@ public sealed class GarbageCollectionTests
     private static WeakReference CreateMappedStreamAndUnlisten(StreamSink<int> s, ICollection<string> @out)
     {
         Stream<string> mapped = s.Map(static x => (x + 2).ToString());
-        IListener listener = mapped.ListenStrong(@out.Add);
+        IListener listener = mapped.Listen(@out.Add);
         s.Send(1);
         listener.Unlisten();
         return new WeakReference(mapped);
@@ -733,7 +726,7 @@ public sealed class GarbageCollectionTests
         }
 
         IListener listener =
-            current.ListenStrong(static _ =>
+            current.Listen(static _ =>
             {
             });
 
@@ -744,29 +737,14 @@ public sealed class GarbageCollectionTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateListenerAndDropTheReference(Stream<int> s, ICollection<int> @out)
     {
-        IListener listener = s.ListenStrong(@out.Add);
+        IListener listener = s.Listen(@out.Add);
         return new WeakReference(listener);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateListenOnceAndDropTheReference(Stream<int> s, ICollection<int> @out)
     {
-        IWeakListener listener = s.ListenOnce(@out.Add);
-        return new WeakReference(listener);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateListenOnceStrongAndDropTheReference(Stream<int> s, ICollection<int> @out)
-    {
-        IStrongListener listener = s.ListenOnceStrong(@out.Add);
-        return new WeakReference(listener);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateListenOnceStrongAndFire(StreamSink<int> s, ICollection<int> @out)
-    {
-        IStrongListener listener = s.ListenOnceStrong(@out.Add);
-        s.Send(1);
+        IListener listener = s.ListenOnce(@out.Add);
         return new WeakReference(listener);
     }
 
@@ -813,37 +791,57 @@ public sealed class GarbageCollectionTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateListenerAndUnlisten(Stream<int> s, ICollection<int> @out)
     {
-        IListener listener = s.ListenStrong(@out.Add);
+        IListener listener = s.Listen(@out.Add);
         listener.Unlisten();
         return new WeakReference(listener);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CreateLiftWithADroppedFirstRoot(Cell<int> kept, ICollection<int> @out)
+    private static Task<int> CreateListenOnceAsyncOnAMap(Stream<int> s) =>
+        s.Map(static v => v + 1).ListenOnceAsync();
+
+    // The sink lives, and its root set holds the wait until the cancellation.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateListenOnceAsyncOnAMapAndCancel(Stream<int> s)
+    {
+        using CancellationTokenSource cts = new();
+        Stream<int> mapped = s.Map(static v => v + 1);
+        _ = mapped.ListenOnceAsync(cts.Token);
+        cts.Cancel();
+        return new WeakReference(mapped);
+    }
+
+    // The wait is on the updates. The value stream of a cell fires in the transaction that listens,
+    // and that firing completes a wait immediately.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Task<int> CreateLiftWithADroppedFirstRoot(Cell<int> kept)
     {
         CellSink<int> dropped = Cell.CreateSink(1);
-        dropped.Lift(c2: kept, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        return dropped.Lift(c2: kept, f: static (x, y) => x + y).Updates().ListenOnceAsync();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CreateMergeWithADroppedLeftRoot(Stream<int> kept, ICollection<int> @out)
+    private static Task<int> CreateMergeWithADroppedLeftRoot(Stream<int> kept)
     {
         StreamSink<int> dropped = Stream.CreateSink<int>();
-        dropped.OrElse(kept).ListenStrong(@out.Add);
+        return dropped.OrElse(kept).ListenOnceAsync();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CreateSwitchOfAConstantCell(Stream<int> kept, ICollection<int> @out) =>
-        Cell.Constant(kept).SwitchS().ListenStrong(@out.Add);
+    private static Task<int> CreateSwitchOfAConstantCell(Stream<int> kept) =>
+        Cell.Constant(kept).SwitchS().ListenOnceAsync();
 
+    // The first inner lives, and the switch leaves it for an inner that nothing holds. After that,
+    // only a root set of the first inner can hold the wait and the switch.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateSwitchThenSelectADroppedInner(Stream<int> first, ICollection<int> @out)
+    private static WeakReference CreateSwitchThenSelectADroppedInner(Stream<int> first)
     {
         StreamSink<int> second = Stream.CreateSink<int>();
         CellSink<Stream<int>> selected = Cell.CreateSink(first);
-        IStrongListener listener = selected.SwitchS().ListenStrong(@out.Add);
+        Stream<int> switched = selected.SwitchS();
+        _ = switched.ListenOnceAsync();
         selected.Send(second);
-        return new WeakReference(listener);
+        return new WeakReference(switched);
     }
 
     // An object that switches onto a stream from its own output, and a second switch whose outer
@@ -859,20 +857,17 @@ public sealed class GarbageCollectionTests
             })).Total;
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CreateLoopThroughASwitch(Stream<int> kept, ICollection<int> @out) =>
-        LoopThroughASwitch(kept).ListenStrong(@out.Add);
+    private static Task<int> CreateWaitInALoopThroughASwitch(Stream<int> kept) =>
+        LoopThroughASwitch(kept).Updates().ListenOnceAsync();
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateLoopThroughASwitchAndUnlisten(Stream<int> kept)
+    private static WeakReference CreateWaitInALoopThroughASwitchAndCancel(Stream<int> kept)
     {
-        IStrongListener listener =
-            LoopThroughASwitch(kept)
-                .ListenStrong(static _ =>
-                {
-                });
-
-        listener.Unlisten();
-        return new WeakReference(listener);
+        using CancellationTokenSource cts = new();
+        Stream<int> updates = LoopThroughASwitch(kept).Updates();
+        _ = updates.ListenOnceAsync(cts.Token);
+        cts.Cancel();
+        return new WeakReference(updates);
     }
 
     // Three switches in one loop. The first selects the output of the object, which is the second.
@@ -890,51 +885,44 @@ public sealed class GarbageCollectionTests
                 return new SwitchLoop(output: second, first: first);
             }));
 
-    // The second switch moves out of the loop, then the listener stops.
+    // The second switch moves out of the loop, then the wait stops. Nothing fires the first switch
+    // in between, thus the wait is there when the switch moves.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateThreeSwitchLoopMoveAndUnlisten(
+    private static WeakReference CreateThreeSwitchLoopMoveAndCancel(
         Stream<int> kept,
         Stream<int> other,
         CellSink<bool> inLoop)
     {
+        using CancellationTokenSource cts = new();
         SwitchLoop loop = ThreeSwitchLoop(kept: kept, other: other, inLoop: inLoop);
-
-        IStrongListener listener =
-            loop.First.ListenStrong(static _ =>
-            {
-            });
-
+        _ = loop.First.ListenOnceAsync(cts.Token);
         inLoop.Send(false);
-        listener.Unlisten();
-        return new WeakReference(listener);
+        cts.Cancel();
+        return new WeakReference(loop.First);
     }
 
-    // A strong listener on the first switch, and weak listeners on the first switch, on the
-    // second, and on a map of the second. The second switch moves out of the loop and back while
-    // the weak listeners are in use. The caller gets the strong listener and a weak reference to
-    // each weak listener, each handler, and the map.
+    // A wait on a filter of the first switch that passes only LastValue. Also, listeners on the
+    // first switch, on the second, and on a map of the second. The second switch moves out of the loop
+    // and back while the listeners are in use, and then the caller drops them. The caller gets the
+    // task of the wait and a weak reference to each listener, each handler, and the map.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (IStrongListener Strong, WeakReference[] Weak) CreateThreeSwitchLoopWithWeakListeners(
+    private static (Task<int> Wait, WeakReference[] Dropped) CreateThreeSwitchLoopWithAWaitAndListeners(
         StreamSink<int> kept,
         StreamSink<int> other,
         CellSink<bool> inLoop,
         List<string> seen)
     {
         SwitchLoop loop = ThreeSwitchLoop(kept: kept, other: other, inLoop: inLoop);
-
-        IStrongListener strong =
-            loop.First.ListenStrong(static _ =>
-            {
-            });
+        Task<int> wait = loop.First.Filter(static v => v == LastValue).ListenOnceAsync();
 
         Stream<int> map = loop.Output.Map(static v => v + 1);
         List<WeakReference> weak = [new(map)];
-        List<IWeakListener> listeners = [];
+        List<IListener> listeners = [];
 
         foreach ((Stream<int> stream, string tag) in new[] { (loop.First, "first"), (loop.Output, "second"), (map, "map") })
         {
             Action<int> handler = Mark<int>(seen: seen, tag: tag);
-            IWeakListener listener = stream.Listen(handler);
+            IListener listener = stream.Listen(handler);
             weak.Add(new WeakReference(handler));
             weak.Add(new WeakReference(listener));
             listeners.Add(listener);
@@ -945,20 +933,17 @@ public sealed class GarbageCollectionTests
         other.Send(2);
         inLoop.Send(true);
         GC.KeepAlive(listeners);
-        return (Strong: strong, Weak: [.. weak]);
+        return (Wait: wait, Dropped: [.. weak]);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference CreateLiftListenerAndUnlisten(Cell<int> first, Cell<int> second)
+    private static WeakReference CreateWaitOnALiftAndCancel(Cell<int> first, Cell<int> second)
     {
-        IStrongListener listener =
-            first.Lift(c2: second, f: static (x, y) => x + y)
-                .ListenStrong(static _ =>
-                {
-                });
-
-        listener.Unlisten();
-        return new WeakReference(listener);
+        using CancellationTokenSource cts = new();
+        Stream<int> updates = first.Lift(c2: second, f: static (x, y) => x + y).Updates();
+        _ = updates.ListenOnceAsync(cts.Token);
+        cts.Cancel();
+        return new WeakReference(updates);
     }
 
     // ReSharper disable once SuggestBaseTypeForParameter - CA1859 asks for the list, which the one caller gives.
@@ -978,16 +963,37 @@ public sealed class GarbageCollectionTests
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static (WeakReference Cell, IStrongListener Listener) CreateMapAndListenToItsUpdates(
+    private static (WeakReference Cell, IListener Listener) CreateMapAndListenToItsUpdates(
         Cell<int> source,
         ICollection<int> @out)
     {
         Cell<int> map = source.Map(static v => v * 2);
-        return (Cell: new WeakReference(map), Listener: map.Updates().ListenStrong(@out.Add));
+        return (Cell: new WeakReference(map), Listener: map.Updates().Listen(@out.Add));
     }
 
     // ReSharper disable once SuggestBaseTypeForParameter - CA1859 asks for the list, which every caller passes, and a call on a List<T> costs less than a call through the interface.
     private static Action<T> Mark<T>(List<string> seen, string tag) => _ => seen.Add(tag);
+
+    // The token registration of a wait holds the listener, and the listener holds the stream. A
+    // continuation on the thread pool removes the registration after the task completes or
+    // cancels. Thus, the stream can stay in memory for a short time after that. This collects
+    // again until the stream is gone or the time is up.
+    private static async Task<bool> IsCollectedSoon(WeakReference reference)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            Collect();
+
+            if (!reference.IsAlive)
+            {
+                return true;
+            }
+
+            await Task.Delay(millisecondsDelay: 10, cancellationToken: CancellationToken.None);
+        }
+
+        return false;
+    }
 
     private static void Collect()
     {

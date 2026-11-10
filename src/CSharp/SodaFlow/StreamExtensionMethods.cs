@@ -24,17 +24,19 @@ namespace SodaFlow;
 public static class StreamExtensionMethods
 {
     /// <summary>
-    ///     Listen for events/firings on this stream, keeping the stream alive for as
-    ///     long as the returned listener is reachable. A disposal of the
-    ///     <see cref="IStrongListener" /> from this call stops the listener. This is
-    ///     an OPERATIONAL mechanism for the boundary between the world of I/O and FRP.
+    ///     Listen for events/firings on this stream. The listener from this call
+    ///     listens while the caller keeps it. A call to
+    ///     <see cref="IListener.Unlisten" /> or a disposal stops the listener, and the
+    ///     listener also stops when a GC collects it. This is an OPERATIONAL mechanism
+    ///     for interfacing between the world of I/O and FRP.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="handler">The handler to run with each value the stream fires.</param>
     /// <returns>
-    ///     An <see cref="IStrongListener" />. A disposal of it stops the
-    ///     listener.
+    ///     An <see cref="IListener" />. Keep it for as long as the handler must run.
+    ///     A call to its <see cref="IListener.Unlisten" /> or a disposal of it stops
+    ///     the listener.
     /// </returns>
     /// <remarks>
     ///     <para>
@@ -46,62 +48,18 @@ public static class StreamExtensionMethods
     ///         primitive.
     ///     </para>
     ///     <para>
-    ///         With no disposal of the <see cref="IStrongListener" />, the listener
-    ///         continues until a GC collects this stream.
-    ///     </para>
-    ///     <para>
-    ///         This roots the stream, thus a GC cannot collect the graph behind it
-    ///         while the listener from this call is reachable. Use
-    ///         <see cref="Listen{T}(Stream{T}, Action{T})" /> where that is not
-    ///         wanted.
+    ///         The listener from this call keeps the stream and the graph behind it in
+    ///         memory. Only the caller keeps the listener in memory. Thus, keep the
+    ///         listener in a field or in a <c>using</c> statement for as long as the
+    ///         handler must run. Code that discards the listener compiles, and the
+    ///         handler then stops with no message when a GC collects the listener.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IStrongListener ListenStrong<T>(this Stream<T> s, Action<T> handler) => s.ListenStrongImpl(handler);
+    public static IListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
 
     /// <summary>
-    ///     Listen for events/firings on this stream, without keeping the stream alive.
-    ///     The returned <see cref="IWeakListener" />. A call to
-    ///     <see cref="IListener.Unlisten" /> stops the listener, and the listener also
-    ///     stops when a GC collects it. This is an OPERATIONAL mechanism for
-    ///     interfacing between the world of I/O and FRP.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="handler">The handler to run with each value the stream fires.</param>
-    /// <returns>
-    ///     An <see cref="IWeakListener" />. A call to its
-    ///     <see cref="IListener.Unlisten" /> stops the listener. Only
-    ///     <see cref="IStrongListener" /> is also an <see cref="IDisposable" />.
-    /// </returns>
-    /// <remarks>
-    ///     <para>
-    ///         Make no assumption about the thread that calls the handler, and the
-    ///         handler must not block. The handler must not call
-    ///         <see cref="StreamSinkExtensionMethods.Send{T}" /> or
-    ///         <see cref="CellSinkExtensionMethods.Send{T}" />. They throw an
-    ///         exception, because this method is not for the definition of a new
-    ///         primitive.
-    ///     </para>
-    ///     <para>
-    ///         With no call to <see cref="IListener.Unlisten" />, the listener
-    ///         continues. It stops when a GC collects the stream, or when a GC
-    ///         collects the listener.
-    ///     </para>
-    ///     <para>
-    ///         This does not root the stream. Nothing here keeps the monitored graph
-    ///         in memory, thus the listener stops when a GC collects the stream. Keep
-    ///         the listener from this call where that matters, or use
-    ///         <see cref="ListenStrong{T}(Stream{T}, Action{T})" /> to keep the stream
-    ///         in memory.
-    ///     </para>
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IWeakListener Listen<T>(this Stream<T> s, Action<T> handler) => s.ListenImpl(handler);
-
-    /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister,
-    ///     without keeping the stream alive.
+    ///     Handle the first event on this stream and then automatically unregister.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
@@ -110,45 +68,20 @@ public static class StreamExtensionMethods
     ///     fires.
     /// </param>
     /// <returns>
-    ///     An <see cref="IWeakListener" />. A call to its
-    ///     <see cref="IListener.Unlisten" /> stops the listener before that first
-    ///     event arrives.
-    /// </returns>
-    /// <remarks>
-    ///     This does not root the stream, and the listener from this call is the only
-    ///     thing that keeps the handler in memory. Keep it until that first event
-    ///     arrives. Code that discards it compiles, and the handler then runs or does
-    ///     not run, which is dependent on the moment the GC collects.
-    ///     Use <see cref="ListenOnceStrong{T}(Stream{T}, Action{T})" /> where the
-    ///     caller does not keep the listener.
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IWeakListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
-
-    /// <summary>
-    ///     Handle the first event on this stream and then automatically unregister,
-    ///     keeping the stream alive until that first event arrives.
-    /// </summary>
-    /// <typeparam name="T">The type of the stream.</typeparam>
-    /// <param name="s">The stream.</param>
-    /// <param name="handler">
-    ///     The handler to run with the first value this stream
-    ///     fires.
-    /// </param>
-    /// <returns>
-    ///     An <see cref="IStrongListener" />. A disposal of it stops the listener
+    ///     An <see cref="IListener" />. A call to its
+    ///     <see cref="IListener.Unlisten" /> or a disposal of it stops the listener
     ///     before that first event arrives.
     /// </returns>
     /// <remarks>
-    ///     This roots the stream until that first event arrives. Thus, the handler
-    ///     runs when the caller discards the listener from this call. The root ends
-    ///     with that first event, or with an earlier <see cref="IListener.Unlisten" />
-    ///     . Use <see cref="ListenOnce{T}(Stream{T}, Action{T})" /> where the listener
-    ///     must not extend the lifetime of what it monitors.
+    ///     The listener from this call is the only thing that keeps the handler in
+    ///     memory. Keep it until that first event arrives. Code that discards it
+    ///     compiles, and the handler then runs or does not run, which is dependent on
+    ///     the moment the GC collects.
+    ///     Use <see cref="ListenOnceAsync{T}(Stream{T})" /> where the caller cannot
+    ///     keep a listener.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static IStrongListener ListenOnceStrong<T>(this Stream<T> s, Action<T> handler) =>
-        s.ListenOnceStrongImpl(handler);
+    public static IListener ListenOnce<T>(this Stream<T> s, Action<T> handler) => s.ListenOnceImpl(handler);
 
     /// <summary>
     ///     Handle the first event on this stream and then automatically unregister.
@@ -156,6 +89,11 @@ public static class StreamExtensionMethods
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
+    /// <remarks>
+    ///     The caller keeps no listener. While the task waits, each source that can
+    ///     fire this stream keeps the wait in memory. When a GC collects each of
+    ///     those sources, it collects the wait also, and the task does not complete.
+    /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s) => s.ListenOnceAsync(CancellationToken.None);
 
     /// <summary>
@@ -165,11 +103,19 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
+    /// <remarks>
+    ///     The caller keeps no listener. While the task waits, each source that can
+    ///     fire this stream keeps the wait in memory. A token that can cancel also
+    ///     keeps the wait and this stream in memory until the task completes.
+    /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s, CancellationToken token)
     {
         TaskCompletionSource<T> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        IStrongListener listener = s.ListenOnceStrong(a => tcs.TrySetResult(a));
+        // The task holds no listener, and the caller keeps none. Thus, the stream must root the
+        // listener from the start, or the garbage collector can remove the wait.
+        IRootableListener listener = s.ListenOnceRootableImpl(a => tcs.TrySetResult(a));
+        listener.Root();
 
         if (token.CanBeCanceled)
         {

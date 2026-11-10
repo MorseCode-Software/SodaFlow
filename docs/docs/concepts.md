@@ -107,7 +107,7 @@ Cell<decimal> total = basket.Map(static items => items.Sum(static i => i.Price))
 // Cell back to stream: read the total at the instant the button is pressed.
 Stream<decimal> orders = checkedOut.Snapshot(total, static (_, t) => t);
 
-IListener l = orders.ListenStrong(t => Console.WriteLine($"charging {t:C}"));
+IListener l = orders.Listen(t => Console.WriteLine($"charging {t:C}"));
 ```
 
 # [F#](#tab/fsharp)
@@ -125,7 +125,7 @@ let total = basket |> mapC (List.sumBy (fun i -> i.Price))
 // Cell back to stream: read the total at the instant the button is pressed.
 let orders = checkedOut |> snapshotC total (fun _ t -> t)
 
-let l = orders |> listenStrongS (printfn "charging %M")
+let l = orders |> listenS (printfn "charging %M")
 ```
 
 ---

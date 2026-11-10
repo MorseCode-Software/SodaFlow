@@ -19,7 +19,7 @@ public sealed class OnceTests
     {
         Stream<int> s = new();
         List<int> @out = [];
-        IListener l = s.Once().ListenStrong(@out.Add);
+        IListener l = s.Once().Listen(@out.Add);
 
         TransactionInternal.Apply((trans, _) =>
         {
@@ -47,7 +47,7 @@ public sealed class OnceTests
             {
                 s.Send(trans: trans, a: 1);
                 s.Send(trans: trans, a: 2);
-                return s.Once().ListenStrong(@out.Add);
+                return s.Once().Listen(@out.Add);
             });
 
         l.Unlisten();

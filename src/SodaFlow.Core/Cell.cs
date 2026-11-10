@@ -87,13 +87,7 @@ public class Cell<T> : Behavior<T>
     internal Stream<T> ValuesImpl =>
         TransactionInternal.Apply(code: static (trans, _, cell) => cell.Value(trans), state: this);
 
-    internal IStrongListener ListenStrongImpl(Action<T> handler) =>
-        TransactionInternal.Apply(
-            code: static (trans, _, state) =>
-                state.Self.Value(trans).ListenStrongImpl(trans: trans, handler: state.Handler),
-            state: (Self: this, Handler: handler));
-
-    internal IWeakListenerInternal ListenImpl(Action<T> handler) =>
+    internal IListenerInternal ListenImpl(Action<T> handler) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
                 state.Self.Value(trans).ListenImpl(trans: trans, handler: state.Handler),

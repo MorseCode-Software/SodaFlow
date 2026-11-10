@@ -35,7 +35,7 @@ public sealed class BindingSchedulerTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 BindingScheduler.Immediate.Post(() =>

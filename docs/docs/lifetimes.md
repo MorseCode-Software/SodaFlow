@@ -8,39 +8,62 @@ FRP graphs are held together by references, and getting those references wrong i
 common way to break a SodaFlow program. Listeners that die early stop firing, silently; listeners
 that never die leak, also silently. Neither throws.
 
-## Strong and weak
+## One rule
 
-`ListenStrong` returns an `IStrongListener`. It keeps the graph it observes alive, and it implements
-`IDisposable`. Hold it for as long as you need to be able to *end* the subscription, then
-`Unlisten()` or `Dispose()` it — they do the same thing. Dropping the handle does not end the
-subscription; see [below](#dropping-the-listener-listenstrong-returns).
+`Listen` returns an `IListener`. The handler runs for as long as you hold that listener, and no
+longer. The listener keeps the graph that it observes in memory, and nothing but your reference
+keeps the listener. `IListener` is an `IDisposable`: `Unlisten()` and `Dispose()` do the same
+thing, and each stops the handler immediately.
 
-`Listen` returns an `IWeakListener`. It does **not** keep the graph alive. Use it when
-something else already owns the lifetime and you do not want the subscription extending it.
+Hold the listener in a field of the object that owns the subscription:
 
-> **The short name is the weak one.** `Listen` does not root what it observes; `ListenStrong`
-> does. If you are used to an API where the unqualified name is the strong one, this is the
-> opposite way round, and nothing in the name will remind you.
->
-> **Upgrading:** these two methods were previously named `Listen` (strong) and `ListenWeak`
-> (weak). The names swapped, the behavior did not. Existing code that calls `Listen` and
-> assigns the result to an `IStrongListener` stops compiling and is easy to find. Code that
-> discards the result, or holds it in a `var` or an `IListener`, keeps compiling and silently
-> becomes a weak subscription — which fails only later, as listeners that quietly stop firing.
-> Rename every pre-existing `Listen` call to `ListenStrong` first, then choose which of them
-> genuinely want to be weak. In F# the same applies to `Stream.listen`/`Cell.listen` and their
-> `listenS`/`listenC` aliases.
+```csharp
+this.listener = s.Map(x => x * 2).Listen(Console.WriteLine);
+```
 
-`ListenOnce` and `ListenOnceStrong` unsubscribe themselves after the first firing, and divide
-the same way: `ListenOnce` returns an `IWeakListener` and roots nothing, `ListenOnceStrong`
-returns an `IStrongListener` that roots the stream until that first firing arrives. Hold the
-handle `ListenOnce` gives you until the firing you are waiting for; see [the mistake that does
-fail silently](#the-mistake-that-does-fail-silently), which applies to it exactly as it does to
-`Listen`.
+In a scoped context, `using` holds the listener and stops it, and it is what the test suite uses
+throughout:
 
-`ListenOnceAsync` gives you the same thing as a `Task<T>`, with an optional
-`CancellationToken`. It is strong, necessarily — you get a task rather than a listener, so
-there is no handle you could hold.
+```csharp
+using (result.Listen(@out.Add))
+{
+    s.Send(1);
+    s.Send(2);
+}
+```
+
+`ListenOnce` unsubscribes itself after the first firing, and follows the same rule. Hold its
+listener until the firing that you wait for.
+
+> **Upgrading:** `ListenStrong` and `ListenOnceStrong` are gone, and so are `IStrongListener`
+> and `IWeakListener`. A strong listener kept firing after you dropped it, for as long as a
+> source of its stream lived, and then nothing could stop it. Each call to a strong form stops
+> compiling, which marks every place to change. Call `Listen` or `ListenOnce` there, and keep
+> the result. Code that calls `Listen` and discards the result compiles, and it is
+> [the mistake that fails silently](#the-mistake-that-fails-silently). Rename `IWeakListener`
+> to `IListener`, and the weak and strong forms of `Listener.Empty`, `CreateComposite`, and
+> `Append` to the plain ones. In F#, the same applies to `listenStrong`, `listenOnceStrong`, and
+> their `S` and `C` aliases, and the `WeakListener` and `StrongListener` modules are now
+> `Listener`.
+
+## Waiting for one firing
+
+`ListenOnceAsync` gives you the next firing as a `Task<T>`, with an optional
+`CancellationToken`. An `await` has no place to keep a listener, so this is the one call that
+needs no handle: the sources of the stream hold the wait.
+
+A stream with more than one input, which is a lift, a merge, `Apply`, `MergeMaybes`, or a
+switch, is held by every one of its roots, so the wait lives while any of them does. Lift a
+cell you own with one you were handed, and the wait stays after the owner of the handed cell
+drops it, for as long as yours lives. A switch is held by the outer cell and by the inner
+stream or cell that it selects now, so `Cell.Constant(s).SwitchS().ListenOnceAsync()` waits for
+as long as `s` lives. The memory tests pin this for a lift, a merge, and a switch.
+
+When nothing can fire the stream anymore, because every one of those sources is unreachable,
+the wait goes away with them. The task then never completes, and the code after the `await`
+never runs. No exception arrives, and a `finally` block in that method does not run. A token
+changes this: while a token that can cancel is reachable, it holds the wait and the stream, and
+a cancellation ends the wait with an `OperationCanceledException`.
 
 F#'s `listenOnceAsync` returns an `Async`, which might never run, so it splits the
 difference. The listener attaches as soon as you call it, so a firing before you start the
@@ -49,73 +72,24 @@ holding the listener. Once it runs, the stream holds the listener until the firs
 a cancellation. An async that never runs — say, because a cancellation stopped the
 workflow before it got there — leaves nothing behind once it's garbage collected.
 
-> **Upgrading:** `ListenOnce` used to be strong, and `ListenOnceStrong` is new. This is the
-> same swap the two general listen methods went through, with the same failure mode, and it is
-> sharper here because a one-shot subscription is the kind you are most tempted to fire and
-> forget. `s.ListenOnce(handler);` as a bare statement compiles before and after; it delivered
-> before and now delivers only if a collection does not happen first. Rename every
-> pre-existing `ListenOnce` call to `ListenOnceStrong`, then choose which of them genuinely
-> want to be weak. In F# the same applies to `Stream.listenOnce` and its `listenOnceS` alias,
-> whose strong forms are `Stream.listenOnceStrong` and `listenOnceStrongS`.
-
-## Dropping the listener `ListenStrong` returns
+## The mistake that fails silently
 
 ```csharp
-// Keeps firing — but nothing can stop it any more.
-s.Map(x => x * 2).ListenStrong(Console.WriteLine);
-```
-
-`ListenStrong` roots the listener in the stream's keep-alive set, so discarding the return value
-does **not** stop delivery. The handler keeps running until the stream itself is disposed or
-collected. What you have lost is the handle: there is no longer any way to `Unlisten()`, so
-the subscription overstays rather than dying quietly.
-
-That is deliberate, and pinned by `ListenerIsKeptAliveWhileStillListening` in the memory
-tests — a listener that silently stopped firing would be the worse failure of the two.
-
-A stream with more than one input — a lift, a merge, `Apply`, `MergeMaybes`, or a switch — is
-rooted by every one of its roots, so the listener lives while any of them does. Lift a cell you
-own with one you were handed, and the listener keeps firing after the handed cell's owner drops
-it, for as long as yours lives. A switch is rooted by the outer cell and by whichever inner
-stream or cell it currently selects, so `Cell.Constant(s).SwitchS().ListenStrong(h)` keeps
-firing for as long as `s` lives. The memory tests pin this for a lift, a merge, and a switch.
-
-Keep the listener whenever you need to be able to stop it:
-
-```csharp
-this.listener = s.Map(x => x * 2).ListenStrong(Console.WriteLine);
-```
-
-In a scoped context, `using` is the clearer form and is what the test suite uses throughout:
-
-```csharp
-using (result.ListenStrong(@out.Add))
-{
-    s.Send(1);
-    s.Send(2);
-}
-```
-
-## The mistake that does fail silently
-
-`Listen` is the one where dropping the reference stops delivery:
-
-```csharp
-// Wrong: nothing holds the weak listener, so it can be collected and stop firing.
+// Wrong: nothing holds the listener, so it can be collected and stop firing.
 s.Map(x => x * 2).Listen(Console.WriteLine);
 
 // Wrong for the same reason, and easier to write by accident.
 s.Map(x => x * 2).ListenOnce(Console.WriteLine);
 ```
 
-This compiles, runs, and works — until a garbage collection happens, after which it silently
-stops. The node holds your handler through a `WeakReference`, and the returned
-`IWeakListener` is the only thing keeping it alive — `Listen` deliberately does not root
-that listener anywhere. Drop it and the handler becomes collectable.
+This compiles, runs, and works until a garbage collection happens, after which it silently
+stops. The node holds your handler through a `WeakReference`, and the `IListener` from the call
+is the only thing that keeps the handler alive. Drop it, and the handler becomes collectable. A
+test usually ends before a collection, so it passes. A long session does not.
 
-Use `Listen` only when something else owns the lifetime, and hold that reference for
-exactly as long as you want the subscription to live. `ListenOnce` is the same method with a
-shorter lifetime: hold its listener until the firing arrives, or call `ListenOnceStrong`.
+Hold the listener for exactly as long as you want the subscription to live. `ListenOnce` is the
+same method with a shorter lifetime: hold its listener until the firing arrives, or call
+`ListenOnceAsync`.
 
 ## When the framework gives you no teardown hook
 
@@ -123,22 +97,13 @@ Some UI frameworks discard a view without ever calling anything you can hook. A 
 `UserControl` is the usual case: it goes out of use and is simply dropped, with no `Dispose`,
 and `Unloaded` is unreliable enough that you cannot hang teardown off it.
 
-Here `ListenStrong` is not merely awkward, it is the bug. It roots the listener in the source
-stream's keep-alive set, so a view model that outlives the control ends up holding it:
-
-```
-ViewModel → stream → keep-alive set → listener → handler → captured `this` → UserControl
-```
-
-Nothing ever breaks that chain, and the control leaks for the lifetime of the view model.
-
-`Listen`, with the listener held in a field, inverts it:
+The rule covers this case with no more work. Hold the listener in a field of the control:
 
 ```csharp
 public partial class RateView : UserControl
 {
     // Held so the subscription lives exactly as long as this control does.
-    private readonly IWeakListener listener;
+    private readonly IListener listener;
 
     public RateView(RateViewModel vm)
     {
@@ -165,7 +130,7 @@ handles lifetime correctly.
 
 ## Do not `Send` from inside a handler
 
-The XML documentation on both listen methods is explicit: neither `StreamSinkExtensionMethods.Send`
+The XML documentation on the listen methods is explicit: neither `StreamSinkExtensionMethods.Send`
 nor `CellSinkExtensionMethods.Send` may be called from a handler, and doing so **throws** — the
 reason given is that they are not meant to be used to build new primitives.
 
@@ -180,12 +145,11 @@ thread they run on, and not to block.
 
 ## The machinery behind a combinator
 
-For ordinary subscriptions, the two listen methods are all you need. Both already tie the
-listener's lifetime to the stream's, from opposite ends. `Listen` gives you a handle that holds
-the stream, so the subscription lives exactly as long as you keep the handle. `ListenStrong`
-additionally roots the listener in the keep-alive set of each root the stream has, and the
-listener holds the stream in turn, so the two form a cycle that the collector reclaims together
-once you drop your handle.
+For ordinary subscriptions, `Listen` is all you need. It gives you a handle that holds the
+stream, so the subscription lives exactly as long as you keep the handle. `ListenOnceAsync` has
+no handle to give, so it roots its listener in the keep-alive set of each root the stream has,
+until the first firing or a cancellation. The listener holds the stream in turn, so the two form
+a cycle that the collector reclaims together when the roots go.
 Neither permanently roots a stream by itself.
 
 A combinator needs one more kind of subscription, and none of it is public. It binds *some
@@ -203,7 +167,7 @@ branch change, but attaching a fresh listener each time would grow the stream's 
 list without bound, so one listener whose target can be re-pointed is attached once.
 
 Application code never gets into that situation, which is why this machinery is internal rather
-than merely discouraged: building a primitive this way needs the weak `Listen` overload taking a
+than merely discouraged: building a primitive this way needs the `Listen` overload taking a
 node, which is `internal`, and a handler that sends, which throws. `Switch` has already done it
 for you. Earlier versions exposed parts of it — `AttachListener`, the weak view through
 `GetListenerWithWeakReference`, `MutableListener`, and `Cleanup` — and 6.0.0 removed the last of

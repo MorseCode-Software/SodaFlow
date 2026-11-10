@@ -12,7 +12,7 @@ namespace SodaFlow.Benchmarks;
 ///         ListenOnce opens a transaction and gives the listener its handle
 ///         before that transaction closes. It gives that transaction to Listen,
 ///         thus Listen does not open a second one. These benchmarks measure that
-///         cost. A plain ListenStrong is the baseline.
+///         cost. A plain Listen is the baseline.
 ///     </para>
 ///     <para>
 ///         In an open transaction, ListenOnce uses that transaction. The attach
@@ -38,39 +38,35 @@ public class ListenOnceBenchmarks
     private readonly StreamSink<int> sink = Stream.CreateSink<int>();
 
     /// <summary>
-    ///     Attaches a plain strong listener and removes it.
+    ///     Attaches a plain listener and removes it.
     /// </summary>
-    [Benchmark(Baseline = true, Description = "ListenStrong, attach and Unlisten")]
-    public void ListenStrong() => this.sink.ListenStrong(Handler).Unlisten();
+    [Benchmark(Baseline = true, Description = "Listen, attach and Unlisten")]
+    public void Listen() => this.sink.Listen(Handler).Unlisten();
 
     /// <summary>
-    ///     Attaches a weak one-shot listener and removes it before it fires.
+    ///     Attaches a one-shot listener and removes it before it fires.
     /// </summary>
     [Benchmark(Description = "ListenOnce, attach and Unlisten")]
     public void ListenOnce() => this.sink.ListenOnce(Handler).Unlisten();
 
     /// <summary>
-    ///     Attaches a strong one-shot listener and removes it before it fires.
+    ///     Attaches a one-shot listener in an open transaction, which the listener
+    ///     then uses.
     /// </summary>
-    [Benchmark(Description = "ListenOnceStrong, attach and Unlisten")]
-    public void ListenOnceStrong() => this.sink.ListenOnceStrong(Handler).Unlisten();
+    [Benchmark(Description = "ListenOnce in a transaction, attach and Unlisten")]
+    public void ListenOnceInATransaction() =>
+        Transaction.RunVoid(() => this.sink.ListenOnce(Handler).Unlisten());
 
     /// <summary>
-    ///     Attaches a strong one-shot listener in an open transaction, which the
-    ///     listener then uses.
+    ///     Attaches a one-shot listener and sends one value, which removes it.
     /// </summary>
-    [Benchmark(Description = "ListenOnceStrong in a transaction, attach and Unlisten")]
-    public void ListenOnceStrongInATransaction() =>
-        Transaction.RunVoid(() => this.sink.ListenOnceStrong(Handler).Unlisten());
-
-    /// <summary>
-    ///     Attaches a strong one-shot listener and sends one value, which removes
-    ///     it.
-    /// </summary>
-    [Benchmark(Description = "ListenOnceStrong, attach and Send")]
-    public void ListenOnceStrongAndSend()
+    [Benchmark(Description = "ListenOnce, attach and Send")]
+    public void ListenOnceAndSend()
     {
-        this.sink.ListenOnceStrong(Handler);
+        // The local keeps the listener until the send. Without it, a collection between the two
+        // calls can remove the listener, and the send then measures a stream with no listener.
+        IListener listener = this.sink.ListenOnce(Handler);
         this.sink.Send(1);
+        GC.KeepAlive(listener);
     }
 }

@@ -163,10 +163,10 @@ public class ViewChangeProjectionBenchmarks
                         .Select(key =>
                             observed.StateCell(key)
                                 .Updates()
-                                .ListenStrong(static _ =>
+                                .Listen(static _ =>
                                 {
                                 })),
-                    view.KeyChangesStream.ListenStrong(static _ =>
+                    view.KeyChangesStream.Listen(static _ =>
                     {
                     })
                 ];
