@@ -241,20 +241,13 @@ public class Stream<T> : ILastAction
                     // ReSharper disable AccessToModifiedClosure
                     if (listener != null)
                     {
-                        lock (this.KeepListenersAlive)
-                        {
-                            this.KeepListenersAlive.StopKeepingListenerAlive(listener);
-                        }
+                        this.KeepListenersAlive.StopKeepingAlive(listener);
                     }
                     // ReSharper restore AccessToModifiedClosure
                 },
                 listener: innerListener);
 
-        lock (this.KeepListenersAlive)
-        {
-            this.KeepListenersAlive.KeepListenerAlive(listener);
-        }
-
+        this.KeepListenersAlive.KeepAlive(listener);
         return listener;
     }
 
@@ -1646,8 +1639,9 @@ public class Stream<T> : ILastAction
         public void Dispose() => this.Unlisten();
     }
 
-    // The lock on KeepListenersAlive makes Root and Unlisten atomic. Thus, a Root on one thread and
-    // the first firing on a different thread cannot keep a listener that stopped in the set.
+    // The lock on this object makes Root and Unlisten atomic. Thus, a Root on one thread and the
+    // first firing on a different thread cannot keep a listener that stopped in the set. The set
+    // gets its own lock inside this one, and never the reverse.
     private sealed class RootableListener(in Stream<T> stream, in IWeakListenerInternal listener) : IRootableListener
     {
         private readonly IWeakListenerInternal listener = listener;
@@ -1657,7 +1651,7 @@ public class Stream<T> : ILastAction
 
         public void Root()
         {
-            lock (this.stream.KeepListenersAlive)
+            lock (this)
             {
                 if (this.rooted || this.stopped)
                 {
@@ -1665,7 +1659,7 @@ public class Stream<T> : ILastAction
                 }
 
                 this.rooted = true;
-                this.stream.KeepListenersAlive.KeepListenerAlive(this);
+                this.stream.KeepListenersAlive.KeepAlive(this);
             }
         }
 
@@ -1673,14 +1667,14 @@ public class Stream<T> : ILastAction
         {
             this.listener.Unlisten();
 
-            lock (this.stream.KeepListenersAlive)
+            lock (this)
             {
                 this.stopped = true;
 
                 if (this.rooted)
                 {
                     this.rooted = false;
-                    this.stream.KeepListenersAlive.StopKeepingListenerAlive(this);
+                    this.stream.KeepListenersAlive.StopKeepingAlive(this);
                 }
             }
         }

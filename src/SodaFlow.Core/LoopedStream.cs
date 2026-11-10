@@ -44,9 +44,6 @@ public class LoopedStream<T> : Stream<T>
 
         this.AttachListenerInternal(stream.Listen(target: this.Node, action: new SendInto<T>(this)));
 
-        lock (stream.KeepListenersAlive)
-        {
-            stream.KeepListenersAlive.Use(this.KeepListenersAlive);
-        }
+        stream.KeepListenersAlive.KeepAlive(this.KeepListenersAlive);
     }
 }

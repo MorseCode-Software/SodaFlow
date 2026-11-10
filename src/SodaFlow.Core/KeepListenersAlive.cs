@@ -1,46 +1,59 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace SodaFlow;
 
 /// <summary>
-///     The set in which <c>ListenStrong</c> roots a listener.
+///     The set in which <c>ListenStrong</c> roots a listener, and in which a loop
+///     keeps its own set alive.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         Each root stream, which is a sink, a never stream, or a loop, owns one set.
 ///         A stream with one input shares the set of that input. A stream with more
-///         than one input gets a fan-out over the sets of all of them. Thus, every
-///         root holds the listener, and the listener lives while any root lives.
-///         Before, such a stream took the set of its first input only. A listener on
-///         it stopped with no message when the application dropped that root and
-///         kept the other.
+///         than one input gets a fan-out over the sets of all of them. A switch gets a
+///         set over its outer and the inner that it selects now. A target that a set
+///         keeps alive goes into each root set that the set reaches. Thus, the target
+///         lives while any of those roots lives.
 ///     </para>
 ///     <para>
-///         A caller locks the set of its own stream before a call. A fan-out locks
-///         each member before it calls into it. Thus, two fan-outs that share a root
-///         cannot change the set of that root at the same time. The locks nest from
-///         an output toward its inputs only. Outside a loop, the inputs of a stream
-///         cannot include the stream, thus the locks cannot deadlock.
+///         A walk with a visited set finds the roots that a set reaches. It goes
+///         through the members of each fan-out. It also goes through the outer of each
+///         switch and the inner that the switch selects now. Through a loop, a set can
+///         reach itself. The visited set ends the walk there, and
+///         each root gets the target one time for each call. A switch that selects a
+///         new inner walks again for each target that passes it, and changes only the
+///         roots that changed. Before, each switch counted the targets that passed it
+///         and sent the counts on. A count did not record its path. Thus, a move that
+///         came back through a loop took away a count that a different path gave. A
+///         later stop then left the target in the roots for good.
 ///     </para>
 ///     <para>
-///         A switch over a loop can reach its own set again through the outer or
-///         the inner. The thread that comes back gets a lock that it already has,
-///         which a lock lets it do. The set of the switch then stops that call. Two
-///         threads that start calls in the same loop at the same time can each wait
-///         for a lock that the other has.
+///         All the sets share one lock. The walk reads the sets of many streams, and a
+///         lock for each set let two threads in the same loop wait for each other. No
+///         code runs under this lock that gets a different lock.
 ///     </para>
 /// </remarks>
 internal interface IKeepListenersAlive
 {
-    void KeepListenerAlive(IListener listener);
-    void StopKeepingListenerAlive(IListener listener);
-    void Use(IKeepListenersAlive childKeepListenersAlive);
-    void StopUsing(IKeepListenersAlive childKeepListenersAlive);
+    /// <summary>
+    ///     Keeps <paramref name="target" /> alive in each root that this set reaches.
+    ///     The roots change when a switch on the way moves.
+    /// </summary>
+    void KeepAlive(object target);
+
+    /// <summary>
+    ///     Reverses one call to <see cref="KeepAlive" /> with the same target.
+    /// </summary>
+    void StopKeepingAlive(object target);
 }
 
 internal static class KeepListenersAliveInternal
 {
+    /// <summary>
+    ///     The lock of every keep-alive set.
+    /// </summary>
+    internal static readonly object Lock = new();
+
     /// <summary>
     ///     The set for a stream with two inputs.
     /// </summary>
@@ -61,8 +74,7 @@ internal static class KeepListenersAliveInternal
     /// </summary>
     /// <remarks>
     ///     A fan-out among the inputs opens into its members. Thus, a lift of lifts
-    ///     holds one flat list of roots. A call to the set visits each root one time,
-    ///     whatever the number of operators between the stream and that root.
+    ///     holds one flat list of sets.
     /// </remarks>
     internal static IKeepListenersAlive Combine(params IKeepListenersAlive[] inputs) =>
         inputs.Length == 2 ? Combine(first: inputs[0], second: inputs[1]) : Flatten(inputs);
@@ -94,185 +106,191 @@ internal static class KeepListenersAliveInternal
     }
 }
 
-// The set of a root stream. The set counts each listener. A switch whose inner shares a root
-// with its outer keeps a listener in the set of that root two times. A move to the next inner
-// stops it one time. A set that the listener left at that stop lost the root that the outer
-// still holds.
+// The set of a root stream. It holds each target, and counts the calls that gave it. A target
+// that a fan-out gives from two of its inputs, which share this root, stays until both stop.
 internal sealed class KeepListenersAliveImplementation : IKeepListenersAlive
 {
-    // ReSharper disable once CollectionNeverQueried.Local
-    private List<IKeepListenersAlive>? childKeepListenersAliveList;
+    // SodaFlow makes one of these for each root stream, and many streams get no target. Thus,
+    // the dictionary waits until the code needs it.
+    private Dictionary<object, int>? targets;
 
-    // SodaFlow makes one of these for each root stream, and many streams get no
-    // listener. Thus, the two collections wait until the code needs them.
-    private Dictionary<IListener, int>? listeners;
-
-    public void KeepListenerAlive(IListener listener)
+    public void KeepAlive(object target)
     {
-        this.listeners ??= [];
-        this.listeners.TryGetValue(key: listener, value: out int count);
-        this.listeners[listener] = count + 1;
+        lock (KeepListenersAliveInternal.Lock)
+        {
+            this.Add(target);
+        }
     }
 
-    public void StopKeepingListenerAlive(IListener listener)
+    public void StopKeepingAlive(object target)
     {
-        if (this.listeners == null || !this.listeners.TryGetValue(key: listener, value: out int count))
+        lock (KeepListenersAliveInternal.Lock)
+        {
+            this.Remove(target);
+        }
+    }
+
+    // The caller holds the lock.
+    internal void Add(object target)
+    {
+        this.targets ??= [];
+        this.targets.TryGetValue(key: target, value: out int count);
+        this.targets[target] = count + 1;
+    }
+
+    // The caller holds the lock.
+    internal void Remove(object target)
+    {
+        if (this.targets == null || !this.targets.TryGetValue(key: target, value: out int count))
         {
             return;
         }
 
         if (count == 1)
         {
-            this.listeners.Remove(listener);
+            this.targets.Remove(target);
         }
         else
         {
-            this.listeners[listener] = count - 1;
+            this.targets[target] = count - 1;
+        }
+    }
+}
+
+// The set of a stream that is not a root: a fan-out or a switch. A target whose roots can change,
+// because a switch is on the way, gets a registration that remembers its roots. A target whose walk
+// finds no switch reaches the same roots each time, thus it needs no registration.
+internal abstract class CompositeKeepListenersAlive : IKeepListenersAlive
+{
+    // Most sets keep one target or none. Thus, the first registration has a field, and the
+    // dictionary waits for a second. The lock guards both.
+    private Registration? first;
+    private Dictionary<object, Registration>? more;
+
+    public void KeepAlive(object target)
+    {
+        lock (KeepListenersAliveInternal.Lock)
+        {
+            Registration? found = this.Find(target);
+
+            if (found != null)
+            {
+                found.Count++;
+                return;
+            }
+
+            Walk walk = Walk.From(this);
+
+            try
+            {
+                if (walk.Switches.Count == 0)
+                {
+                    foreach (KeepListenersAliveImplementation root in walk.Roots)
+                    {
+                        root.Add(target);
+                    }
+
+                    return;
+                }
+
+                Registration registration = new(origin: this, target: target);
+                registration.Start(walk);
+
+                if (this.first == null)
+                {
+                    this.first = registration;
+                }
+                else
+                {
+                    this.more ??= [];
+                    this.more[target] = registration;
+                }
+            }
+            finally
+            {
+                walk.Clear();
+            }
         }
     }
 
-    public void Use(IKeepListenersAlive childKeepListenersAlive)
+    public void StopKeepingAlive(object target)
     {
-        this.childKeepListenersAliveList ??= [];
-        this.childKeepListenersAliveList.Add(childKeepListenersAlive);
+        lock (KeepListenersAliveInternal.Lock)
+        {
+            Registration? found = this.Find(target);
+
+            if (found != null)
+            {
+                if (--found.Count == 0)
+                {
+                    if (ReferenceEquals(objA: found, objB: this.first))
+                    {
+                        this.first = null;
+                    }
+                    else
+                    {
+                        this.more?.Remove(target);
+                    }
+
+                    found.Release();
+                }
+
+                return;
+            }
+
+            // A target with no registration found no switch. The members of a fan-out do not change,
+            // thus the same walk finds the same roots.
+            Walk walk = Walk.From(this);
+
+            try
+            {
+                foreach (KeepListenersAliveImplementation root in walk.Roots)
+                {
+                    root.Remove(target);
+                }
+            }
+            finally
+            {
+                walk.Clear();
+            }
+        }
     }
 
-    // The list holds a child one time for each Use. Thus, a removal of one entry is the
-    // reverse of one Use. A child that two members of a fan-out gave stays until both stop.
-    public void StopUsing(IKeepListenersAlive childKeepListenersAlive) =>
-        this.childKeepListenersAliveList?.Remove(childKeepListenersAlive);
+    // The caller holds the lock.
+    private Registration? Find(object target)
+    {
+        if (this.first != null && Equals(objA: this.first.Target, objB: target))
+        {
+            return this.first;
+        }
+
+        return this.more != null && this.more.TryGetValue(key: target, value: out Registration? found) ? found : null;
+    }
 }
 
-// The set of a stream with more than one input: each call goes to the set of each input.
-file sealed class FanOutKeepListenersAlive(in IKeepListenersAlive[] members) : IKeepListenersAlive
+// The set of a stream with more than one input: its roots are the roots of each input.
+file sealed class FanOutKeepListenersAlive(in IKeepListenersAlive[] members) : CompositeKeepListenersAlive
 {
     internal IKeepListenersAlive[] Members { get; } = members;
-
-    public void KeepListenerAlive(IListener listener)
-    {
-        foreach (IKeepListenersAlive member in this.Members)
-        {
-            lock (member)
-            {
-                member.KeepListenerAlive(listener);
-            }
-        }
-    }
-
-    public void StopKeepingListenerAlive(IListener listener)
-    {
-        foreach (IKeepListenersAlive member in this.Members)
-        {
-            lock (member)
-            {
-                member.StopKeepingListenerAlive(listener);
-            }
-        }
-    }
-
-    public void Use(IKeepListenersAlive childKeepListenersAlive)
-    {
-        foreach (IKeepListenersAlive member in this.Members)
-        {
-            lock (member)
-            {
-                member.Use(childKeepListenersAlive);
-            }
-        }
-    }
-
-    public void StopUsing(IKeepListenersAlive childKeepListenersAlive)
-    {
-        foreach (IKeepListenersAlive member in this.Members)
-        {
-            lock (member)
-            {
-                member.StopUsing(childKeepListenersAlive);
-            }
-        }
-    }
 }
 
-// The set of a switch: the set of the outer cell, and the set of the inner stream or behavior
-// that the switch selects now. Each switch moves the listeners and the children from the set of
-// the previous inner to the set of the next. Thus, the root of the inner holds the listener
-// while the switch selects that inner. When the outer is a constant, that is the only root that
-// holds it. The switch keeps its own count of each listener. A switch of a switch keeps a
-// listener here two times. The move must then stop it two times in the previous inner.
-internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : IKeepListenersAlive
+// The set of a switch: the set of the outer, and the set of the inner that the switch selects now.
+// When the outer is a constant, the inner is the only way to a root.
+internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : CompositeKeepListenersAlive
 {
-    private readonly IKeepListenersAlive outer = outer;
-    private List<IKeepListenersAlive>? childKeepListenersAliveList;
-    private IKeepListenersAlive? inner;
-    private Dictionary<IListener, int>? listeners;
+    // The registrations whose walk passes this switch. Most switches have one or none. Thus, the
+    // first has a field, and the set waits for a second. The lock guards both.
+    private Registration? firstPassing;
+    private HashSet<Registration>? morePassing;
 
-    // The outer or the inner can reach this set again through a loop. For example, a view model
-    // can switch onto a stream that comes from its own output. A call that comes back here while
-    // this set forwards stops, because this set already does its part of that call. Without this
-    // stop, the call goes around the loop until the stack overflows.
-    private bool forwarding;
+    internal IKeepListenersAlive Outer { get; } = outer;
 
-    public void KeepListenerAlive(IListener listener)
-    {
-        if (this.forwarding)
-        {
-            return;
-        }
-
-        this.listeners ??= [];
-        this.listeners.TryGetValue(key: listener, value: out int count);
-        this.listeners[listener] = count + 1;
-        this.Forward(call: static (set, value) => set.KeepListenerAlive(value), argument: listener);
-    }
-
-    public void StopKeepingListenerAlive(IListener listener)
-    {
-        if (this.forwarding
-            || this.listeners == null
-            || !this.listeners.TryGetValue(key: listener, value: out int count))
-        {
-            return;
-        }
-
-        if (count == 1)
-        {
-            this.listeners.Remove(listener);
-        }
-        else
-        {
-            this.listeners[listener] = count - 1;
-        }
-
-        this.Forward(call: static (set, value) => set.StopKeepingListenerAlive(value), argument: listener);
-    }
-
-    public void Use(IKeepListenersAlive childKeepListenersAlive)
-    {
-        if (this.forwarding)
-        {
-            return;
-        }
-
-        this.childKeepListenersAliveList ??= [];
-        this.childKeepListenersAliveList.Add(childKeepListenersAlive);
-        this.Forward(call: static (set, value) => set.Use(value), argument: childKeepListenersAlive);
-    }
-
-    public void StopUsing(IKeepListenersAlive childKeepListenersAlive)
-    {
-        if (this.forwarding
-            || this.childKeepListenersAliveList == null
-            || !this.childKeepListenersAliveList.Remove(childKeepListenersAlive))
-        {
-            return;
-        }
-
-        this.Forward(call: static (set, value) => set.StopUsing(value), argument: childKeepListenersAlive);
-    }
+    // The lock guards this.
+    internal IKeepListenersAlive? Inner { get; private set; }
 
     /// <summary>
-    ///     Moves the listeners and the children of this set from the set of the
-    ///     previous inner to the set of the next.
+    ///     Selects the next inner, and moves each registration that passes this switch
+    ///     to the roots that it reaches through the next inner.
     /// </summary>
     /// <remarks>
     ///     The switch calls this when a transaction commits the inner that it selects.
@@ -281,96 +299,259 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : I
     /// </remarks>
     internal void SetInner(IKeepListenersAlive next)
     {
-        lock (this)
+        lock (KeepListenersAliveInternal.Lock)
         {
-            if (ReferenceEquals(objA: this.inner, objB: next))
+            IKeepListenersAlive? previous = this.Inner;
+
+            if (ReferenceEquals(objA: previous, objB: next))
             {
                 return;
             }
 
-            // The next inner can reach this set through a loop, as the previous inner can. The
-            // calls that come back here while the move runs stop, as they do in Forward.
-            this.forwarding = true;
-
-            try
+            if (this.morePassing == null || this.morePassing.Count == 0)
             {
-                if (this.inner != null)
+                if (this.firstPassing != null)
                 {
-                    this.Transfer(set: this.inner, keep: false);
+                    this.Move(registration: this.firstPassing, previous: previous, next: next);
                 }
 
-                this.inner = next;
-                this.Transfer(set: next, keep: true);
+                this.Inner = next;
+                return;
             }
-            finally
+
+            // A move changes the registrations of the switches on the way. Thus, the loop reads a
+            // copy.
+            Registration? firstCopy = this.firstPassing;
+            Registration[] copy = new Registration[this.morePassing.Count];
+            this.morePassing.CopyTo(copy);
+
+            if (firstCopy != null)
             {
-                this.forwarding = false;
+                this.Move(registration: firstCopy, previous: previous, next: next);
             }
+
+            foreach (Registration registration in copy)
+            {
+                this.Move(registration: registration, previous: previous, next: next);
+            }
+
+            this.Inner = next;
         }
     }
 
-    // Sends a call to the set of the outer and to the set of the current inner.
-    private void Forward<T>(Action<IKeepListenersAlive, T> call, T argument)
+    // The caller holds the lock.
+    internal void Pass(Registration registration)
     {
-        this.forwarding = true;
+        if (this.firstPassing == null)
+        {
+            this.firstPassing = registration;
+            return;
+        }
+
+        this.morePassing ??= [];
+        this.morePassing.Add(registration);
+    }
+
+    // The caller holds the lock.
+    internal void Leave(Registration registration)
+    {
+        if (ReferenceEquals(objA: this.firstPassing, objB: registration))
+        {
+            this.firstPassing = null;
+        }
+        else
+        {
+            this.morePassing?.Remove(registration);
+        }
+    }
+
+    // Walks from the origin of the registration with the previous inner and with the next one, and
+    // applies the difference. The caller holds the lock, and sets the next inner after the moves.
+    private void Move(Registration registration, IKeepListenersAlive? previous, IKeepListenersAlive next)
+    {
+        this.Inner = previous;
+        Walk before = Walk.Before(registration.Origin);
+        this.Inner = next;
+        Walk after = Walk.From(registration.Origin);
 
         try
         {
-            lock (this.outer)
+            registration.Apply(before: before, after: after);
+        }
+        finally
+        {
+            before.Clear();
+            after.Clear();
+        }
+    }
+}
+
+// One target that a composite set keeps alive through a switch. It stores no roots. The walk from
+// its origin finds the roots that it reaches now. Only the move of a switch on the way can change
+// what that walk finds, and each move applies the change. Thus, a walk at the stop finds the same
+// roots as the walks before it gave the target to.
+internal sealed class Registration(CompositeKeepListenersAlive origin, object target)
+{
+    internal CompositeKeepListenersAlive Origin { get; } = origin;
+
+    internal object Target { get; } = target;
+
+    // The number of calls with this target to the origin. The lock guards it.
+    internal int Count { get; set; } = 1;
+
+    // The caller holds the lock.
+    internal void Start(Walk walk)
+    {
+        foreach (KeepListenersAliveImplementation root in walk.Roots)
+        {
+            root.Add(this.Target);
+        }
+
+        foreach (SwitchKeepListenersAlive @switch in walk.Switches)
+        {
+            @switch.Pass(this);
+        }
+    }
+
+    // The caller holds the lock.
+    internal void Release()
+    {
+        Walk walk = Walk.From(this.Origin);
+
+        try
+        {
+            foreach (KeepListenersAliveImplementation root in walk.Roots)
             {
-                call(arg1: this.outer, arg2: argument);
+                root.Remove(this.Target);
             }
 
-            if (this.inner != null)
+            foreach (SwitchKeepListenersAlive @switch in walk.Switches)
             {
-                lock (this.inner)
-                {
-                    call(arg1: this.inner, arg2: argument);
-                }
+                @switch.Leave(this);
             }
         }
         finally
         {
-            this.forwarding = false;
+            walk.Clear();
         }
     }
 
-    private void Transfer(IKeepListenersAlive set, bool keep)
+    // The target goes into each root that the walk after reaches and the walk before did not. It
+    // leaves each root that the walk before reached and the walk after does not. The same for the
+    // switches. A root that both reach does not change. The caller holds the lock.
+    internal void Apply(Walk before, Walk after)
     {
-        lock (set)
+        // ReSharper disable LoopCanBePartlyConvertedToQuery, ForeachCanBePartlyConvertedToQueryUsingAnotherGetEnumerator - A query allocates for each move of a switch.
+        foreach (KeepListenersAliveImplementation root in after.Roots)
         {
-            if (this.listeners != null)
+            if (!before.Reached(root))
             {
-                foreach (KeyValuePair<IListener, int> entry in this.listeners)
-                {
-                    for (int i = 0; i < entry.Value; i++)
-                    {
-                        if (keep)
-                        {
-                            set.KeepListenerAlive(entry.Key);
-                        }
-                        else
-                        {
-                            set.StopKeepingListenerAlive(entry.Key);
-                        }
-                    }
-                }
-            }
-
-            if (this.childKeepListenersAliveList != null)
-            {
-                foreach (IKeepListenersAlive child in this.childKeepListenersAliveList)
-                {
-                    if (keep)
-                    {
-                        set.Use(child);
-                    }
-                    else
-                    {
-                        set.StopUsing(child);
-                    }
-                }
+                root.Add(this.Target);
             }
         }
+
+        foreach (KeepListenersAliveImplementation root in before.Roots)
+        {
+            if (!after.Reached(root))
+            {
+                root.Remove(this.Target);
+            }
+        }
+
+        foreach (SwitchKeepListenersAlive @switch in after.Switches)
+        {
+            if (!before.Reached(@switch))
+            {
+                @switch.Pass(this);
+            }
+        }
+
+        foreach (SwitchKeepListenersAlive @switch in before.Switches)
+        {
+            if (!after.Reached(@switch))
+            {
+                @switch.Leave(this);
+            }
+        }
+        // ReSharper restore LoopCanBePartlyConvertedToQuery, ForeachCanBePartlyConvertedToQueryUsingAnotherGetEnumerator
+    }
+}
+
+// The sets that one set reaches: the roots, the switches, and every set on the way. A move needs
+// two walks at the same time, thus there are two of these. Each walk uses the same collections,
+// which the lock guards, and allocates nothing after the first. The caller clears the walk when it
+// is done, because the collections otherwise keep the sets of the last walk in memory.
+internal sealed class Walk
+{
+    private static readonly Walk Primary = new();
+    private static readonly Walk Secondary = new();
+
+    private readonly Stack<IKeepListenersAlive> pending = new();
+    private readonly HashSet<IKeepListenersAlive> visited = [];
+
+    private Walk()
+    {
+    }
+
+    internal List<KeepListenersAliveImplementation> Roots { get; } = [];
+
+    internal List<SwitchKeepListenersAlive> Switches { get; } = [];
+
+    // The caller holds the lock.
+    internal static Walk From(IKeepListenersAlive start) => Primary.Run(start);
+
+    // The walk before a move, which the caller keeps while it makes the walk after. The caller holds
+    // the lock.
+    internal static Walk Before(IKeepListenersAlive start) => Secondary.Run(start);
+
+    internal bool Reached(IKeepListenersAlive set) => this.visited.Contains(set);
+
+    // The caller holds the lock.
+    internal void Clear()
+    {
+        this.visited.Clear();
+        this.Roots.Clear();
+        this.Switches.Clear();
+    }
+
+    private Walk Run(IKeepListenersAlive start)
+    {
+        this.pending.Push(start);
+
+        while (this.pending.Count > 0)
+        {
+            IKeepListenersAlive set = this.pending.Pop();
+
+            if (!this.visited.Add(set))
+            {
+                continue;
+            }
+
+            switch (set)
+            {
+                case KeepListenersAliveImplementation root:
+                    this.Roots.Add(root);
+                    break;
+                case SwitchKeepListenersAlive @switch:
+                    this.Switches.Add(@switch);
+                    this.pending.Push(@switch.Outer);
+
+                    if (@switch.Inner != null)
+                    {
+                        this.pending.Push(@switch.Inner);
+                    }
+
+                    break;
+                case FanOutKeepListenersAlive fanOut:
+                    foreach (IKeepListenersAlive member in fanOut.Members)
+                    {
+                        this.pending.Push(member);
+                    }
+
+                    break;
+            }
+        }
+
+        return this;
     }
 }

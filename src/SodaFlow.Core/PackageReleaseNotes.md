@@ -98,8 +98,11 @@ root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
 memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
 loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
-and that switches onto its own output, is an example. The switch stops a call that comes back to it. Thus, the first
-strong listener in such a loop does not go around it until the stack overflows. The memory tests pin that loop too.
+and that switches onto its own output, is an example. A walk with a visited set finds the roots of a strong listener, so
+the walk ends where the loop comes back. A switch that selects a new inner walks again for each strong listener that
+passes it, and changes only the roots that changed. Thus, Unlisten releases the listener from every root, also after a
+switch in its loop moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot wait for
+each other. The memory tests pin both loops.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
