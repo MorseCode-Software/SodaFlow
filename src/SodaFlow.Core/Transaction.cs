@@ -41,7 +41,7 @@ internal sealed class TransactionInternal
     private static List<Action>? afterReleaseQueue;
 
     // The last id given. Only the thread that holds the transaction lock changes it.
-    private static long nextId;
+    private static long lastId;
 
     private static readonly EntryPriorityQueue PrioritizedQueue = new();
 
@@ -100,7 +100,7 @@ internal sealed class TransactionInternal
     private TransactionInternal(Queue<PostEntry>? postQueue, List<SplitEntry>? splitQueue)
     {
         this.hasParentTransaction = true;
-        this.Id = ++nextId;
+        this.Id = TransactionIdSequence.Next(ref lastId);
         this.postQueue = postQueue;
         this.splitQueue = splitQueue;
     }
@@ -326,7 +326,7 @@ internal sealed class TransactionInternal
             // transaction of the hook holds it on this thread.
             if (transaction.Id == 0)
             {
-                transaction.Id = ++nextId;
+                transaction.Id = TransactionIdSequence.Next(ref lastId);
             }
         }
     }
