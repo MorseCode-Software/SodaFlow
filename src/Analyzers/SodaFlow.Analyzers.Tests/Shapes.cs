@@ -2465,6 +2465,32 @@ public static class Shapes
     public static Cell<int> AddInACollectionInitializerOfAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { TallyBag bag = new(Plain) { 1 }; Kept.Add(bag); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
 
+    // S312. A list has the members of its elements in its state. ToString of the list is not ToString
+    // of an element, which samples a pending member.
+    public static Cell<int> ToStringOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(all.ToString()!); return S.Hold(0); });
+
+    // S313. The same for Equals of the list.
+    public static Cell<int> EqualsOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> all = [new(l.Map(v => v))]; bool e = all.Equals(all); return S.Hold(e ? 1 : 0); });
+
+    // S314. The same for GetHashCode of the list.
+    public static Cell<int> GetHashCodeOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Hashed> all = [new(l.Map(v => v))]; int h = all.GetHashCode(); return S.Hold(h); });
+
+    // S315. An interpolation calls ToString of the list, and not of an element.
+    public static Cell<int> InterpolationOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; string s = $"{all}"; return S.Hold(s.Length); });
+
+    // S316. A cast to object does not make the list one of its elements.
+    public static Cell<int> ToStringOfAListCastToObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(((object)all).ToString()!); return S.Hold(0); });
+
+    // S317. A foreach over a list of sequences calls GetEnumerator of the list. It does not enumerate an
+    // element, whose iterator samples a pending member.
+    public static Cell<int> ForEachOverAListOfSequences() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Sack> sacks = new List<Sack> { new(l.Map(v => v)) }; int n = 0; foreach (Sack sack in sacks) { Kept.Add(sack); n++; } return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2794,6 +2820,37 @@ public static class Shapes
         public int Current => share.Sample();
 
         public bool MoveNext() => this.steps++ < 1;
+    }
+
+    public sealed class Titled(Cell<int> share)
+    {
+        public override string ToString() => share.Sample().ToString();
+    }
+
+    // Each member of Alike, Ranked, and Equatable reads the two objects that it has. Thus, a shape
+    // gives one result for each of the two that the platform can call.
+    public sealed class Alike(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => obj is Alike other && other.Read() == this.Read();
+
+        public override int GetHashCode() => 1;
+
+        private int Read() => share.Sample();
+    }
+
+    public sealed class Hashed(Cell<int> share)
+    {
+        public override int GetHashCode() => share.Sample();
+    }
+
+    public sealed class Sack(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator()
+        {
+            yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

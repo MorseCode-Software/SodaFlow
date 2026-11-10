@@ -47,6 +47,48 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     public Construction With(ISymbol member, LoopState state) =>
         new(members: this.members.SetItem(key: KeyOf(member), value: state), type: this.type);
 
+    /// <summary>
+    ///     True when the evaluator knows the type of this object, and an object of
+    ///     that type is a value of the given type. The given type is then the type
+    ///     of the object, one of its base types, or one of its interfaces.
+    /// </summary>
+    public bool Is(ITypeSymbol? type)
+    {
+        if (this.type == null || type == null)
+        {
+            return false;
+        }
+
+        // A nullable struct holds the struct.
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            type = nullable.TypeArguments[0];
+        }
+
+        if (type.SpecialType == SpecialType.System_Object
+            || type.TypeKind is TypeKind.TypeParameter or TypeKind.Dynamic)
+        {
+            return true;
+        }
+
+        for (INamedTypeSymbol? current = this.type; current != null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: current, y: type))
+            {
+                return true;
+            }
+        }
+
+        return this.type.AllInterfaces.Any(contract => SymbolEqualityComparer.Default.Equals(x: contract, y: type));
+    }
+
+    /// <summary>
+    ///     False when the evaluator knows the type of this object, and an object
+    ///     of that type is not a value of the given type. A list of such objects
+    ///     has their members in its state, and the list is not one of them.
+    /// </summary>
+    public bool CanBe(ITypeSymbol? type) => this.type == null || type == null || this.Is(type);
+
     /// <summary>True when the evaluator knows a state for the member.</summary>
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
 

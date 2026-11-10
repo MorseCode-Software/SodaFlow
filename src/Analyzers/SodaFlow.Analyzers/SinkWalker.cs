@@ -221,7 +221,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return LoopState.None;
         }
 
-        LoopState collection = this.evaluator.Eval(node.Expression);
+        // The collection itself, and not one of its elements, has the enumerator.
+        LoopState collection = this.evaluator.Self(node.Expression);
 
         // An extension method gets the collection as its argument.
         Followed? enumerator =

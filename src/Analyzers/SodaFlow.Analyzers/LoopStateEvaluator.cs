@@ -231,6 +231,52 @@ internal sealed class LoopStateEvaluator
     ///     constructor calls first. Null for a callee with no body to read, and for
     ///     a callee that is too deep.
     /// </summary>
+    /// <summary>
+    ///     The state of an expression as one object. A collection has the members
+    ///     of its elements in its state, and the collection is not one of those
+    ///     objects. Thus, a member that the code calls on the collection is not a
+    ///     member of an element.
+    /// </summary>
+    public LoopState Self(ExpressionSyntax? written)
+    {
+        LoopState state = this.Eval(written);
+
+        return written == null || state.Members == null || state.Members.CanBe(this.TypeBeforeObject(written))
+            ? state
+            : state.WithMembers(null);
+    }
+
+    /// <summary>
+    ///     The type of an expression, or the type that it has before a cast to
+    ///     <c>object</c>. That cast keeps the value and hides what it is.
+    /// </summary>
+    private ITypeSymbol? TypeBeforeObject(ExpressionSyntax written)
+    {
+        ITypeSymbol? type = this.region.TypeOf(written);
+
+        while (type?.SpecialType == SpecialType.System_Object)
+        {
+            ExpressionSyntax? inner =
+                written switch
+                {
+                    ParenthesizedExpressionSyntax parenthesized => parenthesized.Expression,
+                    CastExpressionSyntax cast => cast.Expression,
+                    BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } conversion => conversion.Left,
+                    _ => null
+                };
+
+            if (inner == null)
+            {
+                break;
+            }
+
+            written = inner;
+            type = this.region.TypeOf(written);
+        }
+
+        return type;
+    }
+
     public Followed? Follow(SyntaxNode call)
     {
         if (this.followed.TryGetValue(key: call, value: out Followed? known))
@@ -1046,7 +1092,7 @@ internal sealed class LoopStateEvaluator
 
         return method is { IsStatic: false, ReducedFrom: null }
                && ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is { } receiver
-               && this.Eval(receiver).Members is { } members
+               && this.Self(receiver).Members is { } members
                && members.Resolve(definition) is IMethodSymbol actual
             ? actual.OriginalDefinition
             : definition;
@@ -1446,7 +1492,7 @@ internal sealed class LoopStateEvaluator
 
         // A property that the code reads through an interface is the property of the object.
         IPropertySymbol property =
-            owner != null && this.Eval(owner).Members?.Resolve(written) is IPropertySymbol actual ? actual : written;
+            this.Self(owner).Members?.Resolve(written) as IPropertySymbol ?? written;
 
         if (GetterOf(property.OriginalDefinition) is not { } body)
         {
@@ -1615,7 +1661,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public Followed? FollowToString(ExpressionSyntax written) =>
         this.region.Symbols is { DeclaresToString: true, ObjectToString: { } toString }
-        && this.Eval(written) is { Members: not null } owner
+        && this.Self(written) is { Members: not null } owner
             ? this.FollowImplied(call: written, member: toString, owner: owner, arguments: [])
             : null;
 
@@ -1625,7 +1671,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public Followed? FollowDispose(ExpressionSyntax resource) =>
         this.region.Symbols is { DeclaresDispose: true, DisposableDispose: { } dispose }
-        && this.Eval(resource) is { Members: not null } owner
+        && this.Self(resource) is { Members: not null } owner
             ? this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: [])
             : null;
 
@@ -1659,7 +1705,7 @@ internal sealed class LoopStateEvaluator
             ? this.FollowImplied(
                 call: access,
                 member: getter,
-                owner: this.Eval(owner),
+                owner: this.Self(owner),
                 arguments: [.. indexes.Arguments.Select(index => (index.Expression, this.Eval(index.Expression)))])
             : null;
 
