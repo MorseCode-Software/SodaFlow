@@ -25,9 +25,10 @@ namespace SodaFlow.Analyzers.Tests;
 ///     Each shape is one method of <c>Shapes.cs</c>, and the table here gives
 ///     the rules expected in it. A shape with no entry expects nothing. The table
 ///     is the record of what the analyzer sees and what it does not. The shapes
-///     with no entry include a read in a callback and a read after the block. They
-///     also include a delegate with an unknown result and a chain one call deeper
-///     than the depth.
+///     with no entry include a read in a callback and a read after the block. A
+///     shape with only SF1003 has a value that goes where the analyzer cannot
+///     read. That is a delegate of an unknown source, or a chain of calls
+///     that is deeper than the depth.
 /// </remarks>
 internal sealed class LoopReadAnalyzerTests
 {
@@ -68,9 +69,10 @@ internal sealed class LoopReadAnalyzerTests
             ["DeferredSampleRead"] = ["SF1001"],
             ["BlockHelpers"] = ["SF1001"],
             ["NestedLoop"] = ["SF1001", "SF1002"],
-            ["HelperChains"] = ["SF1001", "SF1001"],
+            ["HelperChains"] = ["SF1001", "SF1001", "SF1003"],
             ["RowMethodThroughSecondMethod"] = ["SF1005"],
-            ["HelperSamplesThroughHelper"] = ["SF1004"],
+            ["HelperSamplesThroughHelper"] = ["SF1003", "SF1004"],
+            ["RecursiveHelper"] = ["SF1003"],
             ["ConstructorInitializerCallsHelper"] = ["SF1001"],
             ["CloseThroughSinkOfRow"] = ["SF1002"],
             ["AssertionAtTheArgument"] = ["SF1004"],
@@ -101,7 +103,25 @@ internal sealed class LoopReadAnalyzerTests
             ["BaseConstructorMember"] = ["SF1001"],
             ["BaseConstructorSamples"] = ["SF1004"],
             ["WrittenConstructorChain"] = ["SF1001"],
-            ["CollectionInitializerElement"] = ["SF1001"]
+            ["CollectionInitializerElement"] = ["SF1001"],
+            ["HelperDerivesThenSamples"] = ["SF1004"],
+            ["HelperLocalThenSamples"] = ["SF1004"],
+            ["RowPassedToHelper"] = ["SF1004"],
+            ["RowMethodDerivedRead"] = ["SF1005"],
+            ["HelperBranchReturn"] = ["SF1001"],
+            ["ComputedPropertyOfPendingMember"] = ["SF1001"],
+            ["HelperPassesOn"] = ["SF1003"],
+            ["LocalFunctionWithParameter"] = ["SF1004"],
+            ["LocalFunctionReadsALocal"] = ["SF1001"],
+            ["StoredLambdaThroughInvoke"] = ["SF1001"],
+            ["StoredLambdaThroughConditionalInvoke"] = ["SF1001"],
+            ["StoredLambdaWithParameter"] = ["SF1004"],
+            ["PrimaryConstructorCaptureCalled"] = ["SF1005"],
+            ["LambdaKeptByConstructorThenRun"] = ["SF1001"],
+            ["LambdaRunByMethod"] = ["SF1001"],
+            ["LambdaResultReadByMethod"] = ["SF1004"],
+            ["LambdaGivenTheLoopByMethod"] = ["SF1004"],
+            ["ContentFunctionGivesALocal"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

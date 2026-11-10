@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
@@ -10,25 +11,16 @@ namespace SodaFlow.Analyzers;
 /// </summary>
 /// <param name="members">
 ///     The state of each field and property that an initializer
-///     or the constructor sets.
+///     or the constructor sets. A parameter of a primary constructor is here
+///     also, because a method of the object can read it.
 /// </param>
-/// <param name="followedParameters">
-///     The parameters with all uses in one of those
-///     initializers. The value went only into the object.
-/// </param>
-internal sealed class Construction(
-    in ImmutableDictionary<ISymbol, LoopState> members,
-    in ImmutableHashSet<ISymbol> followedParameters)
+internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> members)
 {
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
 
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
-        new(
-            members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            followedParameters: ImmutableHashSet.Create<ISymbol>(SymbolEqualityComparer.Default));
-
-    public ImmutableHashSet<ISymbol> FollowedParameters { get; } = followedParameters;
+        new(ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default));
 
     /// <summary>The state of each member that the evaluator knows.</summary>
     public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.members;
@@ -38,12 +30,23 @@ internal sealed class Construction(
     ///     replaces the state from the constructor.
     /// </summary>
     public Construction With(ISymbol member, LoopState state) =>
-        new(
-            members: this.members.SetItem(key: member.OriginalDefinition, value: state),
-            followedParameters: this.FollowedParameters);
+        new(this.members.SetItem(key: member.OriginalDefinition, value: state));
 
     public LoopState StateOf(ISymbol member) =>
         this.members.TryGetValue(key: member.OriginalDefinition, value: out LoopState? state) ? state : LoopState.None;
+
+    /// <summary>The same object, with the state of each member changed.</summary>
+    public Construction Select(Func<LoopState, LoopState> change)
+    {
+        ImmutableDictionary<ISymbol, LoopState>.Builder changed = this.members.ToBuilder();
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in this.members)
+        {
+            changed[pair.Key] = change(pair.Value);
+        }
+
+        return new Construction(changed.ToImmutable());
+    }
 
     /// <summary>
     ///     The members of two objects that one expression can name, such as the
@@ -72,8 +75,6 @@ internal sealed class Construction(
                     : pair.Value;
         }
 
-        return new Construction(
-            members: merged.ToImmutable(),
-            followedParameters: first.FollowedParameters.Intersect(second.FollowedParameters));
+        return new Construction(merged.ToImmutable());
     }
 }

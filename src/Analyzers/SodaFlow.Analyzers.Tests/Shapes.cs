@@ -693,6 +693,246 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S97. A helper that derives from its parameter and samples the derived value.
+    public static Cell<int> HelperDerivesThenSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadDerived(l)));
+
+    private static int ReadDerived(Cell<int> c) { int x = c.Map(v => v).Sample(); return x; }
+
+    // S98. A helper that copies its parameter to a local and samples the local.
+    public static Cell<int> HelperLocalThenSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadLocal(l)));
+
+    private static int ReadLocal(Cell<int> c) { Cell<int> d = c; return d.Sample(); }
+
+    // S99. A row passed to a helper that samples the pending member of the row.
+    public static Cell<decimal> RowPassedToHelper() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            return Cell.Constant(ReadRow(row));
+        });
+
+    private static decimal ReadRow(Row r) => r.Share.Sample();
+
+    // S100. The same row passed to a helper that samples its plain member.
+    public static Cell<decimal> RowPassedToHelperPlainMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a + b));
+            return Cell.Constant(ReadPlainOfRow(row));
+        });
+
+    private static decimal ReadPlainOfRow(Row r) => r.Plain.Sample();
+
+    // S101. A method of the row that derives from the pending member and samples.
+    public static Cell<decimal> RowMethodDerivedRead() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            return Cell.Constant(row.ShareMappedNow());
+        });
+
+    // S102. A helper that returns a local from a branch. The block samples the result.
+    public static Cell<int> HelperBranchReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Branch(l, true).Sample(); return S.Hold(x); });
+
+    // S103. The same helper, with the result read only in a snapshot.
+    public static Cell<int> HelperBranchReturnSnapshot() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Snapshot(Branch(l, true), (a, b) => a + b).Hold(0));
+
+    private static Cell<int> Branch(Cell<int> c, bool flag)
+    {
+        if (flag)
+        {
+            Cell<int> inner = c.Map(v => v);
+            return inner;
+        }
+
+        return Plain;
+    }
+
+    // S104. A property with a getter that derives from the pending member, sampled in the block.
+    public static Cell<decimal> ComputedPropertyOfPendingMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            decimal now = row.ShareDoubled.Sample();
+            return Cell.Constant(2m + now);
+        });
+
+    // S105. A property with a getter that derives from the plain member, sampled in the block.
+    public static Cell<decimal> ComputedPropertyOfPlainMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a + b));
+            decimal now = row.PlainDoubled.Sample();
+            return Cell.Constant(2m + now);
+        });
+
+    // S106. A helper that gives its parameter to code the analyzer cannot read.
+    public static Cell<int> HelperPassesOn(Func<Cell<int>, int> unknown) =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(PassOn(l, unknown)));
+
+    // S107. The same call with the assertion at the argument of the block.
+    public static Cell<int> HelperPassesOnAsserted(Func<Cell<int>, int> unknown) =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(PassOn(l.AsCell(), unknown)));
+
+    private static int PassOn(Cell<int> c, Func<Cell<int>, int> unknown) => unknown(c);
+
+    // S108. A local function that reads, called only from a callback.
+    public static Cell<int> LocalFunctionOnlyInCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            return S.Map(v => v + Read()).Hold(0);
+
+            int Read() => l.Sample();
+        });
+
+    // S109. A local function that reads, given to an operator as the callback.
+    public static Cell<int> LocalFunctionAsCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            return S.Map(Later).Hold(0);
+
+            int Later(int v) => v + l.Sample();
+        });
+
+    // S110. A local function that reads, which nothing calls.
+    public static Cell<int> LocalFunctionNeverCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            return S.Hold(0);
+
+            int Unused() => l.Sample();
+        });
+
+    // S111. A local function that samples its parameter, called with the placeholder.
+    public static Cell<int> LocalFunctionWithParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Read(l);
+            return S.Hold(x);
+
+            int Read(Cell<int> c) => c.Sample();
+        });
+
+    // S112. A local function that samples a local of the block, derived from the placeholder.
+    public static Cell<int> LocalFunctionReadsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> d = l.Map(v => v);
+            return S.Hold(Read());
+
+            int Read() => d.Sample();
+        });
+
+    // S113. A lambda in a local, run through Invoke.
+    public static Cell<int> StoredLambdaThroughInvoke() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Func<int> f = () => l.Sample();
+            int x = f.Invoke();
+            return S.Hold(x);
+        });
+
+    // S114. A lambda in a local, run through a conditional Invoke.
+    public static Cell<int> StoredLambdaThroughConditionalInvoke() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Func<int>? f = () => l.Sample();
+            int x = f?.Invoke() ?? 0;
+            return S.Hold(x);
+        });
+
+    // S115. A lambda in a local that samples its parameter, called with the placeholder.
+    public static Cell<int> StoredLambdaWithParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Func<Cell<int>, int> read = c => c.Sample();
+            int x = read(l);
+            return S.Hold(x);
+        });
+
+    // S116. The same lambda, called with a plain cell.
+    public static Cell<int> StoredLambdaWithPlainArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Func<Cell<int>, int> read = c => c.Sample();
+            int x = read(Plain);
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S117. A method of a row reads a parameter of the primary constructor. Only a callback calls it.
+    public static Cell<int> PrimaryConstructorCaptureInCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            CapturingRow row = new(l);
+            return S.Map(v => v + row.Now()).Hold(0);
+        });
+
+    // S118. The same method, called in the block.
+    public static Cell<int> PrimaryConstructorCaptureCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            CapturingRow row = new(l);
+            return S.Hold(row.Now());
+        });
+
+    // S119. A lambda given to a constructor that keeps it. Only a callback runs it.
+    public static Cell<int> LambdaKeptByConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Command command = new(() => l.Sample());
+            return S.Map(v => v + command.Run()).Hold(0);
+        });
+
+    // S120. The same object, with the lambda run in the block.
+    public static Cell<int> LambdaKeptByConstructorThenRun() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Command command = new(() => l.Sample());
+            return S.Hold(command.Run());
+        });
+
+    // S121. A lambda given to a method that keeps it in a list.
+    public static Cell<int> LambdaKeptByMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Register(() => l.Sample());
+            return S.Hold(0);
+        });
+
+    private static readonly List<Func<int>> Handlers = [];
+
+    private static void Register(Func<int> handler) => Handlers.Add(handler);
+
+    // S122. A lambda given to a method that runs it.
+    public static Cell<int> LambdaRunByMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(RunIt(() => l.Sample())));
+
+    private static int RunIt(Func<int> f) => f();
+
+    // S123. A lambda that gives a pending cell to a method, which samples that cell.
+    public static Cell<int> LambdaResultReadByMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadResult(() => l.Map(v => v))));
+
+    private static int ReadResult(Func<Cell<int>> f) => f().Sample();
+
+    // S124. A method that calls its function with its second argument, which is the placeholder.
+    public static Cell<int> LambdaGivenTheLoopByMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ApplyTo(c => c.Sample(), l)));
+
+    private static int ApplyTo(Func<Cell<int>, int> f, Cell<int> c) => f(c);
+
+    // S125. A function in a cell of cells that gives a local of the block, switched, as the close.
+    public static Cell<int> ContentFunctionGivesALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> d = l.Map(v => v);
+            return Cell.Constant(1).Map(_ => d).SwitchC();
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -730,6 +970,22 @@ public static class Shapes
         private decimal Compute() => this.ShareNow();
 
         public string Report => this.Total().ToString();
+
+        public decimal ShareMappedNow() => this.Share.Map(v => v).Sample();
+
+        public Cell<decimal> ShareDoubled => this.Share.Map(v => v * 2);
+
+        public Cell<decimal> PlainDoubled => this.Plain.Map(v => v * 2);
+    }
+
+    public sealed class CapturingRow(Cell<int> cell)
+    {
+        public int Now() => cell.Sample();
+    }
+
+    public sealed class Command(Func<int> read)
+    {
+        public int Run() => read();
     }
 
     private static int ReadIt(Cell<int> c) => c.Sample();

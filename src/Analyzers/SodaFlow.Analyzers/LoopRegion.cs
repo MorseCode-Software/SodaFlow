@@ -16,9 +16,15 @@ internal sealed class LoopRegion(
     in LoopState placeholderState,
     in Action<Diagnostic> report)
 {
+    // The walk reads at most this many callee bodies for one block. A block that needs more is
+    // code that calls itself through many paths, and the limit is what ends the work.
+    private const int MaxFrames = 512;
+
     private readonly Compilation compilation = compilation;
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Action<Diagnostic> report = report;
+    private readonly HashSet<(string Id, Location Location)> reported = [];
+    private int frames;
 
     /// <summary>The assemblies of the library, as this compilation sees them.</summary>
     public SodaFlowSymbols Symbols { get; } = symbols;
@@ -42,7 +48,24 @@ internal sealed class LoopRegion(
 
     public SemanticModel ModelFor(SyntaxNode node) => this.ModelFor(node.SyntaxTree);
 
-    public void Report(Diagnostic diagnostic) => this.report(diagnostic);
+    /// <summary>
+    ///     Reports a diagnostic one time. The walk can read the same lambda or
+    ///     local function from more than one call.
+    /// </summary>
+    public void Report(Diagnostic diagnostic)
+    {
+        if (this.reported.Add((diagnostic.Id, diagnostic.Location)))
+        {
+            this.report(diagnostic);
+        }
+    }
+
+    /// <summary>
+    ///     Counts one more callee body that the walk reads. False when the block
+    ///     is at its limit, and the callee is then code that the analyzer does not
+    ///     read.
+    /// </summary>
+    public bool TryEnter() => ++this.frames <= MaxFrames;
 
     /// <summary>
     ///     Walks the region for reads that run before the close, then checks each
@@ -51,7 +74,8 @@ internal sealed class LoopRegion(
     public void Analyze(SyntaxNode root, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
     {
         LoopStateEvaluator evaluator = new(this);
-        new SinkWalker(region: this, evaluator: evaluator).Visit(root);
+        new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
+            .Visit(root);
 
         if (!checkLinks)
         {

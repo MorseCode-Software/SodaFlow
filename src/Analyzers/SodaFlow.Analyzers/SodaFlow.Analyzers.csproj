@@ -44,6 +44,10 @@
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="Construction.cs"/>
         <Compile Include="Diagnostics.cs"/>
+        <Compile Include="Finding.cs"/>
+        <Compile Include="Followed.cs"/>
+        <Compile Include="FunctionValue.cs"/>
+        <Compile Include="LoopFrame.cs"/>
         <Compile Include="LoopReadAnalyzer.cs"/>
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
