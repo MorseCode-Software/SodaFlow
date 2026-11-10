@@ -180,7 +180,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
         LoopState elements =
-            this.evaluator.ElementOf(
+            LoopStateEvaluator.ElementOf(
                     collection: this.evaluator.Eval(node.Expression),
                     type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
                 .Join(this.Enumerate(node));
@@ -1455,7 +1455,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     The serializer does not get that query. Thus, the walk reads the queries
     ///     of such an object only through its getters.
     /// </remarks>
-    private void Serialize(ExpressionSyntax written, LoopState state, IMethodSymbol serializer, int depth)
+    private void Serialize(SyntaxNode written, LoopState state, IMethodSymbol serializer, int depth)
     {
         // The elements of a tuple are fields, and not each serializer writes a field.
         if (state.Members is { IsTuple: true } && !SodaFlowSymbols.WritesFields(serializer))
@@ -1489,12 +1489,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         foreach (IPropertySymbol property in members.Properties)
         {
-            if (SodaFlowSymbols.IsSerialized(property: property, serializer: serializer)
-                && this.evaluator.FollowImplied(
-                    call: written,
-                    member: property.GetMethod!,
-                    owner: state,
-                    arguments: []) is { } getter)
+            if (property.GetMethod is { } read
+                && SodaFlowSymbols.IsSerialized(property: property, serializer: serializer)
+                && this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: [])
+                    is { } getter)
             {
                 this.Report(getter);
                 this.Serialize(written: written, state: getter.State, serializer: serializer, depth: depth + 1);

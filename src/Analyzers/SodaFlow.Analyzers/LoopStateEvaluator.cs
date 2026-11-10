@@ -423,7 +423,7 @@ internal sealed class LoopStateEvaluator
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
-                : this.ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
+                : ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
                     .Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
@@ -501,7 +501,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     /// <param name="collection">The state of the collection.</param>
     /// <param name="type">The type of the element.</param>
-    public LoopState ElementOf(LoopState collection, ITypeSymbol? type) =>
+    public static LoopState ElementOf(LoopState collection, ITypeSymbol? type) =>
         SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
             ? collection
             : collection.AsElement;
@@ -2251,10 +2251,10 @@ internal sealed class LoopStateEvaluator
         IReadOnlyCollection<Operand> operands,
         ExpressionSyntax? keeper)
     {
-        const PlatformCallbacks Comparing =
+        const PlatformCallbacks comparing =
             PlatformCallbacks.Compare | PlatformCallbacks.Equals | PlatformCallbacks.Hash;
 
-        if ((PlatformCallers.Of(method) & Comparing) == PlatformCallbacks.None)
+        if ((PlatformCallers.Of(method) & comparing) == PlatformCallbacks.None)
         {
             return null;
         }
@@ -2281,12 +2281,18 @@ internal sealed class LoopStateEvaluator
                 continue;
             }
 
-            foreach (IMethodSymbol member in members.Implementations(SodaFlowSymbols.IsComparerInterface))
-            {
-                all = Both(
-                    first: all,
-                    second: this.FollowImplied(call: holder, member: member, owner: kept, arguments: []));
-            }
+            all =
+                members.Implementations(SodaFlowSymbols.IsComparerInterface)
+                    .Aggregate(
+                        seed: all,
+                        func: (found, member) =>
+                            Both(
+                                first: found,
+                                second: this.FollowImplied(
+                                    call: holder,
+                                    member: member,
+                                    owner: kept,
+                                    arguments: [])));
         }
 
         return all;

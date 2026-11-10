@@ -702,7 +702,7 @@ internal sealed class LoopReadAnalyzerTests
     [Test]
     public async Task AKeptComparerIsReadInACompilationThatDeclaresNoOtherMember()
     {
-        const string Source =
+        const string source =
             """
             using System.Collections.Generic;
             using SodaFlow;
@@ -732,7 +732,7 @@ internal sealed class LoopReadAnalyzerTests
             await AnalyzerHarness.Analyze(
                 analyzer: new LoopReadAnalyzer(),
                 compilation: AnalyzerHarness.Compile(
-                    source: Source,
+                    source: source,
                     libraries: ShapeLibraries,
                     assemblyName: "OnlyAComparer"));
 
