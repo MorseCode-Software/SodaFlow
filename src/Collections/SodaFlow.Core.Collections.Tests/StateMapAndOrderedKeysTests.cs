@@ -669,6 +669,89 @@ public sealed class OrderedKeysTests
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>The items 1 to <paramref name="count" />, each with a score of ten times its number.</summary>
+    private static CollectionSnapshot<int, ItemIdentity, ItemState> Numbered(int count) =>
+        Snapshot(
+            [
+                .. Enumerable.Range(start: 1, count: count)
+                    .Select(static n => TestUtil.Item(number: n, name: "n" + n, score: 10 * n))
+            ]);
+
+    /// <summary>The keys of a rebase in their order, or a word for a null answer.</summary>
+    private static string Describe(OrderedKeys<int, ItemIdentity, ItemState>? keys) =>
+        keys is null ? "build" : string.Join(separator: ",", values: keys);
+
+    [Test]
+    public async Task ARebaseThatChangesNoKeyAnswersTheSameSet()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Numbered(4);
+
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            ByScore(isDescending: false).CreateFrom(keys: [1, 2, 3, 4], snapshot: snapshot);
+
+        // The members are a different set, in the opposite order, with the same keys.
+        OrderedKeys<int, ItemIdentity, ItemState> members =
+            ByScore(isDescending: true).CreateFrom(keys: [1, 2, 3, 4], snapshot: snapshot);
+
+        await Assert.That(ReferenceEquals(objA: keys.Rebase(members: members, snapshot: snapshot), objB: keys))
+            .IsTrue();
+
+        // A set that reads a sorted set from its end answers itself also.
+        OrderedKeys<int, ItemIdentity, ItemState> reversed = Reverse(order: ByScore(isDescending: true), keys: keys);
+
+        await Assert.That(ReferenceEquals(objA: reversed.Rebase(members: members, snapshot: snapshot), objB: reversed))
+            .IsTrue();
+    }
+
+    [Test]
+    public async Task ARebaseCostsOneForEachKeyThatLeavesAndTwoForEachKeyThatComes()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Numbered(10);
+        KeyOrder<int, ItemIdentity, ItemState> order = ByScore(isDescending: false);
+
+        OrderedKeys<int, ItemIdentity, ItemState> ten =
+            order.CreateFrom(keys: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], snapshot: snapshot);
+
+        OrderedKeys<int, ItemIdentity, ItemState> four = order.CreateFrom(keys: [1, 2, 3, 4], snapshot: snapshot);
+
+        // Five keys leave, and five keys stay. The cost is five, which is the number of members.
+        OrderedKeys<int, ItemIdentity, ItemState> five =
+            ByScore(isDescending: true).CreateFrom(keys: [1, 2, 3, 4, 5], snapshot: snapshot);
+
+        await Assert.That(Describe(ten.Rebase(members: five, snapshot: snapshot))).IsEqualTo("1,2,3,4,5");
+
+        // Six keys leave, and four keys stay. The cost is six, which is more than four.
+        await Assert.That(Describe(ten.Rebase(members: four, snapshot: snapshot))).IsEqualTo("build");
+
+        // Four keys come to four keys. The cost is eight, which is the number of members.
+        OrderedKeys<int, ItemIdentity, ItemState> eight =
+            ByScore(isDescending: true).CreateFrom(keys: [1, 2, 3, 4, 5, 6, 7, 8], snapshot: snapshot);
+
+        await Assert.That(Describe(four.Rebase(members: eight, snapshot: snapshot))).IsEqualTo("1,2,3,4,5,6,7,8");
+
+        // One key leaves, and four keys come. The cost is nine, which is more than seven.
+        OrderedKeys<int, ItemIdentity, ItemState> seven =
+            order.CreateFrom(keys: [1, 2, 3, 5, 6, 7, 8], snapshot: snapshot);
+
+        await Assert.That(Describe(four.Rebase(members: seven, snapshot: snapshot))).IsEqualTo("build");
+    }
+
+    [Test]
+    public async Task ARebaseOfAWindowAnswersNull()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> snapshot = Numbered(4);
+
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            ByScore(isDescending: false).CreateFrom(keys: [1, 2, 3, 4], snapshot: snapshot);
+
+        // Only a sort asks for a rebase, and a sort holds a sorted set. Each other set answers null,
+        // and a stage that holds it builds.
+        OrderedKeys<int, ItemIdentity, ItemState> window =
+            new RangeKeys<int, ItemIdentity, ItemState>(source: keys, offset: 1, limit: 2);
+
+        await Assert.That(window.Rebase(members: keys, snapshot: snapshot)).IsNull();
+    }
+
     /// <summary>
     ///     Each answer of a key set about itself, from the two structures together.
     /// </summary>
