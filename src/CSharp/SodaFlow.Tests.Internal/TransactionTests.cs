@@ -200,6 +200,21 @@ public sealed class TransactionTests
         await Assert.That(steps.Sample()).IsEqualTo(TransactionInternal.DeferredChainLimit);
     }
 
+    // The exception has the three constructors that an exception of the platform has.
+    [Test]
+    public async Task TheExceptionOfTheLimitHasTheUsualConstructors()
+    {
+        InvalidOperationException inner = new("inner");
+
+        await Assert.That(new DeferredChainLimitException().Message)
+            .IsEqualTo(DeferredChainLimitException.DefaultMessage);
+
+        await Assert.That(new DeferredChainLimitException(message: "given").Message).IsEqualTo("given");
+
+        await Assert.That(new DeferredChainLimitException(message: "given", innerException: inner).InnerException)
+            .IsSameReferenceAs(inner);
+    }
+
     // Posts the first action of a chain, in the current transaction. Each action posts the next
     // one, until the given number of actions ran.
     private static void PostAChain(int actions, Action onRun)

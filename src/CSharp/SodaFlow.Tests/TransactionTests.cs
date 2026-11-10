@@ -722,6 +722,25 @@ public sealed class TransactionTests
         void PostAgain() => Transaction.Post(action: PostAgain, onFailure: causes.Add);
     }
 
+    // A release that throws at the limit does not hide the limit. The exception of the limit comes
+    // out first, and the exception of the release comes out after it.
+    [Test]
+    public async Task AReleaseThatThrowsAtTheLimitComesOutAfterTheLimit()
+    {
+        NotSupportedException thrown = new("release");
+
+        AggregateException? aggregate =
+            await Assert.That(() => Transaction.RunVoid(PostAgain)).ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsTypeOf<DeferredChainLimitException>();
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(thrown);
+
+        return;
+
+        void PostAgain() => Transaction.Post(action: PostAgain, onFailure: _ => throw thrown);
+    }
+
     // A posted action that throws does not hide the limit. Its exception comes out first, and the
     // exception of the limit comes out after it.
     [Test]
