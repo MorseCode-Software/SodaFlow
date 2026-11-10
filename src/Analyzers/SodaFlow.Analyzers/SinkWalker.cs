@@ -175,6 +175,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitForEachStatement(ForEachStatementSyntax node)
     {
         this.Visit(node.Expression);
+        this.RunQueries(node.Expression);
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
@@ -191,6 +192,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         this.Visit(node.Expression);
+        this.RunQueries(node.Expression);
 
         LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
 
@@ -881,6 +883,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A spread enumerates its value.
         foreach (SpreadElementSyntax spread in node.Elements.OfType<SpreadElementSyntax>())
         {
+            this.RunQueries(spread.Expression);
             this.Report(this.evaluator.FollowEnumeration(spread.Expression));
         }
 
@@ -1016,6 +1019,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ExpressionSyntax? receiver = LoopStateEvaluator.ReceiverOf(symbols: symbols, invocation: node, method: method);
         CalleeKind kind = this.evaluator.Classify(call: node, method: method);
 
+        // A query method of the platform and an iterator run nothing in the call.
+        bool waits = this.evaluator.Waits(call: node, method: method);
+
         // An operator that keeps its function has nothing for the evaluator to follow.
         Followed? followed =
             kind == CalleeKind.Library
@@ -1034,11 +1040,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     given: LoopState.None,
                     oneTime: OperatorTable.RunsFunctionOneTime(method));
 
+                this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
             case CalleeKind.Body:
-                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None, oneTime: false);
+                this.VisitArguments(
+                    arguments: arguments,
+                    runs: Runs,
+                    given: LoopState.None,
+                    oneTime: false);
+
                 this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
+
+                break;
+            // A query keeps its functions for the code that enumerates it. The walk reads them
+            // there.
+            case CalleeKind.Mover when waits:
+                this.VisitArguments(
+                    arguments: arguments,
+                    runs: static (_, _) => false,
+                    given: LoopState.None,
+                    oneTime: false);
 
                 break;
             // Code that cannot know the library runs a lambda in the call, with the values that
@@ -1050,7 +1073,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 LoopState moved =
                     this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement;
 
-                this.VisitArguments(arguments: arguments, runs: Runs, given: moved, oneTime: false);
+                this.VisitArguments(
+                    arguments: arguments,
+                    runs: Runs,
+                    given: moved,
+                    oneTime: false);
+
+                this.RunGiven(method: method, receiver: receiver, arguments: arguments);
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
@@ -1069,7 +1098,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // The analyzer cannot see a pending value that goes to this callee.
             case CalleeKind.Unknown:
             {
-                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None, oneTime: false);
+                this.VisitArguments(
+                    arguments: arguments,
+                    runs: Runs,
+                    given: LoopState.None,
+                    oneTime: false);
+
+                this.RunGiven(method: method, receiver: receiver, arguments: arguments);
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 
@@ -1086,7 +1121,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 throw new ArgumentOutOfRangeException(paramName: nameof(node), message: "A callee kind has no case.");
         }
 
-        this.Report(followed);
+        // The walk reports what the body of an iterator reads where something enumerates the
+        // result.
+        if (waits)
+        {
+            this.evaluator.Wait(node);
+        }
+        else
+        {
+            this.Report(followed);
+        }
 
         // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
         // members count on a library receiver too, and not only on a library method.
@@ -1149,6 +1193,26 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 runs: static (_, _) => false,
                 given: LoopState.None,
                 oneTime: false);
+
+            // A constructor with no body to read enumerates a sequence that it gets, as the
+            // constructor of a list does.
+            if (kind != CalleeKind.Body)
+            {
+                for (int i = 0; i < arguments.Arguments.Count; i++)
+                {
+                    ArgumentSyntax argument = arguments.Arguments[i];
+
+                    if (SodaFlowSymbols.IsEnumerated(
+                            SodaFlowSymbols.ParameterOf(
+                                    callee: constructor.OriginalDefinition,
+                                    argument: argument,
+                                    position: i)
+                                ?.Type))
+                    {
+                        this.RunQueries(argument.Expression);
+                    }
+                }
+            }
         }
 
         this.Visit(initializer);
@@ -1197,11 +1261,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     each parameter of the lambda then has.
     /// </param>
     /// <param name="oneTime">True when the callee runs the function one time, and not zero or many.</param>
+    /// <param name="onlyLambdas">
+    ///     True for the functions of a query, at the time when something
+    ///     enumerates it. The walk read each other argument where the code made the
+    ///     query.
+    /// </param>
     private void VisitArguments(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         Func<ArgumentSyntax, int, bool> runs,
         LoopState given,
-        bool oneTime)
+        bool oneTime,
+        bool onlyLambdas = false)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -1209,7 +1279,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (argument.Expression is not AnonymousFunctionExpressionSyntax lambda)
             {
-                this.Visit(argument);
+                if (!onlyLambdas)
+                {
+                    this.Visit(argument);
+                }
 
                 continue;
             }
@@ -1241,6 +1314,183 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // evaluator.
             this.Visit(lambda.Body);
         }
+    }
+
+    /// <summary>
+    ///     The sequences that a callee with no body to read enumerates in the
+    ///     call. It enumerates each one that it gets for a parameter whose type is
+    ///     a sequence or an enumerator. The type is the type that the callee itself
+    ///     knows. Thus, a query given for <c>object</c> or for a type parameter is
+    ///     a value that the callee keeps.
+    /// </summary>
+    private void RunGiven(
+        IMethodSymbol method,
+        ExpressionSyntax? receiver,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        // Most methods get no sequence, and the answer for a method is the same at each call.
+        bool starts = method is { ReducedFrom: null, Name: "GetEnumerator" or "MoveNext" };
+
+        // A delegate has the types of its own parameters, and a method has those of its definition.
+        IMethodSymbol callee =
+            method.MethodKind == MethodKind.DelegateInvoke ? method : (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (!starts && !this.region.Symbols.TakesASequence(callee))
+        {
+            return;
+        }
+
+        // The receiver of an extension method is the argument of its first parameter. A call of
+        // GetEnumerator or MoveNext on a sequence is the start of an enumeration.
+        if (receiver != null
+            && arguments.All(argument => argument.Expression != receiver)
+            && (method.ReducedFrom != null
+                ? SodaFlowSymbols.IsEnumerated(method.ReducedFrom.OriginalDefinition.Parameters[0].Type)
+                : starts))
+        {
+            this.RunQueries(receiver);
+        }
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (SodaFlowSymbols.IsEnumerated(
+                    LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
+            {
+                this.RunQueries(arguments[i].Expression);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Reads what each query in the value of an expression runs. The caller
+    ///     is code that enumerates that value.
+    /// </summary>
+    private void RunQueries(ExpressionSyntax written) => this.Run(this.evaluator.Eval(written));
+
+    private void Run(LoopState state)
+    {
+        foreach (QueryValue query in state.Queries)
+        {
+            this.Run(query: query, to: this.sink);
+        }
+    }
+
+    /// <summary>
+    ///     Reads what one query runs, one time. The code of the query is part of
+    ///     the code that made it, thus a walker for that code reads it. A query
+    ///     from a callee keeps what the walk of the callee found, and this gives
+    ///     those findings.
+    /// </summary>
+    private void Run(QueryValue query, Action<Finding> to)
+    {
+        if (query.TakeHeld() is { } held)
+        {
+            foreach (Finding finding in held)
+            {
+                to(finding);
+            }
+
+            return;
+        }
+
+        if (!query.Start())
+        {
+            return;
+        }
+
+        SinkWalker walker =
+            ReferenceEquals(objA: query.Definer, objB: this.evaluator) && ReferenceEquals(objA: to, objB: this.sink)
+                ? this
+                : new SinkWalker(region: this.region, evaluator: query.Definer, sink: to);
+
+        walker.RunHere(query.Call);
+    }
+
+    private void RunHere(SyntaxNode call)
+    {
+        switch (call)
+        {
+            // Each part but the first source runs when something enumerates the query.
+            case QueryExpressionSyntax query:
+                this.Visit(query.Body);
+
+                return;
+            case InvocationExpressionSyntax node when this.region.SymbolOf(node) is IMethodSymbol method:
+            {
+                SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
+
+                // A query method of the platform: its functions, the members that it calls on an
+                // object, and the enumeration of its source.
+                if (this.evaluator.Classify(call: node, method: method) == CalleeKind.Mover)
+                {
+                    this.VisitArguments(
+                        arguments: arguments,
+                        runs: (argument, position) =>
+                            LoopStateEvaluator.RunsFunction(
+                                kind: CalleeKind.Mover,
+                                method: method,
+                                parameter: LoopStateEvaluator.ParameterFor(
+                                    method: method,
+                                    argument: argument,
+                                    position: position)),
+                        given: this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement,
+                        oneTime: false,
+                        onlyLambdas: true);
+
+                    this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
+                }
+
+                // For an iterator, the body. For a query, a function that is not a lambda.
+                this.Report(this.evaluator.Follow(node));
+
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Reads each query of the frame of this code that nothing enumerated, and
+    ///     gives what it found for each one apart. The evaluator calls it when the
+    ///     code of a callee returns, and gives each query its findings.
+    /// </summary>
+    public IReadOnlyList<(QueryValue Query, IReadOnlyList<Finding> Found)> RunWaitingApart()
+    {
+        LoopFrame frame = this.evaluator.Frame;
+        List<(QueryValue Query, IReadOnlyList<Finding> Found)> all = [];
+
+        // The work of one query can make one more, thus the list can get longer in this loop.
+        int next = 0;
+
+        while (next < frame.Waiting.Count)
+        {
+            QueryValue query = frame.Waiting[next++];
+            List<Finding> found = [];
+            this.Run(query: query, to: found.Add);
+            all.Add((query, found));
+        }
+
+        return all;
+    }
+
+    // The first source of a query expression is read where the code makes the query. Each other
+    // part runs when something enumerates the query.
+    public override void VisitQueryExpression(QueryExpressionSyntax node)
+    {
+        this.Visit(node.FromClause.Expression);
+        this.evaluator.Wait(node);
+    }
+
+    // A second from clause and a join clause enumerate their source for each element.
+    public override void VisitFromClause(FromClauseSyntax node)
+    {
+        base.VisitFromClause(node);
+        this.RunQueries(node.Expression);
+    }
+
+    public override void VisitJoinClause(JoinClauseSyntax node)
+    {
+        base.VisitJoinClause(node);
+        this.RunQueries(node.InExpression);
     }
 
     /// <summary>
@@ -1286,6 +1536,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // Only the owner is code. The name is the member, which the check below reads.
         this.Visit(node.Expression);
         this.CheckPropertyRead(node: node, owner: node.Expression);
+
+        // The name of a method with no body to read, used as a value, as in q.ToList. A call of
+        // that delegate enumerates the sequence. The walk reads the query here, where it has the
+        // sequence.
+        if (node.Parent is not InvocationExpressionSyntax
+            && this.region.SymbolOf(node)
+                is IMethodSymbol { ReducedFrom: { } extension, DeclaringSyntaxReferences.IsEmpty: true } group
+            && !this.region.Symbols.IsSodaFlow(group)
+            && !SodaFlowSymbols.MakesQuery(group)
+            && SodaFlowSymbols.IsEnumerated(extension.OriginalDefinition.Parameters[0].Type))
+        {
+            this.RunQueries(node.Expression);
+        }
     }
 
     public override void VisitMemberBindingExpression(MemberBindingExpressionSyntax node)

@@ -44,6 +44,9 @@ internal sealed class LoopStateEvaluator
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
+    // The queries that this code makes.
+    private readonly Dictionary<SyntaxNode, QueryValue> queries = [];
+
     // True for an evaluator that reads code that does not run now, to learn what that code reads.
     // It has copies of the locals and the members, and it does not set a field of the region.
     private readonly bool quiet;
@@ -107,6 +110,54 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
+
+    /// <summary>
+    ///     Records a query for the frame of this code. The call or the query
+    ///     expression makes that query. An evaluator that reads code which does
+    ///     not run now records none. That query is in no state, thus a walk of
+    ///     it changes no result.
+    /// </summary>
+    public void Wait(SyntaxNode call)
+    {
+        if (!this.quiet)
+        {
+            this.Frame.Wait(this.QueryAt(call));
+        }
+    }
+
+    /// <summary>The query that a call or a query expression of this code makes.</summary>
+    private QueryValue QueryAt(SyntaxNode call)
+    {
+        if (!this.queries.TryGetValue(key: call, value: out QueryValue? query))
+        {
+            query = new QueryValue(call: call, definer: this);
+            this.queries[call] = query;
+        }
+
+        return query;
+    }
+
+    /// <summary>
+    ///     True for a call that makes a sequence and runs nothing: a query method
+    ///     of the platform, or an iterator of this compilation. The code of the
+    ///     function, of the key, or of the iterator runs when something enumerates
+    ///     the result.
+    /// </summary>
+    public bool Waits(InvocationExpressionSyntax call, IMethodSymbol method) =>
+        this.Classify(call: call, method: method) switch
+        {
+            CalleeKind.Mover => SodaFlowSymbols.MakesQuery(method),
+            CalleeKind.Body => IsIterator(this.DefinitionOf(invocation: call, method: method)),
+            _ => false
+        };
+
+    private static bool IsIterator(IMethodSymbol definition) =>
+        SodaFlowSymbols.IsEnumerated(definition.ReturnType)
+        && BodyOf(definition) is BlockSyntax block
+        && block.DescendantNodes(
+                descendIntoChildren: static node =>
+                    node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is YieldStatementSyntax);
 
     /// <summary>
     ///     True when the code is a member of an object that has a member with a
@@ -340,6 +391,7 @@ internal sealed class LoopStateEvaluator
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
             WithExpressionSyntax w => this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
             TupleExpressionSyntax t => this.EvalTuple(t),
+            AnonymousObjectCreationExpressionSyntax a => this.EvalAnonymous(a),
             // A collection contains its elements, and is not one of them.
             CollectionExpressionSyntax c => this.JoinAll(
                     c.Elements.Select(static e =>
@@ -353,6 +405,8 @@ internal sealed class LoopStateEvaluator
             ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions).AsContainer,
             ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions).AsContainer,
             InitializerExpressionSyntax i => this.JoinAll(i.Expressions).AsContainer,
+            // A query expression has the queries of its first source, and is one more.
+            QueryExpressionSyntax q => this.Eval(q.FromClause.Expression).OnlyQueries.WithQuery(this.QueryAt(q)),
             // An indexer of this compilation gives what its getter returns. An element of a
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
@@ -403,6 +457,26 @@ internal sealed class LoopStateEvaluator
         }
 
         return all.WithMembers(elements);
+    }
+
+    /// <summary>
+    ///     An anonymous object has the state of each value that it gets as the
+    ///     state of that property.
+    /// </summary>
+    private LoopState EvalAnonymous(AnonymousObjectCreationExpressionSyntax creation)
+    {
+        SemanticModel model = this.region.ModelFor(creation);
+        Construction properties = Construction.Empty;
+
+        foreach (AnonymousObjectMemberDeclaratorSyntax declarator in creation.Initializers)
+        {
+            if (model.GetDeclaredSymbol(declarator) is { } property)
+            {
+                properties = properties.With(member: property, state: this.Eval(declarator.Expression));
+            }
+        }
+
+        return LoopState.None.WithMembers(properties);
     }
 
     private LoopState EvalName(ExpressionSyntax expression)
@@ -521,6 +595,10 @@ internal sealed class LoopStateEvaluator
                     {
                         fromOwner = fromOwner.Join(owner);
                     }
+                    else if (SodaFlowSymbols.CanHoldQuery(memberType))
+                    {
+                        fromOwner = fromOwner.Join(owner.OnlyQueries);
+                    }
                 }
 
                 return fromOwner.Join(this.TypeState(expression));
@@ -583,9 +661,16 @@ internal sealed class LoopStateEvaluator
                     ? this.MovedResult(invocation: invocation, method: method)
                     : LoopState.None;
 
-            return result
-                .Join(this.Follow(invocation)?.State ?? LoopState.None)
-                .Join(this.region.Symbols.StateOfType(method.ReturnType));
+            result =
+                result
+                    .Join(this.Follow(invocation)?.State ?? LoopState.None)
+                    .Join(this.region.Symbols.StateOfType(method.ReturnType));
+
+            // A query and the result of an iterator keep their code for the time when
+            // something enumerates them.
+            return this.Waits(call: invocation, method: method)
+                ? result.WithQuery(this.QueryAt(invocation))
+                : result;
         }
 
         ExpressionSyntax? receiver =
@@ -942,7 +1027,12 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private LoopState MovedResult(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
-        if (!this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly))
+        // A sequence of numbers has no state, but it can be or contain a query. That query is
+        // one that the callee got, or one that a function of the callee returns.
+        bool holdsState =
+            this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly);
+
+        if (!holdsState && !SodaFlowSymbols.CanHoldQuery(method.ReturnType))
         {
             return LoopState.None;
         }
@@ -968,7 +1058,7 @@ internal sealed class LoopStateEvaluator
             }
         }
 
-        return Returned(state: result, type: method.ReturnType);
+        return holdsState ? Returned(state: result, type: method.ReturnType) : result.OnlyQueries;
     }
 
     /// <summary>
@@ -1500,6 +1590,8 @@ internal sealed class LoopStateEvaluator
             walker.Visit(explicitConstructor.Body ?? (SyntaxNode?)explicitConstructor.ExpressionBody?.Expression);
         }
 
+        IReadOnlyList<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving = walker.RunWaitingApart();
+
         return this.Leave(
             call: call,
             name: definition.ContainingType.Name,
@@ -1512,7 +1604,8 @@ internal sealed class LoopStateEvaluator
                 new Construction(
                     members: members.ToImmutableDictionary(SymbolEqualityComparer.Default),
                     type: definition.ContainingType)),
-            found: found);
+            found: found,
+            leaving: leaving);
 
         void Set(ISymbol? member, ExpressionSyntax value)
         {
@@ -2340,7 +2433,15 @@ internal sealed class LoopStateEvaluator
 
         LoopStateEvaluator inner = this.Inner(bindings: bindings, definer: definer, members: members);
         List<Finding> found = [];
-        new SinkWalker(region: this.region, evaluator: inner, sink: found.Add).Visit(body);
+        SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
+        walker.Visit(body);
+
+        // A lambda and a local function are part of a frame that can run more code. A query of
+        // such a frame stays for the code that enumerates it. A callee that returns runs no more
+        // code, and a function that runs after its frame returned is the same. The walk reads
+        // the queries of such a frame now, and each query keeps what the walk found.
+        IReadOnlyList<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving =
+            definer == null || inner.Frame.HasReturned ? walker.RunWaitingApart() : [];
 
         return this.Leave(
             call: call,
@@ -2353,7 +2454,8 @@ internal sealed class LoopStateEvaluator
             result: body is ExpressionSyntax expression
                 ? inner.Eval(expression)
                 : inner.JoinAll(ReturnExpressions(body)),
-            found: found);
+            found: found,
+            leaving: leaving);
     }
 
     /// <summary>
@@ -2394,6 +2496,12 @@ internal sealed class LoopStateEvaluator
     ///     finding at the argument for that parameter. A finding about a member
     ///     becomes a finding at the call.
     /// </summary>
+    /// <remarks>
+    ///     A query that the callee made and did not enumerate keeps its findings,
+    ///     changed as each other finding is. This code reports them where it
+    ///     enumerates the query. The query is then one of the queries of the frame
+    ///     of this code, which can give it to its own caller.
+    /// </remarks>
     private Followed Leave(
         SyntaxNode call,
         string name,
@@ -2403,7 +2511,8 @@ internal sealed class LoopStateEvaluator
         LoopState? receiver,
         LoopState? target,
         LoopState result,
-        IEnumerable<Finding> found)
+        IEnumerable<Finding> found,
+        IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving)
     {
         Dictionary<ISymbol, Binding> byParameter = new(SymbolEqualityComparer.Default);
 
@@ -2429,84 +2538,17 @@ internal sealed class LoopStateEvaluator
             inner.Frame.Return();
         }
 
-        ImmutableArray<Finding>.Builder findings = ImmutableArray.CreateBuilder<Finding>();
-
-        foreach (Finding finding in found)
+        foreach ((QueryValue query, IReadOnlyList<Finding> foundInIt) in leaving)
         {
-            // A finding of a different frame goes to that frame as it is.
-            if (!ReferenceEquals(objA: finding.Home, objB: inner.Frame))
+            query.Hold(Changed(foundInIt));
+
+            if (!this.quiet)
             {
-                findings.Add(finding);
-
-                continue;
+                this.Frame.Wait(query);
             }
-
-            if (finding.Origin != null && byParameter.TryGetValue(key: finding.Origin, value: out Binding binding))
-            {
-                // An AsCell() at the argument is the assertion of the caller that nothing reads the
-                // value. The analyzer reports a read that it can see, whatever the caller asserted.
-                if (finding.Escape && IsAsserted(binding.Argument))
-                {
-                    continue;
-                }
-
-                // The read can be of a part of the argument, as of a member of an object. Then,
-                // the origin is the origin of a part.
-                findings.Add(
-                    new Finding(
-                        home: this.Frame,
-                        origin: binding.State.AnyOrigin,
-                        escape: finding.Escape,
-                        diagnostic: finding.Escape
-                            ? Diagnostic.Create(
-                                descriptor: Diagnostics.Escape,
-                                location: binding.Argument.GetLocation(),
-                                this.region.PlaceholderName,
-                                finding.Subject)
-                            : Diagnostic.Create(
-                                descriptor: Diagnostics.ReadInCallee,
-                                location: binding.Argument.GetLocation(),
-                                name,
-                                finding.Origin.Name,
-                                this.region.PlaceholderName),
-                        subject: finding.Subject));
-
-                continue;
-            }
-
-            if (lexical && !returned)
-            {
-                findings.Add(finding);
-
-                continue;
-            }
-
-            // The caller did not give a value that has no origin. A callee can only have it from a
-            // placeholder type, and the analyzer does not know which loop that placeholder is of.
-            if (finding.Origin == null)
-            {
-                continue;
-            }
-
-            findings.Add(
-                new Finding(
-                    home: this.Frame,
-                    origin: Out(finding.Origin),
-                    escape: finding.Escape,
-                    diagnostic: finding.Escape
-                        ? Diagnostic.Create(
-                            descriptor: Diagnostics.Escape,
-                            location: call.GetLocation(),
-                            this.region.PlaceholderName,
-                            finding.Subject)
-                        : Diagnostic.Create(
-                            descriptor: Diagnostics.MemberReadInCallee,
-                            location: call.GetLocation(),
-                            name,
-                            finding.Origin.Name,
-                            this.region.PlaceholderName),
-                    subject: finding.Subject));
         }
+
+        ImmutableArray<Finding> findings = Changed(found);
 
         ISymbol? inputs =
             bindings.Select(static binding => binding.State.AnyOrigin).FirstOrDefault(static origin => origin != null)
@@ -2526,8 +2568,93 @@ internal sealed class LoopStateEvaluator
 
         return new Followed(
             state: result.WithOrigins(Out).FromIfUnknown(inputs),
-            findings: findings.ToImmutable(),
+            findings: findings,
             outs: outs.ToImmutable());
+
+        // The findings of the callee, in the names of this code.
+        ImmutableArray<Finding> Changed(IEnumerable<Finding> from)
+        {
+            ImmutableArray<Finding>.Builder changed = ImmutableArray.CreateBuilder<Finding>();
+
+            foreach (Finding finding in from)
+            {
+                // A finding of a different frame goes to that frame as it is.
+                if (!ReferenceEquals(objA: finding.Home, objB: inner.Frame))
+                {
+                    changed.Add(finding);
+
+                    continue;
+                }
+
+                if (finding.Origin != null && byParameter.TryGetValue(key: finding.Origin, value: out Binding binding))
+                {
+                    // An AsCell() at the argument is the assertion of the caller that nothing reads the
+                    // value. The analyzer reports a read that it can see, whatever the caller asserted.
+                    if (finding.Escape && IsAsserted(binding.Argument))
+                    {
+                        continue;
+                    }
+
+                    // The read can be of a part of the argument, as of a member of an object. Then,
+                    // the origin is the origin of a part.
+                    changed.Add(
+                        new Finding(
+                            home: this.Frame,
+                            origin: binding.State.AnyOrigin,
+                            escape: finding.Escape,
+                            diagnostic: finding.Escape
+                                ? Diagnostic.Create(
+                                    descriptor: Diagnostics.Escape,
+                                    location: binding.Argument.GetLocation(),
+                                    this.region.PlaceholderName,
+                                    finding.Subject)
+                                : Diagnostic.Create(
+                                    descriptor: Diagnostics.ReadInCallee,
+                                    location: binding.Argument.GetLocation(),
+                                    name,
+                                    finding.Origin.Name,
+                                    this.region.PlaceholderName),
+                            subject: finding.Subject));
+
+                    continue;
+                }
+
+                if (lexical && !returned)
+                {
+                    changed.Add(finding);
+
+                    continue;
+                }
+
+                // The caller did not give a value that has no origin. A callee can only have it from a
+                // placeholder type, and the analyzer does not know which loop that placeholder is of.
+                if (finding.Origin == null)
+                {
+                    continue;
+                }
+
+                changed.Add(
+                    new Finding(
+                        home: this.Frame,
+                        origin: Out(finding.Origin),
+                        escape: finding.Escape,
+                        diagnostic: finding.Escape
+                            ? Diagnostic.Create(
+                                descriptor: Diagnostics.Escape,
+                                location: call.GetLocation(),
+                                this.region.PlaceholderName,
+                                finding.Subject)
+                            : Diagnostic.Create(
+                                descriptor: Diagnostics.MemberReadInCallee,
+                                location: call.GetLocation(),
+                                name,
+                                finding.Origin.Name,
+                                this.region.PlaceholderName),
+                        subject: finding.Subject));
+            }
+
+            return changed.ToImmutable();
+        }
 
         // The origin in this code of a value that has the given origin in the callee.
         ISymbol? Out(ISymbol? origin)

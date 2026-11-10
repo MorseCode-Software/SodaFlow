@@ -67,6 +67,10 @@ internal sealed class SodaFlowSymbols
         ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
     // The node actions of one compilation run at the same time, and each asks this question.
+    // The methods that have a parameter whose values a callee enumerates. The walk asks at each
+    // call of a method with no body to read.
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> takesASequence = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -360,6 +364,59 @@ internal sealed class SodaFlowSymbols
                 || (named.Name is "Span" or "ReadOnlySpan" && IsSystem(named.ContainingNamespace)),
             _ => false
         };
+
+    /// <summary>True for a type that is an <c>IEnumerator</c> of the platform.</summary>
+    private static bool IsEnumerator(ITypeSymbol? type) =>
+        type is INamedTypeSymbol named
+        && (IsEnumeratorInterface(named) || named.AllInterfaces.Any(IsEnumeratorInterface));
+
+    /// <summary>
+    ///     True for a type whose values a callee with no body to read enumerates:
+    ///     a sequence, or an enumerator that the callee moves.
+    /// </summary>
+    public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
+
+    /// <summary>
+    ///     True for a method that has a parameter whose values a callee
+    ///     enumerates. For an extension method, the receiver is the first one.
+    /// </summary>
+    public bool TakesASequence(IMethodSymbol definition) =>
+        this.takesASequence.GetOrAdd(
+            key: definition,
+            valueFactory: static method => method.Parameters.Any(static parameter => IsEnumerated(parameter.Type)));
+
+    /// <summary>
+    ///     True for a type whose values can be a query, or can contain one. It is
+    ///     a sequence, an enumerator, or a type made from one of those. A sequence
+    ///     of numbers has no other state, but it can be a query that runs a
+    ///     function.
+    /// </summary>
+    public static bool CanHoldQuery(ITypeSymbol? type) => CanHoldQuery(type: type, depth: 0);
+
+    private static bool CanHoldQuery(ITypeSymbol? type, int depth) =>
+        IsEnumerated(type)
+        || (depth < 3
+            && type is INamedTypeSymbol named
+            && named.TypeArguments.Any(argument => CanHoldQuery(type: argument, depth: depth + 1)));
+
+    /// <summary>
+    ///     True for a method of <c>System.Linq.Enumerable</c> that makes a query
+    ///     and enumerates nothing. Such a method returns <c>IEnumerable</c> or
+    ///     <c>IOrderedEnumerable</c>. Each other method of that class that reads
+    ///     its source enumerates it in the call.
+    /// </summary>
+    public static bool MakesQuery(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { Name: "Enumerable" } owner
+               && owner.ContainingNamespace?.ToDisplayString() == "System.Linq"
+               && definition.ReturnType is INamedTypeSymbol
+               {
+                   TypeKind: TypeKind.Interface,
+                   Name: "IEnumerable" or "IOrderedEnumerable"
+               };
+    }
 
     /// <summary>
     ///     True for a symbol of the platform: one in the <c>System</c> namespace,

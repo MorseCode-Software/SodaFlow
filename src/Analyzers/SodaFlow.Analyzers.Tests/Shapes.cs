@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using SodaFlow;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -3002,6 +3003,434 @@ public static class Shapes
     public static Cell<int> ListPatternOverAListOfObjects() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; if (all is [var first, ..]) { Kept.Add(first.ToString()!); } return S.Hold(0); });
 
+    // S444. A query of the platform runs its functions when something enumerates it, and not when the
+    // code makes it. An iterator is the same. The walk reads each one where the code enumerates it.
+    // The block only keeps this query, and the function runs after the close.
+    public static Cell<int> QueryKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S445. The same for the key function of a sort.
+    public static Cell<int> SortByAKeyFunctionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.OrderBy(x => x + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S446. The same for a query over a query.
+    public static Cell<int> ChainOfQueriesKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Where(x => x > l.Sample()).Select(x => x + 1); Kept.Add(q); return S.Hold(0); });
+
+    // S447. The same for a query that an object keeps.
+    public static Cell<int> QueryKeptInAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { QueryHolder h = new(Numbers.Select(x => x + l.Sample())); Kept.Add(h); return S.Hold(0); });
+
+    // S448. The same for a query that is the value of a cell.
+    public static Cell<int> QueryKeptInACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<IEnumerable<int>> c = Cell.Constant(Numbers.Select(x => x + l.Sample())); Kept.Add(c); return S.Hold(0); });
+
+    // S449. A callee with no body to read that gets the query as object keeps it, and enumerates
+    // nothing.
+    public static Cell<int> QueryGivenAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(string.Format("{0}", q)); return S.Hold(0); });
+
+    // S450. A query expression is a query also.
+    public static Cell<int> QueryExpressionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = from x in Numbers select x + l.Sample(); Kept.Add(q); return S.Hold(0); });
+
+    // S451. The same with a filter and a sort.
+    public static Cell<int> QueryExpressionWithClausesKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = from x in Numbers where x > l.Sample() orderby x select x; Kept.Add(q); return S.Hold(0); });
+
+    // S452. The function is a lambda in a local, and not a lambda at the call.
+    public static Cell<int> QueryWithAFunctionInALocalKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int> f = x => x + l.Sample(); IEnumerable<int> q = Numbers.Select(f); Kept.Add(q); return S.Hold(0); });
+
+    // S453. The function is a local function.
+    public static Cell<int> QueryWithALocalFunctionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Numbers.Select(F)); return S.Hold(0); int F(int x) => x + l.Sample(); });
+
+    // S454. The function samples an element of the source.
+    public static Cell<int> QueryThatSamplesAnElementKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; IEnumerable<int> q = cells.Select(c => c.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S455. The function of a Map enumerates the query, and that function runs at a firing after the
+    // close.
+    public static Cell<int> QueryEnumeratedInAFunctionAfterTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Map(v => v + q.Sum()).Hold(0); });
+
+    // S456. A sort calls CompareTo of the objects when something enumerates it.
+    public static Cell<int> SortOfObjectsKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; IEnumerable<Ranked> q = all.OrderBy(a => a); Kept.Add(q); return S.Hold(0); });
+
+    // S457. The same for GetHashCode in Distinct.
+    public static Cell<int> DistinctOfObjectsKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(all.Distinct()); return S.Hold(0); });
+
+    // S458. The call of the query method names the class.
+    public static Cell<int> QueryFromAStaticCallKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Enumerable.Select(Numbers, x => x + l.Sample())); return S.Hold(0); });
+
+    // S459. A second query over the first one enumerates nothing.
+    public static Cell<int> QueryOverAKeptQueryKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); IEnumerable<int> r = q.Where(x => x > 0); Kept.Add(r); return S.Hold(0); });
+
+    // S460. An object initializer gives the query to a property.
+    public static Cell<int> QueryInAnObjectInitializerKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { QuerySlot slot = new() { Values = Numbers.Select(x => x + l.Sample()) }; Kept.Add(slot); return S.Hold(0); });
+
+    // S461. The function of a stream makes the query at a firing, which comes after the close. The
+    // sample in the block gives the first value of the hold.
+    public static Cell<int> QueryOfAFiringHeldAndSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<IEnumerable<int>> held = S.Map(v => Numbers.Select(x => x + v + l.Sample())).Hold(Numbers); return S.Hold(held.Sample().Sum()); });
+
+    // S462. The body of an iterator runs at the first MoveNext. The block only keeps the sequence.
+    public static Cell<int> IteratorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = SamplesOf(l); Kept.Add(q); return S.Hold(0); });
+
+    // S463. The same for an iterator that is a local function.
+    public static Cell<int> LocalIteratorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Each()); return S.Hold(0); IEnumerable<int> Each() { yield return l.Sample(); } });
+
+    // S464. The same for the enumerator of an object whose GetEnumerator is an iterator.
+    public static Cell<int> EnumeratorOfAnIteratorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); IEnumerator<int> e = bag.GetEnumerator(); Kept.Add(e); return S.Hold(0); });
+
+    // S465. The same for an iterator that returns an enumerator.
+    public static Cell<int> IteratorOfAnEnumeratorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(StepsOf(l)); return S.Hold(0); });
+
+    // S466. The same for an iterator that reads a member of its object.
+    public static Cell<int> IteratorOfAnObjectKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IteratorOwner r = new(l.Map(v => v)); Kept.Add(r.Each()); return S.Hold(0); });
+
+    // S467. A query does not enumerate its source when the code makes it.
+    public static Cell<int> QueryOverAnIteratorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); IEnumerable<int> q = bag.Select(x => x); Kept.Add(q); return S.Hold(0); });
+
+    // S468. The foreach is in the body of an iterator that nothing enumerates.
+    public static Cell<int> IteratorOverAQueryKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(EachOf(q)); return S.Hold(0); });
+
+    // S469. A local function makes the query and the block keeps it.
+    public static Cell<int> QueryFromALocalFunctionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Make(l)); return S.Hold(0); static IEnumerable<int> Make(Cell<int> c) => Numbers.Select(x => x + c.Sample()); });
+
+    // S470. A method makes the query. The query keeps what the walk of the method found, for the code
+    // that enumerates it.
+    public static Cell<int> QueryFromAHelperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(QueryOf(l)); return S.Hold(0); });
+
+    // S471. The same through two methods.
+    public static Cell<int> QueryFromAHelperOfAHelperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(QueryOfAgain(l)); return S.Hold(0); });
+
+    // S472. The same for an iterator that a method calls and returns.
+    public static Cell<int> IteratorFromAHelperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(SamplesFrom(l)); return S.Hold(0); });
+
+    // S473. The same through a lambda in a local.
+    public static Cell<int> IteratorFromALambdaKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<IEnumerable<int>> f = () => SamplesOf(l); Kept.Add(f()); return S.Hold(0); });
+
+    // S474. A field initializer makes the query, and no member enumerates it in the block.
+    public static Cell<int> QueryOfAConstructorKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Summer(l.Map(v => v))); return S.Hold(0); });
+
+    // S475. A getter makes the query.
+    public static Cell<int> QueryOfAGetterKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Summer(l.Map(v => v)).Items); return S.Hold(0); });
+
+    // S476. A method returns a lambda that makes the query. The block calls the lambda and keeps the
+    // query.
+    public static Cell<int> QueryOfAReturnedLambdaKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<IEnumerable<int>> make = QueryMakerOf(l); Kept.Add(make()); return S.Hold(0); });
+
+    // S477. A foreach enumerates the query. Each shape from here to the end of the group throws.
+    public static Cell<int> ForEachOverAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); int n = 0; foreach (int v in q) { n += v; } return S.Hold(n); });
+
+    // S478. ToList enumerates its source.
+    public static Cell<int> ToListOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(q.ToList().Count); });
+
+    // S479. First enumerates its source.
+    public static Cell<int> FirstOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(q.First()); });
+
+    // S480. A method of the platform that is not a query method enumerates a sequence that it gets.
+    public static Cell<int> StringJoinOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(string.Join(",", q).Length); });
+
+    // S481. The same for a constructor.
+    public static Cell<int> ListFromAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); List<int> all = new(q); return S.Hold(all.Count); });
+
+    // S482. A spread enumerates its value.
+    public static Cell<int> SpreadOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); int[] all = [.. q]; return S.Hold(all.Length); });
+
+    // S483. AddRange enumerates its argument.
+    public static Cell<int> AddRangeOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); List<int> all = []; all.AddRange(q); return S.Hold(all.Count); });
+
+    // S484. GetEnumerator on a query is the start of an enumeration.
+    public static Cell<int> EnumeratorOfAQueryThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); bool any = q.GetEnumerator().MoveNext(); return S.Hold(any ? 1 : 0); });
+
+    // S485. The second query has the first one as its source, and ToList enumerates the two.
+    public static Cell<int> QueryOverAQueryToList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(q.Where(x => x > 0).ToList().Count); });
+
+    // S486. The same in one expression.
+    public static Cell<int> ChainOfQueriesEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Numbers.Where(x => x > l.Sample()).Select(x => x + 1).ToList().Count));
+
+    // S487. The query is the second sequence of a Concat.
+    public static Cell<int> QueryAsTheSecondSourceOfAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Numbers.Concat(q).ToList().Count); });
+
+    // S488. SelectMany enumerates the sequence that its function returns.
+    public static Cell<int> QueryFromTheFunctionOfSelectMany() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Numbers.SelectMany(x => q).ToList().Count); });
+
+    // S489. The function of a query returns a query, and the block enumerates one of them.
+    public static Cell<int> QueryThatAQueryFunctionReturnsEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists[0].Count()); });
+
+    // S490. A local function enumerates the query that it gets.
+    public static Cell<int> QueryToALocalFunctionThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Run(q)); static int Run(IEnumerable<int> s) { int n = 0; foreach (int v in s) { n += v; } return n; } });
+
+    // S491. A method enumerates the query that it gets.
+    public static Cell<int> QueryToAHelperThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(SumOf(q)); });
+
+    // S492. The same for an extension method of this file.
+    public static Cell<int> QueryToAnExtensionMethodThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(q.TotalOf()); });
+
+    // S493. A lambda that the block calls enumerates the query.
+    public static Cell<int> QueryEnumeratedInALambdaInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Func<int> run = () => q.Sum(); return S.Hold(run()); });
+
+    // S494. A lambda that a method of the platform runs in the call enumerates the query.
+    public static Cell<int> QueryEnumeratedInALambdaThatRunsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Numbers.ToList().ForEach(x => Kept.Add(q.Sum())); return S.Hold(0); });
+
+    // S495. A method of an object enumerates the query that the object keeps.
+    public static Cell<int> QueryEnumeratedByAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { QueryHolder h = new(Numbers.Select(x => x + l.Sample())); return S.Hold(h.Total()); });
+
+    // S496. A method of the library that gets a sequence enumerates it.
+    public static Cell<int> QueryToTheLibrary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stream<int>[] ss = [S]; IEnumerable<Stream<int>> q = ss.Where(s => l.Sample() >= 0); return q.OrElse().Hold(0); });
+
+    // S497. The function of a Lazy enumerates the query, and the read of Value runs that function.
+    public static Cell<int> QueryEnumeratedInALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Lazy<List<int>> z = new(() => q.ToList()); return S.Hold(z.Value.Count); });
+
+    // S498. The Lazy gives the query, and the block enumerates it.
+    public static Cell<int> QueryThroughALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Lazy<IEnumerable<int>> z = new(() => q); return S.Hold(z.Value.Sum()); });
+
+    // S499. A task of the platform gives the query back.
+    public static Cell<int> QueryThroughATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Task.FromResult(q).Result.Sum()); });
+
+    // S500. The same for a Tuple.
+    public static Cell<int> QueryThroughATupleOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Tuple.Create(q, 1).Item1.Sum()); });
+
+    // S501. The query is an element of a tuple.
+    public static Cell<int> QueryThroughATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (IEnumerable<int> Q, int N) t = (Numbers.Select(x => x + l.Sample()), 1); return S.Hold(t.Q.Sum()); });
+
+    // S502. The query is a property of an anonymous object.
+    public static Cell<int> QueryThroughAnAnonymousObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var a = new { Q = Numbers.Select(x => x + l.Sample()) }; return S.Hold(a.Q.Sum()); });
+
+    // S503. An anonymous object gives each property the state of its value.
+    public static Cell<int> CellThroughAnAnonymousObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var a = new { C = l.Map(v => v) }; return S.Hold(a.C.Sample()); });
+
+    // S504. The query is an element of a list.
+    public static Cell<int> QueryThroughAnElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> qs = [Numbers.Select(x => x + l.Sample())]; return S.Hold(qs[0].Sum()); });
+
+    // S505. An assignment puts the query into an array.
+    public static Cell<int> QueryThroughAnElementOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int>[] qs = new IEnumerable<int>[1]; qs[0] = Numbers.Select(x => x + l.Sample()); return S.Hold(qs[0].Sum()); });
+
+    // S506. The query is a value of a dictionary, and SelectMany enumerates each value.
+    public static Cell<int> QueryThroughTheValuesOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, IEnumerable<int>> d = new(); d["a"] = Numbers.Select(x => x + l.Sample()); return S.Hold(d.Values.SelectMany(v => v).Sum()); });
+
+    // S507. The query is the value of a constant cell.
+    public static Cell<int> QueryThroughACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<IEnumerable<int>> c = Cell.Constant(Numbers.Select(x => x + l.Sample())); return S.Hold(c.Sample().Sum()); });
+
+    // S508. A pattern gives the query its type again.
+    public static Cell<int> QueryInAnObjectLocalThroughAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object q = Numbers.Select(x => x + l.Sample()); return S.Hold(q is IEnumerable<int> again ? again.Sum() : 0); });
+
+    // S509. The query goes through a static field.
+    public static Cell<int> QueryThroughAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StoredQuery = Numbers.Select(x => x + l.Sample()); return S.Hold(StoredQuery.Sum()); });
+
+    // S510. A method gives the query to an out parameter.
+    public static Cell<int> QueryThroughAnOutParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { QueryOut(l, out IEnumerable<int> q); return S.Hold(q.Sum()); });
+
+    // S511. The name of ToList on the query is a delegate, and the call of it enumerates.
+    public static Cell<int> QueryThroughAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Func<List<int>> f = q.ToList; return S.Hold(f().Count); });
+
+    // S512. An object initializer gives the query to a property, and the block enumerates the
+    // property.
+    public static Cell<int> QueryInAnObjectInitializerEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { QuerySlot slot = new() { Values = Numbers.Select(x => x + l.Sample()) }; return S.Hold(slot.Values.Sum()); });
+
+    // S513. An iterator enumerates the query, and ToList enumerates the iterator.
+    public static Cell<int> QueryThroughAnIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(EachOf(q).ToList().Count); });
+
+    // S514. The same for an iterator that is a local function.
+    public static Cell<int> LocalIteratorOverAQueryEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Each().Sum()); IEnumerable<int> Each() { foreach (int v in q) { yield return v; } } });
+
+    // S515. A query expression that something enumerates.
+    public static Cell<int> QueryExpressionEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = from x in Numbers select x + l.Sample(); return S.Hold(q.Sum()); });
+
+    // S516. The same with a filter and a sort.
+    public static Cell<int> QueryExpressionWithClausesEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = from x in Numbers where x > l.Sample() orderby x select x; return S.Hold(q.ToList().Count); });
+
+    // S517. The query expression is the source of a foreach.
+    public static Cell<int> ForEachOverAQueryExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; foreach (int v in from x in Numbers select x + l.Sample()) { n += v; } return S.Hold(n); });
+
+    // S518. The first source of a query expression is a query.
+    public static Cell<int> QueryExpressionOverAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); IEnumerable<int> again = from x in q select x; return S.Hold(again.Sum()); });
+
+    // S519. The second source of a query expression is a query.
+    public static Cell<int> QueryExpressionWithASecondSource() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); IEnumerable<int> both = from x in Numbers from y in q select x + y; return S.Hold(both.Sum()); });
+
+    // S520. The function is a lambda in a local.
+    public static Cell<int> QueryWithAFunctionInALocalEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int> f = x => x + l.Sample(); IEnumerable<int> q = Numbers.Select(f); return S.Hold(q.Sum()); });
+
+    // S521. The function is a local function.
+    public static Cell<int> QueryWithALocalFunctionEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Numbers.Select(F).Sum()); int F(int x) => x + l.Sample(); });
+
+    // S522. The function samples an element of the source.
+    public static Cell<int> QueryThatSamplesAnElementEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; IEnumerable<int> q = cells.Select(c => c.Sample()); return S.Hold(q.Sum()); });
+
+    // S523. The call of the query method names the class.
+    public static Cell<int> QueryFromAStaticCallEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Enumerable.Select(Numbers, x => x + l.Sample()).Sum()));
+
+    // S524. The walk reads the function at the first enumeration only.
+    public static Cell<int> QueryEnumeratedTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(q.Count() + q.Sum()); });
+
+    // S525. A loop makes a query over the query that it made before.
+    public static Cell<int> QueryAssignedInALoopEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers; for (int i = 0; i < 2; i++) { q = q.Select(x => x + l.Sample()); } return S.Hold(q.Sum()); });
+
+    // S526. The sort is in a local, and First in the statement after it calls CompareTo.
+    public static Cell<int> SortOfObjectsEnumeratedLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; IEnumerable<Ranked> q = all.OrderBy(a => a); Kept.Add(q.First()); return S.Hold(0); });
+
+    // S527. ToList makes Distinct call GetHashCode.
+    public static Cell<int> DistinctOfObjectsToList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashed[] all = [new(l.Map(v => v)), new(Plain)]; return S.Hold(all.Distinct().ToList().Count); });
+
+    // S528. A foreach runs the body of the iterator.
+    public static Cell<int> ForEachOverAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; foreach (int v in SamplesOf(l)) { n += v; } return S.Hold(n); });
+
+    // S529. ToList runs the body of the iterator.
+    public static Cell<int> ToListOfAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = SamplesOf(l); return S.Hold(q.ToList().Count); });
+
+    // S530. A spread runs the body of the iterator.
+    public static Cell<int> SpreadOfAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. SamplesOf(l)]; return S.Hold(all.Length); });
+
+    // S531. The iterator is a local function.
+    public static Cell<int> LocalIteratorEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Each().Sum()); IEnumerable<int> Each() { yield return l.Sample(); } });
+
+    // S532. MoveNext runs the body of a GetEnumerator that is an iterator.
+    public static Cell<int> EnumeratorOfAnIteratorMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); IEnumerator<int> e = bag.GetEnumerator(); return S.Hold(e.MoveNext() ? 1 : 0); });
+
+    // S533. The same for an iterator that returns an enumerator.
+    public static Cell<int> IteratorOfAnEnumeratorMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using IEnumerator<int> e = StepsOf(l); int n = 0; while (e.MoveNext()) { n += e.Current; } return S.Hold(n); });
+
+    // S534. The iterator reads a member of its object.
+    public static Cell<int> IteratorOfAnObjectEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IteratorOwner r = new(l.Map(v => v)); return S.Hold(r.Each().Sum()); });
+
+    // S535. The query enumerates its source when something enumerates the query.
+    public static Cell<int> QueryOverAnIteratorEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack bag = new(l.Map(v => v)); IEnumerable<int> q = bag.Select(x => x); return S.Hold(q.Sum()); });
+
+    // S536. A method enumerates the iterator that it gets.
+    public static Cell<int> IteratorToAHelperThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(SumOf(SamplesOf(l))));
+
+    // S537. A local function makes the query and the block enumerates it.
+    public static Cell<int> QueryFromALocalFunctionEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Make(l).Sum()); static IEnumerable<int> Make(Cell<int> c) => Numbers.Select(x => x + c.Sample()); });
+
+    // S538. A method makes the query and the block enumerates it.
+    public static Cell<int> QueryFromAHelperEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(QueryOf(l).Sum()));
+
+    // S539. The same through two methods.
+    public static Cell<int> QueryFromAHelperOfAHelperEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(QueryOfAgain(l).Sum()));
+
+    // S540. One method makes the query and a second method enumerates it.
+    public static Cell<int> QueryFromAHelperToAHelperThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(SumOf(QueryOf(l))));
+
+    // S541. A method calls an iterator and returns it, and the block enumerates it.
+    public static Cell<int> IteratorFromAHelperEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(SamplesFrom(l).Sum()));
+
+    // S542. A lambda in a local makes the query.
+    public static Cell<int> QueryFromALambdaInALocalEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<IEnumerable<int>> make = () => Numbers.Select(x => x + l.Sample()); return S.Hold(make().Sum()); });
+
+    // S543. A lambda in a local calls the iterator.
+    public static Cell<int> IteratorFromALambdaEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<IEnumerable<int>> f = () => SamplesOf(l); return S.Hold(f().Sum()); });
+
+    // S544. A field initializer makes the query, and a method of the object enumerates it.
+    public static Cell<int> QueryOfAConstructorEnumeratedByAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Summer(l.Map(v => v)).Total()));
+
+    // S545. A getter makes the query, and the block enumerates it.
+    public static Cell<int> QueryOfAGetterEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Summer(l.Map(v => v)).Items.Sum()));
+
+    // S546. A method returns a lambda that makes the query, and the block enumerates the query.
+    public static Cell<int> QueryOfAReturnedLambdaEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<IEnumerable<int>> make = QueryMakerOf(l); return S.Hold(make().Sum()); });
+
+    // S547. The function of SelectMany is a local function that returns the query.
+    public static Cell<int> QueryFromALocalFunctionOfSelectMany() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Numbers.SelectMany(Give).Sum()); IEnumerable<int> Give(int x) => q; });
+
+    // S548. The source of a join clause is a query.
+    public static Cell<int> QueryExpressionWithAJoin() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); IEnumerable<int> both = from x in Numbers join y in q on x equals y select x; return S.Hold(both.Count()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -3404,6 +3833,69 @@ public static class Shapes
     private static T FirstOf<T>(List<T> items) => items[0];
 
     private static T FirstBy<T>(IEnumerable<T> items) => items.First();
+
+    private static readonly int[] Numbers = [1, 2];
+
+    private static IEnumerable<int>? StoredQuery;
+
+    private static int SumOf(IEnumerable<int> values) => values.Sum();
+
+    private static int TotalOf(this IEnumerable<int> values) => values.Sum();
+
+    private static IEnumerable<int> EachOf(IEnumerable<int> values)
+    {
+        foreach (int value in values)
+        {
+            yield return value;
+        }
+    }
+
+    private static IEnumerable<int> QueryOf(Cell<int> c) => Numbers.Select(x => x + c.Sample());
+
+    private static IEnumerable<int> QueryOfAgain(Cell<int> c) => QueryOf(c);
+
+    private static void QueryOut(Cell<int> c, out IEnumerable<int> made) => made = Numbers.Select(x => x + c.Sample());
+
+    private static Func<IEnumerable<int>> QueryMakerOf(Cell<int> c) => () => Numbers.Select(x => x + c.Sample());
+
+    private static IEnumerable<int> SamplesOf(Cell<int> c)
+    {
+        yield return c.Sample();
+    }
+
+    private static IEnumerable<int> SamplesFrom(Cell<int> c) => SamplesOf(c);
+
+    private static IEnumerator<int> StepsOf(Cell<int> c)
+    {
+        yield return c.Sample();
+    }
+
+    public sealed class QueryHolder(IEnumerable<int> values)
+    {
+        public int Total() => values.Sum();
+    }
+
+    public sealed class Summer(Cell<int> share)
+    {
+        private readonly IEnumerable<int> items = Numbers.Select(x => x + share.Sample());
+
+        public IEnumerable<int> Items => Numbers.Select(x => x + share.Sample());
+
+        public int Total() => this.items.Sum();
+    }
+
+    public sealed class QuerySlot
+    {
+        public IEnumerable<int> Values { get; set; } = [];
+    }
+
+    public sealed class IteratorOwner(Cell<int> share)
+    {
+        public IEnumerable<int> Each()
+        {
+            yield return share.Sample();
+        }
+    }
 
     private static Ranked Itself(Ranked r) => r;
 

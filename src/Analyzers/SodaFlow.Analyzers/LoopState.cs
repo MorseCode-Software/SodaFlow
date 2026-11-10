@@ -19,6 +19,7 @@ internal sealed class LoopState
         content: null,
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
+        queries: ImmutableArray<QueryValue>.Empty,
         isContainer: false);
 
     public static readonly LoopState PendingPlaceholder = new(
@@ -28,6 +29,7 @@ internal sealed class LoopState
         content: null,
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
+        queries: ImmutableArray<QueryValue>.Empty,
         isContainer: false);
 
     public static readonly LoopState StreamPlaceholder = new(
@@ -37,6 +39,7 @@ internal sealed class LoopState
         content: null,
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
+        queries: ImmutableArray<QueryValue>.Empty,
         isContainer: false);
 
     private readonly LoopState? content;
@@ -54,10 +57,12 @@ internal sealed class LoopState
                     content: null,
                     origin: null,
                     functions: ImmutableArray<FunctionValue>.Empty,
+                    queries: ImmutableArray<QueryValue>.Empty,
                     isContainer: false)
                 : null,
             origin: null,
             functions: ImmutableArray<FunctionValue>.Empty,
+            queries: ImmutableArray<QueryValue>.Empty,
             isContainer: false)
     {
     }
@@ -69,6 +74,7 @@ internal sealed class LoopState
         LoopState? content,
         ISymbol? origin,
         ImmutableArray<FunctionValue> functions,
+        ImmutableArray<QueryValue> queries,
         bool isContainer)
     {
         this.Pending = pending;
@@ -77,6 +83,7 @@ internal sealed class LoopState
         this.content = content;
         this.Origin = origin;
         this.Functions = functions;
+        this.Queries = queries;
         this.IsContainer = isContainer && members != null;
     }
 
@@ -114,6 +121,13 @@ internal sealed class LoopState
     public ImmutableArray<FunctionValue> Functions { get; }
 
     /// <summary>
+    ///     The queries that the expression can be, or can contain. Each one runs
+    ///     code of this compilation when something enumerates it, and not when the
+    ///     code makes it.
+    /// </summary>
+    public ImmutableArray<QueryValue> Queries { get; }
+
+    /// <summary>
     ///     True when the value contains the objects that have the members, and is
     ///     not one of them. A list, an array, and a query are such values. The
     ///     type of an expression usually tells a list from one of its elements,
@@ -143,12 +157,14 @@ internal sealed class LoopState
             content: this.IsNone ? null : this,
             origin: this.Origin,
             functions: ImmutableArray<FunctionValue>.Empty,
+            queries: ImmutableArray<QueryValue>.Empty,
             isContainer: false);
 
     /// <summary>
     ///     The state of a value that the code can get only after the close, as
     ///     the value of a firing is. Nothing reads that value before the close,
-    ///     thus no part of it is pending. Its links stay.
+    ///     thus no part of it is pending, and a query in it runs after the close.
+    ///     Its links stay.
     /// </summary>
     public LoopState AfterTheClose =>
         this.IsNone
@@ -160,6 +176,7 @@ internal sealed class LoopState
                 content: this.content?.AfterTheClose,
                 origin: this.Origin,
                 functions: ImmutableArray<FunctionValue>.Empty,
+                queries: ImmutableArray<QueryValue>.Empty,
                 isContainer: this.IsContainer);
 
     /// <summary>True when the analyzer knows nothing about the expression.</summary>
@@ -168,7 +185,8 @@ internal sealed class LoopState
         && !this.Linked
         && this.Members == null
         && this.content == null
-        && this.Functions.IsEmpty;
+        && this.Functions.IsEmpty
+        && this.Queries.IsEmpty;
 
     /// <summary>
     ///     The same state for a value that contains the objects which have the
@@ -191,6 +209,7 @@ internal sealed class LoopState
             content: null,
             origin: null,
             functions: ImmutableArray.Create(function),
+            queries: ImmutableArray<QueryValue>.Empty,
             isContainer: false);
 
     public LoopState Join(LoopState other)
@@ -218,6 +237,9 @@ internal sealed class LoopState
             functions: this.Functions.IsEmpty
                 ? other.Functions
                 : this.Functions.AddRange(other.Functions.Where(function => !this.Functions.Contains(function))),
+            queries: this.Queries.IsEmpty
+                ? other.Queries
+                : this.Queries.AddRange(other.Queries.Where(query => !this.Queries.Contains(query))),
             // The value is a container only when each state that has members says so. A local
             // that is a list on one path and an object on a second path can be the object.
             isContainer: this.Members == null
@@ -235,6 +257,7 @@ internal sealed class LoopState
             content: this.content,
             origin: this.Origin,
             functions: this.Functions,
+            queries: this.Queries,
             isContainer: this.IsContainer);
 
     public LoopState WithLinked(bool linked) =>
@@ -245,6 +268,7 @@ internal sealed class LoopState
             content: this.content,
             origin: this.Origin,
             functions: this.Functions,
+            queries: this.Queries,
             isContainer: this.IsContainer);
 
     public LoopState WithMembers(Construction? members) =>
@@ -255,7 +279,36 @@ internal sealed class LoopState
             content: this.content,
             origin: this.Origin,
             functions: this.Functions,
+            queries: this.Queries,
             isContainer: this.IsContainer);
+
+    /// <summary>The same state for a value that is also the given query.</summary>
+    public LoopState WithQuery(QueryValue query) =>
+        this.Queries.Contains(query)
+            ? this
+            : new LoopState(
+                pending: this.Pending,
+                linked: this.Linked,
+                members: this.Members,
+                content: this.content,
+                origin: this.Origin,
+                functions: this.Functions,
+                queries: this.Queries.Add(query),
+                isContainer: this.IsContainer);
+
+    /// <summary>A state that has only the queries of this one.</summary>
+    public LoopState OnlyQueries =>
+        this.Queries.IsEmpty
+            ? None
+            : new LoopState(
+                pending: false,
+                linked: false,
+                members: null,
+                content: null,
+                origin: null,
+                functions: ImmutableArray<FunctionValue>.Empty,
+                queries: this.Queries,
+                isContainer: false);
 
     private LoopState WithContainer(bool isContainer) =>
         new(
@@ -265,6 +318,7 @@ internal sealed class LoopState
             content: this.content,
             origin: this.Origin,
             functions: this.Functions,
+            queries: this.Queries,
             isContainer: isContainer);
 
     public LoopState WithContent(LoopState content) =>
@@ -275,6 +329,7 @@ internal sealed class LoopState
             content: content.IsNone ? null : content,
             origin: this.Origin,
             functions: this.Functions,
+            queries: this.Queries,
             isContainer: this.IsContainer);
 
     /// <summary>
@@ -292,6 +347,7 @@ internal sealed class LoopState
                 content: this.content?.WithOrigins(map),
                 origin: map(this.Origin),
                 functions: this.Functions,
+                queries: this.Queries,
                 isContainer: this.IsContainer);
 
     /// <summary>The same state, with the one origin for each of its parts.</summary>
