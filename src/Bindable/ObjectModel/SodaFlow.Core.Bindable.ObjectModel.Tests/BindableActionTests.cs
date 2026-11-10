@@ -344,4 +344,261 @@ public sealed class BindableActionTests
 
         await Assert.That(notifications).IsEqualTo(0).Because("the second dispose does nothing at all");
     }
+
+    // The cost and the result of a group of changes. One refresh is in the queue at a time, and
+    // it reads the newest change. Before, each change posted a closure of its own, and the drain
+    // announced each change in sequence.
+    [Test]
+    public async Task ABurstOfEnablementChangesPostsOneRefreshAndNotifiesOnce()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+        enabled.Send(false);
+        enabled.Send(true);
+
+        int ran = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(ran).IsEqualTo(1).Because("the second and third changes find a refresh in the queue");
+        await Assert.That(notifications).IsEqualTo(1).Because("and that refresh reads the newest change");
+        await Assert.That(a.CanExecute(null)).IsTrue();
+        a.Dispose();
+    }
+
+    // A group of changes that ends at the answer that the view has. Nothing changed for the view,
+    // thus it gets no notification. Before, the drain announced each change.
+    [Test]
+    public async Task ABurstThatEndsAtTheAnswerOfTheViewNotifiesNothing()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+        enabled.Send(false);
+
+        int ran = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(notifications).IsEqualTo(0);
+        await Assert.That(a.CanExecute(null)).IsFalse();
+        await Assert.That(ran).IsEqualTo(1);
+        a.Dispose();
+    }
+
+    // The slot holds the newest change with the outcome of its own transaction. The refresh finds
+    // that this transaction did not commit, thus it reads the cell. That shows the value that the
+    // change before it committed.
+    [Test]
+    public async Task ARefreshReadsTheCellWhenTheNewerChangeComesFromATransactionThatFailed()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+
+        IListener throws =
+            enabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            enabled.Send(false);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+
+        await Assert.That(a.CanExecute(null))
+            .IsTrue()
+            .Because("the cell holds true, and the refresh does not show the false of the failed transaction");
+
+        await Assert.That(notifications).IsEqualTo(1);
+        a.Dispose();
+    }
+
+    // A nested message loop can run the queue from a callback, while the transaction that changed
+    // the cell is open on the binding thread. A read of the cell in that transaction gives the
+    // value before the change. Thus, the refresh posts itself again and runs after the
+    // transaction. Before, the posted action read the cell there and found no change, and the
+    // command kept the answer from before the change.
+    [Test]
+    public async Task ARefreshThatRunsInTheChangingTransactionWaitsForIt()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        int ranInside = 0;
+        int notificationsInside = -1;
+
+        // This listener is newer than the listener of the command, thus it runs after it.
+        IListener pump = enabled.Updates().Listen(_ =>
+        {
+            ranInside = scheduler.RunAll();
+            notificationsInside = notifications;
+        });
+
+        enabled.Send(true);
+        pump.Unlisten();
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh ran in the transaction of the change");
+        await Assert.That(notificationsInside).IsEqualTo(0).Because("that transaction did not end");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("the cell holds true after the transaction");
+        await Assert.That(notifications).IsEqualTo(1);
+        await Assert.That(ranAfter).IsEqualTo(1).Because("the refresh posted itself again for after that transaction");
+        a.Dispose();
+    }
+
+    // A scheduler that gives each post to the transaction drops the post where that transaction
+    // fails. That breaks the contract on IBindingScheduler.Post. The discard of the command clears
+    // its flag, thus the next change posts again also with such a scheduler.
+    [Test]
+    public async Task AChangeAfterAFailedTransactionPostsAgainWithASchedulerThatDropsThePost()
+    {
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>()
+                .ToBindableActionImpl(scheduler: new PostDroppingScheduler(), isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        IListener throws =
+            enabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            enabled.Send(true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        bool afterTheFailure = a.CanExecute(null);
+
+        enabled.Send(true);
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(afterTheFailure).IsFalse();
+        await Assert.That(a.CanExecute(null)).IsTrue();
+        await Assert.That(notifications).IsEqualTo(1);
+        a.Dispose();
+    }
+
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer target only. The command is the same code on each target.
+    //
+    // A change of the availability posts the one delegate that the command keeps, as a change of a
+    // one-way value does. Thus, the command allocates no more than a one-way value of the same
+    // type for the same change. Before, the command allocated a closure and a delegate more.
+    [Test]
+    public async Task AChangeOfTheEnablementAllocatesNoMoreThanAChangeOfAOneWayValue()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+        CellSink<bool> shown = Cell.CreateSink(false);
+
+        IBindableAction<int> command =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        IOneWayBindableValue<bool> value = shown.ToOneWayImpl(scheduler: scheduler);
+
+        long forTheCommand = BytesForChanges(sink: enabled, scheduler: scheduler);
+        long forTheValue = BytesForChanges(sink: shown, scheduler: scheduler);
+
+        // The two subscriptions are weak. These calls keep the two objects alive until here.
+        command.Dispose();
+        value.Dispose();
+
+        await Assert.That(forTheValue).IsGreaterThan(0).Because("the measurement can see an allocation");
+        await Assert.That(forTheCommand).IsLessThanOrEqualTo(forTheValue);
+
+        return;
+
+        static long BytesForChanges(CellSink<bool> sink, QueueingScheduler scheduler)
+        {
+            const int changes = 1000;
+            bool next = false;
+
+            // The first changes pay for the code that the runtime compiles and for each queue that grows.
+            for (int i = 0; i < changes; i++)
+            {
+                next = !next;
+                sink.Send(next);
+                scheduler.RunAll();
+            }
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (int i = 0; i < changes; i++)
+            {
+                next = !next;
+                sink.Send(next);
+                scheduler.RunAll();
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+    }
+#endif
+
+    /// <summary>
+    ///     Gives each post to the open transaction as a posted action. A transaction
+    ///     that fails discards its posted actions, thus this scheduler drops them.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class PostDroppingScheduler : IBindingScheduler
+    {
+        /// <inheritdoc />
+        public bool CheckAccess() => true;
+
+        /// <inheritdoc />
+        public void Post(Action action) => Transaction.Post(action);
+    }
 }
