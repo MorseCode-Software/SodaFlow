@@ -148,7 +148,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.DeclarePattern(
                         pattern: part.Pattern,
                         state: state.Members != null && name != null && this.region.SymbolOf(name) is { } member
-                            ? state.Members.StateOf(member).FromIfUnknown(state.Origin)
+                            ? state.Members.StateOf(state.Members.Resolve(member)).FromIfUnknown(state.Origin)
                             : state);
                 }
 
@@ -291,7 +291,46 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.AssignState(target: target, state: this.evaluator.Eval(value), replaces: replaces);
+        LoopState whole = this.evaluator.Eval(value);
+
+        // A deconstruction of a value that is not a tuple expression. Each target gets the state
+        // of its element, when the evaluator knows the elements. Otherwise, each gets the state of
+        // the value.
+        IReadOnlyList<SyntaxNode>? parts =
+            target switch
+            {
+                TupleExpressionSyntax tuple => [.. tuple.Arguments.Select(static argument => argument.Expression)],
+                DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax several } =>
+                    [.. several.Variables],
+                _ => null
+            };
+
+        if (parts == null
+            || whole.Members == null
+            || this.region.TypeOf(value) is not INamedTypeSymbol { IsTupleType: true } type
+            || type.TupleElements.Length != parts.Count)
+        {
+            this.AssignState(target: target, state: whole, replaces: replaces);
+
+            return;
+        }
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            LoopState element =
+                whole.Members.Has(type.TupleElements[i])
+                    ? whole.Members.StateOf(type.TupleElements[i]).FromIfUnknown(whole.Origin)
+                    : whole;
+
+            if (parts[i] is ExpressionSyntax expression)
+            {
+                this.AssignState(target: expression, state: element, replaces: replaces);
+            }
+            else
+            {
+                this.DeclareDesignation(designation: parts[i] as VariableDesignationSyntax, state: element);
+            }
+        }
     }
 
     /// <param name="target">The expression that gets the value.</param>

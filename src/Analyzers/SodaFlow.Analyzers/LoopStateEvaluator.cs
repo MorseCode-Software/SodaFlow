@@ -269,7 +269,7 @@ internal sealed class LoopStateEvaluator
             ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
             WithExpressionSyntax w => this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
-            TupleExpressionSyntax t => this.JoinAll(t.Arguments.Select(static a => a.Expression)),
+            TupleExpressionSyntax t => this.EvalTuple(t),
             CollectionExpressionSyntax c => this.JoinAll(
                 c.Elements.Select(static e =>
                     e switch
@@ -288,7 +288,9 @@ internal sealed class LoopStateEvaluator
             // The object that the code is in, with the members that the evaluator knows.
             ThisExpressionSyntax when this.thisMembers.Count > 0 =>
                 LoopState.None.WithMembers(
-                    new Construction(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
+                    new Construction(
+                        members: this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default),
+                        type: null)),
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
             IdentifierNameSyntax
@@ -297,6 +299,32 @@ internal sealed class LoopStateEvaluator
                 or GenericNameSyntax => this.EvalName(expression),
             _ => this.TypeState(expression)
         };
+
+    /// <summary>
+    ///     A tuple has the state of all its elements together, for code that uses
+    ///     it as one value. It also has the state of each element as a member.
+    ///     Thus, a read of a plain element is not a read of a pending one.
+    /// </summary>
+    private LoopState EvalTuple(TupleExpressionSyntax tuple)
+    {
+        LoopState all = this.JoinAll(tuple.Arguments.Select(static argument => argument.Expression));
+        TypeInfo info = this.region.ModelFor(tuple).GetTypeInfo(tuple);
+
+        if ((info.Type ?? info.ConvertedType) is not INamedTypeSymbol { IsTupleType: true } type
+            || type.TupleElements.Length != tuple.Arguments.Count)
+        {
+            return all;
+        }
+
+        Construction elements = Construction.Empty;
+
+        for (int i = 0; i < tuple.Arguments.Count; i++)
+        {
+            elements = elements.With(member: type.TupleElements[i], state: this.Eval(tuple.Arguments[i].Expression));
+        }
+
+        return all.WithMembers(elements);
+    }
 
     private LoopState EvalName(ExpressionSyntax expression)
     {
@@ -390,10 +418,13 @@ internal sealed class LoopStateEvaluator
                     LoopState owner = this.Eval(ownerExpression);
 
                     // An object whose construction was followed gives each member its own state,
-                    // wherever the object came from: a local, a hold, or a lambda parameter.
-                    if (owner.Members != null)
+                    // wherever the object came from: a local, a hold, or a lambda parameter. The
+                    // code can read the member through an interface of the object. A tuple with
+                    // no state for the element is a tuple that the evaluator did not see made.
+                    if (owner.Members != null
+                        && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
-                        return owner.Members.StateOf(symbol)
+                        return owner.Members.StateOf(owner.Members.Resolve(symbol))
                             .FromIfUnknown(owner.Origin)
                             .Join(this.TypeState(expression));
                     }
@@ -707,7 +738,10 @@ internal sealed class LoopStateEvaluator
             return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
         }
 
-        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        IMethodSymbol definition =
+            call is InvocationExpressionSyntax invocation
+                ? this.DefinitionOf(invocation: invocation, method: method)
+                : method.OriginalDefinition;
 
         bool hasBody =
             definition.MethodKind == MethodKind.Constructor
@@ -922,7 +956,7 @@ internal sealed class LoopStateEvaluator
                 : null;
         }
 
-        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        IMethodSymbol definition = this.DefinitionOf(invocation: invocation, method: method);
 
         if (BodyOf(definition) is not { } body)
         {
@@ -965,6 +999,24 @@ internal sealed class LoopStateEvaluator
             members: members,
             receiver: receiverState,
             target: null);
+    }
+
+    /// <summary>
+    ///     The definition of the method that a call runs. The call can be through
+    ///     an interface or a base type, on an object whose constructor the evaluator
+    ///     followed. Then, it runs the method of the type of that object.
+    /// </summary>
+    private IMethodSymbol DefinitionOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return !method.IsStatic
+               && method.ReducedFrom == null
+               && ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is { } receiver
+               && this.Eval(receiver).Members is { } members
+               && members.Resolve(definition) is IMethodSymbol actual
+            ? actual.OriginalDefinition
+            : definition;
     }
 
     /// <summary>
@@ -1306,7 +1358,9 @@ internal sealed class LoopStateEvaluator
             receiver: null,
             target: null,
             result: LoopState.None.WithMembers(
-                new Construction(members.ToImmutableDictionary(SymbolEqualityComparer.Default))),
+                new Construction(
+                    members: members.ToImmutableDictionary(SymbolEqualityComparer.Default),
+                    type: definition.ContainingType)),
             found: found);
 
         void Set(ISymbol? member, ExpressionSyntax value)
@@ -1328,9 +1382,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private Followed? FollowGetter(ExpressionSyntax access)
     {
-        if (this.region.SymbolOf(access) is not IPropertySymbol property
-            || this.region.Symbols.IsSodaFlow(property)
-            || GetterOf(property.OriginalDefinition) is not { } body)
+        if (this.region.SymbolOf(access) is not IPropertySymbol written || this.region.Symbols.IsSodaFlow(written))
         {
             return null;
         }
@@ -1342,6 +1394,15 @@ internal sealed class LoopStateEvaluator
                 MemberBindingExpressionSyntax binding => ConditionalReceiver(binding),
                 _ => null
             };
+
+        // A property that the code reads through an interface is the property of the object.
+        IPropertySymbol property =
+            owner != null && this.Eval(owner).Members?.Resolve(written) is IPropertySymbol actual ? actual : written;
+
+        if (GetterOf(property.OriginalDefinition) is not { } body)
+        {
+            return null;
+        }
 
         (Dictionary<ISymbol, LoopState> members, LoopState? receiver) =
             this.MembersFor(isStatic: property.IsStatic, owner: owner);
@@ -1509,10 +1570,12 @@ internal sealed class LoopStateEvaluator
                     continue;
                 }
 
+                // The read can be of a part of the argument, as of a member of an object. Then,
+                // the origin is the origin of a part.
                 findings.Add(
                     new Finding(
                         home: this.Frame,
-                        origin: binding.State.Origin,
+                        origin: binding.State.AnyOrigin,
                         escape: finding.Escape,
                         diagnostic: finding.Escape
                             ? Diagnostic.Create(
@@ -1566,8 +1629,8 @@ internal sealed class LoopStateEvaluator
         }
 
         ISymbol? inputs =
-            bindings.Select(static binding => binding.State.Origin).FirstOrDefault(static origin => origin != null)
-            ?? receiver?.Origin
+            bindings.Select(static binding => binding.State.AnyOrigin).FirstOrDefault(static origin => origin != null)
+            ?? receiver?.AnyOrigin
             ?? target?.Origin;
 
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
@@ -1591,7 +1654,7 @@ internal sealed class LoopStateEvaluator
         {
             if (origin != null && byParameter.TryGetValue(key: origin, value: out Binding given))
             {
-                return given.State.Origin;
+                return given.State.AnyOrigin;
             }
 
             if (lexical)

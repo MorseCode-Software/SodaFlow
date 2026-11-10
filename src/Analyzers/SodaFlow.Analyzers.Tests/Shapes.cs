@@ -1378,6 +1378,82 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S176. A helper gives a tuple with a pending part and a plain part. The block samples the plain one.
+    public static Cell<int> PlainPartOfATupleFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> a, Cell<int> b) = PairOf(l);
+            int x = b.Sample();
+            return S.Snapshot(a, (u, v) => u + v + x).Hold(0);
+        });
+
+    // S177. The same tuple, with the pending part sampled.
+    public static Cell<int> PendingPartOfATupleFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> a, Cell<int> b) = PairOf(l);
+            int x = a.Sample();
+            return S.Snapshot(b, (u, v) => u + v + x).Hold(0);
+        });
+
+    private static (Cell<int> Derived, Cell<int> Plain) PairOf(Cell<int> c) => (c.Map(v => v), Plain);
+
+    // S178. A tuple in a local, with the plain element sampled.
+    public static Cell<int> PlainElementOfATupleLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> A, Cell<int> B) t = (l.Map(v => v), Plain);
+            int x = t.B.Sample();
+            return S.Snapshot(t.A, (u, v) => u + v + x).Hold(0);
+        });
+
+    // S179. The same tuple, with the pending element sampled.
+    public static Cell<int> PendingElementOfATupleLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> A, Cell<int> B) t = (l.Map(v => v), Plain);
+            int x = t.A.Sample();
+            return S.Hold(x);
+        });
+
+    // S180. A deconstruction with var of the tuple from the helper, with the plain part sampled.
+    public static Cell<int> VarDeconstructionPlainPart() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            var (a, b) = PairOf(l);
+            int x = b.Sample();
+            return S.Snapshot(a, (u, v) => u + v + x).Hold(0);
+        });
+
+    // S181. A row in a local of its interface type. The block samples the pending member.
+    public static Cell<int> MemberThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            IShared row = new SharedRow(l.Map(v => v));
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S182. The same row. The block calls a method of the interface, which samples the member.
+    public static Cell<int> MethodThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            IShared row = new SharedRow(l.Map(v => v));
+            return S.Hold(row.Now());
+        });
+
+    // S183. The same method, which only a callback calls.
+    public static Cell<int> MethodThroughAnInterfaceInCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            IShared row = new SharedRow(l.Map(v => v));
+            return S.Map(v => v + row.Now()).Hold(0);
+        });
+
+    // S184. A constructor gives its object to a helper, which samples a member that the constructor set.
+    public static Cell<int> ObjectGivesItselfToAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SelfReader reader = new(l.Map(v => v)); return S.Hold(reader.Value); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -1421,6 +1497,35 @@ public static class Shapes
         public Cell<decimal> ShareDoubled => this.Share.Map(v => v * 2);
 
         public Cell<decimal> PlainDoubled => this.Plain.Map(v => v * 2);
+    }
+
+    public interface IShared
+    {
+        Cell<int> Share { get; }
+
+        int Now();
+    }
+
+    public sealed class SharedRow(Cell<int> share) : IShared
+    {
+        public Cell<int> Share { get; } = share;
+
+        public int Now() => this.Share.Sample();
+    }
+
+    public sealed class SelfReader
+    {
+        public SelfReader(Cell<int> share)
+        {
+            this.Share = share;
+            this.Value = Read(this);
+        }
+
+        public Cell<int> Share { get; }
+
+        public int Value { get; }
+
+        private static int Read(SelfReader reader) => reader.Share.Sample();
     }
 
     public sealed class SettableRow

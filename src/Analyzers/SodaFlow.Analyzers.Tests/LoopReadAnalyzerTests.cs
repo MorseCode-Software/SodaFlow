@@ -154,7 +154,12 @@ internal sealed class LoopReadAnalyzerTests
             ["ViewPredicateReads"] = ["SF1001"],
             ["CloseWithMapWhoseFunctionReads"] = ["SF1006"],
             ["MapFunctionReadsThroughHelper"] = ["SF1001"],
-            ["MapOfMapFunctionReads"] = ["SF1001"]
+            ["MapOfMapFunctionReads"] = ["SF1001"],
+            ["PendingPartOfATupleFromAHelper"] = ["SF1001"],
+            ["PendingElementOfATupleLocal"] = ["SF1001"],
+            ["MemberThroughAnInterface"] = ["SF1001"],
+            ["MethodThroughAnInterface"] = ["SF1005"],
+            ["ObjectGivesItselfToAHelper"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

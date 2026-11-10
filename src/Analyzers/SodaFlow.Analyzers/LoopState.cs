@@ -106,6 +106,12 @@ internal sealed class LoopState
     /// </summary>
     public ImmutableArray<FunctionValue> Functions { get; }
 
+    /// <summary>
+    ///     The origin of the value, or of one part of it that has an origin. A
+    ///     report about a read of a part of an argument uses it.
+    /// </summary>
+    public ISymbol? AnyOrigin => this.Origin ?? this.content?.AnyOrigin ?? this.Members?.AnyOrigin;
+
     /// <summary>The state of a value that this expression holds.</summary>
     public LoopState Content => this.content ?? None;
 
