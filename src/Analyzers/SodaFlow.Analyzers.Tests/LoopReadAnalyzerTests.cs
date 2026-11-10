@@ -448,7 +448,15 @@ internal sealed class LoopReadAnalyzerTests
             ["PopOfAStackThatIsNotGeneric"] = ["SF1005"],
             ["CurrentOfAnEnumeratorThatIsNotGeneric"] = ["SF1005"],
             ["ValueOfADictionaryEntry"] = ["SF1005"],
-            ["CellFromAListOfObjects"] = ["SF1001"]
+            ["CellFromAListOfObjects"] = ["SF1001"],
+            ["ChooseEnumerated"] = ["SF1001"],
+            ["ChooseWithAnIndexEnumerated"] = ["SF1001"],
+            ["ForEachOverChoose"] = ["SF1001"],
+            ["WhereSomeOverAQueryEnumerated"] = ["SF1001"],
+            ["ChooseThenFirstOrNone"] = ["SF1001"],
+            ["AllSomeOrNoneWithAFunctionThatSamples"] = ["SF1001"],
+            ["FirstOrNoneWithAFunctionThatSamples"] = ["SF1001"],
+            ["MaxOrNoneWithAFunctionThatSamples"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

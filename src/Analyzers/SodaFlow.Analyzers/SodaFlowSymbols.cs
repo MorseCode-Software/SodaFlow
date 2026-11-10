@@ -417,20 +417,28 @@ internal sealed class SodaFlowSymbols
     ///     True for a method of <c>System.Linq.Enumerable</c> that makes a query
     ///     and enumerates nothing. Such a method returns <c>IEnumerable</c> or
     ///     <c>IOrderedEnumerable</c>. Each other method of that class that reads
-    ///     its source enumerates it in the call.
+    ///     its source enumerates it in the call. The same rule is correct for the
+    ///     methods of <c>SodaFlow.Functional</c>, such as <c>Choose</c>.
     /// </summary>
+    /// <remarks>
+    ///     The rule is not for code of a different owner: a method there that
+    ///     returns a sequence can enumerate its source in the call.
+    /// </remarks>
     public static bool MakesQuery(IMethodSymbol method)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        return definition.ContainingType is { Name: "Enumerable" } owner
-               && owner.ContainingNamespace?.ToDisplayString() == "System.Linq"
-               && definition.ReturnType is INamedTypeSymbol
+        return definition.ReturnType is INamedTypeSymbol
                {
                    TypeKind: TypeKind.Interface,
                    Name: "IEnumerable" or "IOrderedEnumerable"
-               };
+               }
+               && (IsLinqEnumerable(definition.ContainingType)
+                   || PackagesWithNoGraph.Contains(definition.ContainingAssembly?.Name ?? string.Empty));
     }
+
+    private static bool IsLinqEnumerable(ISymbol? type) =>
+        type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
     /// <summary>
     ///     True for a symbol of the platform: one in the <c>System</c> namespace,

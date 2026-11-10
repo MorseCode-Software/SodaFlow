@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using SodaFlow.Functional;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
@@ -13,11 +14,11 @@ using TUnit.Core;
 namespace SodaFlow.Analyzers.Tests;
 
 /// <summary>
-///     Holds <see cref="SodaFlowSymbols.MakesQuery" /> to the platform. The
-///     analyzer reads a query where something enumerates it. Thus, the rule is
-///     correct only if each method that it calls a query enumerates nothing in
-///     the call. The test calls each method of <c>System.Linq.Enumerable</c>
-///     with a source that records an enumeration.
+///     Holds <see cref="SodaFlowSymbols.MakesQuery" /> to the platform and to
+///     <c>SodaFlow.Functional</c>. The analyzer reads a query where something
+///     enumerates it. Thus, the rule is correct only if each method that it
+///     calls a query enumerates nothing in the call. Each test calls the
+///     methods of one owner with a source that records an enumeration.
 /// </summary>
 internal sealed class EnumerableQueriesTests
 {
@@ -28,11 +29,55 @@ internal sealed class EnumerableQueriesTests
     [Test]
     public async Task EachMethodOfEnumerableEnumeratesInTheCallOnlyWhenTheRuleSaysSo()
     {
+        (List<string> wrong, int withSource) = Check(types: [typeof(Enumerable)], libraries: []);
+
+        await Assert.That(wrong).IsEmpty();
+
+        // A test that calls nothing shows nothing.
+        await Assert.That(withSource).IsGreaterThanOrEqualTo(200).Because("the test called the methods");
+    }
+
+    [Test]
+    public async Task EachMethodOfFunctionalEnumeratesInTheCallOnlyWhenTheRuleSaysSo()
+    {
+        Assembly functional = typeof(Maybe<>).Assembly;
+
+        (List<string> wrong, int withSource) =
+            Check(
+                types:
+                [
+                    .. functional.GetExportedTypes()
+                        .Where(static type => type is { IsAbstract: true, IsSealed: true })
+                ],
+                libraries: [functional]);
+
+        await Assert.That(wrong).IsEmpty();
+        await Assert.That(withSource).IsGreaterThanOrEqualTo(15).Because("the test called the methods");
+    }
+
+    /// <summary>
+    ///     Calls each public static method of the types, and compares what the
+    ///     method did with what the rule says for it.
+    /// </summary>
+    /// <returns>
+    ///     The methods for which the rule is not correct, and the number of
+    ///     methods that the test called with a source.
+    /// </returns>
+    private static (List<string> Wrong, int WithSource) Check(
+        IReadOnlyList<Type> types,
+        IEnumerable<Assembly> libraries)
+    {
+        Compilation compilation =
+            AnalyzerHarness.Compile(source: string.Empty, libraries: libraries, assemblyName: "Queries");
+
         Dictionary<string, bool> makesQuery = [];
         List<string> wrong = [];
 
-        foreach (IGrouping<string, IMethodSymbol> overloads in EnumerableSymbol()
-                     .GetMembers()
+        foreach (IGrouping<string, IMethodSymbol> overloads in types
+                     .Select(type =>
+                         compilation.GetTypeByMetadataName(type.FullName ?? type.Name)
+                         ?? throw new InvalidOperationException($"The compilation has no {type}."))
+                     .SelectMany(static type => type.GetMembers())
                      .OfType<IMethodSymbol>()
                      .Where(static method => method.DeclaredAccessibility == Accessibility.Public)
                      .GroupBy(keySelector: static method => method.Name, comparer: StringComparer.Ordinal))
@@ -53,7 +98,8 @@ internal sealed class EnumerableQueriesTests
 
         int withSource = 0;
 
-        foreach (MethodInfo method in typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static))
+        foreach (MethodInfo method in types.SelectMany(static type =>
+                     type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)))
         {
             if (!makesQuery.TryGetValue(key: method.Name, value: out bool waits)
                 || Call(method) is not (var sources, var enumerated)
@@ -75,16 +121,8 @@ internal sealed class EnumerableQueriesTests
             }
         }
 
-        await Assert.That(wrong).IsEmpty();
-
-        // A test that calls nothing shows nothing.
-        await Assert.That(withSource).IsGreaterThanOrEqualTo(200).Because("the test called the methods");
+        return (wrong, withSource);
     }
-
-    private static INamedTypeSymbol EnumerableSymbol() =>
-        AnalyzerHarness.Compile(source: string.Empty, libraries: [], assemblyName: "Queries")
-            .GetTypeByMetadataName("System.Linq.Enumerable")
-        ?? throw new InvalidOperationException("The platform has no System.Linq.Enumerable.");
 
     /// <summary>
     ///     Calls the method with a source that records an enumeration for each

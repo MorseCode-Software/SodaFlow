@@ -3715,6 +3715,57 @@ public static class Shapes
     public static Cell<int> EqualsOnAnObjectFromAListOfObjects() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; return S.Hold(all.First().Equals(null) ? 1 : 0); });
 
+    // S618. Choose and WhereSome of SodaFlow.Functional make a query, as the query methods of the
+    // platform do. The walk reads the function where something enumerates the result. The block only
+    // keeps the result of Choose.
+    public static Cell<int> ChooseKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Choose(x => Maybe.Some(x + l.Sample())); Kept.Add(q); return S.Hold(0); });
+
+    // S619. The same for the function that gets the index.
+    public static Cell<int> ChooseWithAnIndexKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Choose((x, i) => Maybe.Some(x + i + l.Sample())); Kept.Add(q); return S.Hold(0); });
+
+    // S620. WhereSome does not enumerate its source in the call.
+    public static Cell<int> WhereSomeOverAQueryKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Maybe<int>> source = Numbers.Select(x => Maybe.Some(x + l.Sample())); Kept.Add(source.WhereSome()); return S.Hold(0); });
+
+    // S621. Nothing reads the loop here.
+    public static Cell<int> WhereSomeOfPlainValuesKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int>[] source = [Maybe.Some(1)]; Kept.Add(source.WhereSome()); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S622. ToList enumerates the result of Choose. Each shape from here to the end of the group
+    // throws.
+    public static Cell<int> ChooseEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Choose(x => Maybe.Some(x + l.Sample())); return S.Hold(q.ToList().Count); });
+
+    // S623. The same for the function that gets the index.
+    public static Cell<int> ChooseWithAnIndexEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Choose((x, i) => Maybe.Some(x + i + l.Sample())); return S.Hold(q.Sum()); });
+
+    // S624. A foreach enumerates it.
+    public static Cell<int> ForEachOverChoose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; foreach (int v in Numbers.Choose(x => Maybe.Some(x + l.Sample()))) { n += v; } return S.Hold(n); });
+
+    // S625. Sum enumerates WhereSome, which enumerates its source.
+    public static Cell<int> WhereSomeOverAQueryEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Maybe<int>> source = Numbers.Select(x => Maybe.Some(x + l.Sample())); return S.Hold(source.WhereSome().Sum()); });
+
+    // S626. FirstOrNone of the same package enumerates in the call.
+    public static Cell<int> ChooseThenFirstOrNone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> first = Numbers.Choose(x => Maybe.Some(x + l.Sample())).FirstOrNone(); Kept.Add(first); return S.Hold(0); });
+
+    // S627. AllSomeOrNone runs its function in the call.
+    public static Cell<int> AllSomeOrNoneWithAFunctionThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<IEnumerable<int>> all = Numbers.AllSomeOrNone(x => Maybe.Some(x + l.Sample())); Kept.Add(all); return S.Hold(0); });
+
+    // S628. The same for the predicate of FirstOrNone.
+    public static Cell<int> FirstOrNoneWithAFunctionThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> first = Numbers.FirstOrNone(x => x > l.Sample()); Kept.Add(first); return S.Hold(0); });
+
+    // S629. The same for the function of MaxOrNone.
+    public static Cell<int> MaxOrNoneWithAFunctionThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> max = Numbers.MaxOrNone(x => x + l.Sample()); Kept.Add(max); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
