@@ -170,6 +170,29 @@ there, it took 28.1 ms and takes 23.7 ms. Through Filter there, 33.4 ms and 31.4
 runs. BlotterSendBenchmarks has a search and its clear over about 7,000 orders, through two filters, a sort, and a page.
 That took 28.8 ms and 8,819 KB, and takes 22.2 ms and 5,687 KB.
 
+Changed: a filter that builds its set again takes the entries of the stage above, and makes no entry of its own. A
+filter keeps the order of the stage above. Thus, each entry that it keeps is the same entry as in the set above, with
+the same key and sort value. When no key fails, the set of the filter is the set above. Then a filter that is off costs
+one test for each key at a reset. When at most 40 percent of the keys fail, the filter removes them from the set above,
+with one builder for each tree. When more keys fail, the filter builds a set of the entries that pass, with no new entry
+and no lookup of a sort value. A filter below a slice, or below a sort that reads its set from the end, builds as
+before. A comparison of the two forms set the line at 40 percent. It used 7,000 and 100,000 entries, with the failed
+keys spread through the order. Up to a third of the keys, the removal cost less time and less memory, and from a half it
+cost more. A filter reports what it reported before. New tests check the keys of each form, and check that a filter that
+keeps each key holds the set above.
+
+Measured against the change above, on 10,000 items on .NET 10, with one run on each side. The keys that a search drops
+are spread through the order. Thus, FilterCriteriaBenchmarks now also has arms that drop each fourth key and each second
+key. Through Filter, a change that moves a quarter of the keys took 10.6 ms and 2,484 KB, and takes 4.0 ms and 225 KB. A
+change that moves each fourth key took 10.3 ms and 2,484 KB, and takes 5.1 ms and 634 KB. A change that moves each
+second key took 8.7 ms and 2,133 KB, and takes 5.1 ms and 698 KB. FilterByIdentity allocates the same bytes. It takes
+3.1 ms where it took 8.0, 5.2 ms where it took 8.4, and 5.1 ms where it took 6.9. At 100,000 items, each fourth key
+through Filter took 176.6 ms and 24.2 MB, and takes 66.5 ms and 6.0 MB. On .NET Framework 4.7.2 at 10,000 items, each
+fourth key through Filter took 26.4 ms and takes 12.5 ms. Its bytes are within 4 KB of those on .NET 10. The changes
+that move no key or 100 keys do not build, and allocate what they did. Their times moved by up to a third in each
+direction between the two runs, which is the noise of those runs. BlotterSendBenchmarks has a search and its clear over
+about 7,000 orders. That took 27.9 ms and 5,687 KB, and takes 11.2 ms and 2,716 KB.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

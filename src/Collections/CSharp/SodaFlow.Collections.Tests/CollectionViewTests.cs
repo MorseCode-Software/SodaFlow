@@ -2829,6 +2829,203 @@ public sealed class CollectionViewTests
     public Task AFilterByIdentityTestsEachKeyOneTimeAtACriteriaChange() =>
         ACriteriaChangeTestsEachKeyOneTime(byIdentity: true);
 
+    /// <summary>
+    ///     A filter over <see cref="FiveThousand" /> that drops each key whose
+    ///     number is a multiple of the criteria. A criteria of zero drops no key.
+    ///     Thus, the keys that a criteria drops are spread through the order. One
+    ///     form tests the state, and one form tests the identity.
+    /// </summary>
+    private static ReactiveCollection<int, ItemIdentity, ItemState> DropMultiples(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        Cell<int> multiple,
+        bool byIdentity) =>
+        byIdentity
+            ? collection.FilterByIdentity(
+                criteriaCell: multiple,
+                predicate: static (step, identity) => step == 0 || identity.Number % step != 0)
+            : collection.Filter(
+                criteriaCell: multiple,
+                predicate: static (step, _, state) => step == 0 || state.Score % step != 0);
+
+    /// <summary>The numbers from 1 to 5,000 that are not a multiple of <paramref name="step" />.</summary>
+    private static List<int> NotMultiplesOf(int step) =>
+        [.. Enumerable.Range(start: 1, count: 5_000).Where(n => step == 0 || n % step != 0)];
+
+    /// <summary>
+    ///     A filter builds its set again at a change of criteria over its limit, from
+    ///     the entries of the set above. It removes the keys that fail from that set,
+    ///     or builds a set of the keys that pass, or keeps the set above. The three
+    ///     give the keys that pass, in the order of the stage above.
+    /// </summary>
+    private static async Task EachBuildOfAFilterGivesTheKeysThatPass(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> multiple = Cell.CreateSink(0);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> view = DropMultiples(collection: collection, multiple: multiple, byIdentity: byIdentity);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
+
+        (List<bool> resets, List<string> _, IListener listener) = RecordPositions(view);
+
+        // 1,250 keys go out, which is over the limit. A quarter of the keys fail, thus the filter
+        // removes them from the set above.
+        multiple.Send(4);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(4), ordering: CollectionOrdering.Matching);
+
+        // 1,250 more keys go out. A half of the keys fail, thus the filter builds a set of the
+        // keys that pass.
+        resets.Clear();
+        multiple.Send(2);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(2), ordering: CollectionOrdering.Matching);
+
+        // Keys go out and come in. A third of the keys fail, thus the filter removes them.
+        resets.Clear();
+        multiple.Send(3);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(3), ordering: CollectionOrdering.Matching);
+
+        // Each key comes back. No key fails, thus the set of the filter is the set above.
+        resets.Clear();
+        multiple.Send(0);
+
+        listener.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
+        await Assert.That(ReferenceEquals(objA: view.KeysCell.Sample(), objB: collection.KeysCell.Sample())).IsTrue();
+    }
+
+    [Test]
+    public Task EachBuildOfAFilterGivesTheKeysThatPass() => EachBuildOfAFilterGivesTheKeysThatPass(byIdentity: false);
+
+    [Test]
+    public Task EachBuildOfAFilterByIdentityGivesTheKeysThatPass() =>
+        EachBuildOfAFilterGivesTheKeysThatPass(byIdentity: true);
+
+    /// <summary>
+    ///     A filter that is off keeps each key. At a reset from above, its set is the
+    ///     set above, with no copy. When it turns on, it builds a set of its own.
+    /// </summary>
+    private static async Task AFilterThatKeepsEachKeyHoldsTheSetAbove(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(1);
+        CellSink<int> multiple = Cell.CreateSink(0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> above =
+            FromMinimum(collection: FiveThousand(edits), minimum: minimum, byIdentity: !byIdentity);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view = DropMultiples(collection: above, multiple: multiple, byIdentity: byIdentity);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
+
+        (List<bool> resets, List<string> _, IListener listener) = RecordPositions(view);
+
+        // 1,499 keys go out of the stage above, which is over its limit. Thus, this filter gets a
+        // reset, and it keeps each key of the new set above.
+        minimum.Send(1_500);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 1_500, count: 3_501)], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(ReferenceEquals(objA: view.KeysCell.Sample(), objB: above.KeysCell.Sample())).IsTrue();
+
+        // The filter turns on, and drops each even key above, which is over its limit.
+        resets.Clear();
+        multiple.Send(2);
+
+        listener.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(
+                expected: [.. Enumerable.Range(start: 1_500, count: 3_501).Where(static n => n % 2 != 0)],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(ReferenceEquals(objA: view.KeysCell.Sample(), objB: above.KeysCell.Sample())).IsFalse();
+    }
+
+    [Test]
+    public Task AFilterThatKeepsEachKeyHoldsTheSetAbove() => AFilterThatKeepsEachKeyHoldsTheSetAbove(byIdentity: false);
+
+    [Test]
+    public Task AFilterByIdentityThatKeepsEachKeyHoldsTheSetAbove() =>
+        AFilterThatKeepsEachKeyHoldsTheSetAbove(byIdentity: true);
+
+    /// <summary>
+    ///     A filter below a sort keeps the order of the sort when it builds again,
+    ///     from the entries of the sort. When the sort reads its set from the end, the
+    ///     filter builds from the keys of that view, in that order.
+    /// </summary>
+    [Test]
+    public async Task AFilterBelowASortBuildsInTheOrderOfTheSort()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        Func<ItemIdentity, ItemState, int> byScore = static (_, state) => state.Score;
+
+        KeyOrder<int, ItemIdentity, ItemState> descending =
+            KeyOrder<int, ItemIdentity, ItemState>.By(
+                selector: byScore,
+                sortComparer: Comparer<int>.Default,
+                keyComparer: Comparer<int>.Default,
+                isDescending: true);
+
+        KeyOrder<int, ItemIdentity, ItemState> ascending =
+            KeyOrder<int, ItemIdentity, ItemState>.By(
+                selector: byScore,
+                sortComparer: Comparer<int>.Default,
+                keyComparer: Comparer<int>.Default,
+                isDescending: false);
+
+        CellSink<KeyOrder<int, ItemIdentity, ItemState>> order = Cell.CreateSink(descending);
+        CellSink<int> multiple = Cell.CreateSink(0);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            DropMultiples(collection: FiveThousand(edits).SortBy(order), multiple: multiple, byIdentity: false);
+
+        IListener listener =
+            view.KeyChangesStream.Listen(static _ =>
+            {
+            });
+
+        // The filter builds from the entries of the sort, and removes a quarter of them.
+        multiple.Send(4);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. NotMultiplesOf(4).AsEnumerable().Reverse()], ordering: CollectionOrdering.Matching);
+
+        // The sort reads its set from the end. The filter moves its keys to that order.
+        order.Send(ascending);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(4), ordering: CollectionOrdering.Matching);
+
+        // The filter builds from the keys of the view that the sort holds.
+        multiple.Send(2);
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(2), ordering: CollectionOrdering.Matching);
+
+        multiple.Send(0);
+
+        listener.Unlisten();
+
+        await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
+    }
+
     // A negative count or offset is an error in the arithmetic of the caller. The constant
     // overloads throw at the call, where the clamp hid it.
     [Test]

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SodaFlow.Collections;
 
@@ -910,12 +909,9 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        // This comes from the order of the upstream, thus this stage sorts as its upstream sorts
-        // and does not know that order.
-        FileAll(
-            order: upstreamKeys.Order,
-            keys: upstreamKeys.Where(key => Passes(key: key, predicate: predicate, snapshot: snapshot)),
-            snapshot: snapshot);
+        // The set of the upstream gives the keys in its order, thus this stage sorts as its upstream
+        // sorts and does not know that order. See OrderedKeys.Keep.
+        upstreamKeys.Keep(keeps: key => Passes(key: key, predicate: predicate, snapshot: snapshot), snapshot: snapshot);
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildFilterByIdentity<TKey, TIdentity, TState>(
         Func<TIdentity, bool> predicate,
@@ -923,9 +919,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        FileAll(
-            order: upstreamKeys.Order,
-            keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
+        upstreamKeys.Keep(
+            keeps: key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot),
             snapshot: snapshot);
 
     /// <summary>The members of a filter, in the new order of its upstream.</summary>

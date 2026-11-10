@@ -30,6 +30,16 @@ namespace SodaFlow.Benchmarks;
 ///         letter of a search is.
 ///     </para>
 ///     <para>
+///         The quarter in the third arm is the lowest quarter, which is one run in
+///         the order of the set. A tree removes a run at a low cost. The keys that a
+///         search drops are spread through the order. Thus, two more arms drop each
+///         fourth key and each second key. A filter that builds again removes the
+///         keys that fail from the set above when they are at most 40 percent of the
+///         keys. When there are more, it builds a set of the keys that pass. The
+///         fourth arm is on the first side of that line, and the fifth arm is on the
+///         second side.
+///     </para>
+///     <para>
 ///         The filter on the state and the filter on the identity have one arm
 ///         each, because each has its own pass over the keys. The listener reads
 ///         nothing, thus the arms measure the stage and not a consumer.
@@ -48,9 +58,13 @@ public class FilterCriteriaBenchmarks
     private const int FewKeys = 100;
 
     // Populated fully in the setup. Built small here so the fields never have to be nullable.
-    private FilteredViewShape byIdentity = FilteredViewShape.Build(itemCount: 1, byIdentity: true);
+    private FilteredViewShape byIdentity = FilteredViewShape.Build(itemCount: 1, byIdentity: true, dropsMultiples: false);
 
-    private FilteredViewShape byState = FilteredViewShape.Build(itemCount: 1, byIdentity: false);
+    private FilteredViewShape byState = FilteredViewShape.Build(itemCount: 1, byIdentity: false, dropsMultiples: false);
+
+    private FilteredViewShape spreadByIdentity = FilteredViewShape.Build(itemCount: 1, byIdentity: true, dropsMultiples: true);
+
+    private FilteredViewShape spreadByState = FilteredViewShape.Build(itemCount: 1, byIdentity: false, dropsMultiples: true);
 
     /// <summary>How many items the collection holds.</summary>
     [Params(10_000, 100_000)]
@@ -63,49 +77,70 @@ public class FilterCriteriaBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        this.byState = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: false);
-        this.byIdentity = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: true);
+        this.byState = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: false, dropsMultiples: false);
+        this.byIdentity = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: true, dropsMultiples: false);
+        this.spreadByState = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: false, dropsMultiples: true);
+        this.spreadByIdentity = FilteredViewShape.Build(itemCount: this.ItemCount, byIdentity: true, dropsMultiples: true);
 
         foreach (FilteredViewShape shape in new[] { this.byState, this.byIdentity })
         {
-            Expect(shape: shape, minimum: -1, count: this.ItemCount);
-            Expect(shape: shape, minimum: FewKeys, count: this.ItemCount - FewKeys);
-            Expect(shape: shape, minimum: this.ItemCount / 4, count: this.ItemCount - this.ItemCount / 4);
-            Expect(shape: shape, minimum: 0, count: this.ItemCount);
+            Expect(shape: shape, criteria: -1, count: this.ItemCount);
+            Expect(shape: shape, criteria: FewKeys, count: this.ItemCount - FewKeys);
+            Expect(shape: shape, criteria: this.ItemCount / 4, count: this.ItemCount - this.ItemCount / 4);
+            Expect(shape: shape, criteria: 0, count: this.ItemCount);
+        }
+
+        foreach (FilteredViewShape shape in new[] { this.spreadByState, this.spreadByIdentity })
+        {
+            Expect(shape: shape, criteria: 4, count: this.ItemCount - this.ItemCount / 4);
+            Expect(shape: shape, criteria: 2, count: this.ItemCount / 2);
+            Expect(shape: shape, criteria: 0, count: this.ItemCount);
         }
     }
 
     [Benchmark(Description = "filter, no key moves")]
-    public void FilterNoKey() => Toggle(shape: this.byState, minimum: -1);
+    public void FilterNoKey() => Toggle(shape: this.byState, criteria: -1);
 
     [Benchmark(Description = "filter, 100 keys move")]
-    public void FilterFewKeys() => Toggle(shape: this.byState, minimum: FewKeys);
+    public void FilterFewKeys() => Toggle(shape: this.byState, criteria: FewKeys);
 
     [Benchmark(Description = "filter, a quarter of the keys move")]
-    public void FilterAQuarter() => Toggle(shape: this.byState, minimum: this.ItemCount / 4);
+    public void FilterAQuarter() => Toggle(shape: this.byState, criteria: this.ItemCount / 4);
+
+    [Benchmark(Description = "filter, each fourth key moves")]
+    public void FilterEachFourth() => Toggle(shape: this.spreadByState, criteria: 4);
+
+    [Benchmark(Description = "filter, each second key moves")]
+    public void FilterEachSecond() => Toggle(shape: this.spreadByState, criteria: 2);
 
     [Benchmark(Description = "filter by identity, no key moves")]
-    public void FilterByIdentityNoKey() => Toggle(shape: this.byIdentity, minimum: -1);
+    public void FilterByIdentityNoKey() => Toggle(shape: this.byIdentity, criteria: -1);
 
     [Benchmark(Description = "filter by identity, 100 keys move")]
-    public void FilterByIdentityFewKeys() => Toggle(shape: this.byIdentity, minimum: FewKeys);
+    public void FilterByIdentityFewKeys() => Toggle(shape: this.byIdentity, criteria: FewKeys);
 
     [Benchmark(Description = "filter by identity, a quarter of the keys move")]
-    public void FilterByIdentityAQuarter() => Toggle(shape: this.byIdentity, minimum: this.ItemCount / 4);
+    public void FilterByIdentityAQuarter() => Toggle(shape: this.byIdentity, criteria: this.ItemCount / 4);
+
+    [Benchmark(Description = "filter by identity, each fourth key moves")]
+    public void FilterByIdentityEachFourth() => Toggle(shape: this.spreadByIdentity, criteria: 4);
+
+    [Benchmark(Description = "filter by identity, each second key moves")]
+    public void FilterByIdentityEachSecond() => Toggle(shape: this.spreadByIdentity, criteria: 2);
 
     /// <summary>
-    ///     A criteria that keeps each key from <paramref name="minimum" /> up, and
-    ///     then the criteria that keeps each key.
+    ///     The <paramref name="criteria" /> of the arm, and then the criteria that
+    ///     keeps each key.
     /// </summary>
-    private static void Toggle(FilteredViewShape shape, int minimum)
+    private static void Toggle(FilteredViewShape shape, int criteria)
     {
-        shape.Minimum(minimum);
-        shape.Minimum(0);
+        shape.Criteria(criteria);
+        shape.Criteria(0);
     }
 
-    private static void Expect(FilteredViewShape shape, int minimum, int count)
+    private static void Expect(FilteredViewShape shape, int criteria, int count)
     {
-        shape.Minimum(minimum);
+        shape.Criteria(criteria);
 
         if (shape.Count != count)
         {
@@ -115,35 +150,36 @@ public class FilterCriteriaBenchmarks
 }
 
 /// <summary>
-///     A collection behind a filter that keeps each key from the value of a
-///     criteria cell up, with a listener on the view. The number of an item is its
-///     key and its score. Thus, a filter on the state and a filter on the identity
-///     keep the same keys.
+///     A collection behind a filter, with a listener on the view. The filter keeps
+///     each key from the value of a criteria cell up, or it drops each key that is
+///     a multiple of that value. A value of zero keeps each key in the two forms.
+///     The number of an item is its key and its score. Thus, a filter on the state
+///     and a filter on the identity keep the same keys.
 /// </summary>
 internal sealed class FilteredViewShape
 {
     // Load-bearing, as in the other shapes.
     // ReSharper disable once NotAccessedField.Local
     private readonly IListener listener;
-    private readonly CellSink<int> minimum;
+    private readonly CellSink<int> criteria;
     private readonly ReactiveCollection<int, ItemIdentity, ItemState> view;
 
     private FilteredViewShape(
-        CellSink<int> minimum,
+        CellSink<int> criteria,
         ReactiveCollection<int, ItemIdentity, ItemState> view,
         IListener listener)
     {
-        this.minimum = minimum;
+        this.criteria = criteria;
         this.view = view;
         this.listener = listener;
     }
 
     internal int Count => this.view.KeysCell.Sample().Count;
 
-    internal void Minimum(int value) => this.minimum.Send(value);
+    internal void Criteria(int value) => this.criteria.Send(value);
 
     /// <summary>Builds the shape with a criteria that keeps each key.</summary>
-    internal static FilteredViewShape Build(int itemCount, bool byIdentity)
+    internal static FilteredViewShape Build(int itemCount, bool byIdentity, bool dropsMultiples)
     {
         List<Item<ItemIdentity, ItemState>> items = new(itemCount);
 
@@ -163,19 +199,27 @@ internal sealed class FilteredViewShape
                     initialItems: items,
                     Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>());
 
-            CellSink<int> minimumCell = Cell.CreateSink(0);
+            CellSink<int> criteriaCell = Cell.CreateSink(0);
 
             ReactiveCollection<int, ItemIdentity, ItemState> view =
-                byIdentity
-                    ? collection.FilterByIdentity(
-                        criteriaCell: minimumCell,
-                        predicate: static (minimum, identity) => identity.Number >= minimum)
-                    : collection.Filter(
-                        criteriaCell: minimumCell,
-                        predicate: static (minimum, _, state) => state.Score >= minimum);
+                (byIdentity, dropsMultiples) switch
+                {
+                    (true, false) => collection.FilterByIdentity(
+                        criteriaCell: criteriaCell,
+                        predicate: static (minimum, identity) => identity.Number >= minimum),
+                    (false, false) => collection.Filter(
+                        criteriaCell: criteriaCell,
+                        predicate: static (minimum, _, state) => state.Score >= minimum),
+                    (true, true) => collection.FilterByIdentity(
+                        criteriaCell: criteriaCell,
+                        predicate: static (step, identity) => step == 0 || identity.Number % step != 0),
+                    (false, true) => collection.Filter(
+                        criteriaCell: criteriaCell,
+                        predicate: static (step, _, state) => step == 0 || state.Score % step != 0)
+                };
 
             return new FilteredViewShape(
-                minimum: minimumCell,
+                criteria: criteriaCell,
                 view: view,
                 listener: view.KeyChangesStream.Listen(static _ =>
                 {
