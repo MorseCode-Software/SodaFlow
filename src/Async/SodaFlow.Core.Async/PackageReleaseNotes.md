@@ -81,6 +81,12 @@ its start ends as canceled with no call to its operation. That keeps a strategy 
 one call from running anything, as before, and it also stops a call that used to be made with a token already canceled:
 a queued item that a cancellation stream ends in the same transaction that promotes it.
 
+Changed with it: the Task of an Execute value that a strategy refuses, or that arrives after a disposal, is canceled
+when the transaction of its admission commits, as every other answer of such a Task is given. It was canceled inside
+that transaction, so a listener in the same transaction could find the Task complete before the commit. The outcome is
+the same. Where that transaction fails, the release of the admission cancels the Task, as it already did for a value
+that the strategy starts.
+
 Not changed: the state of a custom strategy. Admit can run for a value that is then not admitted, when the transaction
 fails after the call, and the pipeline calls no hook for that value afterwards. Whatever Admit changed in the state
 stays changed, as the remarks on OnCompleted already say of its second call. A strategy that records the incoming item
