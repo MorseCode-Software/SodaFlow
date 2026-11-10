@@ -273,4 +273,25 @@
         </PropertyGroup>
     </Target>
 
+    <!--
+        A library that sets IsAotCompatible gets the trim, AOT, and single-file analyzers, which are in
+        the package Microsoft.NET.ILLink.Tasks. Without this reference, the SDK adds that package
+        itself, at a version that changes with the SDK, and the lock file records it. A locked restore
+        on a different SDK then fails with NU1004. Measured on 2026-11-10, from the MorseCode.Toolkit
+        repository: for net8.0, SDK 10.0.403 asks for 8.0.33 and SDK 11.0 RC 2 asks for 8.0.32. With
+        this reference, both restore the same lock file.
+
+        The 10.0 analyzer, and not the 8.0 one that the SDK gives net8.0. The 8.0 analyzer is older
+        than C# 14, and it stopped with AD0001 on FlushInTransaction in SodaFlow.Core.Async.
+
+        The condition reads IsAotCompatible from the project file. MSBuild evaluates all properties
+        before it evaluates an item, thus a property that the project sets later is already there.
+
+        Only the C# libraries set IsAotCompatible. The analyzers do not run on F#, and a native AOT
+        publish reports warnings inside FSharp.Core that the F# libraries reach.
+    -->
+    <ItemGroup Condition="'$(IsAotCompatible)' == 'true'">
+        <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="10.0.14" PrivateAssets="all"/>
+    </ItemGroup>
+
 </Project>

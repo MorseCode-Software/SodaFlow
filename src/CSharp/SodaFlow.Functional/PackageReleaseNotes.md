@@ -65,6 +65,14 @@ Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It 
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
 
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
+reported IL2091 where LazyExtensionMethods makes a Lazy<T>. The class suppresses that report, in the assembly so that
+the trimmer of an app reads it too. Each Lazy<T> there gets a value factory, so it never uses the parameterless
+constructor that the annotation of Lazy<T> asks the trimmer to keep.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are

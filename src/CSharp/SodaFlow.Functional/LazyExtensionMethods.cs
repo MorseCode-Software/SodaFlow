@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using JetBrains.Annotations;
 
 namespace SodaFlow.Functional;
@@ -10,7 +11,15 @@ namespace SodaFlow.Functional;
 ///     Everything here is itself lazy: the result is a <see cref="Lazy{T}" />
 ///     which forces its inputs only when a read forces the result.
 /// </remarks>
+// The type parameter of Lazy asks the trimmer to keep a parameterless constructor. The constructors of Lazy that
+// do not get a value factory use it. The suppression is on the class and not on each method. The trimmer also
+// reports the fields of the closures that the compiler makes, and a suppression on a method does not stop those
+// reports.
 [PublicAPI]
+[UnconditionalSuppressMessage(
+    category: "Trimming",
+    checkId: "IL2091",
+    Justification = "Each Lazy here gets a value factory, thus it does not use a parameterless constructor.")]
 public static class LazyExtensionMethods
 {
     /// <summary>
