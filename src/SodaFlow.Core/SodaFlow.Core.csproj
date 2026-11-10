@@ -1,9 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net472;net6.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net472;net6.0;net8.0;netstandard2.0</TargetFrameworks>
         <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -75,6 +79,7 @@
         <Compile Include="StreamListenerManager.cs"/>
         <Compile Include="StreamSink.cs"/>
         <Compile Include="SystemClock.cs"/>
+        <Compile Include="ThrowHelper.cs"/>
         <Compile Include="TimerScheduler.cs"/>
         <Compile Include="TimerSystemInternal.cs"/>
         <Compile Include="Transaction.cs"/>

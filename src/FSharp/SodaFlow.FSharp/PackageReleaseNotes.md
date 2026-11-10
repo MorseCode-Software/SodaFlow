@@ -159,6 +159,12 @@ counts with a Stopwatch, which only measures time going by.
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The
+analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
+inside FSharp.Core.
+
 5.0.1
 
 lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the Core form for their count, as lift6 and

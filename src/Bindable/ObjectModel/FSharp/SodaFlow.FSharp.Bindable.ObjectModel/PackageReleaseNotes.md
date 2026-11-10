@@ -11,6 +11,12 @@ runs the transaction start hooks a second time, which made a TimerSystem read it
 same release, a one-way bindable value and a command's CanExecute no longer show a value from a transaction that
 failed. That package's notes have the details of both.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The
+analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
+inside FSharp.Core.
+
 4.0.4
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets

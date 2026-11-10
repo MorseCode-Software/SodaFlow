@@ -146,4 +146,21 @@ resolved against a newer core.
 
 ## Supported frameworks
 
-Every package multi-targets `net472`, `net6.0` and `netstandard2.0`.
+Every package multi-targets `net472`, `net6.0`, `net8.0`, and `netstandard2.0`. A project on .NET 8
+or later gets the `net8.0` build, and a project on .NET 6 or .NET 7 gets the `net6.0` build.
+
+### Trimming and native AOT
+
+The `net8.0` builds of the C# packages are marked as compatible with trimming and native AOT. The
+build of each one runs the .NET trim, AOT, and single-file analyzers and fails on any warning, so
+code that needs reflection can't reach a release unnoticed. The other builds aren't marked, because
+those analyzers don't exist for them.
+
+The F# packages aren't marked. The analyzers don't run on F#, and a native AOT publish that roots
+the F# packages reports warnings inside FSharp.Core.
+
+The analyzers can't see everything the native AOT compiler checks. A native AOT publish that roots
+`SodaFlow.Core` or `SodaFlow.Core.Collections` reports IL3054: the compiler stops expanding some
+generic types, because internal types nest inside one another with no limit it can prove. Code that
+needed one of those expansions would throw at run time. The compiler expands only what an app
+reaches, so how many of these warnings an app sees depends on what it uses.

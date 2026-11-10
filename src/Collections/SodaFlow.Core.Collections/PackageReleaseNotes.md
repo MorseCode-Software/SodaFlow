@@ -148,6 +148,18 @@ view of a ten-item collection 8.8 to 8.1 KB and 35.0 to 31.4 µs to build; throu
 on 1,000 items, an edit 7.25 to 6.90 µs and 13.3 to 12.7 KB, an edit that the filter excludes 3.14 to 2.99 µs, and an
 add and a remove 23.1 to 20.7 µs and 38.6 to 37.2 KB.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
+cannot see one thing that the native AOT compiler reports. A native AOT publish that roots the assembly reports IL3054
+on generic expansions of SortKeyOrder that the compiler stopped, because each Then nests the sort key in one more pair.
+The code of an expansion that stopped throws if it runs.
+
 Changed: a filter at a new criteria finds the keys that change sides before it edits its key set. Filter and
 FilterByIdentity over a criteria cell test each key when the criteria change. The limit of a stage is 1,000 keys, or a
 tenth of the keys that it holds. Up to the limit, the stage moves each key that changed sides and reports one operation

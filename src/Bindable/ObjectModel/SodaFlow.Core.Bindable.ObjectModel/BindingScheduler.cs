@@ -210,10 +210,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ThrowHelper.ThrowIfNull(argument: action, paramName: nameof(action));
 
         TransactionInternal? transaction = TransactionInternal.GetCurrentTransaction();
 
@@ -369,10 +366,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ThrowHelper.ThrowIfNull(argument: action, paramName: nameof(action));
 
         // The action runs on this thread with no transaction open, also when a transaction fails. The
         // post queue of a transaction discards its actions at a failure, and a bindable value then
