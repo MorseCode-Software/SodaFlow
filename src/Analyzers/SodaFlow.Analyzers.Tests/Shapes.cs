@@ -1530,6 +1530,148 @@ public static class Shapes
 
     private static Func<int> ReaderOf(Cell<int> c) => () => c.Sample();
 
+    // S194. A Lazy keeps a function that samples the placeholder. The block reads its value, which
+    // runs the function.
+    public static Cell<int> LazyReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => l.Sample()); int x = lazy.Value; return S.Hold(x); });
+
+    // S195. The same Lazy, which the block only keeps.
+    public static Cell<int> LazyKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => l.Sample()); Kept.Add(lazy); return S.Hold(0); });
+
+    // S196. A Lazy whose function samples a plain cell.
+    public static Cell<int> LazyOfAPlainCellRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<int> lazy = new(() => Plain.Sample());
+            int x = lazy.Value;
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S197. Only a callback reads the value of the Lazy.
+    public static Cell<int> LazyReadInACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => l.Sample()); return S.Map(v => v + lazy.Value).Hold(0); });
+
+    // S198. A local function is the function of the Lazy.
+    public static Cell<int> LazyOfALocalFunctionRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<int> lazy = new(Read);
+            int x = lazy.Value;
+            return S.Hold(x);
+
+            int Read() => l.Sample();
+        });
+
+    // S199. A helper reads the value of the Lazy.
+    public static Cell<int> LazyReadInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => l.Sample()); return S.Hold(ValueOf(lazy)); });
+
+    private static int ValueOf(Lazy<int> lazy) => lazy.Value;
+
+    // S200. The function of the Lazy gives the placeholder to a helper that samples it.
+    public static Cell<int> LazyWhoseFunctionCallsAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => ReadIt(l)); int x = lazy.Value; return S.Hold(x); });
+
+    // S201. A read of the value through a conditional access.
+    public static Cell<int> LazyConditionalRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int>? lazy = new(() => l.Sample()); int x = lazy?.Value ?? 0; return S.Hold(x); });
+
+    // S202. A Map of a Lazy keeps its function also. That function samples the placeholder.
+    public static Cell<int> LazyMapRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = new Lazy<int>(() => 1).Map(v => v + l.Sample()).Value; return S.Hold(x); });
+
+    // S203. A Map of a Lazy whose function samples the placeholder. The block only keeps it.
+    public static Cell<int> LazyMapKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Lazy<int>(() => l.Sample()).Map(v => v + 1)); return S.Hold(0); });
+
+    // S204. The first function makes a pending cell, and the function of the Map samples it.
+    public static Cell<int> LazyMapSamplesAMadeCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<Cell<int>> made = new(() => l.Map(v => v));
+            int x = made.Map(c => c.Sample()).Value;
+            return S.Hold(x);
+        });
+
+    // S205. The same Map over a Lazy that makes a plain cell.
+    public static Cell<int> LazyMapSamplesAMadePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<Cell<int>> made = new(() => Plain);
+            int x = made.Map(c => c.Sample()).Value;
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S206. A Lazy holds a pending cell, and the function of the Map gives a plain one.
+    public static Cell<int> LazyMapToAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<Cell<int>> first = new(l.Map(v => v));
+            int x = first.Map(_ => Plain).Value.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S207. A Lift of two Lazy values. The function of the second one samples the placeholder.
+    public static Cell<int> LazyLiftRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new Lazy<int>(() => 1).Lift(new Lazy<int>(() => l.Sample()), (a, b) => a + b).Value;
+            return S.Hold(x);
+        });
+
+    // S208. A Lazy in a list.
+    public static Cell<int> LazyInAListRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Lazy<int>> list = [new Lazy<int>(() => l.Sample())];
+            int x = list[0].Value;
+            return S.Hold(x);
+        });
+
+    // S209. The local gets a second Lazy before the read.
+    public static Cell<int> LazyReplacedThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<int> lazy = new(() => l.Sample());
+            lazy = new Lazy<int>(() => 1);
+            int x = lazy.Value;
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S210. A Lazy of a function holds a lambda as its value. The read of the value does not run
+    // the lambda.
+    public static Cell<int> LazyOfAFunctionRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Lazy<Func<int>> lazy = new(() => l.Sample());
+            Kept.Add(lazy.Value);
+            return S.Hold(0);
+        });
+
+    // S211. The same Lazy. The block calls the function that the value is.
+    public static Cell<int> LazyOfAFunctionCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<Func<int>> lazy = new(() => l.Sample()); int x = lazy.Value(); return S.Hold(x); });
+
+    // S212. The function of a Lazy makes a lambda. The block calls that lambda.
+    public static Cell<int> LazyOfAMadeFunctionCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<Func<int>> lazy = new(() => () => l.Sample()); int x = lazy.Value(); return S.Hold(x); });
+
+    // S213. The same Lazy. The block reads the value and does not call it.
+    public static Cell<int> LazyOfAMadeFunctionRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<Func<int>> lazy = new(() => () => l.Sample()); Kept.Add(lazy.Value); return S.Hold(0); });
+
+    // S214. A constructor keeps a Lazy whose function samples its parameter. A getter of the object
+    // reads the value.
+    public static Cell<int> LazyKeptByAConstructorOfThisCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LazyRow row = new(l.Map(v => v)); return S.Hold(row.Now); });
+
+    // S215. A helper returns a Lazy whose function samples the parameter of the helper.
+    public static Cell<int> LazyFromAHelperRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(LazyOf(l.Map(v => v)).Value));
+
+    private static Lazy<int> LazyOf(Cell<int> c) => new(() => c.Sample());
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -1706,6 +1848,18 @@ public static class Shapes
         }
 
         public int Now => this.read();
+    }
+
+    public sealed class LazyRow
+    {
+        private readonly Lazy<int> now;
+
+        public LazyRow(Cell<int> share)
+        {
+            this.now = new Lazy<int>(() => share.Sample());
+        }
+
+        public int Now => this.now.Value;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

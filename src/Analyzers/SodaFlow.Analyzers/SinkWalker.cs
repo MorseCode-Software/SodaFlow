@@ -748,8 +748,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (!this.region.Symbols.IsSodaFlow(property))
         {
-            // Only a property of this compilation has a getter that the evaluator can read.
-            if (property.DeclaringSyntaxReferences.Length > 0)
+            // Only a property of this compilation has a getter that the evaluator can read. The
+            // value of a Lazy is the result of a function, which can be one of this compilation.
+            if (property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
             {
                 this.Report(this.evaluator.Follow(node));
             }

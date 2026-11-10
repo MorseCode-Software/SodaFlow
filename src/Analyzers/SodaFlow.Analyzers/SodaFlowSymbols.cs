@@ -111,8 +111,8 @@ internal sealed class SodaFlowSymbols
     /// <summary>
     ///     True for a type whose values can have a state. Such a type is a type of
     ///     the library, a type of this compilation, a delegate, or a type made from
-    ///     one of those. A number, a string, and a type of the platform with no such
-    ///     part cannot.
+    ///     one of those. A <c>Lazy</c> is one also, because it has a function. A
+    ///     number, a string, and a type of the platform with no such part cannot.
     /// </summary>
     public bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation) =>
         this.CanHoldState(type: type, compilation: compilation, depth: 0);
@@ -128,6 +128,7 @@ internal sealed class SodaFlowSymbols
                 false,
             INamedTypeSymbol named =>
                 named.TypeKind == TypeKind.Delegate
+                || IsLazy(named)
                 || this.IsSodaFlow(named)
                 || SymbolEqualityComparer.Default.Equals(x: named.ContainingAssembly, y: compilation)
                 // A type in a generic type, such as the values of a dictionary, has the arguments
@@ -141,6 +142,21 @@ internal sealed class SodaFlowSymbols
                             depth: depth + 1))),
             _ => false
         };
+
+    /// <summary>
+    ///     True for <c>System.Lazy</c>. It keeps the function that makes its
+    ///     value, and runs that function at the first read of <c>Value</c>.
+    /// </summary>
+    public static bool IsLazy(ITypeSymbol? type) =>
+        type?.OriginalDefinition is INamedTypeSymbol
+        {
+            Name: "Lazy",
+            ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+        };
+
+    /// <summary>True for the <c>Value</c> property of <c>System.Lazy</c>.</summary>
+    public static bool IsLazyValue(IPropertySymbol property) =>
+        property.Name == "Value" && IsLazy(property.ContainingType);
 
     /// <summary>
     ///     A method that runs a loop block. The public blocks are

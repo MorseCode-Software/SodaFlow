@@ -365,8 +365,10 @@ internal sealed class LoopStateEvaluator
                 if (symbol is IPropertySymbol property)
                 {
                     // A property with a getter has the state of what the getter returns. Only a
-                    // property of this compilation has a getter that the evaluator can read.
-                    if (property.DeclaringSyntaxReferences.Length > 0 && this.Follow(expression) is { } getter)
+                    // property of this compilation has a getter that the evaluator can read. The
+                    // value of a Lazy is what its function returns.
+                    if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
+                        && this.Follow(expression) is { } getter)
                     {
                         return getter.State.Join(this.TypeState(expression));
                     }
@@ -793,14 +795,18 @@ internal sealed class LoopStateEvaluator
         LoopState seed)
     {
         // A callee that returns a delegate gives back the function that it got, as a wrapper
-        // does. Then, the function is a value that it moves.
-        bool givesBackFunctions = definition.ReturnType.TypeKind == TypeKind.Delegate;
+        // does. Then, the function is a value that it moves. A Lazy keeps the function that its
+        // constructor gets. A method that returns a Lazy gives its function to that Lazy.
+        bool keepsFunctions =
+            definition.ReturnType.TypeKind == TypeKind.Delegate
+            || SodaFlowSymbols.IsLazy(definition.ReturnType)
+            || (definition.MethodKind == MethodKind.Constructor && SodaFlowSymbols.IsLazy(definition.ContainingType));
 
         // A function for a delegate parameter is code for the callee to run, and not a value that
         // it moves.
         return arguments
             .Where((argument, position) =>
-                givesBackFunctions
+                keepsFunctions
                 || SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: position + offset)
                     is not { Type.TypeKind: TypeKind.Delegate })
             .Aggregate(seed: seed, func: (moved, argument) => moved.Join(this.Eval(argument.Expression)));
@@ -854,7 +860,8 @@ internal sealed class LoopStateEvaluator
     ///     function given for a delegate parameter. It does not when it returns a
     ///     delegate or a <c>Lazy</c>, which then has the function. A function given
     ///     for a parameter of a different type, as to <c>Add</c> of a list, is a
-    ///     value that the callee keeps.
+    ///     value that the callee keeps. A read of <c>Value</c> runs the function
+    ///     that a <c>Lazy</c> has, which <see cref="FollowLazy" /> follows.
     /// </remarks>
     public static bool RunsFunction(CalleeKind kind, IMethodSymbol method, IParameterSymbol? parameter) =>
         kind switch
@@ -864,11 +871,7 @@ internal sealed class LoopStateEvaluator
             _ => method.MethodKind != MethodKind.Constructor
                  && parameter is { Type.TypeKind: TypeKind.Delegate }
                  && method.ReturnType.TypeKind != TypeKind.Delegate
-                 && method.ReturnType.OriginalDefinition is not INamedTypeSymbol
-                 {
-                     Name: "Lazy",
-                     ContainingNamespace.Name: "System"
-                 }
+                 && !SodaFlowSymbols.IsLazy(method.ReturnType)
                  && !RunsOnAnotherThread(method.ContainingType)
         };
 
@@ -1381,6 +1384,11 @@ internal sealed class LoopStateEvaluator
                 _ => null
             };
 
+        if (SodaFlowSymbols.IsLazyValue(written))
+        {
+            return owner == null ? null : this.FollowLazy(access: access, owner: owner, value: written.Type);
+        }
+
         // A property that the code reads through an interface is the property of the object.
         IPropertySymbol property =
             owner != null && this.Eval(owner).Members?.Resolve(written) is IPropertySymbol actual ? actual : written;
@@ -1403,6 +1411,75 @@ internal sealed class LoopStateEvaluator
             receiver: receiver,
             target: null);
     }
+
+    /// <summary>
+    ///     The read of <c>Value</c> of a <c>Lazy</c>, which runs the functions
+    ///     that the <c>Lazy</c> has. The result is null when it has no function
+    ///     that the evaluator can read.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>Lazy</c> from a <c>Map</c> has two functions, and the second one
+    ///     gets the value of the first one as its parameter. Thus, a second walk
+    ///     gives each parameter the result of the first walk also.
+    /// </remarks>
+    /// <param name="access">The read of the property.</param>
+    /// <param name="owner">The <c>Lazy</c>.</param>
+    /// <param name="value">The type of the value.</param>
+    private Followed? FollowLazy(SyntaxNode access, ExpressionSyntax owner, ITypeSymbol value)
+    {
+        LoopState lazy = this.Eval(owner);
+
+        // A Lazy of a delegate can hold a function as its value. The read gives that function,
+        // and does not run it. A function that makes such a value returns a delegate.
+        ImmutableArray<FunctionValue> makers =
+            value.TypeKind == TypeKind.Delegate
+                ? lazy.Functions.Where(this.ReturnsDelegate).ToImmutableArray()
+                : lazy.Functions;
+
+        if (makers.IsEmpty)
+        {
+            return null;
+        }
+
+        Followed? first = Run(lazy);
+
+        Followed? followed =
+            first == null || makers.Length == 1 || first.State.IsNone ? first : Run(lazy.Join(first.State));
+
+        if (followed == null || makers.Length == lazy.Functions.Length)
+        {
+            return followed;
+        }
+
+        return new Followed(
+            state: lazy.Functions
+                .Where(function => !makers.Contains(function))
+                .Aggregate(
+                    seed: followed.State,
+                    func: static (state, function) => state.Join(LoopState.OfFunction(function))),
+            findings: followed.Findings,
+            outs: followed.Outs);
+
+        Followed? Run(LoopState given) =>
+            makers.Aggregate(
+                seed: (Followed?)null,
+                func: (all, function) =>
+                    Both(
+                        first: all,
+                        second: this.FollowFunction(
+                            call: access,
+                            name: NameOf(owner),
+                            function: function,
+                            target: lazy,
+                            arguments: default,
+                            each: (owner, given))));
+    }
+
+    private bool ReturnsDelegate(FunctionValue function) =>
+        (function.Declaration is AnonymousFunctionExpressionSyntax
+            ? this.region.SymbolOf(function.Declaration)
+            : this.region.ModelFor(function.Declaration).GetDeclaredSymbol(function.Declaration))
+        is IMethodSymbol { ReturnType.TypeKind: TypeKind.Delegate };
 
     /// <summary>
     ///     Walks the body of a callee as a call from this code, and gives the
