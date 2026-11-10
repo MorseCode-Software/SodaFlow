@@ -1159,40 +1159,13 @@ internal static class AsyncStreamUtility
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
         bool cancelOnDispose = true)
     {
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-
-        if (results is null)
-        {
-            throw new ArgumentNullException(nameof(results));
-        }
-
-        if (errors is null)
-        {
-            throw new ArgumentNullException(nameof(errors));
-        }
-
-        if (handleException is null)
-        {
-            throw new ArgumentNullException(nameof(handleException));
-        }
-
-        if (createDeliveryException is null)
-        {
-            throw new ArgumentNullException(nameof(createDeliveryException));
-        }
-
-        if (operation is null)
-        {
-            throw new ArgumentNullException(nameof(operation));
-        }
-
-        if (strategy is null)
-        {
-            throw new ArgumentNullException(nameof(strategy));
-        }
+        ThrowHelper.ThrowIfNull(argument: source, paramName: nameof(source));
+        ThrowHelper.ThrowIfNull(argument: results, paramName: nameof(results));
+        ThrowHelper.ThrowIfNull(argument: errors, paramName: nameof(errors));
+        ThrowHelper.ThrowIfNull(argument: handleException, paramName: nameof(handleException));
+        ThrowHelper.ThrowIfNull(argument: createDeliveryException, paramName: nameof(createDeliveryException));
+        ThrowHelper.ThrowIfNull(argument: operation, paramName: nameof(operation));
+        ThrowHelper.ThrowIfNull(argument: strategy, paramName: nameof(strategy));
 
         return new AsyncMapExecutionManager<TInput, TResult, TStrategyInput>(
             strategy: strategy,
@@ -2520,10 +2493,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // is in the transaction of the send and not in this method.
     private Task<TResult> ExecuteFromCell(Cell<TInput> value)
     {
-        if (value is null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ThrowHelper.ThrowIfNull(argument: value, paramName: nameof(value));
 
         ExecuteCompletion<TResult, TResult> completion = NewExecuteCompletion();
 

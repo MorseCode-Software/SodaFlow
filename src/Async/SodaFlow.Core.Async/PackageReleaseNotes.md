@@ -110,6 +110,15 @@ and once when it runs again, whose publish decision is ignored. The first call's
 transaction, but any change it made to the strategy's state stays. The built-in strategies decide from the queue and
 give the right answer on the second call.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
+
 5.0.1
 
 No public API change. Adds the internal path that two new Execute overloads use: the one for a Cell<Maybe<TInput>> in
