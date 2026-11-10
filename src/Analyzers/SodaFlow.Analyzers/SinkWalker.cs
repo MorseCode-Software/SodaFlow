@@ -1069,7 +1069,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     given: LoopState.None,
                     oneTime: false);
 
-                this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
+                this.AssignOuts(
+                    arguments: arguments,
+                    method: method,
+                    followed: followed,
+                    moved: LoopState.None,
+                    receiver: receiver);
 
                 break;
             // A query keeps its functions for the code that enumerates it. The walk reads them
@@ -1106,7 +1111,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
                 }
 
-                this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved);
+                this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved, receiver: null);
 
                 // The callee can call a member of an object that it gets, as a sort calls CompareTo.
                 this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
@@ -1234,7 +1239,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(initializer);
-        this.Report(this.evaluator.Follow(node));
+
+        Followed? followed = this.evaluator.Follow(node);
+        this.Report(followed);
+
+        if (arguments != null && kind == CalleeKind.Body)
+        {
+            this.AssignOuts(
+                arguments: arguments.Arguments,
+                method: constructor,
+                followed: followed,
+                moved: LoopState.None,
+                receiver: null);
+        }
 
         if (arguments == null)
         {
@@ -1513,28 +1530,51 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     /// <summary>
     ///     Gives the target of each <c>out</c> or <c>ref</c> argument the state
-    ///     that the callee gives to that parameter.
+    ///     that the callee gives to that parameter. Each other argument gets the
+    ///     state of a value that the callee put into its object.
     /// </summary>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="method">The callee.</param>
+    /// <param name="followed">What the evaluator found in the body, if it has one.</param>
+    /// <param name="moved">The state that a callee with no body gives to a parameter.</param>
+    /// <param name="receiver">
+    ///     The owner in the call. For an extension method, it is the argument
+    ///     for the first parameter.
+    /// </param>
     private void AssignOuts(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         IMethodSymbol method,
         Followed? followed,
-        LoopState moved)
+        LoopState moved,
+        ExpressionSyntax? receiver)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         int offset = method.ReducedFrom != null ? 1 : 0;
 
+        if (offset == 1
+            && receiver != null
+            && followed != null
+            && followed.Outs.TryGetValue(key: definition.Parameters[0], value: out LoopState? intoReceiver))
+        {
+            this.evaluator.Merge(target: receiver, state: intoReceiver);
+        }
+
         for (int i = 0; i < arguments.Count; i++)
         {
-            if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
-                && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
+            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                is not { } parameter)
             {
                 continue;
             }
 
-            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
-                is not { } parameter)
+            if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+                && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
             {
+                if (followed != null && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put))
+                {
+                    this.evaluator.Merge(target: arguments[i].Expression, state: put);
+                }
+
                 continue;
             }
 

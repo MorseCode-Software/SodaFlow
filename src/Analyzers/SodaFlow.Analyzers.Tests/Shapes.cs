@@ -3802,6 +3802,50 @@ public static class Shapes
     public static Cell<int> NullableTupleThroughAPattern() =>
         Cell.Loop<int>().WithoutCaptures(l => { (Titled N, int I)? t = (new Titled(l.Map(v => v)), 1); if (t is { N: var n }) { Kept.Add(n.ToString()); } return S.Hold(0); });
 
+    // S639. A method of the compilation adds a value to a list that it gets. The list of the caller has the value.
+    public static Cell<int> HelperAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddTo(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S640. The same for a local function.
+    public static Cell<int> LocalFunctionAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; Put(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); static void Put(List<Cell<int>> cells, Cell<int> one) => cells.Add(one); return S.Hold(0); });
+
+    // S641. The same, and nothing reads the list.
+    public static Cell<int> HelperAddsThenNothingReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddTo(cs, l.Map(v => v)); Kept.Add(cs); return S.Hold(0); });
+
+    // S642. A method sets a property of an object that it gets.
+    public static Cell<int> HelperSetsAMemberOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new(); FillSlot(slot, l.Map(v => v)); int x = slot.Share!.Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S643. A method puts a value into a dictionary that it gets.
+    public static Cell<int> HelperPutsIntoADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cs = []; PutIn(cs, l.Map(v => v)); int x = cs["a"].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S644. A method sets an element of an array that it gets.
+    public static Cell<int> HelperSetsAnArrayElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain]; SetFirst(cs, l.Map(v => v)); int x = cs[0].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S645. An extension method adds to its first parameter.
+    public static Cell<int> ExtensionMethodAddsToItsReceiver() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; cs.AddOne(l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S646. A constructor adds to a list that it gets.
+    public static Cell<int> ConstructorAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; Kept.Add(new Registrar(cs, l.Map(v => v))); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S647. A method that calls the method that adds.
+    public static Cell<int> HelperAddsThroughASecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddToThroughOne(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S648. A method assigns a new list to its parameter, and adds to that list. The list of the caller is the same.
+    public static Cell<int> HelperAddsToAListOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddToANewList(cs, l.Map(v => v)); int x = cs[0].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S649. A struct is a copy. A method that sets a property of its copy changes nothing for the caller.
+    public static Cell<int> HelperSetsAMemberOfAStructCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue slot = new() { Share = Plain }; FillCopy(slot, l.Map(v => v)); int x = slot.Share!.Sample(); Kept.Add(x); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4419,6 +4463,39 @@ public static class Shapes
         public override string ToString() => this.share.Sample().ToString();
     }
 
+    private static void AddTo(List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+
+    private static void AddToThroughOne(List<Cell<int>> cells, Cell<int> one) => AddTo(cells, one);
+
+    private static void AddToANewList(List<Cell<int>> cells, Cell<int> one)
+    {
+        cells = [];
+        cells.Add(one);
+    }
+
+    private static void FillSlot(SettableSlot slot, Cell<int> one) => slot.Share = one;
+
+    private static void FillCopy(SlotValue slot, Cell<int> one) => slot.Share = one;
+
+    private static void PutIn(Dictionary<string, Cell<int>> cells, Cell<int> one) => cells["a"] = one;
+
+    private static void SetFirst(Cell<int>[] cells, Cell<int> one) => cells[0] = one;
+
+    public sealed class SettableSlot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public struct SlotValue
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Registrar
+    {
+        public Registrar(List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -4427,6 +4504,8 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static void AddOne(this List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+
     public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca) =>
         Operational.Defer(cca.SwitchC().Values());
 }

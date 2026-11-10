@@ -231,15 +231,20 @@ internal sealed class LoopStateEvaluator
     ///     Adds a state to what a name holds, for a value that a call puts into
     ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
     /// </summary>
-    public void Absorb(ExpressionSyntax target, LoopState state)
+    public void Absorb(ExpressionSyntax target, LoopState state) =>
+        // The object contains the value. It is not the value.
+        this.Merge(target: target, state: state.AsContainer);
+
+    /// <summary>
+    ///     Adds a state to what a name holds, as it is. A callee that put a
+    ///     value into the object of a parameter gives that state to the argument.
+    /// </summary>
+    public void Merge(ExpressionSyntax target, LoopState state)
     {
         if (state.IsNone)
         {
             return;
         }
-
-        // The object contains the value. It is not the value.
-        state = state.AsContainer;
 
         switch (this.region.SymbolOf(target))
         {
@@ -2590,7 +2595,13 @@ internal sealed class LoopStateEvaluator
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
 
-        foreach (Binding binding in bindings.Where(static binding => binding.Parameter.RefKind != RefKind.None))
+        // A parameter has a state here only when the callee gave it one. For a parameter that is
+        // not ref or out, that is a value that the callee put into the object, as Add does. The
+        // caller has the same object. An assignment to the parameter changes only the local of
+        // the callee, and a struct is a copy.
+        foreach (Binding binding in bindings.Where(binding =>
+                     binding.Parameter.RefKind != RefKind.None
+                     || (!binding.Parameter.Type.IsValueType && !inner.assigned.Contains(binding.Parameter))))
         {
             if (inner.locals.TryGetValue(key: binding.Parameter, value: out LoopState? assigned))
             {

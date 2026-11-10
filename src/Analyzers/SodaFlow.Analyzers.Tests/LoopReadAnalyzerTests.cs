@@ -463,7 +463,15 @@ internal sealed class LoopReadAnalyzerTests
             ["TupleKeptAsAnInterfaceThenRead"] = ["SF1005"],
             ["ValueOfANullableTuple"] = ["SF1005"],
             ["ValueOfANullableStruct"] = ["SF1005"],
-            ["NullableTupleThroughAPattern"] = ["SF1005"]
+            ["NullableTupleThroughAPattern"] = ["SF1005"],
+            ["HelperAddsToAList"] = ["SF1001"],
+            ["LocalFunctionAddsToAList"] = ["SF1001"],
+            ["HelperSetsAMemberOfAnObject"] = ["SF1001"],
+            ["HelperPutsIntoADictionary"] = ["SF1001"],
+            ["HelperSetsAnArrayElement"] = ["SF1001"],
+            ["ExtensionMethodAddsToItsReceiver"] = ["SF1001"],
+            ["ConstructorAddsToAList"] = ["SF1001"],
+            ["HelperAddsThroughASecondHelper"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
