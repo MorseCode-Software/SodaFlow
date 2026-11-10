@@ -230,7 +230,7 @@ except `SF1003`:
 | `SF1002` | A loop whose definition is linked to its own placeholder, with no sampled hold, `Operational.Defer`, or timer between them. That is the shape that throws `DependencyCycleException`, at the close or later when a switch selects the loop. |
 | `SF1003` | A value derived from the placeholder handed to code the analyzer cannot read and that could read the value. This one is an info, visible in the editor and silent in the build. |
 | `SF1004` | A method, constructor, local function, or lambda in your own project that reads a value it was handed, reported at the argument. |
-| `SF1005` | A method or property of an object you built in the block that reads a member the construction made pending, or a helper that reads a field the block set, reported at the call. |
+| `SF1005` | A method or property of an object you built in the block that reads a member the construction made pending, a helper that reads a field the block set, or a lambda that a constructor or helper of yours kept and the block then runs. Reported at the call. |
 | `SF1006` | A loop whose definition's initial value reads the loop itself, through a lazy sample of it or through a `Map` whose function samples it. That forces itself at the end of the transaction. |
 
 A read inside a callback, a `Snapshot` or `Listen` lambda or a `Map` of a stream for instance, is
@@ -244,7 +244,13 @@ the cell. It runs the first time something reads the value. So a function that s
 value is harmless in a cell that is only kept, and the analyzer says nothing about it. Sample that
 cell in the block, or close the loop with it, and the function runs before the loop has a value:
 the analyzer reports the sample, or the close. The views of a collection behave the same way with
-their predicates and selectors.
+their predicates and selectors, and so does a sort order built with `KeyOrder.By` or `ThenBy`: its
+function runs when a view sorts by that order and something reads the view, whether the order
+reaches the view directly or in a cell.
+
+A `Hold` is the opposite case. A read in the block always gives its initial value, because the
+value of a firing arrives after the close. So a hold that starts plain is fine to sample, whatever
+its stream will carry later.
 
 `SF1003` is for code that could read the value and that the analyzer cannot read: a delegate that
 came from somewhere else, a method in another assembly that itself uses SodaFlow, or a chain of
@@ -266,6 +272,9 @@ helpers, constructors, getters, records, and object initializers, and through an
 object you built behind it. It knows which library methods run a function at once: a transaction,
 a loop block, and the `Fold` of a collection. Code outside the library that takes a function, such
 as LINQ or `Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it.
+A `Lazy<T>` keeps its function until something reads `Value`, so the analyzer reads the function
+at that read, including through the `Map` and `Lift` of `SodaFlow.Functional`. A lambda that one
+of your own constructors or helpers keeps is read where it finally runs, and reported there.
 
 It does not see everything, and in a few places it guesses on the careful side:
 
@@ -277,10 +286,13 @@ It does not see everything, and in a few places it guesses on the careful side:
 - A LINQ query built in the block is read as if it were enumerated there. If you enumerate it only
   after the block, a read in its lambda is reported although it is fine.
 - A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
-- A function kept by a constructor outside your project, as in `new Lazy<T>(...)`, is not read when
-  the block then uses that object.
-- A sort order built from a function that samples the loop, and handed to a view through a cell,
-  is not seen.
+- A function kept by a constructor outside your project is not read when the block then uses that
+  object. `Lazy<T>` is the exception, and a `Lazy<T>` handed to code outside your project is taken
+  as kept, not forced.
+- A comparer object given to a sort or a sort order is not read, so a `Compare` that samples the
+  loop is not seen.
+- A read written as a property pattern, as in `row is { Total: > 0 }`, is not seen. The same read
+  written as `row.Total > 0` is.
 - A virtual method is read as the method the code names, unless the analyzer saw the object built.
 
 The runtime check stays behind all of these.
