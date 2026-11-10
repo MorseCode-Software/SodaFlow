@@ -24,7 +24,8 @@ internal static class Diagnostics
             title: "A loop closes with a value that is linked to its own placeholder",
             messageFormat:
             "The definition of loop '{0}' is linked to '{0}' with no sampled hold and no Operational.Defer between "
-            + "them. The close throws DependencyCycleException.",
+            + "them. That is a dependency cycle. It throws DependencyCycleException at the close, or later when a "
+            + "switch selects the loop.",
             category: Category,
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true);
