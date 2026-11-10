@@ -314,8 +314,9 @@ internal static class OperatorTable
 
     // The operators whose function computes the current value of the result. Map, Lift, and
     // Defer are for a cell, a behavior, and a lazy sample. The filters and the sorts are the
-    // views of a collection. The last six make a sort order. A view that sorts by that order
-    // runs the function of the order, and the pending state of the order tells the view so.
+    // views of a collection. The next six make a sort order. A view that sorts by that order
+    // runs the function of the order, and the pending state of the order tells the view so. The
+    // last three get a comparer or a key selector, which the collection calls at its first read.
     private static readonly ImmutableHashSet<string> ValueFromFunction =
         ImmutableHashSet.Create(
             "Map",
@@ -332,7 +333,10 @@ internal static class OperatorTable
             "ThenBy",
             "ThenByDescending",
             "ThenByIdentity",
-            "ThenByIdentityDescending");
+            "ThenByIdentityDescending",
+            "ByKey",
+            "SortByKey",
+            "Create");
 
     /// <summary>
     ///     True for an operator that computes the current value of its result
@@ -342,7 +346,8 @@ internal static class OperatorTable
     /// </summary>
     /// <remarks>
     ///     A sort order has no current value. It is pending because a view that
-    ///     sorts by it runs its function, at the first read of the view.
+    ///     sorts by it runs its function, at the first read of the view. A comparer
+    ///     that such an operator gets is a function of the operator also.
     /// </remarks>
     public static bool ComputesValueWithFunction(
         SodaFlowSymbols symbols,

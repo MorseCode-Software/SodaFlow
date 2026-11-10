@@ -531,10 +531,14 @@ internal sealed class LoopStateEvaluator
 
             IParameterSymbol? parameter = ParameterFor(method: method, argument: arguments[i], position: i);
 
+            // A comparer is a function of the operator, and not a value that the result holds. The
+            // members of a comparer object are not members of the result.
             LoopState argumentState =
-                this.EvalArgument(
-                    argument: arguments[i].Expression,
-                    runsNow: OperatorTable.RunsFunction(method: method, parameter: parameter));
+                SodaFlowSymbols.IsComparer(parameter?.Type)
+                    ? LoopState.None
+                    : this.EvalArgument(
+                        argument: arguments[i].Expression,
+                        runsNow: OperatorTable.RunsFunction(method: method, parameter: parameter));
 
             argumentStates.Add(argumentState);
             argumentTypes.Add(this.region.TypeOf(arguments[i].Expression));
@@ -660,7 +664,8 @@ internal sealed class LoopStateEvaluator
                         method: method,
                         receiverType: receiverType)
                     && this.CanUseState(invocation: invocation, given: inputs.Content)
-                    && this.Quiet().FunctionReadsPending(invocation: invocation, given: inputs.Content))))
+                    && this.Quiet()
+                        .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))))
         {
             state = state.WithPending(true);
         }
@@ -807,9 +812,11 @@ internal sealed class LoopStateEvaluator
         // A callee that returns a delegate gives back the function that it got, as a wrapper
         // does. Then, the function is a value that it moves. A Lazy keeps the function that its
         // constructor gets. A method that returns a Lazy gives its function to that Lazy.
+        // A comparer from a function, as from Comparer.Create, has that function.
         bool keepsFunctions =
             definition.ReturnType.TypeKind == TypeKind.Delegate
             || SodaFlowSymbols.IsLazy(definition.ReturnType)
+            || SodaFlowSymbols.IsComparer(definition.ReturnType)
             || (definition.MethodKind == MethodKind.Constructor && SodaFlowSymbols.IsLazy(definition.ContainingType));
 
         // A function for a delegate parameter is code for the callee to run, and not a value that
@@ -871,7 +878,9 @@ internal sealed class LoopStateEvaluator
     ///     delegate or a <c>Lazy</c>, which then has the function. A function given
     ///     for a parameter of a different type, as to <c>Add</c> of a list, is a
     ///     value that the callee keeps. A read of <c>Value</c> runs the function
-    ///     that a <c>Lazy</c> has, which <see cref="FollowLazy" /> follows.
+    ///     that a <c>Lazy</c> has, which <see cref="FollowLazy" /> follows. A
+    ///     comparer is a function with a different type. A method runs one that it
+    ///     gets, and a method that returns one keeps the function that makes it.
     /// </remarks>
     public static bool RunsFunction(CalleeKind kind, IMethodSymbol method, IParameterSymbol? parameter) =>
         kind switch
@@ -879,9 +888,11 @@ internal sealed class LoopStateEvaluator
             CalleeKind.Library => OperatorTable.RunsFunction(method: method, parameter: parameter),
             CalleeKind.Body => false,
             _ => method.MethodKind != MethodKind.Constructor
-                 && parameter is { Type.TypeKind: TypeKind.Delegate }
+                 && parameter != null
+                 && (parameter.Type.TypeKind == TypeKind.Delegate || SodaFlowSymbols.IsComparer(parameter.Type))
                  && method.ReturnType.TypeKind != TypeKind.Delegate
                  && !SodaFlowSymbols.IsLazy(method.ReturnType)
+                 && !SodaFlowSymbols.IsComparer(method.ReturnType)
                  && !RunsOnAnotherThread(method.ContainingType)
         };
 
@@ -1048,18 +1059,18 @@ internal sealed class LoopStateEvaluator
         {
             ExpressionSyntax written = arguments[i].Expression;
 
+            IParameterSymbol? parameter = ParameterFor(method: method, argument: arguments[i], position: i);
+
             if (written is AnonymousFunctionExpressionSyntax
-                || !RunsFunction(
-                    kind: kind,
-                    method: method,
-                    parameter: ParameterFor(method: method, argument: arguments[i], position: i)))
+                || !RunsFunction(kind: kind, method: method, parameter: parameter))
             {
                 continue;
             }
 
             LoopState functions = this.Eval(written);
+            ImmutableArray<FunctionValue> callables = Callables(state: functions, parameter: parameter);
 
-            if (functions.Functions.IsEmpty)
+            if (callables.IsEmpty)
             {
                 continue;
             }
@@ -1070,7 +1081,7 @@ internal sealed class LoopStateEvaluator
                     : LoopState.None;
 
             all =
-                functions.Functions.Aggregate(
+                callables.Aggregate(
                     seed: all,
                     func: (followed, function) =>
                         Both(
@@ -1086,6 +1097,22 @@ internal sealed class LoopStateEvaluator
 
         return all;
     }
+
+    /// <summary>
+    ///     The functions that a callee can run through an argument. They are the
+    ///     functions that the argument can be. For a comparer that is an object of
+    ///     this compilation, they are also the methods of the comparer, which the
+    ///     callee calls through the interface.
+    /// </summary>
+    private static ImmutableArray<FunctionValue> Callables(LoopState state, IParameterSymbol? parameter) =>
+        state.Members == null || !SodaFlowSymbols.IsComparer(parameter?.Type)
+            ? state.Functions
+            : state.Functions.AddRange(
+                state.Members.Implementations(SodaFlowSymbols.IsComparerInterface)
+                    .Select(static method => method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax())
+                    .OfType<MethodDeclarationSyntax>()
+                    .Select(declaration =>
+                        new FunctionValue(declaration: declaration, definer: null, receiver: state.Members)));
 
     private static Followed? Both(Followed? first, Followed? second) =>
         first == null
@@ -2014,28 +2041,32 @@ internal sealed class LoopStateEvaluator
     ///     to the given state. This evaluator must be a quiet one, because the
     ///     function does not run now.
     /// </summary>
-    private bool FunctionReadsPending(InvocationExpressionSyntax invocation, LoopState given)
+    private bool FunctionReadsPending(InvocationExpressionSyntax invocation, IMethodSymbol method, LoopState given)
     {
         return invocation.ArgumentList.Arguments
-            .Select(static argument => argument.Expression)
+            .Select((argument, position) =>
+                (Written: argument.Expression,
+                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
             // A lambda with no call and no property that reads cannot read a value.
-            .Where(static written => written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
+            .Where(static argument =>
+                argument.Written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
             .Any(Reads);
 
-        bool Reads(ExpressionSyntax written)
+        bool Reads((ExpressionSyntax Written, IParameterSymbol? Parameter) argument)
         {
-            LoopState functions = this.Eval(written);
+            LoopState functions = this.Eval(argument.Written);
 
-            return functions.Functions.Any(function =>
-                this.FollowFunction(
-                        call: invocation,
-                        name: NameOf(written),
-                        function: function,
-                        target: functions,
-                        arguments: default,
-                        each: (written, given))
-                    is { } followed
-                && followed.Findings.Any(static finding => !finding.Escape));
+            return Callables(state: functions, parameter: argument.Parameter)
+                .Any(function =>
+                    this.FollowFunction(
+                            call: invocation,
+                            name: NameOf(argument.Written),
+                            function: function,
+                            target: functions,
+                            arguments: default,
+                            each: (argument.Written, given))
+                        is { } followed
+                    && followed.Findings.Any(static finding => !finding.Escape));
         }
     }
 
@@ -2056,9 +2087,12 @@ internal sealed class LoopStateEvaluator
         {
             if (written is not AnonymousFunctionExpressionSyntax lambda)
             {
-                // A name can be a function of this compilation.
+                // A name can be a function of this compilation. A comparer with a state can
+                // have a function, or can be an object whose methods the operator calls.
                 if (this.region.SymbolOf(written) is IMethodSymbol
-                    || this.region.TypeOf(written)?.TypeKind == TypeKind.Delegate)
+                    || (this.region.TypeOf(written) is { } type
+                        && (type.TypeKind == TypeKind.Delegate
+                            || (SodaFlowSymbols.IsComparer(type) && !this.Eval(written).IsNone))))
                 {
                     return true;
                 }

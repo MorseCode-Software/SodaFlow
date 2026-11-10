@@ -104,6 +104,20 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     two arms of a conditional. A member of either is kept, with the states
     ///     joined.
     /// </summary>
+    /// <summary>
+    ///     The methods that the type of this object has for each of its interfaces
+    ///     which the given test accepts. A callee that gets the object through such
+    ///     an interface calls these methods.
+    /// </summary>
+    public IEnumerable<IMethodSymbol> Implementations(Func<INamedTypeSymbol, bool> isInterface) =>
+        this.type == null
+            ? []
+            : this.type.AllInterfaces
+                .Where(isInterface)
+                .SelectMany(static contract => contract.GetMembers().OfType<IMethodSymbol>())
+                .Select(this.type.FindImplementationForInterfaceMember)
+                .OfType<IMethodSymbol>();
+
     public static Construction? Merge(Construction? first, Construction? second)
     {
         if (first == null || ReferenceEquals(objA: first, objB: second))

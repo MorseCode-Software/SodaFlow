@@ -111,8 +111,9 @@ internal sealed class SodaFlowSymbols
     /// <summary>
     ///     True for a type whose values can have a state. Such a type is a type of
     ///     the library, a type of this compilation, a delegate, or a type made from
-    ///     one of those. A <c>Lazy</c> is one also, because it has a function. A
-    ///     number, a string, and a type of the platform with no such part cannot.
+    ///     one of those. A <c>Lazy</c> and a comparer are such types also, because
+    ///     each can have a function. A number, a string, and a type of the platform
+    ///     with no such part cannot.
     /// </summary>
     public bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation) =>
         this.CanHoldState(type: type, compilation: compilation, depth: 0);
@@ -129,6 +130,7 @@ internal sealed class SodaFlowSymbols
             INamedTypeSymbol named =>
                 named.TypeKind == TypeKind.Delegate
                 || IsLazy(named)
+                || IsComparer(named)
                 || this.IsSodaFlow(named)
                 || SymbolEqualityComparer.Default.Equals(x: named.ContainingAssembly, y: compilation)
                 // A type in a generic type, such as the values of a dictionary, has the arguments
@@ -153,6 +155,19 @@ internal sealed class SodaFlowSymbols
             Name: "Lazy",
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
         };
+
+    /// <summary>
+    ///     True for a comparer: <c>IComparer</c> or <c>IEqualityComparer</c> of the
+    ///     platform, or a type that is one of them. The code that gets a comparer
+    ///     calls it, as it calls a function.
+    /// </summary>
+    public static bool IsComparer(ITypeSymbol? type) =>
+        type is INamedTypeSymbol named && (IsComparerInterface(named) || named.AllInterfaces.Any(IsComparerInterface));
+
+    /// <summary>True for <c>IComparer</c> or <c>IEqualityComparer</c> of the platform.</summary>
+    public static bool IsComparerInterface(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Interface, Name: "IComparer" or "IEqualityComparer" }
+        && type.ContainingNamespace?.ToDisplayString() is "System.Collections.Generic" or "System.Collections";
 
     /// <summary>True for the <c>Value</c> property of <c>System.Lazy</c>.</summary>
     public static bool IsLazyValue(IPropertySymbol property) =>

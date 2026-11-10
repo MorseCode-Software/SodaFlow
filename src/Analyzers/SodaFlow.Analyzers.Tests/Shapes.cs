@@ -1943,6 +1943,313 @@ public static class Shapes
     public static Cell<int> MemberInAPatternNotSampled() =>
         Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(row is { Share: not null } ? 1 : 0); });
 
+    private static ReactiveCollection<int, ItemId, int> TwoItems() =>
+        ReactiveCollection.Create<int, ItemId, int>(
+            initialEntries:
+            [
+                new Item<ItemId, int>(identity: new ItemId(1), state: 10),
+                new Item<ItemId, int>(identity: new ItemId(2), state: 20)
+            ],
+            Stream.Never<CollectionEdit<int, ItemId, int>>());
+
+    // S249. A sort gets a comparer object whose Compare samples a pending member. The block reads
+    // the keys of the view, which runs the comparer.
+    public static Cell<int> ComparerObjectInASort() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: new ReadingComparer(l.Map(v => v)),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    // S250. The same view, which the block only keeps.
+    public static Cell<int> ComparerObjectInASortKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(
+                TwoItems()
+                    .SortBy(
+                        selector: (_, state) => state,
+                        sortComparer: new ReadingComparer(l.Map(v => v)),
+                        keyComparer: Comparer<int>.Default,
+                        isDescending: false));
+
+            return S.Hold(0);
+        });
+
+    // S251. The same sort with a comparer object over a plain cell.
+    public static Cell<int> ComparerObjectOfAPlainCellInASort() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: new ReadingComparer(Plain),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Snapshot(l, (a, b) => a + b + count).Hold(0);
+        });
+
+    // S252. The comparer object has a pending member and a plain one, and Compare samples only the
+    // plain one.
+    public static Cell<int> ComparerObjectThatSamplesItsPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: new MixedComparer(l.Map(v => v), Plain),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Snapshot(l, (a, b) => a + b + count).Hold(0);
+        });
+
+    // S253. The comparer object is in a local of the interface type.
+    public static Cell<int> ComparerObjectThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            IComparer<int> comparer = new ReadingComparer(l.Map(v => v));
+
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: comparer,
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    // S254. The comparer object is the comparer of the keys. The two sort values are equal, thus
+    // the sort compares the keys.
+    public static Cell<int> KeyComparerObjectWithATie() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, _) => 0,
+                    sortComparer: Comparer<int>.Default,
+                    keyComparer: new ReadingComparer(l.Map(v => v)),
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    // S255. A sort by key with a comparer object.
+    public static Cell<int> SortByKeyWithAComparerObject() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortByKey(keyComparer: new ReadingComparer(l.Map(v => v)), isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    // S256. An order by key with a comparer object, in a cell.
+    public static Cell<int> OrderByKeyWithAComparerObject() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order =
+                KeyOrder<int, ItemId, int>.ByKey(keyComparer: new ReadingComparer(l.Map(v => v)), isDescending: false);
+
+            int count = TwoItems().SortBy(orderCell: Cell.Constant(order)).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S257. The second part of an order has the comparer object. The first parts are equal, thus
+    // the sort compares the second parts.
+    public static Cell<int> ThenByWithAComparerObjectAndATie() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            KeyOrder<int, ItemId, int> order =
+                KeyOrder<int, ItemId, int>.By((_, _) => 0)
+                    .ThenBy(
+                        selector: (_, state) => state,
+                        sortComparer: new ReadingComparer(l.Map(v => v)),
+                        isDescending: false);
+
+            int count = TwoItems().SortBy(order: order).KeysCell.Sample().Count;
+            return S.Hold(count);
+        });
+
+    // S258. The block makes an order with the comparer object, and no view.
+    public static Cell<int> ComparerObjectInAnOrderOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(
+                KeyOrder<int, ItemId, int>.By(
+                    selector: (_, state) => state,
+                    sortComparer: new ReadingComparer(l.Map(v => v)),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false));
+
+            return S.Hold(0);
+        });
+
+    // S259. A comparer from a function that samples the placeholder, in a sort that the block
+    // reads.
+    public static Cell<int> ComparerFromAFunctionInASort() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: Comparer<int>.Create((a, b) => a.CompareTo(b + l.Sample())),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    // S260. The same comparer, which the block only makes.
+    public static Cell<int> ComparerFromAFunctionOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(Comparer<int>.Create((a, b) => a.CompareTo(b + l.Sample())));
+            return S.Hold(0);
+        });
+
+    // S261. A helper makes the comparer from a function that samples the parameter of the helper.
+    public static Cell<int> ComparerFromAHelperInASort() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int count = TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: ComparerThatReads(l.Map(v => v)),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Sample().Count;
+
+            return S.Hold(count);
+        });
+
+    private static IComparer<int> ComparerThatReads(Cell<int> c) =>
+        Comparer<int>.Create((a, b) => a.CompareTo(b + c.Sample()));
+
+    // S262. A query of the platform gets the comparer object, and the block takes the first
+    // element.
+    public static Cell<int> ComparerObjectGivenToAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int first = new[] { 2, 1 }.OrderBy(keySelector: x => x, comparer: new ReadingComparer(l.Map(v => v))).First();
+            return S.Hold(first);
+        });
+
+    // S263. MinOrNone gets the comparer object.
+    public static Cell<int> ComparerObjectGivenToMinOrNone() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Maybe<int> min = new[] { 2, 1 }.MinOrNone(new ReadingComparer(l.Map(v => v)));
+            return S.Hold(min.Match(v => v, () => 0));
+        });
+
+    // S264. Only a callback makes the view with the comparer object and reads its keys.
+    public static Cell<int> ComparerObjectInASortInACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            ReadingComparer comparer = new(l.Map(v => v));
+
+            return S.Map(v =>
+                    v
+                    + TwoItems()
+                        .SortBy(
+                            selector: (_, state) => state,
+                            sortComparer: comparer,
+                            keyComparer: Comparer<int>.Default,
+                            isDescending: false)
+                        .KeysCell.Sample().Count)
+                .Hold(0);
+        });
+
+    // S265. The loop closes with the keys of a view that sorts with a comparer object, and Compare
+    // samples the placeholder.
+    public static Cell<int> CloseWithAViewSortedByAComparerObject() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+            TwoItems()
+                .SortBy(
+                    selector: (_, state) => state,
+                    sortComparer: new ReadingComparer(l),
+                    keyComparer: Comparer<int>.Default,
+                    isDescending: false)
+                .KeysCell.Map(keys => keys.Count));
+
+    // S266. A collection gets an equality comparer object for its keys. The methods of the
+    // comparer sample a pending member, and the block reads the keys.
+    public static Cell<int> EqualityComparerObjectInACollection() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            ReactiveCollection<int, ItemId, int> items =
+                ReactiveCollection.Create<int, ItemId, int>(
+                    keyEqualityComparer: new ReadingEquality(l.Map(v => v)),
+                    initialEntries: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
+                    Stream.Never<CollectionEdit<int, ItemId, int>>());
+
+            return S.Hold(items.KeysCell.Sample().Count);
+        });
+
+    // S267. The same collection, which the block only keeps.
+    public static Cell<int> EqualityComparerObjectInACollectionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(
+                ReactiveCollection.Create<int, ItemId, int>(
+                    keyEqualityComparer: new ReadingEquality(l.Map(v => v)),
+                    initialEntries: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
+                    Stream.Never<CollectionEdit<int, ItemId, int>>()));
+
+            return S.Hold(0);
+        });
+
+    // S268. Calm gets the equality comparer object, and compares at an update, which is after the
+    // close.
+    public static Cell<int> EqualityComparerObjectInCalm() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Plain.Calm(new ReadingEquality(l.Map(v => v))).Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S269. The key selector of a collection samples the placeholder, and the block reads the keys.
+    public static Cell<int> KeySelectorOfACollectionThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            ReactiveCollection<int, ItemId, int> items =
+                ReactiveCollection<int, ItemId, int>.Create(
+                    keySelector: id => id.Number + l.Sample(),
+                    initialItems: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
+                    Stream.Never<CollectionEdit<int, ItemId, int>>());
+
+            return S.Hold(items.KeysCell.Sample().Count);
+        });
+
+    // S270. The same collection, which the block only keeps.
+    public static Cell<int> KeySelectorOfACollectionThatReadsKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(
+                ReactiveCollection<int, ItemId, int>.Create(
+                    keySelector: id => id.Number + l.Sample(),
+                    initialItems: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
+                    Stream.Never<CollectionEdit<int, ItemId, int>>()));
+
+            return S.Hold(0);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2150,6 +2457,25 @@ public static class Shapes
     public sealed class PatternOuter(PatternRow inner)
     {
         public PatternRow Inner { get; } = inner;
+    }
+
+    public sealed class ReadingComparer(Cell<int> offset) : IComparer<int>
+    {
+        public int Compare(int x, int y) => x.CompareTo(y + offset.Sample());
+    }
+
+    public sealed class MixedComparer(Cell<int> unused, Cell<int> offset) : IComparer<int>
+    {
+        public Cell<int> Unused { get; } = unused;
+
+        public int Compare(int x, int y) => x.CompareTo(y + offset.Sample());
+    }
+
+    public sealed class ReadingEquality(Cell<int> offset) : IEqualityComparer<int>
+    {
+        public bool Equals(int x, int y) => x == y + offset.Sample() - offset.Sample();
+
+        public int GetHashCode(int value) => value + offset.Sample() - offset.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

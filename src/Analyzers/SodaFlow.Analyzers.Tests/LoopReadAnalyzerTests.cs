@@ -198,7 +198,20 @@ internal sealed class LoopReadAnalyzerTests
             ["PatternOnAPendingRowInAMethodOfAPlainRow"] = ["SF1004"],
             ["GetterInANegatedPattern"] = ["SF1005"],
             ["GetterInATypePattern"] = ["SF1005"],
-            ["GetterThroughAnInterfaceInAPattern"] = ["SF1005"]
+            ["GetterThroughAnInterfaceInAPattern"] = ["SF1005"],
+            ["ComparerObjectInASort"] = ["SF1001"],
+            ["ComparerObjectThroughTheInterface"] = ["SF1001"],
+            ["KeyComparerObjectWithATie"] = ["SF1001"],
+            ["SortByKeyWithAComparerObject"] = ["SF1001"],
+            ["OrderByKeyWithAComparerObject"] = ["SF1001"],
+            ["ThenByWithAComparerObjectAndATie"] = ["SF1001"],
+            ["ComparerFromAFunctionInASort"] = ["SF1001"],
+            ["ComparerFromAHelperInASort"] = ["SF1001"],
+            ["ComparerObjectGivenToAQuery"] = ["SF1005"],
+            ["ComparerObjectGivenToMinOrNone"] = ["SF1005"],
+            ["CloseWithAViewSortedByAComparerObject"] = ["SF1006"],
+            ["EqualityComparerObjectInACollection"] = ["SF1001"],
+            ["KeySelectorOfACollectionThatReads"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
