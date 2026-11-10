@@ -63,6 +63,29 @@ Equals or GetHashCode of yours fails that transaction and cancels nothing.
 Not changed: disposal. A status disposed with cancelOnDispose cancels as it did before, without waiting for a commit,
 because a transaction that fails does not undo a disposal.
 
+Fixed: a transaction that fails no longer cancels the run in flight of a SwitchLatest pipeline, or loses its result. A
+strategy's Admit runs in the transaction of the input stream, and SwitchLatest did two things there that are outside the
+graph: it canceled the run that the new value replaces, and it recorded the new value as its current run. When something
+later in that transaction threw, the value was not admitted, but the old run had lost its token, and the strategy held a
+value that the pipeline did not. The old run then ended as one that a newer run had replaced, and nothing was published
+for it, whether or not its operation honored the token. Two changes fix it. Cancel on a tracked item, which is how a
+strategy cancels, now waits for the commit when a transaction is open, as the cancellation streams do above, and a
+transaction that fails cancels nothing. That covers a custom strategy that cancels in Admit, OnCompleted, or OnCanceled.
+And SwitchLatest puts its own record back when the transaction fails.
+
+Three things follow from a cancel that waits. Inside the hook that asked for it, the item's token does not read as
+canceled yet. An exception from a callback registered on that token goes to handleException, because the transaction has
+committed by then: before, a send to a SwitchLatest pipeline threw it, and the new value was not admitted. And the
+pipeline now reads the token again when an operation is about to start, so an item canceled between its promotion and
+its start ends as canceled with no call to its operation. That keeps a strategy that cancels a value and starts it in
+one call from running anything, as before, and it also stops a call that used to be made with a token already canceled:
+a queued item that a cancellation stream ends in the same transaction that promotes it.
+
+Not changed: the state of a custom strategy. Admit can run for a value that is then not admitted, when the transaction
+fails after the call, and the pipeline calls no hook for that value afterwards. Whatever Admit changed in the state
+stays changed, as the remarks on OnCompleted already say of its second call. A strategy that records the incoming item
+cannot assume that the pipeline holds it.
+
 Changed: an Execute in a transaction whose body throws now cancels its Task and admits nothing. Execute defers its value
 into the post queue of the open transaction, with a release that cancels the Task. SodaFlow.Core 6.0.0 makes a throw
 from the body of a transaction fail that transaction, where it used to close it, so the post is discarded and the

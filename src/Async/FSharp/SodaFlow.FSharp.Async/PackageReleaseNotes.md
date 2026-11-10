@@ -29,6 +29,10 @@ package, and its notes have the details of each:
 - An Execute in a transaction that fails cancels its Task and admits nothing, however the transaction fails. Before, a
   throw from the body of the transaction still admitted the value, and so did a failure of a posted action that made the
   call.
+- A transaction that fails no longer cancels the run in flight of a SwitchLatest pipeline, or loses its result. Cancel
+  on a tracked item, which is how a strategy cancels, now takes effect once the transaction that called it has
+  committed, and SwitchLatest puts its own record back when the transaction fails. An exception from a callback
+  registered on the token of the replaced run goes to handleException, where a send to the pipeline used to throw it.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
