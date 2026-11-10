@@ -293,11 +293,13 @@ that parks a value in the queue forever without cancelling it. Nothing ends such
 completes its task. The documented way to refuse a value — cancel it in `Admit` and do not promote
 it — does complete the task, as a cancellation, and every built-in strategy completes it.
 
-A failing transaction is handled rather than excluded. When a transaction is open, `Execute` defers
-the value into that transaction's post queue, and a throw while that transaction *propagates*
-discards the queue — so the value never arrives. `Execute` registers a cancellation for exactly that
-case, so the task ends. A throw from a transaction's *body* is a different thing and needs no
-handling: the transaction still closes, the queue still drains, and the value is admitted normally.
+A failing transaction is handled rather than excluded. When a transaction is open, `Execute`
+defers the value into that transaction's post queue, and a transaction that fails discards the
+queue, so the value never arrives. It makes no difference how it fails: a throw from the
+transaction's body and a throw while it propagates end the same way. `Execute` registers a
+cancellation for exactly that case, so the task ends as canceled. The same holds one level down:
+if you call `Execute` from a posted action and that action's own transaction fails, the value is
+not admitted and the task is canceled.
 
 There is a second overload taking a `Cell<TInput>`, for when the value to run is whatever the cell
 holds at that moment — again, from inside an operation:

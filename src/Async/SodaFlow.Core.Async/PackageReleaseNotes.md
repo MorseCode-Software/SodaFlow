@@ -63,6 +63,13 @@ Equals or GetHashCode of yours fails that transaction and cancels nothing.
 Not changed: disposal. A status disposed with cancelOnDispose cancels as it did before, without waiting for a commit,
 because a transaction that fails does not undo a disposal.
 
+Changed: an Execute in a transaction whose body throws now cancels its Task and admits nothing. Execute defers its value
+into the post queue of the open transaction, with a release that cancels the Task. SodaFlow.Core 6.0.0 makes a throw
+from the body of a transaction fail that transaction, where it used to close it, so the post is discarded and the
+release runs, as they already did when a listener threw while the transaction propagated. The same now holds for an
+Execute inside a posted action whose own transaction fails, which the core used to let through. The 5.0.0 notes below
+say that a throw from the body still admits the value; that describes 5.0.0.
+
 Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
 that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
 exception, and that ends the process on .NET Framework when ThrowUnobservedTaskExceptions is on. Such an exception now
