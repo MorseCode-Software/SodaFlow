@@ -247,7 +247,7 @@ public static partial class BindableCoreExtensionMethods
             (bool value, TransactionOutcome outcome) = this.pending.Read();
 
             // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
-            if (!outcome.Committed && TransactionInternal.GetCurrentTransaction() != null)
+            if (!outcome.Known && TransactionInternal.GetCurrentTransaction() != null)
             {
                 TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
 
