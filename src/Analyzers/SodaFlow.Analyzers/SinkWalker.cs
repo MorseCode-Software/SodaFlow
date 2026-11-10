@@ -179,7 +179,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
-        LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
+        LoopState elements =
+            this.evaluator.ElementOf(
+                    collection: this.evaluator.Eval(node.Expression),
+                    type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
+                .Join(this.Enumerate(node));
 
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {

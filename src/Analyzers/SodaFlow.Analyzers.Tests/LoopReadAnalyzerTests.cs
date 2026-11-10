@@ -471,7 +471,12 @@ internal sealed class LoopReadAnalyzerTests
             ["HelperSetsAnArrayElement"] = ["SF1001"],
             ["ExtensionMethodAddsToItsReceiver"] = ["SF1001"],
             ["ConstructorAddsToAList"] = ["SF1001"],
-            ["HelperAddsThroughASecondHelper"] = ["SF1001"]
+            ["HelperAddsThroughASecondHelper"] = ["SF1001"],
+            ["ElementOfTheInnerList"] = ["SF1005"],
+            ["InnerListAsObjectThenElement"] = ["SF1005"],
+            ["ForeachInnerThenElement"] = ["SF1005"],
+            ["PileInAListAsObject"] = ["SF1005"],
+            ["ForeachPileAsObject"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

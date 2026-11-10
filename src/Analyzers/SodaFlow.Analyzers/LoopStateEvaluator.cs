@@ -416,7 +416,8 @@ internal sealed class LoopStateEvaluator
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
-                : this.Eval(e.Expression).AsElement.Join(this.TypeState(expression)),
+                : this.ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
+                    .Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
@@ -483,6 +484,20 @@ internal sealed class LoopStateEvaluator
 
         return LoopState.None.WithMembers(properties);
     }
+
+    /// <summary>
+    ///     The state of one element of a collection. An element is one of the
+    ///     objects that the collection contains. An element of a list of lists is
+    ///     a list, which contains them also. The type of the element tells the
+    ///     two apart: it is a sequence, and the objects that have the members
+    ///     cannot be a value of it.
+    /// </summary>
+    /// <param name="collection">The state of the collection.</param>
+    /// <param name="type">The type of the element.</param>
+    public LoopState ElementOf(LoopState collection, ITypeSymbol? type) =>
+        SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
+            ? collection
+            : collection.AsElement;
 
     private LoopState EvalName(ExpressionSyntax expression)
     {

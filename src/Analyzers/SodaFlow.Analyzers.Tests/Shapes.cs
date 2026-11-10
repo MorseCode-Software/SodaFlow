@@ -3846,6 +3846,38 @@ public static class Shapes
     public static Cell<int> HelperSetsAMemberOfAStructCopy() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue slot = new() { Share = Plain }; FillCopy(slot, l.Map(v => v)); int x = slot.Share!.Sample(); Kept.Add(x); return S.Hold(0); });
 
+    // S650. An element of a list of lists is a list. ToString of it is the one of the platform.
+    public static Cell<int> ListInAListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S651. The same for the variable of a foreach.
+    public static Cell<int> ForeachInnerListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; foreach (List<Titled> inner in outer) { object o = inner; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
+    // S652. The same for an array of arrays.
+    public static Cell<int> ArrayInAnArrayAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled[][] outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S653. An element of the inner list is one of the objects.
+    public static Cell<int> ElementOfTheInnerList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; Kept.Add(outer[0][0].ToString()); return S.Hold(0); });
+
+    // S654. The same after the inner list was a local of the type object.
+    public static Cell<int> InnerListAsObjectThenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(((List<Titled>)o)[0].ToString()); return S.Hold(0); });
+
+    // S655. The same through two foreach statements.
+    public static Cell<int> ForeachInnerThenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; foreach (List<Titled> inner in outer) { foreach (Titled n in inner) { Kept.Add(n.ToString()); } } return S.Hold(0); });
+
+    // S656. A sequence of the compilation in a list is one of the objects, and it has its own ToString.
+    public static Cell<int> PileInAListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> piles = [new TitledPile(l.Map(v => v))]; object o = piles[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S657. The same for the variable of a foreach.
+    public static Cell<int> ForeachPileAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> piles = [new TitledPile(l.Map(v => v))]; foreach (IEnumerable<int> pile in piles) { object o = pile; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
