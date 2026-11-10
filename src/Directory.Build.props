@@ -226,8 +226,13 @@
         and so a project that sets PackageReleaseNotes itself still wins.
     -->
     <!--
-        Dependencies between these packages are emitted with an upper bound, so that NuGet refuses
-        an incompatible pairing rather than a release note asking people not to create one.
+        Dependencies between these packages are emitted with an upper bound, so that an incompatible
+        pairing shows at restore and not only in a release note that asks people not to create one.
+        On its own, NuGet never picks a dependency past the bound. A project that asks for one
+        directly still gets it, with warning NU1608, which a build that treats warnings as errors
+        fails on. So the bound does not refuse the pairing; it makes it visible. Measured from the
+        MorseCode.Toolkit repository on 2026-11-10, with a stand-in package past the bound: NU1608
+        and the stand-in used, where the same restore with no bound gave no warning.
 
         Pack writes a ProjectReference dependency as a bare version, which NuGet reads as a
         minimum with no ceiling: SodaFlow 2.0.1 declared SodaFlow.Core >= 2.1.1, and would happily
