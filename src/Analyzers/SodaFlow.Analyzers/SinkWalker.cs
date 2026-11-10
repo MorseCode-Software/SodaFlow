@@ -128,7 +128,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     private void DeclarePattern(PatternSyntax pattern, LoopState state)
     {
-        if (state.IsNone)
+        // A getter that a pattern reads can read a field that the block set, on an object with no
+        // state of its own.
+        if (state.IsNone && !this.region.HasFields)
         {
             return;
         }
@@ -157,9 +159,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                         this.DeclarePattern(
                             pattern: part.Pattern,
-                            state: state.Members != null && name != null && this.region.SymbolOf(name) is { } member
-                                ? state.Members.StateOf(state.Members.Resolve(member)).FromIfUnknown(state.Origin)
-                                : state);
+                            state: name == null ? state : this.ReadPatternMember(name: name, owner: state));
                     }
 
                     foreach (SubpatternSyntax part in recursive.PositionalPatternClause?.Subpatterns ?? default)
@@ -200,6 +200,54 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
     }
+
+    /// <summary>
+    ///     The state of the member that a part of a property pattern names, on a
+    ///     value with the given state. The pattern reads the member as a member
+    ///     access does, thus the walk checks that read here.
+    /// </summary>
+    private LoopState ReadPatternMember(ExpressionSyntax name, LoopState owner)
+    {
+        // A name such as Inner.Now reads a member of a member.
+        if (name is MemberAccessExpressionSyntax chain)
+        {
+            owner = this.ReadPatternMember(name: chain.Expression, owner: owner);
+            name = chain.Name;
+        }
+
+        if (this.region.SymbolOf(name) is not { } member)
+        {
+            return owner;
+        }
+
+        if (member is IPropertySymbol property)
+        {
+            if (this.region.Symbols.IsSodaFlow(property))
+            {
+                if (SodaFlowSymbols.ReadMembers.Contains(property.Name))
+                {
+                    this.CheckRead(node: name, state: owner, name: property.Name);
+
+                    return owner.Content;
+                }
+            }
+            else if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
+                     && this.evaluator.FollowPatternMember(name: name, owner: owner) is { } getter)
+            {
+                this.Report(getter);
+
+                return getter.State;
+            }
+        }
+
+        return owner.Members != null
+            ? owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin)
+            : owner;
+    }
+
+    // The name of a part of a property pattern is a member of the value that the pattern is for.
+    // It is not code of its own. ReadPatternMember checks the read that it is.
+    public override void VisitSubpattern(SubpatternSyntax node) => this.Visit(node.Pattern);
 
     private void DeclareDesignation(SyntaxNode? designation, LoopState state)
     {
@@ -762,10 +810,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     /// <summary>A member that reads the current value of its owner.</summary>
-    private void CheckRead(SyntaxNode node, ExpressionSyntax owner, string name)
-    {
-        LoopState state = this.evaluator.Eval(owner);
+    private void CheckRead(SyntaxNode node, ExpressionSyntax owner, string name) =>
+        this.CheckRead(node: node, state: this.evaluator.Eval(owner), name: name);
 
+    /// <summary>A member that reads the current value of an owner with the given state.</summary>
+    private void CheckRead(SyntaxNode node, LoopState state, string name)
+    {
         if (!state.Pending)
         {
             return;

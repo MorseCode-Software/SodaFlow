@@ -1396,7 +1396,9 @@ internal sealed class LoopStateEvaluator
 
         if (SodaFlowSymbols.IsLazyValue(written))
         {
-            return owner == null ? null : this.FollowLazy(access: access, owner: owner, value: written.Type);
+            return owner == null
+                ? null
+                : this.FollowLazy(access: access, written: owner, lazy: this.Eval(owner), value: written.Type);
         }
 
         // A property that the code reads through an interface is the property of the object.
@@ -1423,6 +1425,53 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The read of a property that a property pattern names, on a value with
+    ///     the given state. A pattern has no expression for the owner of the
+    ///     property, thus the walk gives the state of the owner.
+    /// </summary>
+    /// <param name="name">The name of the property in the pattern.</param>
+    /// <param name="owner">The state of the value that the pattern is for.</param>
+    public Followed? FollowPatternMember(ExpressionSyntax name, LoopState owner)
+    {
+        if (this.followed.TryGetValue(key: name, value: out Followed? known))
+        {
+            return known;
+        }
+
+        Followed? result =
+            this.region.SymbolOf(name) is IPropertySymbol written && !this.region.Symbols.IsSodaFlow(written)
+                ? this.FollowGetterOn(access: name, written: written, owner: owner)
+                : null;
+
+        this.followed[name] = result;
+
+        return result;
+    }
+
+    private Followed? FollowGetterOn(ExpressionSyntax access, IPropertySymbol written, LoopState owner)
+    {
+        if (SodaFlowSymbols.IsLazyValue(written))
+        {
+            return this.FollowLazy(access: access, written: access, lazy: owner, value: written.Type);
+        }
+
+        // A property that the pattern reads through an interface is the property of the object.
+        IPropertySymbol property = owner.Members?.Resolve(written) as IPropertySymbol ?? written;
+
+        return property.IsStatic || GetterOf(property.OriginalDefinition) is not { } body
+            ? null
+            : this.Enter(
+                call: access,
+                name: property.Name,
+                body: body,
+                bindings: [],
+                definer: null,
+                members: TaggedMembers(owner),
+                receiver: owner,
+                target: null);
+    }
+
+    /// <summary>
     ///     The read of <c>Value</c> of a <c>Lazy</c>, which runs the functions
     ///     that the <c>Lazy</c> has. The result is null when it has no function
     ///     that the evaluator can read.
@@ -1433,12 +1482,11 @@ internal sealed class LoopStateEvaluator
     ///     gives each parameter the result of the first walk also.
     /// </remarks>
     /// <param name="access">The read of the property.</param>
-    /// <param name="owner">The <c>Lazy</c>.</param>
+    /// <param name="written">The expression that names the <c>Lazy</c>, for a report.</param>
+    /// <param name="lazy">The state of the <c>Lazy</c>.</param>
     /// <param name="value">The type of the value.</param>
-    private Followed? FollowLazy(SyntaxNode access, ExpressionSyntax owner, ITypeSymbol value)
+    private Followed? FollowLazy(SyntaxNode access, ExpressionSyntax written, LoopState lazy, ITypeSymbol value)
     {
-        LoopState lazy = this.Eval(owner);
-
         // A Lazy of a delegate can hold a function as its value. The read gives that function,
         // and does not run it. A function that makes such a value returns a delegate.
         ImmutableArray<FunctionValue> makers =
@@ -1478,11 +1526,11 @@ internal sealed class LoopStateEvaluator
                         first: all,
                         second: this.FollowFunction(
                             call: access,
-                            name: NameOf(owner),
+                            name: NameOf(written),
                             function: function,
                             target: lazy,
                             arguments: default,
-                            each: (owner, given))));
+                            each: (written, given))));
     }
 
     private bool ReturnsDelegate(FunctionValue function) =>

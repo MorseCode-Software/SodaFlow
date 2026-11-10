@@ -186,7 +186,19 @@ internal sealed class LoopReadAnalyzerTests
             ["OrderFromAHelper"] = ["SF1001"],
             ["OrderOfALocalFunction"] = ["SF1001"],
             ["OrderCellMappedToAnOrderThatReads"] = ["SF1001"],
-            ["CloseWithAViewSortedByAnOrderCell"] = ["SF1006"]
+            ["CloseWithAViewSortedByAnOrderCell"] = ["SF1006"],
+            ["GetterInAPropertyPattern"] = ["SF1005"],
+            ["LazyValueInAPropertyPattern"] = ["SF1001"],
+            ["BindableValueInAPropertyPattern"] = ["SF1001"],
+            ["GetterInASwitchStatement"] = ["SF1005"],
+            ["GetterInASwitchExpression"] = ["SF1005"],
+            ["GetterInANestedPattern"] = ["SF1005"],
+            ["GetterInAnExtendedPattern"] = ["SF1005"],
+            ["GetterInAPatternInAHelper"] = ["SF1004"],
+            ["PatternOnAPendingRowInAMethodOfAPlainRow"] = ["SF1004"],
+            ["GetterInANegatedPattern"] = ["SF1005"],
+            ["GetterInATypePattern"] = ["SF1005"],
+            ["GetterThroughAnInterfaceInAPattern"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

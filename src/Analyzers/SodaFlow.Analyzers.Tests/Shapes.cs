@@ -1826,6 +1826,123 @@ public static class Shapes
             return Items().SortBy(orderCell: Cell.Constant(order)).KeysCell.Map(keys => keys.Count);
         });
 
+    // S232. A property pattern reads a getter that samples a pending member.
+    public static Cell<int> GetterInAPropertyPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(row is { Now: > 0 } ? 1 : 0); });
+
+    // S233. The same pattern on a row with a plain member.
+    public static Cell<int> GetterOfAPlainRowInAPropertyPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternRow row = new(Plain);
+            return S.Snapshot(l, (a, b) => a + b).Hold(row is { Now: > 0 } ? 1 : 0);
+        });
+
+    // S234. The same pattern in a callback.
+    public static Cell<int> GetterInAPropertyPatternInACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Map(v => row is { Now: > 0 } ? v : 0).Hold(0); });
+
+    // S235. A property pattern reads the value of a Lazy whose function samples the placeholder.
+    public static Cell<int> LazyValueInAPropertyPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => l.Sample()); return S.Hold(lazy is { Value: > 0 } ? 1 : 0); });
+
+    // S236. A property pattern reads the value of a bindable built from the placeholder.
+    public static Cell<int> BindableValueInAPropertyPattern(SodaFlow.Bindable.ObjectModel.IBindableFactory factory) =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = factory.CreateOneWay(l);
+            return S.Hold(b is { Value: > 0 } ? 1 : 0);
+        });
+
+    // S237. The pattern is a label of a switch statement.
+    public static Cell<int> GetterInASwitchStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternRow row = new(l.Map(v => v));
+            int x;
+
+            switch (row)
+            {
+                case { Now: > 0 }:
+                    x = 1;
+                    break;
+                default:
+                    x = 0;
+                    break;
+            }
+
+            return S.Hold(x);
+        });
+
+    // S238. The pattern is an arm of a switch expression.
+    public static Cell<int> GetterInASwitchExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(row switch { { Now: > 0 } => 1, _ => 0 }); });
+
+    // S239. The pattern reads a getter of a member of the object.
+    public static Cell<int> GetterInANestedPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternOuter outer = new(new PatternRow(l.Map(v => v)));
+            return S.Hold(outer is { Inner: { Now: > 0 } } ? 1 : 0);
+        });
+
+    // S240. The same read, with the two names in one part of the pattern.
+    public static Cell<int> GetterInAnExtendedPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternOuter outer = new(new PatternRow(l.Map(v => v)));
+            return S.Hold(outer is { Inner.Now: > 0 } ? 1 : 0);
+        });
+
+    // S241. The nested pattern on an object whose member has a plain cell.
+    public static Cell<int> GetterInANestedPatternOfAPlainRow() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternOuter outer = new(new PatternRow(Plain));
+            return S.Snapshot(l, (a, b) => a + b).Hold(outer is { Inner: { Now: > 0 } } ? 1 : 0);
+        });
+
+    // S242. A helper has the pattern.
+    public static Cell<int> GetterInAPatternInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(NowIsBig(row) ? 1 : 0); });
+
+    private static bool NowIsBig(PatternRow row) => row is { Now: > 0 };
+
+    // S243. A method of a row with a pending member has a pattern on a different row, which is
+    // plain. The name in the pattern is not a member of the row that the method is in.
+    public static Cell<int> PatternOnAPlainRowInAMethodOfAPendingRow() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternRow mine = new(l.Map(v => v));
+            bool big = mine.OtherIsBig(new PatternRow(Plain));
+            return S.Snapshot(l, (a, b) => a + b).Hold(big ? 1 : 0);
+        });
+
+    // S244. The same method with the two rows exchanged.
+    public static Cell<int> PatternOnAPendingRowInAMethodOfAPlainRow() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            PatternRow mine = new(Plain);
+            bool big = mine.OtherIsBig(new PatternRow(l.Map(v => v)));
+            return S.Hold(big ? 1 : 0);
+        });
+
+    // S245. The pattern has a not.
+    public static Cell<int> GetterInANegatedPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(row is not { Now: 0 } ? 1 : 0); });
+
+    // S246. The pattern has a type.
+    public static Cell<int> GetterInATypePattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object row = new PatternRow(l.Map(v => v)); return S.Hold(row is PatternRow { Now: > 0 } ? 1 : 0); });
+
+    // S247. The pattern reads the getter through an interface.
+    public static Cell<int> GetterThroughAnInterfaceInAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IPatternRow row = new PatternRow(l.Map(v => v)); return S.Hold(row is { Now: > 0 } ? 1 : 0); });
+
+    // S248. The pattern reads a member that holds a pending cell, and nothing samples the cell.
+    public static Cell<int> MemberInAPatternNotSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l.Map(v => v)); return S.Hold(row is { Share: not null } ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2014,6 +2131,25 @@ public static class Shapes
         }
 
         public int Now => this.now.Value;
+    }
+
+    public interface IPatternRow
+    {
+        int Now { get; }
+    }
+
+    public sealed class PatternRow(Cell<int> share) : IPatternRow
+    {
+        public Cell<int> Share { get; } = share;
+
+        public int Now => this.Share.Sample();
+
+        public bool OtherIsBig(PatternRow other) => other is { Now: > 0 };
+    }
+
+    public sealed class PatternOuter(PatternRow inner)
+    {
+        public PatternRow Inner { get; } = inner;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
