@@ -134,7 +134,13 @@ internal sealed class LoopReadAnalyzerTests
             ["LinqLambdaParameter"] = ["SF1001"],
             ["FirstOfPendingList"] = ["SF1001"],
             ["DictionaryTryGetValue"] = ["SF1001"],
-            ["MemberAssignedInTheBlock"] = ["SF1001"]
+            ["MemberAssignedInTheBlock"] = ["SF1001"],
+            ["MaybeMatchRunsItsFunction"] = ["SF1001"],
+            ["MaybeOfPendingCellMatched"] = ["SF1001"],
+            ["FoldSelectReads"] = ["SF1001"],
+            ["FunctionWrapperCalled"] = ["SF1001"],
+            ["LocalFunctionGivenToAQuery"] = ["SF1004"],
+            ["QueryResultOfALambda"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

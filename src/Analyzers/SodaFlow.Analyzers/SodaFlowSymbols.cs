@@ -14,8 +14,9 @@ namespace SodaFlow.Analyzers;
 internal sealed class SodaFlowSymbols
 {
     /// <summary>
-    ///     The names of the assemblies of the library. These are the projects of
-    ///     the solution that make a package, and a test holds this list to the
+    ///     The names of the assemblies of the library: the ones that build the
+    ///     graph. With <see cref="PackagesWithNoGraph" />, these are the projects of
+    ///     the solution that make a package, and a test holds the two lists to the
     ///     solution.
     /// </summary>
     /// <remarks>
@@ -38,8 +39,16 @@ internal sealed class SodaFlowSymbols
             "SodaFlow.FSharp",
             "SodaFlow.FSharp.Async",
             "SodaFlow.FSharp.Bindable.ObjectModel",
-            "SodaFlow.FSharp.Collections",
-            "SodaFlow.Functional");
+            "SodaFlow.FSharp.Collections");
+
+    /// <summary>
+    ///     The packages of the solution that build no graph and do not reference
+    ///     one that does. <c>SodaFlow.Functional</c> has <c>Maybe</c>, <c>Either</c>,
+    ///     and helpers for sequences. It runs each function in the call, as a query
+    ///     of the platform does. The analyzer reads a call to it as such a call.
+    /// </summary>
+    public static readonly ImmutableHashSet<string> PackagesWithNoGraph =
+        ImmutableHashSet.Create(StringComparer.Ordinal, "SodaFlow.Functional");
 
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
         ImmutableHashSet.Create("LoopedCell", "LoopedBehavior");
@@ -247,6 +256,5 @@ internal sealed class SodaFlowSymbols
             or "BehaviorSink"
             or "LoopedBehavior";
 
-    private static bool IsListenerName(string name) =>
-        name is "IListener" or "IStrongListener" or "IWeakListener" or "Unit" or "Maybe" or "Either";
+    private static bool IsListenerName(string name) => name is "IListener" or "IStrongListener" or "IWeakListener";
 }

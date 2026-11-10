@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -221,6 +222,94 @@ internal static class OperatorTable
             "CreateBindableAction",
             "CreateOneWay",
             "CreateTwoWay");
+
+    /// <summary>
+    ///     The library methods that run a function in the call, before the loop
+    ///     closes. Each has the names of the parameters whose function it runs. An
+    ///     empty set is all of them.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Fold</c> and <c>FoldByIdentity</c> of a collection run <c>select</c>
+    ///     and <c>add</c> over the items that the collection has at construction.
+    ///     They keep <c>subtract</c> for an edit after the close.
+    /// </remarks>
+    private static readonly ImmutableDictionary<string, ImmutableHashSet<string>> RunsInTheCall =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Run", value: ImmutableHashSet<string>.Empty)
+            .Add(key: "RunVoid", value: ImmutableHashSet<string>.Empty)
+            .Add(key: "WithCaptures", value: ImmutableHashSet<string>.Empty)
+            .Add(key: "WithoutCaptures", value: ImmutableHashSet<string>.Empty)
+            .Add(key: "Fold", value: ImmutableHashSet.Create("select", "add"))
+            .Add(key: "FoldByIdentity", value: ImmutableHashSet.Create("select", "add"));
+
+    /// <summary>The names of the methods that run a function in the call.</summary>
+    public static ImmutableHashSet<string> FunctionsInTheCall { get; } = RunsInTheCall.Keys.ToImmutableHashSet();
+
+    /// <summary>
+    ///     The public methods that have a function parameter and keep the
+    ///     function for a firing, an edit, or a read after the call. A read in such
+    ///     a function is not a read in the block.
+    /// </summary>
+    /// <remarks>
+    ///     The completeness test in the analyzer's tests holds the two lists to
+    ///     the public methods of the library with a delegate parameter. A run of
+    ///     each method with a function that samples a loop is the source of this
+    ///     list.
+    ///     The exceptions are <c>Debounce</c>, <c>MapAsync</c>, <c>OnStart</c>,
+    ///     <c>SetTimer</c>, and <c>Start</c>, whose documentation is the source.
+    /// </remarks>
+    public static readonly ImmutableHashSet<string> FunctionsAfterTheCall =
+        ImmutableHashSet.Create(
+            "Accum",
+            "AccumLazy",
+            "By",
+            "ByDescending",
+            "ByIdentity",
+            "ByIdentityDescending",
+            "Calm",
+            "Choose",
+            "Collect",
+            "CollectLazy",
+            "Create",
+            "CreateSink",
+            "CreateStreamSink",
+            "Debounce",
+            "Defer",
+            "Filter",
+            "FilterByIdentity",
+            "Lift",
+            "Listen",
+            "ListenOnce",
+            "ListenOnceStrong",
+            "ListenStrong",
+            "Map",
+            "MapAsync",
+            "Merge",
+            "OnStart",
+            "Post",
+            "SetTimer",
+            "Snapshot",
+            "SnapshotLatest",
+            "SortBy",
+            "SortByDescending",
+            "SortByIdentity",
+            "SortByIdentityDescending",
+            "Start",
+            "ThenBy",
+            "ThenByDescending",
+            "ThenByIdentity",
+            "ThenByIdentityDescending",
+            "Update");
+
+    /// <summary>
+    ///     True when a library method runs, in the call, the function that it
+    ///     gets for the given parameter.
+    /// </summary>
+    public static bool RunsFunction(IMethodSymbol method, IParameterSymbol? parameter) =>
+        RunsInTheCall.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? named)
+        && (named.IsEmpty || (parameter != null && named.Contains(parameter.Name)));
 
     /// <summary>
     ///     The rule for a library method, by its name and the type of its

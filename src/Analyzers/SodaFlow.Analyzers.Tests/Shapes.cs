@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SodaFlow;
 using SodaFlow.Collections;
+using SodaFlow.Functional;
 
 namespace SodaFlow.Analyzers.Shapes;
 
@@ -1132,6 +1133,89 @@ public static class Shapes
             row.Other = Plain;
             int x = row.Other.Sample();
             return S.Snapshot(row.Share, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S146. Match of a Maybe runs its function in the call.
+    public static Cell<int> MaybeMatchRunsItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Maybe.Some(1).Match(onSome: v => l.Sample() + v, onNone: () => 0);
+            return S.Hold(x);
+        });
+
+    // S147. A Maybe of a pending cell. The function of Match gets that cell and samples it.
+    public static Cell<int> MaybeOfPendingCellMatched() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Maybe.Some(l.Map(v => v)).Match(onSome: c => c.Sample(), onNone: () => 0);
+            return S.Hold(x);
+        });
+
+    // S148. A Maybe of a plain cell, with the same Match.
+    public static Cell<int> MaybeOfPlainCellMatched() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Maybe.Some(Plain).Match(onSome: c => c.Sample(), onNone: () => 0);
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S149. Fold of a collection runs select over the items that it has at construction.
+    public static Cell<int> FoldSelectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+            Items().Fold(select: (_, state) => state + l.Sample(), zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b));
+
+    // S150. The same Fold keeps subtract for an edit after the close.
+    public static Cell<int> FoldSubtractReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+            Items().Fold(select: (_, state) => state, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b - l.Sample()));
+
+    // S151. A Lazy keeps its function. The code forces it after the block.
+    public static int LazyForcedAfter()
+    {
+        (Cell<int> _, Lazy<int> lazy) =
+            Cell.Loop<int>().WithCaptures(l =>
+            {
+                Lazy<int> later = new(() => l.Sample());
+                return (Cell: S.Hold(1), Captures: later);
+            });
+
+        return lazy.Value;
+    }
+
+    // S152. ToFunc gives back the function that it gets. The block calls the result.
+    public static Cell<int> FunctionWrapperCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Action read = () => { int x = l.Sample(); };
+            read.ToFunc()();
+            return S.Hold(0);
+        });
+
+    // S153. The same wrapper, which the block only keeps.
+    public static Cell<int> FunctionWrapperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Action read = () => { int x = l.Sample(); };
+            Kept.Add(read.ToFunc());
+            return S.Hold(0);
+        });
+
+    // S154. A local function given to a query, which runs it with an element derived from the loop.
+    public static Cell<int> LocalFunctionGivenToAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new[] { l.Map(v => v) }.Select(Read).First();
+            return S.Hold(x);
+
+            int Read(Cell<int> c) => c.Sample();
+        });
+
+    // S155. A query whose lambda gives a pending cell. The block samples the first result.
+    public static Cell<int> QueryResultOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new[] { 1 }.Select(_ => l.Map(v => v)).First().Sample();
+            return S.Hold(x);
         });
 
     public sealed class Scene(Stream<int> restarts)

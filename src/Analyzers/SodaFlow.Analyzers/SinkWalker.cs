@@ -338,20 +338,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         CalleeKind kind = this.evaluator.Classify(call: node, method: method);
         Followed? followed = this.evaluator.Follow(node);
 
+        // A lambda written at the call is code that the walk reads here when the callee runs it
+        // in the call.
+        bool Runs(ArgumentSyntax argument, int position) =>
+            this.evaluator.RunsFunction(
+                kind: kind,
+                method: method,
+                parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
+
         switch (kind)
         {
             // An operator keeps its function for a firing after the close, but for the few that
             // run it in the block.
             case CalleeKind.Library:
-                this.VisitArguments(
-                    arguments: arguments,
-                    runsLambdas: LoopStateEvaluator.RunsNow(symbols: symbols, method: method),
-                    given: LoopState.None);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
 
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
             case CalleeKind.Body:
-                this.VisitArguments(arguments: arguments, runsLambdas: false, given: LoopState.None);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
                 this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
 
                 break;
@@ -361,10 +366,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 LoopState moved = this.evaluator.Moved(invocation: node, method: method, withReceiver: true);
 
-                this.VisitArguments(
-                    arguments: arguments,
-                    runsLambdas: !RunsOnAnotherThread(method.ContainingType),
-                    given: moved);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: moved);
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
@@ -380,10 +382,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // The analyzer cannot see a pending value that goes to this callee.
             default:
             {
-                this.VisitArguments(
-                    arguments: arguments,
-                    runsLambdas: !RunsOnAnotherThread(method.ContainingType),
-                    given: LoopState.None);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 
@@ -441,13 +440,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         CalleeKind kind = this.evaluator.Classify(call: node, method: constructor);
 
+        // A constructor gets a lambda as a value. The body says what runs it, when the evaluator
+        // follows the body. A constructor of code that the analyzer cannot read keeps it for a
+        // time after the call.
         if (arguments != null)
         {
-            this.VisitArguments(
-                arguments: arguments.Arguments,
-                runsLambdas: kind is CalleeKind.Mover or CalleeKind.Unknown
-                             && !RunsOnAnotherThread(constructor.ContainingType),
-                given: LoopState.None);
+            this.VisitArguments(arguments: arguments.Arguments, runs: static (_, _) => false, given: LoopState.None);
         }
 
         this.Visit(initializer);
@@ -464,15 +462,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     walk reads here only when the callee runs it in the call.
     /// </summary>
     /// <param name="arguments">The arguments.</param>
-    /// <param name="runsLambdas">True when the callee runs a lambda in the call.</param>
+    /// <param name="runs">
+    ///     True when the callee runs, in the call, the function that it gets for
+    ///     the argument at the position.
+    /// </param>
     /// <param name="given">
     ///     The state of the values that the callee can give to a lambda, which
     ///     each parameter of the lambda then has.
     /// </param>
-    private void VisitArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, bool runsLambdas, LoopState given)
+    private void VisitArguments(
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        Func<ArgumentSyntax, int, bool> runs,
+        LoopState given)
     {
-        foreach (ArgumentSyntax argument in arguments)
+        for (int i = 0; i < arguments.Count; i++)
         {
+            ArgumentSyntax argument = arguments[i];
+
             if (argument.Expression is not AnonymousFunctionExpressionSyntax lambda)
             {
                 this.Visit(argument);
@@ -480,7 +486,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 continue;
             }
 
-            if (!runsLambdas || !this.entered.Add(lambda))
+            if (!runs(arg1: argument, arg2: i) || !this.entered.Add(lambda))
             {
                 continue;
             }
@@ -541,14 +547,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.AssignState(target: arguments[i].Expression, state: state);
         }
     }
-
-    /// <summary>
-    ///     A type whose lambdas run on a different thread or after the block, so
-    ///     not in the block.
-    /// </summary>
-    private static bool RunsOnAnotherThread(ISymbol type) =>
-        type.ContainingNamespace?.ToDisplayString() is "System.Threading" or "System.Threading.Tasks"
-        && type.Name is "Thread" or "Task" or "TaskFactory" or "ThreadPool" or "Timer" or "SynchronizationContext";
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {

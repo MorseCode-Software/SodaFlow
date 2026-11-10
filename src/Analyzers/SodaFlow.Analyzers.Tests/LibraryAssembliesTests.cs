@@ -70,13 +70,20 @@ internal sealed class LibraryAssembliesTests
 
         await Assert.That(packaged).IsNotEmpty();
 
-        await Assert.That(packaged.Except(SodaFlowSymbols.LibraryAssemblyNames))
-            .IsEmpty()
-            .Because("each project that makes a package is an assembly of the library");
+        IReadOnlyCollection<string> listed =
+            SodaFlowSymbols.LibraryAssemblyNames.Union(SodaFlowSymbols.PackagesWithNoGraph);
 
-        await Assert.That(SodaFlowSymbols.LibraryAssemblyNames.Except(packaged))
+        await Assert.That(packaged.Except(listed))
             .IsEmpty()
-            .Because("each name in the list is a project that makes a package");
+            .Because("each project that makes a package is in one of the two lists");
+
+        await Assert.That(listed.Except(packaged))
+            .IsEmpty()
+            .Because("each name in the two lists is a project that makes a package");
+
+        await Assert.That(SodaFlowSymbols.LibraryAssemblyNames.Intersect(SodaFlowSymbols.PackagesWithNoGraph))
+            .IsEmpty()
+            .Because("a package builds the graph or does not");
     }
 
     [Test]

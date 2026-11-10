@@ -405,18 +405,28 @@ internal sealed class LoopStateEvaluator
 
         LoopState receiverState = this.Eval(receiver);
         ITypeSymbol? receiverType = receiver == null ? null : model.GetTypeInfo(receiver).Type;
-        bool runsNow = RunsNow(symbols: this.region.Symbols, method: method);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
 
         List<LoopState> argumentStates = [];
         List<ITypeSymbol?> argumentTypes = [];
 
         // In a static call of an extension method, the receiver is one of the arguments. It is not
         // also an argument of the operator.
-        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments.Where(argument =>
-                     argument.Expression != receiver))
+        for (int i = 0; i < arguments.Count; i++)
         {
-            argumentStates.Add(this.EvalArgument(argument: argument.Expression, runsNow: runsNow));
-            argumentTypes.Add(model.GetTypeInfo(argument.Expression).Type);
+            if (arguments[i].Expression == receiver)
+            {
+                continue;
+            }
+
+            argumentStates.Add(
+                this.EvalArgument(
+                    argument: arguments[i].Expression,
+                    runsNow: OperatorTable.RunsFunction(
+                        method: method,
+                        parameter: ParameterFor(method: method, argument: arguments[i], position: i))));
+
+            argumentTypes.Add(model.GetTypeInfo(arguments[i].Expression).Type);
         }
 
         LoopState inputs = argumentStates.Aggregate(seed: receiverState, func: static (a, b) => a.Join(b));
@@ -652,12 +662,17 @@ internal sealed class LoopStateEvaluator
     {
         LoopState moved = seed;
 
+        // A callee that returns a delegate gives back the function that it got, as a wrapper
+        // does. Then, the function is a value that it moves.
+        bool givesBackFunctions = definition.ReturnType.TypeKind == TypeKind.Delegate;
+
         for (int i = 0; i < arguments.Count; i++)
         {
             // A function for a delegate parameter is code for the callee to run, and not a value
             // that it moves.
-            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
-                is not { Type.TypeKind: TypeKind.Delegate })
+            if (givesBackFunctions
+                || SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                    is not { Type.TypeKind: TypeKind.Delegate })
             {
                 moved = moved.Join(this.Eval(arguments[i].Expression));
             }
@@ -668,12 +683,90 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>
     ///     The result of a call to code that cannot know the library, where the
-    ///     type of the result can hold a state.
+    ///     type of the result can hold a state. The result has the state of the
+    ///     values that the callee got, and of what a lambda that it runs returns.
     /// </summary>
-    private LoopState MovedResult(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
-        this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
-            ? this.Moved(invocation: invocation, method: method, withReceiver: true)
-            : LoopState.None;
+    private LoopState MovedResult(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly))
+        {
+            return LoopState.None;
+        }
+
+        LoopState moved = this.Moved(invocation: invocation, method: method, withReceiver: true);
+        LoopState result = moved;
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].Expression is AnonymousFunctionExpressionSyntax lambda
+                && this.RunsFunction(
+                    kind: CalleeKind.Mover,
+                    method: method,
+                    parameter: ParameterFor(method: method, argument: arguments[i], position: i)))
+            {
+                result =
+                    result.Join(
+                        this.EvalLambdaResult(
+                            lambda: lambda,
+                            boundParameters: ParametersOf(lambda).Select(_ => moved).ToImmutableArray()));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     True when the callee runs, in the call, the function that it gets for
+    ///     the given parameter.
+    /// </summary>
+    /// <remarks>
+    ///     A library method says so in <see cref="OperatorTable" />. A callee
+    ///     whose body the evaluator follows gets the function as a value, and the
+    ///     body says what runs. For code that the analyzer cannot read, only the
+    ///     call itself can tell. A constructor keeps a function for a time
+    ///     after the call, as <c>Lazy</c> and a command object do. A method runs a
+    ///     function given for a delegate parameter. It does not when it returns a
+    ///     delegate or a <c>Lazy</c>, which then has the function. A function given
+    ///     for a parameter of a different type, as to <c>Add</c> of a list, is a
+    ///     value that the callee keeps.
+    /// </remarks>
+    public bool RunsFunction(CalleeKind kind, IMethodSymbol method, IParameterSymbol? parameter) =>
+        kind switch
+        {
+            CalleeKind.Library => OperatorTable.RunsFunction(method: method, parameter: parameter),
+            CalleeKind.Body => false,
+            _ => method.MethodKind != MethodKind.Constructor
+                 && parameter is { Type.TypeKind: TypeKind.Delegate }
+                 && method.ReturnType.TypeKind != TypeKind.Delegate
+                 && method.ReturnType.OriginalDefinition is not INamedTypeSymbol
+                 {
+                     Name: "Lazy",
+                     ContainingNamespace.Name: "System"
+                 }
+                 && !RunsOnAnotherThread(method.ContainingType)
+        };
+
+    /// <summary>
+    ///     The parameter that gets an argument of a call. It is a parameter of the
+    ///     definition of the callee, which has the types that the callee itself
+    ///     knows. For a call of a delegate, it is a parameter of that delegate.
+    /// </summary>
+    public static IParameterSymbol? ParameterFor(IMethodSymbol method, ArgumentSyntax argument, int position) =>
+        method.MethodKind == MethodKind.DelegateInvoke
+            ? SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)
+            : SodaFlowSymbols.ParameterOf(
+                callee: (method.ReducedFrom ?? method).OriginalDefinition,
+                argument: argument,
+                position: position + (method.ReducedFrom != null ? 1 : 0));
+
+    /// <summary>
+    ///     A type whose lambdas run on a different thread or after the block, so
+    ///     not in the block.
+    /// </summary>
+    private static bool RunsOnAnotherThread(ISymbol? type) =>
+        type?.ContainingNamespace?.ToDisplayString() is "System.Threading" or "System.Threading.Tasks"
+        && type.Name is "Thread" or "Task" or "TaskFactory" or "ThreadPool" or "Timer" or "SynchronizationContext";
 
     /// <summary>
     ///     The state of an object from a constructor of code that cannot know the
@@ -727,36 +820,11 @@ internal sealed class LoopStateEvaluator
                     arguments: arguments);
         }
 
-        if (this.region.Symbols.IsSodaFlow(method))
-        {
-            if (!RunsNow(symbols: this.region.Symbols, method: method))
-            {
-                return null;
-            }
-
-            // The walk reads a lambda written at the call where it is. Each other function gets a
-            // frame, as a call of it does.
-            LoopState functions =
-                this.JoinAll(
-                    arguments
-                        .Select(static argument => argument.Expression)
-                        .Where(static argument => argument is not AnonymousFunctionExpressionSyntax));
-
-            return functions.Functions.IsEmpty
-                ? null
-                : this.FollowFunctions(
-                    call: invocation,
-                    name: method.Name,
-                    functions: functions.Functions,
-                    target: functions,
-                    arguments: default);
-        }
-
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        if (BodyOf(definition) is not { } body)
+        if (this.region.Symbols.IsSodaFlow(method) || BodyOf(definition) is not { } body)
         {
-            return null;
+            return this.FollowGivenFunctions(invocation: invocation, method: method);
         }
 
         ExpressionSyntax? receiver =
@@ -797,6 +865,78 @@ internal sealed class LoopStateEvaluator
             target: null);
     }
 
+    /// <summary>
+    ///     A call to code with no body to read that runs a function in the call.
+    ///     The walk reads a lambda written at the call where it is. Each other
+    ///     function, such as a local function or a lambda in a local, gets a frame
+    ///     as a call of it does. Each parameter of that function has the state of
+    ///     the values that the callee can give it.
+    /// </summary>
+    private Followed? FollowGivenFunctions(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        CalleeKind kind =
+            this.region.Symbols.IsSodaFlow(method)
+                ? CalleeKind.Library
+                : this.region.Symbols.CanKnowTheLibrary(method.ContainingAssembly)
+                    ? CalleeKind.Unknown
+                    : CalleeKind.Mover;
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        Followed? all = null;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            if (written is AnonymousFunctionExpressionSyntax
+                || !this.RunsFunction(
+                    kind: kind,
+                    method: method,
+                    parameter: ParameterFor(method: method, argument: arguments[i], position: i)))
+            {
+                continue;
+            }
+
+            LoopState functions = this.Eval(written);
+
+            if (functions.Functions.IsEmpty)
+            {
+                continue;
+            }
+
+            LoopState given =
+                kind == CalleeKind.Mover
+                    ? this.Moved(invocation: invocation, method: method, withReceiver: true)
+                    : LoopState.None;
+
+            foreach (FunctionValue function in functions.Functions)
+            {
+                all =
+                    Both(
+                        first: all,
+                        second: this.FollowFunction(
+                            call: invocation,
+                            name: NameOf(written),
+                            function: function,
+                            target: functions,
+                            arguments: default,
+                            each: (written, given)));
+            }
+        }
+
+        return all;
+    }
+
+    private static Followed? Both(Followed? first, Followed? second) =>
+        first == null
+            ? second
+            : second == null
+                ? first
+                : new Followed(
+                    state: first.State.Join(second.State),
+                    findings: first.Findings.AddRange(second.Findings),
+                    outs: first.Outs.SetItems(second.Outs));
+
     private Followed? FollowFunctions(
         SyntaxNode call,
         string name,
@@ -809,31 +949,48 @@ internal sealed class LoopStateEvaluator
         foreach (FunctionValue function in functions)
         {
             Followed? one =
-                this.FollowFunction(call: call, name: name, function: function, target: target, arguments: arguments);
+                this.FollowFunction(
+                    call: call,
+                    name: name,
+                    function: function,
+                    target: target,
+                    arguments: arguments,
+                    each: null);
 
-            if (one != null)
-            {
-                all =
-                    all == null
-                        ? one
-                        : new Followed(
-                            state: all.State.Join(one.State),
-                            findings: all.Findings.AddRange(one.Findings),
-                            outs: all.Outs.SetItems(one.Outs));
-            }
+            all = Both(first: all, second: one);
         }
 
         return all;
     }
 
+    /// <param name="call">The call that runs the function.</param>
+    /// <param name="name">The name of the function, for a report.</param>
+    /// <param name="function">The function.</param>
+    /// <param name="target">The delegate that the function is a value of.</param>
+    /// <param name="arguments">The arguments, when the call is a call of the delegate.</param>
+    /// <param name="each">
+    ///     For a callee with no body that runs the function. It is the expression
+    ///     that names the function at the call, and the state that each of its
+    ///     parameters gets.
+    /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
         string name,
         FunctionValue function,
         LoopState target,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        (ExpressionSyntax Written, LoopState Given)? each)
     {
         SemanticModel model = this.region.ModelFor(function.Declaration);
+
+        IReadOnlyList<Binding> Bindings(ImmutableArray<IParameterSymbol> parameters) =>
+            each is var (written, given)
+                ?
+                [
+                    .. parameters.Select(parameter =>
+                        new Binding(parameter: parameter, argument: written, state: given))
+                ]
+                : this.BindByPosition(parameters: parameters, arguments: arguments);
 
         switch (function.Declaration)
         {
@@ -842,12 +999,11 @@ internal sealed class LoopStateEvaluator
                     call: call,
                     name: name,
                     body: lambda.Body,
-                    bindings: this.BindByPosition(
-                        parameters: ParametersOf(lambda)
+                    bindings: Bindings(
+                        ParametersOf(lambda)
                             .Select(parameter => model.GetDeclaredSymbol(parameter))
                             .OfType<IParameterSymbol>()
-                            .ToImmutableArray(),
-                        arguments: arguments),
+                            .ToImmutableArray()),
                     definer: function.Definer,
                     members: function.Definer.thisMembers,
                     receiver: null,
@@ -856,8 +1012,7 @@ internal sealed class LoopStateEvaluator
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method
                      && BodyOf(method) is { } body:
             {
-                IReadOnlyList<Binding> bindings =
-                    this.BindByPosition(parameters: method.Parameters, arguments: arguments);
+                IReadOnlyList<Binding> bindings = Bindings(method.Parameters);
 
                 if (function.Definer != null)
                 {
@@ -1696,15 +1851,6 @@ internal sealed class LoopStateEvaluator
 
         return linked;
     }
-
-    /// <summary>
-    ///     The code of a lambda given to one of these runs in the block, before
-    ///     the loop closes. Every other operator keeps its lambda for a firing after
-    ///     the close.
-    /// </summary>
-    public static bool RunsNow(SodaFlowSymbols symbols, IMethodSymbol method) =>
-        symbols.IsSodaFlow(method)
-        && method.Name is "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures";
 
     /// <summary>
     ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a
