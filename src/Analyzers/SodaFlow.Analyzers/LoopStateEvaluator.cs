@@ -585,11 +585,13 @@ internal sealed class LoopStateEvaluator
                     linked: receiverState.ContentLinked,
                     contentPending: false,
                     contentLinked: false),
+                // A read before the close gives the initial value. The value of a firing comes
+                // after the close.
                 OperatorRule.Hold => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
                     contentPending: false,
-                    contentLinked: false).WithContent(receiverState.Content.Join(firstArgument)),
+                    contentLinked: false).WithContent(receiverState.Content.AfterTheClose.Join(firstArgument)),
                 OperatorRule.HoldLazy => new LoopState(
                     pending: firstArgument.Pending,
                     linked: receiverState.Linked,

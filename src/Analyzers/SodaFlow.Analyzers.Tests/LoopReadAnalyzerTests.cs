@@ -177,7 +177,8 @@ internal sealed class LoopReadAnalyzerTests
             ["LazyOfAFunctionCalled"] = ["SF1001"],
             ["LazyOfAMadeFunctionCalled"] = ["SF1001"],
             ["LazyKeptByAConstructorOfThisCode"] = ["SF1005"],
-            ["LazyFromAHelperRead"] = ["SF1005"]
+            ["LazyFromAHelperRead"] = ["SF1005"],
+            ["HeldInitialCellRead"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -1672,6 +1672,32 @@ public static class Shapes
 
     private static Lazy<int> LazyOf(Cell<int> c) => new(() => c.Sample());
 
+    // S216. A hold of cells. The initial cell is plain, and a firing gives a pending one. A read in
+    // the block gives the initial cell.
+    public static Cell<int> HeldCellOfAFiringRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = S.Map(_ => l.Map(v => v)).Hold(Plain).Sample().Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S217. The same hold with the two cells exchanged. The initial cell is the pending one.
+    public static Cell<int> HeldInitialCellRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = S.Map(_ => Plain).Hold(l.Map(v => v)).Sample().Sample();
+            return S.Hold(x);
+        });
+
+    // S218. A hold of rows. Only the row of a firing has a pending member.
+    public static Cell<int> HeldRowOfAFiringRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<SharedRow> rows = S.Map(_ => new SharedRow(l.Map(v => v))).Hold(new SharedRow(Plain));
+            int x = rows.Sample().Now();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -130,6 +130,22 @@ internal sealed class LoopState
             functions: ImmutableArray<FunctionValue>.Empty);
 
     /// <summary>True when the analyzer knows nothing about the expression.</summary>
+    /// <summary>
+    ///     The state of a value that the code can get only after the close, as
+    ///     the value of a firing is. Nothing reads that value before the close,
+    ///     thus no part of it is pending. Its links stay.
+    /// </summary>
+    public LoopState AfterTheClose =>
+        this.IsNone
+            ? this
+            : new LoopState(
+                pending: false,
+                linked: this.Linked,
+                members: this.Members?.Select(static state => state.AfterTheClose),
+                content: this.content?.AfterTheClose,
+                origin: this.Origin,
+                functions: ImmutableArray<FunctionValue>.Empty);
+
     public bool IsNone =>
         !this.Pending && !this.Linked && this.Members == null && this.content == null && this.Functions.IsEmpty;
 
