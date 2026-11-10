@@ -25,9 +25,12 @@
     <!--
         The compiler that compiles the shapes. It is later than the Roslyn of the analyzer, as the
         compiler of a consumer is, and it knows the collection expressions the shapes use.
+        Newtonsoft.Json is here only for the shapes: the analyzer has a rule for its serializer, and
+        the run of the shapes is what holds that rule to what the serializer does.
     -->
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
         <PackageReference Include="TUnit" Version="1.66.27"/>
     </ItemGroup>
 
