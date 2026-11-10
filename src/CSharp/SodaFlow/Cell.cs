@@ -112,12 +112,12 @@ public struct CellLooper<T>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
-        Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
+        [InstantHandle] Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f) =>
         TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
 
     private static (Cell<T> Cell, TCaptures Captures) WithCaptures<TCaptures>(
         TransactionInternal trans,
-        Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f)
+        [InstantHandle] Func<LoopedCell<T>, (Cell<T> Cell, TCaptures Captures)> f)
     {
         LoopedCell<T> loop = new();
         (Cell<T> Cell, TCaptures Captures) result = f(loop);
@@ -134,6 +134,6 @@ public struct CellLooper<T>
     /// </param>
     /// <returns>The resulting cell.</returns>
     [Pure]
-    public Cell<T> WithoutCaptures(Func<LoopedCell<T>, Cell<T>> f) =>
+    public Cell<T> WithoutCaptures([InstantHandle] Func<LoopedCell<T>, Cell<T>> f) =>
         this.WithCaptures(l => (Cell: f(l), Captures: UnitInternal.Value)).Cell;
 }

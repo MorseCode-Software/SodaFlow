@@ -64,7 +64,7 @@ public static class Transaction
     ///     same result.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void RunVoid(Action action) => TransactionInternal.RunVoidImpl(action);
+    public static void RunVoid([InstantHandle] Action action) => TransactionInternal.RunVoidImpl(action);
 
     /// <summary>
     ///     Runs the given function in one transaction.
@@ -83,7 +83,7 @@ public static class Transaction
     ///     result.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static T Run<T>(Func<T> f) => TransactionInternal.RunImpl(f);
+    public static T Run<T>([InstantHandle] Func<T> f) => TransactionInternal.RunImpl(f);
 
     /// <summary>
     ///     Adds an action that runs at the start of each transaction.
