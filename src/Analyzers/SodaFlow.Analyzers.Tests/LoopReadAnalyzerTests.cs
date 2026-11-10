@@ -476,7 +476,11 @@ internal sealed class LoopReadAnalyzerTests
             ["InnerListAsObjectThenElement"] = ["SF1005"],
             ["ForeachInnerThenElement"] = ["SF1005"],
             ["PileInAListAsObject"] = ["SF1005"],
-            ["ForeachPileAsObject"] = ["SF1005"]
+            ["ForeachPileAsObject"] = ["SF1005"],
+            ["OldPendingValueOfAnExchange"] = ["SF1005"],
+            ["SlotAfterAnExchange"] = ["SF1005"],
+            ["OldPendingValueOfACompareExchange"] = ["SF1005"],
+            ["SlotAfterACompareExchange"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -1115,7 +1115,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
                 }
 
-                this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved, receiver: null);
+                if (LoopStateEvaluator.ExchangeOf(
+                        invocation: node,
+                        definition: (method.ReducedFrom ?? method).OriginalDefinition) is { } exchange)
+                {
+                    // The result is the state that the location has now. The evaluator keeps the
+                    // state of an expression, thus it must read the result before the location
+                    // changes.
+                    this.evaluator.Eval(node);
+
+                    LoopState put = this.evaluator.Eval(exchange.Value);
+
+                    // Exchange always puts the value there. CompareExchange can leave the old one.
+                    bool always = method.Name == "Exchange";
+
+                    this.AssignState(
+                        target: exchange.Location,
+                        state: always ? put : this.evaluator.Eval(exchange.Location).Join(put),
+                        replaces: always);
+                }
+                else
+                {
+                    this.AssignOuts(
+                        arguments: arguments,
+                        method: method,
+                        followed: null,
+                        moved: moved,
+                        receiver: null);
+                }
 
                 // The callee can call a member of an object that it gets, as a sort calls CompareTo.
                 this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));

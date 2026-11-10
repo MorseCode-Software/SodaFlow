@@ -382,6 +382,15 @@ internal sealed class SodaFlowSymbols
     public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
 
     /// <summary>
+    ///     True for <c>Exchange</c> and <c>CompareExchange</c> of
+    ///     <c>Interlocked</c>. The result is the value that the location had, and
+    ///     not one of the values that the callee got.
+    /// </summary>
+    public static bool IsExchange(IMethodSymbol definition) =>
+        definition is { Name: "Exchange" or "CompareExchange", ContainingType: { Name: "Interlocked" } owner }
+        && owner.ContainingNamespace?.ToDisplayString() == "System.Threading";
+
+    /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in
     ///     <c>System.Reflection</c>.
     /// </summary>

@@ -1049,6 +1049,39 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The location of an exchange and the value that the callee puts
+    ///     there, or null when the call is not an exchange.
+    /// </summary>
+    public static (ExpressionSyntax Location, ExpressionSyntax Value)? ExchangeOf(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol definition)
+    {
+        if (!SodaFlowSymbols.IsExchange(definition))
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        ExpressionSyntax? location = null;
+        ExpressionSyntax? value = null;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            switch (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i)?.Ordinal)
+            {
+                case 0:
+                    location = arguments[i].Expression;
+                    break;
+                case 1:
+                    value = arguments[i].Expression;
+                    break;
+            }
+        }
+
+        return location != null && value != null ? (location, value) : null;
+    }
+
+    /// <summary>
     ///     The result of a call to code that cannot know the library, where the
     ///     type of the result can hold a state. The result has the state of the
     ///     values that the callee got, and of what a lambda that it runs returns.
@@ -1068,6 +1101,11 @@ internal sealed class LoopStateEvaluator
             || SodaFlowSymbols.IsReflection(definition))
         {
             return LoopState.None;
+        }
+
+        if (ExchangeOf(invocation: invocation, definition: definition) is { } exchange)
+        {
+            return this.Eval(exchange.Location);
         }
 
         LoopState moved = this.Moved(invocation: invocation, method: method, withReceiver: true);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow;
 using SodaFlow.Collections;
@@ -3877,6 +3878,42 @@ public static class Shapes
     // S657. The same for the variable of a foreach.
     public static Cell<int> ForeachPileAsObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> piles = [new TitledPile(l.Map(v => v))]; foreach (IEnumerable<int> pile in piles) { object o = pile; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
+    // S658. Exchange gives back the value that the location had. That value is a plain one here.
+    public static Cell<int> OldValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object old = Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S659. The value that the location had is the pending one.
+    public static Cell<int> OldPendingValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object old = Interlocked.Exchange(ref slot, new Plainly()); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S660. The location has the new value after the exchange.
+    public static Cell<int> SlotAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S661. The same as the first, for a location with a type of the compilation.
+    public static Cell<int> TypedOldValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled slot = new(Plain); Titled old = Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(old.ToString()); return S.Hold(0); });
+
+    // S662. CompareExchange gives back the value that the location had also.
+    public static Cell<int> OldValueOfACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object same = slot; object old = Interlocked.CompareExchange(ref slot, new Titled(l.Map(v => v)), same); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S663. The same, and that value is the pending one.
+    public static Cell<int> OldPendingValueOfACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object same = slot; object old = Interlocked.CompareExchange(ref slot, new Plainly(), same); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S664. After CompareExchange, the location can have the new value.
+    public static Cell<int> SlotAfterACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object same = slot; Interlocked.CompareExchange(ref slot, new Titled(l.Map(v => v)), same); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S665. After Exchange, the location does not have the old value.
+    public static Cell<int> SlotAfterAnExchangeOfAPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); Interlocked.Exchange(ref slot, new Plainly()); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S666. The arguments of an exchange by name, in a different sequence.
+    public static Cell<int> OldValueOfAnExchangeWithNamedArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object old = Interlocked.Exchange(value: new Titled(l.Map(v => v)), location1: ref slot); Kept.Add(old.ToString()!); Kept.Add(slot); return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {
