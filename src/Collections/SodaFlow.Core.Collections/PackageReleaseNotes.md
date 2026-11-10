@@ -148,6 +148,28 @@ view of a ten-item collection 8.8 to 8.1 KB and 35.0 to 31.4 µs to build; throu
 on 1,000 items, an edit 7.25 to 6.90 µs and 13.3 to 12.7 KB, an edit that the filter excludes 3.14 to 2.99 µs, and an
 add and a remove 23.1 to 20.7 µs and 38.6 to 37.2 KB.
 
+Changed: a filter at a new criteria finds the keys that change sides before it edits its key set. Filter and
+FilterByIdentity over a criteria cell test each key when the criteria change. The limit of a stage is 1,000 keys, or a
+tenth of the keys that it holds. Up to the limit, the stage moves each key that changed sides and reports one operation
+for each. Over the limit, it builds its set again and reports a reset. Before, the stage edited its set key by key as it
+tested. For each key up to the limit, a change over the limit made a version of an immutable set and of an immutable
+dictionary. Then the stage discarded each version and built the set again. The stage also looked up the position of each
+key that it tested, where it needed only to know if it held the key. The stage now tests first, and edits after that
+only when the count is in the limit. A stage reports what it reported before: the same keys and the same operations,
+with the same positions in the same sequence. A reset comes at the same count. New tests hold each of those at the limit
+and one key over it, which no test did before.
+
+Measured in a new benchmark, FilterCriteriaBenchmarks, which sends a criteria and then the first criteria again. The
+figures are for 10,000 items on .NET 10, with one run on each side. Through Filter, a change that moves a quarter of the
+keys took 14.4 ms and 5,505 KB, and takes 10.3 ms and 2,484 KB. Through FilterByIdentity, it took 10.6 ms and takes 7.8
+ms, with the same bytes. A change that moves no key took 5.7 ms through Filter and takes 4.5 ms, and through
+FilterByIdentity 4.9 ms and 2.5 ms. A change that moves 100 keys took 6.3 ms and takes 5.1 ms, and 4.5 ms and 2.6 ms.
+Those two allocate what they did. At 100,000 items the quarter allocates 24.2 MB where it allocated 55.1 MB. On .NET
+Framework 4.7.2, at 10,000 items, the quarter allocates 2,496 KB where it allocated 5,529 KB. Through FilterByIdentity
+there, it took 28.1 ms and takes 23.7 ms. Through Filter there, 33.4 ms and 31.4 ms are inside the noise of the two
+runs. BlotterSendBenchmarks has a search and its clear over about 7,000 orders, through two filters, a sort, and a page.
+That took 28.8 ms and 8,819 KB, and takes 22.2 ms and 5,687 KB.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

@@ -2514,6 +2514,321 @@ public sealed class CollectionViewTests
         await Assert.That(KeysOf(sorted)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
     }
 
+    /// <summary>
+    ///     A filter over <see cref="FiveThousand" /> that keeps each key from the
+    ///     criteria up. One form tests the state, and one form tests the identity.
+    ///     The score of each item is its number, thus the two forms keep the same
+    ///     keys.
+    /// </summary>
+    private static ReactiveCollection<int, ItemIdentity, ItemState> FromMinimum(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        Cell<int> minimum,
+        bool byIdentity) =>
+        byIdentity
+            ? collection.FilterByIdentity(
+                criteriaCell: minimum,
+                predicate: static (limit, identity) => identity.Number >= limit)
+            : collection.Filter(
+                criteriaCell: minimum,
+                predicate: static (limit, _, state) => state.Score >= limit);
+
+    /// <summary>
+    ///     A filter over <see cref="FiveThousand" /> that keeps 2,000 keys from the
+    ///     criteria up, in the same two forms.
+    /// </summary>
+    private static ReactiveCollection<int, ItemIdentity, ItemState> TwoThousandFrom(
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        Cell<int> first,
+        bool byIdentity) =>
+        byIdentity
+            ? collection.FilterByIdentity(
+                criteriaCell: first,
+                predicate: static (from, identity) => identity.Number >= from && identity.Number < from + 2_000)
+            : collection.Filter(
+                criteriaCell: first,
+                predicate: static (from, _, state) => state.Score >= from && state.Score < from + 2_000);
+
+    /// <summary>An insert or a removal as "type:key@index".</summary>
+    private static string DescribePosition(ViewOperation<int> operation) =>
+        operation switch
+        {
+            ViewInsert<int> insert => $"ViewInsert:{insert.Key}@{insert.Index}",
+            ViewRemove<int> remove => $"ViewRemove:{remove.Key}@{remove.Index}",
+            _ => Describe(operation)
+        };
+
+    /// <summary>
+    ///     Records if each change from a view is a reset, and records each operation
+    ///     with its position.
+    /// </summary>
+    private static (List<bool> Resets, List<string> Operations, IListener Listener) RecordPositions(
+        ReactiveCollection<int, ItemIdentity, ItemState> view)
+    {
+        List<bool> resets = [];
+        List<string> operations = [];
+
+        IListener listener =
+            view.KeyChangesStream.Listen(change =>
+            {
+                resets.Add(change.IsReset);
+                operations.AddRange(change.Operations.Select(DescribePosition));
+            });
+
+        return (resets, operations, listener);
+    }
+
+    /// <summary>
+    ///     A change of criteria that moves as many keys as the limit of the filter is
+    ///     a list of operations, and not a reset. The filter names each key in the
+    ///     order of the stage above. Each operation gives the position of its key at
+    ///     that point in the sequence.
+    /// </summary>
+    private static async Task ACriteriaChangeAtTheLimitNamesEachKey(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(1);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            FromMinimum(collection: FiveThousand(edits), minimum: minimum, byIdentity: byIdentity);
+
+        await Assert.That(KeysOf(view).Count).IsEqualTo(5_000);
+
+        (List<bool> resets, List<string> operations, IListener listener) = RecordPositions(view);
+
+        // The limit of a filter that holds 5,000 keys is 1,000 operations. This takes the keys
+        // 1 to 1,000 out, and each of them is the first key when the filter removes it.
+        minimum.Send(1_001);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected: [.. Enumerable.Range(start: 1, count: 1_000).Select(static key => $"ViewRemove:{key}@0")],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(
+                expected: [.. Enumerable.Range(start: 1_001, count: 4_000)],
+                ordering: CollectionOrdering.Matching);
+
+        resets.Clear();
+        operations.Clear();
+
+        // The filter holds 4,000 keys, and its limit is 1,000 operations still. This puts the
+        // 1,000 keys back, each at the position of its arrival.
+        minimum.Send(1);
+
+        listener.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected:
+                [
+                    .. Enumerable.Range(start: 1, count: 1_000).Select(static key => $"ViewInsert:{key}@{key - 1}")
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 1, count: 5_000)], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public Task AFilterNamesEachKeyOfACriteriaChangeAtItsLimit() =>
+        ACriteriaChangeAtTheLimitNamesEachKey(byIdentity: false);
+
+    [Test]
+    public Task AFilterByIdentityNamesEachKeyOfACriteriaChangeAtItsLimit() =>
+        ACriteriaChangeAtTheLimitNamesEachKey(byIdentity: true);
+
+    /// <summary>
+    ///     A change of criteria that moves one key more than the limit of the filter
+    ///     is a reset, with no operation. The keys of the filter are the keys that a
+    ///     list of operations gives.
+    /// </summary>
+    private static async Task ACriteriaChangeOverTheLimitIsAReset(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(1);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            FromMinimum(collection: FiveThousand(edits), minimum: minimum, byIdentity: byIdentity);
+
+        await Assert.That(KeysOf(view).Count).IsEqualTo(5_000);
+
+        (List<bool> resets, List<string> operations, IListener listener) = RecordPositions(view);
+
+        // This takes the keys 1 to 1,001 out, which is one key more than the limit.
+        minimum.Send(1_002);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations).IsEmpty();
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(
+                expected: [.. Enumerable.Range(start: 1_002, count: 3_999)],
+                ordering: CollectionOrdering.Matching);
+
+        resets.Clear();
+
+        // This puts the 1,001 keys back, which is one key more than the limit also.
+        minimum.Send(1);
+
+        listener.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
+        await Assert.That(operations).IsEmpty();
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 1, count: 5_000)], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public Task AFilterBuildsAgainAtACriteriaChangeOverItsLimit() => ACriteriaChangeOverTheLimitIsAReset(byIdentity: false);
+
+    [Test]
+    public Task AFilterByIdentityBuildsAgainAtACriteriaChangeOverItsLimit() =>
+        ACriteriaChangeOverTheLimitIsAReset(byIdentity: true);
+
+    /// <summary>
+    ///     One change of criteria can take keys out and put keys in. The operations
+    ///     are in the order of the stage above. Thus, the keys that come in are first
+    ///     in one direction, and the keys that go out are first in the opposite one.
+    /// </summary>
+    private static async Task ACriteriaChangeMovesKeysOutAndIn(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> first = Cell.CreateSink(301);
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            TwoThousandFrom(collection: FiveThousand(edits), first: first, byIdentity: byIdentity);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 301, count: 2_000)], ordering: CollectionOrdering.Matching);
+
+        (List<bool> resets, List<string> operations, IListener listener) = RecordPositions(view);
+
+        // The keys 1 to 300 come in at the front. Then the keys 2,001 to 2,300 go out, and each
+        // of them is at the position 2,000 when the filter removes it.
+        first.Send(1);
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected:
+                [
+                    .. Enumerable.Range(start: 1, count: 300).Select(static key => $"ViewInsert:{key}@{key - 1}"),
+                    .. Enumerable.Range(start: 2_001, count: 300).Select(static key => $"ViewRemove:{key}@2000")
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 1, count: 2_000)], ordering: CollectionOrdering.Matching);
+
+        resets.Clear();
+        operations.Clear();
+
+        // The keys 1 to 300 go out from the front. Then the keys 2,001 to 2,300 come in at the
+        // end of a set that holds 1,700 keys.
+        first.Send(301);
+
+        listener.Unlisten();
+
+        await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operations)
+            .IsEquivalentTo(
+                expected:
+                [
+                    .. Enumerable.Range(start: 1, count: 300).Select(static key => $"ViewRemove:{key}@0"),
+                    .. Enumerable.Range(start: 2_001, count: 300).Select(static key => $"ViewInsert:{key}@{key - 301}")
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(KeysOf(view))
+            .IsEquivalentTo(expected: [.. Enumerable.Range(start: 301, count: 2_000)], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public Task AFilterMovesKeysOutAndInAtOneCriteriaChange() => ACriteriaChangeMovesKeysOutAndIn(byIdentity: false);
+
+    [Test]
+    public Task AFilterByIdentityMovesKeysOutAndInAtOneCriteriaChange() =>
+        ACriteriaChangeMovesKeysOutAndIn(byIdentity: true);
+
+    /// <summary>
+    ///     At a change of criteria that its limit permits, a filter tests each key one
+    ///     time. At a change over its limit, it stops at the key that passes the
+    ///     limit, and then the build tests each key one time.
+    /// </summary>
+    private static async Task ACriteriaChangeTestsEachKeyOneTime(bool byIdentity)
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        CellSink<int> minimum = Cell.CreateSink(1);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection = FiveThousand(edits);
+        int tests = 0;
+
+        ReactiveCollection<int, ItemIdentity, ItemState> view =
+            byIdentity
+                ? collection.FilterByIdentity(
+                    criteriaCell: minimum,
+                    predicate: (limit, identity) =>
+                    {
+                        tests++;
+                        return identity.Number >= limit;
+                    })
+                : collection.Filter(
+                    criteriaCell: minimum,
+                    predicate: (limit, _, state) =>
+                    {
+                        tests++;
+                        return state.Score >= limit;
+                    });
+
+        // The first read builds the view.
+        await Assert.That(KeysOf(view).Count).IsEqualTo(5_000);
+
+        IListener listener =
+            view.KeyChangesStream.Listen(static _ =>
+            {
+            });
+
+        // 1,000 keys go out, which the limit permits.
+        int testsAtTheStart = tests;
+        minimum.Send(1_001);
+        int testsAtTheLimit = tests;
+
+        await Assert.That(KeysOf(view).Count).IsEqualTo(4_000);
+        await Assert.That(testsAtTheLimit - testsAtTheStart).IsEqualTo(5_000);
+
+        // The keys 1,001 to 2,001 go out, which is one key more than the limit. The filter tests
+        // the keys 1 to 2,001 before it knows that, and then the build tests the 5,000 keys.
+        minimum.Send(2_002);
+        int testsOverTheLimit = tests;
+
+        listener.Unlisten();
+
+        await Assert.That(KeysOf(view).Count).IsEqualTo(2_999);
+        await Assert.That(testsOverTheLimit - testsAtTheLimit).IsEqualTo(7_001);
+    }
+
+    [Test]
+    public Task AFilterTestsEachKeyOneTimeAtACriteriaChange() => ACriteriaChangeTestsEachKeyOneTime(byIdentity: false);
+
+    [Test]
+    public Task AFilterByIdentityTestsEachKeyOneTimeAtACriteriaChange() =>
+        ACriteriaChangeTestsEachKeyOneTime(byIdentity: true);
+
     // A negative count or offset is an error in the arithmetic of the caller. The constant
     // overloads throw at the call, where the clamp hid it.
     [Test]

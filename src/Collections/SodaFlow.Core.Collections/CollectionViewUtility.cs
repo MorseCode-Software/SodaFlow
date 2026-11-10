@@ -957,63 +957,30 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
-        int numberOfOperations = 0;
+        List<TKey>? changedKeys = null;
 
-        OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = [];
-        bool movesKeys = false;
-        bool changesMembership = false;
-
+        // This pass edits nothing. A change over the limit builds the stage again, and each
+        // edit before that build is work with no result.
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - A query allocates an iterator
+        // and a closure at each change of criteria, and it calls a delegate for each key.
         foreach (TKey key in upstreamKeys)
         {
-            bool passes = Passes(key: key, predicate: predicate, snapshot: snapshot);
-            int index = keys.IndexOfInternal(key);
-
-            if (passes)
+            if (Passes(key: key, predicate: predicate, snapshot: snapshot) == state.Contains(key))
             {
-                if (index < 0)
-                {
-                    keys = keys.Add(key: key, snapshot: snapshot);
-
-                    int newIndex = keys.IndexOfInternal(key);
-
-                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
-                    movesKeys = true;
-                    changesMembership = true;
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                continue;
             }
-            else
+
+            changedKeys ??= [];
+
+            if (changedKeys.Count == maxNumberOfOperations)
             {
-                if (index >= 0)
-                {
-                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
-                    movesKeys = true;
-                    changesMembership = true;
-                    keys = keys.Remove(key);
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                return createResultFromRebuild();
             }
+
+            changedKeys.Add(key);
         }
 
-        return createResultFromStageOutcome(
-            new StageOutcome<TKey, TIdentity, TState>(
-                keys: keys,
-                operations: operations,
-                movesKeys: movesKeys,
-                changesMembership: changesMembership));
+        return createResultFromStageOutcome(ChangeSides(state: state, changedKeys: changedKeys, snapshot: snapshot));
     }
 
     private static StageResult<TKey, TIdentity, TState> ProcessFilterByIdentityNewCriteria<TKey, TIdentity, TState>(
@@ -1028,63 +995,90 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
-        int numberOfOperations = 0;
+        List<TKey>? changedKeys = null;
 
-        OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = [];
-        bool movesKeys = false;
-        bool changesMembership = false;
-
+        // This pass edits nothing. A change over the limit builds the stage again, and each
+        // edit before that build is work with no result.
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - A query allocates an iterator
+        // and a closure at each change of criteria, and it calls a delegate for each key.
         foreach (TKey key in upstreamKeys)
         {
-            bool passes = PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot);
+            if (PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot) == state.Contains(key))
+            {
+                continue;
+            }
+
+            changedKeys ??= [];
+
+            if (changedKeys.Count == maxNumberOfOperations)
+            {
+                return createResultFromRebuild();
+            }
+
+            changedKeys.Add(key);
+        }
+
+        return createResultFromStageOutcome(ChangeSides(state: state, changedKeys: changedKeys, snapshot: snapshot));
+    }
+
+    /// <summary>
+    ///     Moves each of <paramref name="changedKeys" /> to its other side: out of the
+    ///     set when the set holds the key, and into the set when it does not.
+    /// </summary>
+    /// <param name="state">The keys of the filter before the new criteria.</param>
+    /// <param name="changedKeys">
+    ///     The keys whose test with the new criteria disagrees with the set, in the
+    ///     order of the stage above. It is null when no key changed sides.
+    /// </param>
+    /// <param name="snapshot">The collection that gives the sort value of a key that enters.</param>
+    /// <returns>The new keys, with one operation for each key, in the sequence of the edits.</returns>
+    /// <remarks>
+    ///     The position in each operation is the position of the key at that point
+    ///     in the sequence. Thus, a consumer that applies the operations in turn gets
+    ///     the new keys. Each edit writes paths through the trees of the set again.
+    ///     Thus, the caller counts the keys first, and does not call this for a
+    ///     change over its limit.
+    /// </remarks>
+    private static StageOutcome<TKey, TIdentity, TState> ChangeSides<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        List<TKey>? changedKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (changedKeys is null)
+        {
+            return new StageOutcome<TKey, TIdentity, TState>(
+                keys: state,
+                operations: [],
+                movesKeys: false,
+                changesMembership: false);
+        }
+
+        OrderedKeys<TKey, TIdentity, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new(changedKeys.Count);
+
+        foreach (TKey key in changedKeys)
+        {
             int index = keys.IndexOfInternal(key);
 
-            if (passes)
+            if (index < 0)
             {
-                if (index < 0)
-                {
-                    keys = keys.Add(key: key, snapshot: snapshot);
-
-                    int newIndex = keys.IndexOfInternal(key);
-
-                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
-                    movesKeys = true;
-                    changesMembership = true;
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                keys = keys.Add(key: key, snapshot: snapshot);
+                operations.Add(new ViewInsert<TKey>(key: key, index: keys.IndexOfInternal(key)));
             }
             else
             {
-                if (index >= 0)
-                {
-                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
-                    movesKeys = true;
-                    changesMembership = true;
-                    keys = keys.Remove(key);
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                keys = keys.Remove(key);
             }
         }
 
-        return createResultFromStageOutcome(
-            new StageOutcome<TKey, TIdentity, TState>(
-                keys: keys,
-                operations: operations,
-                movesKeys: movesKeys,
-                changesMembership: changesMembership));
+        return new StageOutcome<TKey, TIdentity, TState>(
+            keys: keys,
+            operations: operations,
+            movesKeys: true,
+            changesMembership: true);
     }
 
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilter<TKey, TIdentity, TState>(
