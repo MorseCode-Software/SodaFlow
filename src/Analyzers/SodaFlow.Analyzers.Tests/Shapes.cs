@@ -933,6 +933,207 @@ public static class Shapes
             return Cell.Constant(1).Map(_ => d).SwitchC();
         });
 
+    // S126. The variable of a foreach over cells derived from the placeholder.
+    public static Cell<int> ForeachVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = 0;
+            foreach (Cell<int> c in new[] { l.Map(v => v) }) { x += c.Sample(); }
+            return S.Hold(x);
+        });
+
+    // S127. The variable of a foreach over plain cells.
+    public static Cell<int> ForeachOverPlainCells() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = 0;
+            foreach (Cell<int> c in new[] { Plain }) { x += c.Sample(); }
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S128. A deconstruction into locals. The first part is derived from the placeholder.
+    public static Cell<int> Deconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> a, int b) = (l.Map(v => v), 1);
+            int x = a.Sample() + b;
+            return S.Hold(x);
+        });
+
+    // S129. The same deconstruction, with a plain second part that the block samples.
+    public static Cell<int> DeconstructionPlainPart() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            (Cell<int> a, Cell<int> b) = (l.Map(v => v), Plain);
+            int x = b.Sample();
+            return S.Snapshot(a, (u, v) => u + v + x).Hold(0);
+        });
+
+    // S130. A variable of a pattern.
+    public static Cell<int> PatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = 0;
+            if (l.Map(v => v) is { } m) { x = m.Sample(); }
+            return S.Hold(x);
+        });
+
+    // S131. A variable of a pattern for the pending member of a row.
+    public static Cell<decimal> PatternVariableOfRowMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            decimal now = row is { Share: var share } ? share.Sample() : 0m;
+            return Cell.Constant(2m + now);
+        });
+
+    // S132. A variable of a pattern for the plain member of the same row.
+    public static Cell<decimal> PatternVariableOfPlainRowMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a + b));
+            decimal now = row is { Plain: var plain } ? plain.Sample() : 0m;
+            return Cell.Constant(2m + now);
+        });
+
+    // S133. A variable of a pattern in a switch statement.
+    public static Cell<int> SwitchPatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            object o = l.Map(v => v);
+            int x = 0;
+
+            switch (o)
+            {
+                case Cell<int> c:
+                    x = c.Sample();
+                    break;
+            }
+
+            return S.Hold(x);
+        });
+
+    // S134. An out variable that a helper sets from its pending parameter.
+    public static Cell<int> OutVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Derive(l, out Cell<int> d);
+            int x = d.Sample();
+            return S.Hold(x);
+        });
+
+    private static void Derive(Cell<int> c, out Cell<int> d) => d = c.Map(v => v);
+
+    // S135. An out variable that a helper sets to a plain cell.
+    public static Cell<int> OutVariablePlain() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            GivePlain(l, out Cell<int> d);
+            int x = d.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    private static void GivePlain(Cell<int> c, out Cell<int> d) => d = Plain;
+
+    private static Cell<int>? held;
+
+    // S136. A static field that the block sets, then samples.
+    public static Cell<int> StaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            held = l.Map(v => v);
+            int x = held.Sample();
+            return S.Hold(x);
+        });
+
+    // S137. A static field that the block sets, sampled in a helper.
+    public static Cell<int> StaticFieldReadByHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            held = l.Map(v => v);
+            return S.Hold(ReadHeld());
+        });
+
+    private static int ReadHeld() => held!.Sample();
+
+    // S138. A list that the block fills with Add, then reads by index.
+    public static Cell<int> ListAddThenIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Cell<int>> cs = [];
+            cs.Add(l.Map(v => v));
+            int x = cs[0].Sample();
+            return S.Hold(x);
+        });
+
+    // S139. The same list, filled with a plain cell.
+    public static Cell<int> ListAddOfPlainThenIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Cell<int>> cs = [];
+            cs.Add(Plain);
+            int x = cs[0].Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S140. A list that only keeps a pending cell. Nothing reads it in the block.
+    public static Cell<int> ListOnlyKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(l.Map(v => v));
+            return S.Hold(0);
+        });
+
+    private static readonly List<object> Kept = [];
+
+    // S141. A LINQ lambda that samples its own parameter, which is an element derived from the loop.
+    public static Cell<int> LinqLambdaParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new[] { l.Map(v => v) }.Select(c => c.Sample()).First();
+            return S.Hold(x);
+        });
+
+    // S142. The first element of a list of pending cells, sampled.
+    public static Cell<int> FirstOfPendingList() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Cell<int>> cs = [l.Map(v => v)];
+            int x = cs.First().Sample();
+            return S.Hold(x);
+        });
+
+    // S143. A dictionary filled with Add, read through TryGetValue.
+    public static Cell<int> DictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Dictionary<int, Cell<int>> d = new();
+            d.Add(1, l.Map(v => v));
+            int x = d.TryGetValue(1, out Cell<int>? c) ? c.Sample() : 0;
+            return S.Hold(x);
+        });
+
+    // S144. A member that the block sets on an object, then samples.
+    public static Cell<int> MemberAssignedInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            SettableRow row = new();
+            row.Share = l.Map(v => v);
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S145. A second member of the same object, set to a plain cell and sampled.
+    public static Cell<int> PlainMemberAssignedInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            SettableRow row = new();
+            row.Share = l.Map(v => v);
+            row.Other = Plain;
+            int x = row.Other.Sample();
+            return S.Snapshot(row.Share, (a, b) => a + b + x).Hold(0);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -976,6 +1177,13 @@ public static class Shapes
         public Cell<decimal> ShareDoubled => this.Share.Map(v => v * 2);
 
         public Cell<decimal> PlainDoubled => this.Plain.Map(v => v * 2);
+    }
+
+    public sealed class SettableRow
+    {
+        public Cell<int>? Share { get; set; }
+
+        public Cell<int>? Other { get; set; }
     }
 
     public sealed class CapturingRow(Cell<int> cell)

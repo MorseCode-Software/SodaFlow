@@ -121,7 +121,20 @@ internal sealed class LoopReadAnalyzerTests
             ["LambdaRunByMethod"] = ["SF1001"],
             ["LambdaResultReadByMethod"] = ["SF1004"],
             ["LambdaGivenTheLoopByMethod"] = ["SF1004"],
-            ["ContentFunctionGivesALocal"] = ["SF1002"]
+            ["ContentFunctionGivesALocal"] = ["SF1002"],
+            ["ForeachVariable"] = ["SF1001"],
+            ["Deconstruction"] = ["SF1001"],
+            ["PatternVariable"] = ["SF1001"],
+            ["PatternVariableOfRowMember"] = ["SF1001"],
+            ["SwitchPatternVariable"] = ["SF1001"],
+            ["OutVariable"] = ["SF1001"],
+            ["StaticField"] = ["SF1001"],
+            ["StaticFieldReadByHelper"] = ["SF1005"],
+            ["ListAddThenIndex"] = ["SF1001"],
+            ["LinqLambdaParameter"] = ["SF1001"],
+            ["FirstOfPendingList"] = ["SF1001"],
+            ["DictionaryTryGetValue"] = ["SF1001"],
+            ["MemberAssignedInTheBlock"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

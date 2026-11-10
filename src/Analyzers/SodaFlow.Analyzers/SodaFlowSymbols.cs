@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -56,6 +57,10 @@ internal sealed class SodaFlowSymbols
     public static readonly ImmutableHashSet<string> ReadMembers =
         ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
+    // The node actions of one compilation run at the same time, and each asks this question.
+    private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
+        new(SymbolEqualityComparer.Default);
+
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -79,6 +84,48 @@ internal sealed class SodaFlowSymbols
     /// <summary>A member of one of the assemblies of the library.</summary>
     public bool IsSodaFlow(ISymbol? symbol) =>
         symbol?.ContainingAssembly is { } assembly && this.library.Contains(assembly);
+
+    /// <summary>
+    ///     True for an assembly that is the library or references it. Code of
+    ///     such an assembly can know that a value is a cell, and can sample it. Code
+    ///     of each other assembly cannot. A list or a query of the platform only
+    ///     keeps a cell, gives it back, or gives it to a function of the caller.
+    /// </summary>
+    public bool CanKnowTheLibrary(IAssemblySymbol? assembly) =>
+        assembly == null
+        || this.knowsTheLibrary.GetOrAdd(
+            key: assembly,
+            valueFactory: candidate =>
+                this.library.Contains(candidate)
+                || candidate.Modules.Any(module => module.ReferencedAssemblySymbols.Any(this.library.Contains)));
+
+    /// <summary>
+    ///     True for a type whose values can have a state. Such a type is a type of
+    ///     the library, a type of this compilation, a delegate, or a type made from
+    ///     one of those. A number, a string, and a type of the platform with no such
+    ///     part cannot.
+    /// </summary>
+    public bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation) =>
+        this.CanHoldState(type: type, compilation: compilation, depth: 0);
+
+    private bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation, int depth) =>
+        type switch
+        {
+            null => false,
+            ITypeParameterSymbol => true,
+            IArrayTypeSymbol array =>
+                this.CanHoldState(type: array.ElementType, compilation: compilation, depth: depth),
+            INamedTypeSymbol { SpecialType: not SpecialType.None } or INamedTypeSymbol { TypeKind: TypeKind.Enum } =>
+                false,
+            INamedTypeSymbol named =>
+                named.TypeKind == TypeKind.Delegate
+                || this.IsSodaFlow(named)
+                || SymbolEqualityComparer.Default.Equals(x: named.ContainingAssembly, y: compilation)
+                || (depth < 3
+                    && named.TypeArguments.Any(argument =>
+                        this.CanHoldState(type: argument, compilation: compilation, depth: depth + 1))),
+            _ => false
+        };
 
     /// <summary>
     ///     A method that runs a loop block. The public blocks are

@@ -21,6 +21,11 @@ internal sealed class LoopRegion(
     private const int MaxFrames = 512;
 
     private readonly Compilation compilation = compilation;
+
+    // The fields that the code sets while the loop is open, where the walk does not know the
+    // object. Such a field is a static field, or a field of an object that the block did not
+    // make.
+    private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Action<Diagnostic> report = report;
     private readonly HashSet<(string Id, Location Location)> reported = [];
@@ -34,6 +39,39 @@ internal sealed class LoopRegion(
     public LoopState PlaceholderState { get; } = placeholderState;
 
     public string PlaceholderName => this.Placeholder.Name;
+
+    /// <summary>The assembly that the block is in.</summary>
+    public IAssemblySymbol Assembly => this.compilation.Assembly;
+
+    /// <summary>True when the code set a field to a value with a state.</summary>
+    public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>
+    ///     The state of a field that the code set while the loop is open. The
+    ///     field is the origin of that state, in each frame that reads it.
+    /// </summary>
+    public LoopState FieldState(ISymbol field) =>
+        this.fields.TryGetValue(key: field.OriginalDefinition, value: out LoopState? state)
+            ? state.From(field.OriginalDefinition)
+            : LoopState.None;
+
+    /// <summary>
+    ///     Records a value that the code gives to a field. The walk does not know
+    ///     which object has the field, thus each object of the type has that state
+    ///     to the end of the block.
+    /// </summary>
+    public void SetField(ISymbol field, LoopState state)
+    {
+        if (state.IsNone)
+        {
+            return;
+        }
+
+        ISymbol key = field.OriginalDefinition;
+
+        this.fields[key] =
+            this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+    }
 
     private SemanticModel ModelFor(SyntaxTree tree)
     {

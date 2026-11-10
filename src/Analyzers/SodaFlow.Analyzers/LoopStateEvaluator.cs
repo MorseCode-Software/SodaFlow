@@ -90,6 +90,57 @@ internal sealed class LoopStateEvaluator
             this.thisMembers.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
     }
 
+    /// <summary>
+    ///     Records a value that the code gives to a member of an object, as in
+    ///     <c>row.Share = value</c>. An object in a local keeps the state with its
+    ///     members. For each other owner, and for a static member, the region keeps
+    ///     the state for the field.
+    /// </summary>
+    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state)
+    {
+        if (owner is IdentifierNameSyntax
+            && this.region.ModelFor(owner).GetSymbolInfo(owner).Symbol is { } holder
+                and (ILocalSymbol or IParameterSymbol))
+        {
+            LoopState known =
+                this.locals.TryGetValue(key: holder, value: out LoopState? existing) ? existing : LoopState.None;
+
+            this.locals[holder] =
+                known.WithMembers((known.Members ?? Construction.Empty).With(member: member, state: state));
+
+            return;
+        }
+
+        this.region.SetField(field: member, state: state);
+    }
+
+    /// <summary>
+    ///     Adds a state to what a name holds, for a value that a call puts into
+    ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
+    /// </summary>
+    public void Absorb(ExpressionSyntax target, LoopState state)
+    {
+        if (state.IsNone)
+        {
+            return;
+        }
+
+        switch (this.region.ModelFor(target).GetSymbolInfo(target).Symbol)
+        {
+            case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
+                this.Declare(local: local, state: state);
+                break;
+            case { IsStatic: false } member and (IFieldSymbol or IPropertySymbol)
+                when target is IdentifierNameSyntax
+                    or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
+                this.SetMember(member: member, state: state);
+                break;
+            case { } field and (IFieldSymbol or IPropertySymbol):
+                this.region.SetField(field: field, state: state);
+                break;
+        }
+    }
+
     public LoopState Eval(ExpressionSyntax? expression)
     {
         if (expression == null)
@@ -231,6 +282,10 @@ internal sealed class LoopStateEvaluator
                     return getter.State.Join(this.TypeState(expression));
                 }
 
+                // A field that the code set while the loop is open, on an object that the walk does
+                // not know.
+                LoopState field = this.region.HasFields ? this.region.FieldState(symbol) : LoopState.None;
+
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.
                 if (expression is IdentifierNameSyntax
@@ -239,10 +294,11 @@ internal sealed class LoopStateEvaluator
                     return (this.thisMembers.TryGetValue(key: symbol.OriginalDefinition, value: out LoopState? own)
                             ? own
                             : LoopState.None)
+                        .Join(field)
                         .Join(this.TypeState(expression));
                 }
 
-                LoopState fromOwner = LoopState.None;
+                LoopState fromOwner = field;
 
                 ExpressionSyntax? ownerExpression =
                     expression switch
@@ -265,15 +321,15 @@ internal sealed class LoopStateEvaluator
                             .Join(this.TypeState(expression));
                     }
 
-                    // Otherwise, a member of a pending value is pending: the cell behind a bindable,
-                    // or one element of a tuple from a loop block.
+                    // Otherwise, a member of a pending value is pending. Such a member is the cell
+                    // behind a bindable, one element of a tuple from a loop block, or the values of
+                    // a dictionary.
                     ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
 
-                    if (this.region.Symbols.IsCarrierType(memberType)
-                        || this.region.Symbols.IsStreamType(memberType)
-                        || symbol.ContainingType.IsTupleType)
+                    if (symbol.ContainingType.IsTupleType
+                        || this.region.Symbols.CanHoldState(type: memberType, compilation: this.region.Assembly))
                     {
-                        fromOwner = owner;
+                        fromOwner = fromOwner.Join(owner);
                     }
                 }
 
@@ -327,13 +383,20 @@ internal sealed class LoopStateEvaluator
             return this.TypeState(invocation);
         }
 
-        // Code that is not the library. A body in this compilation gives the state. Any other
-        // callee is unknown, and a delegate with no known function is one. The result gets no
-        // state, and the walk reports a pending argument with SF1003. A warning is for what the
-        // analyzer can see.
+        // Code that is not the library. A body in this compilation gives the state. Code that
+        // cannot know the library only moves a value, and its result has the state of its inputs.
+        // Any other callee is unknown, and a delegate with no known function is one. The result
+        // gets no state, and the walk reports a pending argument with SF1003. A warning is for
+        // what the analyzer can see.
         if (!this.region.Symbols.IsSodaFlow(method))
         {
-            return (this.Follow(invocation)?.State ?? LoopState.None)
+            LoopState result =
+                this.Classify(call: invocation, method: method) == CalleeKind.Mover
+                    ? this.MovedResult(invocation: invocation, method: method)
+                    : LoopState.None;
+
+            return result
+                .Join(this.Follow(invocation)?.State ?? LoopState.None)
                 .Join(this.region.Symbols.StateOfType(method.ReturnType));
         }
 
@@ -480,8 +543,12 @@ internal sealed class LoopStateEvaluator
             };
 
         // The object has no node of its own. Its members hold the state, and a hold or a cell of
-        // such objects reads them through the content.
-        LoopState state = this.TypeState(creation).Join(this.Follow(creation)?.State ?? LoopState.None);
+        // such objects reads them through the content. An object of code that cannot know the
+        // library, such as a list, has the state of the values that its constructor gets.
+        LoopState state =
+            this.TypeState(creation)
+                .Join(this.Follow(creation)?.State ?? LoopState.None)
+                .Join(this.MovedInto(creation));
 
         return initializer == null ? state : this.WithInitializer(state: state, initializer: initializer);
     }
@@ -515,6 +582,122 @@ internal sealed class LoopStateEvaluator
         }
 
         return state;
+    }
+
+    /// <summary>
+    ///     What the analyzer knows about the callee of a call to code that is not
+    ///     the library.
+    /// </summary>
+    public CalleeKind Classify(SyntaxNode call, IMethodSymbol method)
+    {
+        if (this.region.Symbols.IsSodaFlow(method))
+        {
+            return CalleeKind.Library;
+        }
+
+        if (method.MethodKind == MethodKind.DelegateInvoke)
+        {
+            return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
+        }
+
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        bool hasBody =
+            definition.MethodKind == MethodKind.Constructor
+                ? definition.DeclaringSyntaxReferences.Length > 0
+                  || (definition.IsImplicitlyDeclared
+                      && definition.ContainingType.DeclaringSyntaxReferences.Length > 0)
+                : BodyOf(definition) != null;
+
+        if (hasBody)
+        {
+            // A body that is too deep is code that the analyzer does not read.
+            return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
+        }
+
+        return this.region.Symbols.CanKnowTheLibrary(definition.ContainingAssembly)
+            ? CalleeKind.Unknown
+            : CalleeKind.Mover;
+    }
+
+    /// <summary>
+    ///     The state of the values that a call gives to code that cannot know the
+    ///     library. They are the receiver and each argument that is not a function
+    ///     for the callee to run. That code can keep them, give them back, or give
+    ///     them to a function of the caller.
+    /// </summary>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The callee.</param>
+    /// <param name="withReceiver">
+    ///     False for only the arguments, which are what the call can put into the
+    ///     receiver.
+    /// </param>
+    public LoopState Moved(InvocationExpressionSyntax invocation, IMethodSymbol method, bool withReceiver)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
+
+        return this.MovedArguments(
+            definition: definition,
+            arguments: invocation.ArgumentList.Arguments,
+            offset: method.ReducedFrom != null ? 1 : 0,
+            seed: withReceiver ? this.Eval(receiver) : LoopState.None);
+    }
+
+    private LoopState MovedArguments(
+        IMethodSymbol definition,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        int offset,
+        LoopState seed)
+    {
+        LoopState moved = seed;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            // A function for a delegate parameter is code for the callee to run, and not a value
+            // that it moves.
+            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                is not { Type.TypeKind: TypeKind.Delegate })
+            {
+                moved = moved.Join(this.Eval(arguments[i].Expression));
+            }
+        }
+
+        return moved;
+    }
+
+    /// <summary>
+    ///     The result of a call to code that cannot know the library, where the
+    ///     type of the result can hold a state.
+    /// </summary>
+    private LoopState MovedResult(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
+            ? this.Moved(invocation: invocation, method: method, withReceiver: true)
+            : LoopState.None;
+
+    /// <summary>
+    ///     The state of an object from a constructor of code that cannot know the
+    ///     library: the state of the arguments.
+    /// </summary>
+    private LoopState MovedInto(ExpressionSyntax creation)
+    {
+        BaseArgumentListSyntax? arguments =
+            creation switch
+            {
+                ObjectCreationExpressionSyntax written => written.ArgumentList,
+                ImplicitObjectCreationExpressionSyntax implied => implied.ArgumentList,
+                _ => null
+            };
+
+        return arguments != null
+               && this.region.ModelFor(creation).GetSymbolInfo(creation).Symbol is IMethodSymbol constructor
+               && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
+            ? this.MovedArguments(
+                definition: constructor.OriginalDefinition,
+                arguments: arguments.Arguments,
+                offset: 0,
+                seed: LoopState.None)
+            : LoopState.None;
     }
 
     private Followed? FollowInvocation(InvocationExpressionSyntax invocation)
@@ -633,7 +816,10 @@ internal sealed class LoopStateEvaluator
                 all =
                     all == null
                         ? one
-                        : new Followed(state: all.State.Join(one.State), findings: all.Findings.AddRange(one.Findings));
+                        : new Followed(
+                            state: all.State.Join(one.State),
+                            findings: all.Findings.AddRange(one.Findings),
+                            outs: all.Outs.SetItems(one.Outs));
             }
         }
 
@@ -768,7 +954,7 @@ internal sealed class LoopStateEvaluator
         IReadOnlyList<Binding> bindings =
             this.Bind(definition: definition, arguments: arguments, extensionReceiver: null);
 
-        if (bindings.All(static binding => binding.State.IsNone))
+        if (!this.region.HasFields && bindings.All(static binding => binding.State.IsNone))
         {
             return Followed.Nothing;
         }
@@ -945,7 +1131,10 @@ internal sealed class LoopStateEvaluator
     {
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
-        if (definer == null && members.Count == 0 && bindings.All(static binding => binding.State.IsNone))
+        if (definer == null
+            && members.Count == 0
+            && !this.region.HasFields
+            && bindings.All(static binding => binding.State.IsNone))
         {
             return Followed.Nothing;
         }
@@ -1115,7 +1304,21 @@ internal sealed class LoopStateEvaluator
             ?? receiver?.Origin
             ?? target?.Origin;
 
-        return new Followed(state: result.WithOrigins(Out).FromIfUnknown(inputs), findings: findings.ToImmutable());
+        ImmutableDictionary<ISymbol, LoopState>.Builder outs =
+            ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
+        foreach (Binding binding in bindings.Where(static binding => binding.Parameter.RefKind != RefKind.None))
+        {
+            if (inner.locals.TryGetValue(key: binding.Parameter, value: out LoopState? assigned))
+            {
+                outs[binding.Parameter] = assigned.WithOrigins(Out).FromIfUnknown(inputs);
+            }
+        }
+
+        return new Followed(
+            state: result.WithOrigins(Out).FromIfUnknown(inputs),
+            findings: findings.ToImmutable(),
+            outs: outs.ToImmutable());
 
         // The origin in this code of a value that has the given origin in the callee.
         ISymbol? Out(ISymbol? origin)
@@ -1448,7 +1651,7 @@ internal sealed class LoopStateEvaluator
 
     // Arrays, and not a collection expression. A collection expression here takes the natural type
     // of the other arms, SeparatedSyntaxList, and that conversion gives an empty list.
-    private static IReadOnlyList<ParameterSyntax> ParametersOf(AnonymousFunctionExpressionSyntax lambda) =>
+    public static IReadOnlyList<ParameterSyntax> ParametersOf(AnonymousFunctionExpressionSyntax lambda) =>
         lambda switch
         {
             SimpleLambdaExpressionSyntax s => new[] { s.Parameter },

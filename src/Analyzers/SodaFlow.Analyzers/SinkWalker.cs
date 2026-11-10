@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -65,6 +66,145 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
     }
 
+    public override void VisitForEachStatement(ForEachStatementSyntax node)
+    {
+        this.Visit(node.Expression);
+
+        // The collection has the state of all its elements, thus each element has that state.
+        if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
+        {
+            this.evaluator.Declare(local: element, state: this.evaluator.Eval(node.Expression));
+        }
+
+        this.Visit(node.Statement);
+    }
+
+    public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
+    {
+        this.Visit(node.Expression);
+        this.AssignState(target: node.Variable, state: this.evaluator.Eval(node.Expression));
+        this.Visit(node.Statement);
+    }
+
+    public override void VisitIsPatternExpression(IsPatternExpressionSyntax node)
+    {
+        this.DeclarePattern(pattern: node.Pattern, state: this.evaluator.Eval(node.Expression));
+        base.VisitIsPatternExpression(node);
+    }
+
+    public override void VisitSwitchStatement(SwitchStatementSyntax node)
+    {
+        LoopState state = this.evaluator.Eval(node.Expression);
+
+        foreach (CasePatternSwitchLabelSyntax label in node.Sections
+                     .SelectMany(static section => section.Labels)
+                     .OfType<CasePatternSwitchLabelSyntax>())
+        {
+            this.DeclarePattern(pattern: label.Pattern, state: state);
+        }
+
+        base.VisitSwitchStatement(node);
+    }
+
+    public override void VisitSwitchExpression(SwitchExpressionSyntax node)
+    {
+        LoopState state = this.evaluator.Eval(node.GoverningExpression);
+
+        foreach (SwitchExpressionArmSyntax arm in node.Arms)
+        {
+            this.DeclarePattern(pattern: arm.Pattern, state: state);
+        }
+
+        base.VisitSwitchExpression(node);
+    }
+
+    /// <summary>
+    ///     Gives each variable of a pattern the state of the value that the
+    ///     pattern is for. A variable for a member of an object gets the state of
+    ///     that member, when the walk knows the members.
+    /// </summary>
+    private void DeclarePattern(PatternSyntax pattern, LoopState state)
+    {
+        if (state.IsNone)
+        {
+            return;
+        }
+
+        switch (pattern)
+        {
+            case DeclarationPatternSyntax declaration:
+                this.DeclareDesignation(designation: declaration.Designation, state: state);
+                break;
+            case VarPatternSyntax variable:
+                this.DeclareDesignation(designation: variable.Designation, state: state);
+                break;
+            case RecursivePatternSyntax recursive:
+            {
+                this.DeclareDesignation(designation: recursive.Designation, state: state);
+                SemanticModel model = this.region.ModelFor(pattern);
+
+                foreach (SubpatternSyntax part in recursive.PropertyPatternClause?.Subpatterns ?? default)
+                {
+                    ExpressionSyntax? name = part.NameColon?.Name ?? part.ExpressionColon?.Expression;
+
+                    this.DeclarePattern(
+                        pattern: part.Pattern,
+                        state: state.Members != null && name != null && model.GetSymbolInfo(name).Symbol is { } member
+                            ? state.Members.StateOf(member).FromIfUnknown(state.Origin)
+                            : state);
+                }
+
+                foreach (SubpatternSyntax part in recursive.PositionalPatternClause?.Subpatterns ?? default)
+                {
+                    this.DeclarePattern(pattern: part.Pattern, state: state);
+                }
+
+                break;
+            }
+            case BinaryPatternSyntax binary:
+                this.DeclarePattern(pattern: binary.Left, state: state);
+                this.DeclarePattern(pattern: binary.Right, state: state);
+                break;
+            case UnaryPatternSyntax unary:
+                this.DeclarePattern(pattern: unary.Pattern, state: state);
+                break;
+            case ParenthesizedPatternSyntax parenthesized:
+                this.DeclarePattern(pattern: parenthesized.Pattern, state: state);
+                break;
+            case ListPatternSyntax list:
+                this.DeclareDesignation(designation: list.Designation, state: state);
+
+                foreach (PatternSyntax element in list.Patterns)
+                {
+                    this.DeclarePattern(pattern: element, state: state);
+                }
+
+                break;
+            case SlicePatternSyntax { Pattern: { } rest }:
+                this.DeclarePattern(pattern: rest, state: state);
+                break;
+        }
+    }
+
+    private void DeclareDesignation(VariableDesignationSyntax? designation, LoopState state)
+    {
+        if (designation == null)
+        {
+            return;
+        }
+
+        SemanticModel model = this.region.ModelFor(designation);
+
+        foreach (SingleVariableDesignationSyntax single in designation.DescendantNodesAndSelf()
+                     .OfType<SingleVariableDesignationSyntax>())
+        {
+            if (model.GetDeclaredSymbol(single) is { } declared)
+            {
+                this.evaluator.Declare(local: declared, state: state);
+            }
+        }
+    }
+
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         if (!node.IsKind(SyntaxKind.SimpleAssignmentExpression))
@@ -78,7 +218,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // is read.
         switch (node.Left)
         {
-            case IdentifierNameSyntax:
+            case IdentifierNameSyntax or TupleExpressionSyntax or DeclarationExpressionSyntax:
                 break;
             case MemberAccessExpressionSyntax access:
                 this.Visit(access.Expression);
@@ -93,22 +233,72 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
+        this.Assign(target: node.Left, value: node.Right);
+    }
 
-        switch (this.region.ModelFor(node).GetSymbolInfo(node.Left).Symbol)
+    /// <summary>
+    ///     Gives a target the state of a value. A deconstruction of a tuple
+    ///     expression gives each part of the tuple to its own target.
+    /// </summary>
+    private void Assign(ExpressionSyntax target, ExpressionSyntax value)
+    {
+        if (target is TupleExpressionSyntax targets
+            && value is TupleExpressionSyntax values
+            && targets.Arguments.Count == values.Arguments.Count)
         {
-            case ILocalSymbol or IParameterSymbol when node.Left is IdentifierNameSyntax:
-                this.evaluator.Declare(
-                    local: this.region.ModelFor(node).GetSymbolInfo(node.Left).Symbol!,
-                    state: this.evaluator.Eval(node.Right));
+            for (int i = 0; i < targets.Arguments.Count; i++)
+            {
+                this.Assign(target: targets.Arguments[i].Expression, value: values.Arguments[i].Expression);
+            }
+
+            return;
+        }
+
+        this.AssignState(target: target, state: this.evaluator.Eval(value));
+    }
+
+    private void AssignState(ExpressionSyntax target, LoopState state)
+    {
+        SemanticModel model = this.region.ModelFor(target);
+
+        switch (target)
+        {
+            case DeclarationExpressionSyntax declaration:
+                this.DeclareDesignation(designation: declaration.Designation, state: state);
+
+                return;
+            // A value that is not a tuple expression: each part gets the state of all of it.
+            case TupleExpressionSyntax parts:
+                foreach (ArgumentSyntax part in parts.Arguments)
+                {
+                    this.AssignState(target: part.Expression, state: state);
+                }
+
+                return;
+            // A value put into a collection is in the collection.
+            case ElementAccessExpressionSyntax element:
+                this.evaluator.Absorb(target: element.Expression, state: state);
+
+                return;
+        }
+
+        switch (model.GetSymbolInfo(target).Symbol)
+        {
+            case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
+                this.evaluator.Declare(local: local, state: state);
                 break;
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
-            case IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false }
-                when node.Left is IdentifierNameSyntax
+            case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol)
+                when target is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
-                this.evaluator.SetMember(
-                    member: this.region.ModelFor(node).GetSymbolInfo(node.Left).Symbol!,
-                    state: this.evaluator.Eval(node.Right));
+                this.evaluator.SetMember(member: own, state: state);
+                break;
+            case { } member and (IFieldSymbol or IPropertySymbol) when !this.region.Symbols.IsSodaFlow(member):
+                this.evaluator.SetMemberOf(
+                    owner: (target as MemberAccessExpressionSyntax)?.Expression,
+                    member: member,
+                    state: state);
                 break;
         }
     }
@@ -143,55 +333,81 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Expression);
 
         SodaFlowSymbols symbols = this.region.Symbols;
-        bool library = symbols.IsSodaFlow(method);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
+        ExpressionSyntax? receiver = LoopStateEvaluator.ReceiverOf(symbols: symbols, invocation: node, method: method);
+        CalleeKind kind = this.evaluator.Classify(call: node, method: method);
         Followed? followed = this.evaluator.Follow(node);
 
-        // A lambda written at the call runs in the call for two kinds of callee. One is a library
-        // operator that runs its function in the block. The other is code that the analyzer
-        // cannot read. A callee whose body the evaluator follows gets the lambda as a value.
-        bool runsLambdas =
-            followed == null
-            && (library
-                ? LoopStateEvaluator.RunsNow(symbols: symbols, method: method)
-                : !RunsOnAnotherThread(method.ContainingType));
+        switch (kind)
+        {
+            // An operator keeps its function for a firing after the close, but for the few that
+            // run it in the block.
+            case CalleeKind.Library:
+                this.VisitArguments(
+                    arguments: arguments,
+                    runsLambdas: LoopStateEvaluator.RunsNow(symbols: symbols, method: method),
+                    given: LoopState.None);
 
-        this.VisitArguments(arguments: node.ArgumentList.Arguments, runsLambdas: runsLambdas);
+                break;
+            // The evaluator follows the body, and a lambda is a value that the body gets.
+            case CalleeKind.Body:
+                this.VisitArguments(arguments: arguments, runsLambdas: false, given: LoopState.None);
+                this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
+
+                break;
+            // Code that cannot know the library runs a lambda in the call, with the values that
+            // the call gave it. It can put an argument into its receiver, as Add does to a list.
+            case CalleeKind.Mover:
+            {
+                LoopState moved = this.evaluator.Moved(invocation: node, method: method, withReceiver: true);
+
+                this.VisitArguments(
+                    arguments: arguments,
+                    runsLambdas: !RunsOnAnotherThread(method.ContainingType),
+                    given: moved);
+
+                if (receiver != null && method.ReducedFrom == null)
+                {
+                    this.evaluator.Absorb(
+                        target: receiver,
+                        state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+                }
+
+                this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved);
+
+                break;
+            }
+            // The analyzer cannot see a pending value that goes to this callee.
+            default:
+            {
+                this.VisitArguments(
+                    arguments: arguments,
+                    runsLambdas: !RunsOnAnotherThread(method.ContainingType),
+                    given: LoopState.None);
+
+                IMethodSymbol called = method.ReducedFrom ?? method;
+
+                if (method.ReducedFrom != null && receiver != null)
+                {
+                    this.CheckEscape(callee: called, argument: receiver);
+                }
+
+                this.CheckEscapes(callee: called, arguments: arguments);
+
+                break;
+            }
+        }
+
         this.Report(followed);
-
-        ExpressionSyntax? receiver = LoopStateEvaluator.ReceiverOf(symbols: symbols, invocation: node, method: method);
 
         // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
         // members count on a library receiver too, and not only on a library method.
-        bool libraryReceiver = receiver != null && symbols.IsCarrierType(model.GetTypeInfo(receiver).Type);
-
-        if (library || libraryReceiver)
+        if (receiver != null
+            && SodaFlowSymbols.ReadMembers.Contains(LoopStateEvaluator.OperatorName(method))
+            && (kind == CalleeKind.Library || symbols.IsCarrierType(model.GetTypeInfo(receiver).Type)))
         {
-            if (SodaFlowSymbols.ReadMembers.Contains(LoopStateEvaluator.OperatorName(method)) && receiver != null)
-            {
-                this.CheckRead(node: node, owner: receiver, name: method.Name);
-            }
-
-            if (library)
-            {
-                return;
-            }
+            this.CheckRead(node: node, owner: receiver, name: method.Name);
         }
-
-        if (followed != null)
-        {
-            return;
-        }
-
-        // The callee has no body in this compilation, or is too deep. The analyzer cannot see a
-        // pending value that goes to it.
-        IMethodSymbol called = method.ReducedFrom ?? method;
-
-        if (method.ReducedFrom != null && receiver != null)
-        {
-            this.CheckEscape(callee: called, argument: receiver);
-        }
-
-        this.CheckEscapes(callee: called, arguments: node.ArgumentList.Arguments);
     }
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node) =>
@@ -215,44 +431,114 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         BaseArgumentListSyntax? arguments,
         InitializerExpressionSyntax? initializer)
     {
-        IMethodSymbol? constructor = this.region.ModelFor(node).GetSymbolInfo(node).Symbol as IMethodSymbol;
-        Followed? followed = this.evaluator.Follow(node);
+        if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IMethodSymbol constructor)
+        {
+            this.Visit(arguments);
+            this.Visit(initializer);
+
+            return;
+        }
+
+        CalleeKind kind = this.evaluator.Classify(call: node, method: constructor);
 
         if (arguments != null)
         {
             this.VisitArguments(
                 arguments: arguments.Arguments,
-                runsLambdas: followed == null
-                             && constructor != null
-                             && !RunsOnAnotherThread(constructor.ContainingType));
+                runsLambdas: kind is CalleeKind.Mover or CalleeKind.Unknown
+                             && !RunsOnAnotherThread(constructor.ContainingType),
+                given: LoopState.None);
         }
 
         this.Visit(initializer);
-        this.Report(followed);
+        this.Report(this.evaluator.Follow(node));
 
-        if (followed == null
-            && arguments != null
-            && constructor != null
-            && !this.region.Symbols.IsSodaFlow(constructor))
+        if (kind == CalleeKind.Unknown && arguments != null)
         {
             this.CheckEscapes(callee: constructor, arguments: arguments.Arguments);
         }
     }
 
-    private void VisitArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, bool runsLambdas)
+    /// <summary>
+    ///     The arguments of a call. An argument that is a lambda is code that the
+    ///     walk reads here only when the callee runs it in the call.
+    /// </summary>
+    /// <param name="arguments">The arguments.</param>
+    /// <param name="runsLambdas">True when the callee runs a lambda in the call.</param>
+    /// <param name="given">
+    ///     The state of the values that the callee can give to a lambda, which
+    ///     each parameter of the lambda then has.
+    /// </param>
+    private void VisitArguments(SeparatedSyntaxList<ArgumentSyntax> arguments, bool runsLambdas, LoopState given)
     {
         foreach (ArgumentSyntax argument in arguments)
         {
             if (argument.Expression is not AnonymousFunctionExpressionSyntax lambda)
             {
                 this.Visit(argument);
+
+                continue;
             }
-            else if (runsLambdas && this.entered.Add(lambda))
+
+            if (!runsLambdas || !this.entered.Add(lambda))
             {
-                // The lambda is part of this code. The walk reads it where it is, with the same
-                // evaluator.
-                this.Visit(lambda.Body);
+                continue;
             }
+
+            if (!given.IsNone)
+            {
+                SemanticModel model = this.region.ModelFor(lambda);
+
+                foreach (ParameterSyntax parameter in LoopStateEvaluator.ParametersOf(lambda))
+                {
+                    if (model.GetDeclaredSymbol(parameter) is { } declared)
+                    {
+                        this.evaluator.Declare(local: declared, state: given);
+                    }
+                }
+            }
+
+            // The lambda is part of this code. The walk reads it where it is, with the same
+            // evaluator.
+            this.Visit(lambda.Body);
+        }
+    }
+
+    /// <summary>
+    ///     Gives the target of each <c>out</c> or <c>ref</c> argument the state
+    ///     that the callee gives to that parameter.
+    /// </summary>
+    private void AssignOuts(
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        IMethodSymbol method,
+        Followed? followed,
+        LoopState moved)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        int offset = method.ReducedFrom != null ? 1 : 0;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+                && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
+            {
+                continue;
+            }
+
+            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                is not { } parameter)
+            {
+                continue;
+            }
+
+            LoopState state =
+                followed == null
+                    ? moved
+                    : followed.Outs.TryGetValue(key: parameter, value: out LoopState? assigned)
+                        ? assigned
+                        : LoopState.None;
+
+            this.AssignState(target: arguments[i].Expression, state: state);
         }
     }
 
