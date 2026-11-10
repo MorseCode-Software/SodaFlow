@@ -39,6 +39,28 @@ internal sealed class TransactionInternal
     // transaction, and on .NET Framework that measured more than the eight bytes.
     private static List<Action>? afterReleaseQueue;
 
+    // The largest list that childPosts or childSplits keeps after its last child. One transaction
+    // that defers more than this does not keep a large array for the life of the process.
+    private const int MaxChildWorkToKeep = 1024;
+
+    // The posts and the splits of the child transactions that are open. A posted action and a
+    // split item each run in a child of the transaction that closes. A child puts the work that
+    // it defers here, and not in the queues of that transaction. When the child commits, the
+    // transaction moves that work into its queues, in the same sequence. When the child fails,
+    // the work goes with it, and the release of each post runs.
+    //
+    // Before, a child wrote directly into the queues of the transaction. A child that failed
+    // left its posts and its splits there, and they ran. The first transaction always dropped
+    // the work that it deferred, thus the two paths did not agree.
+    //
+    // Only the thread that holds TransactionLock uses the two lists, thus the lock guards them.
+    // One list for the process allocates nothing for each child. A start hook can open a
+    // transaction while a child is open, and that transaction has children of its own. Thus,
+    // each child uses the part of a list after the count at its start. The end of the child
+    // removes that part.
+    private static List<PostEntry>? childPosts;
+    private static List<SplitEntry>? childSplits;
+
     // The last id given. Only the thread that holds the transaction lock changes it.
     private static long nextId;
 
@@ -76,11 +98,11 @@ internal sealed class TransactionInternal
     }
 
     // A child is made in the Close of its parent, thus this thread holds the transaction lock.
-    private TransactionInternal(TransactionInternal deferredOwner)
+    // It holds no reference to that parent. See childPosts.
+    private TransactionInternal(long childId)
     {
-        this.DeferredOwner = deferredOwner;
         this.hasParentTransaction = true;
-        this.Id = ++nextId;
+        this.Id = childId;
     }
 
     /// <summary>
@@ -91,12 +113,6 @@ internal sealed class TransactionInternal
     ///     holds the lock. It is never zero.
     /// </summary>
     internal long Id { get; private set; }
-
-    // The root transaction owns the post queue and the split queue. It shares them with the
-    // child transactions that it creates as it closes. Thus, work that a deferred action defers
-    // goes into the queue that the root still drains. A child reaches these queues through
-    // deferredOwner and does not hold its own.
-    private TransactionInternal DeferredOwner => field ?? this;
 
     /// <summary>
     ///     Tells you if there is a current transaction.
@@ -480,10 +496,17 @@ internal sealed class TransactionInternal
     /// </param>
     private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure)
     {
-        TransactionInternal owner = this.DeferredOwner;
+        PostEntry entry = new(action: action, onFailure: onFailure);
 
-        (owner.postQueue ?? (owner.postQueue = new Queue<PostEntry>()))
-            .Enqueue(new PostEntry(action: action, onFailure: onFailure));
+        // A child holds its posts apart until it commits. See childPosts.
+        if (this.hasParentTransaction)
+        {
+            (childPosts ??= []).Add(entry);
+
+            return;
+        }
+
+        (this.postQueue ??= new Queue<PostEntry>()).Enqueue(entry);
     }
 
     // Runs one release and answers with its own exception, or with null. A throw from a release
@@ -509,10 +532,21 @@ internal sealed class TransactionInternal
     /// <param name="action">The action to run after all last actions.</param>
     internal void Split(int index, Action<TransactionInternal> action)
     {
-        TransactionInternal owner = this.DeferredOwner;
+        // A child holds its splits apart until it commits. See childPosts.
+        if (this.hasParentTransaction)
+        {
+            (childSplits ??= []).Add(new SplitEntry(index: index, action: action));
 
+            return;
+        }
+
+        this.QueueSplit(index: index, action: action);
+    }
+
+    private void QueueSplit(int index, Action<TransactionInternal> action)
+    {
         Dictionary<int, Action<TransactionInternal>> queue =
-            owner.splitQueue ?? (owner.splitQueue = new Dictionary<int, Action<TransactionInternal>>());
+            this.splitQueue ??= new Dictionary<int, Action<TransactionInternal>>();
 
         // If an entry is present, put the old entry and the new entry together.
         Action<TransactionInternal> @new;
@@ -682,12 +716,14 @@ internal sealed class TransactionInternal
             {
                 void ExecuteInNewTransaction(Action<TransactionInternal> action, bool runStartHooks)
                 {
+                    // The child puts the work that it defers after these positions. See
+                    // childPosts.
+                    int firstPost = childPosts?.Count ?? 0;
+                    int firstSplit = childSplits?.Count ?? 0;
+
                     try
                     {
-                        // The child defers into the queues of this transaction. Thus, a Post
-                        // or a Split from inside a deferred action joins the drain that runs
-                        // here, and does not stay on the child.
-                        TransactionInternal transaction = new(this);
+                        TransactionInternal transaction = new(childId: ++nextId);
 
                         if (!runStartHooks)
                         {
@@ -721,10 +757,26 @@ internal sealed class TransactionInternal
 
                         transaction.Close();
                     }
+                    catch (Exception childFailure)
+                    {
+                        Exception toThrow =
+                            DropChildWork(firstPost: firstPost, firstSplit: firstSplit, cause: childFailure);
+
+                        if (ReferenceEquals(objA: toThrow, objB: childFailure))
+                        {
+                            throw;
+                        }
+
+                        throw toThrow;
+                    }
                     finally
                     {
                         localTransaction = this;
                     }
+
+                    // The child committed. Thus, this transaction takes the posts and the splits
+                    // of the child, and the drain here runs them.
+                    this.TakeChildWork(firstPost: firstPost, firstSplit: firstSplit);
                 }
 
                 while (this.postQueue?.Count > 0 || this.splitQueue?.Count > 0)
@@ -907,6 +959,99 @@ internal sealed class TransactionInternal
         failureExceptions.Insert(index: 0, item: transactionException);
 
         return new AggregateException(failureExceptions);
+    }
+
+    // Moves the work that a child deferred into the queues of this transaction, and removes it
+    // from the lists. The sequence stays, and a split joins the splits of its index, as a call of
+    // Split on this transaction does.
+    private void TakeChildWork(int firstPost, int firstSplit)
+    {
+        if (childPosts != null && childPosts.Count > firstPost)
+        {
+            Queue<PostEntry> queue = this.postQueue ??= new Queue<PostEntry>();
+
+            for (int i = firstPost; i < childPosts.Count; i++)
+            {
+                queue.Enqueue(childPosts[i]);
+            }
+
+            RemoveChildWork(list: ref childPosts, first: firstPost);
+        }
+
+        if (childSplits != null && childSplits.Count > firstSplit)
+        {
+            for (int i = firstSplit; i < childSplits.Count; i++)
+            {
+                this.QueueSplit(index: childSplits[i].Index, action: childSplits[i].Action);
+            }
+
+            RemoveChildWork(list: ref childSplits, first: firstSplit);
+        }
+    }
+
+    // Removes the work that a child deferred, because the child failed. Each post kept no
+    // promise, thus its release runs, with the failure of the child as the cause. Gives the
+    // exception to throw, as Discard does: the cause, or an AggregateException with the cause
+    // first when a release threw.
+    private static Exception DropChildWork(int firstPost, int firstSplit, Exception cause)
+    {
+        List<Exception>? failureExceptions = null;
+
+        if (childPosts != null)
+        {
+            // A release can post. That post is after this one in the list, thus this loop
+            // releases it also.
+            for (int i = firstPost; i < childPosts.Count; i++)
+            {
+                Action<Exception>? onFailure = childPosts[i].OnFailure;
+
+                if (onFailure != null && RunRelease(onFailure: onFailure, cause: cause) is { } release)
+                {
+                    (failureExceptions ??= []).Add(release);
+                }
+            }
+
+            RemoveChildWork(list: ref childPosts, first: firstPost);
+        }
+
+        if (childSplits != null)
+        {
+            RemoveChildWork(list: ref childSplits, first: firstSplit);
+        }
+
+        if (failureExceptions == null)
+        {
+            return cause;
+        }
+
+        failureExceptions.Insert(index: 0, item: cause);
+
+        return new AggregateException(failureExceptions);
+    }
+
+    // Removes the entries from a position to the end. RemoveRange clears them, thus the list keeps
+    // no action alive. An empty list that grew large goes away.
+    private static void RemoveChildWork<T>(ref List<T>? list, int first)
+    {
+        if (list == null)
+        {
+            return;
+        }
+
+        list.RemoveRange(index: first, count: list.Count - first);
+
+        if (first == 0 && list.Capacity > MaxChildWorkToKeep)
+        {
+            list = null;
+        }
+    }
+
+    // One split that a child deferred: the index of its item, and the action that sends the item.
+    private readonly struct SplitEntry(in int index, in Action<TransactionInternal> action)
+    {
+        public int Index { get; } = index;
+
+        public Action<TransactionInternal> Action { get; } = action;
     }
 
     // One posted action, with the action to run where the posted one keeps no promise. A readonly

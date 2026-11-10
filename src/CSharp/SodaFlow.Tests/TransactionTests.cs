@@ -45,6 +45,13 @@ public sealed class TransactionTests
         throw new InvalidOperationException("The transaction did not fail.");
     }
 
+    // A listener that fails each transaction in which the stream fires. The two maps put it after
+    // an operation that listens to the stream directly.
+    private static IStrongListener ThrowAfterTheDefer(Stream<int> stream) =>
+        stream.Map(static value => value)
+            .Map(static value => value)
+            .ListenStrong(static _ => throw new InvalidOperationException("listener"));
+
     [Test]
     public async Task PostWithReleaseRunsTheReleaseWhereTheTransactionFails()
     {
@@ -279,6 +286,205 @@ public sealed class TransactionTests
         await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
         await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(first);
         await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(second);
+    }
+
+    // A posted action runs in a transaction of its own, and a transaction that fails drops the
+    // actions that it posted. Before, a post from a posted action went directly into the queue of
+    // the first transaction. The failure of the posted action left it there.
+    [Test]
+    public async Task APostedActionThatThrowsRunsNoneOfItsPosts()
+    {
+        bool ran = false;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        Transaction.Post(() => ran = true);
+
+                        throw new InvalidOperationException("post");
+                    })))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsFalse();
+    }
+
+    // The post kept no promise, thus its release runs, with the exception that failed the posted
+    // action.
+    [Test]
+    public async Task APostedActionThatThrowsRunsTheReleaseOfEachOfItsPosts()
+    {
+        InvalidOperationException thrown = new("post");
+        bool ran = false;
+        List<Exception> causes = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        Transaction.Post(action: () => ran = true, onFailure: causes.Add);
+                        Transaction.Post(action: () => ran = true, onFailure: causes.Add);
+
+                        throw thrown;
+                    })))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsFalse();
+        await Assert.That(causes.Count).IsEqualTo(2);
+        await Assert.That(causes[0]).IsSameReferenceAs(thrown);
+        await Assert.That(causes[1]).IsSameReferenceAs(thrown);
+    }
+
+    // The same rule as for the first transaction: a throw from the release comes out after the
+    // exception that caused it.
+    [Test]
+    public async Task APostedActionThatThrowsKeepsTheThrowFromTheReleaseOfItsPost()
+    {
+        InvalidOperationException thrown = new("post");
+        NotSupportedException fromRelease = new("the release fails");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                        Transaction.Post(() =>
+                        {
+                            Transaction.Post(
+                                action: static () =>
+                                {
+                                },
+                                onFailure: _ => throw fromRelease);
+
+                            throw thrown;
+                        })))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(thrown);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(fromRelease);
+    }
+
+    // The posted action here does not throw. A listener throws while its transaction propagates
+    // the send, which is the other cause of a failure of that transaction.
+    [Test]
+    public async Task APostedActionWhoseTransactionFailsRunsNoneOfItsPosts()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        using IStrongListener thrower = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        bool ran = false;
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        Transaction.Post(() => ran = true);
+                        sink.Send(1);
+                    })))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran).IsFalse();
+    }
+
+    // The failure takes only the posts of the posted action that failed. The posts of the first
+    // transaction, and of the posted actions before and after it, run in the sequence that they
+    // had.
+    [Test]
+    public async Task APostedActionThatThrowsLeavesThePostsOfTheOtherPostedActions()
+    {
+        List<string> ran = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(() => Transaction.Post(() => ran.Add("from the first")));
+
+                    Transaction.Post(() =>
+                    {
+                        Transaction.Post(() => ran.Add("from the second"));
+
+                        throw new InvalidOperationException("the second fails");
+                    });
+
+                    Transaction.Post(() => Transaction.Post(() => ran.Add("from the third")));
+                    Transaction.Post(() => ran.Add("the fourth"));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["the fourth", "from the first", "from the third"],
+                ordering: CollectionOrdering.Matching);
+    }
+
+    // Defer gives its value a transaction of its own, through the same queue as a split. The two
+    // maps put the listener that throws after the defer. Thus, the defer queues the value before
+    // the throw. This holds the first transaction to the rule of the test after it.
+    [Test]
+    public async Task ATransactionThatFailsDefersNoValue()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
+        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+
+        await Assert.That(() => sink.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEmpty();
+    }
+
+    [Test]
+    public async Task APostedActionWhoseTransactionFailsDefersNoValue()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
+        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+
+        await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1))))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEmpty();
+    }
+
+    // A split item also has a transaction of its own. The item 2 fails that transaction after its
+    // listener posted, and the posts of the items 1 and 3 run.
+    [Test]
+    public async Task ASplitItemWhoseTransactionFailsRunsNoneOfItsPosts()
+    {
+        StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
+        Stream<int> items = Operational.Split<int, List<int>>(sink);
+        List<int> posted = [];
+        using IStrongListener l = items.ListenStrong(item => Transaction.Post(() => posted.Add(item)));
+
+        using IStrongListener thrower =
+            items.Map(static item => item)
+                .Map(static item => item)
+                .Filter(static item => item == 2)
+                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+
+        await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(posted).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+    }
+
+    // The transaction of each item queues the deferred value of that item. The item 2 fails its
+    // transaction after that. Thus, the listener gets 1 and 3 only.
+    [Test]
+    public async Task ASplitItemWhoseTransactionFailsDefersNoValue()
+    {
+        StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
+        Stream<int> items = Operational.Split<int, List<int>>(sink);
+        List<int> seen = [];
+        using IStrongListener l = Operational.Defer(items).ListenStrong(seen.Add);
+
+        using IStrongListener thrower =
+            items.Map(static item => item)
+                .Map(static item => item)
+                .Filter(static item => item == 2)
+                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+
+        await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
     }
 
     // A split gives each item a transaction of its own, after the transaction that split them. A

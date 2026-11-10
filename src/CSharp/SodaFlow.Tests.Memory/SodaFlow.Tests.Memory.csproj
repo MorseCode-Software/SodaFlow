@@ -32,6 +32,7 @@
         <Compile Include="..\..\TestPolyfills.cs" Link="TestPolyfills.cs"/>
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="..\..\TestUnobservedTaskExceptions.cs" Link="TestUnobservedTaskExceptions.cs"/>
+        <Compile Include="DeferredWorkGarbageCollectionTests.cs"/>
         <Compile Include="GarbageCollectionTests.cs"/>
         <Compile Include="StreamTests.cs"/>
         <Compile Include="TimerGarbageCollectionTests.cs"/>
