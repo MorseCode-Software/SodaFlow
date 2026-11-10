@@ -1506,6 +1506,30 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S190. A constructor keeps a lambda that samples its parameter. A getter of the object runs
+    // the lambda.
+    public static Cell<int> FunctionKeptByAConstructorOfThisCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadingRow row = new(l.Map(v => v)); return S.Hold(row.Now); });
+
+    // S191. The same row with a plain cell.
+    public static Cell<int> FunctionKeptByAConstructorOfThisCodePlain() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            ReadingRow row = new(Plain);
+            return S.Snapshot(l, (a, b) => a + b).Hold(row.Now);
+        });
+
+    // S192. A helper returns a lambda that samples the parameter of the helper. The block runs
+    // the lambda.
+    public static Cell<int> FunctionFromAHelperCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> read = ReaderOf(l.Map(v => v)); return S.Hold(read()); });
+
+    // S193. The same lambda, which the block only keeps.
+    public static Cell<int> FunctionFromAHelperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ReaderOf(l.Map(v => v))); return S.Hold(0); });
+
+    private static Func<int> ReaderOf(Cell<int> c) => () => c.Sample();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -1670,6 +1694,18 @@ public static class Shapes
             : base(share)
         {
         }
+    }
+
+    public sealed class ReadingRow
+    {
+        private readonly Func<int> read;
+
+        public ReadingRow(Cell<int> share)
+        {
+            this.read = () => share.Sample();
+        }
+
+        public int Now => this.read();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -162,7 +162,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ObjectGivesItselfToAHelper"] = ["SF1004"],
             ["AssignedInAFunctionThatDoesNotRun"] = ["SF1001"],
             ["DelegateGetsAFunctionThenRuns"] = ["SF1001"],
-            ["ValuesOfADictionary"] = ["SF1001"]
+            ["ValuesOfADictionary"] = ["SF1001"],
+            ["FunctionKeptByAConstructorOfThisCode"] = ["SF1005"],
+            ["FunctionFromAHelperCalled"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

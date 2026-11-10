@@ -1535,6 +1535,17 @@ internal sealed class LoopStateEvaluator
         // A lambda that a callee runs is part of the frame whose code contains it. That frame can
         // be a different one from this code.
         bool sameFrame = ReferenceEquals(objA: inner.Frame, objB: this.Frame);
+
+        // A function can run after the code that made it returned. A lambda that a constructor
+        // kept in a field is such a function. No walk of that code gets the finding. Thus, this
+        // code reports it at the call, as it does for a callee with a frame of its own.
+        bool returned = lexical && !sameFrame && inner.Frame.HasReturned;
+
+        if (!lexical)
+        {
+            inner.Frame.Return();
+        }
+
         ImmutableArray<Finding>.Builder findings = ImmutableArray.CreateBuilder<Finding>();
 
         foreach (Finding finding in found)
@@ -1580,7 +1591,7 @@ internal sealed class LoopStateEvaluator
                 continue;
             }
 
-            if (lexical)
+            if (lexical && !returned)
             {
                 findings.Add(finding);
 
