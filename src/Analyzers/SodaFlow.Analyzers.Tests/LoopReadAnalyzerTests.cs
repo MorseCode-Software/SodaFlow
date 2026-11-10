@@ -88,7 +88,21 @@ internal sealed class LoopReadAnalyzerTests
             ["ConditionalAccessRowMember"] = ["SF1001"],
             ["StaticFormSample"] = ["SF1001"],
             ["StaticFormMapSample"] = ["SF1001"],
-            ["StaticFormNamedMapSample"] = ["SF1001"]
+            ["StaticFormNamedMapSample"] = ["SF1001"],
+            ["LocalFunctionBlock"] = ["SF1001"],
+            ["AnonymousMethodBlock"] = ["SF1001"],
+            ["BlockThatReads"] = ["SF1001"],
+            ["BlockThatClosesWithItself"] = ["SF1002"]
+        };
+
+    // A shape whose block is a method, given by its name. The analyzer reports in that method.
+    // Thus, the rules of the method say what the shape does at run time.
+    private static readonly Dictionary<string, string> BlockMethods =
+        new()
+        {
+            ["MethodBlock"] = "BlockThatReads",
+            ["MethodBlockCloses"] = "BlockThatClosesWithItself",
+            ["MethodBlockSnapshots"] = "BlockThatSnapshots"
         };
 
     // The shapes that the run-time test does not call.
@@ -213,7 +227,10 @@ internal sealed class LoopReadAnalyzerTests
                      .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
                      .Where(static method => !method.IsSpecialName && !NotRun.Contains(method.Name)))
         {
-            string[] rules = Expected.TryGetValue(key: shape.Name, value: out string[]? listed) ? listed : [];
+            string reportedIn =
+                BlockMethods.TryGetValue(key: shape.Name, value: out string? blockMethod) ? blockMethod : shape.Name;
+
+            string[] rules = Expected.TryGetValue(key: reportedIn, value: out string[]? listed) ? listed : [];
 
             IReadOnlyList<Outcome> permitted =
                 rules.Length == 0

@@ -564,6 +564,34 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S80. A local function as the block, by its name.
+    public static Cell<int> LocalFunctionBlock()
+    {
+        return Cell.Loop<int>().WithoutCaptures(Build);
+
+        static Cell<int> Build(LoopedCell<int> l) { int x = l.Sample(); return S.Hold(x); }
+    }
+
+    // S81. An anonymous method as the block.
+    public static Cell<int> AnonymousMethodBlock() =>
+        Cell.Loop<int>().WithoutCaptures(delegate (LoopedCell<int> l) { int x = l.Sample(); return S.Hold(x); });
+
+    // S82. A method as the block, by its name. The read is in the method, and the analyzer reports
+    // there.
+    public static Cell<int> MethodBlock() => Cell.Loop<int>().WithoutCaptures(BlockThatReads);
+
+    private static Cell<int> BlockThatReads(LoopedCell<int> l) { int x = l.Sample(); return S.Hold(x); }
+
+    // S83. A method with an expression body as the block. It closes the loop with the placeholder.
+    public static Cell<int> MethodBlockCloses() => Cell.Loop<int>().WithoutCaptures(BlockThatClosesWithItself);
+
+    private static Cell<int> BlockThatClosesWithItself(LoopedCell<int> l) => l;
+
+    // S84. A method as the block that reads only in a snapshot.
+    public static Cell<int> MethodBlockSnapshots() => Cell.Loop<int>().WithoutCaptures(BlockThatSnapshots);
+
+    private static Cell<int> BlockThatSnapshots(LoopedCell<int> l) => S.Snapshot(l, (a, b) => a + b).Hold(0);
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -13,12 +13,13 @@ namespace SodaFlow.Analyzers;
 ///     and each loop whose definition is linked to its own placeholder.
 /// </summary>
 /// <remarks>
-///     A loop block hands its lambda a placeholder, and the lambda is the code
-///     that runs while the loop is open. This analyzer checks that code. The
-///     analyzer does not check an explicit loop. Only the block methods of the
-///     SodaFlow assemblies make one, and each passes the placeholder directly
-///     to the block of the caller. See <see cref="LoopStateEvaluator" /> for
-///     the model of the operators.
+///     A loop block hands its function a placeholder, and the function is the
+///     code that runs while the loop is open. This analyzer checks that code.
+///     The function can be a lambda, an anonymous method, or a method of this
+///     compilation that the block names. The analyzer does not check an explicit
+///     loop. Only the block methods of the SodaFlow assemblies make one, and
+///     each passes the placeholder directly to the block of the caller. See
+///     <see cref="LoopStateEvaluator" /> for the model of the operators.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
@@ -73,20 +74,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                         .TypeKind
                     == TypeKind.Delegate)
                 .FirstOrDefault()
-                ?.Expression is not AnonymousFunctionExpressionSyntax lambda)
-        {
-            return;
-        }
-
-        ParameterSyntax? parameterSyntax =
-            lambda switch
-            {
-                SimpleLambdaExpressionSyntax s => s.Parameter,
-                ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters.FirstOrDefault(),
-                _ => null
-            };
-
-        if (parameterSyntax == null || context.SemanticModel.GetDeclaredSymbol(parameterSyntax) is not { } placeholder)
+                ?.Expression is not { } written
+            || BlockOf(written: written, model: context.SemanticModel) is not (var placeholder, var body))
         {
             return;
         }
@@ -101,9 +90,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         bool withCaptures = method.Name is "WithCaptures" or "WithCapturesImpl";
 
         IEnumerable<ExpressionSyntax> closings =
-            (lambda.ExpressionBody != null
-                ? [lambda.ExpressionBody]
-                : LoopStateEvaluator.ReturnExpressions(lambda.Body))
+            (body is ExpressionSyntax expression ? [expression] : LoopStateEvaluator.ReturnExpressions(body))
             .Select(e => withCaptures ? LoopedElement(e) : e);
 
         LoopRegion region =
@@ -113,7 +100,52 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 placeholderState: placeholderState,
                 report: context.ReportDiagnostic);
 
-        region.Analyze(root: lambda.Body, closings: closings, checkLinks: checkLinks);
+        region.Analyze(root: body, closings: closings, checkLinks: checkLinks);
+    }
+
+    /// <summary>
+    ///     The placeholder and the body of a block. The block can be a lambda, an
+    ///     anonymous method, or the name of a method or a local function of this
+    ///     compilation. A delegate from a different source has no body to read.
+    /// </summary>
+    private static (ISymbol Placeholder, SyntaxNode Body)? BlockOf(ExpressionSyntax written, SemanticModel model)
+    {
+        if (written is AnonymousFunctionExpressionSyntax function)
+        {
+            ParameterSyntax? parameter =
+                function switch
+                {
+                    SimpleLambdaExpressionSyntax simple => simple.Parameter,
+                    ParenthesizedLambdaExpressionSyntax lambda => lambda.ParameterList.Parameters.FirstOrDefault(),
+                    AnonymousMethodExpressionSyntax anonymous => anonymous.ParameterList?.Parameters.FirstOrDefault(),
+                    _ => null
+                };
+
+            return parameter != null && model.GetDeclaredSymbol(parameter) is { } declared
+                ? (declared, function.Body)
+                : null;
+        }
+
+        if (model.GetSymbolInfo(written).Symbol is not IMethodSymbol named)
+        {
+            return null;
+        }
+
+        // The definition, because its body binds to its own parameters. For an extension method on
+        // a value, that value is the first parameter and the placeholder is the second.
+        IMethodSymbol method = (named.ReducedFrom ?? named).OriginalDefinition;
+        int position = named.ReducedFrom != null ? 1 : 0;
+
+        SyntaxNode? body =
+            method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
+            {
+                MethodDeclarationSyntax declaration =>
+                    declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression,
+                LocalFunctionStatementSyntax local => local.Body ?? (SyntaxNode?)local.ExpressionBody?.Expression,
+                _ => null
+            };
+
+        return body != null && position < method.Parameters.Length ? (method.Parameters[position], body) : null;
     }
 
     /// <summary>
