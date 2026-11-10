@@ -649,8 +649,8 @@ public abstract class AsyncMapBase
         /// </param>
         /// <returns>The value that the handler returned.</returns>
         public T Match<T>(
-            Func<T> onSucceeded,
-            Func<Exception, T> onFailed) =>
+            [InstantHandle] Func<T> onSucceeded,
+            [InstantHandle] Func<Exception, T> onFailed) =>
             this.kind switch
             {
                 AsyncCompletionKind.Succeeded => onSucceeded(),
@@ -670,8 +670,8 @@ public abstract class AsyncMapBase
         ///     be null.
         /// </param>
         public void MatchVoid(
-            Action? onSucceeded,
-            Action<Exception>? onFailed)
+            [InstantHandle] Action? onSucceeded,
+            [InstantHandle] Action<Exception>? onFailed)
         {
             switch (this.kind)
             {
@@ -755,9 +755,9 @@ public abstract class AsyncMapBase
         /// <param name="onCanceled">Handles a canceled run, which can have no start.</param>
         /// <returns>The value that the handler returned.</returns>
         public T Match<T>(
-            Func<TResult, T> onSucceeded,
-            Func<Exception, T> onFailed,
-            Func<T> onCanceled) =>
+            [InstantHandle] Func<TResult, T> onSucceeded,
+            [InstantHandle] Func<Exception, T> onFailed,
+            [InstantHandle] Func<T> onCanceled) =>
             this.kind switch
             {
                 // ReSharper disable once NullableWarningSuppressionIsUsed - This object can only be constructed with

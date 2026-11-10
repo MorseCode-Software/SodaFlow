@@ -64,7 +64,7 @@ public static class ForwardReference<T>
     /// </remarks>
     [Pure]
     public static (T Value, TCaptures Captures) WithCaptures<TCaptures>(
-        Func<LoopedCell<T>, (T Value, TCaptures Captures)> f) =>
+        [InstantHandle] Func<LoopedCell<T>, (T Value, TCaptures Captures)> f) =>
         Cell.Loop<T>()
             .WithCaptures(reference =>
             {
@@ -86,7 +86,7 @@ public static class ForwardReference<T>
     ///     since a lambda gives type inference nothing to work from.
     /// </remarks>
     [Pure]
-    public static T WithoutCaptures(Func<LoopedCell<T>, T> f) =>
+    public static T WithoutCaptures([InstantHandle] Func<LoopedCell<T>, T> f) =>
         Cell.Loop<T>()
             .WithCaptures(reference =>
             {

@@ -32,7 +32,7 @@ public class LoopedCell<T> : Cell<T>
     internal static Cell<T> WithoutCapturesImpl<TState>(
         TransactionInternal trans,
         TState state,
-        Func<LoopedCell<T>, TState, Cell<T>> f)
+        [InstantHandle] Func<LoopedCell<T>, TState, Cell<T>> f)
     {
         LoopedCell<T> loop = new();
         Cell<T> result = f(arg1: loop, arg2: state);
@@ -44,7 +44,7 @@ public class LoopedCell<T> : Cell<T>
     internal static (Cell<T> Cell, TCaptures Captures) WithCapturesImpl<TState, TCaptures>(
         TransactionInternal trans,
         TState state,
-        Func<LoopedCell<T>, TState, (Cell<T> Cell, TCaptures Captures)> f)
+        [InstantHandle] Func<LoopedCell<T>, TState, (Cell<T> Cell, TCaptures Captures)> f)
     {
         LoopedCell<T> loop = new();
         (Cell<T> Cell, TCaptures Captures) result = f(arg1: loop, arg2: state);
