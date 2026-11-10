@@ -217,9 +217,10 @@ the common shapes at build time, in C# projects. Nothing has to be added: a proj
 `SodaFlow` runs it, and `ExcludeAssets="analyzers"` on that reference removes it. F# is not
 covered, because a Roslyn analyzer runs in the C# compiler only; an F# project keeps the exception.
 
-The analyzer looks at the code that runs while a loop is open, which is the lambda of a loop
-block, and follows the placeholder through the library's operators. Six rules come out of that,
-five of them warnings:
+The analyzer looks at the code that runs while a loop is open, which is the function you give a
+loop block, and follows the placeholder through the library's operators. That function can be a
+lambda, an anonymous method, or a method of your own project given by name. Six rules come out of
+that, five of them warnings:
 
 | Rule | Reports |
 | --- | --- |
@@ -243,9 +244,15 @@ reason, as in `#pragma warning disable SF1002 // The cycle is the subject of thi
 project that wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning` in
 its `.editorconfig`.
 
-What the analyzer does not see: a value that passes through a delegate or a method in another
-assembly, a placeholder held in a field or a tuple, a chain of more than three calls, and an inner
-stream a switch fetches from an object. The runtime check stays behind all of them.
+The analyzer follows a value through locals, tuples, collections, your own helpers and
+constructors, records, and object initializers. It does not see everything. It loses a value that
+passes through a delegate or a method in another assembly, that is kept in a field, or that
+reaches a local through `foreach`, a deconstruction, a pattern, or an `out` argument. Inside one of
+your helpers it finds a `Sample()` on the parameter itself, and misses one on a value the helper
+derives first. It treats a lambda given to `Maybe.Match` and the other helpers of
+`SodaFlow.Functional` as a callback, although they run it at once. It stops after a chain of three
+calls, and it does not see an inner stream a switch fetches from an object. The runtime check
+stays behind all of these.
 
 ## Where this shows up
 
