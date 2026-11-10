@@ -133,61 +133,75 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        switch (pattern)
+        // A pattern that only holds one more pattern gives the same state to that pattern. The
+        // loop goes to it.
+        while (true)
         {
-            case DeclarationPatternSyntax declaration:
-                this.DeclareDesignation(designation: declaration.Designation, state: state);
-                break;
-            case VarPatternSyntax variable:
-                this.DeclareDesignation(designation: variable.Designation, state: state);
-                break;
-            case RecursivePatternSyntax recursive:
+            switch (pattern)
             {
-                this.DeclareDesignation(designation: recursive.Designation, state: state);
-                foreach (SubpatternSyntax part in recursive.PropertyPatternClause?.Subpatterns ?? default)
+                case DeclarationPatternSyntax declaration:
+                    this.DeclareDesignation(designation: declaration.Designation, state: state);
+
+                    return;
+                case VarPatternSyntax variable:
+                    this.DeclareDesignation(designation: variable.Designation, state: state);
+
+                    return;
+                case RecursivePatternSyntax recursive:
                 {
-                    ExpressionSyntax? name = part.NameColon?.Name ?? part.ExpressionColon?.Expression;
+                    this.DeclareDesignation(designation: recursive.Designation, state: state);
 
-                    this.DeclarePattern(
-                        pattern: part.Pattern,
-                        state: state.Members != null && name != null && this.region.SymbolOf(name) is { } member
-                            ? state.Members.StateOf(state.Members.Resolve(member)).FromIfUnknown(state.Origin)
-                            : state);
+                    foreach (SubpatternSyntax part in recursive.PropertyPatternClause?.Subpatterns ?? default)
+                    {
+                        ExpressionSyntax? name = part.NameColon?.Name ?? part.ExpressionColon?.Expression;
+
+                        this.DeclarePattern(
+                            pattern: part.Pattern,
+                            state: state.Members != null && name != null && this.region.SymbolOf(name) is { } member
+                                ? state.Members.StateOf(state.Members.Resolve(member)).FromIfUnknown(state.Origin)
+                                : state);
+                    }
+
+                    foreach (SubpatternSyntax part in recursive.PositionalPatternClause?.Subpatterns ?? default)
+                    {
+                        this.DeclarePattern(pattern: part.Pattern, state: state);
+                    }
+
+                    return;
                 }
+                case BinaryPatternSyntax binary:
+                    this.DeclarePattern(pattern: binary.Left, state: state);
+                    pattern = binary.Right;
 
-                foreach (SubpatternSyntax part in recursive.PositionalPatternClause?.Subpatterns ?? default)
-                {
-                    this.DeclarePattern(pattern: part.Pattern, state: state);
-                }
+                    continue;
+                case UnaryPatternSyntax unary:
+                    pattern = unary.Pattern;
 
-                break;
+                    continue;
+                case ParenthesizedPatternSyntax parenthesized:
+                    pattern = parenthesized.Pattern;
+
+                    continue;
+                case ListPatternSyntax list:
+                    this.DeclareDesignation(designation: list.Designation, state: state);
+
+                    foreach (PatternSyntax element in list.Patterns)
+                    {
+                        this.DeclarePattern(pattern: element, state: state);
+                    }
+
+                    return;
+                case SlicePatternSyntax { Pattern: { } rest }:
+                    pattern = rest;
+
+                    continue;
+                default:
+                    return;
             }
-            case BinaryPatternSyntax binary:
-                this.DeclarePattern(pattern: binary.Left, state: state);
-                this.DeclarePattern(pattern: binary.Right, state: state);
-                break;
-            case UnaryPatternSyntax unary:
-                this.DeclarePattern(pattern: unary.Pattern, state: state);
-                break;
-            case ParenthesizedPatternSyntax parenthesized:
-                this.DeclarePattern(pattern: parenthesized.Pattern, state: state);
-                break;
-            case ListPatternSyntax list:
-                this.DeclareDesignation(designation: list.Designation, state: state);
-
-                foreach (PatternSyntax element in list.Patterns)
-                {
-                    this.DeclarePattern(pattern: element, state: state);
-                }
-
-                break;
-            case SlicePatternSyntax { Pattern: { } rest }:
-                this.DeclarePattern(pattern: rest, state: state);
-                break;
         }
     }
 
-    private void DeclareDesignation(VariableDesignationSyntax? designation, LoopState state)
+    private void DeclareDesignation(SyntaxNode? designation, LoopState state)
     {
         if (designation == null)
         {
@@ -256,7 +270,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     what is around the call. A query runs it one time for each element, which
     ///     can be no time, thus an assignment in it does not always run.
     /// </remarks>
-    private bool AlwaysRuns(AssignmentExpressionSyntax assignment)
+    private bool AlwaysRuns(SyntaxNode assignment)
     {
         if (assignment.Parent is not ExpressionStatementSyntax statement)
         {
@@ -279,8 +293,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
                     return true;
-                // The call that runs the lambda, and the statement that the call is in.
-                case ArgumentSyntax
+                // A block, and a statement that always runs what is in it. Also the call that
+                // runs a lambda, and the statement that the call is in.
+                case BlockSyntax
+                    or UsingStatementSyntax
+                    or LockStatementSyntax
+                    or CheckedStatementSyntax
+                    or UnsafeStatementSyntax
+                    or FixedStatementSyntax
+                    or ArgumentSyntax
                     or ArgumentListSyntax
                     or InvocationExpressionSyntax
                     or ExpressionStatementSyntax
@@ -289,13 +310,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or VariableDeclarationSyntax
                     or LocalDeclarationStatementSyntax
                     or ReturnStatementSyntax:
-                    continue;
-                case BlockSyntax
-                    or UsingStatementSyntax
-                    or LockStatementSyntax
-                    or CheckedStatementSyntax
-                    or UnsafeStatementSyntax
-                    or FixedStatementSyntax:
                     continue;
                 default:
                     return false;
@@ -309,7 +323,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     Gives a target the state of a value. A deconstruction of a tuple
     ///     expression gives each part of the tuple to its own target.
     /// </summary>
-    private void Assign(ExpressionSyntax target, ExpressionSyntax value, bool replaces)
+    private void Assign(SyntaxNode target, ExpressionSyntax value, bool replaces)
     {
         if (target is TupleExpressionSyntax targets
             && value is TupleExpressionSyntax values
@@ -363,7 +377,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
             else
             {
-                this.DeclareDesignation(designation: parts[i] as VariableDesignationSyntax, state: element);
+                this.DeclareDesignation(designation: parts[i], state: element);
             }
         }
     }
@@ -374,7 +388,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     True when the assignment always runs. Then, a local has the new state
     ///     only. Otherwise, it has the new state and the state before it together.
     /// </param>
-    private void AssignState(ExpressionSyntax target, LoopState state, bool replaces)
+    private void AssignState(SyntaxNode target, LoopState state, bool replaces)
     {
         switch (target)
         {
@@ -422,6 +436,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
                     member: member,
                     state: state);
+
                 break;
         }
     }
@@ -465,14 +480,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? null
                 : this.evaluator.Follow(node);
 
-        // A lambda written at the call is code that the walk reads here when the callee runs it
-        // in the call.
-        bool Runs(ArgumentSyntax argument, int position) =>
-            this.evaluator.RunsFunction(
-                kind: kind,
-                method: method,
-                parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
-
         switch (kind)
         {
             // An operator keeps its function for a firing after the close, but for the few that
@@ -511,7 +518,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 break;
             }
             // The analyzer cannot see a pending value that goes to this callee.
-            default:
+            case CalleeKind.Unknown:
             {
                 this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None, oneTime: false);
 
@@ -526,6 +533,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 break;
             }
+            default:
+                throw new ArgumentOutOfRangeException(paramName: nameof(node), message: "A callee kind has no case.");
         }
 
         this.Report(followed);
@@ -538,6 +547,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.CheckRead(node: node, owner: receiver, name: method.Name);
         }
+
+        return;
+
+        // A lambda written at the call is code that the walk reads here when the callee runs it
+        // in the call.
+        bool Runs(ArgumentSyntax argument, int position) =>
+            LoopStateEvaluator.RunsFunction(
+                kind: kind,
+                method: method,
+                parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
     }
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node) =>
@@ -559,7 +578,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private void VisitCreation(
         SyntaxNode node,
         BaseArgumentListSyntax? arguments,
-        InitializerExpressionSyntax? initializer)
+        SyntaxNode? initializer)
     {
         if (this.region.SymbolOf(node) is not IMethodSymbol constructor)
         {
@@ -720,7 +739,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     A property of the library that reads the current value, or a property
     ///     with a getter of this compilation, on the given owner.
     /// </summary>
-    private void CheckPropertyRead(ExpressionSyntax node, ExpressionSyntax owner)
+    private void CheckPropertyRead(SyntaxNode node, ExpressionSyntax owner)
     {
         if (this.region.SymbolOf(node) is not IPropertySymbol property)
         {
@@ -777,7 +796,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
-    private void CheckEscapes(IMethodSymbol callee, SeparatedSyntaxList<ArgumentSyntax> arguments)
+    private void CheckEscapes(ISymbol callee, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         foreach (ArgumentSyntax argument in arguments)
         {
@@ -790,7 +809,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     <c>AsCell()</c> at the argument is the assertion of the caller and reports
     ///     nothing.
     /// </summary>
-    private void CheckEscape(IMethodSymbol callee, ExpressionSyntax argument)
+    private void CheckEscape(ISymbol callee, ExpressionSyntax argument)
     {
         LoopState state = this.evaluator.Eval(argument);
 

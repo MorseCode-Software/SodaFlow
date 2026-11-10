@@ -22,7 +22,7 @@ internal sealed class LoopStateEvaluator
     ///     Three is sufficient for a helper that calls a helper that calls one more.
     ///     The limit is also what ends a recursive chain.
     /// </summary>
-    public const int MaxInlineDepth = 3;
+    private const int MaxInlineDepth = 3;
 
     private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create(item1: "Impl", item2: "Internal");
 
@@ -362,29 +362,30 @@ internal sealed class LoopStateEvaluator
                 return this.EvalMethodGroup(expression: expression, group: group);
             case IPropertySymbol or IFieldSymbol:
             {
-                // A property with a getter has the state of what the getter returns. Only a
-                // property of this compilation has a getter that the evaluator can read.
-                if (symbol is IPropertySymbol { DeclaringSyntaxReferences.Length: > 0 }
-                    && this.Follow(expression) is { } getter)
+                if (symbol is IPropertySymbol property)
                 {
-                    return getter.State.Join(this.TypeState(expression));
-                }
+                    // A property with a getter has the state of what the getter returns. Only a
+                    // property of this compilation has a getter that the evaluator can read.
+                    if (property.DeclaringSyntaxReferences.Length > 0 && this.Follow(expression) is { } getter)
+                    {
+                        return getter.State.Join(this.TypeState(expression));
+                    }
 
-                // A property of the library that reads the current value gives the value that its
-                // owner holds.
-                if (symbol is IPropertySymbol
-                    && SodaFlowSymbols.ReadMembers.Contains(symbol.Name)
-                    && this.region.Symbols.IsSodaFlow(symbol))
-                {
-                    return this.Eval(
-                            expression switch
-                            {
-                                MemberAccessExpressionSyntax read => read.Expression,
-                                MemberBindingExpressionSyntax read => ConditionalReceiver(read),
-                                _ => null
-                            })
-                        .Content
-                        .Join(this.TypeState(expression));
+                    // A property of the library that reads the current value gives the value that
+                    // its owner holds.
+                    if (SodaFlowSymbols.ReadMembers.Contains(property.Name)
+                        && this.region.Symbols.IsSodaFlow(property))
+                    {
+                        return this.Eval(
+                                expression switch
+                                {
+                                    MemberAccessExpressionSyntax read => read.Expression,
+                                    MemberBindingExpressionSyntax read => ConditionalReceiver(read),
+                                    _ => null
+                                })
+                            .Content
+                            .Join(this.TypeState(expression));
+                    }
                 }
 
                 // A field that the code set while the loop is open, on an object that the walk does
@@ -791,25 +792,18 @@ internal sealed class LoopStateEvaluator
         int offset,
         LoopState seed)
     {
-        LoopState moved = seed;
-
         // A callee that returns a delegate gives back the function that it got, as a wrapper
         // does. Then, the function is a value that it moves.
         bool givesBackFunctions = definition.ReturnType.TypeKind == TypeKind.Delegate;
 
-        for (int i = 0; i < arguments.Count; i++)
-        {
-            // A function for a delegate parameter is code for the callee to run, and not a value
-            // that it moves.
-            if (givesBackFunctions
-                || SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+        // A function for a delegate parameter is code for the callee to run, and not a value that
+        // it moves.
+        return arguments
+            .Where((argument, position) =>
+                givesBackFunctions
+                || SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: position + offset)
                     is not { Type.TypeKind: TypeKind.Delegate })
-            {
-                moved = moved.Join(this.Eval(arguments[i].Expression));
-            }
-        }
-
-        return moved;
+            .Aggregate(seed: seed, func: (moved, argument) => moved.Join(this.Eval(argument.Expression)));
     }
 
     /// <summary>
@@ -831,7 +825,7 @@ internal sealed class LoopStateEvaluator
         for (int i = 0; i < arguments.Count; i++)
         {
             if (arguments[i].Expression is AnonymousFunctionExpressionSyntax lambda
-                && this.RunsFunction(
+                && RunsFunction(
                     kind: CalleeKind.Mover,
                     method: method,
                     parameter: ParameterFor(method: method, argument: arguments[i], position: i)))
@@ -862,7 +856,7 @@ internal sealed class LoopStateEvaluator
     ///     for a parameter of a different type, as to <c>Add</c> of a list, is a
     ///     value that the callee keeps.
     /// </remarks>
-    public bool RunsFunction(CalleeKind kind, IMethodSymbol method, IParameterSymbol? parameter) =>
+    public static bool RunsFunction(CalleeKind kind, IMethodSymbol method, IParameterSymbol? parameter) =>
         kind switch
         {
             CalleeKind.Library => OperatorTable.RunsFunction(method: method, parameter: parameter),
@@ -903,7 +897,7 @@ internal sealed class LoopStateEvaluator
     ///     The state of an object from a constructor of code that cannot know the
     ///     library: the state of the arguments.
     /// </summary>
-    private LoopState MovedInto(ExpressionSyntax creation)
+    private LoopState MovedInto(SyntaxNode creation)
     {
         BaseArgumentListSyntax? arguments =
             creation switch
@@ -1010,8 +1004,7 @@ internal sealed class LoopStateEvaluator
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        return !method.IsStatic
-               && method.ReducedFrom == null
+        return method is { IsStatic: false, ReducedFrom: null }
                && ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is { } receiver
                && this.Eval(receiver).Members is { } members
                && members.Resolve(definition) is IMethodSymbol actual
@@ -1043,7 +1036,7 @@ internal sealed class LoopStateEvaluator
             ExpressionSyntax written = arguments[i].Expression;
 
             if (written is AnonymousFunctionExpressionSyntax
-                || !this.RunsFunction(
+                || !RunsFunction(
                     kind: kind,
                     method: method,
                     parameter: ParameterFor(method: method, argument: arguments[i], position: i)))
@@ -1063,19 +1056,19 @@ internal sealed class LoopStateEvaluator
                     ? this.Moved(invocation: invocation, method: method, withReceiver: true)
                     : LoopState.None;
 
-            foreach (FunctionValue function in functions.Functions)
-            {
-                all =
-                    Both(
-                        first: all,
-                        second: this.FollowFunction(
-                            call: invocation,
-                            name: NameOf(written),
-                            function: function,
-                            target: functions,
-                            arguments: default,
-                            each: (written, given)));
-            }
+            all =
+                functions.Functions.Aggregate(
+                    seed: all,
+                    func: (followed, function) =>
+                        Both(
+                            first: followed,
+                            second: this.FollowFunction(
+                                call: invocation,
+                                name: NameOf(written),
+                                function: function,
+                                target: functions,
+                                arguments: default,
+                                each: (written, given))));
         }
 
         return all;
@@ -1096,26 +1089,19 @@ internal sealed class LoopStateEvaluator
         string name,
         ImmutableArray<FunctionValue> functions,
         LoopState target,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
-    {
-        Followed? all = null;
-
-        foreach (FunctionValue function in functions)
-        {
-            Followed? one =
-                this.FollowFunction(
-                    call: call,
-                    name: name,
-                    function: function,
-                    target: target,
-                    arguments: arguments,
-                    each: null);
-
-            all = Both(first: all, second: one);
-        }
-
-        return all;
-    }
+        SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        functions.Aggregate(
+            seed: (Followed?)null,
+            func: (all, function) =>
+                Both(
+                    first: all,
+                    second: this.FollowFunction(
+                        call: call,
+                        name: name,
+                        function: function,
+                        target: target,
+                        arguments: arguments,
+                        each: null)));
 
     /// <param name="call">The call that runs the function.</param>
     /// <param name="name">The name of the function, for a report.</param>
@@ -1138,7 +1124,7 @@ internal sealed class LoopStateEvaluator
         SemanticModel model = this.region.ModelFor(function.Declaration);
 
         IReadOnlyList<Binding> Bindings(ImmutableArray<IParameterSymbol> parameters) =>
-            each is var (written, given)
+            each is (var written, var given)
                 ?
                 [
                     .. parameters.Select(parameter =>
@@ -1198,7 +1184,7 @@ internal sealed class LoopStateEvaluator
         }
     }
 
-    private Followed? FollowCreation(ExpressionSyntax creation, BaseArgumentListSyntax? arguments) =>
+    private Followed? FollowCreation(SyntaxNode creation, BaseArgumentListSyntax? arguments) =>
         this.region.SymbolOf(creation) is IMethodSymbol constructor
         && !this.region.Symbols.IsSodaFlow(constructor)
             ? this.FollowConstructor(
@@ -1212,7 +1198,7 @@ internal sealed class LoopStateEvaluator
     ///     base, or a second constructor of the type. The members that it sets are
     ///     members of the object that this code is in.
     /// </summary>
-    private Followed? FollowChain(SyntaxNode chain, ArgumentListSyntax? arguments)
+    private Followed? FollowChain(SyntaxNode chain, BaseArgumentListSyntax? arguments)
     {
         if (this.region.SymbolOf(chain) is not IMethodSymbol constructor
             || this.region.Symbols.IsSodaFlow(constructor))
@@ -1380,7 +1366,7 @@ internal sealed class LoopStateEvaluator
     ///     of the object that owns the property, and reads the members of that
     ///     object.
     /// </summary>
-    private Followed? FollowGetter(ExpressionSyntax access)
+    private Followed? FollowGetter(SyntaxNode access)
     {
         if (this.region.SymbolOf(access) is not IPropertySymbol written || this.region.Symbols.IsSodaFlow(written))
         {
@@ -1492,7 +1478,7 @@ internal sealed class LoopStateEvaluator
     ///     the state of its argument. The parameter is the origin of that state.
     /// </summary>
     private LoopStateEvaluator Inner(
-        IReadOnlyList<Binding> bindings,
+        IEnumerable<Binding> bindings,
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members)
     {
@@ -1534,7 +1520,7 @@ internal sealed class LoopStateEvaluator
         LoopState? receiver,
         LoopState? target,
         LoopState result,
-        IReadOnlyList<Finding> found)
+        IEnumerable<Finding> found)
     {
         Dictionary<ISymbol, Binding> byParameter = new(SymbolEqualityComparer.Default);
 
@@ -1767,7 +1753,7 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>The body of a method or a local function of this compilation.</summary>
-    private static SyntaxNode? BodyOf(IMethodSymbol definition) =>
+    private static SyntaxNode? BodyOf(ISymbol definition) =>
         definition.DeclaringSyntaxReferences
             .Select(static reference =>
                 reference.GetSyntax() switch
@@ -1779,7 +1765,7 @@ internal sealed class LoopStateEvaluator
             .FirstOrDefault(static body => body != null);
 
     /// <summary>The body of the getter of a property, when the getter has one.</summary>
-    private static SyntaxNode? GetterOf(IPropertySymbol definition) =>
+    private static SyntaxNode? GetterOf(ISymbol definition) =>
         definition.DeclaringSyntaxReferences
             .Select(static reference =>
                 reference.GetSyntax() switch
@@ -1884,36 +1870,27 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private bool FunctionReadsPending(InvocationExpressionSyntax invocation, LoopState given)
     {
-        foreach (ExpressionSyntax written in invocation.ArgumentList.Arguments
-                     .Select(static argument => argument.Expression))
-        {
+        return invocation.ArgumentList.Arguments
+            .Select(static argument => argument.Expression)
             // A lambda with no call and no property that reads cannot read a value.
-            if (written is AnonymousFunctionExpressionSyntax lambda && !CanRead(lambda.Body))
-            {
-                continue;
-            }
+            .Where(static written => written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
+            .Any(Reads);
 
+        bool Reads(ExpressionSyntax written)
+        {
             LoopState functions = this.Eval(written);
 
-            foreach (FunctionValue function in functions.Functions)
-            {
-                Followed? followed =
-                    this.FollowFunction(
+            return functions.Functions.Any(function =>
+                this.FollowFunction(
                         call: invocation,
                         name: NameOf(written),
                         function: function,
                         target: functions,
                         arguments: default,
-                        each: (written, given));
-
-                if (followed != null && followed.Findings.Any(static finding => !finding.Escape))
-                {
-                    return true;
-                }
-            }
+                        each: (written, given))
+                    is { } followed
+                && followed.Findings.Any(static finding => !finding.Escape));
         }
-
-        return false;
     }
 
     /// <summary>

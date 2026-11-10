@@ -14,19 +14,15 @@ internal sealed class Followed(
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs)
 {
-    private static readonly ImmutableDictionary<ISymbol, LoopState> NoOuts =
-        ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default);
-
-    public Followed(LoopState state, ImmutableArray<Finding> findings)
-        : this(state: state, findings: findings, outs: NoOuts)
-    {
-    }
-
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
     ///     Nothing from the loop can be in its result.
     /// </summary>
-    public static Followed Nothing { get; } = new(state: LoopState.None, findings: ImmutableArray<Finding>.Empty);
+    public static Followed Nothing { get; } =
+        new(
+            state: LoopState.None,
+            findings: ImmutableArray<Finding>.Empty,
+            outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default));
 
     public LoopState State { get; } = state;
 

@@ -119,7 +119,7 @@ internal sealed class LoopRegion(
     ///     Reports a diagnostic one time. The walk can read the same lambda or
     ///     local function from more than one call.
     /// </summary>
-    public void Report(Diagnostic diagnostic)
+    private void Report(Diagnostic diagnostic)
     {
         if (this.reported.Add((diagnostic.Id, diagnostic.Location)))
         {
@@ -141,6 +141,7 @@ internal sealed class LoopRegion(
     public void Analyze(SyntaxNode root, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
     {
         LoopStateEvaluator evaluator = new(this);
+
         new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
             .Visit(root);
 

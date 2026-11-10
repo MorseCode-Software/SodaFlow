@@ -27,7 +27,7 @@ internal sealed class SodaFlowSymbols
     /// </remarks>
     public static readonly ImmutableHashSet<string> LibraryAssemblyNames =
         ImmutableHashSet.Create(
-            StringComparer.Ordinal,
+            equalityComparer: StringComparer.Ordinal,
             "SodaFlow",
             "SodaFlow.Async",
             "SodaFlow.Bindable.ObjectModel",
@@ -48,7 +48,7 @@ internal sealed class SodaFlowSymbols
     ///     of the platform does. The analyzer reads a call to it as such a call.
     /// </summary>
     public static readonly ImmutableHashSet<string> PackagesWithNoGraph =
-        ImmutableHashSet.Create(StringComparer.Ordinal, "SodaFlow.Functional");
+        ImmutableHashSet.Create(equalityComparer: StringComparer.Ordinal, item: "SodaFlow.Functional");
 
     private static readonly ImmutableHashSet<string> PendingPlaceholderTypes =
         ImmutableHashSet.Create("LoopedCell", "LoopedBehavior");
@@ -117,7 +117,7 @@ internal sealed class SodaFlowSymbols
     public bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation) =>
         this.CanHoldState(type: type, compilation: compilation, depth: 0);
 
-    private bool CanHoldState(ITypeSymbol? type, IAssemblySymbol compilation, int depth) =>
+    private bool CanHoldState(ITypeSymbol? type, ISymbol compilation, int depth) =>
         type switch
         {
             null => false,

@@ -24,6 +24,7 @@ namespace SodaFlow.Analyzers;
 internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> members, in INamedTypeSymbol? type)
 {
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
+    private readonly INamedTypeSymbol? type = type;
 
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
@@ -31,8 +32,6 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
 
     /// <summary>The state of each member that the evaluator knows.</summary>
     public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.members;
-
-    public INamedTypeSymbol? Type { get; } = type;
 
     /// <summary>
     ///     The origin of one member that has an origin, for a report about the
@@ -46,7 +45,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     replaces the state from the constructor.
     /// </summary>
     public Construction With(ISymbol member, LoopState state) =>
-        new(members: this.members.SetItem(key: KeyOf(member), value: state), type: this.Type);
+        new(members: this.members.SetItem(key: KeyOf(member), value: state), type: this.type);
 
     /// <summary>True when the evaluator knows a state for the member.</summary>
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
@@ -64,7 +63,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
             changed[pair.Key] = change(pair.Value);
         }
 
-        return new Construction(members: changed.ToImmutable(), type: this.Type);
+        return new Construction(members: changed.ToImmutable(), type: this.type);
     }
 
     /// <summary>
@@ -74,16 +73,14 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     /// </summary>
     public ISymbol Resolve(ISymbol member)
     {
-        if (this.Type == null
+        if (this.type == null
             || (member.ContainingType?.TypeKind != TypeKind.Interface
-                && !member.IsAbstract
-                && !member.IsVirtual
-                && !member.IsOverride))
+                && member is { IsAbstract: false, IsVirtual: false, IsOverride: false }))
         {
             return member;
         }
 
-        for (INamedTypeSymbol? current = this.Type; current != null; current = current.BaseType)
+        for (INamedTypeSymbol? current = this.type; current != null; current = current.BaseType)
         {
             ISymbol? found =
                 current.GetMembers(member.Name)
@@ -131,7 +128,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
 
         return new Construction(
             members: merged.ToImmutable(),
-            type: SymbolEqualityComparer.Default.Equals(x: first.Type, y: second.Type) ? first.Type : null);
+            type: SymbolEqualityComparer.Default.Equals(x: first.type, y: second.type) ? first.type : null);
     }
 
     // An element of a tuple has a name in the code and a position in the type. The position is
