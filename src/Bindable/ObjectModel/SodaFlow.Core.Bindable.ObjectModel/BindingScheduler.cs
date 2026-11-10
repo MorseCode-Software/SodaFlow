@@ -141,6 +141,9 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 
     private readonly SynchronizationContext context;
 
+    // One delegate for the life of this scheduler. Before, each batch made one.
+    private readonly Action sendBatch;
+
     /// <summary>
     ///     Creates an instance that posts through the given synchronization context.
     /// </summary>
@@ -155,6 +158,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
         this.bindingThreadId = Environment.CurrentManagedThreadId;
+        this.sendBatch = this.SendBatch;
     }
 
     // ReSharper disable once InheritdocConsiderUsage
@@ -241,8 +245,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             // the outcome is known after each last action and each discard. A Last put the send
             // before some of those, in the sequence of the listeners. The binding thread can then
             // run the batch before the transaction knows that it failed.
-            Action send = this.SendBatch;
-            transaction.AfterLast(commit: send, discard: send);
+            transaction.AfterLast(commit: this.sendBatch, discard: this.sendBatch);
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - The code above sets the batch with its transaction.
