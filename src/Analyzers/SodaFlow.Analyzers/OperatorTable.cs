@@ -245,6 +245,14 @@ internal static class OperatorTable
             .Add(key: "Fold", value: ImmutableHashSet.Create("select", "add"))
             .Add(key: "FoldByIdentity", value: ImmutableHashSet.Create("select", "add"));
 
+    /// <summary>
+    ///     True for a library method that runs its function one time in the call:
+    ///     a transaction and a loop block. A fold of a collection runs its function
+    ///     one time for each item, which can be no time.
+    /// </summary>
+    public static bool RunsFunctionOneTime(IMethodSymbol method) =>
+        LoopStateEvaluator.OperatorName(method) is "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures";
+
     /// <summary>The names of the methods that run a function in the call.</summary>
     public static ImmutableHashSet<string> FunctionsInTheCall { get; } = RunsInTheCall.Keys.ToImmutableHashSet();
 

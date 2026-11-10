@@ -24,6 +24,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
+
+    // The lambdas that the walk read where they are, and that their callee runs one time.
+    private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
     private readonly LoopStateEvaluator evaluator = evaluator;
     private readonly LoopRegion region = region;
     private readonly Action<Finding> sink = sink;
@@ -209,6 +212,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             base.VisitAssignmentExpression(node);
 
+            // A delegate that gets one more function, as in handlers += () => ..., can be each of
+            // its functions.
+            if (node.IsKind(SyntaxKind.AddAssignmentExpression)
+                && this.evaluator.Eval(node.Right) is { Functions.IsEmpty: false } added)
+            {
+                this.AssignState(target: node.Left, state: added, replaces: false);
+            }
+
             return;
         }
 
@@ -231,7 +242,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
-        this.Assign(target: node.Left, value: node.Right, replaces: AlwaysRuns(node));
+        this.Assign(target: node.Left, value: node.Right, replaces: this.AlwaysRuns(node));
     }
 
     /// <summary>
@@ -239,7 +250,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     function, with no branch and no loop around it. Each call of the function
     ///     runs it, thus the state that it gives replaces the state before it.
     /// </summary>
-    private static bool AlwaysRuns(AssignmentExpressionSyntax assignment)
+    /// <remarks>
+    ///     A lambda that the walk reads where it is has a callee that runs it. A
+    ///     transaction and a loop block run it one time, and the walk then looks at
+    ///     what is around the call. A query runs it one time for each element, which
+    ///     can be no time, thus an assignment in it does not always run.
+    /// </remarks>
+    private bool AlwaysRuns(AssignmentExpressionSyntax assignment)
     {
         if (assignment.Parent is not ExpressionStatementSyntax statement)
         {
@@ -250,11 +267,29 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             switch (ancestor)
             {
+                case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
+                    if (!this.once.Contains(lambda))
+                    {
+                        return false;
+                    }
+
+                    continue;
                 case AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
                     return true;
+                // The call that runs the lambda, and the statement that the call is in.
+                case ArgumentSyntax
+                    or ArgumentListSyntax
+                    or InvocationExpressionSyntax
+                    or ExpressionStatementSyntax
+                    or EqualsValueClauseSyntax
+                    or VariableDeclaratorSyntax
+                    or VariableDeclarationSyntax
+                    or LocalDeclarationStatementSyntax
+                    or ReturnStatementSyntax:
+                    continue;
                 case BlockSyntax
                     or UsingStatementSyntax
                     or LockStatementSyntax
@@ -443,12 +478,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // An operator keeps its function for a firing after the close, but for the few that
             // run it in the block.
             case CalleeKind.Library:
-                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
+                this.VisitArguments(
+                    arguments: arguments,
+                    runs: Runs,
+                    given: LoopState.None,
+                    oneTime: OperatorTable.RunsFunctionOneTime(method));
 
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
             case CalleeKind.Body:
-                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None, oneTime: false);
                 this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
 
                 break;
@@ -458,7 +497,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 LoopState moved = this.evaluator.Moved(invocation: node, method: method, withReceiver: true);
 
-                this.VisitArguments(arguments: arguments, runs: Runs, given: moved);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: moved, oneTime: false);
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
@@ -474,7 +513,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // The analyzer cannot see a pending value that goes to this callee.
             default:
             {
-                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None);
+                this.VisitArguments(arguments: arguments, runs: Runs, given: LoopState.None, oneTime: false);
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 
@@ -537,7 +576,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // time after the call.
         if (arguments != null)
         {
-            this.VisitArguments(arguments: arguments.Arguments, runs: static (_, _) => false, given: LoopState.None);
+            this.VisitArguments(
+                arguments: arguments.Arguments,
+                runs: static (_, _) => false,
+                given: LoopState.None,
+                oneTime: false);
         }
 
         this.Visit(initializer);
@@ -562,10 +605,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     The state of the values that the callee can give to a lambda, which
     ///     each parameter of the lambda then has.
     /// </param>
+    /// <param name="oneTime">True when the callee runs the function one time, and not zero or many.</param>
     private void VisitArguments(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         Func<ArgumentSyntax, int, bool> runs,
-        LoopState given)
+        LoopState given,
+        bool oneTime)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -581,6 +626,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (!runs(arg1: argument, arg2: i) || !this.entered.Add(lambda))
             {
                 continue;
+            }
+
+            if (oneTime)
+            {
+                this.once.Add(lambda);
             }
 
             if (!given.IsNone)

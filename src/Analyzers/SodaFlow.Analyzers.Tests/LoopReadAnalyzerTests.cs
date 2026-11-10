@@ -159,7 +159,10 @@ internal sealed class LoopReadAnalyzerTests
             ["PendingElementOfATupleLocal"] = ["SF1001"],
             ["MemberThroughAnInterface"] = ["SF1001"],
             ["MethodThroughAnInterface"] = ["SF1005"],
-            ["ObjectGivesItselfToAHelper"] = ["SF1004"]
+            ["ObjectGivesItselfToAHelper"] = ["SF1004"],
+            ["AssignedInAFunctionThatDoesNotRun"] = ["SF1001"],
+            ["DelegateGetsAFunctionThenRuns"] = ["SF1001"],
+            ["ValuesOfADictionary"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -130,9 +130,15 @@ internal sealed class SodaFlowSymbols
                 named.TypeKind == TypeKind.Delegate
                 || this.IsSodaFlow(named)
                 || SymbolEqualityComparer.Default.Equals(x: named.ContainingAssembly, y: compilation)
+                // A type in a generic type, such as the values of a dictionary, has the arguments
+                // of that type.
                 || (depth < 3
-                    && named.TypeArguments.Any(argument =>
-                        this.CanHoldState(type: argument, compilation: compilation, depth: depth + 1))),
+                    && (named.TypeArguments.Any(argument =>
+                            this.CanHoldState(type: argument, compilation: compilation, depth: depth + 1))
+                        || this.CanHoldState(
+                            type: named.ContainingType,
+                            compilation: compilation,
+                            depth: depth + 1))),
             _ => false
         };
 

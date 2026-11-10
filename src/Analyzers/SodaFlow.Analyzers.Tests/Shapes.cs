@@ -1454,6 +1454,58 @@ public static class Shapes
     public static Cell<int> ObjectGivesItselfToAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { SelfReader reader = new(l.Map(v => v)); return S.Hold(reader.Value); });
 
+    // S185. A local gets a plain cell in a function that a list runs for each element. The list is
+    // empty, thus the function does not run.
+    public static Cell<int> AssignedInAFunctionThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = l;
+            new List<int>().ForEach(_ => { c = Plain; });
+            int x = c.Sample();
+            return S.Hold(x);
+        });
+
+    // S186. A local gets a plain cell in a transaction, which runs its function one time.
+    public static Cell<int> AssignedInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = l;
+            Transaction.RunVoid(() => { c = Plain; });
+            int x = c.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S187. A local gets a plain cell in a local function that the block calls.
+    public static Cell<int> AssignedByALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = l;
+            Reset();
+            int x = c.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+
+            void Reset() { c = Plain; }
+        });
+
+    // S188. A delegate gets a function with +=, and the block runs the delegate.
+    public static Cell<int> DelegateGetsAFunctionThenRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Action? all = null;
+            all += () => { int x = l.Sample(); };
+            all?.Invoke();
+            return S.Hold(0);
+        });
+
+    // S189. The values of a dictionary that holds a pending cell.
+    public static Cell<int> ValuesOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Dictionary<int, Cell<int>> d = new() { [1] = l.Map(v => v) };
+            int x = d.Values.First().Sample();
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
