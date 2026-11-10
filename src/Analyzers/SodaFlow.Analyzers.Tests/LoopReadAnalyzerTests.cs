@@ -240,7 +240,8 @@ internal sealed class LoopReadAnalyzerTests
             ["ForEachOverAnEnumerableOfThisCode"] = ["SF1005"],
             ["ForEachOverAnEnumeratorOfThisCode"] = ["SF1005"],
             ["AddInACollectionInitializer"] = ["SF1005"],
-            ["ForEachOverAnIteratorOfCells"] = ["SF1001"]
+            ["ForEachOverAnIteratorOfCells"] = ["SF1001"],
+            ["AddInACollectionInitializerThatSamplesItsValue"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

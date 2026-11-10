@@ -2500,6 +2500,14 @@ public static class Shapes
     public static Cell<int> ForEachOverAnIteratorOfPlainCells() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(Plain); int t = 0; foreach (Cell<int> c in cells) { t += c.Sample(); } return S.Snapshot(l, (a, b) => a + b + t).Hold(0); });
 
+    // S320. A collection initializer calls an Add that samples the cell that it gets.
+    public static Cell<int> AddInACollectionInitializerThatSamplesItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Bin bin = new() { l.Map(v => v) }; Kept.Add(bin); return S.Hold(0); });
+
+    // S321. The same with a plain cell.
+    public static Cell<int> AddInACollectionInitializerThatSamplesAPlainValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Bin bin = new() { Plain }; Kept.Add(bin); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2868,6 +2876,17 @@ public static class Shapes
         {
             yield return share;
         }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Bin : IEnumerable<int>
+    {
+        private readonly List<int> values = [];
+
+        public void Add(Cell<int> cell) => this.values.Add(cell.Sample());
+
+        public IEnumerator<int> GetEnumerator() => this.values.GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
     }

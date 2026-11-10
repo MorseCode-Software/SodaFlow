@@ -910,9 +910,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        // An element with braces gives each of its values to one Add.
+        // An element with braces gives each of its values to one Add. An array, and not a
+        // collection expression. As an arm of this conditional, that expression takes the type of
+        // the other arm, and the conversion gives an empty list.
         IEnumerable<ExpressionSyntax> values =
-            expression is InitializerExpressionSyntax several ? several.Expressions : [expression];
+            expression is InitializerExpressionSyntax several ? several.Expressions : new[] { expression };
 
         // An extension method gets the collection as its first argument.
         IEnumerable<ExpressionSyntax> given = add.IsStatic ? values.Prepend(made) : values;
