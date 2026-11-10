@@ -597,6 +597,98 @@ public sealed class MapAsyncExtensionsTests
         status.Dispose();
     }
 
+    // A callback on the token of each of two items throws. The cancel of the stream runs each one,
+    // and handleException gets the two throws together, one time, after the last item.
+    [Test]
+    public async Task CancelAll_WhenTheCallbacksOfTwoTokensThrow_GivesHandleExceptionOneExceptionWithEachThrow()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
+        ControlledOperation<string, string> op = new();
+        ConcurrentQueue<Exception> handled = new();
+
+        Dictionary<string, InvalidOperationException> fromCallbacks =
+            new()
+            {
+                ["a"] = new InvalidOperationException("The callback of the token of a throws."),
+                ["b"] = new InvalidOperationException("The callback of the token of b throws.")
+            };
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: handled.Enqueue,
+                operation: (input, resultFactory, token) =>
+                {
+                    // The registration lives as long as the token, which the pipeline owns.
+                    _ = token.Register(() => throw fromCallbacks[input]);
+
+                    return op.Operation(input: input, resultFactory: resultFactory, token: token);
+                },
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelAll: cancelAll);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("b"));
+
+        cancelAll.Send(Unit.Value);
+
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(handled.Count).IsEqualTo(1).Because("one report holds the throws of the two items");
+
+        Exception[] thrown = [.. ((AggregateException)handled.Single()).Flatten().InnerExceptions];
+
+        await Assert.That(thrown.SequenceEqual([fromCallbacks["a"], fromCallbacks["b"]])).IsTrue();
+
+        status.Dispose();
+    }
+
+    // The cancellation comes from the result of "a", and the end of "a" also promotes "b", which
+    // waits in the queue. The cancel runs after the commit, and the start of "b" comes after the
+    // cancel. Thus, the pipeline must end "b" and must not call its operation. Before, the pipeline
+    // called the operation with a token that was canceled.
+    [Test]
+    public async Task CancelAll_FromTheResultThatPromotesTheNextItem_RunsNoOperationForThatItem()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelAll: results.Map(static _ => Unit.Value));
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(op.HasStarted("b")).IsFalse().Because("a canceled item runs no operation");
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     [Test]
     public async Task CancelMatching_EndsSeveralQueuedItemsInOneStep()
     {

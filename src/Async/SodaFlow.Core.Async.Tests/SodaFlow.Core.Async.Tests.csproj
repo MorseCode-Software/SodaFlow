@@ -44,6 +44,7 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="..\..\TestUnobservedTaskExceptions.cs" Link="TestUnobservedTaskExceptions.cs"/>
         <Compile Include="AsyncConcurrencyStrategyFactoryTests.cs"/>
+        <Compile Include="AsyncQueuedItemTests.cs"/>
         <Compile Include="MapAsyncImplTests.cs"/>
         <Compile Include="TestDeliveryException.cs"/>
         <Compile Include="TestUtil.cs"/>
