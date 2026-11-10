@@ -22,7 +22,10 @@ internal enum OperatorRule
     /// </summary>
     RunsNow,
 
-    /// <summary>A read of the current value. The result is a plain value.</summary>
+    /// <summary>
+    ///     A read of the current value. The result is the value that the receiver
+    ///     holds, with the state of that value.
+    /// </summary>
     Read,
 
     /// <summary>

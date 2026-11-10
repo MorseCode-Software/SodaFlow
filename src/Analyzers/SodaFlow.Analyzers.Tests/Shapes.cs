@@ -1218,6 +1218,49 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S156. A sample gives a pending cell, which the block samples.
+    public static Cell<int> SampleOfPendingContent() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Cell.Constant(l.Map(v => v)).Sample().Sample();
+            return S.Hold(x);
+        });
+
+    // S157. A sample gives a plain cell, which the block samples.
+    public static Cell<int> SampleOfPlainContent() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = Cell.Constant(Plain).Sample().Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S158. A sample of a sink gives a row, and the block samples the pending member of the row.
+    public static Cell<decimal> RowFromSampleOfSink() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            decimal now = Cell.CreateSink(row).Sample().Share.Sample();
+            return Cell.Constant(2m + now);
+        });
+
+    // S159. The value of a bindable is a pending cell, which the block samples.
+    public static Cell<int> BindableValueIsAPendingCell(SodaFlow.Bindable.ObjectModel.IBindableFactory factory) =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = factory.CreateOneWay(Cell.Constant(l.Map(v => v))).Value.Sample();
+            return S.Hold(x);
+        });
+
+    // S160. A sample gives a list of pending cells. The block samples each one.
+    public static Cell<int> ForeachOverASampledList() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<IReadOnlyList<Cell<int>>> cells = Cell.Constant<IReadOnlyList<Cell<int>>>([l.Map(v => v)]);
+            int x = 0;
+            foreach (Cell<int> c in cells.Sample()) { x += c.Sample(); }
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

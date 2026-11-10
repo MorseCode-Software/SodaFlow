@@ -140,7 +140,11 @@ internal sealed class LoopReadAnalyzerTests
             ["FoldSelectReads"] = ["SF1001"],
             ["FunctionWrapperCalled"] = ["SF1001"],
             ["LocalFunctionGivenToAQuery"] = ["SF1004"],
-            ["QueryResultOfALambda"] = ["SF1001"]
+            ["QueryResultOfALambda"] = ["SF1001"],
+            ["SampleOfPendingContent"] = ["SF1001"],
+            ["RowFromSampleOfSink"] = ["SF1001"],
+            ["BindableValueIsAPendingCell"] = ["SF1001"],
+            ["ForeachOverASampledList"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

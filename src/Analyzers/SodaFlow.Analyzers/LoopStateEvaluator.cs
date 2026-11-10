@@ -282,6 +282,23 @@ internal sealed class LoopStateEvaluator
                     return getter.State.Join(this.TypeState(expression));
                 }
 
+                // A property of the library that reads the current value gives the value that its
+                // owner holds.
+                if (symbol is IPropertySymbol
+                    && SodaFlowSymbols.ReadMembers.Contains(symbol.Name)
+                    && this.region.Symbols.IsSodaFlow(symbol))
+                {
+                    return this.Eval(
+                            expression switch
+                            {
+                                MemberAccessExpressionSyntax read => read.Expression,
+                                MemberBindingExpressionSyntax read => ConditionalReceiver(read),
+                                _ => null
+                            })
+                        .Content
+                        .Join(this.TypeState(expression));
+                }
+
                 // A field that the code set while the loop is open, on an object that the walk does
                 // not know.
                 LoopState field = this.region.HasFields ? this.region.FieldState(symbol) : LoopState.None;
@@ -439,7 +456,8 @@ internal sealed class LoopStateEvaluator
                 // A function that is not written at the call is a lambda in a local, a local
                 // function, or a method. The evaluator follows it.
                 OperatorRule.RunsNow => firstArgument.Join(this.Follow(invocation)?.State ?? LoopState.None),
-                OperatorRule.Read => LoopState.None,
+                // A read gives the value that the receiver holds, with the state of that value.
+                OperatorRule.Read => receiverState.Content,
                 OperatorRule.SampleLazy => new LoopState(
                     pending: receiverState.Pending,
                     linked: false,
