@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace SodaFlow.Analyzers;
 
@@ -34,6 +35,11 @@ internal sealed class LoopStateEvaluator
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
     private readonly int depth;
     private readonly Dictionary<SyntaxNode, Followed?> followed = [];
+
+    // The calls that the code writes with no call syntax. The key is the node and the member that
+    // it calls. One node can make more than one such call, as an expression with an operator and
+    // a conversion does.
+    private readonly Dictionary<(SyntaxNode Node, ISymbol Member), Followed?> implied = new(ImpliedCalls.Instance);
     private readonly Dictionary<SyntaxNode, CalleeKind> kinds = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
@@ -256,7 +262,10 @@ internal sealed class LoopStateEvaluator
         expression switch
         {
             ParenthesizedExpressionSyntax p => this.Eval(p.Expression),
-            CastExpressionSyntax c => this.Eval(c.Expression),
+            // A cast that an operator of this compilation makes gives what the operator returns.
+            CastExpressionSyntax c => this.FollowExpression(c) is { } converted
+                ? converted.State.Join(this.TypeState(expression))
+                : this.Eval(c.Expression),
             CheckedExpressionSyntax c => this.Eval(c.Expression),
             AwaitExpressionSyntax a => this.Eval(a.Expression),
             PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } s =>
@@ -281,7 +290,11 @@ internal sealed class LoopStateEvaluator
             ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions),
             ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions),
             InitializerExpressionSyntax i => this.JoinAll(i.Expressions),
-            ElementAccessExpressionSyntax e => this.Eval(e.Expression).Join(this.TypeState(expression)),
+            // An indexer of this compilation gives what its getter returns. An element of a
+            // collection has the state of the collection.
+            ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
+                ? indexed.State.Join(this.TypeState(expression))
+                : this.Eval(e.Expression).Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
@@ -297,7 +310,10 @@ internal sealed class LoopStateEvaluator
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
                 or GenericNameSyntax => this.EvalName(expression),
-            _ => this.TypeState(expression)
+            // An operator of this compilation gives what it returns.
+            _ => this.FollowExpression(expression) is { } result
+                ? result.State.Join(this.TypeState(expression))
+                : this.TypeState(expression)
         };
 
     /// <summary>
@@ -1452,6 +1468,219 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     A call that the code writes with no call syntax. The compiler binds an
+    ///     operator, a conversion, an accessor, a <c>Deconstruct</c>, and some
+    ///     other forms to a member. The evaluator reads that member as a call of
+    ///     it. The result is null for a member with no body to read.
+    /// </summary>
+    /// <param name="call">The node that makes the call. A report about a member is at this node.</param>
+    /// <param name="member">The method or the accessor that the node calls.</param>
+    /// <param name="owner">
+    ///     The state of the object, for an instance member. Null for the object
+    ///     that this code is in.
+    /// </param>
+    /// <param name="arguments">
+    ///     The expressions that the member gets, in the order of its parameters,
+    ///     each with its state.
+    /// </param>
+    public Followed? FollowImplied(
+        SyntaxNode call,
+        IMethodSymbol member,
+        LoopState? owner,
+        IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
+    {
+        if (this.implied.TryGetValue(key: (call, member), value: out Followed? known))
+        {
+            return known;
+        }
+
+        // The member of the object, when the code names one of an interface or a base type.
+        IMethodSymbol definition =
+            (owner?.Members?.Resolve(member.OriginalDefinition) as IMethodSymbol ?? member).OriginalDefinition;
+
+        Followed? result = null;
+
+        if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
+        {
+            IReadOnlyList<Binding> bindings =
+            [
+                .. arguments
+                    .Take(definition.Parameters.Length)
+                    .Select((argument, position) =>
+                        new Binding(
+                            parameter: definition.Parameters[position],
+                            argument: argument.Written,
+                            state: argument.State))
+            ];
+
+            result =
+                definition.IsStatic
+                    ? this.Enter(
+                        call: call,
+                        name: ImpliedNameOf(definition),
+                        body: body,
+                        bindings: bindings,
+                        definer: null,
+                        members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+                        receiver: null,
+                        target: null)
+                    : this.Enter(
+                        call: call,
+                        name: ImpliedNameOf(definition),
+                        body: body,
+                        bindings: bindings,
+                        definer: null,
+                        members: owner == null ? this.thisMembers : TaggedMembers(owner),
+                        receiver: owner,
+                        target: null);
+        }
+
+        this.implied[(call, member)] = result;
+
+        return result;
+    }
+
+    /// <summary>
+    ///     The call that an expression makes with no call syntax. It is the getter
+    ///     of an indexer, an operator, or a conversion that the code writes as a
+    ///     cast. A concatenation also calls <c>ToString</c>. The result is null for
+    ///     an expression with no such call.
+    /// </summary>
+    public Followed? FollowExpression(ExpressionSyntax expression) =>
+        expression switch
+        {
+            ElementAccessExpressionSyntax access when this.region.Symbols.DeclaresIndexers =>
+                this.FollowIndexer(access: access, owner: access.Expression, indexes: access.ArgumentList),
+            ElementBindingExpressionSyntax binding
+                when this.region.Symbols.DeclaresIndexers && ConditionalReceiver(binding) is { } owner =>
+                this.FollowIndexer(access: binding, owner: owner, indexes: binding.ArgumentList),
+            BinaryExpressionSyntax binary
+                when this.region.Symbols.DeclaresOperators || this.region.Symbols.DeclaresToString =>
+                this.region.SymbolOf(binary) switch
+                {
+                    IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation =>
+                        this.FollowOperator(call: binary, operation: operation, operands: [binary.Left, binary.Right]),
+                    // A concatenation calls ToString on an operand that is not a string.
+                    IMethodSymbol
+                    {
+                        MethodKind: MethodKind.BuiltinOperator,
+                        ContainingType.SpecialType: SpecialType.System_String
+                    } => Both(first: this.FollowToString(binary.Left), second: this.FollowToString(binary.Right)),
+                    _ => null
+                },
+            PrefixUnaryExpressionSyntax prefix when this.region.Symbols.DeclaresOperators =>
+                this.FollowOperator(call: prefix, operation: this.region.SymbolOf(prefix), operands: [prefix.Operand]),
+            PostfixUnaryExpressionSyntax postfix when this.region.Symbols.DeclaresOperators =>
+                this.FollowOperator(
+                    call: postfix,
+                    operation: this.region.SymbolOf(postfix),
+                    operands: [postfix.Operand]),
+            CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators =>
+                this.FollowOperator(call: cast, operation: this.region.SymbolOf(cast), operands: [cast.Expression]),
+            AssignmentExpressionSyntax compound
+                when this.region.Symbols.DeclaresOperators
+                     && !compound.IsKind(SyntaxKind.SimpleAssignmentExpression) =>
+                this.FollowOperator(
+                    call: compound,
+                    operation: this.region.SymbolOf(compound),
+                    operands: [compound.Left, compound.Right]),
+            _ => null
+        };
+
+    /// <summary>
+    ///     The conversion that the compiler adds to an expression, when an
+    ///     operator of this compilation makes it.
+    /// </summary>
+    public Followed? FollowConversion(ExpressionSyntax expression) =>
+        this.region.Symbols.DeclaresOperators && this.region.ConversionOf(expression) is { } conversion
+            ? this.FollowOperator(call: expression, operation: conversion, operands: [expression])
+            : null;
+
+    /// <summary>
+    ///     The call of <c>operator true</c> or <c>operator false</c> that a
+    ///     condition makes on its value. No node names that operator, thus the
+    ///     evaluator asks for the operation of the condition. It asks only in a
+    ///     compilation that declares such an operator.
+    /// </summary>
+    public Followed? FollowTruth(ExpressionSyntax condition) =>
+        this.region.Symbols.DeclaresTruth
+        && this.region.ModelFor(condition).GetOperation(condition)?.Parent
+            is IUnaryOperation { OperatorMethod: { } truth }
+            ? this.FollowOperator(call: condition, operation: truth, operands: [condition])
+            : null;
+
+    /// <summary>
+    ///     The call of <c>ToString</c> that an interpolation or a concatenation
+    ///     makes on an object of this compilation.
+    /// </summary>
+    public Followed? FollowToString(ExpressionSyntax written) =>
+        this.region.Symbols is { DeclaresToString: true, ObjectToString: { } toString }
+        && this.Eval(written) is { Members: not null } owner
+            ? this.FollowImplied(call: written, member: toString, owner: owner, arguments: [])
+            : null;
+
+    /// <summary>
+    ///     The call of <c>Dispose</c> that a <c>using</c> makes on an object of
+    ///     this compilation, when the code leaves the statement or the block.
+    /// </summary>
+    public Followed? FollowDispose(ExpressionSyntax resource) =>
+        this.region.Symbols is { DeclaresDispose: true, DisposableDispose: { } dispose }
+        && this.Eval(resource) is { Members: not null } owner
+            ? this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: [])
+            : null;
+
+    /// <summary>
+    ///     The call of a <c>Deconstruct</c> method. Each parameter gets an
+    ///     argument, thus the result has the state that the method gives to each
+    ///     <c>out</c> parameter.
+    /// </summary>
+    /// <param name="call">The deconstruction, or the part of a pattern.</param>
+    /// <param name="method">The method that the compiler found.</param>
+    /// <param name="value">The expression for the value, for a report.</param>
+    /// <param name="owner">The state of the value.</param>
+    public Followed? FollowDeconstruct(SyntaxNode call, IMethodSymbol method, ExpressionSyntax value, LoopState owner)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        // An extension method gets the value as its first argument.
+        return this.FollowImplied(
+            call: call,
+            member: definition,
+            owner: definition.IsStatic ? null : owner,
+            arguments:
+            [
+                .. definition.Parameters.Select((_, position) =>
+                    (Written: value, State: definition.IsStatic && position == 0 ? owner : LoopState.None))
+            ]);
+    }
+
+    private Followed? FollowIndexer(SyntaxNode access, ExpressionSyntax owner, BaseArgumentListSyntax indexes) =>
+        this.region.SymbolOf(access) is IPropertySymbol { GetMethod: { } getter }
+            ? this.FollowImplied(
+                call: access,
+                member: getter,
+                owner: this.Eval(owner),
+                arguments: [.. indexes.Arguments.Select(index => (index.Expression, this.Eval(index.Expression)))])
+            : null;
+
+    private Followed? FollowOperator(SyntaxNode call, ISymbol? operation, IEnumerable<ExpressionSyntax> operands) =>
+        operation is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } method
+            ? this.FollowImplied(
+                call: call,
+                member: method,
+                owner: null,
+                arguments: [.. operands.Select(operand => (operand, this.Eval(operand)))])
+            : null;
+
+    // The name of a member in a report: the property for an accessor, and the operator as the
+    // code declares it.
+    private static string ImpliedNameOf(IMethodSymbol definition) =>
+        definition.AssociatedSymbol?.Name
+        ?? (definition.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion
+            ? definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : definition.Name);
+
+    /// <summary>
     ///     The read of a property that a property pattern names, on a value with
     ///     the given state. A pattern has no expression for the owner of the
     ///     property, thus the walk gives the state of the owner.
@@ -1933,6 +2162,14 @@ internal sealed class LoopStateEvaluator
                 {
                     MethodDeclarationSyntax method => method.Body ?? (SyntaxNode?)method.ExpressionBody?.Expression,
                     LocalFunctionStatementSyntax local => local.Body ?? (SyntaxNode?)local.ExpressionBody?.Expression,
+                    OperatorDeclarationSyntax operation =>
+                        operation.Body ?? (SyntaxNode?)operation.ExpressionBody?.Expression,
+                    ConversionOperatorDeclarationSyntax conversion =>
+                        conversion.Body ?? (SyntaxNode?)conversion.ExpressionBody?.Expression,
+                    AccessorDeclarationSyntax accessor =>
+                        accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody?.Expression,
+                    // The getter of a property or an indexer that is only an expression.
+                    ArrowExpressionClauseSyntax arrow => arrow.Expression,
                     _ => null
                 })
             .FirstOrDefault(static body => body != null);
@@ -2355,6 +2592,19 @@ internal sealed class LoopStateEvaluator
             .OfType<ConditionalAccessExpressionSyntax>()
             .FirstOrDefault(conditional => conditional.WhenNotNull.Span.Contains(afterTheMark.Span))
             ?.Expression;
+
+    // Two implied calls are the same when the node and the member are the same.
+    private sealed class ImpliedCalls : IEqualityComparer<(SyntaxNode Node, ISymbol Member)>
+    {
+        public static readonly ImpliedCalls Instance = new();
+
+        public bool Equals((SyntaxNode Node, ISymbol Member) x, (SyntaxNode Node, ISymbol Member) y) =>
+            ReferenceEquals(objA: x.Node, objB: y.Node)
+            && SymbolEqualityComparer.Default.Equals(x: x.Member, y: y.Member);
+
+        public int GetHashCode((SyntaxNode Node, ISymbol Member) call) =>
+            (call.Node.GetHashCode() * 397) ^ SymbolEqualityComparer.Default.GetHashCode(call.Member);
+    }
 
     /// <summary>One argument of a call, with the parameter of the callee that gets it.</summary>
     private readonly struct Binding(in IParameterSymbol parameter, in ExpressionSyntax argument, in LoopState state)

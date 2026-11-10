@@ -70,6 +70,14 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
+    private readonly Lazy<bool> declaresAdd;
+    private readonly Lazy<bool> declaresDeconstruct;
+    private readonly Lazy<bool> declaresDispose;
+    private readonly Lazy<bool> declaresEnumerators;
+    private readonly Lazy<bool> declaresIndexers;
+    private readonly Lazy<bool> declaresOperators;
+    private readonly Lazy<bool> declaresToString;
+    private readonly Lazy<bool> declaresTruth;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -77,12 +85,91 @@ internal sealed class SodaFlowSymbols
     ///     itself when it is one of them, and each one that it references.
     /// </summary>
     /// <param name="compilation">The compilation.</param>
-    public SodaFlowSymbols(Compilation compilation) =>
+    public SodaFlowSymbols(Compilation compilation)
+    {
         this.library =
             compilation.SourceModule.ReferencedAssemblySymbols
                 .Add(compilation.Assembly)
                 .Where(static assembly => LibraryAssemblyNames.Contains(assembly.Name))
                 .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
+
+        this.declaresAdd = Declares(compilation: compilation, name: "Add");
+        this.declaresDeconstruct = Declares(compilation: compilation, name: "Deconstruct");
+        this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
+        this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
+        this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
+        this.declaresToString = Declares(compilation: compilation, name: "ToString");
+        this.declaresTruth = Declares(compilation: compilation, name: "op_True");
+
+        this.declaresOperators =
+            new Lazy<bool>(() =>
+                compilation.ContainsSymbolsWithName(
+                    predicate: static name => name.StartsWith(value: "op_", comparisonType: StringComparison.Ordinal),
+                    filter: SymbolFilter.Member));
+
+        this.ObjectToString =
+            compilation.GetSpecialType(SpecialType.System_Object)
+                .GetMembers("ToString")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(static method => method.Parameters.IsEmpty);
+
+        this.DisposableDispose =
+            compilation.GetSpecialType(SpecialType.System_IDisposable)
+                .GetMembers("Dispose")
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault();
+    }
+
+    /// <summary>
+    ///     True when the compilation declares a method with the name <c>Add</c>.
+    ///     A collection initializer can call it.
+    /// </summary>
+    /// <remarks>
+    ///     This and the six properties after it are the same test for different
+    ///     names. The walk asks one before it asks the compiler what a node calls.
+    ///     Most compilations declare few of these members, and the question to the
+    ///     compiler is most of the cost of the analyzer. The answer comes from the
+    ///     names that the compilation declares, with no binding.
+    /// </remarks>
+    public bool DeclaresAdd => this.declaresAdd.Value;
+
+    /// <summary>True when the compilation declares a <c>Deconstruct</c> method.</summary>
+    public bool DeclaresDeconstruct => this.declaresDeconstruct.Value;
+
+    /// <summary>True when the compilation declares a <c>Dispose</c> method.</summary>
+    public bool DeclaresDispose => this.declaresDispose.Value;
+
+    /// <summary>True when the compilation declares a <c>GetEnumerator</c> method.</summary>
+    public bool DeclaresEnumerators => this.declaresEnumerators.Value;
+
+    /// <summary>True when the compilation declares an indexer.</summary>
+    public bool DeclaresIndexers => this.declaresIndexers.Value;
+
+    /// <summary>True when the compilation declares an operator or a conversion.</summary>
+    public bool DeclaresOperators => this.declaresOperators.Value;
+
+    /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
+    public bool DeclaresToString => this.declaresToString.Value;
+
+    /// <summary>
+    ///     True when the compilation declares <c>operator true</c>. A condition
+    ///     on a value of that type calls it.
+    /// </summary>
+    public bool DeclaresTruth => this.declaresTruth.Value;
+
+    /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
+    public IMethodSymbol? ObjectToString { get; }
+
+    /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
+    public IMethodSymbol? DisposableDispose { get; }
+
+    // An explicit member of an interface has the name of the interface before its own name.
+    private static Lazy<bool> Declares(Compilation compilation, string name) =>
+        new(() =>
+            compilation.ContainsSymbolsWithName(
+                predicate: declared =>
+                    declared == name || declared.EndsWith(value: "." + name, comparisonType: StringComparison.Ordinal),
+                filter: SymbolFilter.Member));
 
     /// <summary>
     ///     False for a compilation that is not the library and does not reference

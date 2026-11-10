@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -31,6 +32,61 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly LoopRegion region = region;
     private readonly Action<Finding> sink = sink;
 
+    public override void Visit(SyntaxNode? node)
+    {
+        base.Visit(node);
+
+        if (node is not ExpressionSyntax expression)
+        {
+            return;
+        }
+
+        // An expression can make a call with no call syntax: the getter of an indexer, an
+        // operator, or a conversion.
+        this.Report(this.evaluator.FollowExpression(expression));
+
+        if (ConvertsHere(expression))
+        {
+            this.Report(this.evaluator.FollowConversion(expression));
+        }
+
+        if (IsCondition(expression))
+        {
+            this.Report(this.evaluator.FollowTruth(expression));
+        }
+    }
+
+    private static bool IsCondition(SyntaxNode expression) =>
+        expression.Parent switch
+        {
+            ConditionalExpressionSyntax choice => choice.Condition == expression,
+            IfStatementSyntax choice => choice.Condition == expression,
+            WhileStatementSyntax loop => loop.Condition == expression,
+            DoStatementSyntax loop => loop.Condition == expression,
+            ForStatementSyntax loop => loop.Condition == expression,
+            _ => false
+        };
+
+    // The places where the compiler can add a conversion to an expression. The owner of a member
+    // and the name of a type are not such places.
+    private static bool ConvertsHere(SyntaxNode expression) =>
+        expression.Parent switch
+        {
+            ArgumentSyntax
+                or EqualsValueClauseSyntax
+                or ReturnStatementSyntax
+                or ArrowExpressionClauseSyntax
+                or InterpolationSyntax
+                or BinaryExpressionSyntax
+                or ConditionalExpressionSyntax
+                or IfStatementSyntax
+                or WhileStatementSyntax
+                or ExpressionElementSyntax
+                or InitializerExpressionSyntax => true,
+            AssignmentExpressionSyntax assignment => assignment.Right == expression,
+            _ => false
+        };
+
     public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         SemanticModel model = this.region.ModelFor(node);
@@ -48,7 +104,48 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
             }
+
+            // A using declaration calls Dispose when the code leaves the block that it is in.
+            if (node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            {
+                this.Report(this.evaluator.FollowDispose(declarator.Initializer.Value));
+            }
         }
+    }
+
+    public override void VisitUsingStatement(UsingStatementSyntax node)
+    {
+        SemanticModel model = this.region.ModelFor(node);
+
+        foreach (VariableDeclaratorSyntax declarator in node.Declaration?.Variables ?? default)
+        {
+            if (declarator.Initializer != null && model.GetDeclaredSymbol(declarator) is { } local)
+            {
+                this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
+            }
+        }
+
+        base.VisitUsingStatement(node);
+
+        // The statement calls Dispose on each resource when the code leaves it.
+        IEnumerable<ExpressionSyntax> resources =
+            node.Expression != null
+                ? [node.Expression]
+                : (node.Declaration?.Variables ?? default)
+                .Select(static declarator => declarator.Initializer?.Value)
+                .OfType<ExpressionSyntax>();
+
+        foreach (ExpressionSyntax resource in resources)
+        {
+            this.Report(this.evaluator.FollowDispose(resource));
+        }
+    }
+
+    // An interpolation calls ToString on its value.
+    public override void VisitInterpolation(InterpolationSyntax node)
+    {
+        base.VisitInterpolation(node);
+        this.Report(this.evaluator.FollowToString(node.Expression));
     }
 
     // A local function runs when the code calls it, and the evaluator follows it then.
@@ -73,10 +170,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
 
-        // The collection has the state of all its elements, thus each element has that state.
+        // The collection has the state of all its elements, thus each element has that state. An
+        // enumerator of this compilation gives what its Current returns also.
+        LoopState elements = this.evaluator.Eval(node.Expression).Join(this.Enumerate(node));
+
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {
-            this.evaluator.Declare(local: element, state: this.evaluator.Eval(node.Expression));
+            this.evaluator.Declare(local: element, state: elements);
         }
 
         this.Visit(node.Statement);
@@ -85,8 +185,86 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         this.Visit(node.Expression);
-        this.AssignState(target: node.Variable, state: this.evaluator.Eval(node.Expression), replaces: false);
+
+        LoopState elements = this.evaluator.Eval(node.Expression).Join(this.Enumerate(node));
+
+        IMethodSymbol? method =
+            this.region.Symbols.DeclaresDeconstruct
+                ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
+                : null;
+
+        if (!this.Deconstruct(
+                call: node.Variable,
+                target: node.Variable,
+                value: node.Expression,
+                owner: elements,
+                method: method,
+                replaces: false))
+        {
+            this.AssignState(target: node.Variable, state: elements, replaces: false);
+        }
+
         this.Visit(node.Statement);
+    }
+
+    /// <summary>
+    ///     The calls that a foreach makes on a collection of this compilation:
+    ///     <c>GetEnumerator</c>, then <c>MoveNext</c> and <c>Current</c> on an
+    ///     enumerator of this compilation. The result is the state of what
+    ///     <c>Current</c> returns.
+    /// </summary>
+    private LoopState Enumerate(CommonForEachStatementSyntax node)
+    {
+        if (!this.region.Symbols.DeclaresEnumerators
+            || this.region.ModelFor(node).GetForEachStatementInfo(node) is not { GetEnumeratorMethod: { } start } calls)
+        {
+            return LoopState.None;
+        }
+
+        LoopState collection = this.evaluator.Eval(node.Expression);
+
+        // An extension method gets the collection as its argument.
+        Followed? enumerator =
+            start.IsStatic
+                ? this.evaluator.FollowImplied(
+                    call: node.Expression,
+                    member: (start.ReducedFrom ?? start).OriginalDefinition,
+                    owner: null,
+                    arguments: [(node.Expression, collection)])
+                : this.evaluator.FollowImplied(call: node.Expression, member: start, owner: collection, arguments: []);
+
+        this.Report(enumerator);
+
+        if (enumerator?.State.Members == null)
+        {
+            return LoopState.None;
+        }
+
+        if (calls.MoveNextMethod is { } next)
+        {
+            this.Report(
+                this.evaluator.FollowImplied(
+                    call: node.Expression,
+                    member: next,
+                    owner: enumerator.State,
+                    arguments: []));
+        }
+
+        if (calls.CurrentProperty?.GetMethod is not { } getter)
+        {
+            return LoopState.None;
+        }
+
+        Followed? current =
+            this.evaluator.FollowImplied(
+                call: node.Expression,
+                member: getter,
+                owner: enumerator.State,
+                arguments: []);
+
+        this.Report(current);
+
+        return current?.State ?? LoopState.None;
     }
 
     public override void VisitIsPatternExpression(IsPatternExpressionSyntax node)
@@ -162,10 +340,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                             state: name == null ? state : this.ReadPatternMember(name: name, owner: state));
                     }
 
-                    foreach (SubpatternSyntax part in recursive.PositionalPatternClause?.Subpatterns ?? default)
-                    {
-                        this.DeclarePattern(pattern: part.Pattern, state: state);
-                    }
+                    this.DeclarePositional(clause: recursive.PositionalPatternClause, state: state);
 
                     return;
                 }
@@ -245,6 +420,167 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             : owner;
     }
 
+    /// <summary>
+    ///     The parts of a positional pattern. A value that is not a tuple gives
+    ///     them through a <c>Deconstruct</c> method. Each part then has the state of
+    ///     the <c>out</c> parameter for it. Otherwise, each part has the state of
+    ///     the value.
+    /// </summary>
+    private void DeclarePositional(PositionalPatternClauseSyntax? clause, LoopState state)
+    {
+        if (clause == null)
+        {
+            return;
+        }
+
+        IMethodSymbol? method =
+            this.region.Symbols.DeclaresDeconstruct
+                ? this.region.ModelFor(clause).GetSymbolInfo(clause).Symbol as IMethodSymbol
+                : null;
+
+        Followed? followed =
+            method != null && MatchedValueOf(clause) is { } value
+                ? this.evaluator.FollowDeconstruct(call: clause, method: method, value: value, owner: state)
+                : null;
+
+        this.Report(followed);
+
+        ImmutableArray<IParameterSymbol> outs =
+            followed == null || method == null ? ImmutableArray<IParameterSymbol>.Empty : OutsOf(method);
+
+        for (int i = 0; i < clause.Subpatterns.Count; i++)
+        {
+            this.DeclarePattern(
+                pattern: clause.Subpatterns[i].Pattern,
+                state: followed == null
+                    ? state
+                    : i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? part)
+                        ? part
+                        : LoopState.None);
+        }
+    }
+
+    // The expression that a pattern is for: the left side of an is, or the value of a switch.
+    private static ExpressionSyntax? MatchedValueOf(SyntaxNode pattern) =>
+        pattern.Ancestors()
+            .Select(static ancestor =>
+                ancestor switch
+                {
+                    IsPatternExpressionSyntax match => match.Expression,
+                    SwitchExpressionSyntax choice => choice.GoverningExpression,
+                    SwitchStatementSyntax choice => choice.Expression,
+                    _ => null
+                })
+            .FirstOrDefault(static value => value != null);
+
+    // The out parameters of a Deconstruct method, in order. An extension method has the value as
+    // its first parameter, which is not one of them.
+    private static ImmutableArray<IParameterSymbol> OutsOf(IMethodSymbol method) =>
+        (method.ReducedFrom ?? method).OriginalDefinition.Parameters
+        .Where(static parameter => parameter.RefKind == RefKind.Out)
+        .ToImmutableArray();
+
+    // The targets of a deconstruction, in order. Null for a target that is not one.
+    private static IReadOnlyList<SyntaxNode>? PartsOf(SyntaxNode target) =>
+        target switch
+        {
+            TupleExpressionSyntax tuple => [.. tuple.Arguments.Select(static argument => argument.Expression)],
+            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax several } =>
+                [.. several.Variables],
+            _ => null
+        };
+
+    /// <summary>
+    ///     A deconstruction that calls a <c>Deconstruct</c> method of this
+    ///     compilation. The walk reports what the method reads, and gives each
+    ///     target the state of the <c>out</c> parameter for it. False when the
+    ///     deconstruction calls no such method.
+    /// </summary>
+    private bool Deconstruct(
+        SyntaxNode call,
+        SyntaxNode target,
+        ExpressionSyntax value,
+        LoopState owner,
+        IMethodSymbol? method,
+        bool replaces)
+    {
+        if (method == null
+            || PartsOf(target) is not { } parts
+            || this.evaluator.FollowDeconstruct(call: call, method: method, value: value, owner: owner)
+                is not { } followed)
+        {
+            return false;
+        }
+
+        this.Report(followed);
+
+        ImmutableArray<IParameterSymbol> outs = OutsOf(method);
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            LoopState part =
+                i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? given)
+                    ? given
+                    : LoopState.None;
+
+            if (parts[i] is ExpressionSyntax expression)
+            {
+                this.AssignState(target: expression, state: part, replaces: replaces);
+            }
+            else
+            {
+                this.DeclareDesignation(designation: parts[i], state: part);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     An assignment to a property or an indexer runs its setter. An
+    ///     assignment with <c>+=</c> or <c>-=</c> to an event runs an accessor of
+    ///     the event. The walk reads an accessor of this compilation that has a
+    ///     body.
+    /// </summary>
+    private void CheckAccessor(AssignmentExpressionSyntax node)
+    {
+        IMethodSymbol? accessor =
+            this.region.SymbolOf(node.Left) switch
+            {
+                IPropertySymbol { SetMethod: { } setter } => setter,
+                IEventSymbol { AddMethod: { } add } when node.IsKind(SyntaxKind.AddAssignmentExpression) => add,
+                IEventSymbol { RemoveMethod: { } remove } when node.IsKind(SyntaxKind.SubtractAssignmentExpression) =>
+                    remove,
+                _ => null
+            };
+
+        if (accessor == null || accessor.DeclaringSyntaxReferences.IsEmpty)
+        {
+            return;
+        }
+
+        (ExpressionSyntax? owner, BracketedArgumentListSyntax? indexes) =
+            node.Left switch
+            {
+                MemberAccessExpressionSyntax member => (member.Expression, null),
+                ElementAccessExpressionSyntax element => (element.Expression, element.ArgumentList),
+                _ => ((ExpressionSyntax?)null, (BracketedArgumentListSyntax?)null)
+            };
+
+        // The accessor gets each index, and then the value.
+        this.Report(
+            this.evaluator.FollowImplied(
+                call: node,
+                member: accessor,
+                owner: owner is null or ThisExpressionSyntax ? null : this.evaluator.Eval(owner),
+                arguments:
+                [
+                    .. (indexes?.Arguments ?? default).Select(index =>
+                        (index.Expression, this.evaluator.Eval(index.Expression))),
+                    (node.Right, this.evaluator.Eval(node.Right))
+                ]));
+    }
+
     // The name of a part of a property pattern is a member of the value that the pattern is for.
     // It is not code of its own. ReadPatternMember checks the read that it is.
     public override void VisitSubpattern(SubpatternSyntax node) => this.Visit(node.Pattern);
@@ -282,6 +618,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.AssignState(target: node.Left, state: added, replaces: false);
             }
 
+            this.CheckAccessor(node);
+
             return;
         }
 
@@ -304,7 +642,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
-        this.Assign(target: node.Left, value: node.Right, replaces: this.AlwaysRuns(node));
+        this.CheckAccessor(node);
+
+        bool replaces = this.AlwaysRuns(node);
+
+        // A deconstruction of a value that is not a tuple calls a Deconstruct method.
+        IMethodSymbol? deconstruct =
+            this.region.Symbols.DeclaresDeconstruct
+            && node.Right is not TupleExpressionSyntax
+            && PartsOf(node.Left) != null
+                ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
+                : null;
+
+        if (!this.Deconstruct(
+                call: node,
+                target: node.Left,
+                value: node.Right,
+                owner: this.evaluator.Eval(node.Right),
+                method: deconstruct,
+                replaces: replaces))
+        {
+            this.Assign(target: node.Left, value: node.Right, replaces: replaces);
+        }
     }
 
     /// <summary>
@@ -393,14 +752,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A deconstruction of a value that is not a tuple expression. Each target gets the state
         // of its element, when the evaluator knows the elements. Otherwise, each gets the state of
         // the value.
-        IReadOnlyList<SyntaxNode>? parts =
-            target switch
-            {
-                TupleExpressionSyntax tuple => [.. tuple.Arguments.Select(static argument => argument.Expression)],
-                DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax several } =>
-                    [.. several.Variables],
-                _ => null
-            };
+        IReadOnlyList<SyntaxNode>? parts = PartsOf(target);
 
         if (parts == null
             || whole.Members == null
@@ -502,7 +854,66 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 setsMembers && expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax } assignment
                     ? assignment.Right
                     : expression);
+
+            this.CheckInitialized(initializer: node, expression: expression, setsMembers: setsMembers);
         }
+    }
+
+    /// <summary>
+    ///     An object initializer runs the setter of each property that it names.
+    ///     A collection initializer calls <c>Add</c> for each element. The walk
+    ///     reads a setter or an <c>Add</c> of this compilation that has a body.
+    /// </summary>
+    private void CheckInitialized(SyntaxNode initializer, ExpressionSyntax expression, bool setsMembers)
+    {
+        if (initializer.Parent
+            is not (ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax or WithExpressionSyntax))
+        {
+            return;
+        }
+
+        ExpressionSyntax made = (ExpressionSyntax)initializer.Parent;
+
+        if (setsMembers)
+        {
+            if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
+                && this.region.SymbolOf(name) is IPropertySymbol
+                {
+                    SetMethod: { DeclaringSyntaxReferences.IsEmpty: false } setter
+                })
+            {
+                this.Report(
+                    this.evaluator.FollowImplied(
+                        call: assignment,
+                        member: setter,
+                        owner: this.evaluator.Eval(made),
+                        arguments: [(assignment.Right, this.evaluator.Eval(assignment.Right))]));
+            }
+
+            return;
+        }
+
+        if (!initializer.IsKind(SyntaxKind.CollectionInitializerExpression)
+            || !this.region.Symbols.DeclaresAdd
+            || this.region.ModelFor(expression).GetCollectionInitializerSymbolInfo(expression).Symbol
+                is not IMethodSymbol add)
+        {
+            return;
+        }
+
+        // An element with braces gives each of its values to one Add.
+        IEnumerable<ExpressionSyntax> values =
+            expression is InitializerExpressionSyntax several ? several.Expressions : [expression];
+
+        // An extension method gets the collection as its first argument.
+        IEnumerable<ExpressionSyntax> given = add.IsStatic ? values.Prepend(made) : values;
+
+        this.Report(
+            this.evaluator.FollowImplied(
+                call: expression,
+                member: (add.ReducedFrom ?? add).OriginalDefinition,
+                owner: add.IsStatic ? null : this.evaluator.Eval(made),
+                arguments: [.. given.Select(value => (value, this.evaluator.Eval(value)))]));
     }
 
     public override void VisitInvocationExpression(InvocationExpressionSyntax node)

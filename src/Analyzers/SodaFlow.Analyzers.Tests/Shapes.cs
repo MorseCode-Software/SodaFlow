@@ -2250,6 +2250,221 @@ public static class Shapes
             return S.Hold(0);
         });
 
+    // S271. The getter of an indexer samples a pending member.
+    public static Cell<int> IndexerGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = t[0]; return S.Hold(x); });
+
+    // S272. The same indexer on an object with a plain cell.
+    public static Cell<int> IndexerGetterOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); int x = t[0]; return S.Snapshot(l, (a, b) => a + b + x).Hold(0); });
+
+    // S273. The same indexer, which only a callback reads.
+    public static Cell<int> IndexerGetterInACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); return S.Map(v => v + t[0]).Hold(0); });
+
+    // S274. The setter of the indexer samples the pending member.
+    public static Cell<int> IndexerSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); t[0] = 1; return S.Hold(0); });
+
+    // S275. The getter of the indexer through a conditional access.
+    public static Cell<int> IndexerGetterThroughAConditionalAccess() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally? t = new(l.Map(v => v)); int x = t?[0] ?? 0; return S.Hold(x); });
+
+    // S276. An operator of the type samples a pending member of its operand.
+    public static Cell<int> OperatorWithTwoOperands() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = t + 1; return S.Hold(x); });
+
+    // S277. The same operator on an object with a plain cell.
+    public static Cell<int> OperatorWithTwoOperandsOnAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); int x = t + 1; return S.Snapshot(l, (a, b) => a + b + x).Hold(0); });
+
+    // S278. An operator with one operand.
+    public static Cell<int> OperatorWithOneOperand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = -t; return S.Hold(x); });
+
+    // S279. The increment operator.
+    public static Cell<int> IncrementOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); t++; return S.Hold(0); });
+
+    // S280. An assignment with += whose right side has the operator.
+    public static Cell<int> OperatorInACompoundAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = 0; x += t + 1; return S.Hold(x); });
+
+    // S281. A condition on a value of a type with the true operator.
+    public static Cell<int> TruthOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = t ? 1 : 0; return S.Hold(x); });
+
+    // S282. A helper has the operator.
+    public static Cell<int> OperatorInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); return S.Hold(TallyPlusOne(t)); });
+
+    private static int TallyPlusOne(Tally t) => t + 1;
+
+    // S283. An implicit conversion of the type samples a pending member.
+    public static Cell<int> ImplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = t; return S.Hold((int)x); });
+
+    // S284. The same conversion at an argument of a method of the platform.
+    public static Cell<int> ImplicitConversionAtAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = Math.Abs(t); return S.Hold((int)x); });
+
+    // S285. The same conversion on an object with a plain cell.
+    public static Cell<int> ImplicitConversionOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); long x = t; return S.Snapshot(l, (a, b) => a + b + (int)x).Hold(0); });
+
+    // S286. A conversion that the code writes as a cast.
+    public static Cell<int> ExplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); short x = (short)t; return S.Hold(x); });
+
+    // S287. An implicit conversion from a cell samples the cell, which is pending.
+    public static Cell<int> ImplicitConversionFromAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyReading r = l.Map(v => v); return S.Hold(r.Value); });
+
+    // S288. The same conversion from a plain cell.
+    public static Cell<int> ImplicitConversionFromAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyReading r = Plain; return S.Snapshot(l, (a, b) => a + b + r.Value).Hold(0); });
+
+    // S289. The setter of a property samples a pending member.
+    public static Cell<int> PropertySetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); t.Level = 1; return S.Hold(0); });
+
+    // S290. The same setter on an object with a plain cell.
+    public static Cell<int> PropertySetterOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); t.Level = 1; return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S291. The same setter in an object initializer.
+    public static Cell<int> PropertySetterInAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)) { Level = 1 }; Kept.Add(t); return S.Hold(0); });
+
+    // S292. A setter samples the value that it gets, which is a pending cell.
+    public static Cell<int> PropertySetterThatSamplesItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyHolder h = new(); h.Source = l.Map(v => v); return S.Hold(0); });
+
+    // S293. The same setter with a plain cell.
+    public static Cell<int> PropertySetterThatSamplesAPlainValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyHolder h = new(); h.Source = Plain; return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S294. The add accessor of an event samples a pending member.
+    public static Cell<int> EventAccessor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); t.Changed += () => { }; return S.Hold(0); });
+
+    // S295. A deconstruction calls a Deconstruct method that samples a pending member.
+    public static Cell<int> DeconstructMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (int x, int y) = t; return S.Hold(x + y); });
+
+    // S296. The same deconstruction of an object with a plain cell.
+    public static Cell<int> DeconstructMethodOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); (int x, int y) = t; return S.Snapshot(l, (a, b) => a + b + x + y).Hold(0); });
+
+    // S297. A positional pattern calls the same method.
+    public static Cell<int> DeconstructMethodInAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); return S.Hold(t is (> 0, _) ? 1 : 0); });
+
+    // S298. A foreach calls the same method for each element.
+    public static Cell<int> DeconstructMethodInAForEach() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Tally[] all = [new Tally(l.Map(v => v))];
+            int total = 0;
+
+            foreach ((int x, int y) in all)
+            {
+                total += x + y;
+            }
+
+            return S.Hold(total);
+        });
+
+    // S299. A Deconstruct method gives a pending cell and a plain one. The block samples the
+    // plain one.
+    public static Cell<int> DeconstructMethodThatGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            TallyPair pair = new(l.Map(v => v), Plain);
+            (Cell<int> first, Cell<int> second) = pair;
+            Kept.Add(first);
+            int x = second.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S300. The same deconstruction. The block samples the pending one.
+    public static Cell<int> DeconstructMethodThatGivesAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            TallyPair pair = new(l.Map(v => v), Plain);
+            (Cell<int> first, Cell<int> second) = pair;
+            Kept.Add(second);
+            int x = first.Sample();
+            return S.Hold(x);
+        });
+
+    // S301. An interpolation calls a ToString that samples a pending member.
+    public static Cell<int> ToStringInAnInterpolation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); string s = $"{t}"; return S.Hold(s.Length); });
+
+    // S302. The same interpolation of an object with a plain cell.
+    public static Cell<int> ToStringInAnInterpolationOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); string s = $"{t}"; return S.Snapshot(l, (a, b) => a + b + s.Length).Hold(0); });
+
+    // S303. A concatenation calls the same ToString.
+    public static Cell<int> ToStringInAConcatenation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); string s = "n" + t; return S.Hold(s.Length); });
+
+    // S304. A using statement calls a Dispose that samples a pending member.
+    public static Cell<int> DisposeInAUsingStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (new Tally(l.Map(v => v))) { } return S.Hold(0); });
+
+    // S305. A using declaration calls the same Dispose at the end of the block.
+    public static Cell<int> DisposeInAUsingDeclaration() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using Tally t = new(l.Map(v => v)); return S.Hold(0); });
+
+    // S306. The same using statement on an object with a plain cell.
+    public static Cell<int> DisposeInAUsingStatementOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (new Tally(Plain)) { } return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S307. A foreach calls the GetEnumerator of a type of this file, which samples a pending member.
+    public static Cell<int> ForEachOverAnEnumerableOfThisCode() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            TallyBag bag = new(l.Map(v => v));
+            int total = 0;
+
+            foreach (int v in bag)
+            {
+                total += v;
+            }
+
+            return S.Hold(total);
+        });
+
+    // S308. The same type, which the block only makes.
+    public static Cell<int> EnumerableOfThisCodeOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyBag bag = new(l.Map(v => v)); Kept.Add(bag); return S.Hold(0); });
+
+    // S309. A foreach over a type whose enumerator is an object of this file. Its Current samples a
+    // pending member.
+    public static Cell<int> ForEachOverAnEnumeratorOfThisCode() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            TallyWalk walk = new(l.Map(v => v));
+            int total = 0;
+
+            foreach (int v in walk)
+            {
+                total += v;
+            }
+
+            return S.Hold(total);
+        });
+
+    // S310. A collection initializer calls an Add that samples a pending member.
+    public static Cell<int> AddInACollectionInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyBag bag = new(l.Map(v => v)) { 1 }; Kept.Add(bag); return S.Hold(0); });
+
+    // S311. The same initializer on an object with a plain cell.
+    public static Cell<int> AddInACollectionInitializerOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyBag bag = new(Plain) { 1 }; Kept.Add(bag); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2476,6 +2691,109 @@ public static class Shapes
         public bool Equals(int x, int y) => x == y + offset.Sample() - offset.Sample();
 
         public int GetHashCode(int value) => value + offset.Sample() - offset.Sample();
+    }
+
+    public sealed class Tally(Cell<int> share) : IDisposable
+    {
+        public event Action Changed
+        {
+            add => Kept.Add(share.Sample());
+            remove { }
+        }
+
+        public int Level
+        {
+            get => 0;
+            set => Kept.Add(share.Sample() + value);
+        }
+
+        public int this[int index]
+        {
+            get => share.Sample() + index;
+            set => Kept.Add(share.Sample() + value);
+        }
+
+        public static int operator +(Tally t, int n) => t.Read() + n;
+
+        public static int operator -(Tally t) => -t.Read();
+
+        public static Tally operator ++(Tally t)
+        {
+            Kept.Add(t.Read());
+
+            return t;
+        }
+
+        public static bool operator true(Tally t) => t.Read() > 0;
+
+        public static bool operator false(Tally t) => t.Read() <= 0;
+
+        public static implicit operator long(Tally t) => t.Read();
+
+        public static explicit operator short(Tally t) => (short)t.Read();
+
+        public override string ToString() => this.Read().ToString();
+
+        public void Deconstruct(out int a, out int b)
+        {
+            a = share.Sample();
+            b = 0;
+        }
+
+        public void Dispose() => Kept.Add(share.Sample());
+
+        private int Read() => share.Sample();
+    }
+
+    public sealed class TallyReading(int value)
+    {
+        public int Value { get; } = value;
+
+        public static implicit operator TallyReading(Cell<int> cell) => new(cell.Sample());
+    }
+
+    public sealed class TallyHolder
+    {
+        public Cell<int> Source
+        {
+            get => Plain;
+            set => Kept.Add(value.Sample());
+        }
+    }
+
+    public sealed class TallyPair(Cell<int> first, Cell<int> second)
+    {
+        public void Deconstruct(out Cell<int> a, out Cell<int> b)
+        {
+            a = first;
+            b = second;
+        }
+    }
+
+    public sealed class TallyBag(Cell<int> share) : IEnumerable<int>
+    {
+        public void Add(int value) => Kept.Add(share.Sample() + value);
+
+        public IEnumerator<int> GetEnumerator()
+        {
+            yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class TallyWalk(Cell<int> share)
+    {
+        public TallyWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class TallyWalker(Cell<int> share)
+    {
+        private int steps;
+
+        public int Current => share.Sample();
+
+        public bool MoveNext() => this.steps++ < 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

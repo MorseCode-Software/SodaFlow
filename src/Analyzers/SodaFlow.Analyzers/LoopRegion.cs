@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -32,6 +33,7 @@ internal sealed class LoopRegion(
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
+    private readonly Dictionary<ExpressionSyntax, IMethodSymbol?> conversionOf = [];
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
@@ -101,6 +103,22 @@ internal sealed class LoopRegion(
         }
 
         return symbol;
+    }
+
+    /// <summary>
+    ///     The operator that makes the conversion which the compiler adds to an
+    ///     expression. Null when it adds none, or one that no operator makes.
+    /// </summary>
+    public IMethodSymbol? ConversionOf(ExpressionSyntax expression)
+    {
+        if (!this.conversionOf.TryGetValue(key: expression, value: out IMethodSymbol? method))
+        {
+            Conversion conversion = this.ModelFor(expression).GetConversion(expression);
+            method = conversion.IsUserDefined ? conversion.MethodSymbol : null;
+            this.conversionOf[expression] = method;
+        }
+
+        return method;
     }
 
     /// <summary>The type of an expression.</summary>
