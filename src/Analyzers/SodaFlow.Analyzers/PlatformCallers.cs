@@ -131,10 +131,10 @@ internal static class PlatformCallers
 
     /// <summary>
     ///     The types of the values that a method compares. A method with a type
-    ///     parameter for a key or for a priority compares those. Each other generic method compares
-    ///     values of its type arguments, and those of its type. A tuple compares
-    ///     its elements. The result is empty for a method with no type argument,
-    ///     which gets its values as <c>object</c>.
+    ///     parameter for a key or for a priority compares those. Each other
+    ///     generic method compares values of its type arguments, and those of its
+    ///     type. A tuple compares its elements. The result is empty for a method
+    ///     with no type argument, which gets its values as <c>object</c>.
     /// </summary>
     public static ImmutableArray<ITypeSymbol> ComparedTypes(IMethodSymbol method)
     {

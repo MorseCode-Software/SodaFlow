@@ -212,7 +212,8 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True when the compilation declares a member that a collection of the
-    ///     platform calls on an element, on a key, or on a comparer that it keeps.
+    ///     platform calls. The collection calls it on an element, on a key, or on
+    ///     a comparer that it keeps.
     /// </summary>
     public bool DeclaresKeyMembers =>
         (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None || this.declaresCompare.Value;

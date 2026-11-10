@@ -496,7 +496,7 @@ internal sealed class LoopStateEvaluator
     ///     The state of one element of a collection. An element is one of the
     ///     objects that the collection contains. An element of a list of lists is
     ///     a list, which contains them also. The type of the element tells the
-    ///     two apart: it is a sequence, and the objects that have the members
+    ///     two apart. It is a sequence, and the objects that have the members
     ///     cannot be a value of it.
     /// </summary>
     /// <param name="collection">The state of the collection.</param>

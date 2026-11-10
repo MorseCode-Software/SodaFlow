@@ -1447,8 +1447,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// <summary>
     ///     Reads what a serializer runs when it writes a value. It enumerates
     ///     each query that the value is or contains. For an object of this
-    ///     compilation, it calls the getter of each property that it writes, and
-    ///     it writes the result of that getter in the same way.
+    ///     compilation, it calls the getter of each property that it writes. It
+    ///     writes the result of that getter in the same way.
     /// </summary>
     /// <remarks>
     ///     An object of this compilation can keep a query that no property gives.
