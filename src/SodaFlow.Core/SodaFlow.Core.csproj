@@ -79,6 +79,7 @@
         <Compile Include="StreamListenerManager.cs"/>
         <Compile Include="StreamSink.cs"/>
         <Compile Include="SystemClock.cs"/>
+        <Compile Include="ThrowHelper.cs"/>
         <Compile Include="TimerScheduler.cs"/>
         <Compile Include="TimerSystemInternal.cs"/>
         <Compile Include="Transaction.cs"/>
