@@ -219,40 +219,71 @@ covered, because a Roslyn analyzer runs in the C# compiler only; an F# project k
 
 The analyzer looks at the code that runs while a loop is open, which is the function you give a
 loop block, and follows the placeholder through the library's operators. That function can be a
-lambda, an anonymous method, or a method of your own project given by name. Six rules come out of
-that, five of them warnings:
+lambda, an anonymous method, or a method of your own project given by name. Where that code calls
+into your own project, the analyzer reads the body it calls in the same way: a method, a local
+function, a constructor, or a property getter. These rules come out of that, all of them warnings
+except `SF1003`:
 
 | Rule | Reports |
 | --- | --- |
 | `SF1001` | `Sample()`, a bindable's `Value`, or `CanExecute` on a value derived from the placeholder, in code that runs before the close. |
-| `SF1002` | A loop whose definition is linked to its own placeholder, with no sampled hold, `Operational.Defer`, or timer between them: the shape that throws `DependencyCycleException`. |
-| `SF1003` | A value derived from the placeholder handed to a method, constructor, or delegate the analyzer cannot see into. This one is an info, visible in the editor and silent in the build. |
-| `SF1004` | A method or constructor in your own project that samples the parameter the derived value is bound to, up to three calls deep. |
-| `SF1005` | A method or property of an object you built in the block that samples a member the construction made pending. |
-| `SF1006` | A loop whose definition's initial value is a lazy sample of the loop itself, which forces itself at the end of the transaction. |
+| `SF1002` | A loop whose definition is linked to its own placeholder, with no sampled hold, `Operational.Defer`, or timer between them. That is the shape that throws `DependencyCycleException`, at the close or later when a switch selects the loop. |
+| `SF1003` | A value derived from the placeholder handed to code the analyzer cannot read and that could read the value. This one is an info, visible in the editor and silent in the build. |
+| `SF1004` | A method, constructor, local function, or lambda in your own project that reads a value it was handed, reported at the argument. |
+| `SF1005` | A method or property of an object you built in the block that reads a member the construction made pending, or a helper that reads a field the block set, reported at the call. |
+| `SF1006` | A loop whose definition's initial value reads the loop itself, through a lazy sample of it or through a `Map` whose function samples it. That forces itself at the end of the transaction. |
 
-A read inside a callback, a `Map`, `Snapshot`, or `Listen` lambda for instance, is not reported,
-because it runs after the close. Neither is a read after the block, through a capture or a row's
-property, so nothing needs a mark there.
+A read inside a callback, a `Snapshot` or `Listen` lambda or a `Map` of a stream for instance, is
+not reported, because it runs after the close. Neither is a read after the block, through a capture
+or a row's property, so nothing needs a mark there. A lambda or a local function is read where it
+runs and not where it is written: one that only a callback calls is as quiet as the callback, and
+one that nothing calls is not read at all.
 
-Where a value derived from the placeholder goes into code the analyzer cannot follow, and you know
-that code does not read it before the close, say so with `AsCell()`, `AsBehavior()`, or `AsStream()`
-at the argument. The methods return their receiver and change nothing at run time; the analyzer
-reads them as your promise and stays quiet, unless it can see the callee break the promise, which
-it still reports. The tests that deliberately read a placeholder early do it with a pragma and a
-reason, as in `#pragma warning disable SF1002 // The cycle is the subject of this test.`, and a
-project that wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning` in
-its `.editorconfig`.
+A `Map` or `Lift` of a cell is the case to know about. Its function does not run when you build
+the cell. It runs the first time something reads the value. So a function that samples a looped
+value is harmless in a cell that is only kept, and the analyzer says nothing about it. Sample that
+cell in the block, or close the loop with it, and the function runs before the loop has a value:
+the analyzer reports the sample, or the close. The views of a collection behave the same way with
+their predicates and selectors.
 
-The analyzer follows a value through locals, tuples, collections, your own helpers and
-constructors, records, and object initializers. It does not see everything. It loses a value that
-passes through a delegate or a method in another assembly, that is kept in a field, or that
-reaches a local through `foreach`, a deconstruction, a pattern, or an `out` argument. Inside one of
-your helpers it finds a `Sample()` on the parameter itself, and misses one on a value the helper
-derives first. It treats a lambda given to `Maybe.Match` and the other helpers of
-`SodaFlow.Functional` as a callback, although they run it at once. It stops after a chain of three
-calls, and it does not see an inner stream a switch fetches from an object. The runtime check
-stays behind all of these.
+`SF1003` is for code that could read the value and that the analyzer cannot read: a delegate that
+came from somewhere else, a method in another assembly that itself uses SodaFlow, or a chain of
+your own calls deeper than it follows. Code that knows nothing about SodaFlow, a `List<T>` or a
+LINQ query for instance, cannot sample a cell, so the analyzer does not report a value given to
+it and instead keeps track of where the value ends up. Where a value does go into code the
+analyzer cannot follow, and you know that code does not read it before the close, say so with
+`AsCell()`, `AsBehavior()`, or `AsStream()` at the argument. The methods return their receiver and
+change nothing at run time; the analyzer reads them as your promise and stays quiet, unless it can
+see the callee break the promise, which it still reports. The tests that deliberately read a
+placeholder early do it with a pragma and a reason, as in
+`#pragma warning disable SF1002 // The cycle is the subject of this test.`, and a project that
+wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning` in its
+`.editorconfig`.
+
+The analyzer follows a value through locals, the elements of a tuple, collections, fields the
+block sets, `foreach`, deconstructions, patterns, and `out` arguments. It follows it into your own
+helpers, constructors, getters, records, and object initializers, and through an interface to the
+object you built behind it. It knows which library methods run a function at once: a transaction,
+a loop block, and the `Fold` of a collection. Code outside the library that takes a function, such
+as LINQ or `Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it.
+
+It does not see everything, and in a few places it guesses on the careful side:
+
+- A collection has the state of everything put into it. A list that holds one pending cell and one
+  plain one reports a read of either.
+- A field set on an object the analyzer did not see built counts for every object of that type,
+  to the end of the block.
+- A read under a condition is reported whether or not that path runs.
+- A LINQ query built in the block is read as if it were enumerated there. If you enumerate it only
+  after the block, a read in its lambda is reported although it is fine.
+- A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
+- A function kept by a constructor outside your project, as in `new Lazy<T>(...)`, is not read when
+  the block then uses that object.
+- A sort order built from a function that samples the loop, and handed to a view through a cell,
+  is not seen.
+- A virtual method is read as the method the code names, unless the analyzer saw the object built.
+
+The runtime check stays behind all of these.
 
 ## Where this shows up
 
