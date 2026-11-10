@@ -609,6 +609,78 @@ public sealed class GarbageCollectionTests
         await Assert.That(await next).IsEqualTo(1);
     }
 
+    // A loop is a root with a set of its own, and a stream made from the loop stream uses that
+    // set. Nothing holds that set but the stream that closes the loop, which gives it to its roots.
+    // In each of the next tests, the wait is on a map of the loop stream. Thus, only the set of the
+    // loop roots the wait.
+
+    [Test]
+    public async Task AWaitOnALoopStreamOutlivesTheLoop()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+
+        Task<int> next = CreateWaitOnALoopStream(kept);
+
+        Collect();
+        kept.Send(1);
+
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root of the stream that closes a loop should hold the set of the loop, which holds the wait");
+
+        await Assert.That(await next).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task AWaitOnALoopedCellOutlivesTheLoop()
+    {
+        StreamSink<int> kept = Stream.CreateSink<int>();
+
+        Task<int> next = CreateWaitOnALoopedCell(kept);
+
+        Collect();
+        kept.Send(1);
+
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root of the cell that closes a loop should hold the set of the loop, which holds the wait");
+
+        await Assert.That(await next).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task AWaitOnALoopThatASwitchClosesFollowsTheSwitch()
+    {
+        StreamSink<int> second = Stream.CreateSink<int>();
+
+        Task<int> next = CreateWaitOnALoopThatASwitchClosesThenSelect(second);
+
+        Collect();
+        second.Send(1);
+
+        await Assert.That(next.IsCompleted)
+            .IsTrue()
+            .Because("the root of the inner that the switch selects now should hold the set of the loop");
+
+        await Assert.That(await next).IsEqualTo(10);
+    }
+
+    [Test]
+    public async Task AWaitOnALoopThatASwitchClosesLeavesTheInnerTheSwitchLeft()
+    {
+        StreamSink<int> first = Stream.CreateSink<int>();
+
+        WeakReference fromLoop = CreateWaitOnALoopThatASwitchClosesThenSelectADroppedInner(first);
+
+        Collect();
+
+        await Assert.That(fromLoop.IsAlive)
+            .IsFalse()
+            .Because("an inner stream the switch left should no longer hold the set of the loop");
+
+        GC.KeepAlive(first);
+    }
+
     [Test]
     public async Task ACanceledWaitInALoopThroughASwitchLeavesTheRoot()
     {
@@ -868,6 +940,53 @@ public sealed class GarbageCollectionTests
         _ = updates.ListenOnceAsync(cts.Token);
         cts.Cancel();
         return new WeakReference(updates);
+    }
+
+    // A running total in a loop that the given stream feeds. The result is a map of the loop stream.
+    private static Stream<int> MapOfALoopStream(Stream<int> source) =>
+        Stream.Loop<int>()
+            .WithCaptures(l =>
+                (Stream: source.Snapshot(c: l.Hold(0), f: static (n, o) => n + o),
+                    Captures: l.Map(static v => v * 10)))
+            .Captures;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Task<int> CreateWaitOnALoopStream(Stream<int> kept) => MapOfALoopStream(kept).ListenOnceAsync();
+
+    // The same total in a cell loop. The wait is on a map of the updates of the looped cell.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Task<int> CreateWaitOnALoopedCell(Stream<int> kept) =>
+        Cell.Loop<int>()
+            .WithCaptures(l =>
+                (Cell: kept.Snapshot(c: l, f: static (n, o) => n + o).Hold(0),
+                    Captures: l.Updates().Map(static v => v * 10)))
+            .Captures
+            .ListenOnceAsync();
+
+    // A switch feeds the loop, thus the set of the loop goes to the roots that the switch reaches
+    // now. The switch moves to the inner that the caller keeps, and nothing holds the first inner
+    // or the outer cell after that.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static Task<int> CreateWaitOnALoopThatASwitchClosesThenSelect(Stream<int> second)
+    {
+        StreamSink<int> first = Stream.CreateSink<int>();
+        CellSink<Stream<int>> selected = Cell.CreateSink<Stream<int>>(first);
+        Task<int> next = MapOfALoopStream(selected.SwitchS()).ListenOnceAsync();
+        selected.Send(second);
+        return next;
+    }
+
+    // The switch leaves the inner that the caller keeps for an inner that nothing holds. After that,
+    // only a root set of the first inner can hold the set of the loop, and with it the wait.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateWaitOnALoopThatASwitchClosesThenSelectADroppedInner(Stream<int> first)
+    {
+        StreamSink<int> second = Stream.CreateSink<int>();
+        CellSink<Stream<int>> selected = Cell.CreateSink(first);
+        Stream<int> fromLoop = MapOfALoopStream(selected.SwitchS());
+        _ = fromLoop.ListenOnceAsync();
+        selected.Send(second);
+        return new WeakReference(fromLoop);
     }
 
     // Three switches in one loop. The first selects the output of the object, which is the second.
