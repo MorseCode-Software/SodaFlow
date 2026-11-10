@@ -170,6 +170,18 @@ the action. A value it pushed through `Operational.Defer` or `Operational.Split`
 An element of `Split` whose transaction fails behaves the same way. This is the rule for any
 transaction: one that fails leaves nothing behind for later.
 
+Deferred work can defer more work, and that chain has to end. A value that finds its way back to
+its own source through `Operational.Defer`, `Operational.Split`, or a posted action that posts
+again, with nothing on the way to stop it, makes a new transaction for every lap. Left alone it
+would never finish, and the call that started it would never return. SodaFlow stops such a chain
+when it is 100,000 laps deep and throws `DeferredChainLimitException` from that call. It cannot
+tell a chain with no end from one that ends later, so a chain that needs more laps than that is
+stopped as well. The laps that ran have committed, so their values stay in the graph. Whatever
+was still waiting does not run, and a post that was waiting gets its release. The limit counts how
+deep the chain goes, not how much work there is: splitting a single list of a million elements is
+one lap. If you meet the exception, give the feedback an end, with a `Calm` so that an unchanged
+value stops, or a filter for the case that is finished.
+
 Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may
 be called from inside a handler. If you need that, `Post` it.

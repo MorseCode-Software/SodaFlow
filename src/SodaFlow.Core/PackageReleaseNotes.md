@@ -366,6 +366,27 @@ paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B
 where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
 posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
 
+Changed: a chain of deferred work that has no end throws DeferredChainLimitException, an InvalidOperationException,
+where before it ran forever. A posted action and each element of a split run in a transaction of their own after the
+one that deferred them, and that transaction can defer work in turn. A value that finds its way back to its own source
+through Defer, Split, or a posted action that posts again, with nothing on the way to stop it, made a new transaction
+for every lap: the call that started it never returned, on a full core, with flat memory and no exception. The drain
+of a transaction now counts the rounds of splits that it runs, and the generations of posts that it runs after the
+last round, where the posts that one generation makes are the next. It stops when either count is at 100,000. The
+exception comes out of the call that started the first transaction, after any other deferred failure. Every
+transaction before the limit has committed and its values stay; the work that was still waiting does not run, and a
+post that was waiting gets its release with the exception as the cause. A chain that does end, but only after more
+than 100,000 laps, throws as well, and there is no setting for the limit. The count is of depth and not of volume, so
+one split of a million elements is one round. The count of generations starts again after each round, so a chain of
+posts inside each lap of a chain of splits is held to the limit once for each kind and not for the product of the two
+depths. The deepest chain in the tests of the whole solution is 11 laps. The counts are locals in the drain and
+nothing on a queued entry, so a post and a split are the size they were. DeferredWorkBenchmarks allocates the same
+with the limit and without it: to a hundredth of a byte in each of its five cases on .NET Framework 4.7.2, and 440,
+648, 1,208, 1,880, and 7,208 B on .NET 10. The .NET 10 JIT removes a 32-byte object from some of these paths when its
+profile lets it, so a run can read 32 or 64 B more, with the limit or without it; with dynamic PGO off, the defer case
+reads 1,240 B both ways. The times do not show the limit: on a machine that was busy, the runs with it are inside the
+spread of the runs without it on both runtimes.
+
 Fixed: no transaction gets the id zero. Each transaction takes the next value of a 64-bit count as its id, and zero
 already means two things: a root transaction that has no id yet, and an input slot of a merge, lift, apply, or snapshot
 that holds no value for the current transaction. The count wraps without an exception, so after 2^64 transactions one of

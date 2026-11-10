@@ -59,6 +59,13 @@ public static class Operational
     /// <typeparam name="T">The type of the stream to defer.</typeparam>
     /// <param name="s">The stream to defer.</param>
     /// <returns>A stream firing the deferred event firings.</returns>
+    /// <remarks>
+    ///     The result can go back to the source of <paramref name="s" />. Then, each
+    ///     firing makes one more deferred transaction, and that chain must have an
+    ///     end. A chain with no end throws
+    ///     <see cref="DeferredChainLimitException" /> from the call that started the
+    ///     first transaction.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Defer<T>(Stream<T> s) => OperationalInternal.DeferImpl(s);
 
@@ -74,6 +81,13 @@ public static class Operational
     /// <typeparam name="TCollection">The collection type of the stream to split.</typeparam>
     /// <param name="s">The stream to split.</param>
     /// <returns>A stream firing the split event firings.</returns>
+    /// <remarks>
+    ///     The result can go back to the source of <paramref name="s" />. Then, each
+    ///     firing makes one more deferred transaction, and that chain must have an
+    ///     end. A chain with no end throws
+    ///     <see cref="DeferredChainLimitException" /> from the call that started the
+    ///     first transaction.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Split<T, TCollection>(Stream<TCollection> s)
         where TCollection : IEnumerable<T> =>
