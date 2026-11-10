@@ -435,9 +435,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        return owner.Members != null
-            ? owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin)
-            : owner;
+        if (owner.Members == null)
+        {
+            return owner;
+        }
+
+        if (owner.Members.CanBe(member.ContainingType))
+        {
+            return owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin);
+        }
+
+        // The members are those of an object that the owner contains, as a pair of the platform
+        // contains its value. A member that is not a sequence is one of those values.
+        ITypeSymbol? type =
+            member switch
+            {
+                IPropertySymbol read => read.Type,
+                IFieldSymbol read => read.Type,
+                _ => null
+            };
+
+        return SodaFlowSymbols.IsSequence(type) ? owner : owner.AsElement;
     }
 
     /// <summary>

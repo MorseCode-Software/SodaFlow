@@ -577,7 +577,10 @@ internal sealed class LoopStateEvaluator
                     // wherever the object came from: a local, a hold, or a lambda parameter. The
                     // code can read the member through an interface of the object. A tuple with
                     // no state for the element is a tuple that the evaluator did not see made.
+                    // A pair, a task, or an enumerator of the platform has the members of the
+                    // object that it contains. Its own property is not one of them.
                     if (owner.Members != null
+                        && owner.Members.CanBe(symbol.ContainingType)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
                         return owner.Members.StateOf(owner.Members.Resolve(symbol))
@@ -587,13 +590,14 @@ internal sealed class LoopStateEvaluator
 
                     // Otherwise, a member of a pending value is pending. Such a member is the cell
                     // behind a bindable, one element of a tuple from a loop block, or the values of
-                    // a dictionary.
+                    // a dictionary. A member that is not a sequence is one of the values that the
+                    // owner contains, as the value of a pair is.
                     ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
 
                     if (symbol.ContainingType.IsTupleType
                         || this.region.Symbols.CanHoldState(type: memberType, compilation: this.region.Assembly))
                     {
-                        fromOwner = fromOwner.Join(owner);
+                        fromOwner = fromOwner.Join(SodaFlowSymbols.IsSequence(memberType) ? owner : owner.AsElement);
                     }
                     else if (SodaFlowSymbols.CanHoldQuery(memberType))
                     {

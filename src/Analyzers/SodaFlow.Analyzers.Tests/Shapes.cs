@@ -3486,6 +3486,101 @@ public static class Shapes
     public static Cell<int> QueryOfTextOverASequenceWithToString() =>
         Cell.Loop<int>().WithoutCaptures(l => { TitledPile pile = new(l.Map(v => v)); IEnumerable<string> names = pile.Select(x => "a"); Kept.Add(names.ToString()!); return S.Hold(0); });
 
+    // S562. A pair, a tuple, a task, or an enumerator of the platform has the members of the object
+    // that it contains in its state. Its own property is not one of those members. Value of a pair
+    // gives the object, and the read through it throws.
+    public static Cell<int> ValueOfAPairOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Titled> p = new("a", new Titled(l.Map(v => v))); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S563. The same for Item1 of a Tuple from Tuple.Create.
+    public static Cell<int> ItemOfATupleOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, int> t = Tuple.Create(new Titled(l.Map(v => v)), 1); Kept.Add(t.Item1.ToString()); return S.Hold(0); });
+
+    // S564. The same for a Tuple from its constructor.
+    public static Cell<int> ItemOfACreatedTupleOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, int> t = new(new Titled(l.Map(v => v)), 1); Kept.Add(t.Item1.ToString()); return S.Hold(0); });
+
+    // S565. The same for Result of a task.
+    public static Cell<int> ResultOfATaskOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Titled> t = Task.FromResult(new Titled(l.Map(v => v))); Kept.Add(t.Result.ToString()); return S.Hold(0); });
+
+    // S566. The same for Current of an enumerator.
+    public static Cell<int> CurrentOfAnEnumeratorOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; using IEnumerator<Titled> e = all.GetEnumerator(); e.MoveNext(); Kept.Add(e.Current.ToString()); return S.Hold(0); });
+
+    // S567. The same for a field of an object of the platform.
+    public static Cell<int> FieldOfAStrongBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Runtime.CompilerServices.StrongBox<Titled> box = new(new Titled(l.Map(v => v))); Kept.Add(box.Value!.ToString()); return S.Hold(0); });
+
+    // S568. The pair comes from a dictionary.
+    public static Cell<int> ValueOfTheFirstPairOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Titled> d = new() { ["a"] = new Titled(l.Map(v => v)) }; Kept.Add(d.First().Value.ToString()); return S.Hold(0); });
+
+    // S569. The pair is the variable of a foreach.
+    public static Cell<int> ValueOfAPairInAForEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Titled> d = new() { ["a"] = new Titled(l.Map(v => v)) }; foreach (KeyValuePair<string, Titled> kv in d) { Kept.Add(kv.Value.ToString()); } return S.Hold(0); });
+
+    // S570. A property pattern reads the property as a member access does.
+    public static Cell<int> PropertyPatternOnAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Titled> p = new("a", new Titled(l.Map(v => v))); if (p is { Value: var v }) { Kept.Add(v.ToString()); } return S.Hold(0); });
+
+    // S571. The variable of the pattern has the type object, and is one value that the pair contains.
+    public static Cell<int> PropertyPatternOnAPairOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, object> p = new("a", new Titled(l.Map(v => v))); if (p is { Value: var v }) { Kept.Add(v.ToString()!); } return S.Hold(0); });
+
+    // S572. The value has the type parameter of a helper, and is one value that the pair contains.
+    public static Cell<int> ValueOfAPairInAGenericHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Titled> p = new("a", new Titled(l.Map(v => v))); Kept.Add(ValueTextOf(p)); return S.Hold(0); });
+
+    // S573. The value has its own members, and one of them is the pending cell.
+    public static Cell<int> MemberOfTheValueOfAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, SharedRow> p = new("a", new SharedRow(l.Map(v => v))); return S.Hold(p.Value.Share.Sample()); });
+
+    // S574. The object in the pair has a generic type.
+    public static Cell<int> ValueOfAPairOfAGenericObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, GenericLabel<int>> p = new("a", new GenericLabel<int>(l.Map(v => v))); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S575. A cell in a pair was found before also: a cell has no members.
+    public static Cell<int> CellOfAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Cell<int>> p = new("a", l.Map(v => v)); return S.Hold(p.Value.Sample()); });
+
+    // S576. The key is a string, which has no state. Each shape from here to the end of the group
+    // returns.
+    public static Cell<int> PlainKeyOfAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Titled> p = new("a", new Titled(l.Map(v => v))); Kept.Add(p.Key.Length); return S.Hold(0); });
+
+    // S577. The same for a value that is a string.
+    public static Cell<int> PlainValueOfAPairWithAnObjectKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, string> p = new(new Titled(l.Map(v => v)), "x"); Kept.Add(p.Value.Length); return S.Hold(0); });
+
+    // S578. The key has a type that the object with the members cannot have.
+    public static Cell<int> KeyOfADifferentTypeThanTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Plainly, Titled> p = new(new Plainly(), new Titled(l.Map(v => v))); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S579. The object in the pair has a plain cell.
+    public static Cell<int> ValueOfAPairOfPlainObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Titled> p = new("a", new Titled(Plain)); Kept.Add(p.Value.ToString()); return S.Snapshot(l, (a, b) => a + b).Hold(0); });
+
+    // S580. Count is a number.
+    public static Cell<int> CountOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; return S.Hold(all.Count); });
+
+    // S581. IsCompleted is a boolean.
+    public static Cell<int> IsCompletedOfATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Titled> t = Task.FromResult(new Titled(l.Map(v => v))); return S.Hold(t.IsCompleted ? 1 : 0); });
+
+    // S582. The same in a property pattern.
+    public static Cell<int> PropertyPatternOnTheCountOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; return S.Hold(all is { Count: var c } ? c : 0); });
+
+    // S583. A member that is a sequence contains the values, and is not one of them.
+    public static Cell<int> ValuesOfADictionaryInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Titled> d = new() { ["a"] = new Titled(l.Map(v => v)) }; object o = d.Values; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S584. The same in a property pattern.
+    public static Cell<int> ValuesOfADictionaryInAPatternInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Titled> d = new() { ["a"] = new Titled(l.Map(v => v)) }; if (d is { Values: var vs }) { object o = vs; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4020,6 +4115,13 @@ public static class Shapes
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
 
         public override string ToString() => share.Sample().ToString();
+    }
+
+    private static string ValueTextOf<T>(KeyValuePair<string, T> pair) => pair.Value!.ToString()!;
+
+    public sealed class Plainly
+    {
+        public override string ToString() => "plain";
     }
 
     private static Ranked Itself(Ranked r) => r;

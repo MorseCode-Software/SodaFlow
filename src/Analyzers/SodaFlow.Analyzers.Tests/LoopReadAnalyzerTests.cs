@@ -410,7 +410,21 @@ internal sealed class LoopReadAnalyzerTests
             ["InterfaceMethodOfAGenericObject"] = ["SF1005"],
             ["VirtualMethodOfAGenericObject"] = ["SF1005"],
             ["ToStringOfAGenericObject"] = ["SF1005"],
-            ["PropertyOfAGenericObject"] = ["SF1001"]
+            ["PropertyOfAGenericObject"] = ["SF1001"],
+            ["ValueOfAPairOfThePlatform"] = ["SF1005"],
+            ["ItemOfATupleOfThePlatform"] = ["SF1005"],
+            ["ItemOfACreatedTupleOfThePlatform"] = ["SF1005"],
+            ["ResultOfATaskOfAnObject"] = ["SF1005"],
+            ["CurrentOfAnEnumeratorOfObjects"] = ["SF1005"],
+            ["FieldOfAStrongBox"] = ["SF1005"],
+            ["ValueOfTheFirstPairOfADictionary"] = ["SF1005"],
+            ["ValueOfAPairInAForEach"] = ["SF1005"],
+            ["PropertyPatternOnAPair"] = ["SF1005"],
+            ["PropertyPatternOnAPairOfAnObject"] = ["SF1005"],
+            ["ValueOfAPairInAGenericHelper"] = ["SF1004"],
+            ["MemberOfTheValueOfAPair"] = ["SF1001"],
+            ["ValueOfAPairOfAGenericObject"] = ["SF1005"],
+            ["CellOfAPair"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
