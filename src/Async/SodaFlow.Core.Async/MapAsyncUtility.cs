@@ -1800,9 +1800,10 @@ internal static class AsyncConcurrencyStrategyFactory
         {
             // This cancels the item that the new item replaces, through the cancellation of that
             // item. This code makes no second CancellationTokenSource, and holds and disposes
-            // none. The call is safe when that item ended before now.
+            // none. The call is safe when that item ended before now. The cancel waits for the
+            // commit, and the state goes back where the transaction fails. See State.
             state.Active?.Cancel();
-            state.Active = incoming;
+            state.Set(incoming);
 
             return [new AsyncToStart<TUnit>(incoming)];
         }
@@ -1819,7 +1820,7 @@ internal static class AsyncConcurrencyStrategyFactory
 
             if (active)
             {
-                state.Active = null;
+                state.Set(null);
             }
 
             // Nothing starts at an end. The Admit above promotes each item that it admits, thus
@@ -1841,7 +1842,7 @@ internal static class AsyncConcurrencyStrategyFactory
             {
                 if (state.Active != null && state.Active.Id == canceled[i].Id)
                 {
-                    state.Active = null;
+                    state.Set(null);
                 }
             }
 
@@ -1851,9 +1852,50 @@ internal static class AsyncConcurrencyStrategyFactory
         }
 
         /// <summary>The item that runs, when there is one. Each new send replaces it.</summary>
-        public sealed class State
+        /// <remarks>
+        ///     Each call of the strategy runs in a transaction, and a listener can make
+        ///     that transaction fail after the call. The pipeline then keeps the queue
+        ///     from before the transaction. This state is not in the graph, thus it
+        ///     registers with the transaction and goes back with it. Without that, a
+        ///     value that the pipeline did not admit stayed here as the current run. The
+        ///     run in flight then ended as a run that a newer one replaced, and the
+        ///     pipeline published no result for it.
+        /// </remarks>
+        // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+        public sealed class State : ILastAction
         {
-            internal AsyncQueuedItem<TUnit>? Active;
+            // The value of Active at the start of the transaction that changed it.
+            private AsyncQueuedItem<TUnit>? atStart;
+            private bool isChanged;
+
+            internal AsyncQueuedItem<TUnit>? Active { get; private set; }
+
+            void ILastAction.Commit()
+            {
+                this.isChanged = false;
+                this.atStart = null;
+            }
+
+            void ILastAction.Discard()
+            {
+                this.Active = this.atStart;
+                this.isChanged = false;
+                this.atStart = null;
+            }
+
+            internal void Set(AsyncQueuedItem<TUnit>? active)
+            {
+                TransactionInternal? current = TransactionInternal.GetCurrentTransaction();
+
+                if (current != null && !this.isChanged)
+                {
+                    this.isChanged = true;
+                    this.atStart = this.Active;
+                    current.Last(this);
+                }
+
+                this.Active = active;
+            }
         }
     }
 }

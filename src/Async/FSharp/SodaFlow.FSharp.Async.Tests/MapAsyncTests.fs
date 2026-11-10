@@ -223,6 +223,48 @@ type ``MapAsync Tests``() =
             l |> unlistenL
         }
 
+    /// switchLatestStrategy cancels the run in flight for each new value, and records the new value
+    /// as its current run. A transaction that fails must do neither. The two maps put the listener
+    /// that throws after the listener of the pipeline on the stream.
+    [<Test>]
+    member _.``a send that fails keeps the run in flight of switchLatestStrategy and its result``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+            let received = List<string>()
+            let l = results |> listenStrongS received.Add
+
+            let status =
+                source
+                |> mapAsync results errors unexpected op.Operation (switchLatestStrategy ()) None None true
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let thrower =
+                source
+                |> Stream.map id
+                |> Stream.map id
+                |> listenStrongS (fun (_: string) ->
+                    raise (InvalidOperationException "The test fails this transaction."))
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> source |> sendS "b")
+
+            thrower |> unlistenL
+
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            waitUntil (fun () -> (status.Items |> sampleC).Count = 0)
+
+            do! Expect.Sequence([ "A" ], received)
+
+            status.Dispose()
+            l |> unlistenL
+        }
+
     [<Test>]
     member _.``queuePerGroupStrategy lets different groups run concurrently but serializes within a group``() =
         task {

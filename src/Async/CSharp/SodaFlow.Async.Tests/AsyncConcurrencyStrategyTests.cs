@@ -330,6 +330,98 @@ public sealed class AsyncConcurrencyStrategyTests
         status.Dispose();
     }
 
+    // SwitchLatest cancels the run in flight for each new value, and records the new value as its
+    // current run. The cancel is an effect out of the graph, and the record is state out of the
+    // graph. A transaction that fails must leave the two as they were. Before, the run in flight
+    // lost its token. Where its operation ignored the token, the strategy did not publish its
+    // result, because the strategy held a value that the pipeline did not admit.
+    [Test]
+    public async Task SwitchLatest_ASendThatFails_KeepsTheRunInFlightAndPublishesItsResult()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that replaced the run failed");
+        await Assert.That(op.HasStarted("b")).IsFalse();
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching)
+            .Because("the run in flight is still the current run of the strategy");
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
+    // The strategy must hold the run in flight as its current run after a send that fails, and
+    // not the value of that send. Thus, the next send cancels the run in flight.
+    [Test]
+    public async Task SwitchLatest_AfterASendThatFails_TheNextSendReplacesTheRunInFlight()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.SwitchLatest());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        IListener thrower = TestUtil.ThrowAfterThePipeline(source);
+
+        await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
+
+        thrower.Unlisten();
+
+        source.Send("c");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+        TestUtil.WaitUntil(() => op.IsCanceled("a"));
+
+        op.Release(input: "c", result: "C");
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["C"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Unlisten();
+    }
+
     // A callback on the token of the run that a new value replaces can throw. Before, the cancel
     // ran in the Admit of the strategy, thus the throw failed the transaction of the new value.
     // The cancel now runs after the commit. There the throw has no caller, and it goes to
