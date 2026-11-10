@@ -81,7 +81,14 @@ internal sealed class LoopReadAnalyzerTests
             ["GenericRowSamples"] = ["SF1004"],
             ["ViewFilteredByTheLoopRead"] = ["SF1001"],
             ["ViewFilteredByTheLoopAsTheClose"] = ["SF1002"],
-            ["FilterOfPendingViewRead"] = ["SF1001"]
+            ["FilterOfPendingViewRead"] = ["SF1001"],
+            ["ConditionalAccessSample"] = ["SF1001"],
+            ["ConditionalAccessMapSample"] = ["SF1001"],
+            ["ConditionalAccessBindableValue"] = ["SF1001"],
+            ["ConditionalAccessRowMember"] = ["SF1001"],
+            ["StaticFormSample"] = ["SF1001"],
+            ["StaticFormMapSample"] = ["SF1001"],
+            ["StaticFormNamedMapSample"] = ["SF1001"]
         };
 
     // The shapes that the run-time test does not call.

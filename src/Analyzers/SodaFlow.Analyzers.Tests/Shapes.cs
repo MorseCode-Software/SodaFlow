@@ -500,6 +500,70 @@ public static class Shapes
             initialEntries: [new Item<ItemId, int>(identity: new ItemId(1), state: 10)],
             Stream.Never<CollectionEdit<int, ItemId, int>>());
 
+    // S72. A read through a conditional access.
+    public static Cell<int> ConditionalAccessSample() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int>? c = l.Map(v => v);
+            int x = c?.Sample() ?? 0;
+            return S.Hold(x);
+        });
+
+    // S73. A Map through a conditional access, then a read.
+    public static Cell<int> ConditionalAccessMapSample() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int>? c = l;
+            int x = c?.Map(v => v + 1).Sample() ?? 0;
+            return S.Hold(x);
+        });
+
+    // S74. The value of a bindable through a conditional access.
+    public static Cell<int> ConditionalAccessBindableValue(SodaFlow.Bindable.ObjectModel.IBindableFactory factory) =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int>? b = factory.CreateOneWay(l);
+            int x = b?.Value ?? 0;
+            return S.Hold(x);
+        });
+
+    // S75. The pending member of a row through a conditional access.
+    public static Cell<decimal> ConditionalAccessRowMember() =>
+        Cell.Loop<decimal>().WithoutCaptures(total =>
+        {
+            Row? row = new(share: Cell.Constant(1m).Lift(total, (a, b) => a / b));
+            decimal now = row?.Share.Sample() ?? 0m;
+            return Cell.Constant(2m + now);
+        });
+
+    // S76. A static call of the extension method that reads.
+    public static Cell<int> StaticFormSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = CellExtensionMethods.Sample(l); return S.Hold(x); });
+
+    // S77. A static call of Map, then a read.
+    public static Cell<int> StaticFormMapSample() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = CellExtensionMethods.Map(l, v => v + 1).Sample();
+            return S.Hold(x);
+        });
+
+    // S78. A static call of Map with named arguments and the function first, then a read.
+    public static Cell<int> StaticFormNamedMapSample() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = CellExtensionMethods.Map(f: v => v + 1, c: l).Sample();
+            return S.Hold(x);
+        });
+
+    // S79. A static call of Hold with a given value, which is not pending.
+    public static Cell<int> StaticFormHoldWithValue() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = StreamExtensionMethods.Hold(l.Updates(), 7).Sample();
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

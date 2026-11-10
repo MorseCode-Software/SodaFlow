@@ -108,6 +108,8 @@ internal sealed class LoopStateEvaluator
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b =>
                 this.Eval(b.Left).Join(this.Eval(b.Right)),
             ConditionalExpressionSyntax c => this.Eval(c.WhenTrue).Join(this.Eval(c.WhenFalse)),
+            // The value of a?.b is the value of .b, whose owner is a.
+            ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
             TupleExpressionSyntax t => this.JoinAll(t.Arguments.Select(static a => a.Expression)),
             CollectionExpressionSyntax c => this.JoinAll(
@@ -125,7 +127,10 @@ internal sealed class LoopStateEvaluator
             AnonymousFunctionExpressionSyntax => LoopState.None,
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
-            IdentifierNameSyntax or MemberAccessExpressionSyntax or GenericNameSyntax => this.EvalName(expression),
+            IdentifierNameSyntax
+                or MemberAccessExpressionSyntax
+                or MemberBindingExpressionSyntax
+                or GenericNameSyntax => this.EvalName(expression),
             _ => this.TypeState(expression)
         };
 
@@ -165,9 +170,17 @@ internal sealed class LoopStateEvaluator
 
                 LoopState fromOwner = LoopState.None;
 
-                if (expression is MemberAccessExpressionSyntax access)
+                ExpressionSyntax? ownerExpression =
+                    expression switch
+                    {
+                        MemberAccessExpressionSyntax access => access.Expression,
+                        MemberBindingExpressionSyntax binding => ConditionalReceiver(binding),
+                        _ => null
+                    };
+
+                if (ownerExpression != null)
                 {
-                    LoopState owner = this.Eval(access.Expression);
+                    LoopState owner = this.Eval(ownerExpression);
 
                     // An object whose construction was followed gives each member its own state,
                     // wherever the object came from: a local, a hold, or a lambda parameter.
@@ -212,7 +225,10 @@ internal sealed class LoopStateEvaluator
         List<LoopState> argumentStates = [];
         List<ITypeSymbol?> argumentTypes = [];
 
-        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments)
+        // In a static call of an extension method, the receiver is one of the arguments. It is not
+        // also an argument of the operator.
+        foreach (ArgumentSyntax argument in invocation.ArgumentList.Arguments.Where(argument =>
+                     argument.Expression != receiver))
         {
             argumentStates.Add(this.EvalArgument(argument: argument.Expression, runsNow: runsNow));
             argumentTypes.Add(model.GetTypeInfo(argument.Expression).Type);
@@ -852,13 +868,43 @@ internal sealed class LoopStateEvaluator
         return suffix == null ? name : name.Substring(startIndex: 0, length: name.Length - suffix.Length);
     }
 
+    /// <summary>
+    ///     The expression that receives a call. The call can be
+    ///     <c>receiver.M()</c> or <c>receiver?.M()</c>. For an extension method of
+    ///     the library, it can also be <c>Extensions.M(receiver)</c>.
+    /// </summary>
     public static ExpressionSyntax? ReceiverOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
-        if (invocation.Expression is not MemberAccessExpressionSyntax access)
+        if (method.ReducedFrom != null || !method.IsStatic)
+        {
+            return invocation.Expression switch
+            {
+                MemberAccessExpressionSyntax access => access.Expression,
+                MemberBindingExpressionSyntax => ConditionalReceiver(invocation),
+                _ => null
+            };
+        }
+
+        // A static call. Only an operator of the library has a rule that asks for its receiver.
+        if (!method.IsExtensionMethod || !SodaFlowSymbols.IsSodaFlow(method))
         {
             return null;
         }
 
-        return method.ReducedFrom != null || !method.IsStatic ? access.Expression : null;
+        return invocation.ArgumentList.Arguments
+            .Where((argument, position) =>
+                SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position) is { Ordinal: 0 })
+            .Select(static argument => argument.Expression)
+            .FirstOrDefault();
     }
+
+    /// <summary>
+    ///     The expression before the <c>?.</c> of a conditional access, for a
+    ///     member or a call that comes after it.
+    /// </summary>
+    public static ExpressionSyntax? ConditionalReceiver(SyntaxNode afterTheMark) =>
+        afterTheMark.Ancestors()
+            .OfType<ConditionalAccessExpressionSyntax>()
+            .FirstOrDefault(conditional => conditional.WhenNotNull.Span.Contains(afterTheMark.Span))
+            ?.Expression;
 }

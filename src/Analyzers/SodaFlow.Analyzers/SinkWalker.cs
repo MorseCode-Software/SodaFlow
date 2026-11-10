@@ -230,7 +230,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
         base.VisitMemberAccessExpression(node);
+        this.CheckPropertyRead(node: node, owner: node.Expression);
+    }
 
+    public override void VisitMemberBindingExpression(MemberBindingExpressionSyntax node)
+    {
+        base.VisitMemberBindingExpression(node);
+
+        if (LoopStateEvaluator.ConditionalReceiver(node) is { } owner)
+        {
+            this.CheckPropertyRead(node: node, owner: owner);
+        }
+    }
+
+    /// <summary>
+    ///     A property of the library that reads the current value, or a computed
+    ///     property of a followed object, on the given owner.
+    /// </summary>
+    private void CheckPropertyRead(ExpressionSyntax node, ExpressionSyntax owner)
+    {
         if (this.region.ModelFor(node).GetSymbolInfo(node).Symbol is not IPropertySymbol property)
         {
             return;
@@ -238,7 +256,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (SodaFlowSymbols.IsSodaFlow(property)
             && SodaFlowSymbols.ReadMembers.Contains(property.Name)
-            && this.evaluator.Eval(node.Expression).Pending)
+            && this.evaluator.Eval(owner).Pending)
         {
             this.region.Report(
                 Diagnostic.Create(
@@ -248,7 +266,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.region.PlaceholderName));
         }
 
-        if (!SodaFlowSymbols.IsSodaFlow(property) && this.evaluator.ConstructionOf(node.Expression) is { } construction)
+        if (!SodaFlowSymbols.IsSodaFlow(property) && this.evaluator.ConstructionOf(owner) is { } construction)
         {
             this.CheckMemberRead(member: property, construction: construction, location: node);
         }
