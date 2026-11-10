@@ -26,6 +26,11 @@ gets the state that the first call got, where it used to get a state that the fi
 transaction fails leaves nothing behind in the state. A strategy that only reads its arguments needs no handling for
 either. The cost is one small object for each call of a strategy method.
 
+AsyncCompletion.MatchVoid also changes while this surface is open: its two handlers are required, as the handlers of
+Match are. It accepted null for an end with no handler, which let a strategy read one end and skip the other, and Match
+is the only path to the data so that a strategy cannot. Pass a handler that does nothing for an end to ignore on
+purpose.
+
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
 every thread needs to start a transaction. Slow synchronous work there stalled every thread's transactions for as long

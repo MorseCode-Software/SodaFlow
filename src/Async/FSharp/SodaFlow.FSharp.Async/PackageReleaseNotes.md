@@ -8,7 +8,8 @@ AsyncToStart<TInput>.None. The pipeline keeps the state, and puts back the state
 so a strategy no longer has to allow for a state that a failed call changed. The state has to be a value that the
 strategy replaces: one that changes an object in its state and returns the same object keeps that change after a
 failure. AsyncConcurrencyStrategy<TState> and AsyncConcurrencyStrategy, the short base classes here, take the new
-signatures with them. The notes of SodaFlow.Core.Async have the reasoning.
+signatures with them. AsyncCompletion.MatchVoid now requires its two handlers, where it accepted null for an end to
+skip. The notes of SodaFlow.Core.Async have the reasoning.
 
 Changed: mapAsync and mapAsyncWithInputConverter take a required handleException, an exn -> unit after errors. The
 pipeline gives it each exception that has no caller and that errors cannot take: a report of a failed delivery that
