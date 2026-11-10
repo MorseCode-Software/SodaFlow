@@ -7,6 +7,16 @@ open System.Threading
 open System.Threading.Tasks
 open SodaFlow.Async
 
+/// The handleException of a pipeline in a test that expects no exception there. It throws, thus
+/// the pipeline sends the throw to the thread pool, and that ends the test run with the exception.
+let unexpected (error: exn) : unit =
+    raise (
+        InvalidOperationException(
+            "The pipeline gave an exception to handleException where the test expected none.",
+            error
+        )
+    )
+
 /// Reads `condition` until it is true, or fails the test at a timeout.
 let waitUntil (condition: unit -> bool) =
     let sw = Stopwatch.StartNew()

@@ -217,6 +217,163 @@ public sealed class TimerTests
         await Assert.That(at).IsNotNull();
     }
 
+    // The refusal comes in the transaction, thus the full transaction fails and the cell keeps the
+    // deadline it had. With a timer that At set after the commit, the cell held the new deadline
+    // after the refusal, with no timer for it.
+    [Test]
+    public async Task ARefusedAlarmLeavesTheDeadlineAsItWas()
+    {
+        TimerSystem<double> timers =
+            new(
+                implementation: new StopwatchClock(),
+                handleException: static _ =>
+                {
+                });
+
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        Stream<double> at = timers.At(deadline);
+
+        timers.Dispose();
+
+        await Assert.That(() => deadline.Send(Maybe.Some(1.0))).ThrowsExactly<ObjectDisposedException>();
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe<double>.None);
+        await Assert.That(at).IsNotNull();
+    }
+
+    // A transaction that fails leaves the cell with the deadline it had. The timer has to stay
+    // with it: the alarm fires at 10, and not at the 20 that did not commit.
+    [Test]
+    public async Task AFailedTransactionThatMovesADeadlineKeepsTheTimerOfTheCommittedDeadline()
+    {
+        ScriptedClock clock = new();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
+        CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(10));
+        List<int> alarms = [];
+        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
+        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
+
+        await Assert.That(() => deadline.Send(Maybe.Some(20))).ThrowsExactly<InvalidOperationException>();
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe.Some(10));
+
+        clock.AdvanceTo(10);
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+
+        clock.AdvanceTo(25);
+        thrower.Unlisten();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+    }
+
+    // The deadline that did not commit is the earlier one here. No alarm fires at it, and the
+    // alarm of the committed deadline fires.
+    [Test]
+    public async Task AFailedTransactionThatMovesADeadlineEarlierSendsNoAlarmAtThatDeadline()
+    {
+        ScriptedClock clock = new();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
+        CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
+        List<int> alarms = [];
+        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
+        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 10);
+
+        await Assert.That(() => deadline.Send(Maybe.Some(10))).ThrowsExactly<InvalidOperationException>();
+
+        clock.AdvanceTo(15);
+
+        await Assert.That(alarms).IsEmpty();
+
+        clock.AdvanceTo(20);
+        thrower.Unlisten();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
+    }
+
+    // The failure must not stop the next change. The next transaction moves the
+    // deadline as usual: it cancels the timer at 10 and sets one at 30.
+    [Test]
+    public async Task ADeadlineMovesAfterAFailedTransactionThatMovedIt()
+    {
+        ScriptedClock clock = new();
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
+        CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(10));
+        List<int> alarms = [];
+        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
+        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
+
+        await Assert.That(() => deadline.Send(Maybe.Some(20))).ThrowsExactly<InvalidOperationException>();
+
+        deadline.Send(Maybe.Some(30));
+        clock.AdvanceTo(25);
+
+        await Assert.That(alarms).IsEmpty();
+
+        clock.AdvanceTo(30);
+        thrower.Unlisten();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [30], ordering: CollectionOrdering.Matching);
+    }
+
+    // The timer thread can fire the new timer while the transaction that set it is open. The
+    // event is then in the queue of the timer system when the transaction fails, and a cancel of
+    // the timer is too late. The failure has to remove the event also.
+    [Test]
+    public async Task ATimerThatFiresInTheTransactionThatFailsSendsNoAlarm()
+    {
+        ScriptedClock clock = new() { HoldBack = Maybe.Some(15) };
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
+        CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
+        List<int> alarms = [];
+        List<int> times = [];
+        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
+        IStrongListener timeListener = Operational.Updates(timers.Time).ListenStrong(times.Add);
+        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 15, beforeThrow: clock.FireHeldBackTimer);
+
+        await Assert.That(() => deadline.Send(Maybe.Some(15))).ThrowsExactly<InvalidOperationException>();
+
+        clock.AdvanceTo(16);
+
+        await Assert.That(alarms).IsEmpty();
+        await Assert.That(times).IsEquivalentTo(expected: [16], ordering: CollectionOrdering.Matching);
+
+        clock.AdvanceTo(20);
+        thrower.Unlisten();
+        timeListener.Unlisten();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
+    }
+
+    // An implementation removes a timer and then runs its callback out of its lock. Thus, the
+    // callback of the new timer can run after the failure of the transaction, which canceled the
+    // timer. That callback must queue no event.
+    [Test]
+    public async Task ATimerThatFiresAfterTheTransactionThatFailedSendsNoAlarm()
+    {
+        ScriptedClock clock = new() { HoldBack = Maybe.Some(15) };
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
+        CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
+        List<int> alarms = [];
+        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
+        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 15);
+
+        await Assert.That(() => deadline.Send(Maybe.Some(15))).ThrowsExactly<InvalidOperationException>();
+
+        clock.FireHeldBackTimer();
+        clock.AdvanceTo(16);
+
+        await Assert.That(alarms).IsEmpty();
+
+        clock.AdvanceTo(20);
+        thrower.Unlisten();
+        l.Unlisten();
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
+    }
+
     // RunTimersTo fires a due timer on the calling thread, and it fires nothing after a cancel of
     // the timer. The flag that lets it skip the lock in a transaction with no timer set has to
     // follow the set through the two.
@@ -479,6 +636,35 @@ public sealed class TimerTests
     private static void Ignore(Exception e)
     {
     }
+
+    // A listener that fails the transaction that sends refused to the deadline. The two maps put
+    // it after the listener of At in that transaction, which has thus set its timer before the
+    // throw. The sequence of listeners at one rank is not a contract, and a listener directly on
+    // the cell ran first.
+    private static IStrongListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused) =>
+        ThrowAfterAt(
+            deadline: deadline,
+            refused: refused,
+            beforeThrow: static () =>
+            {
+            });
+
+    // The same, with an action that runs in the transaction before the throw.
+    private static IStrongListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused, Action beforeThrow) =>
+        deadline.Updates()
+            .Map(static d => d)
+            .Map(static d => d)
+            .ListenStrong(d =>
+            {
+                if (!d.Equals(Maybe.Some(refused)))
+                {
+                    return;
+                }
+
+                beforeThrow();
+
+                throw new InvalidOperationException("The test fails this transaction.");
+            });
 
     private sealed class HandClock
     {

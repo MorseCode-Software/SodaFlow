@@ -98,8 +98,11 @@ root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
 memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
 loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
-and that switches onto its own output, is an example. The switch stops a call that comes back to it. Thus, the first
-strong listener in such a loop does not go around it until the stack overflows. The memory tests pin that loop too.
+and that switches onto its own output, is an example. A walk with a visited set finds the roots of a strong listener, so
+the walk ends where the loop comes back. A switch that selects a new inner walks again for each strong listener that
+passes it, and changes only the roots that changed. Thus, Unlisten releases the listener from every root, also after a
+switch in its loop moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot wait for
+each other. The memory tests pin both loops.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -320,6 +323,17 @@ SodaFlow.Core now holds the timer system that the C# and F# packages give: the h
 the start of each transaction, the scheduling with its timer thread, and the clocks. All of it is internal. Each package
 keeps its public types and passes their members to it, with its own optional type for At, as Debounce already did.
 Before, each package had a copy, and the two drifted.
+
+Fixed: a transaction that fails no longer moves an alarm. The timer system's At listens to the cell that holds the
+deadline, and its listener canceled the timer of the old deadline and set one for the new deadline while the transaction
+was still open. When something later in that transaction threw, the cell kept its old deadline, but the timers had
+already changed: the alarm fired at a deadline that never committed, and never at the one the cell held. Which of two
+listeners at the same rank runs first is not something a caller can see, so the failure showed for some graphs and not
+for others. DebounceImpl is built on At, so a failed transaction could make a debounce fire early, late, or not at all.
+The listener still sets the new timer in the transaction, so a stopped timer system still fails that transaction with
+nothing committed, but the old timer is now canceled only when the transaction commits. A transaction that fails revokes
+the timer it set instead. A revoked timer sends no alarm, even when the timer thread fired it while the transaction was
+open, or its callback runs after the failure.
 
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a

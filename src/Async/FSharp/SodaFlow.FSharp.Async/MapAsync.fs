@@ -64,6 +64,75 @@ type AsyncConcurrencyStrategy<'TState>() =
 type AsyncConcurrencyStrategy() =
     inherit AsyncConcurrencyStrategy<unit, EmptyState>()
 
+/// <summary>
+///     The exception that a MapAsync pipeline sends to its errors when it cannot send the outcome
+///     of an operation.
+/// </summary>
+/// <remarks>
+///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryExceptionBase" /> tells when a pipeline sends
+///     this exception, and what <c>InnerException</c> holds. This type adds
+///     <c>UndeliveredError</c>.
+/// </remarks>
+// This type has no primary constructor, because each constructor calls a different constructor of
+// the base, as the constructors of System.Exception do.
+[<Sealed>]
+type MapAsyncDeliveryException =
+    inherit MapAsyncDeliveryExceptionBase
+
+    val private undeliveredError: exn option
+
+    /// <summary>Makes an exception with the default message.</summary>
+    new() =
+        { inherit MapAsyncDeliveryExceptionBase(MapAsyncDeliveryExceptionBase.DefaultMessage)
+          undeliveredError = None }
+
+    /// <summary>Makes an exception with a message.</summary>
+    /// <param name="message">The message that describes the failure.</param>
+    new(message: string) =
+        { inherit MapAsyncDeliveryExceptionBase(message)
+          undeliveredError = None }
+
+    /// <summary>Makes an exception with a message and an inner exception.</summary>
+    /// <param name="message">The message that describes the failure.</param>
+    /// <param name="innerException">The exception of the listener.</param>
+    new(message: string, innerException: exn) =
+        { inherit MapAsyncDeliveryExceptionBase(message, innerException)
+          undeliveredError = None }
+
+    /// <summary>
+    ///     Makes an exception with a message, an inner exception, and an undelivered error.
+    /// </summary>
+    /// <param name="message">The message that describes the failure.</param>
+    /// <param name="innerException">The exception of the listener.</param>
+    /// <param name="undeliveredError">
+    ///     The error that the pipeline did not send, or <c>None</c> where the outcome was a result.
+    /// </param>
+    new(message: string, innerException: exn, undeliveredError: exn option) =
+        { inherit MapAsyncDeliveryExceptionBase(message, innerException)
+          undeliveredError = undeliveredError }
+
+    /// <summary>
+    ///     The error that the pipeline sent to the errors in the transaction that a listener
+    ///     stopped. It is <c>None</c> where that transaction sent a result.
+    /// </summary>
+    /// <remarks>
+    ///     An operation that throws gives this error. A function from
+    ///     <c>ResultFactory.Construct</c> that throws gives it also. The failure of the transaction
+    ///     stopped the send of that error. A listener after the throw did not get it, and the Task
+    ///     of Execute did not get it. Thus, this property is the one record of the error.
+    /// </remarks>
+    member this.UndeliveredError = this.undeliveredError
+
+// The factory that this package gives to MapAsyncImpl.
+let private deliveryExceptionFactory =
+    MapAsyncDeliveryExceptionFactory(fun message innerException undeliveredError ->
+        MapAsyncDeliveryException(
+            message,
+            innerException,
+            undeliveredError.Match((fun e -> Some e), (fun () -> None))
+        )
+        :> MapAsyncDeliveryExceptionBase)
+
 let private parallelInstance = AsyncConcurrencyStrategyFactory.Parallel()
 let private queueInstance = AsyncConcurrencyStrategyFactory.Queue<unit>()
 let private switchLatestInstance = AsyncConcurrencyStrategyFactory.SwitchLatest()
@@ -180,8 +249,16 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 ///     from a run that a different run replaced, or from a run that a cancellation stopped.
 /// </param>
 /// <param name="errors">
-///     The pipeline sends each operation with an error here. There is no call of this function
-///     with no destination for the errors.
+///     The pipeline sends each operation with an error here. It also sends a
+///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> here when a listener stops the
+///     send of an outcome. There is no call of this function with no destination for the errors.
+/// </param>
+/// <param name="handleException">
+///     The pipeline gives it each exception that has no caller and that <paramref name="errors" />
+///     cannot receive. A listener can stop a send, and the pipeline can then fail to end the item or
+///     to report that failure. A defect in the pipeline also comes here. The pipeline continues
+///     after each call. A throw from this function ends the process, as a throw from the handler
+///     of a timer system does.
 /// </param>
 /// <param name="operation">
 ///     The asynchronous work for each input. The pipeline calls it inline, thus it does not go to
@@ -230,6 +307,7 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 let mapAsync
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
     (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<unit>)
     (cancelAll: Stream<unit> option)
@@ -241,6 +319,8 @@ let mapAsync
         source,
         results,
         errors,
+        Action<exn> handleException,
+        deliveryExceptionFactory,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _>(fun (_: 'TInput) -> ()),
@@ -256,7 +336,15 @@ let mapAsync
 ///     <c>mapAsync</c> for the full contract of the parameters that the two functions share.
 /// </summary>
 /// <param name="results">The destination of the return value of each operation that succeeded.</param>
-/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="errors">
+///     The destination of each operation with an error, and of a
+///     <see cref="T:SodaFlow.Async.MapAsyncDeliveryException" /> for each send of an outcome that a
+///     listener stops.
+/// </param>
+/// <param name="handleException">
+///     Gets each exception that has no caller and that <paramref name="errors" /> cannot receive.
+///     A throw from it ends the process.
+/// </param>
 /// <param name="operation">The asynchronous work for each input.</param>
 /// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="inputConverter">
@@ -281,6 +369,7 @@ let mapAsync
 let mapAsyncWithInputConverter
     (results: StreamSink<'TResult>)
     (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
     (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
     (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput>)
     (inputConverter: 'TInput -> 'TStrategyInput)
@@ -293,6 +382,8 @@ let mapAsyncWithInputConverter
         source,
         results,
         errors,
+        Action<exn> handleException,
+        deliveryExceptionFactory,
         MapAsyncOperation<_, _> operation,
         strategy,
         Func<_, _> inputConverter,

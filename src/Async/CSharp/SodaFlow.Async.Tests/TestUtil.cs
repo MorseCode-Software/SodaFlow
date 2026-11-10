@@ -10,6 +10,27 @@ namespace SodaFlow.Async.Tests;
 internal static class TestUtil
 {
     /// <summary>
+    ///     The handleException of a pipeline in a test that expects no exception
+    ///     there. It throws, thus the pipeline sends the throw to the thread pool,
+    ///     and that ends the test run with the exception.
+    /// </summary>
+    public static void Unexpected(Exception error) =>
+        throw new InvalidOperationException(
+            message: "The pipeline gave an exception to handleException where the test expected none.",
+            innerException: error);
+
+    /// <summary>
+    ///     A listener that fails each transaction in which
+    ///     <paramref name="cancellation" /> fires. The two maps put it after the
+    ///     listener of the pipeline on that stream, which is one step from the
+    ///     stream. Thus, the pipeline gets the cancellation before the throw.
+    /// </summary>
+    public static IStrongListener ThrowAfterTheCancellation<T>(Stream<T> cancellation) =>
+        cancellation.Map(static value => value)
+            .Map(static value => value)
+            .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+
+    /// <summary>
     ///     Reads <paramref name="condition" /> until it is true, or fails the test at
     ///     a timeout.
     /// </summary>
@@ -46,6 +67,8 @@ internal sealed class ControlledOperation<TInput, TResult>
     public MapAsyncOperation<TInput, TResult> Operation => this.Run;
 
     public bool HasStarted(TInput input) => this.startedInputs.ContainsKey(input);
+
+    public bool IsCanceled(TInput input) => this.GateFor(input).Task.IsCanceled;
 
     public void Release(TInput input, TResult result) => this.GateFor(input).TrySetResult(result);
 

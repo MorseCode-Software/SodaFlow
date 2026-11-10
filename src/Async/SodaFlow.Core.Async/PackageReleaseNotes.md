@@ -1,7 +1,8 @@
 6.0.0
 
-Requires SodaFlow.Core 6.x, which ships in the same release. Nothing in this package's API changes, but a consumer
-that moves to this version moves to that SodaFlow.Core, whose SampleLazy and HoldLazy changed shape.
+Requires SodaFlow.Core 6.x, which ships in the same release. This package's API adds one type,
+MapAsyncDeliveryExceptionBase, described below, and a consumer that moves to this version moves to that SodaFlow.Core,
+whose SampleLazy and HoldLazy changed shape.
 
 Changed: an operation now starts after the transaction that started it has released the transaction lock, on the same
 thread. Before, the code of an operation up to its first await ran inside that transaction, which holds the lock that
@@ -25,6 +26,53 @@ for each. A cancelAll or cancelMatching on a long queue ends every item in it to
 more than a few items now builds one dictionary or set and looks each item up in it, and a search for a few still reads
 the queue directly and allocates nothing, so the same cancellation takes 271 us and 543 us. AsyncQueueBenchmarks in
 SodaFlow.Benchmarks measures it. Item ids are still Guids, so nothing about AsyncQueuedItem changes.
+
+Fixed: a listener that threw while the pipeline delivered an outcome could lose the result, blame the operation, and
+stop the pipeline. A delivery is one transaction that sends the result or the error and edits the queue, but it also
+completed the Execute task and disposed the item's cancellation source, and a listener that threw failed the transaction
+without undoing either. The throw then reached the code that ran the operation, which took it for the operation's own
+failure: it ended the item a second time and sent the listener's exception on errors. If a listener on errors threw as
+well, the exception went unobserved, the item stayed Running for good, a Queue strategy never started the next item, and
+Dispose threw ObjectDisposedException, because it canceled a source that the failed delivery had already disposed. The
+task and the source now change only when the delivery commits. A delivery that fails runs again without delivering
+anything, so the item ends and the next item can start. The listener's exception then goes out on errors in a
+transaction of its own, wrapped in a MapAsyncDeliveryException, so a handler can tell it from an operation's failure.
+That type comes from the language package: SodaFlow.Async and SodaFlow.FSharp.Async each derive their own sealed
+MapAsyncDeliveryException from the new abstract MapAsyncDeliveryExceptionBase, whose constructors are internal so that
+only they can, and give the pipeline a function that makes it. When the outcome that was not delivered was itself an
+exception, from the operation or from a Construct function, the report carries it in UndeliveredError, since neither
+errors nor the Execute task received it. The Execute task of the item, if it has one, fails with the same
+MapAsyncDeliveryException. If that second attempt or that report throws too, both exceptions go together in an
+AggregateException to the handleException that MapAsync now takes; see the SodaFlow.Async and SodaFlow.FSharp.Async
+notes. An operation that ends inside a transaction now has its outcome delivered once that transaction releases the
+transaction lock, rather than among its posted actions, so a failed delivery no longer comes out of that transaction.
+
+Fixed: a transaction that fails no longer cancels anything. The pipeline listens to cancelAll and cancelMatching, and
+its listener canceled the tokens of the matching items, and ended the queued ones, while the transaction that fired the
+stream was still open. When something later in that transaction threw, the graph went back to where it was, but the
+operations were already canceled and the queued items were already gone, although no cancellation had committed. The
+listener now only selects the items, and the cancel runs as a posted action, which a transaction runs once it has
+committed and discards when it fails. Two things follow from running after the commit. An item that ends in the same
+transaction as its cancellation, as when the cancellation stream is made from results, has had its cancellation source
+disposed by then, and the cancel passes over it. And an exception from a callback registered on an operation's token no
+longer fails the transaction that asked for the cancel, which has already committed: every selected item is still
+canceled, and the exception goes to handleException. Before, that exception stopped the cancel at the first item whose
+callback threw. For cancelMatching, the comparison of input values still runs in the transaction, so a throw from an
+Equals or GetHashCode of yours fails that transaction and cancels nothing.
+
+Not changed: disposal. A status disposed with cancelOnDispose cancels as it did before, without waiting for a commit,
+because a transaction that fails does not undo a disposal.
+
+Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
+that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
+exception, and that ends the process on .NET Framework when ThrowUnobservedTaskExceptions is on. Such an exception now
+goes to handleException. A throw from handleException itself is sent to the thread pool, where it ends the process, as a
+throw from the handler of a timer system does.
+
+A custom strategy can now be called twice for the same end, OnCompleted or OnCanceled: once in the delivery that failed
+and once when it runs again, whose publish decision is ignored. The first call's decision is discarded with its
+transaction, but any change it made to the strategy's state stays. The built-in strategies decide from the queue and
+give the right answer on the second call.
 
 5.0.1
 
