@@ -96,10 +96,10 @@ internal sealed class TransactionInternal
 
     // A child is made in the Close of its parent, thus this thread holds the transaction lock.
     // It gets the two queues of that parent, and holds no reference to the parent. See postQueue.
-    private TransactionInternal(long childId, Queue<PostEntry>? postQueue, List<SplitEntry>? splitQueue)
+    private TransactionInternal(Queue<PostEntry>? postQueue, List<SplitEntry>? splitQueue)
     {
         this.hasParentTransaction = true;
-        this.Id = childId;
+        this.Id = ++nextId;
         this.postQueue = postQueue;
         this.splitQueue = splitQueue;
     }
@@ -690,8 +690,7 @@ internal sealed class TransactionInternal
                     int firstPost = this.postQueue?.Count ?? 0;
                     int firstSplit = this.splitQueue?.Count ?? 0;
 
-                    TransactionInternal transaction =
-                        new(childId: ++nextId, postQueue: this.postQueue, splitQueue: this.splitQueue);
+                    TransactionInternal transaction = new(postQueue: this.postQueue, splitQueue: this.splitQueue);
 
                     try
                     {
