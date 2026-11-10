@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using JetBrains.Annotations;
 
 namespace SodaFlow;
 
@@ -40,7 +41,7 @@ internal sealed class TransactionInternal
     private static List<Action>? afterReleaseQueue;
 
     // The last id given. Only the thread that holds the transaction lock changes it.
-    private static long nextId;
+    private static long lastId;
 
     private static readonly EntryPriorityQueue PrioritizedQueue = new();
 
@@ -99,7 +100,7 @@ internal sealed class TransactionInternal
     private TransactionInternal(Queue<PostEntry>? postQueue, List<SplitEntry>? splitQueue)
     {
         this.hasParentTransaction = true;
-        this.Id = ++nextId;
+        this.Id = TransactionIdSequence.Next(ref lastId);
         this.postQueue = postQueue;
         this.splitQueue = splitQueue;
     }
@@ -139,9 +140,9 @@ internal sealed class TransactionInternal
     // The state-passing Apply, so a run with no open transaction allocates no closure and no
     // delegate for the call. Before, this was Apply((_, _) => f()), and RunVoid added a second
     // closure and delegate of its own.
-    internal static T RunImpl<T>(Func<T> f) => Apply(code: static (_, _, f) => f(), state: f);
+    internal static T RunImpl<T>([InstantHandle] Func<T> f) => Apply(code: static (_, _, f) => f(), state: f);
 
-    internal static void RunVoidImpl(Action action) =>
+    internal static void RunVoidImpl([InstantHandle] Action action) =>
         Apply(
             code: static (_, _, action) =>
             {
@@ -151,7 +152,7 @@ internal sealed class TransactionInternal
             },
             state: action);
 
-    internal static T Apply<T>(Func<TransactionInternal, bool, T> code) =>
+    internal static T Apply<T>([InstantHandle] Func<TransactionInternal, bool, T> code) =>
         Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
 
     /// <summary>
@@ -159,7 +160,9 @@ internal sealed class TransactionInternal
     ///     the code. A caller with a static lambda then allocates no closure and no
     ///     delegate, which matters for a send from outside a transaction.
     /// </summary>
-    internal static TResult Apply<TState, TResult>(Func<TransactionInternal, bool, TState, TResult> code, TState state)
+    internal static TResult Apply<TState, TResult>(
+        [InstantHandle] Func<TransactionInternal, bool, TState, TResult> code,
+        TState state)
     {
         TransactionInternal? transaction = localTransaction;
 
@@ -323,7 +326,7 @@ internal sealed class TransactionInternal
             // transaction of the hook holds it on this thread.
             if (transaction.Id == 0)
             {
-                transaction.Id = ++nextId;
+                transaction.Id = TransactionIdSequence.Next(ref lastId);
             }
         }
     }

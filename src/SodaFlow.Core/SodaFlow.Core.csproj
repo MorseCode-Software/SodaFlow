@@ -78,6 +78,7 @@
         <Compile Include="TimerScheduler.cs"/>
         <Compile Include="TimerSystemInternal.cs"/>
         <Compile Include="Transaction.cs"/>
+        <Compile Include="TransactionIdSequence.cs"/>
         <Compile Include="TransactionOutcome.cs"/>
         <Compile Include="Unit.cs"/>
         <Compile Include="ValueListener.cs"/>

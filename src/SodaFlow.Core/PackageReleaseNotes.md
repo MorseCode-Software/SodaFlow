@@ -366,6 +366,16 @@ paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B
 where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
 posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
 
+Fixed: no transaction gets the id zero. Each transaction takes the next value of a 64-bit count as its id, and zero
+already means two things: a root transaction that has no id yet, and an input slot of a merge, lift, apply, or snapshot
+that holds no value for the current transaction. The count wraps without an exception, so after 2^64 transactions one of
+them took zero. A root transaction or an element of a split with that id read every empty slot as filled, so a merge of
+two types reported a default value for the input that did not fire. A posted action with that id took another one at its
+first use, and was not affected. The count now skips zero. Nobody was going to meet this: ids are given one at a time
+under the transaction lock, and at one id per nanosecond the count takes about 585 years to get there. The point is that
+"the id of a transaction is never zero", which the capture slot depends on, now holds without a condition. The cost is
+one comparison per id.
+
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
 each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
