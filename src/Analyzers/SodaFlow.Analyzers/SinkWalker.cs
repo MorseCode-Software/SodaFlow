@@ -129,19 +129,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        IMethodSymbol definition = method.ReducedFrom ?? method;
+        IMethodSymbol called = method.ReducedFrom ?? method;
 
-        if (method.ReducedFrom != null && receiver != null && definition.Parameters.Length > 0)
+        if (method.ReducedFrom != null && receiver != null && called.Parameters.Length > 0)
         {
             this.CheckEscape(
-                callee: definition,
-                parameter: definition.Parameters[0],
+                callee: called,
+                parameter: called.OriginalDefinition.Parameters[0],
                 argument: receiver,
                 followed: this.evaluator.FollowedParametersOf(node));
         }
 
         this.CheckEscapes(
-            callee: definition,
+            callee: called,
             arguments: node.ArgumentList.Arguments,
             offset: method.ReducedFrom != null ? 1 : 0,
             followed: this.evaluator.FollowedParametersOf(node));
@@ -420,8 +420,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             ArgumentSyntax argument = arguments[i];
 
+            // A parameter of the definition, and not of a generic method with its type arguments.
+            // The body binds to the parameters of the definition, and the evaluator records those.
             IParameterSymbol? parameter =
-                SodaFlowSymbols.ParameterOf(callee: callee, argument: argument, position: i + offset);
+                SodaFlowSymbols.ParameterOf(
+                    callee: callee.OriginalDefinition,
+                    argument: argument,
+                    position: i + offset);
 
             if (parameter != null)
             {
@@ -438,7 +443,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     A pending value given to code that is not in the library. The body of
     ///     the callee answers the question when it is in this compilation. An
     ///     <c>AsCell()</c> at the argument is the assertion of the caller and reports
-    ///     nothing.
+    ///     nothing. The parameter is one of the definition of the callee. The callee
+    ///     is the method as the call names it, which is what a report shows.
     /// </summary>
     private void CheckEscape(
         IMethodSymbol callee,
@@ -457,7 +463,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // A read the analyzer can see is reported whatever the caller asserted: the assertion is
         // the promise, and the body breaks it.
-        if (this.SamplesParameter(callee: callee, parameter: parameter, depth: 0))
+        if (this.SamplesParameter(callee: callee.OriginalDefinition, parameter: parameter, depth: 0))
         {
             this.region.Report(
                 Diagnostic.Create(

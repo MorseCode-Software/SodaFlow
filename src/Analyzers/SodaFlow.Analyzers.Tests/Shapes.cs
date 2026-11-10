@@ -433,6 +433,30 @@ public static class Shapes
 
     private static Cell<int> PickFirst(Cell<int> a, Cell<int> b) => a;
 
+    // S64. A generic helper that samples its parameter.
+    public static Cell<int> GenericHelperSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadGeneric(l)));
+
+    private static T ReadGeneric<T>(Cell<T> c) => c.Sample();
+
+    // S65. A generic row whose constructor samples its parameter.
+    public static Cell<int> GenericRowSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { GenericSamplingRow<int> row = new(l); return S.Hold(row.Value); });
+
+    // S66. A generic helper that only derives from its parameter.
+    public static Cell<int> GenericHelperDerives() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Snapshot(Same(l), (a, b) => a + b).Hold(0));
+
+    private static Cell<T> Same<T>(Cell<T> c) => c.Map(v => v);
+
+    // S67. A generic row that only stores its parameter.
+    public static Cell<int> GenericRowStores() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            GenericStoringRow<int> row = new(l);
+            return S.Snapshot(row.Cell, (a, b) => a + b).Hold(0);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -484,6 +508,16 @@ public static class Shapes
         public Cell<int> Cell { get; } = cell;
 
         public int Value => 1;
+    }
+
+    public sealed class GenericSamplingRow<T>(Cell<T> cell)
+    {
+        public T Value { get; } = cell.Sample();
+    }
+
+    public sealed class GenericStoringRow<T>(Cell<T> cell)
+    {
+        public Cell<T> Cell { get; } = cell;
     }
 }
 

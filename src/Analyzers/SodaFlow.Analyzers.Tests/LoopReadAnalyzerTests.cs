@@ -75,7 +75,9 @@ internal sealed class LoopReadAnalyzerTests
             ["AssertionAtTheArgument"] = ["SF1004"],
             ["CoreBlockSample"] = ["SF1001"],
             ["CoreBlockCloseWithPlaceholder"] = ["SF1002"],
-            ["NamedArgumentsReorderedToTheLoop"] = ["SF1001"]
+            ["NamedArgumentsReorderedToTheLoop"] = ["SF1001"],
+            ["GenericHelperSamples"] = ["SF1004"],
+            ["GenericRowSamples"] = ["SF1004"]
         };
 
     // The shapes that the run-time test does not call.
