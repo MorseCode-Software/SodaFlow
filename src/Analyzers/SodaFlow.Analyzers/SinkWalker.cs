@@ -159,6 +159,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
         this.VisitCreationArguments(node: node, arguments: node.ArgumentList);
+        this.Visit(node.Initializer);
         this.CheckCreation(node: node, arguments: node.ArgumentList);
     }
 
@@ -195,6 +196,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
         this.VisitCreationArguments(node: node, arguments: node.ArgumentList);
+        this.Visit(node.Initializer);
         this.CheckCreation(node: node, arguments: node.ArgumentList);
     }
 
@@ -618,6 +620,45 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 if (nextParameter != null
                     && this.SamplesParameter(callee: definition, parameter: nextParameter, depth: depth + 1))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // The parameter passed on to the constructor of the base, or to a second constructor of the
+        // type.
+        foreach (SyntaxNode chain in declaration.DescendantNodes()
+                     .Where(static node => node is ConstructorInitializerSyntax or PrimaryConstructorBaseTypeSyntax))
+        {
+            ArgumentListSyntax? list =
+                chain switch
+                {
+                    ConstructorInitializerSyntax written => written.ArgumentList,
+                    PrimaryConstructorBaseTypeSyntax primary => primary.ArgumentList,
+                    _ => null
+                };
+
+            if (list == null
+                || model.GetSymbolInfo(chain).Symbol is not IMethodSymbol next
+                || SodaFlowSymbols.IsSodaFlow(next))
+            {
+                continue;
+            }
+
+            for (int i = 0; i < list.Arguments.Count; i++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(
+                        x: model.GetSymbolInfo(list.Arguments[i].Expression).Symbol,
+                        y: parameter)
+                    && SodaFlowSymbols.ParameterOf(
+                        callee: next.OriginalDefinition,
+                        argument: list.Arguments[i],
+                        position: i) is { } nextParameter
+                    && this.SamplesParameter(
+                        callee: next.OriginalDefinition,
+                        parameter: nextParameter,
+                        depth: depth + 1))
                 {
                     return true;
                 }

@@ -592,6 +592,107 @@ public static class Shapes
 
     private static Cell<int> BlockThatSnapshots(LoopedCell<int> l) => S.Snapshot(l, (a, b) => a + b).Hold(0);
 
+    // S85. A positional record built from a pending cell, its property sampled in the block.
+    public static Cell<int> RecordPositionalMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            RecordRow row = new(l.Map(v => v));
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S86. A positional record with a pending member and a plain one. The block samples the plain one.
+    public static Cell<int> RecordPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            RecordPair pair = new(Pending: l.Map(v => v), Plain: Plain);
+            int x = pair.Plain.Sample();
+            return S.Hold(x);
+        });
+
+    // S87. A with expression that sets a pending member, sampled in the block.
+    public static Cell<int> RecordWithPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            RecordRow row = new RecordRow(Plain) with { Share = l.Map(v => v) };
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S88. A with expression that replaces a pending member with a plain one, sampled.
+    public static Cell<int> RecordWithPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            RecordRow row = new RecordRow(l.Map(v => v)) with { Share = Plain };
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S89. An object initializer that sets a pending member, sampled in the block.
+    public static Cell<int> ObjectInitializerMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            InitRow row = new() { Share = l.Map(v => v) };
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S90. The same initializer with the type named and no argument list.
+    public static Cell<int> ObjectInitializerNoArgumentList() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            InitRow row = new InitRow { Share = l.Map(v => v) };
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S91. A read of the placeholder in an object initializer.
+    public static Cell<int> ObjectInitializerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            ValueRow row = new() { Value = l.Sample() };
+            return S.Hold(row.Value);
+        });
+
+    // S92. A member that the base constructor sets from a pending cell, sampled in the block.
+    public static Cell<int> BaseConstructorMember() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            DerivedRow row = new(l.Map(v => v));
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S93. The same row, with the member read only in a snapshot.
+    public static Cell<int> BaseConstructorMemberSnapshot() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            DerivedRow row = new(l.Map(v => v));
+            return S.Snapshot(row.Share, (a, b) => a + b).Hold(0);
+        });
+
+    // S94. A base constructor that samples the parameter that the derived constructor passes on.
+    public static Cell<int> BaseConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SamplingDerivedRow row = new(l); return S.Hold(row.Value); });
+
+    // S95. Written constructors: one calls the base, and the base calls a second constructor.
+    public static Cell<int> WrittenConstructorChain() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            WrittenDerivedRow row = new(l.Map(v => v));
+            int x = row.Share.Sample();
+            return S.Hold(x);
+        });
+
+    // S96. A collection initializer with a pending cell, an element sampled in the block.
+    public static Cell<int> CollectionInitializerElement() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Cell<int>> cells = new() { l.Map(v => v) };
+            int x = cells[0].Sample();
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -653,6 +754,57 @@ public static class Shapes
     public sealed class GenericStoringRow<T>(Cell<T> cell)
     {
         public Cell<T> Cell { get; } = cell;
+    }
+
+    public sealed record RecordRow(Cell<int> Share);
+
+    public sealed record RecordPair(Cell<int> Pending, Cell<int> Plain);
+
+    public sealed class InitRow
+    {
+        public required Cell<int> Share { get; init; }
+    }
+
+    public sealed class ValueRow
+    {
+        public int Value { get; init; }
+    }
+
+    public class BaseRow(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class DerivedRow(Cell<int> share) : BaseRow(share);
+
+    public class SamplingBaseRow(Cell<int> cell)
+    {
+        public int Value { get; } = cell.Sample();
+    }
+
+    public sealed class SamplingDerivedRow(Cell<int> cell) : SamplingBaseRow(cell);
+
+    public class WrittenBaseRow
+    {
+        public WrittenBaseRow(Cell<int> share)
+            : this(share: share, offset: 0)
+        {
+        }
+
+        private WrittenBaseRow(Cell<int> share, int offset)
+        {
+            this.Share = share.Map(v => v + offset);
+        }
+
+        public Cell<int> Share { get; }
+    }
+
+    public sealed class WrittenDerivedRow : WrittenBaseRow
+    {
+        public WrittenDerivedRow(Cell<int> share)
+            : base(share)
+        {
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

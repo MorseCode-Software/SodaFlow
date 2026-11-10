@@ -111,6 +111,7 @@ internal sealed class LoopStateEvaluator
             // The value of a?.b is the value of .b, whose owner is a.
             ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
+            WithExpressionSyntax w => this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
             TupleExpressionSyntax t => this.JoinAll(t.Arguments.Select(static a => a.Expression)),
             CollectionExpressionSyntax c => this.JoinAll(
                 c.Elements.Select(static e =>
@@ -350,27 +351,59 @@ internal sealed class LoopStateEvaluator
         LoopState typeState = this.TypeState(creation);
         SemanticModel model = this.region.ModelFor(creation);
 
-        ArgumentListSyntax? arguments =
+        (ArgumentListSyntax? arguments, InitializerExpressionSyntax? initializer) =
             creation switch
             {
-                ObjectCreationExpressionSyntax o => o.ArgumentList,
-                ImplicitObjectCreationExpressionSyntax i => i.ArgumentList,
-                _ => null
+                ObjectCreationExpressionSyntax o => (o.ArgumentList, o.Initializer),
+                ImplicitObjectCreationExpressionSyntax i => (i.ArgumentList, i.Initializer),
+                _ => (null, null)
             };
 
-        if (arguments == null
-            || this.depth >= MaxInlineDepth
-            || model.GetSymbolInfo(creation).Symbol is not IMethodSymbol constructor
-            || SodaFlowSymbols.IsSodaFlow(constructor))
-        {
-            return typeState;
-        }
-
-        Construction? construction = this.FollowConstruction(constructor: constructor, arguments: arguments.Arguments);
+        // A creation with an initializer and no argument list calls the constructor with no
+        // arguments.
+        Construction? construction =
+            this.depth < MaxInlineDepth
+            && model.GetSymbolInfo(creation).Symbol is IMethodSymbol constructor
+            && !SodaFlowSymbols.IsSodaFlow(constructor)
+                ? this.FollowConstruction(constructor: constructor, arguments: arguments?.Arguments ?? default)
+                : null;
 
         // The object has no node of its own. Its members hold the state, and a hold or a cell of
         // such objects reads them through the content.
-        return construction == null ? typeState : typeState.WithMembers(construction);
+        LoopState state = construction == null ? typeState : typeState.WithMembers(construction);
+
+        return initializer == null ? state : this.WithInitializer(state: state, initializer: initializer);
+    }
+
+    /// <summary>
+    ///     The state of an object after an initializer. An object initializer or
+    ///     a with expression sets members, and the state of each replaces the state
+    ///     from the constructor. A collection initializer adds elements, and the
+    ///     collection gets their states also.
+    /// </summary>
+    private LoopState WithInitializer(LoopState state, InitializerExpressionSyntax initializer)
+    {
+        SemanticModel model = this.region.ModelFor(initializer);
+
+        foreach (ExpressionSyntax expression in initializer.Expressions)
+        {
+            if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
+                && model.GetSymbolInfo(name).Symbol is { } member and (IPropertySymbol or IFieldSymbol))
+            {
+                state =
+                    state.WithMembers(
+                        (state.Members ?? Construction.Empty).With(member: member, state: this.Eval(assignment.Right)));
+            }
+            else
+            {
+                // An element of a collection, or the value for an index.
+                state =
+                    state.Join(
+                        this.Eval(expression is AssignmentExpressionSyntax indexed ? indexed.Right : expression));
+            }
+        }
+
+        return state;
     }
 
     private Construction? FollowConstruction(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments)
@@ -378,9 +411,15 @@ internal sealed class LoopStateEvaluator
         IMethodSymbol definition = constructor.OriginalDefinition;
         SyntaxNode? declaration = definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
 
-        // A primary constructor declares on its type. An explicit one declares in it.
+        // A primary constructor declares on its type. An explicit one declares in it. A type with
+        // no constructor gets one from the compiler, which runs the initializers of the type.
         TypeDeclarationSyntax? type =
-            declaration as TypeDeclarationSyntax ?? declaration?.Parent as TypeDeclarationSyntax;
+            declaration as TypeDeclarationSyntax
+            ?? declaration?.Parent as TypeDeclarationSyntax
+            ?? (definition.IsImplicitlyDeclared
+                ? definition.ContainingType.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    as TypeDeclarationSyntax
+                : null);
 
         if (type == null)
         {
@@ -409,6 +448,71 @@ internal sealed class LoopStateEvaluator
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
 
         List<SyntaxNode> followed = [];
+
+        // A positional parameter of a record is also the property of that name. That property has
+        // no declaration of its own.
+        if (declaration is RecordDeclarationSyntax)
+        {
+            foreach (IParameterSymbol parameter in parameters)
+            {
+                if (definition.ContainingType.GetMembers(parameter.Name)
+                        .OfType<IPropertySymbol>()
+                        .FirstOrDefault(static property =>
+                            property.DeclaringSyntaxReferences.Any(static reference =>
+                                reference.GetSyntax() is ParameterSyntax)) is { } positional)
+                {
+                    members[positional] = bound[parameter];
+                    inner.thisMembers[positional] = bound[parameter];
+                }
+            }
+        }
+
+        // The constructor that this one calls first: the constructor of the base, or a second
+        // constructor of the type. The members that it sets are members of this object.
+        SyntaxNode? chain =
+            declaration switch
+            {
+                ConstructorDeclarationSyntax written => written.Initializer,
+                TypeDeclarationSyntax =>
+                    type.BaseList?.Types.OfType<PrimaryConstructorBaseTypeSyntax>().FirstOrDefault(),
+                _ => null
+            };
+
+        ArgumentListSyntax? chainArguments =
+            chain switch
+            {
+                ConstructorInitializerSyntax written => written.ArgumentList,
+                PrimaryConstructorBaseTypeSyntax primary => primary.ArgumentList,
+                _ => null
+            };
+
+        if (chain != null
+            && chainArguments != null
+            && inner.depth < MaxInlineDepth
+            && model.GetSymbolInfo(chain).Symbol is IMethodSymbol chained
+            && !SodaFlowSymbols.IsSodaFlow(chained)
+            && inner.FollowConstruction(constructor: chained, arguments: chainArguments.Arguments) is { } first)
+        {
+            foreach (KeyValuePair<ISymbol, LoopState> pair in first.Members)
+            {
+                members[pair.Key] = pair.Value;
+                inner.thisMembers[pair.Key] = pair.Value;
+            }
+
+            // The evaluator read each argument. The value went only where the result shows it when
+            // the parameter that gets it is a followed parameter.
+            for (int i = 0; i < chainArguments.Arguments.Count; i++)
+            {
+                if (SodaFlowSymbols.ParameterOf(
+                        callee: chained.OriginalDefinition,
+                        argument: chainArguments.Arguments[i],
+                        position: i) is { } target
+                    && first.FollowedParameters.Contains(target))
+                {
+                    followed.Add(chainArguments.Arguments[i].Expression);
+                }
+            }
+        }
 
         foreach (MemberDeclarationSyntax member in type.Members)
         {
@@ -659,7 +763,10 @@ internal sealed class LoopStateEvaluator
 
         foreach (IdentifierNameSyntax use in scope.DescendantNodes().OfType<IdentifierNameSyntax>())
         {
-            if (byName.TryGetValue(key: use.Identifier.ValueText, value: out IParameterSymbol? candidate)
+            // The name before the colon of a named argument binds to the parameter, and is not a use
+            // of its value. One constructor that calls a second one of the same type has such a name.
+            if (use.Parent is not NameColonSyntax
+                && byName.TryGetValue(key: use.Identifier.ValueText, value: out IParameterSymbol? candidate)
                 && !used.Contains(candidate)
                 && SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(use).Symbol, y: candidate)
                 && !use.AncestorsAndSelf().Any(covered.Contains))

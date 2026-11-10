@@ -92,7 +92,16 @@ internal sealed class LoopReadAnalyzerTests
             ["LocalFunctionBlock"] = ["SF1001"],
             ["AnonymousMethodBlock"] = ["SF1001"],
             ["BlockThatReads"] = ["SF1001"],
-            ["BlockThatClosesWithItself"] = ["SF1002"]
+            ["BlockThatClosesWithItself"] = ["SF1002"],
+            ["RecordPositionalMember"] = ["SF1001"],
+            ["RecordWithPendingMember"] = ["SF1001"],
+            ["ObjectInitializerMember"] = ["SF1001"],
+            ["ObjectInitializerNoArgumentList"] = ["SF1001"],
+            ["ObjectInitializerReads"] = ["SF1001"],
+            ["BaseConstructorMember"] = ["SF1001"],
+            ["BaseConstructorSamples"] = ["SF1004"],
+            ["WrittenConstructorChain"] = ["SF1001"],
+            ["CollectionInitializerElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
