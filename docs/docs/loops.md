@@ -246,7 +246,9 @@ cell in the block, or close the loop with it, and the function runs before the l
 the analyzer reports the sample, or the close. The views of a collection behave the same way with
 their predicates and selectors, and so does a sort order built with `KeyOrder.By` or `ThenBy`: its
 function runs when a view sorts by that order and something reads the view, whether the order
-reaches the view directly or in a cell.
+reaches the view directly or in a cell. A comparer is a function here too: one that samples a
+looped value, whether it is an object of yours or comes from `Comparer<T>.Create`, makes the view
+that sorts with it pending, and is quiet until something reads that view.
 
 A `Hold` is the opposite case. A read in the block always gives its initial value, because the
 value of a firing arrives after the close. So a hold that starts plain is fine to sample, whatever
@@ -274,7 +276,9 @@ a loop block, and the `Fold` of a collection. Code outside the library that take
 as LINQ or `Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it.
 A `Lazy<T>` keeps its function until something reads `Value`, so the analyzer reads the function
 at that read, including through the `Map` and `Lift` of `SodaFlow.Functional`. A lambda that one
-of your own constructors or helpers keeps is read where it finally runs, and reported there.
+of your own constructors or helpers keeps is read where it finally runs, and reported there. A
+property pattern reads a property just as a member access does, so `row is { Total: > 0 }` is
+checked like `row.Total > 0`.
 
 It does not see everything, and in a few places it guesses on the careful side:
 
@@ -282,17 +286,18 @@ It does not see everything, and in a few places it guesses on the careful side:
   plain one reports a read of either.
 - A field set on an object the analyzer did not see built counts for every object of that type,
   to the end of the block.
-- A read under a condition is reported whether or not that path runs.
+- A read under a condition is reported whether or not that path runs. A comparer of keys is such a
+  read: a sort calls it only when two items tie, and the analyzer does not know your data.
 - A LINQ query built in the block is read as if it were enumerated there. If you enumerate it only
-  after the block, a read in its lambda is reported although it is fine.
+  after the block, a read in its lambda is reported although it is fine. An iterator method of
+  yours is read the same way, at the call.
 - A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
 - A function kept by a constructor outside your project is not read when the block then uses that
-  object. `Lazy<T>` is the exception, and a `Lazy<T>` handed to code outside your project is taken
-  as kept, not forced.
-- A comparer object given to a sort or a sort order is not read, so a `Compare` that samples the
-  loop is not seen.
-- A read written as a property pattern, as in `row is { Total: > 0 }`, is not seen. The same read
-  written as `row.Total > 0` is.
+  object. That covers a comparer kept by a `SortedSet<T>`. `Lazy<T>` is the exception, and a
+  `Lazy<T>` handed to code outside your project is taken as kept, not forced.
+- A member of yours that C# calls without call syntax is not read: an indexer, an operator, a
+  conversion, a property setter, a `Deconstruct`, `ToString` in an interpolated string, and
+  `Dispose` at the end of a `using`.
 - A virtual method is read as the method the code names, unless the analyzer saw the object built.
 
 The runtime check stays behind all of these.
