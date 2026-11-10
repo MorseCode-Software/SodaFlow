@@ -554,9 +554,29 @@ internal sealed class LoopStateEvaluator
             offset = 1;
         }
 
-        for (int i = 0; i < argumentStates.Count && i + offset < definition.Parameters.Length; i++)
+        // By name or by position, as the compiler binds them. Named arguments can be in a sequence
+        // that is not the sequence of the parameters. A params parameter gets the states of all its
+        // arguments.
+        Dictionary<ISymbol, LoopState> byParameter = new(SymbolEqualityComparer.Default);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        for (int i = 0; i < argumentStates.Count; i++)
         {
-            bound[definition.Parameters[i + offset]] = argumentStates[i];
+            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                is not { } parameter)
+            {
+                continue;
+            }
+
+            byParameter[parameter] =
+                byParameter.TryGetValue(key: parameter, value: out LoopState? first)
+                    ? first.Join(argumentStates[i])
+                    : argumentStates[i];
+        }
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in byParameter)
+        {
+            bound[pair.Key] = pair.Value;
         }
 
         LoopStateEvaluator inner = new(region: this.region, bound: bound.ToImmutable(), depth: this.depth + 1);

@@ -74,7 +74,8 @@ internal sealed class LoopReadAnalyzerTests
             ["CloseThroughSinkOfRow"] = ["SF1002"],
             ["AssertionAtTheArgument"] = ["SF1004"],
             ["CoreBlockSample"] = ["SF1001"],
-            ["CoreBlockCloseWithPlaceholder"] = ["SF1002"]
+            ["CoreBlockCloseWithPlaceholder"] = ["SF1002"],
+            ["NamedArgumentsReorderedToTheLoop"] = ["SF1001"]
         };
 
     // The shapes that the run-time test does not call.

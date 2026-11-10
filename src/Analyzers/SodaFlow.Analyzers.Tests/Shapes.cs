@@ -422,6 +422,17 @@ public static class Shapes
         TransactionInternal.Apply(code: (trans, isNew) =>
             LoopedCell<int>.WithoutCapturesImpl(trans: trans, state: 0, f: static (l, _) => l));
 
+    // S62. Named arguments in a sequence that is not the sequence of the parameters. The helper
+    // returns its first parameter, which gets the loop.
+    public static Cell<int> NamedArgumentsReorderedToTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = PickFirst(b: Plain, a: l).Sample(); return S.Hold(x); });
+
+    // S63. The same call with the two values exchanged. The helper returns the plain cell.
+    public static Cell<int> NamedArgumentsReorderedToThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = PickFirst(b: l, a: Plain).Sample(); return S.Hold(x); });
+
+    private static Cell<int> PickFirst(Cell<int> a, Cell<int> b) => a;
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
