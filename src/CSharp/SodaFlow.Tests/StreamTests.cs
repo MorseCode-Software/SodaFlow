@@ -2105,6 +2105,252 @@ public sealed class StreamTests
         await Assert.That(t.IsCanceled).IsTrue();
     }
 
+    // The task gives the value of the stream, thus only a transaction that committed can give that
+    // value. Here a second listener throws after the listener of the task ran, and the
+    // transaction fails. The task must fail with the exception of that transaction. Before, the
+    // task completed with a value that no stream committed.
+    [Test]
+    public async Task ListenOnceAsync_WhenAListenerAfterItThrows_FailsTheTaskWithTheExceptionOfTheTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+        Task<int> task = s.ListenOnceAsync();
+
+        // The two maps put this listener after the listener of the task.
+        using IStrongListener thrower =
+            s.Map(static x => x).Map(static x => x).ListenStrong(_ => throw fromListener);
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // The sample phase of a transaction makes the first value of a cell that the transaction
+    // builds, and that phase comes after each listener. A throw there fails the transaction after
+    // the listener of the task ran.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheFirstValueOfANewCellThrows_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(0);
+        InvalidOperationException fromCell = new("The first value of the cell throws.");
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    _ = c.Map<int, int>(_ => throw fromCell);
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromCell);
+    }
+
+    // The value arrives when the transaction commits. A listener that runs after the listener of
+    // the task, in the same transaction, must find a task that is not complete.
+    [Test]
+    public async Task ListenOnceAsync_CompletesItsTaskWhenTheTransactionCommitsAndNotBefore()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int> task = s.ListenOnceAsync();
+        bool completedInTheTransaction = true;
+
+        using IStrongListener after =
+            s.Map(static x => x)
+                .Map(static x => x)
+                .ListenStrong(_ => completedInTheTransaction = task.IsCompleted);
+
+        s.Send(1);
+
+        await Assert.That(completedInTheTransaction).IsFalse();
+        await Assert.That(await task).IsEqualTo(1);
+    }
+
+    // The stream fired, and the transaction failed before the listener of the task ran. An operator
+    // below the stream threw, and each operator comes before the listeners. The value is not from
+    // a transaction that committed, thus the task fails with the exception of that transaction.
+    [Test]
+    public async Task ListenOnceAsync_WhenAnOperatorThrowsAfterTheStreamFired_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromOperator = new("An operator throws.");
+        Task<int> task = s.ListenOnceAsync();
+
+        using IStrongListener other = s.Map<int, int>(_ => throw fromOperator).ListenStrong(static _ => { });
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromOperator);
+    }
+
+    // A listener that came to the stream first runs first. It throws, and the listener of the task
+    // does not run. The stream fired in that transaction, thus the task fails as above.
+    [Test]
+    public async Task ListenOnceAsync_WhenAListenerBeforeItThrows_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+
+        using IStrongListener first = s.ListenStrong(_ => throw fromListener);
+
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // The listener comes to the stream in a transaction in which the stream fired before. The
+    // transaction sends that firing to the new listener at its end, and here it fails before that.
+    [Test]
+    public async Task ListenOnceAsync_WhenItComesAfterTheFiringInATransactionThatFails_FailsTheTask()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromOperator = new("An operator throws.");
+        Task<int>? task = null;
+
+        using IStrongListener other =
+            s.Map(x =>
+                {
+                    task ??= s.ListenOnceAsync();
+
+                    return x;
+                })
+                .Map<int, int>(_ => throw fromOperator)
+                .ListenStrong(static _ => { });
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        Task<int> started = task ?? throw new InvalidOperationException("The map did not run.");
+
+        await Assert.That(started.IsFaulted).IsTrue();
+        await Assert.That(started.Exception?.InnerException).IsSameReferenceAs(fromOperator);
+    }
+
+    // The same listener in a transaction that commits gets the firing that came before it.
+    [Test]
+    public async Task ListenOnceAsync_WhenItComesAfterTheFiringInATransactionThatCommits_GivesThatValue()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int>? task = null;
+
+        using IStrongListener other =
+            s.Map(x =>
+                {
+                    task ??= s.ListenOnceAsync();
+
+                    return x;
+                })
+                .ListenStrong(static _ => { });
+
+        s.Send(1);
+
+        Task<int> started = task ?? throw new InvalidOperationException("The map did not run.");
+
+        await Assert.That(await started).IsEqualTo(1);
+    }
+
+    // A transaction that fails before the stream fires gives the stream no firing, thus the task
+    // waits. The body of a transaction comes before each firing, and so does an operator above the
+    // stream. The next firing completes the task.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheTransactionFailsBeforeTheStreamFires_WaitsForTheNextFiring()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        bool operatorThrows = false;
+
+        // ReSharper disable once AccessToModifiedClosure - The map must read the flag at each firing, and the test
+        // changes it between two sends.
+        Stream<int> s =
+            source.Map(x => operatorThrows ? throw new InvalidOperationException("An operator throws.") : x);
+
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    source.Send(1);
+
+                    throw new InvalidOperationException("The body of the transaction throws.");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsCompleted).IsFalse().Because("the body threw before the stream fired");
+
+        operatorThrows = true;
+
+        await Assert.That(() => source.Send(2)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsCompleted).IsFalse().Because("the operator above the stream threw");
+
+        operatorThrows = false;
+        source.Send(3);
+
+        await Assert.That(await task).IsEqualTo(3);
+    }
+
+    // A posted action runs in a transaction of its own. The firing here is in a posted action
+    // whose transaction fails, thus the task fails with the exception of that transaction.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheFiringIsInAPostedActionWhoseTransactionFails_FailsTheTask()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+        Task<int> task = s.ListenOnceAsync();
+
+        using IStrongListener thrower =
+            s.Map(static x => x).Map(static x => x).ListenStrong(_ => throw fromListener);
+
+        await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => s.Send(1))))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // A posted action that throws does not fail the transaction that posted it, which committed
+    // before the posted action ran. Thus, the transaction committed the value of the stream, and
+    // the task gives it.
+    [Test]
+    public async Task ListenOnceAsync_WhenAPostedActionThrowsAfterTheCommit_GivesTheValue()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    Transaction.Post(static () => throw new InvalidOperationException("The posted action throws."));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(await task).IsEqualTo(1);
+    }
+
+    // A cancellation that arrives in the transaction of the firing, after the listener of the task
+    // ran, comes before the commit. Thus, the task ends as canceled.
+    [Test]
+    public async Task ListenOnceAsync_CanceledInTheTransactionOfTheFiring_IsCanceled()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        using CancellationTokenSource cts = new();
+        Task<int> task = s.ListenOnceAsync(cts.Token);
+
+        // ReSharper disable once AccessToDisposedClosure - The listener runs in the send below, before the disposal.
+        // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8, and this compiles for net472.
+        using IStrongListener after = s.Map(static x => x).Map(static x => x).ListenStrong(_ => cts.Cancel());
+
+        s.Send(1);
+
+        await Assert.That(task.IsCanceled).IsTrue();
+    }
+
     [Test]
     public async Task TestListenAsync()
     {

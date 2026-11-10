@@ -156,6 +156,10 @@ public static class StreamExtensionMethods
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
+    /// <remarks>
+    ///     See <see cref="ListenOnceAsync{T}(Stream{T}, CancellationToken)" /> for a
+    ///     transaction that fails.
+    /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s) => s.ListenOnceAsync(CancellationToken.None);
 
     /// <summary>
@@ -165,11 +169,31 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The task gets the value when the transaction of the firing commits.
+    ///         Thus, the value is always from a transaction that committed. A
+    ///         transaction that fails after the stream fired gives no value: the task
+    ///         fails with the exception of that transaction. That holds also where
+    ///         the transaction fails before the listener runs, for example where an
+    ///         operator below the stream throws.
+    ///     </para>
+    ///     <para>
+    ///         A transaction that fails before the stream fires gives the stream no
+    ///         firing. The body of a transaction and each operator above the stream
+    ///         come before the firing. The task then waits for the next firing.
+    ///     </para>
+    /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s, CancellationToken token)
     {
         TaskCompletionSource<T> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        IStrongListener listener = s.ListenOnceStrong(a => tcs.TrySetResult(a));
+        // The listener gives the outcome of the transaction of the firing: the value after a
+        // commit, and the exception of a transaction that fails. See OnceWithOutcomeAction.
+        IStrongListener listener =
+            s.ListenOnceWithOutcomeStrongImpl(
+                onCommitted: a => tcs.TrySetResult(a),
+                onFailed: e => tcs.TrySetException(e));
 
         if (token.CanBeCanceled)
         {
