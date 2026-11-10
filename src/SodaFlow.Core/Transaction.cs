@@ -58,6 +58,17 @@ internal sealed class TransactionInternal
     // SodaFlow allocates this at the first read of Outcome. A transaction that no code asks about
     // allocates nothing for it.
     private TransactionOutcome? outcome;
+
+    // The posted actions that this transaction runs when it closes, and the splits below with
+    // them. A posted action and a split item each run in a child of the transaction that closes.
+    // The child gets the two queues of that transaction, and no queue of its own. Thus, the work
+    // that a child defers is at the end of each queue, after the count at the start of the child.
+    // A child that fails removes nothing itself. The transaction removes each entry after that
+    // count, and runs the release of each post that it removes. See ExecuteInNewTransaction.
+    //
+    // Before, a child that failed left its posts and its splits in these queues, and they ran.
+    // The first transaction always dropped the work that it deferred, thus the two paths did not
+    // agree.
     private Queue<PostEntry>? postQueue;
     private HashSet<Entry>? rerankEntriesSet;
 
@@ -65,10 +76,18 @@ internal sealed class TransactionInternal
 
     // SodaFlow allocates all of these on first use and not in the constructor. It creates a
     // transaction for each send that is not already in one, and most transactions use only two
-    // of these fields. Thus, eager allocation of all seven fields, and of the dictionary and the
-    // set in particular, was most of the cost of an empty transaction.
+    // of these fields. Thus, eager allocation of all seven fields was most of the cost of an
+    // empty transaction. The set and the split queue were the largest part of that cost.
     private List<SendEntry>? sendQueue;
-    private Dictionary<int, Action<TransactionInternal>>? splitQueue;
+
+    // The splits, in the sequence of their arrival. Close puts the splits of one round in the
+    // sequence of their positions, and runs the splits of one position in one child transaction.
+    //
+    // Before, this was a dictionary from a position to one delegate that joined the splits of
+    // that position. A child had no way to remove its own splits from that delegate. Each round of
+    // splits also allocated a dictionary and an array of its keys. Each split after the first at
+    // one position allocated a larger delegate.
+    private List<SplitEntry>? splitQueue;
     private List<Node.Target>? targetsToActivate;
 
     private TransactionInternal()
@@ -76,11 +95,13 @@ internal sealed class TransactionInternal
     }
 
     // A child is made in the Close of its parent, thus this thread holds the transaction lock.
-    private TransactionInternal(TransactionInternal deferredOwner)
+    // It gets the two queues of that parent, and holds no reference to the parent. See postQueue.
+    private TransactionInternal(Queue<PostEntry>? postQueue, List<SplitEntry>? splitQueue)
     {
-        this.DeferredOwner = deferredOwner;
         this.hasParentTransaction = true;
         this.Id = ++nextId;
+        this.postQueue = postQueue;
+        this.splitQueue = splitQueue;
     }
 
     /// <summary>
@@ -91,12 +112,6 @@ internal sealed class TransactionInternal
     ///     holds the lock. It is never zero.
     /// </summary>
     internal long Id { get; private set; }
-
-    // The root transaction owns the post queue and the split queue. It shares them with the
-    // child transactions that it creates as it closes. Thus, work that a deferred action defers
-    // goes into the queue that the root still drains. A child reaches these queues through
-    // deferredOwner and does not hold its own.
-    private TransactionInternal DeferredOwner => field ?? this;
 
     /// <summary>
     ///     Tells you if there is a current transaction.
@@ -478,13 +493,8 @@ internal sealed class TransactionInternal
     ///     The action to run where <paramref name="action" /> keeps no promise, with
     ///     the exception that is the cause. Null where the caller gave none.
     /// </param>
-    private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure)
-    {
-        TransactionInternal owner = this.DeferredOwner;
-
-        (owner.postQueue ?? (owner.postQueue = new Queue<PostEntry>()))
-            .Enqueue(new PostEntry(action: action, onFailure: onFailure));
-    }
+    private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure) =>
+        (this.postQueue ??= new Queue<PostEntry>()).Enqueue(new PostEntry(action: action, onFailure: onFailure));
 
     // Runs one release and answers with its own exception, or with null. A throw from a release
     // must not replace the exception that caused it, and must not stop the releases after it.
@@ -509,24 +519,9 @@ internal sealed class TransactionInternal
     /// <param name="action">The action to run after all last actions.</param>
     internal void Split(int index, Action<TransactionInternal> action)
     {
-        TransactionInternal owner = this.DeferredOwner;
+        List<SplitEntry> queue = this.splitQueue ??= [];
 
-        Dictionary<int, Action<TransactionInternal>> queue =
-            owner.splitQueue ?? (owner.splitQueue = new Dictionary<int, Action<TransactionInternal>>());
-
-        // If an entry is present, put the old entry and the new entry together.
-        Action<TransactionInternal> @new;
-
-        if (queue.TryGetValue(key: index, value: out Action<TransactionInternal>? existing))
-        {
-            @new = existing + action;
-        }
-        else
-        {
-            @new = action;
-        }
-
-        queue[index] = @new;
+        queue.Add(new SplitEntry(index: index, sequence: queue.Count, action: action));
     }
 
     /// <summary>
@@ -680,15 +675,25 @@ internal sealed class TransactionInternal
 
             if (!this.hasParentTransaction)
             {
-                void ExecuteInNewTransaction(Action<TransactionInternal> action, bool runStartHooks)
+                // Runs one posted action, or the splits of one position, in a child transaction.
+                // A caller gives the action, or the list with the range of the splits.
+                void ExecuteInNewTransaction(
+                    Action<TransactionInternal>? action,
+                    // ReSharper disable once SuggestBaseTypeForParameter - The one caller gives the list, and the
+                    // indexer of a List<T> costs less than a call through an interface.
+                    List<SplitEntry>? splits,
+                    int first,
+                    int end,
+                    bool runStartHooks)
                 {
+                    // The child puts the work that it defers after these counts. See postQueue.
+                    int firstPost = this.postQueue?.Count ?? 0;
+                    int firstSplit = this.splitQueue?.Count ?? 0;
+
+                    TransactionInternal transaction = new(postQueue: this.postQueue, splitQueue: this.splitQueue);
+
                     try
                     {
-                        // The child defers into the queues of this transaction. Thus, a Post
-                        // or a Split from inside a deferred action joins the drain that runs
-                        // here, and does not stay on the child.
-                        TransactionInternal transaction = new(this);
-
                         if (!runStartHooks)
                         {
                             // This prevents the start hooks from running.
@@ -705,7 +710,20 @@ internal sealed class TransactionInternal
                         // that one runs through Apply.
                         try
                         {
-                            action(transaction);
+                            if (action != null)
+                            {
+                                action(transaction);
+                            }
+                            else if (splits != null)
+                            {
+                                // One transaction for the splits of one position, in the sequence
+                                // of their arrival. A throw from one stops the splits after it,
+                                // as it did when one delegate joined them.
+                                for (int i = first; i < end; i++)
+                                {
+                                    splits[i].Action(transaction);
+                                }
+                            }
                         }
                         catch (Exception actionException)
                         {
@@ -721,11 +739,33 @@ internal sealed class TransactionInternal
 
                         transaction.Close();
                     }
+                    catch (Exception childFailure)
+                    {
+                        this.TakeQueuesOf(transaction);
+
+                        Exception toThrow =
+                            this.DropChildWork(firstPost: firstPost, firstSplit: firstSplit, cause: childFailure);
+
+                        if (ReferenceEquals(objA: toThrow, objB: childFailure))
+                        {
+                            throw;
+                        }
+
+                        throw toThrow;
+                    }
                     finally
                     {
                         localTransaction = this;
                     }
+
+                    // The child committed. The queues hold its posts and its splits, and the
+                    // drain here runs them.
+                    this.TakeQueuesOf(transaction);
                 }
+
+                // The list of the round before, empty, for the splits of the next round. The
+                // drain uses two lists in turn, thus a chain of rounds allocates no more.
+                List<SplitEntry>? spareSplits = null;
 
                 while (this.postQueue?.Count > 0 || this.splitQueue?.Count > 0)
                 {
@@ -735,7 +775,12 @@ internal sealed class TransactionInternal
 
                         try
                         {
-                            ExecuteInNewTransaction(action: entry.Action, runStartHooks: true);
+                            ExecuteInNewTransaction(
+                                action: entry.Action,
+                                splits: null,
+                                first: 0,
+                                end: 0,
+                                runStartHooks: true);
                         }
                         catch (Exception e)
                         {
@@ -751,43 +796,49 @@ internal sealed class TransactionInternal
                         }
                     }
 
-                    Dictionary<int, Action<TransactionInternal>>? sq = this.splitQueue;
-                    this.splitQueue = null;
+                    List<SplitEntry>? round = this.splitQueue;
 
-                    if (sq != null)
+                    if (round == null || round.Count == 0)
                     {
-                        // This uses an array and not a List. SodaFlow copies the keys at
-                        // their final size in the two conditions, thus a List adds only its own
-                        // object to the backing array that it must allocate. Array.Sort is the
-                        // same intro-sort that List.Sort calls, and a foreach on either one
-                        // allocates nothing. At 4, 16, and 64 entries the List cost 32 more
-                        // bytes each time, which is the size of the List.
-                        //
-                        // Do not use OrderBy(o => o.Key) to prevent the lookups below. It
-                        // cannot sort without a copy. It makes a KeyValuePair buffer at sixteen
-                        // bytes for each entry against four bytes here, an array of the
-                        // extracted keys, an index map to keep the sort stable, and an
-                        // enumerator class. That measured 384, 672, and 1824 bytes against 40,
-                        // 88, and 280 bytes for the array, and was slower at each size: 106ns
-                        // against 83ns at four entries, and 1639ns against 473ns at
-                        // sixty-four. These lookups on int keys cost less than their
-                        // prevention.
-                        int[] splitIndexes = new int[sq.Count];
-                        sq.Keys.CopyTo(array: splitIndexes, index: 0);
-                        Array.Sort(splitIndexes);
-
-                        foreach (int n in splitIndexes)
-                        {
-                            try
-                            {
-                                ExecuteInNewTransaction(action: sq[n], runStartHooks: false);
-                            }
-                            catch (Exception e)
-                            {
-                                (deferredFailures ??= []).Add(e);
-                            }
-                        }
+                        continue;
                     }
+
+                    // The children of this round put their splits in the other list, and the
+                    // next round runs those.
+                    this.splitQueue = spareSplits;
+
+                    SortByPosition(round);
+
+                    for (int groupStart = 0; groupStart < round.Count;)
+                    {
+                        int groupEnd = groupStart + 1;
+
+                        while (groupEnd < round.Count && round[groupEnd].Index == round[groupStart].Index)
+                        {
+                            groupEnd++;
+                        }
+
+                        try
+                        {
+                            ExecuteInNewTransaction(
+                                action: null,
+                                splits: round,
+                                first: groupStart,
+                                end: groupEnd,
+                                runStartHooks: false);
+                        }
+                        catch (Exception e)
+                        {
+                            (deferredFailures ??= []).Add(e);
+                        }
+
+                        groupStart = groupEnd;
+                    }
+
+                    // Clear and not null. The list holds the actions of the round, and the next
+                    // round uses it again.
+                    round.Clear();
+                    spareSplits = round;
                 }
             }
         }
@@ -837,9 +888,13 @@ internal sealed class TransactionInternal
         // The releases come first. Each entry that remains here kept no promise, because this
         // transaction stops before it runs, and the queues below hold that deferred work. An
         // entry that ran, and an entry that threw, are out of the queue and are not here.
+        //
+        // A child holds the queues of its root, and the posts of the root and of each other child
+        // are in them. Thus, a child releases nothing here. Its root removes what the child added,
+        // and runs those releases. See DropChildWork.
         List<Exception>? failureExceptions = null;
 
-        while (this.postQueue?.Count > 0)
+        while (!this.hasParentTransaction && this.postQueue?.Count > 0)
         {
             Action<Exception>? onFailure = this.postQueue.Dequeue().OnFailure;
 
@@ -892,9 +947,13 @@ internal sealed class TransactionInternal
 
         this.afterLastQueue = null;
 
-        this.postQueue = null;
-
-        this.splitQueue = null;
+        // A child keeps the two fields. Its root reads them after this, for a queue that the
+        // child made. See TakeQueuesOf.
+        if (!this.hasParentTransaction)
+        {
+            this.postQueue = null;
+            this.splitQueue = null;
+        }
 
         if (failureExceptions == null)
         {
@@ -907,6 +966,99 @@ internal sealed class TransactionInternal
         failureExceptions.Insert(index: 0, item: transactionException);
 
         return new AggregateException(failureExceptions);
+    }
+
+    // A child that found no queue here made one for itself. This transaction keeps that queue as
+    // its own. Thus, the drain finds the work of that child, and each child after it adds to the
+    // same queue.
+    private void TakeQueuesOf(TransactionInternal child)
+    {
+        this.postQueue ??= child.postQueue;
+        this.splitQueue ??= child.splitQueue;
+    }
+
+    // Removes from the two queues each entry after the counts at the start of a child, because
+    // the child failed. Each post that goes kept no promise, thus its release runs, with the
+    // failure of the child as the cause. Gives the exception to throw, as Discard does: the
+    // cause, or an AggregateException with the cause first when a release threw.
+    private Exception DropChildWork(int firstPost, int firstSplit, Exception cause)
+    {
+        List<Exception>? failureExceptions = null;
+        Queue<PostEntry>? posts = this.postQueue;
+
+        // A release can post, and that post goes to the end of this queue. Thus, this continues
+        // until the queue holds only the posts from before the child.
+        while (posts != null && posts.Count > firstPost)
+        {
+            // A queue gives no access to its end. This removes each entry. It adds the entries
+            // from before the child again, in their sequence, and releases the others. A child
+            // fails rarely, thus this read of the full queue is not a cost of the usual path.
+            int count = posts.Count;
+
+            for (int i = 0; i < count; i++)
+            {
+                PostEntry entry = posts.Dequeue();
+
+                if (i < firstPost)
+                {
+                    posts.Enqueue(entry);
+
+                    continue;
+                }
+
+                if (entry.OnFailure != null && RunRelease(onFailure: entry.OnFailure, cause: cause) is { } release)
+                {
+                    (failureExceptions ??= []).Add(release);
+                }
+            }
+        }
+
+        if (this.splitQueue is { } splits && splits.Count > firstSplit)
+        {
+            splits.RemoveRange(index: firstSplit, count: splits.Count - firstSplit);
+        }
+
+        if (failureExceptions == null)
+        {
+            return cause;
+        }
+
+        failureExceptions.Insert(index: 0, item: cause);
+
+        return new AggregateException(failureExceptions);
+    }
+
+    // Puts the splits of one round in the sequence of their positions, and keeps the sequence of
+    // arrival for one position. One split gives its items in the sequence of their positions.
+    // Thus, the usual round needs no sort, and the test for that allocates nothing.
+    private static void SortByPosition(List<SplitEntry> round)
+    {
+        for (int i = 1; i < round.Count; i++)
+        {
+            if (round[i].Index < round[i - 1].Index)
+            {
+                round.Sort(SplitEntry.ByPosition);
+
+                return;
+            }
+        }
+    }
+
+    // One split: the position of its item, its number in the sequence of arrival, and the action
+    // that sends the item. A readonly struct of sixteen bytes, because a transaction makes one for
+    // each item of each split.
+    private readonly struct SplitEntry(in int index, in int sequence, in Action<TransactionInternal> action)
+    {
+        // The sort of the list is not stable, thus the sequence of arrival is part of the key.
+        // One delegate for the process: a sort then allocates no delegate.
+        internal static readonly Comparison<SplitEntry> ByPosition =
+            static (x, y) => x.Index != y.Index ? x.Index.CompareTo(y.Index) : x.sequence.CompareTo(y.sequence);
+
+        private readonly int sequence = sequence;
+
+        public int Index { get; } = index;
+
+        public Action<TransactionInternal> Action { get; } = action;
     }
 
     // One posted action, with the action to run where the posted one keeps no promise. A readonly

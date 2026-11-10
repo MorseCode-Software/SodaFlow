@@ -26,6 +26,9 @@ package, and its notes have the details of each:
 - A transaction that fails no longer cancels anything through cancelAll or cancelMatching. The cancel now runs once the
   transaction that fired the stream has committed. An exception from a callback registered on an operation's token goes
   to handleException, and no longer stops the rest of the items from being canceled.
+- An Execute in a transaction that fails cancels its Task and admits nothing, however the transaction fails. Before, a
+  throw from the body of the transaction still admitted the value, and so did a failure of a posted action that made the
+  call.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.

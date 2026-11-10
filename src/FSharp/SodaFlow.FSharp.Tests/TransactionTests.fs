@@ -88,6 +88,28 @@ type ``Transaction Tests``() =
             do! Expect.Equal(0, cell |> sampleC)
         }
 
+    /// A transaction that fails drops the actions that it posted, and a posted action runs in a
+    /// transaction of its own. Thus, a posted action that throws runs none of its posts.
+    [<Test>]
+    member _.``A posted action that throws runs none of its posts``() =
+        task {
+            let mutable ran = false
+
+            let thrown =
+                try
+                    runT (fun () ->
+                        Transaction.post (fun () ->
+                            Transaction.post (fun () -> ran <- true)
+                            raise (InvalidOperationException "post")))
+
+                    false
+                with :? InvalidOperationException ->
+                    true
+
+            do! Expect.True thrown
+            do! Expect.False ran
+        }
+
     [<Test>]
     member _.Post() =
         task {

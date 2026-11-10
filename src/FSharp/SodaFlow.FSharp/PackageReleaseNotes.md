@@ -63,6 +63,10 @@ Transaction.run no longer allocates a closure and a delegate of its own. With So
 a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
 the rest.
 
+Operational.defer and Operational.split allocate less with SodaFlow.Core 6.0.0, which keeps the splits of a transaction
+in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
+elements 8,720 to 7,208; the core notes have the rest.
+
 Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
 takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local
 time moves with the machine's clock at a daylight saving change, and a wait across that change waits for the wrong
@@ -89,6 +93,9 @@ that reach this package, and its notes have the details of each:
   cell of higher rank than its output.
 - A long chain of operations no longer crashes the process with a stack overflow when a link raises the rank of every
   node in it, as closing a loop over a chain of 10,000 maps did.
+- A posted action, or an element of Operational.split, whose transaction fails no longer leaves behind what it deferred.
+  The actions it posted do not run, the release of each one does, and the values it sent through defer or split do not
+  arrive.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
