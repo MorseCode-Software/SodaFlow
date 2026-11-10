@@ -2523,15 +2523,22 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>
     ///     The expressions that a block returns, without those of a nested
-    ///     function.
+    ///     function. An iterator returns a sequence of the values that it yields.
+    ///     A sequence has the state of its elements, thus those values are here
+    ///     also.
     /// </summary>
     public static IEnumerable<ExpressionSyntax> ReturnExpressions(SyntaxNode body) =>
         body.DescendantNodes(
                 descendIntoChildren: static n =>
                     n is not (AnonymousFunctionExpressionSyntax
                         or LocalFunctionStatementSyntax))
-            .OfType<ReturnStatementSyntax>()
-            .Select(static r => r.Expression)
+            .Select(static statement =>
+                statement switch
+                {
+                    ReturnStatementSyntax returned => returned.Expression,
+                    YieldStatementSyntax yielded => yielded.Expression,
+                    _ => null
+                })
             .OfType<ExpressionSyntax>();
 
     private LoopState JoinAll(IEnumerable<ExpressionSyntax?> expressions) =>

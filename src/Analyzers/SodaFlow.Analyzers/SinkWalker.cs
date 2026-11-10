@@ -236,9 +236,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         this.Report(enumerator);
 
-        if (enumerator?.State.Members == null)
+        if (enumerator == null)
         {
             return LoopState.None;
+        }
+
+        // An iterator has no enumerator object of this compilation, and a method can give the
+        // enumerator of a collection of the platform. The result then has the state of the
+        // elements.
+        if (enumerator.State.Members?.Is(start.ReturnType) != true)
+        {
+            return enumerator.State;
         }
 
         if (calls.MoveNextMethod is { } next)

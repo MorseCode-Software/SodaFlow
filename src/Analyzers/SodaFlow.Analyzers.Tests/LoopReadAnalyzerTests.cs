@@ -239,7 +239,8 @@ internal sealed class LoopReadAnalyzerTests
             ["DisposeInAUsingDeclaration"] = ["SF1005"],
             ["ForEachOverAnEnumerableOfThisCode"] = ["SF1005"],
             ["ForEachOverAnEnumeratorOfThisCode"] = ["SF1005"],
-            ["AddInACollectionInitializer"] = ["SF1005"]
+            ["AddInACollectionInitializer"] = ["SF1005"],
+            ["ForEachOverAnIteratorOfCells"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

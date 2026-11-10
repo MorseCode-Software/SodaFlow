@@ -2491,6 +2491,15 @@ public static class Shapes
     public static Cell<int> ForEachOverAListOfSequences() =>
         Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Sack> sacks = new List<Sack> { new(l.Map(v => v)) }; int n = 0; foreach (Sack sack in sacks) { Kept.Add(sack); n++; } return S.Hold(n); });
 
+    // S318. A foreach over a sequence of this file whose iterator gives a pending cell. The body samples
+    // the cell.
+    public static Cell<int> ForEachOverAnIteratorOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(l.Map(v => v)); int t = 0; foreach (Cell<int> c in cells) { t += c.Sample(); } return S.Hold(t); });
+
+    // S319. The same with a plain cell.
+    public static Cell<int> ForEachOverAnIteratorOfPlainCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSack cells = new(Plain); int t = 0; foreach (Cell<int> c in cells) { t += c.Sample(); } return S.Snapshot(l, (a, b) => a + b + t).Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -2848,6 +2857,16 @@ public static class Shapes
         public IEnumerator<int> GetEnumerator()
         {
             yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class CellSack(Cell<int> share) : IEnumerable<Cell<int>>
+    {
+        public IEnumerator<Cell<int>> GetEnumerator()
+        {
+            yield return share;
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
