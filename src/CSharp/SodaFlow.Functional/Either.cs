@@ -725,6 +725,43 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the two functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -746,6 +783,52 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
 
             case 2:
                 onSecond(this.value2!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the two actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
 
                 break;
 
@@ -1170,6 +1253,48 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the three functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -1200,6 +1325,61 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
 
             case 3:
                 onThird(this.value3!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the three actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
 
                 break;
 
@@ -1728,6 +1908,53 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the four functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird,
+        [InstantHandle] Func<TState, T4, T> onFourth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            4 => onFourth(arg1: state, arg2: this.value4!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -1765,6 +1992,70 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
 
             case 4:
                 onFourth(this.value4!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the four actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird,
+        [InstantHandle] Action<TState, T4> onFourth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(arg1: state, arg2: this.value4!);
 
                 break;
 
@@ -2468,6 +2759,58 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the five functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird,
+        [InstantHandle] Func<TState, T4, T> onFourth,
+        [InstantHandle] Func<TState, T5, T> onFifth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            4 => onFourth(arg1: state, arg2: this.value4!),
+            5 => onFifth(arg1: state, arg2: this.value5!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -2512,6 +2855,79 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
 
             case 5:
                 onFifth(this.value5!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the five actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird,
+        [InstantHandle] Action<TState, T4> onFourth,
+        [InstantHandle] Action<TState, T5> onFifth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(arg1: state, arg2: this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(arg1: state, arg2: this.value5!);
 
                 break;
 
@@ -3358,6 +3774,63 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the six functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird,
+        [InstantHandle] Func<TState, T4, T> onFourth,
+        [InstantHandle] Func<TState, T5, T> onFifth,
+        [InstantHandle] Func<TState, T6, T> onSixth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            4 => onFourth(arg1: state, arg2: this.value4!),
+            5 => onFifth(arg1: state, arg2: this.value5!),
+            6 => onSixth(arg1: state, arg2: this.value6!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -3409,6 +3882,88 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
 
             case 6:
                 onSixth(this.value6!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the six actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird,
+        [InstantHandle] Action<TState, T4> onFourth,
+        [InstantHandle] Action<TState, T5> onFifth,
+        [InstantHandle] Action<TState, T6> onSixth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(arg1: state, arg2: this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(arg1: state, arg2: this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(arg1: state, arg2: this.value6!);
 
                 break;
 
@@ -4420,6 +4975,68 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the seven functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <param name="onSeventh">
+    ///     Run with the state and the value when the seventh case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird,
+        [InstantHandle] Func<TState, T4, T> onFourth,
+        [InstantHandle] Func<TState, T5, T> onFifth,
+        [InstantHandle] Func<TState, T6, T> onSixth,
+        [InstantHandle] Func<TState, T7, T> onSeventh) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            4 => onFourth(arg1: state, arg2: this.value4!),
+            5 => onFifth(arg1: state, arg2: this.value5!),
+            6 => onSixth(arg1: state, arg2: this.value6!),
+            7 => onSeventh(arg1: state, arg2: this.value7!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -4478,6 +5095,97 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
 
             case 7:
                 onSeventh(this.value7!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the seven actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <param name="onSeventh">
+    ///     Run with the state and the value when the seventh case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird,
+        [InstantHandle] Action<TState, T4> onFourth,
+        [InstantHandle] Action<TState, T5> onFifth,
+        [InstantHandle] Action<TState, T6> onSixth,
+        [InstantHandle] Action<TState, T7> onSeventh)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(arg1: state, arg2: this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(arg1: state, arg2: this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(arg1: state, arg2: this.value6!);
+
+                break;
+
+            case 7:
+                onSeventh(arg1: state, arg2: this.value7!);
 
                 break;
 
@@ -5665,6 +6373,73 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
             _ => throw Either.NoCase()
         };
 
+    /// <summary>
+    ///     Runs one of the eight functions depending on which case is held, gives it a
+    ///     state, and returns its result.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="T">The type each of the functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <param name="onSeventh">
+    ///     Run with the state and the value when the seventh case is held.
+    /// </param>
+    /// <param name="onEighth">
+    ///     Run with the state and the value when the eighth case is held.
+    /// </param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public T Match<TState, T>(
+        TState state,
+        [InstantHandle] Func<TState, T1, T> onFirst,
+        [InstantHandle] Func<TState, T2, T> onSecond,
+        [InstantHandle] Func<TState, T3, T> onThird,
+        [InstantHandle] Func<TState, T4, T> onFourth,
+        [InstantHandle] Func<TState, T5, T> onFifth,
+        [InstantHandle] Func<TState, T6, T> onSixth,
+        [InstantHandle] Func<TState, T7, T> onSeventh,
+        [InstantHandle] Func<TState, T8, T> onEighth) =>
+        this.valueType switch
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            1 => onFirst(arg1: state, arg2: this.value1!),
+            2 => onSecond(arg1: state, arg2: this.value2!),
+            3 => onThird(arg1: state, arg2: this.value3!),
+            4 => onFourth(arg1: state, arg2: this.value4!),
+            5 => onFifth(arg1: state, arg2: this.value5!),
+            6 => onSixth(arg1: state, arg2: this.value6!),
+            7 => onSeventh(arg1: state, arg2: this.value7!),
+            8 => onEighth(arg1: state, arg2: this.value8!),
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            _ => throw Either.NoCase()
+        };
+
     #endregion
 
     #region Helper Methods
@@ -5730,6 +6505,106 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
 
             case 8:
                 onEighth(this.value8!);
+
+                break;
+
+            // ReSharper restore NullableWarningSuppressionIsUsed
+            default:
+                throw Either.NoCase();
+        }
+    }
+
+    /// <summary>
+    ///     Runs one of the eight actions depending on which case is held, and gives it a
+    ///     state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onFirst">
+    ///     Run with the state and the value when the first case is held.
+    /// </param>
+    /// <param name="onSecond">
+    ///     Run with the state and the value when the second case is held.
+    /// </param>
+    /// <param name="onThird">
+    ///     Run with the state and the value when the third case is held.
+    /// </param>
+    /// <param name="onFourth">
+    ///     Run with the state and the value when the fourth case is held.
+    /// </param>
+    /// <param name="onFifth">
+    ///     Run with the state and the value when the fifth case is held.
+    /// </param>
+    /// <param name="onSixth">
+    ///     Run with the state and the value when the sixth case is held.
+    /// </param>
+    /// <param name="onSeventh">
+    ///     Run with the state and the value when the seventh case is held.
+    /// </param>
+    /// <param name="onEighth">
+    ///     Run with the state and the value when the eighth case is held.
+    /// </param>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     This instance is a default instance, which holds no case.
+    /// </exception>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T1> onFirst,
+        [InstantHandle] Action<TState, T2> onSecond,
+        [InstantHandle] Action<TState, T3> onThird,
+        [InstantHandle] Action<TState, T4> onFourth,
+        [InstantHandle] Action<TState, T5> onFifth,
+        [InstantHandle] Action<TState, T6> onSixth,
+        [InstantHandle] Action<TState, T7> onSeventh,
+        [InstantHandle] Action<TState, T8> onEighth)
+    {
+        switch (this.valueType)
+        {
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
+            // a value.
+            case 1:
+                onFirst(arg1: state, arg2: this.value1!);
+
+                break;
+
+            case 2:
+                onSecond(arg1: state, arg2: this.value2!);
+
+                break;
+
+            case 3:
+                onThird(arg1: state, arg2: this.value3!);
+
+                break;
+
+            case 4:
+                onFourth(arg1: state, arg2: this.value4!);
+
+                break;
+
+            case 5:
+                onFifth(arg1: state, arg2: this.value5!);
+
+                break;
+
+            case 6:
+                onSixth(arg1: state, arg2: this.value6!);
+
+                break;
+
+            case 7:
+                onSeventh(arg1: state, arg2: this.value7!);
+
+                break;
+
+            case 8:
+                onEighth(arg1: state, arg2: this.value8!);
 
                 break;
 

@@ -415,6 +415,662 @@ public sealed class EitherTests
             .IsEqualTo(Either<string, string>.First("2"));
     }
 
+    // The overloads with a state. Each test makes one value of each case. Thus, code that runs for
+    // a different case gives a different text.
+    [Test]
+    public async Task Either2MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either<int, int>[] cases =
+        [
+            Either<int, int>.First(1),
+            Either<int, int>.Second(2)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected: ["s first 1", "s second 2"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either<int, int>).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either2MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either<int, int>[] cases =
+        [
+            Either<int, int>.First(1),
+            Either<int, int>.Second(2)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either<int, int> e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either<int, int>).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either3MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either3[] cases =
+        [
+            Either3.First(1),
+            Either3.Second(2),
+            Either3.Third(3)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected: ["s first 1", "s second 2", "s third 3"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either3).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either3MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either3[] cases =
+        [
+            Either3.First(1),
+            Either3.Second(2),
+            Either3.Third(3)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either3 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either3).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either4MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either4[] cases =
+        [
+            Either4.First(1),
+            Either4.Second(2),
+            Either4.Third(3),
+            Either4.Fourth(4)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}",
+                    onFourth: static (state, v) => $"{state} fourth {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected: ["s first 1", "s second 2", "s third 3", "s fourth 4"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either4).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0,
+                    onFourth: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either4MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either4[] cases =
+        [
+            Either4.First(1),
+            Either4.Second(2),
+            Either4.Third(3),
+            Either4.Fourth(4)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either4 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"),
+                onFourth: static (list, v) => list.Add($"fourth {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either4).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { },
+                    onFourth: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either5MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either5[] cases =
+        [
+            Either5.First(1),
+            Either5.Second(2),
+            Either5.Third(3),
+            Either5.Fourth(4),
+            Either5.Fifth(5)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}",
+                    onFourth: static (state, v) => $"{state} fourth {v}",
+                    onFifth: static (state, v) => $"{state} fifth {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected: ["s first 1", "s second 2", "s third 3", "s fourth 4", "s fifth 5"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either5).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0,
+                    onFourth: static (_, _) => 0,
+                    onFifth: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either5MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either5[] cases =
+        [
+            Either5.First(1),
+            Either5.Second(2),
+            Either5.Third(3),
+            Either5.Fourth(4),
+            Either5.Fifth(5)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either5 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"),
+                onFourth: static (list, v) => list.Add($"fourth {v}"),
+                onFifth: static (list, v) => list.Add($"fifth {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either5).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { },
+                    onFourth: static (_, _) => { },
+                    onFifth: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either6MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either6[] cases =
+        [
+            Either6.First(1),
+            Either6.Second(2),
+            Either6.Third(3),
+            Either6.Fourth(4),
+            Either6.Fifth(5),
+            Either6.Sixth(6)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}",
+                    onFourth: static (state, v) => $"{state} fourth {v}",
+                    onFifth: static (state, v) => $"{state} fifth {v}",
+                    onSixth: static (state, v) => $"{state} sixth {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected: ["s first 1", "s second 2", "s third 3", "s fourth 4", "s fifth 5", "s sixth 6"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either6).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0,
+                    onFourth: static (_, _) => 0,
+                    onFifth: static (_, _) => 0,
+                    onSixth: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either6MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either6[] cases =
+        [
+            Either6.First(1),
+            Either6.Second(2),
+            Either6.Third(3),
+            Either6.Fourth(4),
+            Either6.Fifth(5),
+            Either6.Sixth(6)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either6 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"),
+                onFourth: static (list, v) => list.Add($"fourth {v}"),
+                onFifth: static (list, v) => list.Add($"fifth {v}"),
+                onSixth: static (list, v) => list.Add($"sixth {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either6).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { },
+                    onFourth: static (_, _) => { },
+                    onFifth: static (_, _) => { },
+                    onSixth: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either7MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either7[] cases =
+        [
+            Either7.First(1),
+            Either7.Second(2),
+            Either7.Third(3),
+            Either7.Fourth(4),
+            Either7.Fifth(5),
+            Either7.Sixth(6),
+            Either7.Seventh(7)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}",
+                    onFourth: static (state, v) => $"{state} fourth {v}",
+                    onFifth: static (state, v) => $"{state} fifth {v}",
+                    onSixth: static (state, v) => $"{state} sixth {v}",
+                    onSeventh: static (state, v) => $"{state} seventh {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected:
+                [
+                    "s first 1", "s second 2", "s third 3", "s fourth 4",
+                    "s fifth 5", "s sixth 6", "s seventh 7"
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either7).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0,
+                    onFourth: static (_, _) => 0,
+                    onFifth: static (_, _) => 0,
+                    onSixth: static (_, _) => 0,
+                    onSeventh: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either7MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either7[] cases =
+        [
+            Either7.First(1),
+            Either7.Second(2),
+            Either7.Third(3),
+            Either7.Fourth(4),
+            Either7.Fifth(5),
+            Either7.Sixth(6),
+            Either7.Seventh(7)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either7 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"),
+                onFourth: static (list, v) => list.Add($"fourth {v}"),
+                onFifth: static (list, v) => list.Add($"fifth {v}"),
+                onSixth: static (list, v) => list.Add($"sixth {v}"),
+                onSeventh: static (list, v) => list.Add($"seventh {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either7).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { },
+                    onFourth: static (_, _) => { },
+                    onFifth: static (_, _) => { },
+                    onSixth: static (_, _) => { },
+                    onSeventh: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either8MatchWithAStateGivesTheStateAndTheValueToTheFunctionOfTheCase()
+    {
+        Either8[] cases =
+        [
+            Either8.First(1),
+            Either8.Second(2),
+            Either8.Third(3),
+            Either8.Fourth(4),
+            Either8.Fifth(5),
+            Either8.Sixth(6),
+            Either8.Seventh(7),
+            Either8.Eighth(8)
+        ];
+
+        string[] results =
+        [
+            .. cases.Select(static e =>
+                e.Match(
+                    state: "s",
+                    onFirst: static (state, v) => $"{state} first {v}",
+                    onSecond: static (state, v) => $"{state} second {v}",
+                    onThird: static (state, v) => $"{state} third {v}",
+                    onFourth: static (state, v) => $"{state} fourth {v}",
+                    onFifth: static (state, v) => $"{state} fifth {v}",
+                    onSixth: static (state, v) => $"{state} sixth {v}",
+                    onSeventh: static (state, v) => $"{state} seventh {v}",
+                    onEighth: static (state, v) => $"{state} eighth {v}"))
+        ];
+
+        await Assert.That(results)
+            .IsEquivalentTo(
+                expected:
+                [
+                    "s first 1", "s second 2", "s third 3", "s fourth 4",
+                    "s fifth 5", "s sixth 6", "s seventh 7", "s eighth 8"
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either8).Match(
+                    state: 0,
+                    onFirst: static (_, _) => 0,
+                    onSecond: static (_, _) => 0,
+                    onThird: static (_, _) => 0,
+                    onFourth: static (_, _) => 0,
+                    onFifth: static (_, _) => 0,
+                    onSixth: static (_, _) => 0,
+                    onSeventh: static (_, _) => 0,
+                    onEighth: static (_, _) => 0))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task Either8MatchVoidWithAStateRunsTheActionOfTheCase()
+    {
+        Either8[] cases =
+        [
+            Either8.First(1),
+            Either8.Second(2),
+            Either8.Third(3),
+            Either8.Fourth(4),
+            Either8.Fifth(5),
+            Either8.Sixth(6),
+            Either8.Seventh(7),
+            Either8.Eighth(8)
+        ];
+
+        List<string> ran = [];
+
+        foreach (Either8 e in cases)
+        {
+            e.MatchVoid(
+                state: ran,
+                onFirst: static (list, v) => list.Add($"first {v}"),
+                onSecond: static (list, v) => list.Add($"second {v}"),
+                onThird: static (list, v) => list.Add($"third {v}"),
+                onFourth: static (list, v) => list.Add($"fourth {v}"),
+                onFifth: static (list, v) => list.Add($"fifth {v}"),
+                onSixth: static (list, v) => list.Add($"sixth {v}"),
+                onSeventh: static (list, v) => list.Add($"seventh {v}"),
+                onEighth: static (list, v) => list.Add($"eighth {v}"));
+        }
+
+        await Assert.That(ran)
+            .IsEquivalentTo(
+                expected: ["first 1", "second 2", "third 3", "fourth 4", "fifth 5", "sixth 6", "seventh 7", "eighth 8"],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(static () =>
+                default(Either8).MatchVoid(
+                    state: 0,
+                    onFirst: static (_, _) => { },
+                    onSecond: static (_, _) => { },
+                    onThird: static (_, _) => { },
+                    onFourth: static (_, _) => { },
+                    onFifth: static (_, _) => { },
+                    onSixth: static (_, _) => { },
+                    onSeventh: static (_, _) => { },
+                    onEighth: static (_, _) => { }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+#if NET
+    // See TheOverloadsWithAStateAllocateNothing in MaybeTests for the guard, the purpose, and the
+    // argument.
+    [Test]
+    [Arguments(10)]
+    public async Task TheEitherOverloadsWithAStateAllocateNothing(int offset)
+    {
+        const int calls = 1000;
+        Either<int, int> two = Either<int, int>.Second(2);
+        Either8 eight = Either8.Eighth(8);
+        int[] total = [0];
+        long sum = 0;
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += WithAState(two: two, eight: eight, offset: offset, total: total);
+            sum += two.Match(onFirst: v => v + offset, onSecond: v => v - offset);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += WithAState(two: two, eight: eight, offset: offset, total: total);
+        }
+
+        long withAState = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += two.Match(onFirst: v => v + offset, onSecond: v => v - offset);
+        }
+
+        long withACapture = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(withAState).IsEqualTo(0);
+        await Assert.That(withACapture).IsGreaterThan(0);
+        await Assert.That(sum).IsNotEqualTo(0);
+
+        return;
+
+        static int WithAState(Either<int, int> two, Either8 eight, int offset, int[] total)
+        {
+            two.MatchVoid(
+                state: total,
+                onFirst: static (state, v) => state[0] += v,
+                onSecond: static (state, v) => state[0] -= v);
+
+            eight.MatchVoid(
+                state: total,
+                onFirst: static (state, v) => state[0] += v,
+                onSecond: static (state, v) => state[0] += v,
+                onThird: static (state, v) => state[0] += v,
+                onFourth: static (state, v) => state[0] += v,
+                onFifth: static (state, v) => state[0] += v,
+                onSixth: static (state, v) => state[0] += v,
+                onSeventh: static (state, v) => state[0] += v,
+                onEighth: static (state, v) => state[0] += v);
+
+            return two.Match(
+                    state: offset,
+                    onFirst: static (state, v) => state + v,
+                    onSecond: static (state, v) => state - v)
+                + eight.Match(
+                    state: offset,
+                    onFirst: static (state, v) => state + v,
+                    onSecond: static (state, v) => state + v,
+                    onThird: static (state, v) => state + v,
+                    onFourth: static (state, v) => state + v,
+                    onFifth: static (state, v) => state + v,
+                    onSixth: static (state, v) => state + v,
+                    onSeventh: static (state, v) => state + v,
+                    onEighth: static (state, v) => state + v);
+        }
+    }
+#endif
+
     private static int TestIt2(Either<Test1, Test2> e) => e.Match(onFirst: static _ => 1, onSecond: static _ => 2);
 
     private static int TestIt2Action(Either<Test1, Test2> e)
