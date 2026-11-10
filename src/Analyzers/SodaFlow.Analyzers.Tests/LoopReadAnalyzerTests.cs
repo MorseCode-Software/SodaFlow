@@ -144,7 +144,9 @@ internal sealed class LoopReadAnalyzerTests
             ["SampleOfPendingContent"] = ["SF1001"],
             ["RowFromSampleOfSink"] = ["SF1001"],
             ["BindableValueIsAPendingCell"] = ["SF1001"],
-            ["ForeachOverASampledList"] = ["SF1001"]
+            ["ForeachOverASampledList"] = ["SF1001"],
+            ["ReassignedLocalInABranch"] = ["SF1001"],
+            ["ReassignedLocalToThePendingValue"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

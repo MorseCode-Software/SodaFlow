@@ -82,7 +82,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         this.Visit(node.Expression);
-        this.AssignState(target: node.Variable, state: this.evaluator.Eval(node.Expression));
+        this.AssignState(target: node.Variable, state: this.evaluator.Eval(node.Expression), replaces: false);
         this.Visit(node.Statement);
     }
 
@@ -233,14 +233,50 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
-        this.Assign(target: node.Left, value: node.Right);
+        this.Assign(target: node.Left, value: node.Right, replaces: AlwaysRuns(node));
+    }
+
+    /// <summary>
+    ///     True for an assignment that is a statement at the first level of its
+    ///     function, with no branch and no loop around it. Each call of the function
+    ///     runs it, thus the state that it gives replaces the state before it.
+    /// </summary>
+    private static bool AlwaysRuns(AssignmentExpressionSyntax assignment)
+    {
+        if (assignment.Parent is not ExpressionStatementSyntax statement)
+        {
+            return false;
+        }
+
+        foreach (SyntaxNode ancestor in statement.Ancestors())
+        {
+            switch (ancestor)
+            {
+                case AnonymousFunctionExpressionSyntax
+                    or LocalFunctionStatementSyntax
+                    or MemberDeclarationSyntax
+                    or AccessorDeclarationSyntax:
+                    return true;
+                case BlockSyntax
+                    or UsingStatementSyntax
+                    or LockStatementSyntax
+                    or CheckedStatementSyntax
+                    or UnsafeStatementSyntax
+                    or FixedStatementSyntax:
+                    continue;
+                default:
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
     ///     Gives a target the state of a value. A deconstruction of a tuple
     ///     expression gives each part of the tuple to its own target.
     /// </summary>
-    private void Assign(ExpressionSyntax target, ExpressionSyntax value)
+    private void Assign(ExpressionSyntax target, ExpressionSyntax value, bool replaces)
     {
         if (target is TupleExpressionSyntax targets
             && value is TupleExpressionSyntax values
@@ -248,16 +284,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             for (int i = 0; i < targets.Arguments.Count; i++)
             {
-                this.Assign(target: targets.Arguments[i].Expression, value: values.Arguments[i].Expression);
+                this.Assign(
+                    target: targets.Arguments[i].Expression,
+                    value: values.Arguments[i].Expression,
+                    replaces: replaces);
             }
 
             return;
         }
 
-        this.AssignState(target: target, state: this.evaluator.Eval(value));
+        this.AssignState(target: target, state: this.evaluator.Eval(value), replaces: replaces);
     }
 
-    private void AssignState(ExpressionSyntax target, LoopState state)
+    /// <param name="target">The expression that gets the value.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="replaces">
+    ///     True when the assignment always runs. Then, a local has the new state
+    ///     only. Otherwise, it has the new state and the state before it together.
+    /// </param>
+    private void AssignState(ExpressionSyntax target, LoopState state, bool replaces)
     {
         SemanticModel model = this.region.ModelFor(target);
 
@@ -271,7 +316,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case TupleExpressionSyntax parts:
                 foreach (ArgumentSyntax part in parts.Arguments)
                 {
-                    this.AssignState(target: part.Expression, state: state);
+                    this.AssignState(target: part.Expression, state: state, replaces: replaces);
                 }
 
                 return;
@@ -285,7 +330,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         switch (model.GetSymbolInfo(target).Symbol)
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
-                this.evaluator.Declare(local: local, state: state);
+                if (replaces)
+                {
+                    this.evaluator.Assign(local: local, state: state);
+                }
+                else
+                {
+                    this.evaluator.Declare(local: local, state: state);
+                }
+
                 break;
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
@@ -544,7 +597,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         ? assigned
                         : LoopState.None;
 
-            this.AssignState(target: arguments[i].Expression, state: state);
+            this.AssignState(target: arguments[i].Expression, state: state, replaces: false);
         }
     }
 

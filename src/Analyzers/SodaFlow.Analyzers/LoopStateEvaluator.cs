@@ -29,6 +29,8 @@ internal sealed class LoopStateEvaluator
     private static readonly ImmutableDictionary<ISymbol, LoopState> NoSymbols =
         ImmutableDictionary<ISymbol, LoopState>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
+    // The locals and parameters that an assignment gave a new state, which replaced the first one.
+    private readonly HashSet<ISymbol> assigned;
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
     private readonly int depth;
     private readonly Dictionary<SyntaxNode, Followed?> followed = [];
@@ -44,6 +46,7 @@ internal sealed class LoopStateEvaluator
             depth: 0,
             frame: new LoopFrame(),
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default))
     {
     }
@@ -54,6 +57,7 @@ internal sealed class LoopStateEvaluator
         int depth,
         LoopFrame frame,
         Dictionary<ISymbol, LoopState> locals,
+        HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers)
     {
         this.region = region;
@@ -61,6 +65,7 @@ internal sealed class LoopStateEvaluator
         this.depth = depth;
         this.Frame = frame;
         this.locals = locals;
+        this.assigned = assigned;
         this.thisMembers = thisMembers;
     }
 
@@ -73,10 +78,23 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public bool HasThisMembers => this.thisMembers.Count > 0;
 
-    /// <summary>Records the state of a local at its declaration or assignment.</summary>
+    /// <summary>
+    ///     Records the state of a local at its declaration, or at an assignment
+    ///     that does not always run. The local then has the two states together.
+    /// </summary>
     public void Declare(ISymbol local, LoopState state) =>
         this.locals[local] =
             this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
+
+    /// <summary>
+    ///     Records an assignment that always runs. The new state replaces the
+    ///     state that the local or the parameter had.
+    /// </summary>
+    public void Assign(ISymbol local, LoopState state)
+    {
+        this.locals[local] = state;
+        this.assigned.Add(local);
+    }
 
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
@@ -257,7 +275,10 @@ internal sealed class LoopStateEvaluator
                 }
 
                 LoopState named =
-                    this.bound.TryGetValue(key: symbol, value: out LoopState? boundState) ? boundState : LoopState.None;
+                    !this.assigned.Contains(symbol)
+                    && this.bound.TryGetValue(key: symbol, value: out LoopState? boundState)
+                        ? boundState
+                        : LoopState.None;
 
                 if (this.locals.TryGetValue(key: symbol, value: out LoopState? localState))
                 {
@@ -1362,6 +1383,7 @@ internal sealed class LoopStateEvaluator
             depth: this.depth + 1,
             frame: definer?.Frame ?? new LoopFrame(),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members);
     }
 
@@ -1817,6 +1839,7 @@ internal sealed class LoopStateEvaluator
                     depth: this.depth,
                     frame: this.Frame,
                     locals: this.locals,
+                    assigned: this.assigned,
                     thisMembers: this.thisMembers);
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);

@@ -1261,6 +1261,43 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S161. A local that held the placeholder gets a plain cell before the read.
+    public static Cell<int> ReassignedLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = l;
+            c = Plain;
+            int x = c.Sample();
+            return S.Snapshot(l, (a, b) => a + b + x).Hold(0);
+        });
+
+    // S162. The same local, with the plain cell given in a branch that does not run.
+    public static Cell<int> ReassignedLocalInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = l;
+
+            if (Never)
+            {
+                c = Plain;
+            }
+
+            int x = c.Sample();
+            return S.Hold(x);
+        });
+
+    private static readonly bool Never = Plain == null;
+
+    // S163. A local that held a plain cell gets a value derived from the placeholder before the read.
+    public static Cell<int> ReassignedLocalToThePendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Cell<int> c = Plain;
+            c = l.Map(v => v);
+            int x = c.Sample();
+            return S.Hold(x);
+        });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
