@@ -137,13 +137,21 @@ let listenOnceStrong handler (stream: Stream<_>) =
 
 // Async.AwaitTask sends a canceled task to the exception continuation, thus the async faults. This
 // sends it to the cancellation continuation, thus the async cancels. Only listenOnceAsync completes
-// the task. It gives a value or a cancellation, thus the task cannot fault.
+// the task. It gives a value, a cancellation, or the exception of a transaction that failed. The
+// async raises that exception, and not the AggregateException in which the task holds it.
 let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) =
-    Async.FromContinuations(fun (cont, _, ccont) ->
+    Async.FromContinuations(fun (cont, econt, ccont) ->
         task.ContinueWith(
             (fun (t: Task<_>) ->
                 if t.IsCanceled then
                     ccont (OperationCanceledException token)
+                elif t.IsFaulted then
+                    match t.Exception with
+                    | null -> econt (InvalidOperationException "The task faulted with no exception.")
+                    | failure ->
+                        match failure.InnerException with
+                        | null -> econt failure
+                        | cause -> econt cause
                 else
                     cont t.Result),
             CancellationToken.None,
@@ -169,11 +177,24 @@ let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) 
 ///     A cancellation of the async stops the listener and cancels the result. A thread that is not
 ///     the thread that fired the value gives the value. Thus, an await of this does not run a
 ///     continuation with the transaction lock.
+///
+///     The value arrives when the transaction of the firing commits. A transaction that fails
+///     after the stream fired gives no value, and the async raises the exception of that
+///     transaction. That holds also where the transaction fails before the listener runs. A
+///     transaction that fails before the stream fires gives the stream no firing, and the async
+///     waits for the next one. The body of a transaction and each operator above the stream come
+///     before the firing.
 /// </remarks>
 let listenOnceAsync (stream: Stream<_>) =
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
+
+    // The listener gives the outcome of the transaction of the firing: the value after a commit,
+    // and the exception of a transaction that fails. See OnceWithOutcomeAction.
     let listener =
-        stream.ListenOnceRootableImpl(Action<_>(fun a -> tcs.TrySetResult(a) |> ignore))
+        stream.ListenOnceWithOutcomeRootableImpl(
+            Action<_>(fun a -> tcs.TrySetResult(a) |> ignore),
+            Action<exn>(fun e -> tcs.TrySetException(e) |> ignore)
+        )
 
     async {
         let! ct = Async.CancellationToken
