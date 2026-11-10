@@ -309,7 +309,25 @@ internal sealed class LoopReadAnalyzerTests
             ["SumOfASequenceInAStaticCall"] = ["SF1005"],
             ["SumOfASequenceWithAnEnumeratorObject"] = ["SF1005"],
             ["QueryFunctionSamplesAnElementOfASequence"] = ["SF1001"],
-            ["ForEachOverAListFromASequence"] = ["SF1001"]
+            ["ForEachOverAListFromASequence"] = ["SF1001"],
+            ["ElementOfAListOfObjects"] = ["SF1005"],
+            ["ForEachOverAListOfObjects"] = ["SF1005"],
+            ["ObjectInAnObjectLocal"] = ["SF1005"],
+            ["ObjectToAGenericHelper"] = ["SF1004"],
+            ["ObjectOrAListInAnObjectLocal"] = ["SF1005"],
+            ["ListToAGenericHelperThatEnumerates"] = ["SF1004"],
+            ["ForEachOverAnObjectLocalAsASequence"] = ["SF1005"],
+            ["ElementOfAnObjectLocalAfterACast"] = ["SF1005"],
+            ["StringJoinOfAnObjectLocalAsASequence"] = ["SF1005"],
+            ["ValueOfADictionaryOfObjects"] = ["SF1005"],
+            ["OutValueOfADictionaryOfObjects"] = ["SF1005"],
+            ["ForEachMethodOfAListOfObjects"] = ["SF1005"],
+            ["ElementOfAnArrayList"] = ["SF1005"],
+            ["PatternGivesAnObjectLocalAListType"] = ["SF1005"],
+            ["GenericHelperGivesAnElement"] = ["SF1005"],
+            ["GenericHelperGivesTheFirstElement"] = ["SF1005"],
+            ["AggregateOverAListOfObjects"] = ["SF1005"],
+            ["ListPatternOverAListOfObjects"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

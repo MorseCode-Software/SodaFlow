@@ -2875,6 +2875,133 @@ public static class Shapes
     public static Cell<int> DistinctOfComparableObjects() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; int n = all.Distinct().Count(); return S.Hold(n); });
 
+    // S413. A collection contains the objects that have the members, and is not one of them. The type
+    // object does not tell the two apart, thus the state of the value does. ToString of a list in a
+    // local of the type object is the ToString of the list.
+    public static Cell<int> ListInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S414. The same for Equals.
+    public static Cell<int> ListInAnObjectLocalEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Alike> { new(l.Map(v => v)) }; return S.Hold(o.Equals(o) ? 1 : 0); });
+
+    // S415. The same for an array.
+    public static Cell<int> ArrayInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new Titled[] { new(l.Map(v => v)) }; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S416. The same for a dictionary with an initializer.
+    public static Cell<int> DictionaryInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new Dictionary<string, Titled> { ["a"] = new(l.Map(v => v)) }; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S417. The list got its element from Add.
+    public static Cell<int> ListAfterAnAddInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = new(); all.Add(new Titled(l.Map(v => v))); object o = all; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S418. A query over the list contains the elements also.
+    public static Cell<int> QueryInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; object o = all.Select(x => x); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S419. A sequence that a method of the platform makes from one object.
+    public static Cell<int> RepeatedObjectInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Enumerable.Repeat(new Titled(l.Map(v => v)), 2); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S420. The second arm has no members, thus the value stays a container.
+    public static Cell<int> ListOrAStringInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; object o = Kept.Count < 0 ? "x" : all; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S421. A type parameter tells no more than object does.
+    public static Cell<int> ListToAGenericHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(TextOf(all)); return S.Hold(0); });
+
+    // S422. The same through a parameter of the type object.
+    public static Cell<int> ListToAnObjectParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(TextOfAnObject(all)); return S.Hold(0); });
+
+    // S423. An interpolation calls ToString of the list.
+    public static Cell<int> ListInAnInterpolation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; Kept.Add($"{o}"); return S.Hold(0); });
+
+    // S424. Append calls ToString of the list.
+    public static Cell<int> ListAppendedToABuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; return S.Hold(new StringBuilder().Append(o).Length); });
+
+    // S425. The set calls GetHashCode of the list.
+    public static Cell<int> ListInASetOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Hashed> { new(l.Map(v => v)) }; HashSet<object> set = [o]; return S.Hold(set.Count); });
+
+    // S426. An element of a container is not a container. Each shape from here to the end of the group
+    // throws.
+    public static Cell<int> ElementOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(all[0].ToString()!); return S.Hold(0); });
+
+    // S427. The same for the variable of a foreach.
+    public static Cell<int> ForEachOverAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; foreach (object x in all) { Kept.Add(x.ToString()!); } return S.Hold(0); });
+
+    // S428. An object in a local of the type object is the object.
+    public static Cell<int> ObjectInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new Titled(l.Map(v => v)); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S429. The same through a type parameter.
+    public static Cell<int> ObjectToAGenericHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(TextOf(new Titled(l.Map(v => v)))); return S.Hold(0); });
+
+    // S430. A local that is an object on one path and a list on a second path can be the object.
+    public static Cell<int> ObjectOrAListInAnObjectLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Kept.Count >= 0 ? new Titled(l.Map(v => v)) : new List<Titled> { new(l.Map(v => v)) }; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S431. The helper gets the list, and its foreach gets an element.
+    public static Cell<int> ListToAGenericHelperThatEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(TextOfAll(all)); return S.Hold(0); });
+
+    // S432. The cast gives the list a type, and the foreach gives an element.
+    public static Cell<int> ForEachOverAnObjectLocalAsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; foreach (object x in (System.Collections.IEnumerable)o) { Kept.Add(x.ToString()!); } return S.Hold(0); });
+
+    // S433. The element goes to a second local of the type object.
+    public static Cell<int> ElementOfAnObjectLocalAfterACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; object first = ((List<Titled>)o)[0]; Kept.Add(first.ToString()!); return S.Hold(0); });
+
+    // S434. Join reads the elements of the sequence.
+    public static Cell<int> StringJoinOfAnObjectLocalAsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; return S.Hold(string.Join(",", (IEnumerable<object>)o).Length); });
+
+    // S435. The indexer of a dictionary gives one value.
+    public static Cell<int> ValueOfADictionaryOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, object> d = new() { ["a"] = new Titled(l.Map(v => v)) }; Kept.Add(d["a"].ToString()!); return S.Hold(0); });
+
+    // S436. An out parameter of the platform gets one value.
+    public static Cell<int> OutValueOfADictionaryOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, object> d = new() { ["a"] = new Titled(l.Map(v => v)) }; d.TryGetValue("a", out object? v); Kept.Add(v!.ToString()!); return S.Hold(0); });
+
+    // S437. The parameter of the lambda is one element.
+    public static Cell<int> ForEachMethodOfAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; all.ForEach(x => Kept.Add(x.ToString()!)); return S.Hold(0); });
+
+    // S438. A collection that is not generic gives its element as object.
+    public static Cell<int> ElementOfAnArrayList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.ArrayList all = new() { new Titled(l.Map(v => v)) }; Kept.Add(all[0]!.ToString()!); return S.Hold(0); });
+
+    // S439. A pattern gives the list its type again.
+    public static Cell<int> PatternGivesAnObjectLocalAListType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new List<Titled> { new(l.Map(v => v)) }; if (o is List<Titled> typed) { Kept.Add(typed[0].ToString()); } return S.Hold(0); });
+
+    // S440. The helper reads one element of the list that it gets.
+    public static Cell<int> GenericHelperGivesAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(FirstOf(all).ToString()!); return S.Hold(0); });
+
+    // S441. First gives one element, and its result has the type parameter of the helper.
+    public static Cell<int> GenericHelperGivesTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(FirstBy(all).ToString()!); return S.Hold(0); });
+
+    // S442. The function of Aggregate gets one element.
+    public static Cell<int> AggregateOverAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; Kept.Add(all.Aggregate("", (acc, x) => acc + x.ToString())); return S.Hold(0); });
+
+    // S443. A list pattern gives one element to its variable.
+    public static Cell<int> ListPatternOverAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Titled(l.Map(v => v))]; if (all is [var first, ..]) { Kept.Add(first.ToString()!); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -3257,6 +3384,26 @@ public static class Shapes
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
+
+    private static string TextOf<T>(T value) => value!.ToString()!;
+
+    private static string TextOfAll<T>(IEnumerable<T> values)
+    {
+        StringBuilder text = new();
+
+        foreach (T value in values)
+        {
+            text.Append(value!.ToString());
+        }
+
+        return text.ToString();
+    }
+
+    private static string TextOfAnObject(object value) => value.ToString()!;
+
+    private static T FirstOf<T>(List<T> items) => items[0];
+
+    private static T FirstBy<T>(IEnumerable<T> items) => items.First();
 
     private static Ranked Itself(Ranked r) => r;
 

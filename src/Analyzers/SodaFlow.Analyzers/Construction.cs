@@ -65,8 +65,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
             type = nullable.TypeArguments[0];
         }
 
-        if (type.SpecialType == SpecialType.System_Object
-            || type.TypeKind is TypeKind.TypeParameter or TypeKind.Dynamic)
+        if (SaysNothing(type))
         {
             return true;
         }
@@ -88,6 +87,16 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     has their members in its state, and the list is not one of them.
     /// </summary>
     public bool CanBe(ITypeSymbol? type) => this.type == null || type == null || this.Is(type);
+
+    /// <summary>
+    ///     True for a type that each object is a value of: <c>object</c>,
+    ///     <c>dynamic</c>, or a type parameter. It is true also when the type is
+    ///     not known. Such a type does not tell a list from one of its elements.
+    /// </summary>
+    public static bool SaysNothing(ITypeSymbol? type) =>
+        type == null
+        || type.SpecialType == SpecialType.System_Object
+        || type.TypeKind is TypeKind.TypeParameter or TypeKind.Dynamic;
 
     /// <summary>True when the evaluator knows the type of this object.</summary>
     public bool HasType => this.type != null;

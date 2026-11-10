@@ -187,6 +187,9 @@ internal sealed class LoopStateEvaluator
             return;
         }
 
+        // The object contains the value. It is not the value.
+        state = state.AsContainer;
+
         switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
@@ -237,11 +240,23 @@ internal sealed class LoopStateEvaluator
     ///     objects. Thus, a member that the code calls on the collection is not a
     ///     member of an element.
     /// </summary>
+    /// <remarks>
+    ///     The type of the expression tells the two apart, when an element cannot
+    ///     have that type. A type such as <c>object</c> tells nothing. Then, the
+    ///     state says if the value is a container.
+    /// </remarks>
     public LoopState Self(ExpressionSyntax? written)
     {
         LoopState state = this.Eval(written);
 
-        return written == null || state.Members == null || state.Members.CanBe(this.TypeBeforeObject(written))
+        if (written == null || state.Members == null)
+        {
+            return state;
+        }
+
+        ITypeSymbol? type = this.TypeBeforeObject(written);
+
+        return state.Members.CanBe(type) && !(state.IsContainer && Construction.SaysNothing(type))
             ? state
             : state.WithMembers(null);
     }
@@ -325,22 +340,24 @@ internal sealed class LoopStateEvaluator
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
             WithExpressionSyntax w => this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
             TupleExpressionSyntax t => this.EvalTuple(t),
+            // A collection contains its elements, and is not one of them.
             CollectionExpressionSyntax c => this.JoinAll(
-                c.Elements.Select(static e =>
-                    e switch
-                    {
-                        ExpressionElementSyntax x => x.Expression,
-                        SpreadElementSyntax x => x.Expression,
-                        _ => null
-                    })),
-            ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions),
-            ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions),
-            InitializerExpressionSyntax i => this.JoinAll(i.Expressions),
+                    c.Elements.Select(static e =>
+                        e switch
+                        {
+                            ExpressionElementSyntax x => x.Expression,
+                            SpreadElementSyntax x => x.Expression,
+                            _ => null
+                        }))
+                .AsContainer,
+            ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions).AsContainer,
+            ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions).AsContainer,
+            InitializerExpressionSyntax i => this.JoinAll(i.Expressions).AsContainer,
             // An indexer of this compilation gives what its getter returns. An element of a
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
-                : this.Eval(e.Expression).Join(this.TypeState(expression)),
+                : this.Eval(e.Expression).AsElement.Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
@@ -759,7 +776,17 @@ internal sealed class LoopStateEvaluator
                 .Join(this.Follow(creation)?.State ?? LoopState.None)
                 .Join(this.MovedInto(creation));
 
-        return initializer == null ? state : this.WithInitializer(state: state, initializer: initializer);
+        if (initializer != null)
+        {
+            state = this.WithInitializer(state: state, initializer: initializer);
+        }
+
+        // An object of code that cannot know the library is not an object of this compilation.
+        // Thus, it contains the objects that have the members, and is not one of them.
+        return this.region.SymbolOf(creation) is IMethodSymbol constructor
+               && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
+            ? state.AsContainer
+            : state;
     }
 
     /// <summary>
@@ -922,6 +949,7 @@ internal sealed class LoopStateEvaluator
 
         LoopState moved = this.Moved(invocation: invocation, method: method, withReceiver: true);
         LoopState result = moved;
+        LoopState element = moved.AsElement;
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
 
         for (int i = 0; i < arguments.Count; i++)
@@ -936,11 +964,29 @@ internal sealed class LoopStateEvaluator
                     result.Join(
                         this.EvalLambdaResult(
                             lambda: lambda,
-                            boundParameters: ParametersOf(lambda).Select(_ => moved).ToImmutableArray()));
+                            boundParameters: ParametersOf(lambda).Select(_ => element).ToImmutableArray()));
             }
         }
 
-        return result;
+        return Returned(state: result, type: method.ReturnType);
+    }
+
+    /// <summary>
+    ///     The state of what a method of code that cannot know the library
+    ///     returns, from the state of the values that it got. A result that is a
+    ///     sequence contains those values. Each other result can be one of them, as
+    ///     the result of <c>First</c> is.
+    /// </summary>
+    private static LoopState Returned(LoopState state, ITypeSymbol type)
+    {
+        if (!SodaFlowSymbols.IsSequence(type))
+        {
+            return state.AsElement;
+        }
+
+        // A method can give back a sequence that it got, as AsEnumerable does. That sequence can
+        // be an object of this compilation, which has its own members.
+        return state.Members is { } members && (!members.HasType || members.Is(type)) ? state : state.AsContainer;
     }
 
     /// <summary>
@@ -1156,7 +1202,7 @@ internal sealed class LoopStateEvaluator
 
             LoopState given =
                 kind == CalleeKind.Mover
-                    ? this.Moved(invocation: invocation, method: method, withReceiver: true)
+                    ? this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement
                     : LoopState.None;
 
             all =
@@ -1735,7 +1781,7 @@ internal sealed class LoopStateEvaluator
             method: method,
             operands: operands,
             also: LoopState.None,
-            given: () => this.Moved(invocation: invocation, method: method, withReceiver: true),
+            given: () => this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement,
             returned: () => this.Follow(invocation)?.State ?? LoopState.None);
     }
 
@@ -2018,10 +2064,10 @@ internal sealed class LoopStateEvaluator
         }
 
         // A list has the members of its elements in its state. The list is one of those objects
-        // only for a method that reads elements.
+        // only for a method that reads elements. A type such as object does not tell a list from
+        // an element, and the state then says which the value is.
         bool isOwner =
-            written == null
-            || members.Is(written)
+            ((written == null || members.Is(written)) && !(state.IsContainer && Construction.SaysNothing(written)))
             || (asSequence && members.Is(SodaFlowSymbols.ElementTypeOf(written)));
 
         return isOwner && (compared.IsEmpty || compared.Any(members.Is)) ? [(state, members)] : [];

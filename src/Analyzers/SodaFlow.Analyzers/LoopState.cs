@@ -18,7 +18,8 @@ internal sealed class LoopState
         members: null,
         content: null,
         origin: null,
-        functions: ImmutableArray<FunctionValue>.Empty);
+        functions: ImmutableArray<FunctionValue>.Empty,
+        isContainer: false);
 
     public static readonly LoopState PendingPlaceholder = new(
         pending: true,
@@ -26,7 +27,8 @@ internal sealed class LoopState
         members: null,
         content: null,
         origin: null,
-        functions: ImmutableArray<FunctionValue>.Empty);
+        functions: ImmutableArray<FunctionValue>.Empty,
+        isContainer: false);
 
     public static readonly LoopState StreamPlaceholder = new(
         pending: false,
@@ -34,7 +36,8 @@ internal sealed class LoopState
         members: null,
         content: null,
         origin: null,
-        functions: ImmutableArray<FunctionValue>.Empty);
+        functions: ImmutableArray<FunctionValue>.Empty,
+        isContainer: false);
 
     private readonly LoopState? content;
 
@@ -50,10 +53,12 @@ internal sealed class LoopState
                     members: null,
                     content: null,
                     origin: null,
-                    functions: ImmutableArray<FunctionValue>.Empty)
+                    functions: ImmutableArray<FunctionValue>.Empty,
+                    isContainer: false)
                 : null,
             origin: null,
-            functions: ImmutableArray<FunctionValue>.Empty)
+            functions: ImmutableArray<FunctionValue>.Empty,
+            isContainer: false)
     {
     }
 
@@ -63,7 +68,8 @@ internal sealed class LoopState
         Construction? members,
         LoopState? content,
         ISymbol? origin,
-        ImmutableArray<FunctionValue> functions)
+        ImmutableArray<FunctionValue> functions,
+        bool isContainer)
     {
         this.Pending = pending;
         this.Linked = linked;
@@ -71,6 +77,7 @@ internal sealed class LoopState
         this.content = content;
         this.Origin = origin;
         this.Functions = functions;
+        this.IsContainer = isContainer && members != null;
     }
 
     /// <summary>
@@ -107,6 +114,14 @@ internal sealed class LoopState
     public ImmutableArray<FunctionValue> Functions { get; }
 
     /// <summary>
+    ///     True when the value contains the objects that have the members, and is
+    ///     not one of them. A list, an array, and a query are such values. The
+    ///     type of an expression usually tells a list from one of its elements,
+    ///     but the type <c>object</c> does not.
+    /// </summary>
+    public bool IsContainer { get; }
+
+    /// <summary>
     ///     The origin of the value, or of one part of it that has an origin. A
     ///     report about a read of a part of an argument uses it.
     /// </summary>
@@ -127,9 +142,9 @@ internal sealed class LoopState
             members: null,
             content: this.IsNone ? null : this,
             origin: this.Origin,
-            functions: ImmutableArray<FunctionValue>.Empty);
+            functions: ImmutableArray<FunctionValue>.Empty,
+            isContainer: false);
 
-    /// <summary>True when the analyzer knows nothing about the expression.</summary>
     /// <summary>
     ///     The state of a value that the code can get only after the close, as
     ///     the value of a firing is. Nothing reads that value before the close,
@@ -144,10 +159,28 @@ internal sealed class LoopState
                 members: this.Members?.Select(static state => state.AfterTheClose),
                 content: this.content?.AfterTheClose,
                 origin: this.Origin,
-                functions: ImmutableArray<FunctionValue>.Empty);
+                functions: ImmutableArray<FunctionValue>.Empty,
+                isContainer: this.IsContainer);
 
+    /// <summary>True when the analyzer knows nothing about the expression.</summary>
     public bool IsNone =>
-        !this.Pending && !this.Linked && this.Members == null && this.content == null && this.Functions.IsEmpty;
+        !this.Pending
+        && !this.Linked
+        && this.Members == null
+        && this.content == null
+        && this.Functions.IsEmpty;
+
+    /// <summary>
+    ///     The same state for a value that contains the objects which have the
+    ///     members.
+    /// </summary>
+    public LoopState AsContainer => this.IsContainer || this.Members == null ? this : this.WithContainer(true);
+
+    /// <summary>
+    ///     The same state for one element of a value that contains objects. The
+    ///     element can be one of the objects that have the members.
+    /// </summary>
+    public LoopState AsElement => this.IsContainer ? this.WithContainer(false) : this;
 
     /// <summary>The state of a delegate that is one known function.</summary>
     public static LoopState OfFunction(FunctionValue function) =>
@@ -157,7 +190,8 @@ internal sealed class LoopState
             members: null,
             content: null,
             origin: null,
-            functions: ImmutableArray.Create(function));
+            functions: ImmutableArray.Create(function),
+            isContainer: false);
 
     public LoopState Join(LoopState other)
     {
@@ -183,7 +217,14 @@ internal sealed class LoopState
             origin: this.Origin ?? other.Origin,
             functions: this.Functions.IsEmpty
                 ? other.Functions
-                : this.Functions.AddRange(other.Functions.Where(function => !this.Functions.Contains(function))));
+                : this.Functions.AddRange(other.Functions.Where(function => !this.Functions.Contains(function))),
+            // The value is a container only when each state that has members says so. A local
+            // that is a list on one path and an object on a second path can be the object.
+            isContainer: this.Members == null
+                ? other.IsContainer
+                : other.Members == null
+                    ? this.IsContainer
+                    : this.IsContainer && other.IsContainer);
     }
 
     public LoopState WithPending(bool pending) =>
@@ -193,7 +234,8 @@ internal sealed class LoopState
             members: this.Members,
             content: this.content,
             origin: this.Origin,
-            functions: this.Functions);
+            functions: this.Functions,
+            isContainer: this.IsContainer);
 
     public LoopState WithLinked(bool linked) =>
         new(
@@ -202,7 +244,8 @@ internal sealed class LoopState
             members: this.Members,
             content: this.content,
             origin: this.Origin,
-            functions: this.Functions);
+            functions: this.Functions,
+            isContainer: this.IsContainer);
 
     public LoopState WithMembers(Construction? members) =>
         new(
@@ -211,7 +254,18 @@ internal sealed class LoopState
             members: members,
             content: this.content,
             origin: this.Origin,
-            functions: this.Functions);
+            functions: this.Functions,
+            isContainer: this.IsContainer);
+
+    private LoopState WithContainer(bool isContainer) =>
+        new(
+            pending: this.Pending,
+            linked: this.Linked,
+            members: this.Members,
+            content: this.content,
+            origin: this.Origin,
+            functions: this.Functions,
+            isContainer: isContainer);
 
     public LoopState WithContent(LoopState content) =>
         new(
@@ -220,7 +274,8 @@ internal sealed class LoopState
             members: this.Members,
             content: content.IsNone ? null : content,
             origin: this.Origin,
-            functions: this.Functions);
+            functions: this.Functions,
+            isContainer: this.IsContainer);
 
     /// <summary>
     ///     The same state with each origin changed: the origin of the value, of
@@ -236,7 +291,8 @@ internal sealed class LoopState
                 members: this.Members?.Select(state => state.WithOrigins(map)),
                 content: this.content?.WithOrigins(map),
                 origin: map(this.Origin),
-                functions: this.Functions);
+                functions: this.Functions,
+                isContainer: this.IsContainer);
 
     /// <summary>The same state, with the one origin for each of its parts.</summary>
     public LoopState From(ISymbol origin) => this.WithOrigins(_ => origin);

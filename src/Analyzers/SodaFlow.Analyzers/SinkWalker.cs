@@ -178,7 +178,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
-        LoopState elements = this.evaluator.Eval(node.Expression).Join(this.Enumerate(node));
+        LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
 
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {
@@ -192,7 +192,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
 
-        LoopState elements = this.evaluator.Eval(node.Expression).Join(this.Enumerate(node));
+        LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
 
         IMethodSymbol? method =
             this.region.Symbols.DeclaresDeconstruct
@@ -375,9 +375,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 case ListPatternSyntax list:
                     this.DeclareDesignation(designation: list.Designation, state: state);
 
+                    // A slice is a part of the list. Each other pattern is for one element.
                     foreach (PatternSyntax element in list.Patterns)
                     {
-                        this.DeclarePattern(pattern: element, state: state);
+                        this.DeclarePattern(
+                            pattern: element,
+                            state: element is SlicePatternSyntax ? state : state.AsElement);
                     }
 
                     return;
@@ -1042,7 +1045,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // the call gave it. It can put an argument into its receiver, as Add does to a list.
             case CalleeKind.Mover:
             {
-                LoopState moved = this.evaluator.Moved(invocation: node, method: method, withReceiver: true);
+                // The callee gives one of the values to a lambda or to an out parameter, and not
+                // the collection that contains them.
+                LoopState moved =
+                    this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement;
 
                 this.VisitArguments(arguments: arguments, runs: Runs, given: moved, oneTime: false);
 
