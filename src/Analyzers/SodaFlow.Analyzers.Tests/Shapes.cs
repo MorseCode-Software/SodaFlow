@@ -3915,6 +3915,62 @@ public static class Shapes
     public static Cell<int> OldValueOfAnExchangeWithNamedArguments() =>
         Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object old = Interlocked.Exchange(value: new Titled(l.Map(v => v)), location1: ref slot); Kept.Add(old.ToString()!); Kept.Add(slot); return S.Hold(0); });
 
+    // S667. A property whose getter is an iterator runs nothing at the read. The block keeps the result.
+    public static Cell<int> IteratorPropertyKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Values); return S.Hold(0); });
+
+    // S668. A foreach enumerates the property, and the getter runs.
+    public static Cell<int> IteratorPropertyInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); int n = 0; foreach (int v in r.Values) { n += v; } return S.Hold(n); });
+
+    // S669. ToList enumerates it.
+    public static Cell<int> IteratorPropertyToList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(r.Values.ToList().Count); });
+
+    // S670. A query on the property waits also.
+    public static Cell<int> IteratorPropertyThenSelectKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Values.Select(x => x + 1)); return S.Hold(0); });
+
+    // S671. The property in a local, and then Count.
+    public static Cell<int> IteratorPropertyInALocalThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r.Values; return S.Hold(v.Count()); });
+
+    // S672. A method of the object reads the property with no owner, and gives it back.
+    public static Cell<int> IteratorPropertyWithNoOwnerKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Held()); return S.Hold(0); });
+
+    // S673. A method of the object reads the property with no owner, and enumerates it.
+    public static Cell<int> IteratorPropertyWithNoOwnerSum() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(r.Sum()); });
+
+    // S674. The property through a conditional access, kept.
+    public static Cell<int> IteratorPropertyThroughAConditionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder? r = new(l.Map(v => v)); Kept.Add(r?.Values!); return S.Hold(0); });
+
+    // S675. The property through a conditional access, enumerated.
+    public static Cell<int> IteratorPropertyThroughAConditionEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder? r = new(l.Map(v => v)); return S.Hold(r?.Values.Count() ?? 0); });
+
+    // S676. A property that is an enumerator, kept.
+    public static Cell<int> EnumeratorPropertyKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Steps); return S.Hold(0); });
+
+    // S677. MoveNext of that enumerator runs the getter.
+    public static Cell<int> EnumeratorPropertyMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerator<int> e = r.Steps; e.MoveNext(); return S.Hold(e.Current); });
+
+    // S678. A spread enumerates the property.
+    public static Cell<int> IteratorPropertySpread() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); int[] all = [.. r.Values]; return S.Hold(all.Length); });
+
+    // S679. The property kept, and then enumerated.
+    public static Cell<int> IteratorPropertyKeptThenEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r.Values; Kept.Add(v); return S.Hold(string.Join(",", v).Length); });
+
+    // S680. A getter with code and no yield runs at the read.
+    public static Cell<int> GetterWithCodeThatReturnsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Now); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4563,6 +4619,39 @@ public static class Shapes
     public sealed class Registrar
     {
         public Registrar(List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+    }
+
+    public sealed class Yielder(Cell<int> share)
+    {
+        public IEnumerable<int> Values
+        {
+            get
+            {
+                yield return share.Sample();
+            }
+        }
+
+        public IEnumerator<int> Steps
+        {
+            get
+            {
+                yield return share.Sample();
+            }
+        }
+
+        public IEnumerable<int> Now
+        {
+            get
+            {
+                int now = share.Sample();
+
+                return [now];
+            }
+        }
+
+        public object Held() => this.Values;
+
+        public int Sum() => this.Values.Sum();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

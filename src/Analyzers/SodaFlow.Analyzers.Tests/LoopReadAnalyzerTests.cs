@@ -480,7 +480,16 @@ internal sealed class LoopReadAnalyzerTests
             ["OldPendingValueOfAnExchange"] = ["SF1005"],
             ["SlotAfterAnExchange"] = ["SF1005"],
             ["OldPendingValueOfACompareExchange"] = ["SF1005"],
-            ["SlotAfterACompareExchange"] = ["SF1005"]
+            ["SlotAfterACompareExchange"] = ["SF1005"],
+            ["IteratorPropertyInAForeach"] = ["SF1005"],
+            ["IteratorPropertyToList"] = ["SF1005"],
+            ["IteratorPropertyInALocalThenCount"] = ["SF1005"],
+            ["IteratorPropertyWithNoOwnerSum"] = ["SF1005"],
+            ["IteratorPropertyThroughAConditionEnumerated"] = ["SF1005"],
+            ["EnumeratorPropertyMoved"] = ["SF1005"],
+            ["IteratorPropertySpread"] = ["SF1005"],
+            ["IteratorPropertyKeptThenEnumerated"] = ["SF1005"],
+            ["GetterWithCodeThatReturnsASequence"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

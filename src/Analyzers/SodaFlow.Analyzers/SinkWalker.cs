@@ -1511,6 +1511,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 return;
             }
+            // The read of a property whose getter is an iterator.
+            case MemberAccessExpressionSyntax or MemberBindingExpressionSyntax or IdentifierNameSyntax:
+                this.Report(this.evaluator.Follow(call));
+
+                return;
         }
     }
 
@@ -1648,14 +1653,29 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    // A getter runs at the read of its property. The getter of an iterator runs nothing there:
+    // the read makes a query, and the walk reads the getter where something enumerates it.
+    private void ReadGetter(SyntaxNode node, IPropertySymbol property)
+    {
+        if (LoopStateEvaluator.IsIteratorProperty(property))
+        {
+            this.evaluator.Wait(node);
+        }
+        else
+        {
+            this.Report(this.evaluator.Follow(node));
+        }
+    }
+
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
-            && this.region.SymbolOf(node) is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 })
+            && this.region.SymbolOf(node)
+                is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 } property)
         {
-            this.Report(this.evaluator.Follow(node));
+            this.ReadGetter(node: node, property: property);
         }
     }
 
@@ -1676,7 +1696,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // value of a Lazy is the result of a function, which can be one of this compilation.
             if (property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
             {
-                this.Report(this.evaluator.Follow(node));
+                this.ReadGetter(node: node, property: property);
             }
         }
         else if (SodaFlowSymbols.ReadMembers.Contains(property.Name))

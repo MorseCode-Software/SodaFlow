@@ -151,6 +151,13 @@ internal sealed class LoopStateEvaluator
             _ => false
         };
 
+    /// <summary>
+    ///     True for a property whose getter is an iterator. A read of such a
+    ///     property runs nothing, as a call of an iterator method runs nothing.
+    /// </summary>
+    public static bool IsIteratorProperty(IPropertySymbol property) =>
+        property.OriginalDefinition.GetMethod is { } getter && IsIterator(getter);
+
     private static bool IsIterator(IMethodSymbol definition) =>
         SodaFlowSymbols.IsEnumerated(definition.ReturnType)
         && BodyOf(definition) is BlockSyntax block
@@ -543,7 +550,10 @@ internal sealed class LoopStateEvaluator
                     if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
                         && this.Follow(expression) is { } getter)
                     {
-                        return getter.State.Join(this.TypeState(expression));
+                        LoopState got = getter.State.Join(this.TypeState(expression));
+
+                        // The getter of an iterator runs when something enumerates the result.
+                        return IsIteratorProperty(property) ? got.WithQuery(this.QueryAt(expression)) : got;
                     }
 
                     // A property of the library that reads the current value gives the value that
