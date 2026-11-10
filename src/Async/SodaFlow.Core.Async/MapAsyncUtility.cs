@@ -269,11 +269,11 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
     ///     <para>
     ///         A transaction that fails cancels the Task. Where a transaction is open,
     ///         this method defers the value into the post queue of that transaction. A
-    ///         throw while that transaction propagates discards that queue, thus the
-    ///         value never enters the pipeline. This method asks the transaction to
-    ///         cancel the Task in that condition. A throw from the body of a
-    ///         transaction is different. That transaction closes, the queue drains,
-    ///         and the pipeline admits the value.
+    ///         transaction that fails discards that queue, thus the value never enters
+    ///         the pipeline. This method asks the transaction to cancel the Task in
+    ///         that condition. A throw from the body of the transaction and a throw
+    ///         while it propagates give the same result. A posted action that calls
+    ///         this method, and whose own transaction fails, gives that result also.
     ///     </para>
     ///     <para>
     ///         A call with a transaction open is legal. This method defers the value

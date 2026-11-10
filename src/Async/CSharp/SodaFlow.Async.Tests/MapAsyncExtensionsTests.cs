@@ -2346,9 +2346,8 @@ public sealed class MapAsyncExtensionsTests
         // thus it never runs. Execute asks the transaction to cancel the Task in that condition,
         // and without that the Task waits for an end that cannot come.
         //
-        // A throw from the body of a transaction is different, and it is not this. Apply holds that
-        // exception, closes the transaction, and the post queue drains. The pipeline admits the
-        // value.
+        // A throw from the body of a transaction gives the same result by a different path: Apply
+        // discards the transaction. The test after this one holds that.
         Task<string> task = InAThrowingTransaction();
 
         TestUtil.WaitUntil(() => task.IsCompleted);
@@ -2392,6 +2391,46 @@ public sealed class MapAsyncExtensionsTests
 
             return answer ?? throw new InvalidOperationException("Execute gave no Task.");
         }
+    }
+
+    // A throw from the body fails the transaction, as a throw from a listener does. The post
+    // that carries the value goes with it, and its release cancels the Task. Before SodaFlow.Core
+    // 6.0.0, a throw from the body closed the transaction, and the pipeline admitted the value.
+    [Test]
+    public async Task Execute_InATransactionWhoseBodyThrows_AdmitsNothingAndCancelsItsTask()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string, string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel());
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        List<Task<string>> tasks = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    // ReSharper disable once AccessToDisposedClosure - the assertion runs the lambda before
+                    // the disposal.
+                    tasks.Add(status.Execute("a"));
+
+                    throw new InvalidOperationException("body");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(tasks.Single().IsCanceled).IsTrue();
+        await Assert.That(Transaction.Run(tracked.Sample)).IsEmpty();
+        await Assert.That(op.HasStarted("a")).IsFalse();
+
+        status.Dispose();
     }
 
     [Test]
