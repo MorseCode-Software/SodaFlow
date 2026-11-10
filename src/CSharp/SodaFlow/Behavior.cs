@@ -82,12 +82,12 @@ public struct BehaviorLooper<T>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
-        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
+        [InstantHandle] Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f) =>
         TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
 
     private static (Behavior<T> Behavior, TCaptures Captures) WithCaptures<TCaptures>(
         TransactionInternal trans,
-        Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f)
+        [InstantHandle] Func<LoopedBehavior<T>, (Behavior<T> Behavior, TCaptures Captures)> f)
     {
         LoopedBehavior<T> loop = new();
         (Behavior<T> Behavior, TCaptures Captures) result = f(loop);
@@ -104,7 +104,7 @@ public struct BehaviorLooper<T>
     /// </param>
     /// <returns>The resulting behavior.</returns>
     [Pure]
-    public Behavior<T> WithoutCaptures(Func<LoopedBehavior<T>, Behavior<T>> f) =>
+    public Behavior<T> WithoutCaptures([InstantHandle] Func<LoopedBehavior<T>, Behavior<T>> f) =>
 #pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         this.WithCaptures(l => (Behavior: f(l), Captures: UnitInternal.Value)).Behavior;
 #pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.

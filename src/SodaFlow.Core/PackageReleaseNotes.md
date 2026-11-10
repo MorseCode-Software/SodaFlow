@@ -343,6 +343,39 @@ while the same action run with no transaction open, which goes through the same 
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
 
+Fixed: a posted action, or an element of a split, whose transaction fails no longer leaves behind the work it deferred.
+Each of them runs in a child transaction of the transaction that deferred it, and a Post or a Split from inside a child
+went straight into the queues of that first transaction. When the child then failed, by a throw from the action or from
+a listener while it propagated, nothing took that work out again: the actions it had posted ran, their releases did not,
+and the values it had sent through Defer or Split arrived in later transactions, although the transaction that produced
+them was discarded. The first transaction always dropped what it had deferred when it failed, so the two paths
+disagreed. What a child defers is at the end of each queue, after whatever was there when the child started, so a child
+that fails now has the queues put back to where they were, and the release of each post that goes runs with the child's
+exception as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for
+the first transaction.
+
+Changed: the queue behind Defer and Split is a list in order of arrival, sorted by position when a round of it runs,
+where it was a dictionary from a position to one delegate that joined every split at that position. The splits at one
+position still run in one transaction, in the order they were made, and the positions still run in order. That is what
+lets a failed child's splits be cut off the end, and it allocates less: no dictionary and key array for each round, and
+no delegate that grows when several splits share a position. A transaction also no longer keeps a reference to the one
+it defers into, which makes each transaction 8 bytes smaller. DeferredWorkBenchmarks in SodaFlow.Benchmarks measures the
+paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B to 440 B, a post from a posted action
+672 to 648, a defer 1,376 to 1,208, a defer after a defer 2,208 to 1,880, and a defer from each of 8 split elements
+8,720 to 7,208. The empty transaction that an entry above measured at 112 bytes is 104. Time on .NET Framework 4.7.2,
+where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
+posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
+
+Fixed: no transaction gets the id zero. Each transaction takes the next value of a 64-bit count as its id, and zero
+already means two things: a root transaction that has no id yet, and an input slot of a merge, lift, apply, or snapshot
+that holds no value for the current transaction. The count wraps without an exception, so after 2^64 transactions one of
+them took zero. A root transaction or an element of a split with that id read every empty slot as filled, so a merge of
+two types reported a default value for the input that did not fire. A posted action with that id took another one at its
+first use, and was not affected. The count now skips zero. Nobody was going to meet this: ids are given one at a time
+under the transaction lock, and at one id per nanosecond the count takes about 585 years to get there. The point is that
+"the id of a transaction is never zero", which the capture slot depends on, now holds without a condition. The cost is
+one comparison per id.
+
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
 each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
