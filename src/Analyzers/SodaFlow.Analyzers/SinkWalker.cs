@@ -1401,6 +1401,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         IMethodSymbol callee =
             method.MethodKind == MethodKind.DelegateInvoke ? method : (method.ReducedFrom ?? method).OriginalDefinition;
 
+        // A serializer has no parameter that is a sequence, and it enumerates what it gets.
+        if (SodaFlowSymbols.IsSerializer(callee))
+        {
+            foreach (ArgumentSyntax argument in arguments)
+            {
+                this.Report(this.evaluator.FollowEnumeration(argument.Expression));
+
+                this.Serialize(
+                    written: argument.Expression,
+                    state: this.evaluator.Eval(argument.Expression),
+                    serializer: callee,
+                    depth: 0);
+            }
+
+            return;
+        }
+
         if (!starts && !this.region.Symbols.TakesASequence(callee))
         {
             return;
@@ -1423,6 +1440,64 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
             {
                 this.RunQueries(arguments[i].Expression);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Reads what a serializer runs when it writes a value. It enumerates
+    ///     each query that the value is or contains. For an object of this
+    ///     compilation, it calls the getter of each property that it writes, and
+    ///     it writes the result of that getter in the same way.
+    /// </summary>
+    /// <remarks>
+    ///     An object of this compilation can keep a query that no property gives.
+    ///     The serializer does not get that query. Thus, the walk reads the queries
+    ///     of such an object only through its getters.
+    /// </remarks>
+    private void Serialize(ExpressionSyntax written, LoopState state, IMethodSymbol serializer, int depth)
+    {
+        // The elements of a tuple are fields, and not each serializer writes a field.
+        if (state.Members is { IsTuple: true } && !SodaFlowSymbols.WritesFields(serializer))
+        {
+            return;
+        }
+
+        bool typed = state.Members is { HasType: true };
+
+        if (!typed || state.IsContainer)
+        {
+            this.Run(state);
+        }
+
+        // An object in an object in an object: the depth has an end, as a followed call has.
+        if (state.Members is not { } members || depth > 3)
+        {
+            return;
+        }
+
+        // An anonymous object or a tuple: the serializer writes each value in it.
+        if (!typed)
+        {
+            foreach (KeyValuePair<ISymbol, LoopState> member in members.Members)
+            {
+                this.Serialize(written: written, state: member.Value, serializer: serializer, depth: depth + 1);
+            }
+
+            return;
+        }
+
+        foreach (IPropertySymbol property in members.Properties)
+        {
+            if (SodaFlowSymbols.IsSerialized(property: property, serializer: serializer)
+                && this.evaluator.FollowImplied(
+                    call: written,
+                    member: property.GetMethod!,
+                    owner: state,
+                    arguments: []) is { } getter)
+            {
+                this.Report(getter);
+                this.Serialize(written: written, state: getter.State, serializer: serializer, depth: depth + 1);
             }
         }
     }

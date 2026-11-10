@@ -124,7 +124,29 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
         member.ContainingType is not { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
         && this.CanBe(member.ContainingType);
 
-    private bool IsTuple =>
+    /// <summary>
+    ///     The properties of the type of this object and of its base types that
+    ///     this compilation declares. A serializer reads the getters of some of
+    ///     them.
+    /// </summary>
+    public IEnumerable<IPropertySymbol> Properties
+    {
+        get
+        {
+            for (INamedTypeSymbol? current = this.type;
+                 current is { DeclaringSyntaxReferences.Length: > 0 };
+                 current = current.BaseType)
+            {
+                foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
+                {
+                    yield return property;
+                }
+            }
+        }
+    }
+
+    /// <summary>True for a tuple that the code wrote with parentheses.</summary>
+    public bool IsTuple =>
         !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsTupleType: true });
 
     // A tuple is a value of object, of ValueType, and of each interface that its struct has.

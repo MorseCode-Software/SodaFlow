@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using SodaFlow;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -3971,6 +3974,74 @@ public static class Shapes
     public static Cell<int> GetterWithCodeThatReturnsASequence() =>
         Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Now); return S.Hold(0); });
 
+    // S681. A serializer enumerates a query that it gets.
+    public static Cell<int> QuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize(q)); return S.Hold(0); });
+
+    // S682. The same for a query given as an object.
+    public static Cell<int> QuerySerializedAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize<object>(q)); return S.Hold(0); });
+
+    // S683. The same for a query in an anonymous object.
+    public static Cell<int> QueryInAnAnonymousObjectSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize(new { Values = q })); return S.Hold(0); });
+
+    // S684. A serializer calls each public getter of an object.
+    public static Cell<int> ObjectWithAGetterThatReadsSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S685. The getters of this object read nothing.
+    public static Cell<int> ObjectWithAPlainGetterSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialPlainRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S686. A serializer does not call a getter that has JsonIgnore, or one that is not public.
+    public static Cell<int> ObjectWithIgnoredGettersSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialIgnoredRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S687. JsonIgnore with a condition reads the value before it decides.
+    public static Cell<int> ObjectWithAConditionOnJsonIgnoreSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialConditionRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S688. A serializer writes an object that a getter gives, and calls the getters of that object.
+    public static Cell<int> ObjectInAnObjectSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialOuter outer = new(new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.Serialize(outer)); return S.Hold(0); });
+
+    // S689. A serializer writes each element of a list.
+    public static Cell<int> ListOfObjectsSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SerialRow> rows = [new(l.Map(v => v))]; Kept.Add(JsonSerializer.Serialize(rows)); return S.Hold(0); });
+
+    // S690. A getter gives a query, and the serializer enumerates it.
+    public static Cell<int> ObjectWithAGetterThatGivesAQuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); SerialQueryRow row = new(q); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S691. An object keeps a query that no property gives. The serializer does not get it.
+    public static Cell<int> ObjectWithAQueryThatNoGetterGivesSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); QueryHolder holder = new(q); Kept.Add(JsonSerializer.Serialize(holder)); return S.Hold(0); });
+
+    // S692. System.Text.Json does not write the fields of a tuple.
+    public static Cell<int> TupleOfAQuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize((q, 1))); return S.Hold(0); });
+
+    // S693. JsonConvert of Newtonsoft.Json enumerates a query.
+    public static Cell<int> QuerySerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(q)); return S.Hold(0); });
+
+    // S694. JsonConvert calls each public getter of an object.
+    public static Cell<int> ObjectSerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialRow row = new(l.Map(v => v)); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(row)); return S.Hold(0); });
+
+    // S695. JsonConvert writes the fields of a tuple.
+    public static Cell<int> TupleOfAQuerySerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject((q, 1))); return S.Hold(0); });
+
+    // S696. XmlSerializer calls the getter of a property that it can set.
+    public static Cell<int> ObjectSerializedByXmlSerializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XmlRow row = new(l.Map(v => v)); new XmlSerializer(typeof(XmlRow)).Serialize(TextWriter.Null, row); return S.Hold(0); });
+
+    // S697. XmlSerializer does not write a property with no setter.
+    public static Cell<int> ObjectWithNoSetterSerializedByXmlSerializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XmlFixedRow row = new(l.Map(v => v)); new XmlSerializer(typeof(XmlFixedRow)).Serialize(TextWriter.Null, row); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4652,6 +4723,76 @@ public static class Shapes
         public object Held() => this.Values;
 
         public int Sum() => this.Values.Sum();
+    }
+
+    public sealed class SerialRow(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed class SerialPlainRow(Cell<int> share)
+    {
+        public int Three => 3;
+
+        public bool Has() => share != null;
+    }
+
+    public sealed class SerialIgnoredRow(Cell<int> share)
+    {
+        [JsonIgnore]
+        public int Now => share.Sample();
+
+        internal int Later => share.Sample();
+
+        public int this[int index] => share.Sample() + index;
+
+        public static int Count => 0;
+    }
+
+    public sealed class SerialConditionRow(Cell<int> share)
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int Now => share.Sample();
+    }
+
+    public sealed class SerialOuter(SerialRow inner)
+    {
+        public SerialRow Inner => inner;
+    }
+
+    public sealed class SerialQueryRow(IEnumerable<int> values)
+    {
+        public IEnumerable<int> Values => values;
+    }
+
+    public sealed class XmlRow
+    {
+        private readonly Cell<int>? share;
+
+        public XmlRow()
+        {
+        }
+
+        public XmlRow(Cell<int> share) => this.share = share;
+
+        public int Now
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
+    }
+
+    public sealed class XmlFixedRow
+    {
+        private readonly Cell<int>? share;
+
+        public XmlFixedRow()
+        {
+        }
+
+        public XmlFixedRow(Cell<int> share) => this.share = share;
+
+        public int Fixed => this.share?.Sample() ?? 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

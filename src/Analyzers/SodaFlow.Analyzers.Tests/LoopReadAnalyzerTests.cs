@@ -489,7 +489,19 @@ internal sealed class LoopReadAnalyzerTests
             ["EnumeratorPropertyMoved"] = ["SF1005"],
             ["IteratorPropertySpread"] = ["SF1005"],
             ["IteratorPropertyKeptThenEnumerated"] = ["SF1005"],
-            ["GetterWithCodeThatReturnsASequence"] = ["SF1005"]
+            ["GetterWithCodeThatReturnsASequence"] = ["SF1005"],
+            ["QuerySerialized"] = ["SF1001"],
+            ["QuerySerializedAsAnObject"] = ["SF1001"],
+            ["QueryInAnAnonymousObjectSerialized"] = ["SF1001"],
+            ["ObjectWithAGetterThatReadsSerialized"] = ["SF1005"],
+            ["ObjectWithAConditionOnJsonIgnoreSerialized"] = ["SF1005"],
+            ["ObjectInAnObjectSerialized"] = ["SF1005"],
+            ["ListOfObjectsSerialized"] = ["SF1005"],
+            ["ObjectWithAGetterThatGivesAQuerySerialized"] = ["SF1001"],
+            ["QuerySerializedByJsonConvert"] = ["SF1001"],
+            ["ObjectSerializedByJsonConvert"] = ["SF1005"],
+            ["TupleOfAQuerySerializedByJsonConvert"] = ["SF1001"],
+            ["ObjectSerializedByXmlSerializer"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -524,7 +536,9 @@ internal sealed class LoopReadAnalyzerTests
         typeof(IBindableFactory).Assembly,
         typeof(IOneWayBindableValue<>).Assembly,
         typeof(IIdentity<>).Assembly,
-        typeof(CollectionExtensionMethods).Assembly
+        typeof(CollectionExtensionMethods).Assembly,
+        // The shapes of the serializer rule call it. The run of the shapes holds the rule to it.
+        typeof(Newtonsoft.Json.JsonConvert).Assembly
     ];
 
     private static Task<string> ReadShapes() =>
@@ -689,20 +703,28 @@ internal sealed class LoopReadAnalyzerTests
         }
         catch (TargetInvocationException invocation) when (invocation.InnerException is { } thrown)
         {
-            Outcome outcome =
-                thrown switch
-                {
-                    DependencyCycleException => Outcome.MakesCycle,
-                    InvalidOperationException when Says(exception: thrown, text: "sampled before it was looped") =>
-                        Outcome.ReadsEarly,
-                    InvalidOperationException when Says(exception: thrown, text: "lazy sample forces itself") =>
-                        Outcome.ForcesItself,
-                    _ => Outcome.Other
-                };
+            // A serializer puts the exception of a getter into one of its own.
+            Outcome outcome = Outcome.Other;
+
+            for (Exception? cause = thrown; cause != null && outcome == Outcome.Other; cause = cause.InnerException)
+            {
+                outcome = OutcomeOf(cause);
+            }
 
             return (outcome, $"throws {thrown.GetType().Name}: {thrown.Message}");
         }
     }
+
+    private static Outcome OutcomeOf(Exception thrown) =>
+        thrown switch
+        {
+            DependencyCycleException => Outcome.MakesCycle,
+            InvalidOperationException when Says(exception: thrown, text: "sampled before it was looped") =>
+                Outcome.ReadsEarly,
+            InvalidOperationException when Says(exception: thrown, text: "lazy sample forces itself") =>
+                Outcome.ForcesItself,
+            _ => Outcome.Other
+        };
 
     private static bool Says(Exception exception, string text) =>
         exception.Message.Contains(value: text, comparisonType: StringComparison.Ordinal);

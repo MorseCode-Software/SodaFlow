@@ -391,6 +391,51 @@ internal sealed class SodaFlowSymbols
         && owner.ContainingNamespace?.ToDisplayString() == "System.Threading";
 
     /// <summary>
+    ///     True for a method of a serializer that writes a value. Such a method
+    ///     enumerates each sequence in the value, and reads the public properties
+    ///     of each object in it. The rows are <c>JsonSerializer</c> of
+    ///     <c>System.Text.Json</c>, <c>JsonConvert</c> and <c>JsonSerializer</c>
+    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>.
+    /// </summary>
+    public static bool IsSerializer(IMethodSymbol definition) =>
+        definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal)
+        && definition.ContainingType is { } owner
+        && (owner.Name, owner.ContainingNamespace?.ToDisplayString())
+            is ("JsonSerializer", "System.Text.Json")
+            or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
+            or ("XmlSerializer", "System.Xml.Serialization");
+
+    /// <summary>
+    ///     True for a serializer that writes the public fields of an object, and
+    ///     thus the elements of a tuple. <c>System.Text.Json</c> writes only
+    ///     properties, unless an option says differently.
+    /// </summary>
+    public static bool WritesFields(IMethodSymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() != "System.Text.Json";
+
+    /// <summary>
+    ///     True for a property that the serializer reads. It is public, it is
+    ///     not an indexer, and it has no attribute that tells a serializer to
+    ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
+    ///     set.
+    /// </summary>
+    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer) =>
+        property is
+        {
+            IsStatic: false,
+            IsIndexer: false,
+            DeclaredAccessibility: Accessibility.Public,
+            GetMethod.DeclaredAccessibility: Accessibility.Public
+        }
+        && (serializer.ContainingType?.Name != "XmlSerializer"
+            || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
+        && !property.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
+                // A condition on JsonIgnore reads the value before it decides.
+                && attribute.NamedArguments.IsEmpty);
+
+    /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in
     ///     <c>System.Reflection</c>.
     /// </summary>
