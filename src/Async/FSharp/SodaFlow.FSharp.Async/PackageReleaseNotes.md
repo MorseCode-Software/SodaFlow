@@ -1,5 +1,15 @@
 6.0.0
 
+BREAKING, and the break is in SodaFlow.Core.Async 6.0.0, which this release takes: a custom strategy returns its next
+state, where it changed its state in place. Admit and OnCanceled return an AsyncStrategyStep<TInput, TState>, with the
+state for the next call and the items to start, and OnCompleted returns an AsyncStrategyResult<TInput, TState>, with the
+state, the publish decision, and the items to start. AsyncStrategyResult<TInput> is gone, and its empty list is now
+AsyncToStart<TInput>.None. The pipeline keeps the state, and puts back the state from before a transaction that fails,
+so a strategy no longer has to allow for a state that a failed call changed. The state has to be a value that the
+strategy replaces: one that changes an object in its state and returns the same object keeps that change after a
+failure. AsyncConcurrencyStrategy<TState> and AsyncConcurrencyStrategy, the short base classes here, take the new
+signatures with them. The notes of SodaFlow.Core.Async have the reasoning.
+
 Changed: mapAsync and mapAsyncWithInputConverter take a required handleException, an exn -> unit after errors. The
 pipeline gives it each exception that has no caller and that errors cannot take: a report of a failed delivery that
 throws as well, an item that cannot be ended, and a bug in the pipeline. It must not throw; a throw from it ends the
@@ -31,8 +41,9 @@ package, and its notes have the details of each:
   call.
 - A transaction that fails no longer cancels the run in flight of a SwitchLatest pipeline, or loses its result. Cancel
   on a tracked item, which is how a strategy cancels, now takes effect once the transaction that called it has
-  committed, and SwitchLatest puts its own record back when the transaction fails. An exception from a callback
-  registered on the token of the replaced run goes to handleException, where a send to the pipeline used to throw it.
+  committed, and the state of SwitchLatest goes back when the transaction fails, as the state of every strategy now
+  does. An exception from a callback registered on the token of the replaced run goes to handleException, where a send
+  to the pipeline used to throw it.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
