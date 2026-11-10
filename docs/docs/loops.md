@@ -280,6 +280,11 @@ of your own constructors or helpers keeps is read where it finally runs, and rep
 property pattern reads a property just as a member access does, so `row is { Total: > 0 }` is
 checked like `row.Total > 0`.
 
+It also reads the members of yours that C# calls without call syntax: an indexer, an operator, a
+conversion, a property setter or an event accessor, a `Deconstruct`, `ToString` in an interpolated
+string or a concatenation, `Dispose` at the end of a `using`, the enumerator behind a `foreach`,
+and the `Add` behind a collection initializer.
+
 It does not see everything, and in a few places it guesses on the careful side:
 
 - A collection has the state of everything put into it. A list that holds one pending cell and one
@@ -295,9 +300,10 @@ It does not see everything, and in a few places it guesses on the careful side:
 - A function kept by a constructor outside your project is not read when the block then uses that
   object. That covers a comparer kept by a `SortedSet<T>`. `Lazy<T>` is the exception, and a
   `Lazy<T>` handed to code outside your project is taken as kept, not forced.
-- A member of yours that C# calls without call syntax is not read: an indexer, an operator, a
-  conversion, a property setter, a `Deconstruct`, `ToString` in an interpolated string, and
-  `Dispose` at the end of a `using`.
+- Code outside your project can call back into a type of yours through an interface or a virtual
+  method it knows: `CompareTo` from a sort, `Equals` and `GetHashCode` from `Contains` or a set,
+  `ToString` from `string.Join`, `GetEnumerator` from a LINQ query. A read in such a member is not
+  seen. A comparer is the exception.
 - A virtual method is read as the method the code names, unless the analyzer saw the object built.
 
 The runtime check stays behind all of these.
