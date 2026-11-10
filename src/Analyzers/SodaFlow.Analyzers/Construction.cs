@@ -108,9 +108,40 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     /// <summary>
     ///     False when the evaluator knows the type of this object, and an object
     ///     of that type is not a value of the given type. A list of such objects
-    ///     has their members in its state, and the list is not one of them.
+    ///     has their members in its state, and the list is not one of them. A
+    ///     tuple has no type here. It is not a value of a struct or of a class
+    ///     that is not a tuple, such as a pair that contains it.
     /// </summary>
-    public bool CanBe(ITypeSymbol? type) => this.type == null || type == null || this.Is(type);
+    public bool CanBe(ITypeSymbol? type) =>
+        this.type == null ? !this.IsTuple || !IsNotATuple(type) : type == null || this.Is(type);
+
+    /// <summary>
+    ///     False when this object cannot be the owner of the member. A member
+    ///     of <c>Nullable</c> is not a member of the struct that the nullable
+    ///     holds.
+    /// </summary>
+    public bool CanOwn(ISymbol member) =>
+        member.ContainingType is not { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+        && this.CanBe(member.ContainingType);
+
+    private bool IsTuple =>
+        !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsTupleType: true });
+
+    // A tuple is a value of object, of ValueType, and of each interface that its struct has.
+    private static bool IsNotATuple(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            type = nullable.TypeArguments[0];
+        }
+
+        return type is INamedTypeSymbol
+        {
+            IsTupleType: false,
+            TypeKind: TypeKind.Struct or TypeKind.Class,
+            SpecialType: not (SpecialType.System_Object or SpecialType.System_ValueType)
+        };
+    }
 
     /// <summary>
     ///     True for a type that each object is a value of: <c>object</c>,

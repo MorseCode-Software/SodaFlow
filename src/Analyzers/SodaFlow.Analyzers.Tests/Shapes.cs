@@ -3766,6 +3766,42 @@ public static class Shapes
     public static Cell<int> MaxOrNoneWithAFunctionThatSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> max = Numbers.MaxOrNone(x => x + l.Sample()); Kept.Add(max); return S.Hold(0); });
 
+    // S630. A tuple in a pair is not the pair. Value gives the tuple, and the tuple has the object.
+    public static Cell<int> ValueOfAPairOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, (Titled N, int I)> p = new("a", (new Titled(l.Map(v => v)), 1)); Kept.Add(p.Value.N.ToString()); return S.Hold(0); });
+
+    // S631. The same for a tuple in a task.
+    public static Cell<int> ResultOfATaskOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<(Titled N, int I)> t = Task.FromResult((new Titled(l.Map(v => v)), 1)); Kept.Add(t.Result.N.ToString()); return S.Hold(0); });
+
+    // S632. The other element of that tuple is a number.
+    public static Cell<int> PlainElementOfATupleInAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, (Titled N, int I)> p = new("a", (new Titled(l.Map(v => v)), 1)); Kept.Add(p.Value.I.ToString()); return S.Hold(0); });
+
+    // S633. A tuple is a value of object and of ValueType. A local of such a type keeps the elements.
+    public static Cell<int> TupleKeptAsObjectThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Titled(l.Map(v => v)), 1); ValueType t = (ValueTuple<Titled, int>)o; Kept.Add(((ValueTuple<Titled, int>)t).Item1.ToString()); return S.Hold(0); });
+
+    // S634. A tuple is a value of each interface of its struct.
+    public static Cell<int> TupleKeptAsAnInterfaceThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparable t = (new Titled(l.Map(v => v)), 1); Kept.Add(((ValueTuple<Titled, int>)t).Item1.ToString()); return S.Hold(0); });
+
+    // S635. A nullable tuple holds the tuple. Value is a member of the nullable.
+    public static Cell<int> ValueOfANullableTuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Titled N, int I)? t = (new Titled(l.Map(v => v)), 1); Kept.Add(t.Value.N.ToString()); return S.Hold(0); });
+
+    // S636. The same for a struct of the compilation.
+    public static Cell<int> ValueOfANullableStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledValue? t = new TitledValue(l.Map(v => v)); Kept.Add(t.Value.ToString()); return S.Hold(0); });
+
+    // S637. HasValue of that nullable reads nothing.
+    public static Cell<int> HasValueOfANullableStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledValue? t = new TitledValue(l.Map(v => v)); Kept.Add(t.HasValue); return S.Hold(0); });
+
+    // S638. A pattern reads the tuple in the nullable.
+    public static Cell<int> NullableTupleThroughAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Titled N, int I)? t = (new Titled(l.Map(v => v)), 1); if (t is { N: var n }) { Kept.Add(n.ToString()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4374,6 +4410,13 @@ public static class Shapes
         public void Dispose()
         {
         }
+    }
+
+    public readonly struct TitledValue(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public override string ToString() => this.share.Sample().ToString();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

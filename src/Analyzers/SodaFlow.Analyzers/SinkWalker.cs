@@ -440,7 +440,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return owner;
         }
 
-        if (owner.Members.CanBe(member.ContainingType))
+        if (owner.Members.CanOwn(member))
         {
             return owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin);
         }

@@ -577,10 +577,10 @@ internal sealed class LoopStateEvaluator
                     // wherever the object came from: a local, a hold, or a lambda parameter. The
                     // code can read the member through an interface of the object. A tuple with
                     // no state for the element is a tuple that the evaluator did not see made.
-                    // A pair, a task, or an enumerator of the platform has the members of the
-                    // object that it contains. Its own property is not one of them.
+                    // A pair, a task, a nullable, or an enumerator of the platform has the members
+                    // of the object that it contains. Its own property is not one of them.
                     if (owner.Members != null
-                        && owner.Members.CanBe(symbol.ContainingType)
+                        && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
                         return owner.Members.StateOf(owner.Members.Resolve(symbol))
