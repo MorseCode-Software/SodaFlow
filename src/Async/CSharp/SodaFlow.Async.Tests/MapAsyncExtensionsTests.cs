@@ -1066,6 +1066,90 @@ public sealed class MapAsyncExtensionsTests
         gate.TrySetResult("done");
     }
 
+    // A send throws in a callback. Thus, a disposal there that cancels does not send in the
+    // transaction, and sends the trigger after it. Before, the disposal threw, and the throw failed
+    // the transaction of the caller.
+    [Test]
+    public async Task Dispose_InACallback_WithCancelOnDisposeTrue_DoesNotThrowAndCancelsAfterTheTransaction()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelOnDispose: true);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => other.Send(1)).ThrowsNothing();
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+        await Assert.That(op.HasStarted("b")).IsFalse();
+        await Assert.That(received.Count).IsEqualTo(0);
+
+        source.Send("c");
+
+        await Assert.That(Transaction.Run(tracked.Sample).Count).IsEqualTo(0).Because("the pipeline stays disposed");
+
+        l.Unlisten();
+    }
+
+    // The same disposal in a transaction that a listener after it fails. The trigger goes after the
+    // transaction in each condition, thus the disposal cancels also here.
+    [Test]
+    public async Task Dispose_InACallbackOfATransactionThatFails_StillCancels()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelOnDispose: true);
+
+        // The listener on the sink runs before the listener below the two maps. See
+        // Dispose_InsideATransactionThatAListenerFails_StillCancels.
+        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+
+        using IStrongListener throws =
+            other.Map(static v => v)
+                .Map(static v => v)
+                .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => other.Send(1))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("The test fails this transaction.");
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+    }
+
     // A disposal that does not cancel sends nothing. Thus, it is legal in a callback, where a send
     // throws.
     [Test]
