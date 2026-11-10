@@ -146,4 +146,5 @@ resolved against a newer core.
 
 ## Supported frameworks
 
-Every package multi-targets `net472`, `net6.0` and `netstandard2.0`.
+Every package multi-targets `net472`, `net6.0`, `net8.0`, and `netstandard2.0`. A project on .NET 8
+or later gets the `net8.0` build, and a project on .NET 6 or .NET 7 gets the `net6.0` build.

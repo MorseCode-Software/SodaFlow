@@ -547,6 +547,10 @@ failure discards the step, so the next transaction starts clean. Nothing in this
 the check is there to make the mistake loud rather than silent. A last action can still queue a last action, which runs
 in the same drain, and a post, which runs after it.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires

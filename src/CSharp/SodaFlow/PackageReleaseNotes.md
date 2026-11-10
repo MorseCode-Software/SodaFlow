@@ -164,6 +164,10 @@ counts with a Stopwatch, which only measures time going by.
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 5.0.1
 
 No API change and no change in behavior. The four MutableListener extension methods, SetListener, ClearListener,

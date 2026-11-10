@@ -160,6 +160,50 @@
       "sodaflow.functional": {
         "type": "Project"
       }
+    },
+    "net8.0": {
+      "JetBrains.Annotations": {
+        "type": "Direct",
+        "requested": "[2026.2.0, )",
+        "resolved": "2026.2.0",
+        "contentHash": "drvAEaI7Xf4wU6dx4UTB9MoZWXZlraaQ0qoeThPQ411FxNhId7QdUTukIC9I8aUHP0ycAaGwZNKqSvfOZQvUlg=="
+      },
+      "MinVer": {
+        "type": "Direct",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "AJy/KVjXgUbgjf6HiI8wAk4DSSq0SCmvXQF8aU6IB+pnIQq+YJvofvMczug2hqO8yEvnQY557ryew66KPpyCsA=="
+      },
+      "System.ValueTuple": {
+        "type": "Direct",
+        "requested": "[4.6.2, )",
+        "resolved": "4.6.2",
+        "contentHash": "yQgmjfFximrNm9LIV3mL6T5MzjeC+epeE5rl4hXxAlYmxby7RM1dPSkIKXk9HNkl6G54h2JHOmLD46+Pey+IRg=="
+      },
+      "sodaflow": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "SodaFlow.Functional": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "SodaFlow.Async.Core": {
+        "type": "Project",
+        "dependencies": {
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.core": {
+        "type": "Project",
+        "dependencies": {
+          "System.ValueTuple": "[4.6.2, )"
+        }
+      },
+      "sodaflow.functional": {
+        "type": "Project"
+      }
     }
   }
 }

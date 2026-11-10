@@ -12,6 +12,10 @@ fails no longer keeps an item from a discarded snapshot, a request for a per-key
 longer deadlock with one from inside, and making a cell for each key of a large collection no longer takes time that
 grows with the square of the number of keys. That package's notes have the details.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 2.0.0
 
 Adds Fold, an extension method on ReactiveCollection, for a total, a count, or an average that follows the collection.

@@ -78,6 +78,10 @@ rule for any scheduler: run the posts of a transaction even when it fails.
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 4.3.0
 
 Changed: a command sends nothing when its enablement cell is false at the moment it sends. CanExecute answers from a

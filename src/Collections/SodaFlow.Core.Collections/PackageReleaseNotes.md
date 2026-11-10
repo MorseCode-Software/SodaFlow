@@ -148,6 +148,10 @@ view of a ten-item collection 8.8 to 8.1 KB and 35.0 to 31.4 µs to build; throu
 on 1,000 items, an edit 7.25 to 6.90 µs and 13.3 to 12.7 KB, an edit that the filter excludes 3.14 to 2.99 µs, and an
 add and a remove 23.1 to 20.7 µs and 38.6 to 37.2 KB.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

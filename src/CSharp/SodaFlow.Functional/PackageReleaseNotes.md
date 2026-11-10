@@ -61,6 +61,10 @@ another thread, never got that continuation and hung. The wrappers now stay off 
 this package already did. A caller that awaits the task sees no change, because its own await decides where it
 continues. The build now fails on an unconfigured await in library code, so the omission cannot come back.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
