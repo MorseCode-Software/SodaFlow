@@ -66,11 +66,13 @@ public interface IBindingScheduler
     ///         of a transaction and send them together after its last actions.
     ///     </para>
     ///     <para>
-    ///         A bindable value sets a flag and a count when it posts a refresh, and
-    ///         only that refresh clears them. Thus, an implementation that drops the
-    ///         actions of a transaction that fails stops the value permanently. A
-    ///         dispatcher keeps each post. The schedulers in this package run the
-    ///         actions of a transaction after it ends, also when it fails.
+    ///         An implementation that drops the actions of a transaction that fails
+    ///         loses them. A bindable value posts a refresh again at its next update,
+    ///         and that refresh shows the value of its cell. An action that is not a
+    ///         refresh does not come again, such as the notification of a command that
+    ///         a caller disposed. A dispatcher keeps each post. The schedulers in this
+    ///         package run the actions of a transaction after it ends, also when it
+    ///         fails.
     ///     </para>
     ///     <para>
     ///         An action can throw, and some actions throw by design. A writable value

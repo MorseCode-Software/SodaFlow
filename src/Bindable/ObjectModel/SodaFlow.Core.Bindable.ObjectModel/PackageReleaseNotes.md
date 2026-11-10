@@ -75,6 +75,22 @@ the lock while a handler ran and rolled back what a handler sent if it then thre
 failed transaction discarding the post describes the scheduler before this change. IBindingScheduler.Post now states the
 rule for any scheduler: run the posts of a transaction even when it fails.
 
+Fixed: a two-way value no longer sends every write to the graph after a scheduler drops one of its refreshes. It counted
+the refreshes it had in the queue, and its setter skipped a write equal to what it shows only while that count was zero.
+Only a refresh took the count back, so a refresh that never ran kept the count above zero for the life of the value, and
+every write went to the graph, including the ones that change nothing. The value now records how many refreshes it had
+posted when its last refresh sampled the cell, and the setter skips only while no refresh has been posted since, so the
+next refresh puts the equality test back whatever the scheduler did with the one before. A refresh that never ran is not
+something a discard can undo: the schedulers in this package run the posts of a failed transaction, and a discard that
+took the count back would have taken it back twice there. Reaching this took a scheduler of your own that drops the
+posts of a failed transaction, which the contract on IBindingScheduler.Post rules out. That contract and the guide said
+such a scheduler stops a bindable value for good. That stopped being true earlier in this release, when a failed
+transaction began clearing the mark that keeps a second refresh out of the queue, and they now say what such a scheduler
+loses: nothing that the next update does not bring back, except posts that are not refreshes, such as the notification a
+command sends when it is disposed. BindableRefreshBenchmarks, one update delivered to a two-way value, before and after
+in one run: 896 bytes on .NET 10 and 916 on .NET Framework 4.7.2 both times, and 436 ns to 427 and 978 ns to 963, which
+is less than the same code moved against itself in an earlier run.
+
 Requires SodaFlow.Core 6.0.0, which adds the members this release calls. The floor of the dependency is the version of
 SodaFlow.Core the package is built against, so SodaFlow.Core 6.0.0 has to be released first.
 
