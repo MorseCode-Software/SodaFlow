@@ -88,6 +88,6 @@ internal abstract class ValueListener<T> : StreamAction<T>
 
         public override void Execute(TransactionInternal trans) => this.listener.Send(trans);
 
-        public override void Discard() => this.listener.Clear();
+        public override void Discard(Exception cause) => this.listener.Clear();
     }
 }
