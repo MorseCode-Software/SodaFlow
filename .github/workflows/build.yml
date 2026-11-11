@@ -269,6 +269,20 @@ jobs:
           base-path: ${{ github.workspace }}
           fail-on-error: true
 
+      # The one step that compiles the libraries as an app with native AOT does, and then runs the
+      # result. The analyzers in the library builds cannot see a generic type that nests in itself;
+      # the native AOT compiler stops such an expansion and reports IL3054, and only the compile of
+      # an app reaches it. The project treats every warning as an error and the app returns the
+      # count of its failed checks, so either one fails this step. See Verify-Native-Aot in
+      # build.cake.
+      #
+      # Here rather than in a job of its own because Build is the required check: a step of this job
+      # blocks a merge with no ruleset change, where a new job would report beside it and block
+      # nothing until someone added it. The link step needs the C++ build tools, which this image
+      # has.
+      - name: Verify native AOT
+        run: dotnet cake --target=Verify-Native-Aot --exclusive --configuration=${{ env.CONFIGURATION }}
+
       # Packing lives with the tests rather than with the inspection because the publish job takes
       # its packages from here, and because this is the shorter of the two jobs - the release is
       # already waiting on the inspection, and there is nothing to gain by queueing a pack behind it
