@@ -115,6 +115,21 @@ ends where the loop comes back. A switch that selects a new inner walks again fo
 only the roots that changed. Thus, a cancellation releases the wait from every root, also after a switch in its loop
 moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot block each other. The memory tests pin both loops.
 
+Changed: the keep-alive set of a loop goes to the roots of the stream that closes the loop at the first wait in the set.
+Before, it went there at the close of the loop. A set with no wait keeps nothing alive. A loop that a switch feeds had a
+registration from its close. Each move of that switch walked from the registration two times, with no wait in the graph.
+Now, a graph with no wait from ListenOnceAsync gives no set to a root, and its switches walk nothing. A set can get its
+first target in the middle of a walk, and each walk uses the same collections. Thus, the set goes to a queue, and the
+call that holds the lock gives it to the roots when its walks are clear. One set can be the first target of a second
+set, thus that call continues until the queue is empty. A chain of loops does not make the stack deeper. A set stays in
+the roots after its last wait leaves. The memory tests pin each way to a first target, and a chain of 20,000 loops. They
+also pin a loop with no wait: no root holds its set, and no switch holds it.
+Measured in the blotter benchmarks on .NET 10, with four runs on each side, by the fastest run of each side. At 10,000
+orders, a reverse of the sort took 2,250 µs and takes 2,020 µs. A page forward and back took 2,311 µs and takes 2,089
+µs, and the life of an order took 2,038 µs and takes 1,934 µs. For a tick, a search, and a change of the sort column,
+the two sides differ less than two runs of one side. The build of a blotter of 1,000 orders allocated 2,765 KB, and
+allocates 2,714 KB. A change of the view allocates what it did.
+
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
 exception was thrown after that. Now no send made before the throw reaches the graph, each cell keeps its previous

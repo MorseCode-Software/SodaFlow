@@ -32,6 +32,13 @@ namespace SodaFlow;
 ///         lock for each set let two threads in the same loop wait for each other. No
 ///         code runs under this lock that gets a different lock.
 ///     </para>
+///     <para>
+///         The set of a loop goes to the roots of the stream that closes the loop,
+///         and those roots keep it alive. It goes there when it gets its first
+///         target, and not at the close, because a set with no target keeps nothing
+///         alive. Thus, a graph with no wait gives no set to a root, and a switch in
+///         it moves no target. See <see cref="LoopKeepListenersAlive" />.
+///     </para>
 /// </remarks>
 internal interface IKeepListenersAlive
 {
@@ -53,6 +60,43 @@ internal static class KeepListenersAliveInternal
     ///     The lock of every keep-alive set.
     /// </summary>
     internal static readonly object Lock = new();
+
+    // The sets of loops that got their first target and are not in their roots yet. A set gets its
+    // first target in the middle of a walk, and each walk uses the same collections. Thus, the set
+    // stays here until the walks of the call that holds the lock are clear. The lock guards the
+    // queue and the flag.
+    private static readonly Queue<LoopKeepListenersAlive> PendingLoops = new();
+    private static bool givesPendingLoops;
+
+    // The caller holds the lock.
+    internal static void AddPendingLoop(LoopKeepListenersAlive loop) => PendingLoops.Enqueue(loop);
+
+    // Gives each pending set to the roots of the stream that closes its loop. The caller holds the
+    // lock, and its walks are clear. One set can be the first target of a second set, thus this
+    // continues until the queue is empty. The call that gives a set comes here again at its end.
+    // The flag stops that call, and the loop here gives the next set. Thus, a chain of loops does
+    // not make the stack deeper.
+    internal static void GivePendingLoops()
+    {
+        if (givesPendingLoops)
+        {
+            return;
+        }
+
+        givesPendingLoops = true;
+
+        try
+        {
+            while (PendingLoops.Count > 0)
+            {
+                PendingLoops.Dequeue().GoToRoots();
+            }
+        }
+        finally
+        {
+            givesPendingLoops = false;
+        }
+    }
 
     /// <summary>
     ///     The set for a stream with two inputs.
@@ -108,7 +152,7 @@ internal static class KeepListenersAliveInternal
 
 // The set of a root stream. It holds each target, and counts the calls that gave it. A target
 // that a fan-out gives from two of its inputs, which share this root, stays until both stop.
-internal sealed class KeepListenersAliveImplementation : IKeepListenersAlive
+internal class KeepListenersAliveImplementation : IKeepListenersAlive
 {
     // SodaFlow makes one of these for each root stream, and many streams get no target. Thus,
     // the dictionary waits until the code needs it.
@@ -119,6 +163,7 @@ internal sealed class KeepListenersAliveImplementation : IKeepListenersAlive
         lock (KeepListenersAliveInternal.Lock)
         {
             this.Add(target);
+            KeepListenersAliveInternal.GivePendingLoops();
         }
     }
 
@@ -131,7 +176,7 @@ internal sealed class KeepListenersAliveImplementation : IKeepListenersAlive
     }
 
     // The caller holds the lock.
-    internal void Add(object target)
+    internal virtual void Add(object target)
     {
         this.targets ??= [];
         this.targets.TryGetValue(key: target, value: out int count);
@@ -154,6 +199,71 @@ internal sealed class KeepListenersAliveImplementation : IKeepListenersAlive
         {
             this.targets[target] = count - 1;
         }
+    }
+}
+
+// The set of a loop stream. The roots of the stream that closes the loop keep this set alive, and
+// this set keeps its targets alive. A set with no target keeps nothing alive. Thus, this set goes
+// to those roots when it gets its first target. When a target comes before the close, it goes at
+// the close. It stays in the roots after its last target leaves. Before, each loop gave its set at
+// the close. A loop through a switch then had a registration with no wait in it, and each move of
+// the switch walked for that registration.
+internal sealed class LoopKeepListenersAlive : KeepListenersAliveImplementation
+{
+    // The set of the stream that closes the loop, from the close until this set goes to its roots.
+    // This set does not use it after that. The lock guards the two fields.
+    private IKeepListenersAlive? closing;
+
+    // True from the first target.
+    private bool hasTarget;
+
+    // The caller holds the lock. It gives the pending sets after its walks are clear.
+    internal override void Add(object target)
+    {
+        base.Add(target);
+
+        if (this.hasTarget)
+        {
+            return;
+        }
+
+        this.hasTarget = true;
+
+        if (this.closing != null)
+        {
+            KeepListenersAliveInternal.AddPendingLoop(this);
+        }
+    }
+
+    /// <summary>
+    ///     Records the set of the stream that closes the loop. This set goes to the
+    ///     roots of that set now, when it already has a target.
+    /// </summary>
+    internal void Close(IKeepListenersAlive closingSet)
+    {
+        lock (KeepListenersAliveInternal.Lock)
+        {
+            this.closing = closingSet;
+
+            if (!this.hasTarget)
+            {
+                return;
+            }
+
+            KeepListenersAliveInternal.AddPendingLoop(this);
+            KeepListenersAliveInternal.GivePendingLoops();
+        }
+    }
+
+    // Gives this set to the roots that the stream that closes the loop reaches now. A switch on the
+    // way gives it a registration, which each move of that switch keeps correct. The caller holds
+    // the lock, and no walk is in use.
+    internal void GoToRoots()
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed - A set is pending only after its loop closed, and it goes one time.
+        IKeepListenersAlive closingSet = this.closing!;
+        this.closing = null;
+        closingSet.KeepAlive(this);
     }
 }
 
@@ -209,6 +319,7 @@ internal abstract class CompositeKeepListenersAlive : IKeepListenersAlive
             finally
             {
                 walk.Clear();
+                KeepListenersAliveInternal.GivePendingLoops();
             }
         }
     }
@@ -316,6 +427,7 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : C
                 }
 
                 this.Inner = next;
+                KeepListenersAliveInternal.GivePendingLoops();
                 return;
             }
 
@@ -336,6 +448,7 @@ internal sealed class SwitchKeepListenersAlive(in IKeepListenersAlive outer) : C
             }
 
             this.Inner = next;
+            KeepListenersAliveInternal.GivePendingLoops();
         }
     }
 
