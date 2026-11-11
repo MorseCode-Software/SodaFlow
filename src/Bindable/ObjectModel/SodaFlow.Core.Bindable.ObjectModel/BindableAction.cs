@@ -21,7 +21,7 @@ public static partial class BindableCoreExtensionMethods
     ///     change the field that holds the availability.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
-    internal class BindableAction<T> : IBindableAction<T>
+    internal class BindableAction<T> : IBindableAction<T>, ILastAction
         where T : notnull
     {
         private const int NotSampled = 0;
@@ -45,6 +45,15 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         private readonly IListener listener;
 
+        /// <summary>
+        ///     The availability and the outcome of the newest update, for the posted
+        ///     refresh. See <see cref="OnIsEnabledChanged" />.
+        /// </summary>
+        private readonly SingleWriterSlot<(bool Value, TransactionOutcome Outcome)> pending = new();
+
+        /// <summary>The one delegate that each update posts.</summary>
+        private readonly Action refresh;
+
         private readonly IBindingScheduler scheduler;
 
         /// <summary>
@@ -54,6 +63,12 @@ public static partial class BindableCoreExtensionMethods
         private int canExecute;
 
         private int disposed;
+
+        /// <summary>
+        ///     One while a posted refresh did not start. An update that finds it set
+        ///     posts nothing. See <see cref="OnIsEnabledChanged" />.
+        /// </summary>
+        private int refreshPosted;
 
         internal BindableAction(
             StreamSink<T> firingsStreamSink,
@@ -67,6 +82,7 @@ public static partial class BindableCoreExtensionMethods
             this.scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
 
             Cell<bool> resolvedIsEnabledCell = isEnabledCell ?? CellInternal.ConstantImpl(true);
+            this.refresh = this.Refresh;
 
             (this.initialCanExecute, this.listener) =
                 SampleAtCloseAndListenToUpdates(cell: resolvedIsEnabledCell, handler: this.OnIsEnabledChanged);
@@ -187,30 +203,66 @@ public static partial class BindableCoreExtensionMethods
                     _ => throw GetInvalidTypeException()
                 });
 
-        // The same rule as OneWayBindableValue.OnSourceChanged. A transaction that fails after
-        // this callback can discard the update of the cell. Thus, the posted action uses the value
-        // here only when the outcome is known as committed, and reads the cell in each other state.
+        // The same structure as OneWayBindableValue.OnSourceChanged, which gives each cause. The
+        // update and the outcome of its transaction go into the slot, and the post is the one
+        // delegate that this command keeps. Before, each update posted a closure of its own. Thus,
+        // a sequence of updates that the binding thread drains together announces one time at most.
         private void OnIsEnabledChanged(bool value)
         {
-            TransactionOutcome outcome = TransactionInternal.CurrentOutcome();
+            this.pending.Write((value, TransactionInternal.CurrentOutcome()));
+            this.PostRefresh();
+        }
 
-            this.scheduler.Post(() =>
+        private void PostRefresh()
+        {
+            if (Interlocked.Exchange(location1: ref this.refreshPosted, value: 1) != 0)
             {
-                if (Volatile.Read(ref this.disposed) != 0)
-                {
-                    return;
-                }
+                return;
+            }
 
-                bool authoritative = outcome.Committed ? value : this.IsEnabledCell.SampleImpl();
+            // See OneWayBindableValue.PostRefresh: a transaction that fails can drop the post, and
+            // its discard clears the flag.
+            TransactionInternal.GetCurrentTransaction()?.Last(this);
+            this.scheduler.Post(this.refresh);
+        }
 
-                if (this.ReadCanExecute() == authoritative)
-                {
-                    return;
-                }
+        void ILastAction.Commit()
+        {
+        }
 
-                Volatile.Write(location: ref this.canExecute, value: authoritative ? Executable : NotExecutable);
-                this.CanExecuteChanged?.Invoke(sender: this, e: EventArgs.Empty);
-            });
+        void ILastAction.Discard() => Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
+        // A transaction that fails after the update can discard the change of the cell. Thus, this
+        // uses the value of the update only when the outcome is known as committed, and reads the
+        // cell in each other state.
+        private void Refresh()
+        {
+            Interlocked.Exchange(location1: ref this.refreshPosted, value: 0);
+
+            if (Volatile.Read(ref this.disposed) != 0)
+            {
+                return;
+            }
+
+            (bool value, TransactionOutcome outcome) = this.pending.Read();
+
+            // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
+            if (!outcome.Committed && TransactionInternal.GetCurrentTransaction() != null)
+            {
+                TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
+
+                return;
+            }
+
+            bool authoritative = outcome.Committed ? value : this.IsEnabledCell.SampleImpl();
+
+            if (this.ReadCanExecute() == authoritative)
+            {
+                return;
+            }
+
+            Volatile.Write(location: ref this.canExecute, value: authoritative ? Executable : NotExecutable);
+            this.CanExecuteChanged?.Invoke(sender: this, e: EventArgs.Empty);
         }
 
         /// <summary>

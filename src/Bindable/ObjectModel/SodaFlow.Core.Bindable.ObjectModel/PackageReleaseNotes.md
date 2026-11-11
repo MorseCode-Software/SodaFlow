@@ -62,6 +62,32 @@ transaction to close, through its post queue, instead of reading the value befor
 fails after posting clears the way for the next update to post again, which matters with BindingScheduler.Immediate,
 where a failed transaction discards the post. What the binding thread sees is unchanged; it is asked less often.
 
+Changed: a command takes a change of its enablement cell the way a bindable value takes an update. It captured each
+change and its transaction's outcome in a closure and posted that, two objects per change, and each posted action
+compared and raised CanExecuteChanged in turn. The command now keeps the newest pair in a slot, posts the one delegate
+it holds, and posts nothing while a refresh is already in the queue. So a burst of changes that the binding thread
+drains together raises CanExecuteChanged once, for the last value, and not at all when the burst ends where CanExecute
+already stood. Before, the drain raised it for every change that differed from the answer at that moment. That is the
+observable change. The paragraph above that says a command allocates nothing of its own per change was true only of
+Execute until now. BindableRefreshBenchmarks has a new arm for it, one change delivered through a scheduler that queues:
+872 bytes to 768 on .NET 10 and 892 to 787 on .NET Framework 4.7.2. The time did not move outside the noise of two
+back-to-back runs: 391 ns to 394 and 364 to 381 on .NET 10, and 871 to 926 and 1,009 to 922 on .NET Framework.
+
+Fixed: a command no longer keeps a stale CanExecute when its refresh runs inside the transaction that changed its
+enablement cell. A nested message loop can run the binding thread's queue from a callback while that transaction is
+still open on the same thread. The posted action then read the cell inside the transaction, which gives the value from
+before the change, found nothing new, and returned, and nothing posted again until the cell next changed. The refresh
+now waits for that transaction to close, through its post queue, as a bindable value's refresh does. Until now this took
+a scheduler of your own that hands each action to the binding thread as it arrives, because the two schedulers in this
+package hold a transaction's posts until it ends. With the change above it could have happened with them too, through a
+refresh that an earlier transaction left in the queue, so the two changes come together.
+
+Changed: SynchronizationContextBindingScheduler keeps the delegate it gives a transaction to send its batch, where it
+made a new one for every transaction that posted. That is 64 bytes less for each transaction that posts to the binding
+thread. One update delivered to a one-way value through this scheduler, a second new arm of BindableRefreshBenchmarks,
+allocates 1,104 bytes to 1,040 on .NET 10 and 1,141 to 1,077 on .NET Framework, and took 458 ns to 441 and 454 to 435 on
+.NET 10, and 1,260 to 1,022 and 1,092 to 1,035 on .NET Framework, in the same two runs. Nothing observable changes.
+
 Fixed: with BindingScheduler.Immediate, a bindable value could stop refreshing for good, and a two-way value could stop
 skipping writes equal to what it shows. The scheduler put a post made inside a transaction into that transaction's queue
 of posted actions, and two things dropped the queue. A transaction that failed discarded it, which left a two-way value
