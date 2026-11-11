@@ -122,6 +122,10 @@ that reach this package, and its notes have the details of each:
 - A posted action, or an element of Operational.Split, whose transaction fails no longer leaves behind what it deferred.
   The actions it posted do not run, the release of each one does, and the values it sent through Defer or Split do not
   arrive.
+- A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
+  never returned. A value that finds its way back to its own source through Operational.Defer, Operational.Split, or a
+  posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
+  laps deep, and the laps before that have committed. The core notes have the rest.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.

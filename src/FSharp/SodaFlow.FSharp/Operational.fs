@@ -48,6 +48,11 @@ let value behavior = OperationalInternal.ValueImpl behavior
 /// <remarks>
 ///     The result defers the firings. They occur in the transactions after the transaction of the
 ///     collection, in the sequence that the collection gives them.
+///     <para>
+///         The result can go back to the source of the stream. Then, each firing makes one more
+///         deferred transaction, and that chain must have an end. A chain with no end throws
+///         <c>DeferredChainLimitException</c> from the call that started the first transaction.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let split (stream: Stream<#seq<_>>) = OperationalInternal.SplitImpl stream
@@ -59,6 +64,11 @@ let split (stream: Stream<#seq<_>>) = OperationalInternal.SplitImpl stream
 /// <returns>A stream firing the same values, each in a transaction after the one it arrived in.</returns>
 /// <remarks>
 ///     The equivalent of <c>split</c> for a single value rather than a collection.
+///     <para>
+///         The result can go back to the source of the stream. Then, each firing makes one more
+///         deferred transaction, and that chain must have an end. A chain with no end throws
+///         <c>DeferredChainLimitException</c> from the call that started the first transaction.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let defer stream = OperationalInternal.DeferImpl stream

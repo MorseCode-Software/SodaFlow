@@ -19,6 +19,40 @@ internal sealed class TransactionInternal
 
     [ThreadStatic] private static bool runningOnStartHooks;
 
+    /// <summary>
+    ///     The largest number of steps of one chain of deferred work that a
+    ///     transaction runs when it closes. The drain counts the rounds of splits.
+    ///     It also counts the generations of posts after the last round. The posts
+    ///     that one generation makes are the next generation.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A value that goes back to its own source through a split makes one
+    ///         more round each time. A posted action that posts makes one more
+    ///         generation each time. With nothing to stop it, the drain in
+    ///         <see cref="Close" /> does not end. The thread that closed the
+    ///         transaction stays in it, and nothing throws. When one of the two
+    ///         counts is at this limit, the drain stops and throws
+    ///         <see cref="DeferredChainLimitException" />.
+    ///     </para>
+    ///     <para>
+    ///         The limit is on the depth of the chain and not on the number of
+    ///         deferred transactions. A split of one list of a million items is a
+    ///         million transactions in one round.
+    ///     </para>
+    ///     <para>
+    ///         The count of generations starts again after each round. Each step of
+    ///         a chain of splits can make a chain of posts. One count for the two
+    ///         kinds is then the product of the two depths.
+    ///     </para>
+    ///     <para>
+    ///         The number is a decision and not a measurement. A chain with no end
+    ///         fails in a short time. A chain that has an end after more steps than
+    ///         this fails also.
+    ///     </para>
+    /// </remarks>
+    internal const int DeferredChainLimit = 100_000;
+
     // A coarse lock. SodaFlow holds it for the complete transaction.
     //
     // The library gives one transaction at a time across the process. This is a guarantee and not
@@ -770,10 +804,31 @@ internal sealed class TransactionInternal
                 // drain uses two lists in turn, thus a chain of rounds allocates no more.
                 List<SplitEntry>? spareSplits = null;
 
+                // The rounds of splits that this drain started, and the generations of posts that
+                // it started after the last round. The third count is the posts of the current
+                // generation that stay in the queue. A post that one of those makes goes to the
+                // end of the queue, and is in the next generation. The counts are locals, thus a
+                // post and a split are the same size as before.
+                int rounds = 0;
+                int generations = 0;
+                int postsLeft = 0;
+
                 while (this.postQueue?.Count > 0 || this.splitQueue?.Count > 0)
                 {
                     while (this.postQueue?.Count > 0)
                     {
+                        if (postsLeft == 0)
+                        {
+                            if (!this.CountStep(count: ref generations, failures: ref deferredFailures))
+                            {
+                                break;
+                            }
+
+                            postsLeft = this.postQueue.Count;
+                        }
+
+                        postsLeft--;
+
                         PostEntry entry = this.postQueue.Dequeue();
 
                         try
@@ -801,10 +856,17 @@ internal sealed class TransactionInternal
 
                     List<SplitEntry>? round = this.splitQueue;
 
-                    if (round == null || round.Count == 0)
+                    // At the limit, CountStep removes the splits, and the loop ends.
+                    if (round == null
+                        || round.Count == 0
+                        || !this.CountStep(count: ref rounds, failures: ref deferredFailures))
                     {
                         continue;
                     }
+
+                    // The posts that this round makes are a chain of their own, thus their count
+                    // starts again. See DeferredChainLimit.
+                    generations = 0;
 
                     // The children of this round put their splits in the other list, and the
                     // next round runs those.
@@ -969,6 +1031,38 @@ internal sealed class TransactionInternal
         failureExceptions.Insert(index: 0, item: transactionException);
 
         return new AggregateException(failureExceptions);
+    }
+
+    // Counts one more step of a chain of deferred work, and gives false at the limit. There, the
+    // drain stops. This removes the work that remains, and none of that work started. A post in it
+    // does not run, thus its release runs, with the exception of the limit as the cause. The
+    // transactions of the steps before this one committed, and their values stay in the graph.
+    private bool CountStep(ref int count, ref List<Exception>? failures)
+    {
+        if (count < DeferredChainLimit)
+        {
+            count++;
+
+            return true;
+        }
+
+        DeferredChainLimitException limit = new(DeferredChainLimitException.MessageFor(DeferredChainLimit));
+
+        (failures ??= []).Add(limit);
+
+        // A release can post, and that post gets the same end.
+        while (this.postQueue?.Count > 0)
+        {
+            if (this.postQueue.Dequeue().OnFailure is { } onFailure
+                && RunRelease(onFailure: onFailure, cause: limit) is { } release)
+            {
+                failures.Add(release);
+            }
+        }
+
+        this.splitQueue?.Clear();
+
+        return false;
     }
 
     // A child that found no queue here made one for itself. This transaction keeps that queue as

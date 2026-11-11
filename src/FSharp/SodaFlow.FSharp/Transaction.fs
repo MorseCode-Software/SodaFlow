@@ -89,6 +89,11 @@ let onStart a : IDisposable =
 ///         commits. An action that throws does not stop the posted actions after it. Each throw comes
 ///         out after the last posted action, in one AggregateException when there is more than one.
 ///     </para>
+///     <para>
+///         A posted action that posts again makes a chain of deferred work. That chain must have an
+///         end. A chain with no end throws <c>DeferredChainLimitException</c> from the call that
+///         started the first transaction.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let post a = TransactionInternal.PostImpl(Action a)
@@ -128,6 +133,11 @@ let post a = TransactionInternal.PostImpl(Action a)
 ///         Each posted action runs in a transaction of its own, after the transaction that posts it
 ///         commits. An action that throws does not stop the posted actions after it. Each throw comes
 ///         out after the last posted action, in one AggregateException when there is more than one.
+///     </para>
+///     <para>
+///         A posted action that posts again makes a chain of deferred work. That chain must have an
+///         end. A chain with no end throws <c>DeferredChainLimitException</c> from the call that
+///         started the first transaction.
 ///     </para>
 ///     <para>
 ///         This function is what C# spells as a second overload of Post. F# has no optional
