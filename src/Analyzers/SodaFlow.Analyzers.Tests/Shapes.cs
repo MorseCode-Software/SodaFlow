@@ -4122,6 +4122,30 @@ public static class Shapes
     public static Cell<int> SequenceOfTheCompilationSerialized() =>
         Cell.Loop<int>().WithoutCaptures(l => { Sack sack = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(sack)); return S.Hold(0); });
 
+    // S718. An object whose constructor gets nothing keeps its type. The block sets a property, and ToString reads it through object.
+    public static Cell<int> PropertySetAfterTheConstructorReadThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LateSlot slot = new(); slot.Share = l.Map(v => v); object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S719. The same read through the type of the object.
+    public static Cell<int> PropertySetAfterTheConstructorReadThroughItsType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LateSlot slot = new(); slot.Share = l.Map(v => v); Kept.Add(slot.ToString()); return S.Hold(0); });
+
+    // S720. The same, and a method sets the property.
+    public static Cell<int> PropertySetByAHelperAfterTheConstructorReadThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LateSlot slot = new(); FillLate(slot, l.Map(v => v)); object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S721. The same, and an object initializer sets the property.
+    public static Cell<int> PropertySetByAnInitializerReadThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LateSlot slot = new() { Share = l.Map(v => v) }; object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S722. The property gets a plain cell.
+    public static Cell<int> PlainPropertySetAfterTheConstructorReadThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { LateSlot slot = new(); slot.Share = Plain; object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S723. A value that is one of two objects. The one with no state does not take the type from the other.
+    public static Cell<int> OneOfTwoObjectsReadThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Plainly() : new Titled(l.Map(v => v)); Kept.Add(o.ToString()!); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4896,6 +4920,15 @@ public static class Shapes
         public static int Now => Shared!.Sample();
 
         public int Three => 3;
+    }
+
+    private static void FillLate(LateSlot slot, Cell<int> one) => slot.Share = one;
+
+    public sealed class LateSlot
+    {
+        public Cell<int>? Share { get; set; }
+
+        public override string ToString() => this.Share!.Sample().ToString();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

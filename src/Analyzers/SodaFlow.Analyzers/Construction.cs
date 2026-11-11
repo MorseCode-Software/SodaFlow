@@ -33,6 +33,15 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     public static Construction Empty { get; } =
         new(members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default), type: null);
 
+    /// <summary>
+    ///     An object of the given type, with no member that the evaluator knows.
+    ///     The code can set a member of it after the constructor.
+    /// </summary>
+    public static Construction Of(INamedTypeSymbol type) => new(members: Empty.members, type: type);
+
+    /// <summary>True when the evaluator knows a state for one member or more.</summary>
+    public bool HasState => this.members.Values.Any(static state => !state.IsNone);
+
     /// <summary>The state of each member that the evaluator knows.</summary>
     public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.members;
 
@@ -265,6 +274,19 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
         if (second == null)
         {
             return first;
+        }
+
+        // A value that is one of two objects has the members of the two, and no type when their
+        // types are different. An object with no member that has a state adds nothing that a
+        // read can find. Thus, the other object keeps its type.
+        if (!second.HasState)
+        {
+            return first;
+        }
+
+        if (!first.HasState)
+        {
+            return second;
         }
 
         ImmutableDictionary<ISymbol, LoopState>.Builder merged = first.members.ToBuilder();

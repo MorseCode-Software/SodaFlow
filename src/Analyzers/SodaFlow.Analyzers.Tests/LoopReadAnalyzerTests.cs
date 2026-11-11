@@ -242,7 +242,7 @@ internal sealed class LoopReadAnalyzerTests
             ["AddInACollectionInitializer"] = ["SF1005"],
             ["ForEachOverAnIteratorOfCells"] = ["SF1001"],
             ["AddInACollectionInitializerThatSamplesItsValue"] = ["SF1004"],
-            ["DefaultComparerComparesObjects"] = ["SF1004", "SF1005"],
+            ["DefaultComparerComparesObjects"] = ["SF1004", "SF1004", "SF1005"],
             ["MinOfObjects"] = ["SF1004", "SF1005"],
             ["OrderByAnObjectKey"] = ["SF1004", "SF1005"],
             ["ThenByAnObjectKey"] = ["SF1004", "SF1005"],
@@ -268,7 +268,7 @@ internal sealed class LoopReadAnalyzerTests
             ["QueryContainsAnObject"] = ["SF1004", "SF1005"],
             ["SequenceEqualOfObjects"] = ["SF1004", "SF1005"],
             ["StaticEqualsOfObjects"] = ["SF1004", "SF1005"],
-            ["DefaultEqualityComparerOfObjects"] = ["SF1004", "SF1005"],
+            ["DefaultEqualityComparerOfObjects"] = ["SF1004", "SF1004", "SF1005"],
             ["ListContainsAnEquatableObject"] = ["SF1004", "SF1005"],
             ["TupleEqualsWithAnObject"] = ["SF1004", "SF1005"],
             ["DistinctOfObjects"] = ["SF1005"],
@@ -516,7 +516,12 @@ internal sealed class LoopReadAnalyzerTests
             ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"],
             ["ToStringOfAnObjectFilledByAHelper"] = ["SF1005"],
             ["SlotAfterACompareExchangeThatDoesNotExchange"] = ["SF1005"],
-            ["SequenceOfTheCompilationSerialized"] = ["SF1005"]
+            ["SequenceOfTheCompilationSerialized"] = ["SF1005"],
+            ["PropertySetAfterTheConstructorReadThroughObject"] = ["SF1005"],
+            ["PropertySetAfterTheConstructorReadThroughItsType"] = ["SF1005"],
+            ["PropertySetByAHelperAfterTheConstructorReadThroughObject"] = ["SF1005"],
+            ["PropertySetByAnInitializerReadThroughObject"] = ["SF1005"],
+            ["OneOfTwoObjectsReadThroughObject"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

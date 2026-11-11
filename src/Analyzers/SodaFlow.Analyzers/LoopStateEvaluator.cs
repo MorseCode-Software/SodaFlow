@@ -1610,9 +1610,14 @@ internal sealed class LoopStateEvaluator
         IReadOnlyList<Binding> bindings =
             this.Bind(definition: definition, arguments: arguments, extensionReceiver: null);
 
+        // A constructor that gets no state gives no member a state, and the evaluator does not
+        // read it. The object keeps its type, because the code can set a member of it later.
         if (!this.region.HasFields && bindings.All(static binding => binding.State.IsNone))
         {
-            return Followed.Nothing;
+            return new Followed(
+                state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
+                findings: Followed.Nothing.Findings,
+                outs: Followed.Nothing.Outs);
         }
 
         if (this.depth >= MaxInlineDepth || !this.region.TryEnter())
@@ -2209,6 +2214,14 @@ internal sealed class LoopStateEvaluator
                         asSequence: operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter),
                         compared: compared)
                     .Select(owner => (operand.Written, owner.State, owner.Members)));
+        }
+
+        // An object with no member that has a state reads nothing through its own members. Its
+        // member can read a second object that it gets, and the walk of that object reports the
+        // read. A field can give an object a state that is not in its members.
+        if (!this.region.HasFields)
+        {
+            owners.RemoveAll(static owner => !owner.Members.HasState);
         }
 
         if (owners.Count == 0)
