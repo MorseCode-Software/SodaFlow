@@ -2664,6 +2664,10 @@ internal sealed class LoopStateEvaluator
         // A callee that gets a function compares what the function returns, as a sort by a key
         // does. It does not compare the values that it gives to the function.
         bool byFunction = operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
+
+        // A member of LINQ to XML knows its content as object, and makes text from each object of
+        // a sequence in it.
+        bool takesContent = SodaFlowSymbols.TakesXmlContent((method.ReducedFrom ?? method).OriginalDefinition);
         List<(ExpressionSyntax Written, LoopState State, Construction Members)> owners = [];
 
         foreach (Operand operand in operands)
@@ -2706,7 +2710,10 @@ internal sealed class LoopStateEvaluator
                 CallbackOwners(
                         state: this.Eval(operand.Written),
                         written: this.TypeBeforeObject(operand.Written),
-                        asSequence: operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter),
+                        asSequence: operand.IsReceiver
+                                    || SodaFlowSymbols.IsSequence(operand.Parameter)
+                                    || (takesContent
+                                        && SodaFlowSymbols.IsSequence(this.region.TypeOf(operand.Written))),
                         compared: compared)
                     .Select(owner => (operand.Written, owner.State, owner.Members)));
         }

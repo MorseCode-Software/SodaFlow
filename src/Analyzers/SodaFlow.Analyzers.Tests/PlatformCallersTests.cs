@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using TUnit.Assertions;
 using TUnit.Core;
 
@@ -39,7 +40,10 @@ internal sealed class PlatformCallersTests
         typeof(StringBuilder),
         typeof(TextWriter),
         typeof(Console),
-        typeof(Convert)
+        typeof(Convert),
+        typeof(XElement),
+        typeof(XContainer),
+        typeof(XAttribute)
     ];
 
     [Test]

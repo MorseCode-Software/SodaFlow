@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 using SodaFlow;
 using SodaFlow.Collections;
@@ -5109,6 +5110,122 @@ public static class Shapes
     // S964. ToList makes a collection. A row more in the copy is not in the list.
     public static Cell<int> CopyOfAListGetsARow() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; rows.ToList().Add(new List<Cell<int>> { l.Map(v => v) }); return S.Hold(rows.Count == 2 ? Plain.Sample() : rows[2][0].Sample()); });
+
+    // S965. The constructor of XElement gets its content as an object, and enumerates a query in it.
+    public static Cell<int> QueryInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S966. The constructor with more than one object of content.
+    public static Cell<int> QueryInTheContentsOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", 1, Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S967. A query in an array in the content.
+    public static Cell<int> QueryInAnArrayInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new object[] { Numbers.Select(x => x + l.Sample()) })); return S.Hold(0); });
+
+    // S968. A query in the content of an element in the content.
+    public static Cell<int> QueryInAnXElementInAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new XElement("b", Numbers.Select(x => x + l.Sample())))); return S.Hold(0); });
+
+    // S969. The constructor of XDocument.
+    public static Cell<int> QueryInTheContentOfAnXDocument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XDocument(new XElement("r"), Numbers.Select(x => x + l.Sample()).Select(n => new XComment(n.ToString())))); return S.Hold(0); });
+
+    // S970. Add.
+    public static Cell<int> QueryGivenToAddOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.Add(Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S971. Add on the root of a document.
+    public static Cell<int> QueryGivenToAddOfTheRootOfAnXDocument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XDocument doc = new(new XElement("r")); doc.Root!.Add(Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S972. AddFirst.
+    public static Cell<int> QueryGivenToAddFirstOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.AddFirst(Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S973. ReplaceNodes.
+    public static Cell<int> QueryGivenToReplaceNodesOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.ReplaceNodes(Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S974. ReplaceAll.
+    public static Cell<int> QueryGivenToReplaceAllOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.ReplaceAll(Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S975. ReplaceAttributes.
+    public static Cell<int> QueryGivenToReplaceAttributesOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.ReplaceAttributes(Numbers.Select(x => x + l.Sample()).Select(n => new XAttribute("b" + n, n))); return S.Hold(0); });
+
+    // S976. AddAfterSelf.
+    public static Cell<int> QueryGivenToAddAfterSelf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement root = new("r", new XElement("a")); root.Element("a")!.AddAfterSelf(Numbers.Select(x => x + l.Sample()).Select(n => new XElement("b", n))); return S.Hold(0); });
+
+    // S977. AddBeforeSelf.
+    public static Cell<int> QueryGivenToAddBeforeSelf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement root = new("r", new XElement("a")); root.Element("a")!.AddBeforeSelf(Numbers.Select(x => x + l.Sample()).Select(n => new XElement("b", n))); return S.Hold(0); });
+
+    // S978. ReplaceWith.
+    public static Cell<int> QueryGivenToReplaceWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement root = new("r", new XElement("a")); root.Element("a")!.ReplaceWith(Numbers.Select(x => x + l.Sample()).Select(n => new XElement("b", n))); return S.Hold(0); });
+
+    // S979. An object in the content. The element makes text from it with ToString.
+    public static Cell<int> ObjectInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new Titled(l.Map(v => v)))); return S.Hold(0); });
+
+    // S980. A list of objects in the content.
+    public static Cell<int> ObjectsInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new List<Titled> { new Titled(l.Map(v => v)) })); return S.Hold(0); });
+
+    // S981. An object given to Add.
+    public static Cell<int> ObjectGivenToAddOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.Add(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S982. An object as the value of an attribute.
+    public static Cell<int> ObjectAsTheValueOfAnXAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XAttribute("a", new Titled(l.Map(v => v)))); return S.Hold(0); });
+
+    // S983. SetValue.
+    public static Cell<int> ObjectGivenToSetValueOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.SetValue(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S984. SetElementValue.
+    public static Cell<int> ObjectGivenToSetElementValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.SetElementValue("b", new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S985. SetAttributeValue.
+    public static Cell<int> ObjectGivenToSetAttributeValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.SetAttributeValue("b", new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S986. An attribute makes text from its value, and does not enumerate it.
+    public static Cell<int> QueryAsTheValueOfAnXAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XAttribute("a", Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S987. SetElementValue makes text from the value, and does not enumerate it.
+    public static Cell<int> QueryGivenToSetElementValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.SetElementValue("b", Numbers.Select(x => x + l.Sample())); return S.Hold(0); });
+
+    // S988. An XStreamingElement keeps its content.
+    public static Cell<int> QueryKeptByAnXStreamingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XStreamingElement("a", Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S989. An XStreamingElement keeps an object, and makes no text from it in the constructor.
+    public static Cell<int> ObjectKeptByAnXStreamingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XStreamingElement("a", new Titled(l.Map(v => v)))); return S.Hold(0); });
+
+    // S990. ToString of an XStreamingElement enumerates the content that it kept.
+    public static Cell<int> QueryInAnXStreamingElementThatMakesText() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XStreamingElement("a", Numbers.Select(x => x + l.Sample())).ToString()); return S.Hold(0); });
+
+    // S991. Save of an XStreamingElement.
+    public static Cell<int> QueryInAnXStreamingElementThatIsSaved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XStreamingElement("a", Numbers.Select(x => x + l.Sample())).Save(new StringWriter()); return S.Hold(0); });
+
+    // S992. Add of an XStreamingElement keeps the content, and ToString enumerates it.
+    public static Cell<int> QueryAddedToAnXStreamingElementThatMakesText() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XStreamingElement e = new("a"); e.Add(Numbers.Select(x => x + l.Sample())); Kept.Add(e.ToString()); return S.Hold(0); });
+
+    // S993. An XElement expands an XStreamingElement in its content.
+    public static Cell<int> XStreamingElementInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new XStreamingElement("b", Numbers.Select(x => x + l.Sample())))); return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {

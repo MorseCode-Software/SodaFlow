@@ -101,7 +101,11 @@ internal static class PlatformCallers
                 "Append", "AppendJoin", "AppendFormat", "Insert"),
             Row(type: "TextWriter", callbacks: PlatformCallbacks.Text, "Write", "WriteLine"),
             Row(type: "Console", callbacks: PlatformCallbacks.Text, "WriteLine"),
-            Row(type: "Convert", callbacks: PlatformCallbacks.Text, "ToString"));
+            Row(type: "Convert", callbacks: PlatformCallbacks.Text, "ToString"),
+            Row(type: "XElement", callbacks: PlatformCallbacks.Text,
+                ".ctor", "SetValue", "SetElementValue", "SetAttributeValue", "ReplaceAll"),
+            Row(type: "XContainer", callbacks: PlatformCallbacks.Text, "Add", "AddFirst", "ReplaceNodes"),
+            Row(type: "XAttribute", callbacks: PlatformCallbacks.Text, ".ctor", "SetValue"));
 
     private static readonly ImmutableDictionary<(string Type, string Method), PlatformCallbacks> ByMethod =
         Rows.SelectMany(static row => row.Methods.Select(method => (Key: (row.Type, method), row.Callbacks)))

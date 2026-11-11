@@ -1425,6 +1425,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // constructor of a list does.
             if (kind != CalleeKind.Body)
             {
+                if (SodaFlowSymbols.TakesXmlContent(constructor.OriginalDefinition))
+                {
+                    this.RunContent(arguments.Arguments);
+                }
+
                 for (int i = 0; i < arguments.Arguments.Count; i++)
                 {
                     ArgumentSyntax argument = arguments.Arguments[i];
@@ -1706,6 +1711,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        if (SodaFlowSymbols.TakesXmlContent(callee))
+        {
+            this.RunContent(arguments);
+
+            return;
+        }
+
+        // The element kept its content, and enumerates it now.
+        if (receiver != null && SodaFlowSymbols.WritesXmlContent(callee))
+        {
+            this.Run(state: this.evaluator.Eval(receiver), enumerated: null);
+
+            return;
+        }
+
         if (!starts && !this.region.Symbols.TakesASequence(callee))
         {
             return;
@@ -1729,6 +1749,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 this.RunQueries(arguments[i].Expression);
             }
+        }
+    }
+
+    // A member of LINQ to XML enumerates each sequence in the content that it gets. That includes
+    // a sequence in an array or in a second sequence, and a sequence of this compilation.
+    private void RunContent(SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        foreach (ArgumentSyntax argument in arguments)
+        {
+            this.Report(this.evaluator.FollowEnumeration(argument.Expression));
+            this.Run(state: this.evaluator.Eval(argument.Expression), enumerated: null);
         }
     }
 

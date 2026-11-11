@@ -687,7 +687,32 @@ internal sealed class LoopReadAnalyzerTests
             ["ChangeThroughALambdaParameter"] = ["SF1001"],
             ["ChangeThroughAParameterOfAQueryFunction"] = ["SF1001"],
             ["ChangeThroughValuesOfADictionary"] = ["SF1001"],
-            ["HelperOnAForeachVariable"] = ["SF1001"]
+            ["HelperOnAForeachVariable"] = ["SF1001"],
+            ["QueryInTheContentOfAnXElement"] = ["SF1001"],
+            ["QueryInTheContentsOfAnXElement"] = ["SF1001"],
+            ["QueryInAnArrayInTheContentOfAnXElement"] = ["SF1001"],
+            ["QueryInAnXElementInAnXElement"] = ["SF1001"],
+            ["QueryInTheContentOfAnXDocument"] = ["SF1001"],
+            ["QueryGivenToAddOfAnXElement"] = ["SF1001"],
+            ["QueryGivenToAddOfTheRootOfAnXDocument"] = ["SF1001"],
+            ["QueryGivenToAddFirstOfAnXElement"] = ["SF1001"],
+            ["QueryGivenToReplaceNodesOfAnXElement"] = ["SF1001"],
+            ["QueryGivenToReplaceAllOfAnXElement"] = ["SF1001"],
+            ["QueryGivenToReplaceAttributesOfAnXElement"] = ["SF1001"],
+            ["QueryGivenToAddAfterSelf"] = ["SF1001"],
+            ["QueryGivenToAddBeforeSelf"] = ["SF1001"],
+            ["QueryGivenToReplaceWith"] = ["SF1001"],
+            ["ObjectInTheContentOfAnXElement"] = ["SF1005"],
+            ["ObjectsInTheContentOfAnXElement"] = ["SF1005"],
+            ["ObjectGivenToAddOfAnXElement"] = ["SF1005"],
+            ["ObjectAsTheValueOfAnXAttribute"] = ["SF1005"],
+            ["ObjectGivenToSetValueOfAnXElement"] = ["SF1005"],
+            ["ObjectGivenToSetElementValue"] = ["SF1005"],
+            ["ObjectGivenToSetAttributeValue"] = ["SF1005"],
+            ["QueryInAnXStreamingElementThatMakesText"] = ["SF1001"],
+            ["QueryInAnXStreamingElementThatIsSaved"] = ["SF1001"],
+            ["QueryAddedToAnXStreamingElementThatMakesText"] = ["SF1001"],
+            ["XStreamingElementInTheContentOfAnXElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

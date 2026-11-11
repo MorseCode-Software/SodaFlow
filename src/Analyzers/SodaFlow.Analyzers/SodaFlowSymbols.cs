@@ -416,6 +416,37 @@ internal sealed class SodaFlowSymbols
             or ("XmlSerializer", "System.Xml.Serialization");
 
     /// <summary>
+    ///     True for a member of LINQ to XML that puts content into a node in the
+    ///     call. That is a constructor of <c>XElement</c> or of <c>XDocument</c>,
+    ///     and each method that adds or replaces content. The member has its
+    ///     content as <c>object</c>, and enumerates each sequence in it.
+    ///     <c>XStreamingElement</c> is not here, because it keeps its content.
+    /// </summary>
+    public static bool TakesXmlContent(IMethodSymbol definition) =>
+        definition.ContainingType is { Name: "XElement" or "XDocument" or "XContainer" or "XNode" } owner
+        && IsLinqToXml(owner)
+        && (definition.MethodKind == MethodKind.Constructor
+            || definition.Name
+                is "Add"
+                or "AddFirst"
+                or "AddAfterSelf"
+                or "AddBeforeSelf"
+                or "ReplaceWith"
+                or "ReplaceNodes"
+                or "ReplaceAll"
+                or "ReplaceAttributes");
+
+    /// <summary>
+    ///     True for a method of <c>XStreamingElement</c> that writes the element.
+    ///     The element enumerates the content that it kept at that time.
+    /// </summary>
+    public static bool WritesXmlContent(IMethodSymbol definition) =>
+        definition is { Name: "ToString" or "Save" or "WriteTo", ContainingType: { Name: "XStreamingElement" } owner }
+        && IsLinqToXml(owner);
+
+    private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
+
+    /// <summary>
     ///     True for a serializer that writes the public fields of an object, and
     ///     thus the elements of a tuple. <c>System.Text.Json</c> writes only
     ///     properties, unless an option says differently.
