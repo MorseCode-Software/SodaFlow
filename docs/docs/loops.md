@@ -283,14 +283,19 @@ types, as after a `?:` or in a list of mixed rows, a call through `object` or an
 for each of them. It follows it into your own helpers, constructors, getters, records, and object
 initializers, and through an interface to the object you built behind it. When one of your helpers
 or constructors puts a value into a collection or an object you passed to it, the caller's
-collection or object has that value afterwards. It knows which library methods run a function at
-once: a transaction, a loop block, and the `Fold` of a collection. Code outside the library that
-takes a function, such as `List<T>.ForEach` or `Maybe.Match`, is taken to run it in the call, and a
-constructor is taken to keep it. A `Lazy<T>` keeps its function until something reads `Value`, so
-the analyzer reads the function at that read, including through the `Map` and `Lift` of
-`SodaFlow.Functional`. A lambda that one of your own constructors or helpers keeps is read where it
-finally runs, and reported there. A property pattern reads a property just as a member access does,
-so `row is { Total: > 0 }` is checked like `row.Total > 0`.
+collection or object has that value afterwards. A change made through one item of a collection is a
+change to the collection: `rows[0].Add(x)`, a property set on the variable of a `foreach`, or an
+`Add` on what `Find`, `Last`, or `TryGetValue` handed back. A dictionary has its keys as well as
+its values, also when the key arrives through the indexer, as in `map[key] = value`.
+
+It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
+of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
+`Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it. A `Lazy<T>`
+keeps its function until something reads `Value`, so the analyzer reads the function at that read,
+including through the `Map` and `Lift` of `SodaFlow.Functional`. A lambda that one of your own
+constructors or helpers keeps is read where it finally runs, and reported there. A property pattern
+reads a property just as a member access does, so `row is { Total: > 0 }` is checked like
+`row.Total > 0`.
 
 A LINQ query runs nothing when you build it. `Select`, `Where`, `OrderBy`, and the other methods of
 `Enumerable` that return a sequence keep their functions until something enumerates the result. A
@@ -324,11 +329,24 @@ not these members, and the analyzer knows that too. A collection built with a co
 such as a `SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`,
 keeps it and calls it from its own methods, and the analyzer reads the comparer at those calls.
 
+Two things narrow what is read there. A sort or a set of a single element compares nothing, and
+the analyzer knows the count when the collection is a literal of one element that the block does
+not grow. And where the platform compares a value you pass with an item a collection already
+holds, as `Contains`, `IndexOf`, `Remove`, `BinarySearch`, and the lookups of a set or a dictionary
+do, only one of the two objects gets the call, the same one on every runtime the repository tests
+on. The analyzer reads the member of that object, with the other one as its argument. For a list, a
+hash set, or a dictionary it is the item already held. For a `SortedSet<T>`, a
+`SortedDictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>` it is the value you
+pass.
+
 A serializer does more with a value than keep it. `JsonSerializer` of `System.Text.Json`,
 `JsonConvert` and `JsonSerializer` of Json.NET, and `XmlSerializer` enumerate the sequences in the
 value they write and call the public getters of your objects in it. The analyzer reads both at the
 call that serializes, and leaves out a property the serializer skips, such as one marked
-`[JsonIgnore]`.
+`[JsonIgnore]`. LINQ to XML is similar: `XElement` and `XDocument` take their content as `object`,
+and their constructors and the methods that add or replace content enumerate every sequence in it
+and call `ToString` on anything else. An `XStreamingElement` keeps its content until it is written,
+and the analyzer reads it at `ToString`, `Save`, or `WriteTo`.
 
 It does not see everything, and in a few places it guesses on the careful side:
 
@@ -347,16 +365,21 @@ It does not see everything, and in a few places it guesses on the careful side:
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
   read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
   `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort of
-  a single item. A comparer kept by a collection is the same: the first `Add` to an empty sorted set
-  compares nothing, and it is reported. A value that may be one of two types is read the same way:
-  the member of each type is read, though only one object is there at run time.
+  a single item that is not a literal of one element. A comparer kept by a collection is the same:
+  the first `Add` to an empty sorted set compares nothing, and it is reported. A value that may be
+  one of two types is read the same way: the member of each type is read, though only one object is
+  there at run time.
 
-- When the platform compares two of your objects, the analyzer does not know which of them gets
-  the call. A `CompareTo` or an `Equals` that reads only its own object is reported for either.
+- In a sort, and in the other methods that compare the items of one sequence with each other,
+  the analyzer does not know which of two objects gets the call, and the runtimes do not agree. A
+  `CompareTo` or an `Equals` that reads only its own object is reported for either.
 - Code without source that takes a query as `object` or as a type parameter is taken to keep it,
-  as `list.Add(query)` does. The serializers named above are the exception. Other code that walks
-  a value it was handed as `object` is not seen, and a serializer is read as it behaves without
-  options: one told to write fields, or given a converter of its own, is not followed.
+  as `list.Add(query)` does. The serializers and LINQ to XML named above are the exceptions. Other
+  code that walks a value it was handed as `object` is not seen, and a serializer is read as it
+  behaves without options: one told to write fields, or given a converter of its own, is not
+  followed.
+- An object that the block holds in a local and also puts into a collection has two names. A
+  change through the local is not seen as a change to the collection.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
