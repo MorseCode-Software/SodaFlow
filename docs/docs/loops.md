@@ -271,7 +271,12 @@ wants the escape as a warning sets `dotnet_diagnostic.SF1003.severity = warning`
 The analyzer follows a value through locals, the elements of a tuple, collections, fields the block
 sets, `foreach`, deconstructions, patterns, and `out` arguments. A value keeps what the analyzer
 knows about it when a platform type holds it or hands it back, as in `pair.Value`, `task.Result`, or
-`list.First()`, and also where its type is only `object`. An object or a tuple of yours held as
+`list.First()`, and also where its type is only `object`. A `KeyValuePair`, a `Tuple`, or a
+`DictionaryEntry` that the block builds keeps what the analyzer knows about each part, so a pending
+value does not mark a plain key, whether you read the part by name, by a pattern, or by a
+deconstruction. A list or an array written as a literal keeps each element apart in the same way
+while the block only reads it: `cells[0]`, `cells.First()`, and `cells.Last()` are then that one
+element. An object or a tuple of yours held as
 `object` is still read as what it is, so `o.ToString()` reaches your `ToString`, and an object keeps
 its type when the block sets its properties after `new`. Where a value can be one of several of your
 types, as after a `?:` or in a list of mixed rows, a call through `object` or an interface is read
@@ -295,6 +300,13 @@ place that enumerates the sequence: a `foreach`, a spread, a method such as `ToL
 `string.Join`, or any other code without source that takes it as a sequence. It follows the query
 there through locals, fields, collections, helpers, and a `Lazy<T>`. A query that the block only
 builds and keeps, to be enumerated after the close, is not reported.
+
+A query inside a collection, or inside another query, is read where the code enumerates that query
+itself. Counting a list of queries, keeping it, or looping over it without touching the items runs
+none of them, and the analyzer reports none. It reports an inner query at the `foreach` over that
+item, at `list[0].ToList()`, or at a `SelectMany`, which enumerates what its function returns. A
+query also enumerates the queries it was built from, so a chain such as
+`numbers.Where(...).Select(...)` is read as a whole, also when a helper of yours returns it.
 
 It also reads the members of yours that C# calls without call syntax: an indexer, an operator, a
 conversion, a property setter or an event accessor, a `Deconstruct`, `ToString` in an interpolated
@@ -321,11 +333,15 @@ call that serializes, and leaves out a property the serializer skips, such as on
 It does not see everything, and in a few places it guesses on the careful side:
 
 - A collection has the state of everything put into it. A list that holds one pending cell and one
-  plain one reports a read of either, and so does a pair with a pending value and a plain key of the
-  same type, or a tuple whose elements are read by index through `ITuple`. The analyzer tells a
-  collection from one of its items by the type of the expression, and where that type is `object` or
-  a type parameter, by how the value was made. A collection taken out of a collection of `object`
-  and then held as `object` is still read as an item, because no type says what it is.
+  plain one reports a read of either, unless it is a literal that the block only reads through a
+  constant index, `Count` or `Length`, `First()` or `Last()`, or a `foreach`. An index held in a
+  variable, a call that could change the collection, or a second name for it puts the collection
+  back to one state for all its elements, and so does a set or any other type that does not keep the
+  order you wrote. A pair that comes out of a dictionary has the state of its key and its value
+  together, and so does a tuple whose elements are read by index through `ITuple`. The analyzer
+  tells a collection from one of its items by the type of the expression, and where that type is
+  `object` or a type parameter, by how the value was made. A collection taken out of a collection of
+  `object` and then held as `object` is still read as an item, because no type says what it is.
 - A field set on an object the analyzer did not see built counts for every object of that type,
   to the end of the block.
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
@@ -341,8 +357,9 @@ It does not see everything, and in a few places it guesses on the careful side:
   as `list.Add(query)` does. The serializers named above are the exception. Other code that walks
   a value it was handed as `object` is not seen, and a serializer is read as it behaves without
   options: one told to write fields, or given a converter of its own, is not followed.
-- A sequence of queries is not told apart from one query, so enumerating the outer sequence is
-  read as enumerating each query in it.
+- A query is told from a collection that holds it by its type. Where the type says too little,
+  as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
+  is read as enumerating each query in it.
 - Only the methods of `System.Linq.Enumerable` and of `SodaFlow.Functional` are known to wait. A
   method of another library that returns a sequence is taken to run its function in the call.
 - Reflection is not followed. An object from `Activator.CreateInstance`, or a result of
