@@ -404,25 +404,61 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
-    // A var pattern with parts, as in var (key, value), calls Deconstruct for a value that is not
-    // a tuple. A pair that has a state for each of its parts gives each variable its part.
     private void DeclareVar(VarPatternSyntax pattern, LoopState state)
     {
-        if (pattern.Designation is ParenthesizedVariableDesignationSyntax several
-            && state.Members is { HasParts: true }
-            && this.region.ModelFor(pattern).GetOperation(several)
-                is IRecursivePatternOperation { DeconstructSymbol: IMethodSymbol deconstruct }
-            && PartsOfAPair(pair: state, deconstruct: deconstruct) is { } states)
+        if (pattern.Designation is ParenthesizedVariableDesignationSyntax several)
         {
-            for (int i = 0; i < states.Count; i++)
-            {
-                this.DeclareDesignation(designation: several.Variables[i], state: states[i]);
-            }
+            this.DeclareParts(several: several, value: MatchedValueOf(pattern), state: state);
+        }
+        else
+        {
+            this.DeclareDesignation(designation: pattern.Designation, state: state);
+        }
+    }
 
-            return;
+    /// <summary>
+    ///     The variables of a var pattern with parts, as in
+    ///     <c>var (key, value)</c>. For a value that is not a tuple, the pattern
+    ///     calls a <c>Deconstruct</c> method, as a positional pattern does. Each
+    ///     variable then has the state of the <c>out</c> parameter for it. A pair
+    ///     of the platform that has a state for each of its parts gives each
+    ///     variable its part. Otherwise, each variable has the state of the value.
+    /// </summary>
+    private void DeclareParts(ParenthesizedVariableDesignationSyntax several, ExpressionSyntax? value, LoopState state)
+    {
+        IMethodSymbol? deconstruct =
+            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
+                ? (this.region.ModelFor(several).GetOperation(several) as IRecursivePatternOperation)?.DeconstructSymbol
+                as IMethodSymbol
+                : null;
+
+        IReadOnlyList<LoopState>? states =
+            deconstruct == null ? null : PartsOfAPair(pair: state, deconstruct: deconstruct);
+
+        if (states == null
+            && deconstruct != null
+            && value != null
+            && this.evaluator.FollowDeconstruct(call: several, method: deconstruct, value: value, owner: state)
+                is { } followed)
+        {
+            this.Report(followed);
+            states = OutStates(method: deconstruct, followed: followed);
         }
 
-        this.DeclareDesignation(designation: pattern.Designation, state: state);
+        for (int i = 0; i < several.Variables.Count; i++)
+        {
+            LoopState part = states == null ? state : i < states.Count ? states[i] : LoopState.None;
+
+            // A part with parts of its own is one more Deconstruct, of the value of that part.
+            if (several.Variables[i] is ParenthesizedVariableDesignationSyntax inner)
+            {
+                this.DeclareParts(several: inner, value: value, state: part);
+            }
+            else
+            {
+                this.DeclareDesignation(designation: several.Variables[i], state: part);
+            }
+        }
     }
 
     /// <summary>

@@ -5022,6 +5022,30 @@ public static class Shapes
     public static Cell<int> PendingIndexOfAnIndexerOfThisCompilation() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ledger ledger = new(); ledger[new Titled(l.Map(v => v))] = Plain; return S.Hold(ledger.Last.Sample()); });
 
+    // S943. A var pattern with parts calls a Deconstruct of this compilation, which reads.
+    public static Cell<int> VarPatternCallsADeconstructThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); if (t is var (a, b)) { Kept.Add(a + b); } return S.Hold(0); });
+
+    // S944. The same pattern in a switch expression.
+    public static Cell<int> VarPatternInASwitchCallsADeconstructThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int n = t switch { var (a, b) => a + b }; return S.Hold(n); });
+
+    // S945. The Deconstruct gives two cells. The variable for the plain one has the state of its out parameter.
+    public static Cell<int> PlainPartOfAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyPair p = new(Plain, l.Map(v => v)); return S.Hold(p is var (a, b) ? a.Sample() : 0); });
+
+    // S946. The variable for the pending cell.
+    public static Cell<int> PendingPartOfAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyPair p = new(Plain, l.Map(v => v)); return S.Hold(p is var (a, b) ? b.Sample() : 0); });
+
+    // S947. A part with parts of its own calls the Deconstruct of that part.
+    public static Cell<int> PlainPartOfAPartOfAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyNest nest = new(new TallyPair(Plain, l.Map(v => v))); return S.Hold(nest is var ((a, b), n) ? a.Sample() + n : 0); });
+
+    // S948. The pending cell of the inner part.
+    public static Cell<int> PendingPartOfAPartOfAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TallyNest nest = new(new TallyPair(Plain, l.Map(v => v))); return S.Hold(nest is var ((a, b), n) ? b.Sample() + n : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -6103,6 +6127,15 @@ public static class Shapes
                 Kept.Add(at.ToString());
                 this.Last = value;
             }
+        }
+    }
+
+    public sealed class TallyNest(TallyPair inner)
+    {
+        public void Deconstruct(out TallyPair pair, out int count)
+        {
+            pair = inner;
+            count = 1;
         }
     }
 

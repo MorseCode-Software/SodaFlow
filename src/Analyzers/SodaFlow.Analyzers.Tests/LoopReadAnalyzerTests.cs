@@ -669,7 +669,11 @@ internal sealed class LoopReadAnalyzerTests
             ["KeyThroughKeysFromAnAssignmentByIndex"] = ["SF1005"],
             ["CellKeyFromAnAssignmentByIndex"] = ["SF1001"],
             ["KeyOfAHashtableFromAnAssignmentByIndex"] = ["SF1005"],
-            ["PendingIndexOfAnIndexerOfThisCompilation"] = ["SF1004"]
+            ["PendingIndexOfAnIndexerOfThisCompilation"] = ["SF1004"],
+            ["VarPatternCallsADeconstructThatReads"] = ["SF1005"],
+            ["VarPatternInASwitchCallsADeconstructThatReads"] = ["SF1005"],
+            ["PendingPartOfAVarPattern"] = ["SF1001"],
+            ["PendingPartOfAPartOfAVarPattern"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
