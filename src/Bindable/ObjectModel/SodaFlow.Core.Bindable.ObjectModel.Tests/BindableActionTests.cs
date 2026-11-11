@@ -488,6 +488,54 @@ public sealed class BindableActionTests
         a.Dispose();
     }
 
+    // After a change whose transaction failed, that transaction is over. Thus, a refresh that runs
+    // in a different transaction reads the cell there. Before, the refresh waited also after the
+    // failure, and a drain in a transaction made no progress.
+    [Test]
+    public async Task ARefreshInATransactionAfterAFailedChangeReadsTheCell()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+
+        IListener throws =
+            enabled.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            enabled.Send(false);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        // A drain in a transaction, as a nested message loop runs it from a callback.
+        int ranInside = 0;
+        Transaction.RunVoid(() => ranInside = scheduler.RunAll());
+        bool answerAfterTheDrain = a.CanExecute(null);
+        int notificationsAfterTheDrain = notifications;
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh ran in the transaction");
+        await Assert.That(answerAfterTheDrain).IsTrue().Because("it read the cell, which holds true");
+        await Assert.That(notificationsAfterTheDrain).IsEqualTo(1);
+        await Assert.That(ranAfter).IsEqualTo(0).Because("and it did not post itself again");
+        a.Dispose();
+    }
+
     // A scheduler that gives each post to the transaction drops the post where that transaction
     // fails. That breaks the contract on IBindingScheduler.Post. The discard of the command clears
     // its flag, thus the next change posts again also with such a scheduler.

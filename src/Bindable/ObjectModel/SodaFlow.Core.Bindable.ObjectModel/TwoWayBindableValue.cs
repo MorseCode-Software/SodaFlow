@@ -360,7 +360,7 @@ public static partial class BindableCoreExtensionMethods
                 }
 
                 // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
-                if (Volatile.Read(ref this.latestUpdate) is { Committed: false }
+                if (Volatile.Read(ref this.latestUpdate) is { Known: false }
                     && TransactionInternal.GetCurrentTransaction() != null)
                 {
                     TransactionInternal.PostImpl(action: static self => self.ScheduleRefreshFromCell(), state: this);
