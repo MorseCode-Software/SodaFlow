@@ -57,6 +57,7 @@
         <Compile Include="KeyedCollectionViewShapes.cs"/>
         <Compile Include="LiftBenchmarks.cs"/>
         <Compile Include="ListenOnceBenchmarks.cs"/>
+        <Compile Include="MatchWithStateBenchmarks.cs"/>
         <Compile Include="MaybeBenchmarks.cs"/>
         <Compile Include="MaybeCompareBenchmarks.cs"/>
         <Compile Include="OneWayScaleBenchmarks.cs"/>

@@ -410,6 +410,167 @@ public sealed class MaybeTests
         await Assert.That(ran).IsEqualTo(1);
     }
 
+    // An overload with a state gives that state to the function that runs. Thus, a caller gives a
+    // local as the state and makes each lambda static, and the lambda captures nothing.
+    [Test]
+    public async Task MatchWithAStateGivesTheStateAndTheValueToOneFunction()
+    {
+        int some =
+            Maybe.Some(2).Match(state: 10, onSome: static (state, v) => state + v, onNone: static state => -state);
+
+        int none =
+            Maybe<int>.None.Match(state: 10, onSome: static (state, v) => state + v, onNone: static state => -state);
+
+        bool isNull =
+            Maybe.Some<string?>(null)
+                .Match(state: 10, onSome: static (state, v) => state == 10 && v is null, onNone: static _ => false);
+
+        await Assert.That(some).IsEqualTo(12);
+        await Assert.That(none).IsEqualTo(-10);
+        await Assert.That(isNull).IsTrue();
+    }
+
+    [Test]
+    public async Task MatchVoidWithAStateRunsExactlyOneAction()
+    {
+        List<string> ran = [];
+
+        Maybe.Some(2)
+            .MatchVoid(
+                state: ran,
+                onSome: static (list, v) => list.Add($"some {v}"),
+                onNone: static list => list.Add("none"));
+
+        Maybe<int>.None.MatchVoid(
+            state: ran,
+            onSome: static (list, v) => list.Add($"some {v}"),
+            onNone: static list => list.Add("none"));
+
+        await Assert.That(ran).IsEquivalentTo(expected: ["some 2", "none"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task MatchSomeWithAStateRunsOnlyWithAValue()
+    {
+        List<int> ran = [];
+
+        Maybe.Some(2).MatchSome(state: ran, onSome: static (list, v) => list.Add(v));
+        Maybe<int>.None.MatchSome(state: ran, onSome: static (list, v) => list.Add(v));
+
+        await Assert.That(ran).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task MatchNoneWithAStateRunsOnlyWithoutAValue()
+    {
+        List<string> ran = [];
+
+        Maybe.Some(2).MatchNone(state: ran, onNone: static list => list.Add("none"));
+        Maybe<int>.None.MatchNone(state: ran, onNone: static list => list.Add("none"));
+
+        await Assert.That(ran).IsEquivalentTo(expected: ["none"], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task MapWithAStateTransformsAValueAndSkipsNone()
+    {
+        List<int> calls = [];
+
+        Maybe<int> mapped =
+            Maybe.Some(2)
+                .Map(
+                    state: (Factor: 3, Calls: calls),
+                    f: static (state, v) =>
+                    {
+                        state.Calls.Add(v);
+
+                        return v * state.Factor;
+                    });
+
+        Maybe<int> none =
+            Maybe<int>.None.Map(
+                state: (Factor: 3, Calls: calls),
+                f: static (state, v) =>
+                {
+                    state.Calls.Add(v);
+
+                    return v * state.Factor;
+                });
+
+        await Assert.That(mapped).IsEqualTo(Maybe.Some(6));
+        await Assert.That(none).IsEqualTo(Maybe<int>.None);
+        await Assert.That(calls).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
+    }
+
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer target only. The overloads are the same code on each target.
+    //
+    // The purpose of an overload with a state is a call that allocates nothing. The same match
+    // with a lambda that captures the local allocates for each call. The test reads that also, to
+    // show that the measurement can see an allocation.
+    //
+    // The offset is an argument of the test. A constant needs no capture, and a lambda with no
+    // capture allocates nothing.
+    [Test]
+    [Arguments(10)]
+    public async Task TheOverloadsWithAStateAllocateNothing(int offset)
+    {
+        const int calls = 1000;
+        Maybe<int> some = Maybe.Some(2);
+        Maybe<int> none = Maybe<int>.None;
+        int[] total = [0];
+        long sum = 0;
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += WithAState(some: some, none: none, offset: offset, total: total);
+            sum += some.Match(onSome: v => v + offset, onNone: () => offset);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += WithAState(some: some, none: none, offset: offset, total: total);
+        }
+
+        long withAState = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += some.Match(onSome: v => v + offset, onNone: () => offset);
+        }
+
+        long withACapture = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(withAState).IsEqualTo(0);
+        await Assert.That(withACapture).IsGreaterThan(0);
+        await Assert.That(sum).IsNotEqualTo(0);
+
+        return;
+
+        static int WithAState(Maybe<int> some, Maybe<int> none, int offset, int[] total)
+        {
+            int result =
+                some.Match(state: offset, onSome: static (state, v) => state + v, onNone: static state => state)
+                + none.Match(state: offset, onSome: static (state, v) => state + v, onNone: static state => state);
+
+            some.MatchVoid(
+                state: total,
+                onSome: static (state, v) => state[0] += v,
+                onNone: static state => state[0]--);
+
+            some.MatchSome(state: total, onSome: static (state, v) => state[0] += v);
+            none.MatchNone(state: total, onNone: static state => state[0]++);
+
+            return result + some.Map(state: offset, f: static (state, v) => state * v).ValueOr(0);
+        }
+    }
+#endif
+
     [Test]
     public async Task ValueOrGivesTheValueOrTheDefault()
     {

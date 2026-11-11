@@ -9,6 +9,19 @@ and its hash code is that of no case. Code that read a default on purpose and ex
 value with First instead. Maybe<T> already had a safe default, None, and the two structs now agree. The tests that
 pinned the old behavior now pin the throw.
 
+Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
+Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
+captures it, and the compiled code makes a closure for the local and a delegate for each lambda on every call. For a
+Match on a Maybe<int> with two such lambdas that is 152 bytes a call on .NET Framework 4.7.2. On .NET 10 the same call
+measured 152 bytes in a loop under the default tiered compilation, and 24 bytes with tiered compilation off and under
+BenchmarkDotNet. The 24 bytes is the closure alone, so the two delegates no longer reach the heap there. That help does
+not reach every match: Map with one such lambda allocates 88 bytes on both runtimes, and MatchVoid on an Either of eight
+with eight lambdas that capture an object allocates 512. With the value passed as the state and the lambdas marked
+static, each of these calls allocates nothing on either runtime. A static lambda cannot read a local, so the compiler
+keeps a capture from coming back. Pass a tuple when the functions need more than one value. Each new overload takes one
+argument more than the one it sits beside, so no existing call changes meaning. MatchWithStateBenchmarks in
+SodaFlow.Benchmarks measures each pair.
+
 Fixed: Maybe<T>.CompareTo allocated two closures on every call. It was two nested Match calls, and each one captured a
 value. A sort calls it about n log n times, so sorting 100,000 Maybe<int> values on .NET 10 took 45.5 ms and allocated
 396 MB. CompareTo now reads the two fields directly and allocates nothing. The same sort takes 6.1 ms, a little under

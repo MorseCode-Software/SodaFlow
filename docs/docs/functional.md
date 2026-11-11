@@ -46,6 +46,7 @@ The full set:
 | `MatchSome(onSome)` | Act only when present. |
 | `MatchNone(onNone)` | Act only when absent. |
 | `MatchAsync`, `MatchAsyncVoid`, `MatchSomeAsync`, `MatchNoneAsync` | The same, returning `Task`. |
+| `Match(state, ...)`, `MatchVoid(state, ...)`, `MatchSome(state, ...)`, `MatchNone(state, ...)` | The same, handing `state` to the function that runs. See [Matching without a closure](#matching-without-a-closure). |
 | `HasValue()` | A plain boolean test, for when matching is overkill. |
 
 `Maybe<T>` is a struct with value equality and `==` / `!=` defined, and `Maybe.None` converts
@@ -56,6 +57,34 @@ It also orders, with no value sorting before every value — the same order `Nul
 by `T`. There are deliberately no `<` and `>` operators to go with it: `Nullable<T>` has them, and
 they answer `false` in both directions when either side is absent, so `!(a < b)` stops meaning
 `a >= b`.
+
+### Matching without a closure
+
+A lambda that reads a local variable captures it, and the compiled code makes a closure and a
+delegate for it every time the call runs. .NET 10 can keep some of that off the heap for a small
+match in fully optimized code. .NET Framework never does.
+
+```csharp
+decimal total = discount.Match(
+    onSome: d => price - d,   // captures price
+    onNone: () => price);
+```
+
+`Match`, `MatchVoid`, `MatchSome`, `MatchNone`, and `Map` each have an overload that takes a
+`state` first and hands it to whichever function runs. Pass the local as the state and mark the
+lambdas `static`, and the call allocates nothing:
+
+```csharp
+decimal total = discount.Match(
+    state: price,
+    onSome: static (price, d) => price - d,
+    onNone: static price => price);
+```
+
+`static` is what keeps this honest: the compiler rejects a static lambda that reaches for a
+local, so a capture cannot creep back in. When there is more than one value to pass, make the
+state a tuple. This is for code that runs often. Elsewhere the plain overloads read better, and
+the allocation does not matter.
 
 ### Building one
 
@@ -268,6 +297,16 @@ string described = e.Match(
 
 Because every case must be supplied, adding an alternative later is a compile error at each
 consumption site rather than a silent fallthrough.
+
+`Match` and `MatchVoid` have the same `state` overloads as `Maybe<T>`, for every number of cases,
+so a match that reads a local can use static lambdas here too:
+
+```csharp
+string described = e.Match(
+    state: prefix,
+    onFirst: static (prefix, n) => $"{prefix} number {n}",
+    onSecond: static (prefix, s) => $"{prefix} text {s}");
+```
 
 A `default` Either holds no case. A field that was never assigned, or an array slot that was
 never set, throws `InvalidOperationException` on `Match` rather than matching as the first case
