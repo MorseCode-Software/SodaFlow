@@ -627,7 +627,7 @@ internal sealed class LoopReadAnalyzerTests
                 .Cast<string>()
         ];
 
-        await Assert.That(mismatches).IsEmpty();
+        await NoMismatches(mismatches);
 
         await Assert.That(Expected.Keys.Except(shapes)).IsEmpty().Because("every expectation names a shape");
     }
@@ -691,7 +691,7 @@ internal sealed class LoopReadAnalyzerTests
             }
         }
 
-        await Assert.That(mismatches).IsEmpty();
+        await NoMismatches(mismatches);
 
         await Assert.That(count).IsGreaterThanOrEqualTo(1).Because("the test found shapes to run");
     }
@@ -754,6 +754,13 @@ internal sealed class LoopReadAnalyzerTests
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1005", "SF1005", "SF1005", "SF1005"]);
     }
+
+    // An assertion on a collection names ten of its items and counts the others. The reason names
+    // each mismatch, so that one run says all that changed.
+    private static async Task NoMismatches(IReadOnlyCollection<string> mismatches) =>
+        await Assert.That(mismatches.Count)
+            .IsEqualTo(0)
+            .Because(string.Join(separator: Environment.NewLine, values: mismatches));
 
     private static Outcome OutcomeOf(string rule) =>
         rule switch
