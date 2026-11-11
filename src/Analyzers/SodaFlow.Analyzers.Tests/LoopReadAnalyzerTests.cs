@@ -628,7 +628,42 @@ internal sealed class LoopReadAnalyzerTests
             ["KeyOfAPairFromADictionaryByADeconstruct"] = ["SF1005"],
             ["OverriddenPropertyOfAValueThatIsOneOfTwo"] = ["SF1001"],
             ["OverriddenPropertyOfOneOfTwoByAPattern"] = ["SF1001"],
-            ["PendingValueOfAPairDeconstructedInAHelper"] = ["SF1004"]
+            ["PendingValueOfAPairDeconstructedInAHelper"] = ["SF1004"],
+            ["PendingElementOfAMixedListByIndex"] = ["SF1001"],
+            ["ElementOfAListAfterAnInsert"] = ["SF1001"],
+            ["ElementOfAMixedListAfterAReverse"] = ["SF1001"],
+            ["ElementOfAnArrayAfterAnAssignment"] = ["SF1001"],
+            ["PendingLastOfAMixedListOfObjects"] = ["SF1005"],
+            ["ElementOfAListGivenToAHelper"] = ["SF1001"],
+            ["PendingElementOfAnArrayFromAnInitializer"] = ["SF1001"],
+            ["PendingElementOfAListFromAnInitializer"] = ["SF1001"],
+            ["ElementOfAListFromACollectionAndAnInitializer"] = ["SF1001"],
+            ["ElementOfAListFromElementsWithBraces"] = ["SF1001"],
+            ["FirstOfAConcurrentBag"] = ["SF1001"],
+            ["FirstOfAConcurrentBagFromAnInitializer"] = ["SF1001"],
+            ["ElementOfAnArraySetThroughARefArgument"] = ["SF1001"],
+            ["ElementsOfAnArraySetByADeconstruction"] = ["SF1001"],
+            ["ElementOfAMixedArraySetThroughARefLocal"] = ["SF1001"],
+            ["ElementOfAMixedArraySetInParentheses"] = ["SF1001"],
+            ["ElementOfAnArrayAfterAnIncrement"] = ["SF1001"],
+            ["ElementOfAMixedListSetThroughASecondName"] = ["SF1001"],
+            ["ReadingFunctionOfAMixedListOfFunctions"] = ["SF1001"],
+            ["FirstOfThisCompilationChangesTheList"] = ["SF1001"],
+            ["PendingLastOfAMixedSequence"] = ["SF1001"],
+            ["ElementOfAListWithASpread"] = ["SF1001"],
+            ["AddThroughAnElementOfAListOfLists"] = ["SF1001"],
+            ["HelperAddsThroughAnElementOfAListOfLists"] = ["SF1001"],
+            ["AddThroughTheFirstOfAListOfLists"] = ["SF1001"],
+            ["ElementOfAnElementAfterAnAssignment"] = ["SF1001"],
+            ["ElementOfAListFromItsTypeACollectionAndAnInitializer"] = ["SF1001"],
+            ["CountOfThisCompilationChangesTheList"] = ["SF1001"],
+            ["PropertySetThroughAnElement"] = ["SF1001"],
+            ["PropertySetThroughTheFirstElement"] = ["SF1001"],
+            ["PendingRowOfAGrid"] = ["SF1001"],
+            ["ObjectOfAListFromElementsWithBraces"] = ["SF1005"],
+            ["ElementOfAnArrayAfterAnIncrementBeforeIt"] = ["SF1001"],
+            ["ElementOfAnArrayAfterADecrement"] = ["SF1001"],
+            ["ElementOfAnArrayAfterADecrementBeforeIt"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1027,6 +1062,67 @@ internal sealed class LoopReadAnalyzerTests
         // One report for each read of the pending value, and none for a read of the plain key.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1005", "SF1005", "SF1005"]);
+    }
+
+    /// <summary>
+    ///     A literal that no code changes keeps its positions. An index that the
+    ///     literal has no element for, and <c>First</c> of a literal with no
+    ///     element, give no position. The analyzer then reads the collection as one
+    ///     state. At run time, each of these reads throws an exception that is not
+    ///     the one of a loop, thus the shapes file cannot have them.
+    /// </summary>
+    [Test]
+    public async Task AnIndexOutsideALiteralGivesNoPosition()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> AfterTheLastElement() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+
+                        return S.Hold(cs[2].Sample());
+                    });
+
+                public static Cell<int> BeforeTheFirstElement() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+
+                        return S.Hold(cs[-1].Sample());
+                    });
+
+                public static Cell<int> FirstOfNoElement() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [];
+
+                        return S.Hold(cs.First().Sample() + l.Sample());
+                    });
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyALiteral"));
+
+        // The two reads by an index have the state of all the elements, and one of those is
+        // pending. The third method reads the looped cell itself.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
     }
 
     // An assertion on a collection names ten of its items and counts the others. The reason names

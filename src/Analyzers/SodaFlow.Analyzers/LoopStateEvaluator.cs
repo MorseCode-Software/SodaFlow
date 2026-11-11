@@ -43,6 +43,7 @@ internal sealed class LoopStateEvaluator
     private readonly Dictionary<SyntaxNode, CalleeKind> kinds = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
+
     private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
 
     // The queries that this code makes.
@@ -244,6 +245,15 @@ internal sealed class LoopStateEvaluator
             return;
         }
 
+        // The owner is an element of a collection. The collection then contains an object whose
+        // member has the state.
+        if (owner != null && this.CollectionOf(owner) != null)
+        {
+            this.Merge(
+                target: owner,
+                state: LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state)));
+        }
+
         this.SetField(field: member, state: state);
     }
 
@@ -272,6 +282,20 @@ internal sealed class LoopStateEvaluator
         if (state.IsNone)
         {
             return;
+        }
+
+        // A change to an element of a collection is a change to what the collection contains.
+        // The element is then not the one that the literal made. Thus, the collection does not
+        // keep its positions. The collection can be an element also.
+        while (this.CollectionOf(target) is { } collection)
+        {
+            if (this.region.SymbolOf(collection) is ILocalSymbol local)
+            {
+                this.Frame.Positions[local] = null;
+            }
+
+            target = collection;
+            state = state.AsContainer;
         }
 
         switch (this.region.SymbolOf(target))
@@ -448,6 +472,8 @@ internal sealed class LoopStateEvaluator
             QueryExpressionSyntax q => this.Eval(q.FromClause.Expression).OnlyQueries.WithQuery(this.QueryAt(q)),
             // An indexer of this compilation gives what its getter returns. An element of a
             // collection has the state of the collection.
+            ElementAccessExpressionSyntax e when this.PositionOf(e) is { } position =>
+                this.Eval(position).Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
                 : ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
@@ -542,6 +568,153 @@ internal sealed class LoopStateEvaluator
         return SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
             ? collection
             : collection.AsElement;
+    }
+
+    // The collection that an expression names an element of: the owner of an index, or of a First
+    // or a Last that gives a position.
+    private ExpressionSyntax? CollectionOf(ExpressionSyntax element) =>
+        element switch
+        {
+            ElementAccessExpressionSyntax indexed => indexed.Expression,
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: { } owner } }
+                when this.ElementsOf(owner) != null => owner,
+            _ => null
+        };
+
+    // The expression of the element that a read by a constant index gives, for a collection that
+    // keeps its positions. For an array with two dimensions, the first index gives a row, and the
+    // row contains the element.
+    private ExpressionSyntax? PositionOf(ElementAccessExpressionSyntax access) =>
+        this.ElementsOf(access.Expression) is { } all
+        && this.region.ModelFor(access).GetConstantValue(access.ArgumentList.Arguments[0].Expression)
+            is { Value: int index and >= 0 }
+        && index < all.Count
+            ? all[index]
+            : null;
+
+    /// <summary>
+    ///     The expression of each element of the collection in a local, in
+    ///     order, when the collection keeps its positions. Null for each other
+    ///     expression.
+    /// </summary>
+    /// <remarks>
+    ///     A collection keeps its positions when a literal made it and no code
+    ///     can change it. Each use of the local in its block must be a read. A
+    ///     read is an index, <c>Count</c> or <c>Length</c>, or the collection of a
+    ///     foreach. <c>First</c> or <c>Last</c> of the platform with no argument
+    ///     is a read also. Any other use can change the collection or give it a
+    ///     second name. Then, the local has one state for all its elements.
+    /// </remarks>
+    private IReadOnlyList<ExpressionSyntax>? ElementsOf(SyntaxNode collection)
+    {
+        if (this.region.SymbolOf(collection) is not ILocalSymbol local)
+        {
+            return null;
+        }
+
+        if (this.Frame.Positions.TryGetValue(key: local, value: out IReadOnlyList<ExpressionSyntax>? known))
+        {
+            return known;
+        }
+
+        IReadOnlyList<ExpressionSyntax>? elements = null;
+
+        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+            && this.LiteralElements(made: made, type: local.Type) is { } written
+            && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+            && scope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(name => name.Identifier.ValueText == local.Name
+                               && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
+                .All(this.IsARead))
+        {
+            elements = written;
+        }
+
+        this.Frame.Positions[local] = elements;
+
+        return elements;
+    }
+
+    // The elements of a literal whose object has them in the order of the code. A spread has a
+    // number of elements that the code does not say.
+    private IReadOnlyList<ExpressionSyntax>? LiteralElements(ExpressionSyntax made, ITypeSymbol type) =>
+        made switch
+        {
+            CollectionExpressionSyntax collection
+                when SodaFlowSymbols.KeepsTheOrder(type)
+                     && collection.Elements.All(static element => element is ExpressionElementSyntax) =>
+                [.. collection.Elements.Cast<ExpressionElementSyntax>().Select(static element => element.Expression)],
+            InitializerExpressionSyntax { RawKind: (int)SyntaxKind.ArrayInitializerExpression } initializer =>
+                [.. initializer.Expressions],
+            ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
+            ImplicitArrayCreationExpressionSyntax implied => [.. implied.Initializer.Expressions],
+            // A List with no argument for its constructor, and an Add for each element.
+            ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 }, Initializer: { } added }
+                when this.IsAListOf(creation: made, added: added) => [.. added.Expressions],
+            ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: { } added }
+                when this.IsAListOf(creation: made, added: added) => [.. added.Expressions],
+            _ => null
+        };
+
+    // The initializer calls Add one time for each element. An element with braces gives the
+    // arguments of one Add, and is not the expression of an element.
+    private bool IsAListOf(ExpressionSyntax creation, InitializerExpressionSyntax added) =>
+        added.Expressions.All(static element => element is not InitializerExpressionSyntax)
+        && SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(creation));
+
+    // The name is a name of the local, thus it is the owner in an index or in a member access.
+    private bool IsARead(IdentifierNameSyntax name) =>
+        name.Parent switch
+        {
+            ElementAccessExpressionSyntax access => !IsWritten(access),
+            // The property. A method with the name Count can be one of this compilation.
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Count" or "Length" } member =>
+                member.Parent is not InvocationExpressionSyntax,
+            // A method of this compilation with the name First can change the collection.
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "First" or "Last",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } call
+            } =>
+                this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom.ContainingType: { } owner }
+                && SodaFlowSymbols.IsLinqEnumerable(owner),
+            ForEachStatementSyntax => true,
+            _ => false
+        };
+
+    // True when the code can change the element that an element access names. The code changes
+    // it with an assignment, an increment, a ref or out argument, or a ref to the element.
+    private static bool IsWritten(SyntaxNode element)
+    {
+        // A target of a deconstruction is in a tuple on the left of an assignment.
+        while (true)
+        {
+            switch (element.Parent)
+            {
+                case ParenthesizedExpressionSyntax around:
+                    element = around;
+                    continue;
+                case ArgumentSyntax { Parent: TupleExpressionSyntax tuple }:
+                    element = tuple;
+                    continue;
+                case AssignmentExpressionSyntax assignment:
+                    return assignment.Left == element;
+                case ArgumentSyntax argument:
+                    return !argument.RefKindKeyword.IsKind(SyntaxKind.None);
+                case RefExpressionSyntax:
+                    return true;
+                case PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax:
+                    return element.Parent.Kind()
+                        is SyntaxKind.PreIncrementExpression
+                        or SyntaxKind.PreDecrementExpression
+                        or SyntaxKind.PostIncrementExpression
+                        or SyntaxKind.PostDecrementExpression;
+                default:
+                    return false;
+            }
+        }
     }
 
     private LoopState EvalName(ExpressionSyntax expression)
@@ -733,6 +906,18 @@ internal sealed class LoopStateEvaluator
         if (this.region.SymbolOf(invocation) is not IMethodSymbol method)
         {
             return this.TypeState(invocation);
+        }
+
+        // First and Last of a collection that keeps its positions give one element.
+        if (invocation is
+            {
+                ArgumentList.Arguments.Count: 0,
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "First" or "Last" } ends
+            }
+            && this.ElementsOf(ends.Expression) is { Count: > 0 } all)
+        {
+            return this.Eval(method.Name == "First" ? all[0] : all[all.Count - 1])
+                .Join(this.TypeState(invocation));
         }
 
         // Code that is not the library. A body in this compilation gives the state. Code that
@@ -993,7 +1178,7 @@ internal sealed class LoopStateEvaluator
         IMethodSymbol callee,
         SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
-        // Most pairs contain nothing with a state, and need no state for a part.
+        // Most pairs contain nothing with a state. Such a pair gets no state for a part.
         if (made == null || state.IsNone || !SodaFlowSymbols.HoldsParts(made))
         {
             return state;

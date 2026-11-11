@@ -511,7 +511,21 @@ internal sealed class SodaFlowSymbols
                    || PackagesWithNoGraph.Contains(definition.ContainingAssembly?.Name ?? string.Empty));
     }
 
-    private static bool IsLinqEnumerable(ISymbol? type) =>
+    /// <summary>
+    ///     True for a type whose object has the elements of a collection
+    ///     expression in the order of the code. The types are an array,
+    ///     <c>List</c>, and each interface that the compiler gives a list or an
+    ///     array for. A set or a sorted collection has a different order.
+    /// </summary>
+    public static bool KeepsTheOrder(ITypeSymbol? type) =>
+        type is IArrayTypeSymbol
+        || (type is INamedTypeSymbol
+            {
+                Name: "List" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection" or "IList" or "ICollection"
+            } named
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
+
+    public static bool IsLinqEnumerable(ISymbol? type) =>
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
     /// <summary>

@@ -4774,6 +4774,222 @@ public static class Shapes
     public static Cell<int> PlainObjectInAPairInAListWithACell() =>
         Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Cell<int>> made = new(new Titled(Plain), l.Map(v => v)); List<object> all = [made, l.Map(v => v)]; foreach (object o in all) { if (o is Titled t) { Kept.Add(t.ToString()); } } return S.Hold(0); });
 
+    // S881. A list from a literal that no code changes keeps its positions. The first element is plain.
+    public static Cell<int> PlainElementOfAMixedListByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; int x = cs[0].Sample(); return S.Snapshot(cs[1], (a, b) => a + b + x).Hold(0); });
+
+    // S882. The second element of that list is pending.
+    public static Cell<int> PendingElementOfAMixedListByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; return S.Hold(cs[1].Sample()); });
+
+    // S883. An Insert changes the positions.
+    public static Cell<int> ElementOfAListAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, Plain]; cs.Insert(0, l.Map(v => v)); return S.Hold(cs[0].Sample()); });
+
+    // S884. A Reverse changes the positions and adds nothing.
+    public static Cell<int> ElementOfAMixedListAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; cs.Reverse(); return S.Hold(cs[0].Sample()); });
+
+    // S885. An array from a collection expression.
+    public static Cell<int> PlainElementOfAMixedArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, l.Map(v => v)]; return S.Hold(cs[0].Sample()); });
+
+    // S886. An assignment to an element.
+    public static Cell<int> ElementOfAnArrayAfterAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, Plain]; cs[0] = l.Map(v => v); return S.Hold(cs[0].Sample()); });
+
+    // S887. First of a list of objects is the first element of the literal.
+    public static Cell<int> PlainFirstOfAMixedListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Plainly(), new Titled(l.Map(v => v))]; Kept.Add(all.First().ToString()!); return S.Hold(0); });
+
+    // S888. Last is the last element.
+    public static Cell<int> PendingLastOfAMixedListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new Plainly(), new Titled(l.Map(v => v))]; Kept.Add(all.Last().ToString()!); return S.Hold(0); });
+
+    // S889. A helper gets the list and changes it.
+    public static Cell<int> ElementOfAListGivenToAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, Plain]; cs.AddOne(l.Map(v => v)); return S.Hold(cs[2].Sample()); });
+
+    // S890. An array from an initializer with braces.
+    public static Cell<int> PlainElementOfAnArrayFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = { Plain, l.Map(v => v) }; return S.Hold(cs[0].Sample()); });
+
+    // S891. The pending element of that array.
+    public static Cell<int> PendingElementOfAnArrayFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = { Plain, l.Map(v => v) }; return S.Hold(cs[1].Sample()); });
+
+    // S892. An array from new[] with an initializer.
+    public static Cell<int> PlainElementOfAnImplicitArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var cs = new[] { Plain, l.Map(v => v) }; return S.Hold(cs[0].Sample()); });
+
+    // S893. An array from new with its type and an initializer.
+    public static Cell<int> PlainElementOfAnArrayCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = new Cell<int>[] { Plain, l.Map(v => v) }; return S.Hold(cs[0].Sample()); });
+
+    // S894. A List from its constructor with an initializer.
+    public static Cell<int> PlainElementOfAListFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var cs = new List<Cell<int>> { Plain, l.Map(v => v) }; return S.Hold(cs[0].Sample()); });
+
+    // S895. The pending element of that List.
+    public static Cell<int> PendingElementOfAListFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var cs = new List<Cell<int>> { Plain, l.Map(v => v) }; return S.Hold(cs[1].Sample()); });
+
+    // S896. A List from new() with an initializer.
+    public static Cell<int> PlainElementOfAListFromAnImpliedConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = new() { Plain, l.Map(v => v) }; return S.Hold(cs[0].Sample()); });
+
+    // S897. The constructor gets a collection, so the initializer does not have the first position.
+    public static Cell<int> ElementOfAListFromACollectionAndAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> start = [l.Map(v => v)]; List<Cell<int>> cs = new(start) { Plain }; return S.Hold(cs[0].Sample()); });
+
+    // S898. An element with braces in the initializer of a List.
+    public static Cell<int> ElementOfAListFromElementsWithBraces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = new() { { l.Map(v => v) }, { Plain } }; return S.Hold(cs[0].Sample()); });
+
+    // S899. A ConcurrentBag gives its elements in a different order from the code.
+    public static Cell<int> FirstOfAConcurrentBag() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.Concurrent.ConcurrentBag<Cell<int>> cs = [Plain, l.Map(v => v)]; return S.Hold(cs.First().Sample()); });
+
+    // S900. The same, from the constructor with an initializer.
+    public static Cell<int> FirstOfAConcurrentBagFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var cs = new System.Collections.Concurrent.ConcurrentBag<Cell<int>> { Plain, l.Map(v => v) }; return S.Hold(cs.First().Sample()); });
+
+    // S901. A ref argument can change the element.
+    public static Cell<int> ElementOfAnArraySetThroughARefArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, Plain]; Put(ref cs[0], l.Map(v => v)); return S.Hold(cs[0].Sample()); static void Put(ref Cell<int> slot, Cell<int> c) => slot = c; });
+
+    // S902. A deconstruction can change the elements.
+    public static Cell<int> ElementsOfAnArraySetByADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, Plain]; (cs[0], cs[1]) = (l.Map(v => v), Plain); return S.Hold(cs[0].Sample()); });
+
+    // S903. A ref local is a second name for the element.
+    public static Cell<int> ElementOfAMixedArraySetThroughARefLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, l.Map(v => v)]; ref Cell<int> first = ref cs[0]; first = l.Map(v => v); return S.Hold(cs[0].Sample()); });
+
+    // S904. An assignment to an element in parentheses.
+    public static Cell<int> ElementOfAMixedArraySetInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain, l.Map(v => v)]; (cs[0]) = l.Map(v => v); return S.Hold(cs[0].Sample()); });
+
+    // S905. An increment puts the result of the operator in the element.
+    public static Cell<int> ElementOfAnArrayAfterAnIncrement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; steps[0]++; return S.Hold(steps[0].Now.Sample()); });
+
+    // S906. A second name for the list can change it.
+    public static Cell<int> ElementOfAMixedListSetThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; List<Cell<int>> other = cs; other[0] = l.Map(v => v); return S.Hold(cs[0].Sample()); });
+
+    // S907. A lambda reads an element by its index.
+    public static Cell<int> PlainElementOfAMixedListInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; Func<Cell<int>> get = () => cs[0]; return S.Hold(get().Sample()); });
+
+    // S908. A local function reads an element by its index.
+    public static Cell<int> PlainElementOfAMixedListInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; return S.Hold(Read()); int Read() => cs[0].Sample(); });
+
+    // S909. A list of functions. The call runs only the function of the position.
+    public static Cell<int> PlainFunctionOfAMixedListOfFunctions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Func<int>> fs = [() => 1, () => l.Sample()]; return S.Hold(fs[0]()); });
+
+    // S910. The function of the second position reads.
+    public static Cell<int> ReadingFunctionOfAMixedListOfFunctions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Func<int>> fs = [() => 1, () => l.Sample()]; return S.Hold(fs[1]()); });
+
+    // S911. A method of this compilation with the name First changes the list and gives a different element.
+    public static Cell<int> FirstOfThisCompilationChangesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Marked> ms = [new Marked(Plain), new Marked(l.Map(v => v))]; return S.Hold(ms.First().Share.Sample()); });
+
+    // S912. Count, a foreach, and a constant by its name are reads.
+    public static Cell<int> PlainElementOfAMixedListWithOtherReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; const int Zero = 0; int n = cs.Count; foreach (Cell<int> c in cs) { Kept.Add(c); } return S.Hold(cs[Zero].Sample() + n); });
+
+    // S913. A list in a list of objects is the element of its position. ToString of a list reads nothing.
+    public static Cell<int> ListInAListOfObjectsByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> outer = [new List<Titled> { new(l.Map(v => v)) }]; object o = outer[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S914. A collection expression for IEnumerable keeps its positions.
+    public static Cell<int> PlainFirstOfAMixedSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Cell<int>> cs = [Plain, l.Map(v => v)]; return S.Hold(cs.First().Sample()); });
+
+    // S915. The last element of that sequence.
+    public static Cell<int> PendingLastOfAMixedSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<Cell<int>> cs = [Plain, l.Map(v => v)]; return S.Hold(cs.Last().Sample()); });
+
+    // S916. A spread has a number of elements that the code does not say.
+    public static Cell<int> ElementOfAListWithASpread() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> others = [l.Map(v => v)]; List<Cell<int>> cs = [.. others, Plain]; return S.Hold(cs[0].Sample()); });
+
+    // S917. An Add through an element of a list of lists. The list that is the element then contains the value.
+    public static Cell<int> AddThroughAnElementOfAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> cs = [new(), new()]; cs[0].Add(l.Map(v => v)); return S.Hold(cs[0][0].Sample()); });
+
+    // S918. A helper adds to the list that an element is.
+    public static Cell<int> HelperAddsThroughAnElementOfAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> cs = [new(), new()]; Fill(cs[0], l.Map(v => v)); return S.Hold(cs[0][0].Sample()); static void Fill(List<Cell<int>> xs, Cell<int> c) => xs.Add(c); });
+
+    // S919. An Add through First of a list of lists.
+    public static Cell<int> AddThroughTheFirstOfAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> cs = [new(), [l.Map(v => v)]]; cs.First().Add(l.Map(v => v)); return S.Hold(cs[0][0].Sample()); });
+
+    // S920. An assignment to an element of an element.
+    public static Cell<int> ElementOfAnElementAfterAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cs = [[Plain], [l.Map(v => v)]]; cs[0][0] = l.Map(v => v); return S.Hold(cs[0][0].Sample()); });
+
+    // S921. The elements of a list of lists before a change. The first list has only a plain cell.
+    public static Cell<int> PlainElementOfAnElementOfAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> cs = [[Plain], [l.Map(v => v)]]; return S.Hold(cs[0][0].Sample()); });
+
+    // S922. The constructor of the List, written with its type, gets a collection.
+    public static Cell<int> ElementOfAListFromItsTypeACollectionAndAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> start = [l.Map(v => v)]; var cs = new List<Cell<int>>(start) { Plain }; return S.Hold(cs[0].Sample()); });
+
+    // S923. A method of this compilation with the name Count changes the list.
+    public static Cell<int> CountOfThisCompilationChangesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Marked> ms = [new Marked(Plain), new Marked(l.Map(v => v))]; int n = ms.Count(); return S.Hold(ms[0].Share.Sample() + n); });
+
+    // S924. The code sets a property of an element. The collection then contains an object with that state.
+    public static Cell<int> PropertySetThroughAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; slots[0].Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S925. The same through First.
+    public static Cell<int> PropertySetThroughTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; slots.First().Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S926. The elements before a change: the first has a plain cell and the second a pending one.
+    public static Cell<int> PlainPropertyOfAnElementOfAMixedList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }, new SettableSlot { Share = l.Map(v => v) }]; return S.Hold(slots[0].Share!.Sample()); });
+
+    // S927. An array with two dimensions. The first index gives a row.
+    public static Cell<int> PlainRowOfAGrid() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[,] grid = { { Plain, Plain }, { Plain, l.Map(v => v) } }; return S.Hold(grid[0, 1].Sample()); });
+
+    // S928. The row that has the pending cell.
+    public static Cell<int> PendingRowOfAGrid() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[,] grid = { { Plain, Plain }, { Plain, l.Map(v => v) } }; return S.Hold(grid[1, 1].Sample()); });
+
+    // S929. An object in an element with braces, read by its index.
+    public static Cell<int> ObjectOfAListFromElementsWithBraces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> ts = new() { { new Titled(l.Map(v => v)) }, { new Titled(Plain) } }; Kept.Add(ts[0].ToString()); return S.Hold(0); });
+
+    // S930. An element on the right of an assignment is a read.
+    public static Cell<int> PlainElementOfAMixedListAssignedToALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; Cell<int> first; first = cs[0]; return S.Hold(first.Sample()); });
+
+    // S931. An operator that is not an increment does not change the element.
+    public static Cell<int> PlainElementOfAMixedListThatCanBeNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>?> cs = [Plain, l.Map(v => v)]; return S.Hold(cs[0]!.Sample()); });
+
+    // S932. An increment before the element.
+    public static Cell<int> ElementOfAnArrayAfterAnIncrementBeforeIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; ++steps[0]; return S.Hold(steps[0].Now.Sample()); });
+
+    // S933. A decrement after the element.
+    public static Cell<int> ElementOfAnArrayAfterADecrement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; steps[0]--; return S.Hold(steps[0].Now.Sample()); });
+
+    // S934. A decrement before the element.
+    public static Cell<int> ElementOfAnArrayAfterADecrementBeforeIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; --steps[0]; return S.Hold(steps[0].Now.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -5827,6 +6043,22 @@ public static class Shapes
         return second.ToString();
     }
 
+    public sealed class Stepped(Cell<int> now, Cell<int> next)
+    {
+        public Cell<int> Now { get; } = now;
+
+        public static Stepped operator ++(Stepped step) => new(step.Later, step.Later);
+
+        public static Stepped operator --(Stepped step) => new(step.Later, step.Later);
+
+        private Cell<int> Later { get; } = next;
+    }
+
+    public sealed class Marked(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -5835,6 +6067,20 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static int Count(this List<Shapes.Marked> all)
+    {
+        all.Reverse();
+
+        return all.Count;
+    }
+
+    public static Shapes.Marked First(this List<Shapes.Marked> all)
+    {
+        all.Reverse();
+
+        return all[0];
+    }
+
     public static void AddOne(this List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
 
     public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca) =>

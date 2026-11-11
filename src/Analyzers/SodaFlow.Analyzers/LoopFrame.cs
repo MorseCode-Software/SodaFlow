@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
@@ -23,6 +25,14 @@ internal sealed class LoopFrame
     ///     close.
     /// </summary>
     public IReadOnlyList<QueryValue> Waiting => this.waiting;
+
+    /// <summary>
+    ///     For a local of this code whose collection keeps its positions: the
+    ///     expression of each element, in order. Null for a local whose collection
+    ///     does not. A local that no code asked about is not here.
+    /// </summary>
+    public Dictionary<ISymbol, IReadOnlyList<ExpressionSyntax>?> Positions { get; } =
+        new(SymbolEqualityComparer.Default);
 
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
