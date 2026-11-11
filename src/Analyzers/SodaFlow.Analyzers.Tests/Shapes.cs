@@ -5323,6 +5323,214 @@ public static class Shapes
     public static Cell<int> SetFromASpreadAndOneElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Alike[] first = [new Alike(l.Map(v => v))]; HashSet<Alike> set = [.. first, new Alike(Plain)]; return S.Hold(set.Count); });
 
+    // S1018. List.Contains gives the call to the element. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ListContainsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(Plain)]; Kept.Add(all.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1019. The same call, where the object that gets the call is pending.
+    public static Cell<int> ListContainsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; Kept.Add(all.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1020. List.IndexOf. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ListIndexOfOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(Plain)]; return S.Hold(all.IndexOf(new AlikeOwn(l.Map(v => v)))); });
+
+    // S1021. The same call, where the object that gets the call is pending.
+    public static Cell<int> ListIndexOfOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; return S.Hold(all.IndexOf(new AlikeOwn(Plain))); });
+
+    // S1022. List.Remove. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ListRemoveOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(Plain)]; Kept.Add(all.Remove(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1023. The same call, where the object that gets the call is pending.
+    public static Cell<int> ListRemoveOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; Kept.Add(all.Remove(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1024. Array.IndexOf. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ArrayIndexOfOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; return S.Hold(Array.IndexOf(all, new AlikeOwn(l.Map(v => v)))); });
+
+    // S1025. The same call, where the object that gets the call is pending.
+    public static Cell<int> ArrayIndexOfOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; return S.Hold(Array.IndexOf(all, new AlikeOwn(Plain))); });
+
+    // S1026. Enumerable.Contains over a query. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> QueryContainsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(Plain)]; Kept.Add(all.Where(_ => true).Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1027. The same call, where the object that gets the call is pending.
+    public static Cell<int> QueryContainsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; Kept.Add(all.Where(_ => true).Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1028. SequenceEqual gives the call to the element of the first sequence. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> SequenceEqualOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> first = [new(Plain)]; List<AlikeOwn> second = [new(l.Map(v => v))]; Kept.Add(first.SequenceEqual(second)); return S.Hold(0); });
+
+    // S1029. The same call, where the object that gets the call is pending.
+    public static Cell<int> SequenceEqualOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> first = [new(l.Map(v => v))]; List<AlikeOwn> second = [new(Plain)]; Kept.Add(first.SequenceEqual(second)); return S.Hold(0); });
+
+    // S1030. HashSet.Contains. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> SetContainsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(Plain)]; Kept.Add(set.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1031. The same call, where the object that gets the call is pending.
+    public static Cell<int> SetContainsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(l.Map(v => v))]; Kept.Add(set.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1032. HashSet.Add gives the call to the element that the set has. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> SetAddOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(Plain)]; Kept.Add(set.Add(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1033. The same call, where the object that gets the call is pending.
+    public static Cell<int> SetAddOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(l.Map(v => v))]; Kept.Add(set.Add(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1034. Dictionary.ContainsKey. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryContainsKeyOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; Kept.Add(d.ContainsKey(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1035. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryContainsKeyOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; Kept.Add(d.ContainsKey(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1036. Dictionary.TryGetValue. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryTryGetValueOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; Kept.Add(d.TryGetValue(new AlikeOwn(l.Map(v => v)), out int n) ? n : 0); return S.Hold(0); });
+
+    // S1037. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryTryGetValueOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; Kept.Add(d.TryGetValue(new AlikeOwn(Plain), out int n) ? n : 0); return S.Hold(0); });
+
+    // S1038. An assignment by index to a dictionary. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryAssignmentOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; d[new AlikeOwn(l.Map(v => v))] = 2; return S.Hold(d.Count); });
+
+    // S1039. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryAssignmentOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; d[new AlikeOwn(Plain)] = 2; return S.Hold(d.Count); });
+
+    // S1040. Dictionary.Add. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryAddOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; Kept.Add(d.TryAdd(new AlikeOwn(l.Map(v => v)), 2)); return S.Hold(0); });
+
+    // S1041. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryAddOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; Kept.Add(d.TryAdd(new AlikeOwn(Plain), 2)); return S.Hold(0); });
+
+    // S1042. object.Equals with two values gives the call to the first one. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> StaticEqualsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(object.Equals(new AlikeOwn(Plain), new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1043. The same call, where the object that gets the call is pending.
+    public static Cell<int> StaticEqualsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(object.Equals(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1044. The Equals of a tuple gives the call to the element of the tuple that the code calls it on. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> TupleEqualsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((new AlikeOwn(Plain), 1).Equals((new AlikeOwn(l.Map(v => v)), 1))); return S.Hold(0); });
+
+    // S1045. The same call, where the object that gets the call is pending.
+    public static Cell<int> TupleEqualsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((new AlikeOwn(l.Map(v => v)), 1).Equals((new AlikeOwn(Plain), 1))); return S.Hold(0); });
+
+    // S1046. List.BinarySearch gives the call to the element. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ListBinarySearchOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<RankedOwn> all = [new(Plain)]; return S.Hold(all.BinarySearch(new RankedOwn(l.Map(v => v)))); });
+
+    // S1047. The same call, where the object that gets the call is pending.
+    public static Cell<int> ListBinarySearchOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<RankedOwn> all = [new(l.Map(v => v))]; return S.Hold(all.BinarySearch(new RankedOwn(Plain))); });
+
+    // S1048. Array.BinarySearch. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ArrayBinarySearchOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; return S.Hold(Array.BinarySearch(all, new RankedOwn(l.Map(v => v)))); });
+
+    // S1049. The same call, where the object that gets the call is pending.
+    public static Cell<int> ArrayBinarySearchOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; return S.Hold(Array.BinarySearch(all, new RankedOwn(Plain))); });
+
+    // S1050. SortedList.Add gives the call to the key that the list has. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> SortedListAddOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<RankedOwn, int> d = new() { { new RankedOwn(Plain), 1 } }; d.Add(new RankedOwn(l.Map(v => v)), 2); return S.Hold(d.Count); });
+
+    // S1051. The same call, where the object that gets the call is pending.
+    public static Cell<int> SortedListAddOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<RankedOwn, int> d = new() { { new RankedOwn(l.Map(v => v)), 1 } }; d.Add(new RankedOwn(Plain), 2); return S.Hold(d.Count); });
+
+    // S1052. The default comparer gives the call to the first of the two values. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DefaultComparerOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Comparer<RankedOwn>.Default.Compare(new RankedOwn(Plain), new RankedOwn(l.Map(v => v)))); });
+
+    // S1053. The same call, where the object that gets the call is pending.
+    public static Cell<int> DefaultComparerOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Comparer<RankedOwn>.Default.Compare(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); });
+
+    // S1054. The default equality comparer. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DefaultEqualityComparerOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(EqualityComparer<AlikeOwn>.Default.Equals(new AlikeOwn(Plain), new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1055. The same call, where the object that gets the call is pending.
+    public static Cell<int> DefaultEqualityComparerOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(EqualityComparer<AlikeOwn>.Default.Equals(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1056. SortedSet.Add gives the call to the value that it gets. The value is plain, and its member reads only its own object.
+    public static Cell<int> SortedSetAddOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(l.Map(v => v))]; Kept.Add(set.Add(new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1057. The same call, where the value is pending.
+    public static Cell<int> SortedSetAddOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(Plain)]; Kept.Add(set.Add(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1058. SortedSet.Contains. The value is plain, and its member reads only its own object.
+    public static Cell<int> SortedSetContainsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(l.Map(v => v))]; Kept.Add(set.Contains(new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1059. The same call, where the value is pending.
+    public static Cell<int> SortedSetContainsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(Plain)]; Kept.Add(set.Contains(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1060. SortedDictionary.Add. The value is plain, and its member reads only its own object.
+    public static Cell<int> SortedDictionaryAddOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> d = new() { { new RankedOwn(l.Map(v => v)), 1 } }; d.Add(new RankedOwn(Plain), 2); return S.Hold(d.Count); });
+
+    // S1061. The same call, where the value is pending.
+    public static Cell<int> SortedDictionaryAddOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> d = new() { { new RankedOwn(Plain), 1 } }; d.Add(new RankedOwn(l.Map(v => v)), 2); return S.Hold(d.Count); });
+
+    // S1062. An assignment by index to a SortedDictionary. The value is plain, and its member reads only its own object.
+    public static Cell<int> SortedDictionaryAssignmentOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> d = new() { { new RankedOwn(l.Map(v => v)), 1 } }; d[new RankedOwn(Plain)] = 2; return S.Hold(d.Count); });
+
+    // S1063. The same call, where the value is pending.
+    public static Cell<int> SortedDictionaryAssignmentOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> d = new() { { new RankedOwn(Plain), 1 } }; d[new RankedOwn(l.Map(v => v))] = 2; return S.Hold(d.Count); });
+
+    // S1064. Contains of a span gives the call to the value that it gets. The value is plain, and its member reads only its own object.
+    public static Cell<int> SpanContainsOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(((ReadOnlySpan<EquatableOwn>)all).Contains(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1065. The same call, where the value is pending.
+    public static Cell<int> SpanContainsOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; Kept.Add(((ReadOnlySpan<EquatableOwn>)all).Contains(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1066. Enqueue of a PriorityQueue gives the call to the priority that it gets.
+    public static Cell<int> PriorityQueueEnqueueOfAPendingPriority() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, RankedOwn> queue = new(); queue.Enqueue(1, new RankedOwn(Plain)); queue.Enqueue(2, new RankedOwn(l.Map(v => v))); return S.Hold(queue.Count); });
+
+    // S1067. Equals reads only the object that it gets. The element gets the call, and the value is plain.
+    public static Cell<int> ListContainsAPlainValueWhoseEqualsReadsTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikePeer> all = [new(l.Map(v => v))]; Kept.Add(all.Contains(new AlikePeer(Plain))); return S.Hold(0); });
+
+    // S1068. The list is from a field, and the evaluator did not see its element made. That element gets the call and reads the value.
+    public static Cell<int> FieldListContainsAPendingValueWhoseEqualsReadsTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(StoredPeers.Contains(new AlikePeer(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1069. The list is from a field, and Equals reads only its own object.
+    public static Cell<int> FieldListContainsAPendingValueOwnState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(StoredOwns.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -6414,6 +6622,34 @@ public static class Shapes
             pair = inner;
             count = 1;
         }
+    }
+
+    private static readonly List<AlikePeer> StoredPeers = [new(Plain)];
+
+    private static readonly List<AlikeOwn> StoredOwns = [new(Plain)];
+
+    // Equals reads only its own object.
+    public sealed class AlikeOwn(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => obj is AlikeOwn && share.Sample() >= 0;
+
+        public override int GetHashCode() => 1;
+    }
+
+    // Equals reads only its own object.
+    public sealed class EquatableOwn(Cell<int> share) : IEquatable<EquatableOwn>
+    {
+        public bool Equals(EquatableOwn? other) => other != null && share.Sample() >= 0;
+
+        public override bool Equals(object? obj) => obj is EquatableOwn other && this.Equals(other);
+
+        public override int GetHashCode() => 1;
+    }
+
+    // CompareTo reads only its own object.
+    public sealed class RankedOwn(Cell<int> share) : IComparable<RankedOwn>
+    {
+        public int CompareTo(RankedOwn? other) => share.Sample().CompareTo(0);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

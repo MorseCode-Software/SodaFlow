@@ -55,6 +55,7 @@
         <Compile Include="LoopStateEvaluator.cs"/>
         <Compile Include="OperatorTable.cs"/>
         <Compile Include="PlatformCallers.cs"/>
+        <Compile Include="PlatformReceivers.cs"/>
         <Compile Include="QueryValue.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>

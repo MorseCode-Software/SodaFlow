@@ -2514,7 +2514,8 @@ internal sealed class LoopStateEvaluator
             keeper: method.ReducedFrom == null ? receiver : null,
             also: LoopState.None,
             given: () => this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement,
-            returned: () => this.Follow(invocation)?.State ?? LoopState.None);
+            returned: () => this.Follow(invocation)?.State ?? LoopState.None,
+            firstIsStored: true);
     }
 
     /// <summary>The same as <see cref="FollowPlatformCall" />, for a constructor of the platform.</summary>
@@ -2538,7 +2539,8 @@ internal sealed class LoopStateEvaluator
                 keeper: null,
                 also: LoopState.None,
                 given: null,
-                returned: null)
+                returned: null,
+                firstIsStored: false)
             : null;
 
     /// <summary>
@@ -2594,7 +2596,8 @@ internal sealed class LoopStateEvaluator
             keeper: collection,
             also: this.Eval(collection),
             given: null,
-            returned: null);
+            returned: null,
+            firstIsStored: false);
     }
 
     /// <summary>
@@ -2691,14 +2694,26 @@ internal sealed class LoopStateEvaluator
                 others: [access.Expression])
             : null;
 
+    /// <param name="method">The method of the platform.</param>
+    /// <param name="calls">The members that the method calls on an object that it gets.</param>
+    /// <param name="operands">The values that the method gets, with the owner of the call first.</param>
+    /// <param name="keeper">The collection that keeps a comparer for the method, when there is one.</param>
+    /// <param name="also">The state of one more object that a member can get as its argument.</param>
+    /// <param name="given">The state of the values that the method gives to a function.</param>
+    /// <param name="returned">The state of what a function that is not a lambda returns.</param>
+    /// <param name="firstIsStored">
+    ///     True when the first operand is the collection of the call, for a
+    ///     method with no owner, as the array is for <c>Array.IndexOf</c>.
+    /// </param>
     private Followed? FollowPlatform(
         IMethodSymbol method,
         PlatformCallbacks calls,
-        IReadOnlyCollection<Operand> operands,
+        IReadOnlyList<Operand> operands,
         ExpressionSyntax? keeper,
         LoopState also,
         Func<LoopState>? given,
-        Func<LoopState>? returned)
+        Func<LoopState>? returned,
+        bool firstIsStored)
     {
         // A callee that gets a sequence enumerates it.
         Followed? all =
@@ -2746,10 +2761,36 @@ internal sealed class LoopStateEvaluator
         // A member of LINQ to XML knows its content as object, and makes text from each object of
         // a sequence in it.
         bool takesContent = SodaFlowSymbols.TakesXmlContent((method.ReducedFrom ?? method).OriginalDefinition);
-        List<(ExpressionSyntax Written, LoopState State, Construction Members)> owners = [];
+        List<(ExpressionSyntax Written, LoopState State, Construction Members, bool Gets)> owners = [];
 
-        foreach (Operand operand in operands)
+        // For some methods, each runtime gives the call to the same one of the two objects.
+        bool hasCollection = operands.Any(static operand => operand.IsReceiver);
+
+        PlatformReceiver receiver =
+            !hasCollection && !firstIsStored ? PlatformReceiver.Either : PlatformCallers.ReceiverOf(method);
+
+        int firstValue = operands.TakeWhile(static operand => operand.IsReceiver).Count();
+        LoopState argument = LoopState.None;
+
+        for (int position = 0; position < operands.Count; position++)
         {
+            Operand operand = operands[position];
+            bool isStored = hasCollection ? operand.IsReceiver : position == 0;
+
+            bool gets =
+                receiver switch
+                {
+                    PlatformReceiver.Stored => isStored,
+                    PlatformReceiver.Given => !isStored,
+                    PlatformReceiver.FirstValue => position == firstValue,
+                    _ => true
+                };
+
+            if (!gets)
+            {
+                argument = argument.Join(this.Eval(operand.Written));
+            }
+
             if (byFunction)
             {
                 if (given != null && operand.Written is AnonymousFunctionExpressionSyntax lambda)
@@ -2763,7 +2804,7 @@ internal sealed class LoopStateEvaluator
 
                     owners.AddRange(
                         CallbackOwners(state: result, written: null, asSequence: false, compared: compared)
-                            .Select(owner => (operand.Written, owner.State, owner.Members)));
+                            .Select(owner => (operand.Written, owner.State, owner.Members, true)));
                 }
                 else if (returned != null && operand.Parameter?.TypeKind == TypeKind.Delegate)
                 {
@@ -2771,7 +2812,7 @@ internal sealed class LoopStateEvaluator
                     // as the call of it, and that result has the state of what it returns.
                     owners.AddRange(
                         CallbackOwners(state: returned(), written: null, asSequence: false, compared: compared)
-                            .Select(owner => (operand.Written, owner.State, owner.Members)));
+                            .Select(owner => (operand.Written, owner.State, owner.Members, true)));
                 }
 
                 continue;
@@ -2793,15 +2834,31 @@ internal sealed class LoopStateEvaluator
                                     || (takesContent
                                         && SodaFlowSymbols.IsSequence(this.region.TypeOf(operand.Written))),
                         compared: compared)
-                    .Select(owner => (operand.Written, owner.State, owner.Members)));
+                    .Select(owner => (operand.Written, owner.State, owner.Members, gets)));
+        }
+
+        bool knowsTheReceiver = receiver != PlatformReceiver.Either;
+
+        // The object that gets the call can be one that the evaluator did not see made. An element
+        // of a list from a different place is such an object. It has the type of the other
+        // object, and no state.
+        if (knowsTheReceiver && !owners.Any(static owner => owner.Gets))
+        {
+            owners.AddRange(
+                owners.ToArray()
+                    .Select(static owner =>
+                        (owner.Written, LoopState.None.WithMembers(owner.Members.WithNoState),
+                            owner.Members.WithNoState, true)));
         }
 
         // An object with no member that has a state reads nothing through its own members. Its
-        // member can read a second object that it gets, and the walk of that object reports the
-        // read. A field can give an object a state that is not in its members.
+        // member can read a second object that it gets. When the analyzer does not know which
+        // object gets the call, the walk of that second object reports the read. A field can give
+        // an object a state that is not in its members.
         if (!this.region.HasFields)
         {
-            owners.RemoveAll(static owner => !owner.Members.HasState);
+            owners.RemoveAll(owner =>
+                !owner.Members.HasState && !(knowsTheReceiver && owner.Gets && !argument.IsNone));
         }
 
         if (owners.Count == 0)
@@ -2810,9 +2867,12 @@ internal sealed class LoopStateEvaluator
         }
 
         // The platform gives one object to a member of a second one, as a sort does to CompareTo.
-        // The analyzer does not know which of them gets the call. Thus, each object can be the
+        // When the analyzer does not know which of them gets the call, each object can be the
         // parameter.
-        LoopState others = owners.Aggregate(seed: also, func: static (joined, owner) => joined.Join(owner.State));
+        LoopState others =
+            knowsTheReceiver
+                ? argument
+                : owners.Aggregate(seed: also, func: static (joined, owner) => joined.Join(owner.State));
 
         return owners.Aggregate(
             seed: all,
@@ -2821,7 +2881,11 @@ internal sealed class LoopStateEvaluator
                 // A member with a parameter gets one more of the objects.
                 (ExpressionSyntax Written, LoopState State)[] one = [(owner.Written, others)];
 
-                return this.CallbackMembers(members: owner.Members, callbacks: callbacks)
+                // An object that is only the argument gets no call with two objects. The method
+                // can make its hash code or its text.
+                PlatformCallbacks its = owner.Gets ? callbacks : callbacks & ~ComparesTwo;
+
+                return this.CallbackMembers(members: owner.Members, callbacks: its)
                     .Aggregate(
                         seed: followed,
                         func: (found, member) =>

@@ -164,6 +164,24 @@ internal static class PlatformCallers
             : callbacks;
     }
 
+    /// <summary>
+    ///     Which of two objects gets the call from a method of the platform.
+    ///     <see cref="PlatformReceiver.Either" /> for a method with no row in
+    ///     <see cref="PlatformReceivers" />.
+    /// </summary>
+    public static PlatformReceiver ReceiverOf(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { } type
+               && SodaFlowSymbols.IsPlatform(type)
+               && PlatformReceivers.ByMethod.TryGetValue(
+                   key: (type.Name, definition.Name),
+                   value: out PlatformReceiver receiver)
+            ? receiver
+            : PlatformReceiver.Either;
+    }
+
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
     public static bool ComparesOnlyItsElements(IMethodSymbol method)
     {

@@ -70,6 +70,29 @@ internal sealed class PlatformCallersTests
         await Assert.That(unknown).IsEmpty();
     }
 
+    /// <summary>
+    ///     A method that compares only its own elements, and a method with a known
+    ///     receiver, are methods that call <c>Equals</c> or <c>CompareTo</c>. Thus,
+    ///     each of them has a row with one of those two in the first table. A name
+    ///     with no such row does nothing.
+    /// </summary>
+    [Test]
+    public async Task EachMethodOfTheTwoSmallTablesHasARowThatCompares()
+    {
+        HashSet<(string Type, string Method)> comparing =
+        [
+            .. PlatformCallers.Rows
+                .Where(static row =>
+                    (row.Callbacks & (PlatformCallbacks.Compare | PlatformCallbacks.Equals)) != PlatformCallbacks.None)
+                .SelectMany(static row => row.Methods.Select(method => (row.Type, method)))
+        ];
+
+        await Assert.That(
+                PlatformCallers.AmongTheElements.Concat(PlatformReceivers.ByMethod.Keys)
+                    .Where(entry => !comparing.Contains(entry)))
+            .IsEmpty();
+    }
+
     // A constructor has the name .ctor in the table, and an accessor has the name that the
     // compiler gives it.
     private static bool Has(Type type, string method) =>

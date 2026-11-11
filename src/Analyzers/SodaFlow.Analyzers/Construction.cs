@@ -59,6 +59,9 @@ internal sealed class Construction(
     public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members) =>
         new(members: members, types: ImmutableArray<INamedTypeSymbol>.Empty, hasParts: members.Keys.Any(IsPart));
 
+    /// <summary>An object of the same types, with no member that the evaluator knows.</summary>
+    public Construction WithNoState => new(members: Empty.members, types: this.types, hasParts: false);
+
     /// <summary>True when the evaluator knows a state for one member or more.</summary>
     public bool HasState => this.members.Values.Any(static state => !state.IsNone);
 
