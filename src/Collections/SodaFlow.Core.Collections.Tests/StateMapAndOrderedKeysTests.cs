@@ -476,7 +476,8 @@ public sealed class OrderedKeysTests
         set = Reverse(order: scoreUpNameDown, keys: set);
         await AssertAnswersAsANewBuild(set: set, order: scoreUpNameDown, keys: keys, snapshot: snapshot);
 
-        // A third level is a pair in a pair, and the levels still agree one by one.
+        // With a third level the sort value holds one object for each level, and the levels still
+        // agree one by one.
         KeyOrder<int, ItemIdentity, ItemState> threeLevelsDown = ByScoreThenNameThenCode(true);
 
         set = ByScoreThenNameThenCode(false).CreateFrom(keys: keys, snapshot: snapshot);

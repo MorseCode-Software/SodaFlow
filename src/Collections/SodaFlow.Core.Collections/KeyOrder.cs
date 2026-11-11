@@ -275,10 +275,12 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
     /// </returns>
     /// <remarks>
     ///     This is the equivalent of <c>ThenBy</c> after <c>OrderBy</c>. The new level
-    ///     selects only between keys that this order ranks equal. Each level keeps its
-    ///     own sort value type to its comparer, thus this code boxes nothing at each
-    ///     count of levels. The key is the last level, with the comparer of the first
-    ///     level.
+    ///     selects only between keys that this order ranks equal. An order with one
+    ///     level or two levels keeps the sort value type of each level to its
+    ///     comparer, and boxes nothing. An order with three levels or more holds each
+    ///     sort value as an object. Thus, a level whose sort value is a value type
+    ///     boxes it one time for each key that the order sorts. A comparison allocates
+    ///     nothing. The key is the last level, with the comparer of the first level.
     /// </remarks>
     public KeyOrder<TKey, TIdentity, TState> ThenBy<TSortKey>(Func<TIdentity, TState, TSortKey> selector) =>
         this.ThenBy(selector: selector, sortComparer: Comparer<TSortKey>.Default, isDescending: false);
@@ -318,11 +320,12 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         IComparer<TSortKey> sortComparer,
         bool isDescending) =>
         this.Then(
-            nextSelector: (_, identity, state) => selector(arg1: identity, arg2: state),
-            nextIdentitySelector: null,
-            nextSelectorReference: selector,
-            nextComparer: sortComparer,
-            nextIsDescending: isDescending);
+            next: new SortLevel<TKey, TIdentity, TState, TSortKey>(
+                selector: (_, identity, state) => selector(arg1: identity, arg2: state),
+                identitySelector: null,
+                selectorReference: selector,
+                comparer: sortComparer,
+                isDescending: isDescending));
 
     /// <summary>
     ///     This order, with a second level for keys with equal sort values, by a value
@@ -376,45 +379,31 @@ public abstract class KeyOrder<TKey, TIdentity, TState>
         IComparer<TSortKey> sortComparer,
         bool isDescending) =>
         this.Then(
-            nextSelector: null,
-            nextIdentitySelector: (_, identity) => selector(identity),
-            nextSelectorReference: selector,
-            nextComparer: sortComparer,
-            nextIsDescending: isDescending);
+            next: new SortLevel<TKey, TIdentity, TState, TSortKey>(
+                selector: null,
+                identitySelector: (_, identity) => selector(identity),
+                selectorReference: selector,
+                comparer: sortComparer,
+                isDescending: isDescending));
 
     /// <summary>
     ///     This order with one more level, and that level selects only between keys
     ///     that this order ranks equal.
     /// </summary>
-    /// <param name="nextSelector">
-    ///     Makes the sort value of the level from a full item,
-    ///     or null.
+    /// <typeparam name="TNext">The type of the sort value of the level.</typeparam>
+    /// <param name="next">
+    ///     The level, with the selector from the caller. This code compares two orders
+    ///     with that selector, level by level.
     /// </param>
-    /// <param name="nextIdentitySelector">
-    ///     Makes it from the key and the identity only,
-    ///     or null.
-    /// </param>
-    /// <param name="nextSelectorReference">
-    ///     The selector from the caller. This code compares two orders with it, level
-    ///     by level.
-    /// </param>
-    /// <param name="nextComparer">Compares two sort values of the level.</param>
-    /// <param name="nextIsDescending">True when the level uses the opposite direction.</param>
     /// <returns>The refined order.</returns>
     /// <remarks>
-    ///     One of the two selectors has a value, for the cause that applies to an
-    ///     order. A level on the identity never receives the state, thus the combined
-    ///     order can give a correct answer for a state edit that moves a key. This
-    ///     method is internal and generic, because only the implementation knows its
-    ///     own sort value type, and a level needs that type for a compare operation
-    ///     with no boxing.
+    ///     A level on the identity never receives the state. Thus, the combined order
+    ///     can give a correct answer for a state edit that moves a key. This method is
+    ///     internal and generic, because only the implementation knows its own sort
+    ///     value type. An order with two levels needs the two types for a compare
+    ///     operation with no boxing.
     /// </remarks>
-    internal abstract KeyOrder<TKey, TIdentity, TState> Then<TNext>(
-        Func<TKey, TIdentity, TState, TNext>? nextSelector,
-        Func<TKey, TIdentity, TNext>? nextIdentitySelector,
-        object nextSelectorReference,
-        IComparer<TNext> nextComparer,
-        bool nextIsDescending);
+    internal abstract KeyOrder<TKey, TIdentity, TState> Then<TNext>(SortLevel<TKey, TIdentity, TState, TNext> next);
 
     /// <summary>
     ///     A key set that holds <paramref name="keys" />, in this order.
