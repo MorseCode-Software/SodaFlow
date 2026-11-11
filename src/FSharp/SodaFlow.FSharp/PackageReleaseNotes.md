@@ -121,6 +121,16 @@ task, a try ... with does not see it, and a try ... finally or a use still runs.
 from listenOnceAsync to notice the cancellation no longer gets it, and the cancellation reaches whatever started the
 async, as it does for any other async.
 
+Fixed: listenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the result as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the async already had a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The value now arrives
+when the transaction commits. When the stream fires in a transaction that then fails, the async raises the exception of
+that transaction, the exception itself and not an AggregateException around it. That holds whether the failure comes
+after the listener ran, as when a second listener throws or the first value of a cell built in the same transaction
+throws, or before it ran, as when an operator below the stream or an earlier listener throws. A transaction that fails
+before the stream fires gives the stream no firing, as before: the async waits, and the next firing gives its value. A
+throw from the body of the transaction and a throw from an operator above the stream are of that kind.
+
 Fixed: a listenOnceAsync that never runs no longer leaves its listener on the stream. The listener attaches when you
 call listenOnceAsync, and only the running async removed it. An async can be stopped before it runs: started with a
 token that was already canceled, or reached by a let! after a cancellation, which the let! checks before it starts the

@@ -134,6 +134,17 @@ Fixed: ListenOnceAsync with a CancellationToken that can be canceled now removes
 the task completes. Before, each call left a registration behind until the token was canceled or collected, so a
 long-lived token gathered one per call. The task, its result, and what happens on cancellation are unchanged.
 
+Fixed: ListenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the task as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the task already held a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The task now gets the
+value when the transaction commits, so a listener that runs later in the same transaction finds it still incomplete.
+When the stream fires in a transaction that then fails, the task fails with the exception of that transaction. That
+holds whether the failure comes after the listener ran, as when a second listener throws or the first value of a cell
+built in the same transaction throws, or before it ran, as when an operator below the stream or an earlier listener
+throws. A transaction that fails before the stream fires gives the stream no firing, as before: the task waits, and the
+next firing completes it. A throw from the body of the transaction and a throw from an operator above the stream are of
+that kind. A cancellation that arrives in the transaction of the firing, before it commits, cancels the task.
+
 Changed: Choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
 and costs about half as much to build.
 

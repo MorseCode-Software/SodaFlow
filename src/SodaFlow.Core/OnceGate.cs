@@ -62,7 +62,7 @@ internal abstract class OnceGate
             this.gate.Run(trans);
         }
 
-        public override void Discard()
+        public override void Discard(System.Exception cause)
         {
             this.gate.queued = false;
             this.gate.Discard();

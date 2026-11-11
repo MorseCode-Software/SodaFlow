@@ -1247,6 +1247,70 @@ type ``Stream Tests``() =
             do! Expect.Equal('A', r)
         }
 
+    /// The async gives the value of the stream, thus only a transaction that committed can give
+    /// that value. A second listener throws after the listener of the async ran, and the
+    /// transaction fails. The async must raise the exception of that transaction. The two maps put
+    /// the listener that throws after the listener of the async.
+    [<Test>]
+    member _.``listenOnceAsync raises the exception of a transaction that fails after its listener ran``() =
+        task {
+            let s = sinkS<int> ()
+            let fromListener = InvalidOperationException "The test fails this transaction."
+            let t = Async.StartImmediateAsTask(s |> listenOnceAsyncS)
+
+            use _thrower =
+                s |> mapS id |> mapS id |> listenStrongS (fun (_: int) -> raise fromListener)
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> s |> sendS 1)
+
+            // The delay stops the wait where the task does not end, thus the test fails and does
+            // not hang.
+            let! _ = Task.WhenAny [| t :> Task; Task.Delay 5000 |]
+            do! Expect.Equal(TaskStatus.Faulted, t.Status)
+            do! Expect.Same(fromListener, t.Exception.InnerException)
+        }
+
+    /// The stream fired, and an operator below it threw before the listener of the async ran. The
+    /// value is not from a transaction that committed, thus the async raises that exception.
+    [<Test>]
+    member _.``listenOnceAsync raises the exception of a transaction that fails after the stream fired``() =
+        task {
+            let s = sinkS<int> ()
+            let fromOperator = InvalidOperationException "An operator throws."
+            let t = Async.StartImmediateAsTask(s |> listenOnceAsyncS)
+
+            use _other =
+                s |> mapS (fun (_: int) -> raise fromOperator) |> listenStrongS (fun (_: int) -> ())
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> s |> sendS 1)
+
+            let! _ = Task.WhenAny [| t :> Task; Task.Delay 5000 |]
+            do! Expect.Equal(TaskStatus.Faulted, t.Status)
+            do! Expect.Same(fromOperator, t.Exception.InnerException)
+        }
+
+    /// A transaction that fails before the stream fires gives the stream no firing. The body of a
+    /// transaction comes before each firing. Thus, the async waits, and the next firing gives its
+    /// value.
+    [<Test>]
+    member _.``listenOnceAsync waits for the next firing after a transaction whose body throws``() =
+        task {
+            let s = sinkS<int> ()
+            let t = Async.StartImmediateAsTask(s |> listenOnceAsyncS)
+
+            do!
+                Expect.Throws<InvalidOperationException>(fun () ->
+                    runT (fun () ->
+                        s |> sendS 1
+                        raise (InvalidOperationException "The body of the transaction throws.")))
+
+            do! Expect.False(t.IsCompleted)
+
+            s |> sendS 2
+            let! r = t
+            do! Expect.Equal(2, r)
+        }
+
     [<Test>]
     member _.``Test ListenOnceAsync Cancelled Before The First Firing``() =
         task {

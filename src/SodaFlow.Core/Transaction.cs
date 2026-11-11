@@ -928,7 +928,7 @@ internal sealed class TransactionInternal
             // ReSharper disable once NullableWarningSuppressionIsUsed - PrioritizedQueue.Dequeue() will not
             // return null if PrioritizedQueue.IsEmpty() is false.
             Entry e = PrioritizedQueue.Dequeue()!;
-            e.Discard();
+            e.Discard(transactionException);
             e.Dispose();
         }
 
@@ -1231,8 +1231,9 @@ internal sealed class TransactionInternal
         // frequent path does not allocate a closure and a delegate and also the entry.
         public abstract void Execute(TransactionInternal trans);
 
-        // A transaction that fails calls this, and not Execute, for each entry that did not run.
-        public virtual void Discard()
+        // A transaction that fails calls this, and not Execute, for each entry that did not run. The
+        // cause is the exception that failed the transaction.
+        public virtual void Discard(Exception cause)
         {
         }
     }
@@ -1266,7 +1267,7 @@ internal sealed class TransactionInternal
 
         public override void Execute(TransactionInternal trans) => this.action(trans);
 
-        public override void Discard() => this.discard();
+        public override void Discard(Exception cause) => this.discard();
     }
 }
 

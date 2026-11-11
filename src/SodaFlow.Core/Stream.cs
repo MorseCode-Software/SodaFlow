@@ -166,6 +166,50 @@ public class Stream<T> : ILastAction
                     stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false)),
             handler: handler);
 
+    // The two listeners below give the outcome of the transaction of the first firing. The task of
+    // ListenOnceAsync needs it: a value only from a transaction that committed, and the exception
+    // of a transaction that failed. See OnceWithOutcomeAction.
+    internal IStrongListener ListenOnceWithOutcomeStrongImpl(Action<T> onCommitted, Action<Exception> onFailed) =>
+        TransactionInternal.Apply(
+            code: static IStrongListener (trans, _, state) =>
+            {
+                OnceWithOutcomeAction<T> action = new(onCommitted: state.OnCommitted, onFailed: state.OnFailed);
+
+                StrongListener listener =
+                    state.Self.KeepAlive(
+                        state.Self.Listen(
+                            target: Node<T>.Null,
+                            trans: trans,
+                            action: action,
+                            suppressEarlierFirings: false));
+
+                action.Own(listener);
+
+                return listener;
+            },
+            state: (Self: this, OnCommitted: onCommitted, OnFailed: onFailed));
+
+    internal IRootableListener ListenOnceWithOutcomeRootableImpl(Action<T> onCommitted, Action<Exception> onFailed) =>
+        TransactionInternal.Apply(
+            code: static IRootableListener (trans, _, state) =>
+            {
+                OnceWithOutcomeAction<T> action = new(onCommitted: state.OnCommitted, onFailed: state.OnFailed);
+
+                RootableListener listener =
+                    new(
+                        stream: state.Self,
+                        listener: state.Self.Listen(
+                            target: Node<T>.Null,
+                            trans: trans,
+                            action: action,
+                            suppressEarlierFirings: false));
+
+                action.Own(listener);
+
+                return listener;
+            },
+            state: (Self: this, OnCommitted: onCommitted, OnFailed: onFailed));
+
     internal IRootableListener ListenOnceRootableImpl(Action<T> handler) =>
         this.ListenOnce<IRootableListener>(
             listen: static (stream, trans, action) =>
@@ -338,34 +382,40 @@ public class Stream<T> : ILastAction
         // condition, a stream that did not fire in this transaction.
         if (!suppressEarlierFirings && this.firings is { Count: > 0 })
         {
-            // ReSharper disable once LocalVariableHidesMember
-            List<T> firings = [.. this.firings];
-
-            trans.Prioritized(
-                node: target,
-                action: trans2 =>
-                {
-                    // Send the values that this transaction sent before now. This removes the
-                    // sequence dependency between send and listenStrong.
-                    foreach (T a in firings)
-                    {
-                        trans2.InCallback++;
-
-                        try
-                        {
-                            // A transaction must not change the internal parts of
-                            // SodaFlow.
-                            StreamInternal.Fire(action: action, trans: trans2, value: a);
-                        }
-                        finally
-                        {
-                            trans2.InCallback--;
-                        }
-                    }
-                });
+            trans.Prioritized(new ReplayEntry(target: target, action: action, firings: [.. this.firings]));
         }
 
         return nodeTarget;
+    }
+
+    // Sends a new listener the values that this transaction sent before the listener came. This
+    // removes the sequence dependency between send and listenStrong. An entry and not a lambda:
+    // the entry holds what the lambda captured, and it can tell the action of a discard.
+    private sealed class ReplayEntry(in Node target, in object action, in List<T> firings)
+        : TransactionInternal.Entry(target)
+    {
+        private readonly object action = action;
+        private readonly List<T> firings = firings;
+
+        public override void Execute(TransactionInternal trans)
+        {
+            foreach (T a in this.firings)
+            {
+                trans.InCallback++;
+
+                try
+                {
+                    // A transaction must not change the internal parts of SodaFlow.
+                    StreamInternal.Fire(action: this.action, trans: trans, value: a);
+                }
+                finally
+                {
+                    trans.InCallback--;
+                }
+            }
+        }
+
+        public override void Discard(Exception cause) => (this.action as IFailedFiringAction)?.FiringFailed(cause);
     }
 
     internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
@@ -1616,6 +1666,19 @@ public class Stream<T> : ILastAction
             finally
             {
                 trans.InCallback--;
+            }
+        }
+
+        // The stream fired, and the transaction failed before this entry ran. An action that
+        // gives the outcome of that transaction gets the exception here. Each other action
+        // ignores a firing that it did not get.
+        public override void Discard(Exception cause)
+        {
+            if (this.target.IsActivated
+                && this.target.Action.TryGetTarget(out object? action)
+                && action is IFailedFiringAction failed)
+            {
+                failed.FiringFailed(cause);
             }
         }
     }

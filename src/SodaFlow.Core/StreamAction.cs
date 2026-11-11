@@ -21,6 +21,21 @@ internal interface IStreamAction<in T>
 }
 
 /// <summary>
+///     An action that must know of a firing that it did not get. A transaction
+///     queues each firing for each action, and a transaction that fails before
+///     the action runs discards that entry.
+/// </summary>
+internal interface IFailedFiringAction
+{
+    /// <summary>
+    ///     Tells the action that a transaction queued a firing for it, and failed
+    ///     before the action ran.
+    /// </summary>
+    /// <param name="cause">The exception that failed the transaction.</param>
+    void FiringFailed(System.Exception cause);
+}
+
+/// <summary>
 ///     The action of an operator's link, and the listener that the operator's
 ///     output attaches. <c>Listen</c> links it and sets its target.
 /// </summary>
@@ -87,4 +102,84 @@ internal sealed class HandlerAction<T>(in System.Action<T> handler) : StreamActi
 
     /// <inheritdoc />
     public override void Fire(TransactionInternal trans, T value) => this.handler(value);
+}
+
+/// <summary>
+///     The action of a one-shot listener that gives the outcome of the transaction
+///     of its firing. A transaction that commits gives the value, after the commit.
+///     A transaction that fails gives its exception.
+/// </summary>
+/// <remarks>
+///     <para>
+///         A handler runs in the transaction of the firing, and that transaction
+///         can fail after the handler. Thus, this action gives the value to the
+///         transaction as a posted action. A commit runs it, and a failure runs its
+///         release with the exception of the transaction.
+///     </para>
+///     <para>
+///         A transaction can also fail before this action runs, where an operator
+///         or a different listener throws. The stream fired in that transaction,
+///         thus the action gets the exception through
+///         <see cref="IFailedFiringAction" />.
+///     </para>
+///     <para>
+///         The first firing ends the listener, on each of the two paths. A second
+///         entry of the same transaction then finds no owner and does nothing.
+///     </para>
+/// </remarks>
+/// <typeparam name="T">The type of the values of the stream.</typeparam>
+// ReSharper disable once InheritdocConsiderUsage - The type documents itself.
+internal sealed class OnceWithOutcomeAction<T>(
+    in System.Action<T> onCommitted,
+    in System.Action<System.Exception> onFailed)
+    : StreamAction<T>, IFailedFiringAction
+{
+    private readonly System.Action<T> onCommitted = onCommitted;
+    private readonly System.Action<System.Exception> onFailed = onFailed;
+
+    // The listener that a caller holds, which this action stops at the first firing. It is null
+    // after that. Only a thread that holds the transaction lock reads it or writes it.
+    private IListener? owner;
+
+    /// <summary>Gives this action the listener to stop at the first firing.</summary>
+    internal void Own(IListener listener) => this.owner = listener;
+
+    /// <inheritdoc />
+    public override void Fire(TransactionInternal trans, T value)
+    {
+        if (!this.End())
+        {
+            return;
+        }
+
+        TransactionInternal.PostImpl(
+            action: static state => state.Self.onCommitted(state.Value),
+            state: (Self: this, Value: value),
+            onFailure: this.onFailed);
+    }
+
+    /// <inheritdoc />
+    public void FiringFailed(System.Exception cause)
+    {
+        if (this.End())
+        {
+            this.onFailed(cause);
+        }
+    }
+
+    // Stops the listener, and tells the caller if this call is the first.
+    private bool End()
+    {
+        IListener? listener = this.owner;
+
+        if (listener == null)
+        {
+            return false;
+        }
+
+        this.owner = null;
+        listener.Unlisten();
+
+        return true;
+    }
 }
