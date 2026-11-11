@@ -4402,6 +4402,186 @@ public static class Shapes
     public static Cell<int> ExplicitOverloadThatReadsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { IPicks<int> picks = new PicksExplicitly(l.Map(v => v)); Kept.Add(picks.Pick(1)); return S.Hold(0); });
 
+    // S788. A list of queries that the block only keeps. The outer query made each inner one, and nothing enumerates those.
+    public static Cell<int> InnerQueriesKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); Kept.Add(lists); return S.Hold(0); });
+
+    // S789. The count of the list enumerates no inner query.
+    public static Cell<int> InnerQueriesCountOfTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.Count); });
+
+    // S790. An array of queries that the block keeps.
+    public static Cell<int> InnerQueriesInAnArrayKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int>[] lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToArray(); Kept.Add(lists); return S.Hold(lists.Length); });
+
+    // S791. Join makes text from each object of the array, and does not enumerate the query in it.
+    public static Cell<int> QueryInAnArrayOfObjectsJoined() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(string.Join(",", new object[] { q }).Length); });
+
+    // S792. A foreach over the list gives each inner query, and the body only keeps it.
+    public static Cell<int> InnerQueriesForeachThatKeepsEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); foreach (IEnumerable<int> inner in lists) { Kept.Add(inner); } return S.Hold(0); });
+
+    // S793. A foreach over a dictionary of queries that reads only the key.
+    public static Cell<int> QueriesInADictionaryForeachReadsTheKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, IEnumerable<int>> byKey = new() { [1] = Numbers.Select(x => x + l.Sample()) }; foreach (KeyValuePair<int, IEnumerable<int>> pair in byKey) { Kept.Add(pair.Key); } return S.Hold(0); });
+
+    // S794. The second foreach enumerates each inner query.
+    public static Cell<int> InnerQueriesInTwoForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); int n = 0; foreach (IEnumerable<int> inner in lists) { foreach (int y in inner) { n += y; } } return S.Hold(n); });
+
+    // S795. An inner query by its index, then enumerated.
+    public static Cell<int> InnerQueryByIndexEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists[0].ToList().Count); });
+
+    // S796. First gives an inner query, and Count enumerates it.
+    public static Cell<int> InnerQueryFirstThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.First().Count()); });
+
+    // S797. A lambda gets each inner query and enumerates it.
+    public static Cell<int> InnerQueriesCountOfEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.Select(q => q.Count()).Sum()); });
+
+    // S798. The function of the outer query reads. ToList runs it.
+    public static Cell<int> OuterFunctionOfAListOfQueriesReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => { int n = l.Sample(); return Numbers.Where(y => y > n); }).ToList(); Kept.Add(lists); return S.Hold(0); });
+
+    // S799. The value of each pair of a dictionary of queries, enumerated.
+    public static Cell<int> QueriesInADictionaryValueCounted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, IEnumerable<int>> byKey = new() { [1] = Numbers.Select(x => x + l.Sample()) }; int n = 0; foreach (KeyValuePair<int, IEnumerable<int>> pair in byKey) { n += pair.Value.Count(); } return S.Hold(n); });
+
+    // S800. An inner query held as object and enumerated as the IEnumerable that is not generic.
+    public static Cell<int> InnerQueryAsAnObjectEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); object first = lists[0]; int n = 0; foreach (object y in (System.Collections.IEnumerable)first) { n++; } return S.Hold(n); });
+
+    // S801. An inner query enumerated as dynamic.
+    public static Cell<int> InnerQueryAsDynamicEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); dynamic first = lists[0]; int n = 0; foreach (object y in first) { n++; } return S.Hold(n); });
+
+    // S802. A generic method enumerates a sequence of its type parameter.
+    public static Cell<int> QueryEnumeratedInAGenericMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(CountOf(Numbers.Select(x => x + l.Sample()))));
+
+    // S803. A generic method enumerates a value whose type is its type parameter.
+    public static Cell<int> QueryEnumeratedAsATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(CountAs(Numbers.Select(x => x + l.Sample()))));
+
+    // S804. A generic method makes the query, so the type of the query has a type parameter.
+    public static Cell<int> QueryFromAGenericMethodEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(OnlyWhen(Numbers, l).Count()));
+
+    // S805. The enumerator of a query, moved.
+    public static Cell<int> EnumeratorOfAQueryMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using IEnumerator<int> e = Numbers.Select(x => x + l.Sample()).GetEnumerator(); return S.Hold(e.MoveNext() ? e.Current : 0); });
+
+    // S806. An iterator whose type is the IEnumerable that is not generic. Its object is a sequence of objects.
+    public static Cell<int> PlainIteratorAsASequenceOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; foreach (object o in (IEnumerable<object>)Each(l)) { n++; } return S.Hold(n); static System.Collections.IEnumerable Each(Cell<int> c) { yield return c.Sample(); } });
+
+    // S807. A query of texts enumerated as a sequence of objects.
+    public static Cell<int> QueryOfTextsAsASequenceOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<object> all = Numbers.Select(x => (x + l.Sample()).ToString()); int n = 0; foreach (object o in all) { n++; } return S.Hold(n); });
+
+    // S808. A chain of two queries with different types. The second one enumerates the first.
+    public static Cell<int> ChainOfTwoTypesEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Numbers.Where(x => x + l.Sample() > 0).Select(x => x.ToString()).Count()));
+
+    // S809. A query expression over a query of a different type.
+    public static Cell<int> QueryExpressionOverAQueryOfADifferentType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> source = Numbers.Where(x => x + l.Sample() > 0); return S.Hold((from x in source select x.ToString()).Count()); });
+
+    // S810. The second source of a Zip has a different type from the result.
+    public static Cell<int> SecondSourceOfAZipEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Numbers.Select(x => x.ToString()).Zip(Numbers.Where(x => x + l.Sample() > 0), (s, n) => s + n).Count()));
+
+    // S811. Repeat keeps the query as its element. Count enumerates only the Repeat.
+    public static Cell<int> QueryAsTheElementOfARepeat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(Enumerable.Repeat(q, 2).Count()); });
+
+    // S812. Append keeps the query as one element more.
+    public static Cell<int> QueryAppendedToAListOfQueries() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); List<IEnumerable<int>> lists = []; return S.Hold(lists.Append(q).ToList().Count); });
+
+    // S813. A method returns a chain of two queries with different types. The walk of the method reads each query by itself.
+    public static Cell<int> ChainOfTwoTypesFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(TextsOf(l).Count()));
+
+    // S814. The same, where the method has the first query in a local.
+    public static Cell<int> ChainOfTwoTypesFromAMethodWithALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(TextsThroughALocal(l).Count()));
+
+    // S815. A chain through two methods.
+    public static Cell<int> ChainOfThreeTypesFromTwoMethods() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(LengthsOf(l).Sum()));
+
+    // S816. The chain from a method, which the block only keeps.
+    public static Cell<int> ChainOfTwoTypesFromAMethodKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(TextsOf(l)); return S.Hold(0); });
+
+    // S817. SelectMany enumerates what its first function returns. The result has a different type.
+    public static Cell<int> SelectManyWithAResultSelector() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.SelectMany(q => q, (q, y) => y.ToString()).Count()); });
+
+    // S818. The same, where the function has a block.
+    public static Cell<int> SelectManyWithABlockAndAResultSelector() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.SelectMany(q => { return q; }, (q, y) => y.ToString()).Count()); });
+
+    // S819. Select keeps what its function returns.
+    public static Cell<int> SelectKeepsEachQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.Select(q => q).ToList().Count); });
+
+    // S820. The first function of SelectMany is a local function by its name.
+    public static Cell<int> SelectManyByNameWithAResultSelector() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.SelectMany(Same, (q, y) => y.ToString()).Count()); static IEnumerable<int> Same(IEnumerable<int> q) => q; });
+
+    // S821. The local function returns a different sequence, and not the query that it gets.
+    public static Cell<int> SelectManyByNameThatGivesADifferentSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.SelectMany(Plain, (q, y) => y.ToString()).Count()); static IEnumerable<int> Plain(IEnumerable<int> q) => Numbers; });
+
+    // S822. The first function of SelectMany is a platform method by its name, which gives back the query.
+    public static Cell<int> SelectManyOfAPlatformMethodByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.SelectMany(Enumerable.AsEnumerable, (q, y) => y.ToString()).Count()); });
+
+    // S823. ToList by its name enumerates each query that Select gives it.
+    public static Cell<int> ToListByNameOverAListOfQueries() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.Select(Enumerable.ToList).ToList().Count); });
+
+    // S824. Count by its name in a Sum.
+    public static Cell<int> CountByNameInASumOfQueries() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); return S.Hold(lists.Sum(Enumerable.Count)); });
+
+    // S825. A delegate in a local is a platform method.
+    public static Cell<int> CountInALocalInASumOfQueries() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); Func<IEnumerable<int>, int> count = Enumerable.Count; return S.Hold(lists.Sum(count)); });
+
+    // S826. Add by its name gets each query as an object, and keeps it.
+    public static Cell<int> AddByNameKeepsEachQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); lists.ForEach(Kept.Add); return S.Hold(0); });
+
+    // S827. SelectMany of an immutable array is not a method of Enumerable. The walk reads it at the call.
+    public static Cell<int> SelectManyOfAnImmutableArrayOfQueries() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); return S.Hold(System.Collections.Immutable.ImmutableArray.Create(q).SelectMany(x => x, (x, y) => y.ToString()).Count()); });
+
+    // S828. The first function of SelectMany is a platform cast by its name. It gets an object and gives back the query.
+    public static Cell<int> SelectManyOfACastByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); List<object> objects = [q]; return S.Hold(objects.SelectMany(System.Runtime.CompilerServices.Unsafe.As<IEnumerable<int>>, (o, y) => y.ToString()).Count()); });
+
+    // S829. A method returns a chain. The function of the second query enumerates a query of its own, and then the second query enumerates the first.
+    public static Cell<int> ChainFromAMethodWhoseFunctionEnumeratesAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(TextsOfCounts(l).Count()));
+
+    // S830. A generic method enumerates a sequence of arrays of its type parameter.
+    public static Cell<int> QueryOfArraysEnumeratedInAGenericMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(CountOfArrays(Numbers.Select(x => new[] { x + l.Sample() }))));
+
+    // S831. An iterator whose type is the IEnumerator that is not generic. Its object is an enumerator of objects.
+    public static Cell<int> PlainIteratorOfAnEnumeratorMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerator<object> e = (IEnumerator<object>)Each(l); return S.Hold(e.MoveNext() ? 1 : 0); static System.Collections.IEnumerator Each(Cell<int> c) { yield return c.Sample(); } });
+
+    // S832. Append by its name, with its receiver, gets each query as an element and keeps it.
+    public static Cell<int> AppendByNameKeepsEachQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); List<IEnumerable<int>> other = []; return S.Hold(lists.Select(other.Append).ToList().Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -5358,6 +5538,60 @@ public static class Shapes
         int IPicks<int>.Pick(int value) => value;
 
         int IPicks<int>.Pick(int value, int more) => share.Sample() + more;
+    }
+
+    private static int CountOf<T>(IEnumerable<T> values)
+    {
+        int n = 0;
+
+        foreach (T _ in values)
+        {
+            n++;
+        }
+
+        return n;
+    }
+
+    private static int CountAs<T>(T values)
+        where T : IEnumerable<int>
+    {
+        int n = 0;
+
+        foreach (int value in values)
+        {
+            n += value;
+        }
+
+        return n;
+    }
+
+    private static IEnumerable<T> OnlyWhen<T>(IEnumerable<T> values, Cell<int> c) => values.Where(_ => c.Sample() > 0);
+
+    private static IEnumerable<string> TextsOf(Cell<int> c) =>
+        Numbers.Where(x => x + c.Sample() > 0).Select(x => x.ToString());
+
+    private static IEnumerable<string> TextsThroughALocal(Cell<int> c)
+    {
+        IEnumerable<int> some = Numbers.Where(x => x + c.Sample() > 0);
+
+        return some.Select(x => x.ToString());
+    }
+
+    private static IEnumerable<int> LengthsOf(Cell<int> c) => TextsOf(c).Select(t => t.Length);
+
+    private static IEnumerable<string> TextsOfCounts(Cell<int> c) =>
+        Numbers.Where(x => x + c.Sample() > 0).Select(x => Numbers.Where(y => y > x).Count().ToString());
+
+    private static int CountOfArrays<T>(IEnumerable<T[]> values)
+    {
+        int n = 0;
+
+        foreach (T[] value in values)
+        {
+            n += value.Length;
+        }
+
+        return n;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

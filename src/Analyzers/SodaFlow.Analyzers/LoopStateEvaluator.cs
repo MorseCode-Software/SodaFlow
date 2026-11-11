@@ -43,6 +43,7 @@ internal sealed class LoopStateEvaluator
     private readonly Dictionary<SyntaxNode, CalleeKind> kinds = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
+    private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
 
     // The queries that this code makes.
     private readonly Dictionary<SyntaxNode, QueryValue> queries = [];
@@ -1465,9 +1466,9 @@ internal sealed class LoopStateEvaluator
                     ? this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement
                     : LoopState.None;
 
-            all =
+            Followed? ofArgument =
                 callables.Aggregate(
-                    seed: all,
+                    seed: (Followed?)null,
                     func: (followed, function) =>
                         Both(
                             first: followed,
@@ -1478,10 +1479,26 @@ internal sealed class LoopStateEvaluator
                                 target: functions,
                                 arguments: default,
                                 each: (written, given))));
+
+            if (ofArgument != null)
+            {
+                this.functionResults[written] = ofArgument.State;
+            }
+
+            all = Both(first: all, second: ofArgument);
         }
 
         return all;
     }
+
+    /// <summary>
+    ///     The state of what a function returns, for a function that is not a
+    ///     lambda and that a callee with no body to read runs. The walk of the
+    ///     call must come first.
+    /// </summary>
+    /// <param name="written">The argument that names the function at the call.</param>
+    public LoopState ResultOfFunction(ExpressionSyntax written) =>
+        this.functionResults.TryGetValue(key: written, value: out LoopState? result) ? result : LoopState.None;
 
     /// <summary>
     ///     The functions that a callee can run through an argument. They are the
@@ -3426,6 +3443,10 @@ internal sealed class LoopStateEvaluator
     ///     A sequence has the state of its elements, thus those values are here
     ///     also.
     /// </summary>
+    /// <summary>Each expression whose value a lambda can return.</summary>
+    public static IEnumerable<ExpressionSyntax> ResultsOf(AnonymousFunctionExpressionSyntax lambda) =>
+        lambda.Body is ExpressionSyntax result ? [result] : ReturnExpressions(lambda.Body);
+
     public static IEnumerable<ExpressionSyntax> ReturnExpressions(SyntaxNode body) =>
         body.DescendantNodes(
                 descendIntoChildren: static n =>

@@ -70,6 +70,7 @@ internal sealed class SodaFlowSymbols
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
     // call of a method with no body to read.
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesASequence = new(SymbolEqualityComparer.Default);
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> takesAFunction = new(SymbolEqualityComparer.Default);
 
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
@@ -380,7 +381,7 @@ internal sealed class SodaFlowSymbols
         };
 
     /// <summary>True for a type that is an <c>IEnumerator</c> of the platform.</summary>
-    private static bool IsEnumerator(ITypeSymbol? type) =>
+    public static bool IsEnumerator(ITypeSymbol? type) =>
         type is INamedTypeSymbol named
         && (IsEnumeratorInterface(named) || named.AllInterfaces.Any(IsEnumeratorInterface));
 
@@ -452,6 +453,16 @@ internal sealed class SodaFlowSymbols
         member.ContainingType is { } owner
         && (owner.ContainingNamespace?.ToDisplayString() == "System.Reflection"
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
+
+    /// <summary>
+    ///     True for a method that has a parameter whose type is a delegate. Most
+    ///     methods have none, and the answer for a method is the same at each call.
+    /// </summary>
+    public bool TakesAFunction(IMethodSymbol definition) =>
+        this.takesAFunction.GetOrAdd(
+            key: definition,
+            valueFactory: static method =>
+                method.Parameters.Any(static parameter => parameter.Type.TypeKind == TypeKind.Delegate));
 
     /// <summary>
     ///     True for a method that has a parameter whose values a callee

@@ -26,11 +26,25 @@ namespace SodaFlow.Analyzers;
 internal sealed class QueryValue(in SyntaxNode call, in LoopStateEvaluator definer)
 {
     private ImmutableArray<Finding>? held;
+    private ImmutableArray<QueryValue> sources = ImmutableArray<QueryValue>.Empty;
     private bool started;
 
     public SyntaxNode Call { get; } = call;
 
     public LoopStateEvaluator Definer { get; } = definer;
+
+    /// <summary>
+    ///     Each query that the code of this query enumerates, such as the source of
+    ///     a query method. The code that enumerates this query runs those also.
+    /// </summary>
+    /// <remarks>
+    ///     The walk of a callee reads each query of the callee by itself. Thus, the
+    ///     findings of a source are not part of the findings that this query keeps.
+    /// </remarks>
+    public ImmutableArray<QueryValue> Sources => this.sources;
+
+    /// <summary>Records a query that the code of this query enumerates.</summary>
+    public void Enumerates(QueryValue source) => this.sources = this.sources.Add(source);
 
     /// <summary>
     ///     True at the first call. The walk then reads what the query runs. False

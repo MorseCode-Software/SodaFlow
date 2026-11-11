@@ -121,6 +121,14 @@ internal sealed class LoopRegion(
         return method;
     }
 
+    /// <summary>
+    ///     True when the compiler converts the first type to the second one with
+    ///     no cast. No operator converts an interface. Thus, each value of a first
+    ///     type that is an interface is then a value of the second type.
+    /// </summary>
+    public bool Converts(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to).IsImplicit;
+
     /// <summary>The type of an expression.</summary>
     public ITypeSymbol? TypeOf(ExpressionSyntax expression)
     {

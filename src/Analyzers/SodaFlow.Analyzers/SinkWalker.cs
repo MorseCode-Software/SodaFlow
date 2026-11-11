@@ -32,6 +32,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly LoopRegion region = region;
     private readonly Action<Finding> sink = sink;
 
+    // The query whose code the walk reads now, when something enumerates that query.
+    private QueryValue? running;
+
     public override void Visit(SyntaxNode? node)
     {
         base.Visit(node);
@@ -1114,6 +1117,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     oneTime: false);
 
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+                this.RunThroughFunctions(call: node, method: method, given: moved);
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
@@ -1390,6 +1394,104 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     /// <summary>
+    ///     Reads what a callee with no body to read enumerates through a function
+    ///     that it runs in the call.
+    /// </summary>
+    /// <remarks>
+    ///     A callee that knows the result of the function as a sequence enumerates
+    ///     that result, as <c>SelectMany</c> does. <c>Select</c> knows the result
+    ///     as a type parameter, and keeps it. A function with no code to read can
+    ///     enumerate each sequence that it gets, as <c>Enumerable.Count</c> given
+    ///     by its name does. It can also give back what it got.
+    /// </remarks>
+    /// <param name="call">The call.</param>
+    /// <param name="method">The callee.</param>
+    /// <param name="given">The state of the values that the callee can give to a function.</param>
+    private void RunThroughFunctions(InvocationExpressionSyntax call, IMethodSymbol method, LoopState given)
+    {
+        // A delegate has the types of its own parameters, and a method has those of its definition.
+        IMethodSymbol callee =
+            method.MethodKind == MethodKind.DelegateInvoke ? method : (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (!this.region.Symbols.TakesAFunction(callee))
+        {
+            return;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            IParameterSymbol? parameter =
+                LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i);
+
+            // The delegate of the definition has the types that the callee itself knows.
+            if (parameter?.Type is not INamedTypeSymbol { DelegateInvokeMethod: { } known }
+                || !LoopStateEvaluator.RunsFunction(kind: CalleeKind.Mover, method: method, parameter: parameter))
+            {
+                continue;
+            }
+
+            bool enumeratesResult = SodaFlowSymbols.IsEnumerated(known.ReturnType);
+
+            if (written is AnonymousFunctionExpressionSyntax lambda)
+            {
+                if (enumeratesResult)
+                {
+                    foreach (ExpressionSyntax result in LoopStateEvaluator.ResultsOf(lambda))
+                    {
+                        this.RunQueries(result);
+                    }
+                }
+
+                continue;
+            }
+
+            // The delegate of the call has the types of the values that the function gets.
+            if (this.region.ModelFor(written).GetTypeInfo(written).ConvertedType
+                is not INamedTypeSymbol { DelegateInvokeMethod: { } invoked })
+            {
+                continue;
+            }
+
+            if (!this.evaluator.Eval(written).Functions.IsEmpty)
+            {
+                if (enumeratesResult)
+                {
+                    this.Run(state: this.evaluator.ResultOfFunction(written), enumerated: invoked.ReturnType);
+                }
+
+                continue;
+            }
+
+            // A method by its name has the types that the method itself knows. Each other delegate
+            // has only its own types.
+            IMethodSymbol? named = this.region.SymbolOf(written) as IMethodSymbol;
+
+            ImmutableArray<IParameterSymbol> knows =
+                named == null ? invoked.Parameters : (named.ReducedFrom ?? named).OriginalDefinition.Parameters;
+
+            // The receiver in the name of an extension method is the argument of its first parameter.
+            int receivers = named?.ReducedFrom == null ? 0 : 1;
+
+            for (int position = 0; position < invoked.Parameters.Length; position++)
+            {
+                if (SodaFlowSymbols.IsEnumerated(knows[position + receivers].Type))
+                {
+                    this.Run(state: given, enumerated: invoked.Parameters[position].Type);
+                }
+            }
+
+            if (enumeratesResult)
+            {
+                this.Run(state: given, enumerated: invoked.ReturnType);
+            }
+        }
+    }
+
+    /// <summary>
     ///     The sequences that a callee with no body to read enumerates in the
     ///     call. It enumerates each one that it gets for a parameter whose type is
     ///     a sequence or an enumerator. The type is the type that the callee itself
@@ -1470,7 +1572,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.Run(state);
+        this.Run(state: state, enumerated: null);
 
         // An object in an object in an object: the depth has an end, as a followed call has.
         if (state.Members is not { } members || depth > 3)
@@ -1506,15 +1608,71 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     Reads what each query in the value of an expression runs. The caller
     ///     is code that enumerates that value.
     /// </summary>
-    private void RunQueries(ExpressionSyntax written) => this.Run(this.evaluator.Eval(written));
-
-    private void Run(LoopState state)
+    private void RunQueries(ExpressionSyntax written)
     {
-        foreach (QueryValue query in state.Queries)
+        LoopState state = this.evaluator.Eval(written);
+
+        // Most values are not a query and contain none.
+        if (!state.Queries.IsEmpty)
+        {
+            this.Run(state: state, enumerated: this.region.TypeOf(written));
+        }
+    }
+
+    /// <summary>
+    ///     Reads what the queries of a state run, for code that enumerates a value
+    ///     with that state.
+    /// </summary>
+    /// <remarks>
+    ///     A state has each query that the value is or contains, with no level.
+    ///     The code enumerates the value itself. Thus, the walk reads only a query
+    ///     that can be that value. A query in the value waits for the code that
+    ///     enumerates it.
+    /// </remarks>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="enumerated">
+    ///     The type of the value as the code enumerates it. Null for code that
+    ///     enumerates each sequence in the value, as a serializer does.
+    /// </param>
+    private void Run(LoopState state, ITypeSymbol? enumerated)
+    {
+        foreach (QueryValue query in state.Queries.Where(query => this.CanBe(query: query, enumerated: enumerated)))
         {
             this.Run(query: query, to: this.sink);
         }
     }
+
+    // A query is an object of one type: the type of the expression that makes it, which is an
+    // interface. It can be the enumerated value when the compiler converts that type to the
+    // enumerated type with no cast. The name of a property in a pattern has no type.
+    private bool CanBe(QueryValue query, ITypeSymbol? enumerated)
+    {
+        if (enumerated == null || SaysLittle(enumerated))
+        {
+            return true;
+        }
+
+        ITypeSymbol? own = query.Call is ExpressionSyntax made ? this.region.TypeOf(made) : null;
+
+        return own == null || SaysLittle(own) || this.region.Converts(from: own, to: enumerated);
+    }
+
+    // A type that does not tell a sequence from one of its elements. The IEnumerable that is not
+    // generic and an enumerator do not have the type of the element. A type parameter can be a
+    // sequence.
+    private static bool SaysLittle(ITypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Collections_IEnumerable
+        || SodaFlowSymbols.IsEnumerator(type)
+        || HasTypeParameter(type);
+
+    private static bool HasTypeParameter(ITypeSymbol type) =>
+        type switch
+        {
+            ITypeParameterSymbol => true,
+            IArrayTypeSymbol array => HasTypeParameter(array.ElementType),
+            INamedTypeSymbol named => named.TypeArguments.Any(HasTypeParameter),
+            _ => false
+        };
 
     /// <summary>
     ///     Reads what one query runs, one time. The code of the query is part of
@@ -1524,11 +1682,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     private void Run(QueryValue query, Action<Finding> to)
     {
+        this.running?.Enumerates(query);
+
         if (query.TakeHeld() is { } held)
         {
             foreach (Finding finding in held)
             {
                 to(finding);
+            }
+
+            // The findings that a query keeps are those of its own code. A source keeps its own.
+            foreach (QueryValue source in query.Sources)
+            {
+                this.Run(query: source, to: to);
             }
 
             return;
@@ -1544,25 +1710,36 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? this
                 : new SinkWalker(region: this.region, evaluator: query.Definer, sink: to);
 
+        QueryValue? outer = walker.running;
+        walker.running = query;
         walker.RunHere(query.Call);
+        walker.running = outer;
     }
 
     private void RunHere(SyntaxNode call)
     {
         switch (call)
         {
-            // Each part but the first source runs when something enumerates the query.
+            // The walk read the first source where the code made the query. The query enumerates
+            // that source, and each other part runs, when something enumerates the query.
             case QueryExpressionSyntax query:
+                this.RunQueries(query.FromClause.Expression);
                 this.Visit(query.Body);
 
                 return;
             case InvocationExpressionSyntax node when this.region.SymbolOf(node) is IMethodSymbol method:
             {
                 SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
+                bool isOfThePlatform = this.evaluator.Classify(call: node, method: method) == CalleeKind.Mover;
 
-                // A query method of the platform: its functions, the members that it calls on an
-                // object, and the enumeration of its source.
-                if (this.evaluator.Classify(call: node, method: method) == CalleeKind.Mover)
+                LoopState given =
+                    isOfThePlatform
+                        ? this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement
+                        : LoopState.None;
+
+                // A query method of the platform: its functions, the sequences that it gets, and
+                // the members that it calls on an object.
+                if (isOfThePlatform)
                 {
                     this.VisitArguments(
                         arguments: arguments,
@@ -1574,15 +1751,30 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                                     method: method,
                                     argument: argument,
                                     position: position)),
-                        given: this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement,
+                        given: given,
                         oneTime: false,
                         onlyLambdas: true);
+
+                    // The state of the query has the queries of its sources, but a source can
+                    // have a different type. The query enumerates each source.
+                    this.RunGiven(
+                        method: method,
+                        receiver: LoopStateEvaluator.ReceiverOf(
+                            symbols: this.region.Symbols,
+                            invocation: node,
+                            method: method),
+                        arguments: arguments);
 
                     this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
                 }
 
                 // For an iterator, the body. For a query, a function that is not a lambda.
                 this.Report(this.evaluator.Follow(node));
+
+                if (isOfThePlatform)
+                {
+                    this.RunThroughFunctions(call: node, method: method, given: given);
+                }
 
                 return;
             }
