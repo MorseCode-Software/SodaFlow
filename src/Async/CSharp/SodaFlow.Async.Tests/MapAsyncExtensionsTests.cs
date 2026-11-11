@@ -947,6 +947,339 @@ public sealed class MapAsyncExtensionsTests
         l.Unlisten();
     }
 
+    // A disposal in a transaction that is open. The send of the trigger waits for the close of that
+    // transaction. Before, Dispose removed the listener of the trigger before the close, and the
+    // disposal canceled nothing.
+    [Test]
+    public async Task Dispose_InsideATransaction_CancelsARunningItemAndEndsAQueuedOne()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelOnDispose: true);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        Transaction.RunVoid(status.Dispose);
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+        await Assert.That(op.HasStarted("b")).IsFalse();
+        await Assert.That(received.Count).IsEqualTo(0);
+
+        l.Unlisten();
+    }
+
+    // A disposal in a transaction whose body then throws. That transaction sends nothing, thus the
+    // trigger does not come in it. The pipeline stays disposed, thus the disposal cancels after
+    // that transaction.
+    [Test]
+    public async Task Dispose_InsideATransactionWhoseBodyThrows_StillCancelsAndStaysDisposed()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelOnDispose: true);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => Transaction.RunVoid(() =>
+            {
+                status.Dispose();
+
+                throw new InvalidOperationException("The test fails this transaction.");
+            }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+        await Assert.That(op.HasStarted("b")).IsFalse();
+
+        source.Send("c");
+
+        await Assert.That(Transaction.Run(tracked.Sample).Count).IsEqualTo(0).Because("the pipeline stays disposed");
+    }
+
+    // A disposal in a transaction that a listener fails. The first listener throws before the
+    // trigger comes, and the second one throws after it. The disposal cancels in each condition.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Dispose_InsideATransactionThatAListenerFails_StillCancels(bool throwAfterTheTrigger)
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+        List<bool> canceledAtTheThrow = [];
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelOnDispose: true);
+
+        // A listener on the sink gets its firing when the transaction sends, which is before each
+        // listener below a node. Two maps put a listener after the listener of the trigger, which
+        // is one node below its sink.
+        Stream<int> throwsHere = throwAfterTheTrigger ? other.Map(static v => v).Map(static v => v) : other;
+
+        using IStrongListener throws =
+            throwsHere.ListenStrong(_ =>
+            {
+                canceledAtTheThrow.Add(op.IsCanceled("a"));
+
+                throw new InvalidOperationException("The test fails this transaction.");
+            });
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => Transaction.RunVoid(() =>
+            {
+                status.Dispose();
+                other.Send(1);
+            }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(canceledAtTheThrow)
+            .IsEquivalentTo(expected: [throwAfterTheTrigger], ordering: CollectionOrdering.Matching)
+            .Because("this shows that the listener threw on the side of the trigger that the test names");
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+    }
+
+    // The disposal removes the listeners of the two cancellation streams when the trigger comes,
+    // and not before. After the disposal, code of this pipeline must not get a send on a stream of
+    // the caller. The key throws from its hash code, which the listener of cancelMatching reads.
+    // Thus, a listener that stays makes the send throw.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Dispose_InsideATransaction_RemovesTheListenersOfTheCancellationStreams(bool cancelOnDispose)
+    {
+        StreamSink<ThrowingKey> source = Stream.CreateSink<ThrowingKey>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        StreamSink<IReadOnlyCollection<ThrowingKey>> cancelMatching =
+            Stream.CreateSink<IReadOnlyCollection<ThrowingKey>>();
+
+        TaskCompletionSource<string> gate = new();
+
+        AsyncMapStatus<ThrowingKey> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: async (_, factory, _) => factory.FromValue(await gate.Task.ConfigureAwait(false)),
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelMatching: cancelMatching,
+                cancelOnDispose: cancelOnDispose);
+
+        ThrowingKey key = new();
+        source.Send(key);
+
+        await Assert.That(() => cancelMatching.Send([key]))
+            .ThrowsExactly<InvalidOperationException>()
+            .Because("before the disposal, the listener reads the hash code of the key");
+
+        Transaction.RunVoid(status.Dispose);
+
+        await Assert.That(() => cancelMatching.Send([key])).ThrowsNothing();
+
+        gate.TrySetResult("done");
+    }
+
+    // The same disposal with no transaction open, for the path that did not change.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Dispose_RemovesTheListenersOfTheCancellationStreams(bool cancelOnDispose)
+    {
+        StreamSink<ThrowingKey> source = Stream.CreateSink<ThrowingKey>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+
+        StreamSink<IReadOnlyCollection<ThrowingKey>> cancelMatching =
+            Stream.CreateSink<IReadOnlyCollection<ThrowingKey>>();
+
+        TaskCompletionSource<string> gate = new();
+
+        AsyncMapStatus<ThrowingKey> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: async (_, factory, _) => factory.FromValue(await gate.Task.ConfigureAwait(false)),
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelMatching: cancelMatching,
+                cancelOnDispose: cancelOnDispose);
+
+        ThrowingKey key = new();
+        source.Send(key);
+
+        status.Dispose();
+
+        await Assert.That(() => cancelMatching.Send([key])).ThrowsNothing();
+
+        gate.TrySetResult("done");
+    }
+
+    // A send throws in a callback. Thus, a disposal there that cancels does not send in the
+    // transaction, and sends the trigger after it. Before, the disposal threw, and the throw failed
+    // the transaction of the caller.
+    [Test]
+    public async Task Dispose_InACallback_WithCancelOnDisposeTrue_DoesNotThrowAndCancelsAfterTheTransaction()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Queue(),
+                cancelOnDispose: true);
+
+        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+
+        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+
+        source.Send("a");
+        source.Send("b");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => other.Send(1)).ThrowsNothing();
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+        TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
+        await Assert.That(op.HasStarted("b")).IsFalse();
+        await Assert.That(received.Count).IsEqualTo(0);
+
+        source.Send("c");
+
+        await Assert.That(Transaction.Run(tracked.Sample).Count).IsEqualTo(0).Because("the pipeline stays disposed");
+
+        l.Unlisten();
+    }
+
+    // The same disposal in a transaction that a listener after it fails. The trigger goes after the
+    // transaction in each condition, thus the disposal cancels also here.
+    [Test]
+    public async Task Dispose_InACallbackOfATransactionThatFails_StillCancels()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelOnDispose: true);
+
+        // The listener on the sink runs before the listener below the two maps. See
+        // Dispose_InsideATransactionThatAListenerFails_StillCancels.
+        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+
+        using IStrongListener throws =
+            other.Map(static v => v)
+                .Map(static v => v)
+                .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => other.Send(1))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("The test fails this transaction.");
+
+        await Assert.That(op.IsCanceled("a")).IsTrue();
+    }
+
+    // A disposal that does not cancel sends nothing. Thus, it is legal in a callback, where a send
+    // throws.
+    [Test]
+    public async Task Dispose_InACallback_WithCancelOnDisposeFalse_DoesNotThrowAndCancelsNothing()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.ListenStrong(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelOnDispose: false);
+
+        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        await Assert.That(() => other.Send(1)).ThrowsNothing();
+        await Assert.That(op.IsCanceled("a")).IsFalse();
+
+        op.Release(input: "a", result: "A");
+
+        TestUtil.WaitUntil(() => received.Count == 1);
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+
+        l.Unlisten();
+    }
+
     [Test]
     public async Task FailedOperationPublishesToErrors()
     {
@@ -3103,5 +3436,15 @@ public sealed class MapAsyncExtensionsTests
 
             return new AsyncStrategyStep<TStrategyInput, Unit>(state: state, start: AsyncToStart<TStrategyInput>.None);
         }
+    }
+
+    /// <summary>
+    ///     A key that gives no hash code. A test uses it to see if code reads the hash
+    ///     code.
+    /// </summary>
+    private sealed class ThrowingKey
+    {
+        public override int GetHashCode() =>
+            throw new InvalidOperationException("The test key gives no hash code.");
     }
 }

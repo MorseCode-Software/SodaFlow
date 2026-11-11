@@ -356,7 +356,9 @@ public abstract class AsyncMapStatus : IDisposable
     ///     selection, because this IDisposable.Dispose() has no parameter and is the
     ///     only path to a disposal. When cancelOnDispose was true, a disposal cancels
     ///     each tracked item, Queued or Running, as one send on a cancelAll stream
-    ///     does.
+    ///     does. In an open transaction, the cancel occurs when that transaction
+    ///     ends, also when it fails, because the pipeline stays disposed. In a
+    ///     listener callback, the cancel occurs after the transaction.
     ///     The same limits apply. A Running operation stops only if it monitors its
     ///     CancellationToken, and the pipeline removes a Queued item at the time of
     ///     its promotion, which is not always at the return of this call. This method
@@ -2114,8 +2116,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // attached. Listen keeps only a weak reference on the side of the source stream, and Attach
     // gives the cause. While code can get to this execution manager, these fields keep the
     // subscriptions. When no code references the manager, these fields go with it and the
-    // subscriptions stop. Dispose also calls Unlisten on them, to disconnect them immediately
-    // and deterministically, and does not wait for the GC.
+    // subscriptions stop. A disposal also calls Unlisten on them, to disconnect them
+    // deterministically, and does not wait for the GC. See RemoveListeners.
     private IListener? cancelAllListener;
 
     private IListener? cancelMatchingListener;
@@ -2268,10 +2270,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // of this class, thus this pair is always in the reference graph of this execution
         // manager, and the .NET GC collects a cycle that no code can get to, with ListenStrong
         // and with Listen.
+        //
+        // This listener removes the listeners, itself also. Dispose cannot remove them after its
+        // send. In an open transaction, the send waits for the close, and a listener that is gone
+        // then cancels nothing. The removal comes before the cancel, thus a throw from a callback
+        // on a token cannot keep the listeners.
         this.disposeCancelListener =
             this.disposeCancelTrigger
                 .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)
-                .ListenImpl(entries => this.CancelTracked(entries: entries, trackedCell: trackedCell));
+                .ListenImpl(entries =>
+                {
+                    this.RemoveListeners();
+                    this.CancelTracked(entries: entries, trackedCell: trackedCell);
+                });
 
         Cell<bool> isRunning =
             trackedCell.MapImpl(static entries =>
@@ -2701,19 +2712,51 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         TransactionInternal.Apply(
-            code: static (_, _, self) =>
+            code: static (transaction, _, self) =>
             {
                 self.disposed = true;
 
-                if (self.cancelOnDispose)
+                if (!self.cancelOnDispose)
                 {
-                    self.disposeCancelTrigger.SendImpl(UnitInternal.Value);
+                    // No send waits for these listeners, thus they go now. A send here also throws
+                    // in a callback, and this disposal is legal there.
+                    self.RemoveListeners();
+
+                    return UnitInternal.Value;
                 }
+
+                // A send throws in a callback. Thus, the trigger goes after this transaction, which
+                // occurs at a commit and at a failure, and no discard is necessary.
+                if (transaction.InCallback > 0)
+                {
+                    self.SendTheTriggerAfterTheTransaction();
+
+                    return UnitInternal.Value;
+                }
+
+                // A transaction that fails discards the send below, but the pipeline stays
+                // disposed. Thus, the discard sends the trigger again after that transaction.
+                // Where the listener ran before the failure, it is gone, and no code gets that
+                // send.
+                transaction.Last(
+                    commit: static () =>
+                    {
+                    },
+                    discard: self.SendTheTriggerAfterTheTransaction);
+
+                self.disposeCancelTrigger.SendImpl(UnitInternal.Value);
 
                 return UnitInternal.Value;
             },
             state: this);
+    }
 
+    private void SendTheTriggerAfterTheTransaction() => TransactionInternal.AfterReleaseImpl(this.SendTheTrigger);
+
+    private void SendTheTrigger() => this.disposeCancelTrigger.SendImpl(UnitInternal.Value);
+
+    private void RemoveListeners()
+    {
         this.cancelAllListener?.Unlisten();
         this.cancelMatchingListener?.Unlisten();
         this.disposeCancelListener?.Unlisten();
@@ -2909,7 +2952,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     }
 
     // Cancels each entry at a disposal, and ends the Queued ones here. This does not wait for a
-    // commit, because the pipeline stays disposed after a transaction that fails.
+    // commit, because the pipeline stays disposed after a transaction that fails. Where that
+    // transaction fails before this code runs, Dispose sends the trigger again after it.
     //
     // A Running item observes its token and its operation ends, thus EndItem runs for it on the
     // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,

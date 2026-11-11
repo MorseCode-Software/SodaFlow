@@ -122,6 +122,20 @@ release runs, as they already did when a listener threw while the transaction pr
 Execute inside a posted action whose own transaction fails, which the core used to let through. The 5.0.0 notes below
 say that a throw from the body still admits the value; that describes 5.0.0.
 
+Fixed: Dispose inside an open transaction now cancels, and Dispose inside a listener callback no longer throws. Dispose
+sends on a private trigger, a listener on it cancels the tracked items, and Dispose used to remove that listener, with
+the two on the cancellation streams, as soon as it had sent. With no transaction open the send is a transaction of its
+own, so the listener ran first. Inside an open transaction the send waits for that transaction to close, and by then the
+listener was gone: the pipeline was disposed, nothing was canceled, and its operations ran on with live tokens. A second
+Dispose does nothing, so nothing could cancel them afterwards either. The listener now removes the three listeners
+itself when the trigger arrives, and then cancels. A transaction that fails before the trigger arrives discards the
+send, so Dispose then sends the trigger again once that transaction has released its lock. Inside a listener callback,
+where a send is not allowed, Dispose used to throw InvalidOperationException and fail the transaction of whoever sent;
+it now sends nothing there and sends the trigger once the transaction has released its lock. A disposal therefore
+cancels whether the transaction it was called in commits or fails, because a transaction that fails does not undo a
+disposal: at the close of that transaction where it can, and straight after it otherwise. A status disposed without
+cancelOnDispose sends nothing and removes its listeners at once, as before.
+
 Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
 that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
 exception, and that ends the process on .NET Framework when ThrowUnobservedTaskExceptions is on. Such an exception now
