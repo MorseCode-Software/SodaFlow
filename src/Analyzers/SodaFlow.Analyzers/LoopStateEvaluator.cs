@@ -42,6 +42,10 @@ internal sealed class LoopStateEvaluator
     private readonly Dictionary<(SyntaxNode Node, ISymbol Member), Followed?> implied = new(ImpliedCalls.Instance);
     private readonly Dictionary<SyntaxNode, CalleeKind> kinds = [];
     private readonly Dictionary<ISymbol, LoopState> locals;
+
+    // The most owners that a change to an element goes up to.
+    private const int MaxOwners = 8;
+
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
     private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
@@ -226,6 +230,15 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state)
     {
+        // The owner is an element of a collection. The collection then contains an object whose
+        // member has the state.
+        if (owner != null && this.CollectionOf(owner) != null)
+        {
+            this.Merge(
+                target: owner,
+                state: LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state)));
+        }
+
         if (owner is IdentifierNameSyntax
             && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
@@ -245,16 +258,33 @@ internal sealed class LoopStateEvaluator
             return;
         }
 
-        // The owner is an element of a collection. The collection then contains an object whose
-        // member has the state.
-        if (owner != null && this.CollectionOf(owner) != null)
-        {
-            this.Merge(
-                target: owner,
-                state: LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state)));
-        }
-
         this.SetField(field: member, state: state);
+    }
+
+    /// <summary>
+    ///     Records that a local has one of the values that a collection contains.
+    ///     A change to the object in the local is then a change to what the
+    ///     collection contains.
+    /// </summary>
+    public void HoldsOneOf(ISymbol local, ExpressionSyntax collection) => this.Frame.ElementOf[local] = collection;
+
+    /// <summary>
+    ///     Records the value that a local gets. A value that is an element of a
+    ///     collection makes the local a second name for that element.
+    /// </summary>
+    /// <param name="local">The local.</param>
+    /// <param name="value">The expression of the value.</param>
+    /// <param name="replaces">True when the local then has only this value.</param>
+    public void HoldsValueOf(ISymbol local, ExpressionSyntax value, bool replaces)
+    {
+        if (this.CollectionOf(value) is { } collection)
+        {
+            this.HoldsOneOf(local: local, collection: collection);
+        }
+        else if (replaces)
+        {
+            this.Frame.ElementOf.Remove(local);
+        }
     }
 
     private void SetField(ISymbol field, LoopState state)
@@ -286,9 +316,23 @@ internal sealed class LoopStateEvaluator
 
         // A change to an element of a collection is a change to what the collection contains.
         // The element is then not the one that the literal made. Thus, the collection does not
-        // keep its positions. The collection can be an element also.
-        while (this.CollectionOf(target) is { } collection)
+        // keep its positions. The collection can be an element also, and the walk goes up to
+        // each owner. The number of owners has an end, because a local can name its own owner.
+        for (int level = 0; level < MaxOwners; level++)
         {
+            ExpressionSyntax? collection = this.CollectionOf(target);
+
+            // An index has no name of its own to keep a state.
+            if (collection == null || target is not ElementAccessExpressionSyntax)
+            {
+                this.MergeInto(target: target, state: state);
+            }
+
+            if (collection == null)
+            {
+                return;
+            }
+
             if (this.region.SymbolOf(collection) is ILocalSymbol local)
             {
                 this.Frame.Positions[local] = null;
@@ -297,7 +341,10 @@ internal sealed class LoopStateEvaluator
             target = collection;
             state = state.AsContainer;
         }
+    }
 
+    private void MergeInto(SyntaxNode target, LoopState state)
+    {
         switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
@@ -570,16 +617,58 @@ internal sealed class LoopStateEvaluator
             : collection.AsElement;
     }
 
-    // The collection that an expression names an element of: the owner of an index, or of a First
-    // or a Last that gives a position.
+    /// <summary>
+    ///     The collection that an expression names one value of, or null. The
+    ///     expression is an index, a local that has an element, or a property of
+    ///     the platform such as <c>Values</c>. It can also be a call of a method of
+    ///     the platform that gives one value of its owner, such as <c>Find</c>.
+    /// </summary>
     private ExpressionSyntax? CollectionOf(ExpressionSyntax element) =>
-        element switch
+        Unwrapped(element) switch
         {
             ElementAccessExpressionSyntax indexed => indexed.Expression,
-            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: { } owner } }
-                when this.ElementsOf(owner) != null => owner,
+            IdentifierNameSyntax name
+                when this.region.SymbolOf(name) is { } local and (ILocalSymbol or IParameterSymbol)
+                     && this.Frame.ElementOf.TryGetValue(key: local, value: out ExpressionSyntax? owner) => owner,
+            MemberAccessExpressionSyntax access
+                when this.region.SymbolOf(access)
+                         is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.IsEmpty: true } property
+                     && !this.region.Symbols.IsSodaFlow(property) => access.Expression,
+            InvocationExpressionSyntax call => this.OwnerOfTheResult(call),
             _ => null
         };
+
+    // The definition of some methods of the platform has a type parameter as its result. Such a
+    // method gives one of the values that its owner has, as Find, Last, and ElementAt do. ToList
+    // makes a collection.
+    private ExpressionSyntax? OwnerOfTheResult(InvocationExpressionSyntax call) =>
+        this.region.SymbolOf(call) is IMethodSymbol method
+        && (method.ReducedFrom ?? method).OriginalDefinition.ReturnType is ITypeParameterSymbol
+        && this.Classify(call: call, method: method) == CalleeKind.Mover
+            ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
+            : null;
+
+    // The expression in parentheses, in a cast, or before the operator that says not null.
+    private static ExpressionSyntax Unwrapped(ExpressionSyntax expression)
+    {
+        while (true)
+        {
+            switch (expression)
+            {
+                case ParenthesizedExpressionSyntax around:
+                    expression = around.Expression;
+                    continue;
+                case CastExpressionSyntax cast:
+                    expression = cast.Expression;
+                    continue;
+                case PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } sure:
+                    expression = sure.Operand;
+                    continue;
+                default:
+                    return expression;
+            }
+        }
+    }
 
     // The expression of the element that a read by a constant index gives, for a collection that
     // keeps its positions. For an array with two dimensions, the first index gives a row, and the

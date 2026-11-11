@@ -5046,6 +5046,70 @@ public static class Shapes
     public static Cell<int> PendingPartOfAPartOfAVarPattern() =>
         Cell.Loop<int>().WithoutCaptures(l => { TallyNest nest = new(new TallyPair(Plain, l.Map(v => v))); return S.Hold(nest is var ((a, b), n) ? b.Sample() + n : 0); });
 
+    // S949. Find gives one of the lists of the list. A change to it is a change to what the list contains.
+    public static Cell<int> ChangeThroughFind() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; rows.Find(r => true)!.Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S950. Last of a list that does not keep its positions.
+    public static Cell<int> ChangeThroughLastOfAGrownList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new()]; rows.Add(new()); rows.Last().Add(l.Map(v => v)); return S.Hold(rows[1][0].Sample()); });
+
+    // S951. ElementAt.
+    public static Cell<int> ChangeThroughElementAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new()]; rows.Add(new()); rows.ElementAt(0).Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S952. The variable of a foreach has an element of the collection.
+    public static Cell<int> ChangeThroughAForeachVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; foreach (List<Cell<int>> row in rows) { row.Add(l.Map(v => v)); } return S.Hold(rows[0][0].Sample()); });
+
+    // S953. A property set through Last.
+    public static Cell<int> PropertySetThroughLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; slots.Add(new SettableSlot { Share = Plain }); slots.Last().Share = l.Map(v => v); return S.Hold(slots[1].Share!.Sample()); });
+
+    // S954. A property set through the variable of a foreach.
+    public static Cell<int> PropertySetThroughAForeachVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; slots.Add(new SettableSlot { Share = Plain }); foreach (SettableSlot slot in slots) { slot.Share = l.Map(v => v); } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S955. A local that the code gives an element is a second name for that element.
+    public static Cell<int> ChangeThroughALocalOfAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; List<Cell<int>> first = rows[0]; first.Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S956. The local gets the element in an assignment.
+    public static Cell<int> ChangeThroughALocalThatGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; List<Cell<int>> first; first = rows[0]; first.Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S957. The element is in parentheses and in a cast.
+    public static Cell<int> ChangeThroughAnElementInACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; ((List<Cell<int>>)rows[0]).Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S958. TryGetValue gives an out variable one of the values of the dictionary.
+    public static Cell<int> ChangeThroughAnOutVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, List<Cell<int>>> d = new() { ["a"] = new() }; if (d.TryGetValue("a", out List<Cell<int>>? found)) { found.Add(l.Map(v => v)); } return S.Hold(d["a"][0].Sample()); });
+
+    // S959. ForEach gives its function each element.
+    public static Cell<int> ChangeThroughALambdaParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; rows.ForEach(r => r.Add(l.Map(v => v))); return S.Hold(rows[0][0].Sample()); });
+
+    // S960. The function of a query gets each element when something enumerates the query.
+    public static Cell<int> ChangeThroughAParameterOfAQueryFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; int n = rows.Select(r => { r.Add(l.Map(v => v)); return 1; }).Sum(); return S.Hold(rows[0][0].Sample() + n); });
+
+    // S961. Values of a dictionary gives the values that the dictionary has.
+    public static Cell<int> ChangeThroughValuesOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, List<Cell<int>>> d = new() { ["a"] = new() }; d.Values.First().Add(l.Map(v => v)); return S.Hold(d["a"][0].Sample()); });
+
+    // S962. A helper adds to the list in the variable of a foreach.
+    public static Cell<int> HelperOnAForeachVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; foreach (List<Cell<int>> row in rows) { Fill(row, l.Map(v => v)); } return S.Hold(rows[0][0].Sample()); static void Fill(List<Cell<int>> xs, Cell<int> c) => xs.Add(c); });
+
+    // S963. The local gets a new list after the element. The change is to the new list.
+    public static Cell<int> ElementInALocalThatGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; List<Cell<int>> first = rows[0]; first = new(); first.Add(l.Map(v => v)); return S.Hold(rows[0].Count == 0 ? Plain.Sample() : rows[0][0].Sample()); });
+
+    // S964. ToList makes a collection. A row more in the copy is not in the list.
+    public static Cell<int> CopyOfAListGetsARow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; rows.ToList().Add(new List<Cell<int>> { l.Map(v => v) }); return S.Hold(rows.Count == 2 ? Plain.Sample() : rows[2][0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

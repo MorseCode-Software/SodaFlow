@@ -34,6 +34,15 @@ internal sealed class LoopFrame
     public Dictionary<ISymbol, IReadOnlyList<ExpressionSyntax>?> Positions { get; } =
         new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     For a local of this code that has one of the values of a collection:
+    ///     the expression of that collection. The local is the variable of a
+    ///     foreach, or a local that the code gave an element. It can also be a
+    ///     parameter of a lambda that a method of the collection runs, or an
+    ///     <c>out</c> variable.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> ElementOf { get; } = new(SymbolEqualityComparer.Default);
+
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
     /// <summary>

@@ -673,7 +673,21 @@ internal sealed class LoopReadAnalyzerTests
             ["VarPatternCallsADeconstructThatReads"] = ["SF1005"],
             ["VarPatternInASwitchCallsADeconstructThatReads"] = ["SF1005"],
             ["PendingPartOfAVarPattern"] = ["SF1001"],
-            ["PendingPartOfAPartOfAVarPattern"] = ["SF1001"]
+            ["PendingPartOfAPartOfAVarPattern"] = ["SF1001"],
+            ["ChangeThroughFind"] = ["SF1001"],
+            ["ChangeThroughLastOfAGrownList"] = ["SF1001"],
+            ["ChangeThroughElementAt"] = ["SF1001"],
+            ["ChangeThroughAForeachVariable"] = ["SF1001"],
+            ["PropertySetThroughLast"] = ["SF1001"],
+            ["PropertySetThroughAForeachVariable"] = ["SF1001"],
+            ["ChangeThroughALocalOfAnElement"] = ["SF1001"],
+            ["ChangeThroughALocalThatGetsAnElement"] = ["SF1001"],
+            ["ChangeThroughAnElementInACast"] = ["SF1001"],
+            ["ChangeThroughAnOutVariable"] = ["SF1001"],
+            ["ChangeThroughALambdaParameter"] = ["SF1001"],
+            ["ChangeThroughAParameterOfAQueryFunction"] = ["SF1001"],
+            ["ChangeThroughValuesOfADictionary"] = ["SF1001"],
+            ["HelperOnAForeachVariable"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

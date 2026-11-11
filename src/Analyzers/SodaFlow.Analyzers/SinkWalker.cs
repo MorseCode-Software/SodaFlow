@@ -113,6 +113,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
                 this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
+                this.evaluator.HoldsValueOf(local: local, value: declarator.Initializer.Value, replaces: true);
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
@@ -192,6 +193,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {
             this.evaluator.Declare(local: element, state: elements);
+            this.evaluator.HoldsOneOf(local: element, collection: node.Expression);
         }
 
         this.Visit(node.Statement);
@@ -928,6 +930,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         LoopState whole = this.evaluator.Eval(value);
 
+        if (target is IdentifierNameSyntax
+            && this.region.SymbolOf(target) is { } named and (ILocalSymbol or IParameterSymbol))
+        {
+            this.evaluator.HoldsValueOf(local: named, value: value, replaces: replaces);
+        }
+
         // A deconstruction of a value that is not a tuple expression. Each target gets the state
         // of its element, when the evaluator knows the elements. Otherwise, each gets the state of
         // the value.
@@ -1237,7 +1245,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     arguments: arguments,
                     runs: Runs,
                     given: moved,
-                    oneTime: false);
+                    oneTime: false,
+                    source: receiver);
 
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
                 this.RunThroughFunctions(call: node, method: method, given: moved);
@@ -1276,6 +1285,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         followed: null,
                         moved: moved,
                         receiver: null);
+
+                    this.LinkOuts(arguments: arguments, owner: receiver);
                 }
 
                 // The callee can call a member of an object that it gets, as a sort calls CompareTo.
@@ -1338,6 +1349,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 kind: kind,
                 method: method,
                 parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
+    }
+
+    // A method of the platform gives an out variable one of the values that its owner has, as
+    // TryGetValue does.
+    private void LinkOuts(SeparatedSyntaxList<ArgumentSyntax> arguments, ExpressionSyntax? owner)
+    {
+        if (owner == null)
+        {
+            return;
+        }
+
+        foreach (ArgumentSyntax argument in
+                 arguments.Where(static argument => argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)))
+        {
+            ISymbol? variable =
+                argument.Expression switch
+                {
+                    DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax single } =>
+                        this.region.ModelFor(single).GetDeclaredSymbol(single),
+                    IdentifierNameSyntax name => this.region.SymbolOf(name),
+                    _ => null
+                };
+
+            if (variable is ILocalSymbol or IParameterSymbol)
+            {
+                this.evaluator.HoldsOneOf(local: variable, collection: owner);
+            }
+        }
     }
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node) =>
@@ -1466,12 +1505,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     enumerates it. The walk read each other argument where the code made the
     ///     query.
     /// </param>
+    /// <param name="source">
+    ///     The collection whose values the callee gives to a lambda. A parameter
+    ///     of the lambda is then a second name for one of those values. Null when
+    ///     the callee gives no such value.
+    /// </param>
     private void VisitArguments(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         Func<ArgumentSyntax, int, bool> runs,
         LoopState given,
         bool oneTime,
-        bool onlyLambdas = false)
+        bool onlyLambdas = false,
+        ExpressionSyntax? source = null)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -1497,15 +1542,26 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.once.Add(lambda);
             }
 
-            if (!given.IsNone)
+            if (!given.IsNone || source != null)
             {
                 SemanticModel model = this.region.ModelFor(lambda);
 
                 foreach (ParameterSyntax parameter in LoopStateEvaluator.ParametersOf(lambda))
                 {
-                    if (model.GetDeclaredSymbol(parameter) is { } declared)
+                    if (model.GetDeclaredSymbol(parameter) is not { } declared)
+                    {
+                        continue;
+                    }
+
+                    if (!given.IsNone)
                     {
                         this.evaluator.Declare(local: declared, state: given);
+                    }
+
+                    // The callee gives the function the values that its owner has.
+                    if (source != null)
+                    {
+                        this.evaluator.HoldsOneOf(local: declared, collection: source);
                     }
                 }
             }
@@ -1876,7 +1932,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                                     position: position)),
                         given: given,
                         oneTime: false,
-                        onlyLambdas: true);
+                        onlyLambdas: true,
+                        source: LoopStateEvaluator.ReceiverOf(
+                            symbols: this.region.Symbols,
+                            invocation: node,
+                            method: method));
 
                     // The state of the query has the queries of its sources, but a source can
                     // have a different type. The query enumerates each source.
