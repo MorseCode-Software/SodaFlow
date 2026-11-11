@@ -161,7 +161,7 @@ internal sealed class LoopStateEvaluator
         this.Classify(call: call, method: method) switch
         {
             CalleeKind.Mover => SodaFlowSymbols.MakesQuery(method),
-            CalleeKind.Body => IsIterator(this.DefinitionOf(invocation: call, method: method)),
+            CalleeKind.Body => this.DefinitionsOf(invocation: call, method: method).All(IsIterator),
             _ => false
         };
 
@@ -339,9 +339,15 @@ internal sealed class LoopStateEvaluator
 
         ITypeSymbol? type = this.TypeBeforeObject(written);
 
-        return state.Members.CanBe(type) && !(state.IsContainer && Construction.SaysNothing(type))
-            ? state
-            : state.WithMembers(null);
+        if (!state.Members.CanBe(type) || (state.IsContainer && Construction.SaysNothing(type)))
+        {
+            return state.WithMembers(null);
+        }
+
+        // A value that is one of two objects is, through this type, only one that can have it.
+        Construction narrowed = state.Members.Narrow(type);
+
+        return ReferenceEquals(objA: narrowed, objB: state.Members) ? state : state.WithMembers(narrowed);
     }
 
     /// <summary>
@@ -451,9 +457,7 @@ internal sealed class LoopStateEvaluator
             // The object that the code is in, with the members that the evaluator knows.
             ThisExpressionSyntax when this.thisMembers.Count > 0 =>
                 LoopState.None.WithMembers(
-                    new Construction(
-                        members: this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default),
-                        type: null)),
+                    Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
             IdentifierNameSyntax
@@ -646,7 +650,7 @@ internal sealed class LoopStateEvaluator
                         && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
-                        return owner.Members.StateOf(owner.Members.Resolve(symbol))
+                        return owner.Members.StateThrough(symbol)
                             .FromIfUnknown(owner.Origin)
                             .Join(this.TypeState(expression));
                     }
@@ -1003,7 +1007,7 @@ internal sealed class LoopStateEvaluator
 
         IMethodSymbol definition =
             call is InvocationExpressionSyntax invocation
-                ? this.DefinitionOf(invocation: invocation, method: method)
+                ? this.DefinitionsOf(invocation: invocation, method: method)[0]
                 : method.OriginalDefinition;
 
         bool hasBody =
@@ -1322,12 +1326,37 @@ internal sealed class LoopStateEvaluator
                 : null;
         }
 
-        IMethodSymbol definition = this.DefinitionOf(invocation: invocation, method: method);
+        // A call on a value that is one of two objects can run the method of each.
+        IMethodSymbol[] definitions =
+        [
+            .. this.DefinitionsOf(invocation: invocation, method: method)
+                .Where(static candidate => BodyOf(candidate) != null)
+        ];
 
+        return definitions.Length == 0
+            ? this.FollowGivenFunctions(invocation: invocation, method: method)
+            : definitions.Aggregate(
+                seed: (Followed?)null,
+                func: (all, definition) =>
+                    Both(
+                        first: all,
+                        second: this.FollowDefinition(
+                            invocation: invocation,
+                            method: method,
+                            definition: definition)));
+    }
+
+    private Followed? FollowDefinition(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        IMethodSymbol definition)
+    {
         if (BodyOf(definition) is not { } body)
         {
-            return this.FollowGivenFunctions(invocation: invocation, method: method);
+            return null;
         }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
 
         ExpressionSyntax? receiver =
             ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
@@ -1370,18 +1399,26 @@ internal sealed class LoopStateEvaluator
     /// <summary>
     ///     The definition of the method that a call runs. The call can be through
     ///     an interface or a base type, on an object whose constructor the evaluator
-    ///     followed. Then, it runs the method of the type of that object.
+    ///     followed. Then, it runs the method of the type of that object. A value
+    ///     that is one of two objects gives the method of each.
     /// </summary>
-    private IMethodSymbol DefinitionOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    private IReadOnlyList<IMethodSymbol> DefinitionsOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        return method is { IsStatic: false, ReducedFrom: null }
-               && ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is { } receiver
-               && this.Self(receiver).Members is { } members
-               && members.Resolve(definition) is IMethodSymbol actual
-            ? actual.OriginalDefinition
-            : definition;
+        if (method is not { IsStatic: false, ReducedFrom: null }
+            || ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is not { } receiver
+            || this.Self(receiver).Members is not { } members)
+        {
+            return [definition];
+        }
+
+        IMethodSymbol[] actual =
+        [
+            .. members.Resolve(definition).OfType<IMethodSymbol>().Select(static found => found.OriginalDefinition)
+        ];
+
+        return actual.Length == 0 ? [definition] : actual;
     }
 
     /// <summary>
@@ -1739,7 +1776,7 @@ internal sealed class LoopStateEvaluator
             receiver: null,
             target: null,
             result: LoopState.None.WithMembers(
-                new Construction(
+                Construction.Of(
                     members: members.ToImmutableDictionary(SymbolEqualityComparer.Default),
                     type: definition.ContainingType)),
             found: found,
@@ -1784,27 +1821,40 @@ internal sealed class LoopStateEvaluator
                 : this.FollowLazy(access: access, written: owner, lazy: this.Eval(owner), value: written.Type);
         }
 
-        // A property that the code reads through an interface is the property of the object.
-        IPropertySymbol property =
-            this.Self(owner).Members?.Resolve(written) as IPropertySymbol ?? written;
+        // A property that the code reads through an interface is the property of the object. A
+        // value that is one of two objects has the property of each.
+        return PropertiesOf(owner: this.Self(owner).Members, written: written)
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, property) =>
+                {
+                    if (GetterOf(property.OriginalDefinition) is not { } body)
+                    {
+                        return all;
+                    }
 
-        if (GetterOf(property.OriginalDefinition) is not { } body)
-        {
-            return null;
-        }
+                    (Dictionary<ISymbol, LoopState> members, LoopState? receiver) =
+                        this.MembersFor(isStatic: property.IsStatic, owner: owner);
 
-        (Dictionary<ISymbol, LoopState> members, LoopState? receiver) =
-            this.MembersFor(isStatic: property.IsStatic, owner: owner);
+                    return Both(
+                        first: all,
+                        second: this.Enter(
+                            call: access,
+                            name: property.Name,
+                            body: body,
+                            bindings: [],
+                            definer: null,
+                            members: members,
+                            receiver: receiver,
+                            target: null));
+                });
+    }
 
-        return this.Enter(
-            call: access,
-            name: property.Name,
-            body: body,
-            bindings: [],
-            definer: null,
-            members: members,
-            receiver: receiver,
-            target: null);
+    private static IEnumerable<IPropertySymbol> PropertiesOf(Construction? owner, IPropertySymbol written)
+    {
+        IPropertySymbol[] actual = [.. owner?.Resolve(written).OfType<IPropertySymbol>() ?? []];
+
+        return actual.Length == 0 ? [written] : actual;
     }
 
     /// <summary>
@@ -1834,10 +1884,38 @@ internal sealed class LoopStateEvaluator
             return known;
         }
 
-        // The member of the object, when the code names one of an interface or a base type.
-        IMethodSymbol definition =
-            (owner?.Members?.Resolve(member.OriginalDefinition) as IMethodSymbol ?? member).OriginalDefinition;
+        // The member of the object, when the code names one of an interface or a base type. A
+        // value that is one of two objects has the member of each.
+        IMethodSymbol[] actual =
+        [
+            .. owner?.Members?.Resolve(member.OriginalDefinition).OfType<IMethodSymbol>() ?? []
+        ];
 
+        Followed? result =
+            (actual.Length == 0 ? [member] : actual)
+            .Select(static found => found.OriginalDefinition)
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, definition) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImpliedDefinition(
+                            call: call,
+                            definition: definition,
+                            owner: owner,
+                            arguments: arguments)));
+
+        this.implied[(call, member)] = result;
+
+        return result;
+    }
+
+    private Followed? FollowImpliedDefinition(
+        SyntaxNode call,
+        IMethodSymbol definition,
+        LoopState? owner,
+        IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
+    {
         Followed? result = null;
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
@@ -1874,8 +1952,6 @@ internal sealed class LoopStateEvaluator
                         receiver: owner,
                         target: null);
         }
-
-        this.implied[(call, member)] = result;
 
         return result;
     }
@@ -2112,15 +2188,27 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
-        IMethodSymbol[] starts = [.. members.Implementations(SodaFlowSymbols.IsEnumerableInterface)];
+        // The method for the generic interface. The other one calls it. A value that is one of
+        // two sequences has the method of each type.
+        return members.Implementations(SodaFlowSymbols.IsEnumerableInterface)
+            .GroupBy(
+                keySelector: static method => method.ContainingType,
+                comparer: SymbolEqualityComparer.Default)
+            .Select(static ofOneType =>
+                ofOneType.FirstOrDefault(static method =>
+                    method.ReturnType is INamedTypeSymbol { IsGenericType: true })
+                ?? ofOneType.First())
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, start) =>
+                    Both(
+                        first: all,
+                        second: this.FollowEnumerationFrom(written: written, sequence: sequence, start: start)));
+    }
 
-        // The method for the generic interface. The other one calls it.
-        IMethodSymbol? start =
-            starts.FirstOrDefault(static method => method.ReturnType is INamedTypeSymbol { IsGenericType: true })
-            ?? starts.FirstOrDefault();
-
-        if (start == null
-            || this.FollowImplied(call: written, member: start, owner: sequence, arguments: []) is not { } enumerator)
+    private Followed? FollowEnumerationFrom(SyntaxNode written, LoopState sequence, IMethodSymbol start)
+    {
+        if (this.FollowImplied(call: written, member: start, owner: sequence, arguments: []) is not { } enumerator)
         {
             return null;
         }
@@ -2525,19 +2613,23 @@ internal sealed class LoopStateEvaluator
         }
 
         // A property that the pattern reads through an interface is the property of the object.
-        IPropertySymbol property = owner.Members?.Resolve(written) as IPropertySymbol ?? written;
-
-        return property.IsStatic || GetterOf(property.OriginalDefinition) is not { } body
-            ? null
-            : this.Enter(
-                call: access,
-                name: property.Name,
-                body: body,
-                bindings: [],
-                definer: null,
-                members: TaggedMembers(owner),
-                receiver: owner,
-                target: null);
+        return PropertiesOf(owner: owner.Members, written: written)
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, property) =>
+                    property.IsStatic || GetterOf(property.OriginalDefinition) is not { } body
+                        ? all
+                        : Both(
+                            first: all,
+                            second: this.Enter(
+                                call: access,
+                                name: property.Name,
+                                body: body,
+                                bindings: [],
+                                definer: null,
+                                members: TaggedMembers(owner),
+                                receiver: owner,
+                                target: null)));
     }
 
     /// <summary>

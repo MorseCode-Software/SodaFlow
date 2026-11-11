@@ -540,7 +540,25 @@ internal sealed class LoopReadAnalyzerTests
             ["EnumeratorPropertyByAPatternMoved"] = ["SF1005"],
             ["GetterWithCodeByAPattern"] = ["SF1005"],
             ["IteratorPropertyByAPatternInAHelperThenCount"] = ["SF1004"],
-            ["ElementOfATupleThroughITupleThenCast"] = ["SF1005"]
+            ["ElementOfATupleThroughITupleThenCast"] = ["SF1005"],
+            ["ElementOfAListOfTwoKindsOfObjects"] = ["SF1005"],
+            ["OneOfTwoPendingObjectsThroughObject"] = ["SF1005"],
+            ["OneOfTwoPendingObjectsThroughAnInterface"] = ["SF1005"],
+            ["ForeachOverAListOfTwoKindsOfObjects"] = ["SF1005"],
+            ["JoinOfAListOfTwoKindsOfObjects"] = ["SF1005"],
+            ["ListOfTwoKindsOfObjectsSerialized"] = ["SF1005"],
+            ["GetterOfOneOfTwoObjectsByAPattern"] = ["SF1005"],
+            ["ForeachOverOneOfTwoSequences"] = ["SF1005"],
+            ["GetterOfAnInterfaceOnOneOfTwoObjects"] = ["SF1005"],
+            ["GetterOfAnInterfaceOnOneOfTwoObjectsByAPattern"] = ["SF1005"],
+            ["InterpolationOfOneOfTwoObjects"] = ["SF1005"],
+            ["MethodThatIsAnIteratorInOnlyOneOfTwoObjects"] = ["SF1005"],
+            ["CastOfOneOfTwoObjectsToTheSecondType"] = ["SF1005"],
+            ["OneOfTwoSequencesGivenToThePlatform"] = ["SF1005"],
+            ["MethodOfAnInterfaceThatOneOfTwoObjectsHasExplicitly"] = ["SF1005"],
+            ["PropertyOfAnInterfaceOnOneOfTwoObjects"] = ["SF1001"],
+            ["ConcatOfOneOfTwoObjectsThroughTheSecondType"] = ["SF1005"],
+            ["LambdaGivenToAMethodThatOneOfTwoObjectsHasExplicitly"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

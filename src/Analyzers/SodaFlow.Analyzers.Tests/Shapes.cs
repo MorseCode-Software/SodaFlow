@@ -4262,6 +4262,94 @@ public static class Shapes
     public static Cell<int> PlainElementOfATupleInAnArrayFromThePlatform() =>
         Cell.Loop<int>().WithoutCaptures(l => { (Titled N, Titled M)[] all = Enumerable.Repeat((new Titled(l.Map(v => v)), new Titled(Plain)), 1).ToArray(); Kept.Add(all[0].M.ToString()); return S.Hold(0); });
 
+    // S753. A list with two kinds of objects. An element is one of the two, and the code calls ToString of it.
+    public static Cell<int> ElementOfAListOfTwoKindsOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new TitledPile(l.Map(v => v)), new Titled(l.Map(v => v))]; Kept.Add(all[1].ToString()!); return S.Hold(0); });
+
+    // S754. A value that is one of two objects, through object.
+    public static Cell<int> OneOfTwoPendingObjectsThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new TitledPile(l.Map(v => v)) : new Titled(l.Map(v => v)); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S755. A value that is one of two objects, through an interface that the two have.
+    public static Cell<int> OneOfTwoPendingObjectsThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = Numbers.Length > 100 ? new GenericLabel<int>(l.Map(v => v)) : new ShownReader(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S756. A foreach over a list of two kinds of objects, and a method of the interface.
+    public static Cell<int> ForeachOverAListOfTwoKindsOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IShown> all = [new ShownPlain(l.Map(v => v)), new ShownReader(l.Map(v => v))]; foreach (IShown s in all) { Kept.Add(s.Show()); } return S.Hold(0); });
+
+    // S757. A method of the platform calls ToString of each element of a list of two kinds of objects.
+    public static Cell<int> JoinOfAListOfTwoKindsOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [new SerialPlainRow(l.Map(v => v)), new Titled(l.Map(v => v))]; Kept.Add(string.Join(",", all)); return S.Hold(0); });
+
+    // S758. A serializer writes each element of a list of two kinds of objects.
+    public static Cell<int> ListOfTwoKindsOfObjectsSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> rows = [new SerialPlainRow(l.Map(v => v)), new SerialRow(l.Map(v => v))]; Kept.Add(JsonSerializer.Serialize(rows)); return S.Hold(0); });
+
+    // S759. A property pattern reads a getter of a value that is one of two objects.
+    public static Cell<int> GetterOfOneOfTwoObjectsByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Titled(l.Map(v => v)) : new SerialRow(l.Map(v => v)); if (o is SerialRow { Now: var n }) { Kept.Add(n); } return S.Hold(0); });
+
+    // S760. The key of a pair has a type of its own. Through that type, the value is not the object.
+    public static Cell<int> KeyWithAStateOfADifferentTypeThanTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<SerialPlainRow, Titled> p = new(new SerialPlainRow(l.Map(v => v)), new Titled(l.Map(v => v))); Kept.Add(p.Key.ToString()!); return S.Hold(0); });
+
+    // S761. Of two objects, only one has the interface. A method with the same name in the other type is not called.
+    public static Cell<int> MethodOfAnInterfaceThatOneOfTwoObjectsHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new ShowsAlone(l.Map(v => v)) : new ShownPlain(l.Map(v => v)); Kept.Add(((IShown)o).Show()); return S.Hold(0); });
+
+    // S762. Of two objects, only one has the interface. A property with the same name in the other type is not read.
+    public static Cell<int> PropertyOfAnInterfaceThatOneOfTwoObjectsHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new CellAlone(l.Map(v => v)) : new CellHolder(l.Map(v => v)); int x = ((IHasCell)o).Share.Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S763. One of two objects, and each ToString reads nothing that is pending.
+    public static Cell<int> OneOfTwoPlainObjectsThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Plainly() : new Titled(Plain); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S764. A foreach over a value that is one of two sequences of the compilation.
+    public static Cell<int> ForeachOverOneOfTwoSequences() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> seq = Numbers.Length > 100 ? new Stroll(Plain) : new Sack(l.Map(v => v)); foreach (int x in seq) { Kept.Add(x); } return S.Hold(0); });
+
+    // S765. A getter of an interface, on a value that is one of two objects.
+    public static Cell<int> GetterOfAnInterfaceOnOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IHasNow h = Numbers.Length > 100 ? new NowPlain(l.Map(v => v)) : new NowReader(l.Map(v => v)); Kept.Add(h.Now); return S.Hold(0); });
+
+    // S766. The same getter, read by a property pattern.
+    public static Cell<int> GetterOfAnInterfaceOnOneOfTwoObjectsByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IHasNow h = Numbers.Length > 100 ? new NowPlain(l.Map(v => v)) : new NowReader(l.Map(v => v)); if (h is { Now: var n }) { Kept.Add(n); } return S.Hold(0); });
+
+    // S767. An interpolation calls ToString of a value that is one of two objects.
+    public static Cell<int> InterpolationOfOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Plainly() : new Titled(l.Map(v => v)); Kept.Add($"{o}"); return S.Hold(0); });
+
+    // S768. A method that is an iterator in one type and reads in the call in the other one. The call can read.
+    public static Cell<int> MethodThatIsAnIteratorInOnlyOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEach e = Numbers.Length > 100 ? new EachLazy(l.Map(v => v)) : new EachNow(l.Map(v => v)); Kept.Add(e.Each()); return S.Hold(0); });
+
+    // S769. A cast of a value that is one of two objects, to the type of the second one.
+    public static Cell<int> CastOfOneOfTwoObjectsToTheSecondType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new SerialPlainRow(l.Map(v => v)) : new Titled(l.Map(v => v)); Kept.Add(((Titled)o).ToString()); return S.Hold(0); });
+
+    // S770. A method of the platform enumerates a value that is one of two sequences of the compilation.
+    public static Cell<int> OneOfTwoSequencesGivenToThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> seq = Numbers.Length > 100 ? new Stroll(Plain) : new Sack(l.Map(v => v)); Kept.Add(seq.ToList()); return S.Hold(0); });
+
+    // S771. One of the two types has the method of the interface as an explicit member, which the evaluator does not find.
+    public static Cell<int> MethodOfAnInterfaceThatOneOfTwoObjectsHasExplicitly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = Numbers.Length > 100 ? new ShownExplicitly(l.Map(v => v)) : new ShownReader(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S772. A property of an interface, on a value that is one of two objects. The property of each has a state.
+    public static Cell<int> PropertyOfAnInterfaceOnOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IHasCell h = Numbers.Length > 100 ? new CellHolder(l.Map(v => v)) : new CellGiver(l.Map(v => v)); int x = h.Share.Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S773. A method of the platform gets a value that is one of two objects, through the type of the second one.
+    public static Cell<int> ConcatOfOneOfTwoObjectsThroughTheSecondType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new SerialPlainRow(l.Map(v => v)) : new Titled(l.Map(v => v)); Titled t = (Titled)o; Kept.Add(string.Concat(t, "x")); return S.Hold(0); });
+
+    // S774. One of the two types has the method as an explicit member. The method of the other type runs the lambda.
+    public static Cell<int> LambdaGivenToAMethodThatOneOfTwoObjectsHasExplicitly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IRuns r = Numbers.Length > 100 ? new RunsExplicitly(l.Map(v => v)) : new RunsNow(l.Map(v => v)); Kept.Add(r.Run(() => l.Sample())); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -5053,6 +5141,113 @@ public static class Shapes
     }
 
     private static IEnumerable<int> ValuesByAPattern(Yielder r) => r is { Values: var v } ? v : [];
+
+    public sealed class ShownReader(Cell<int> share) : IShown
+    {
+        public string Show() => share.Sample().ToString();
+    }
+
+    public sealed class ShownPlain(Cell<int> share) : IShown
+    {
+        public string Show() => "plain";
+
+        public bool Has() => share != null;
+    }
+
+    // Show is not the method of IShown.
+    public sealed class ShowsAlone(Cell<int> share)
+    {
+        public string Show() => share.Sample().ToString();
+    }
+
+    public interface IHasCell
+    {
+        Cell<int> Share { get; }
+    }
+
+    public sealed class CellHolder(Cell<int> unused) : IHasCell
+    {
+        public Cell<int> Share { get; } = Cell.Constant(1);
+
+        public bool Has() => unused != null;
+    }
+
+    // Share is not the property of IHasCell.
+    public sealed class CellAlone(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public interface IHasNow
+    {
+        int Now { get; }
+    }
+
+    public sealed class NowPlain(Cell<int> share) : IHasNow
+    {
+        public int Now => 0;
+
+        public bool Has() => share != null;
+    }
+
+    public sealed class NowReader(Cell<int> share) : IHasNow
+    {
+        public int Now => share.Sample();
+    }
+
+    public interface IEach
+    {
+        IEnumerable<int> Each();
+    }
+
+    public sealed class EachLazy(Cell<int> share) : IEach
+    {
+        public IEnumerable<int> Each()
+        {
+            yield return share.Sample();
+        }
+    }
+
+    public sealed class EachNow(Cell<int> share) : IEach
+    {
+        public IEnumerable<int> Each()
+        {
+            int now = share.Sample();
+
+            return [now];
+        }
+    }
+
+    public sealed class ShownExplicitly(Cell<int> share) : IShown
+    {
+        string IShown.Show() => "plain";
+
+        public bool Has() => share != null;
+    }
+
+    public sealed class CellGiver(Cell<int> share) : IHasCell
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public interface IRuns
+    {
+        int Run(Func<int> function);
+    }
+
+    public sealed class RunsExplicitly(Cell<int> share) : IRuns
+    {
+        int IRuns.Run(Func<int> function) => 0;
+
+        public bool Has() => share != null;
+    }
+
+    public sealed class RunsNow(Cell<int> share) : IRuns
+    {
+        public int Run(Func<int> function) => function();
+
+        public bool Has() => share != null;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

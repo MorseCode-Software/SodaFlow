@@ -16,28 +16,42 @@ namespace SodaFlow.Analyzers;
 ///     or the constructor sets. A parameter of a primary constructor is here
 ///     also, because a method of the object can read it.
 /// </param>
-/// <param name="type">
+/// <param name="types">
 ///     The type of the object, when the evaluator knows the constructor that
 ///     made it. A member that the code reads through an interface or a base type
-///     is then the member of this type.
+///     is then the member of this type. A value that is one of two objects, as
+///     after a conditional, has the type of each. Empty when the evaluator does
+///     not know the type.
 /// </param>
-internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> members, in INamedTypeSymbol? type)
+internal sealed class Construction(
+    in ImmutableDictionary<ISymbol, LoopState> members,
+    in ImmutableArray<INamedTypeSymbol> types)
 {
-    // The type is the definition of the type of the object. For a generic type, the code names
-    // that type with its type arguments, which the definition does not have.
-    private readonly bool isGeneric = HasTypeParameters(type);
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
-    private readonly INamedTypeSymbol? type = type;
+
+    // Each type is the definition of the type of an object. For a generic type, the code names
+    // that type with its type arguments, which the definition does not have.
+    private readonly ImmutableArray<INamedTypeSymbol> types = types;
 
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
-        new(members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default), type: null);
+        new(
+            members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            types: ImmutableArray<INamedTypeSymbol>.Empty);
 
     /// <summary>
     ///     An object of the given type, with no member that the evaluator knows.
     ///     The code can set a member of it after the constructor.
     /// </summary>
-    public static Construction Of(INamedTypeSymbol type) => new(members: Empty.members, type: type);
+    public static Construction Of(INamedTypeSymbol type) => Of(members: Empty.members, type: type);
+
+    /// <summary>An object of the given type, with the members that its constructor set.</summary>
+    public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members, INamedTypeSymbol type) =>
+        new(members: members, types: ImmutableArray.Create(type));
+
+    /// <summary>An object with no type that the evaluator knows, with the given members.</summary>
+    public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members) =>
+        new(members: members, types: ImmutableArray<INamedTypeSymbol>.Empty);
 
     /// <summary>True when the evaluator knows a state for one member or more.</summary>
     public bool HasState => this.members.Values.Any(static state => !state.IsNone);
@@ -57,7 +71,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     replaces the state from the constructor.
     /// </summary>
     public Construction With(ISymbol member, LoopState state) =>
-        new(members: this.members.SetItem(key: KeyOf(member), value: state), type: this.type);
+        new(members: this.members.SetItem(key: KeyOf(member), value: state), types: this.types);
 
     /// <summary>
     ///     True when the evaluator knows the type of this object, and an object of
@@ -66,7 +80,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     /// </summary>
     public bool Is(ITypeSymbol? type)
     {
-        if (this.type == null || type == null)
+        if (this.types.IsEmpty || type == null)
         {
             return false;
         }
@@ -77,27 +91,30 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
             type = nullable.TypeArguments[0];
         }
 
-        if (SaysNothing(type))
-        {
-            return true;
-        }
+        return SaysNothing(type) || this.types.Any(own => IsOne(own: own, type: type));
+    }
 
-        for (INamedTypeSymbol? current = this.type; current != null; current = current.BaseType)
+    // True when an object of the first type is a value of the second one.
+    private static bool IsOne(INamedTypeSymbol own, ISymbol type)
+    {
+        bool isGeneric = HasTypeParameters(own);
+
+        for (INamedTypeSymbol? current = own; current != null; current = current.BaseType)
         {
-            if (this.IsSame(candidate: current, type: type))
+            if (IsSame(candidate: current, type: type, isGeneric: isGeneric))
             {
                 return true;
             }
         }
 
-        return this.type.AllInterfaces.Any(contract => this.IsSame(candidate: contract, type: type));
+        return own.AllInterfaces.Any(contract => IsSame(candidate: contract, type: type, isGeneric: isGeneric));
     }
 
     // The type arguments of a generic object are not known here. For such an object, two types
     // are the same when they have one definition.
-    private bool IsSame(ISymbol candidate, ISymbol type) =>
+    private static bool IsSame(ISymbol candidate, ISymbol type, bool isGeneric) =>
         SymbolEqualityComparer.Default.Equals(x: candidate, y: type)
-        || (this.isGeneric
+        || (isGeneric
             && SymbolEqualityComparer.Default.Equals(x: candidate.OriginalDefinition, y: type.OriginalDefinition));
 
     // A type in a generic type has the type parameters of that type.
@@ -122,7 +139,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     that is not a tuple, such as a pair that contains it.
     /// </summary>
     public bool CanBe(ITypeSymbol? type) =>
-        this.type == null ? !this.IsTuple || !IsNotATuple(type) : type == null || this.Is(type);
+        this.types.IsEmpty ? !this.IsTuple || !IsNotATuple(type) : type == null || this.Is(type);
 
     /// <summary>
     ///     False when this object cannot be the owner of the member. A member
@@ -138,18 +155,18 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     this compilation declares. A serializer reads the getters of some of
     ///     them.
     /// </summary>
-    public IEnumerable<IPropertySymbol> Properties
+    public IEnumerable<IPropertySymbol> Properties =>
+        this.types.SelectMany(PropertiesOf).Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+    private static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type)
     {
-        get
+        for (INamedTypeSymbol? current = type;
+             current is { DeclaringSyntaxReferences.Length: > 0 };
+             current = current.BaseType)
         {
-            for (INamedTypeSymbol? current = this.type;
-                 current is { DeclaringSyntaxReferences.Length: > 0 };
-                 current = current.BaseType)
+            foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
             {
-                foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
-                {
-                    yield return property;
-                }
+                yield return property;
             }
         }
     }
@@ -185,7 +202,7 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
         || type.TypeKind is TypeKind.TypeParameter or TypeKind.Dynamic;
 
     /// <summary>True when the evaluator knows the type of this object.</summary>
-    public bool HasType => this.type != null;
+    public bool HasType => !this.types.IsEmpty;
 
     /// <summary>The state of each element, when this object is a tuple.</summary>
     public IEnumerable<LoopState> TupleElements =>
@@ -209,24 +226,70 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
             changed[pair.Key] = change(pair.Value);
         }
 
-        return new Construction(members: changed.ToImmutable(), type: this.type);
+        return new Construction(members: changed.ToImmutable(), types: this.types);
     }
 
     /// <summary>
     ///     The member of the type of this object for a member that the code reads
     ///     through an interface or a base type. The member itself when the
-    ///     evaluator does not know the type.
+    ///     evaluator does not know the type. A value that is one of two objects
+    ///     gives the member of each type.
     /// </summary>
-    public ISymbol Resolve(ISymbol member)
+    public IEnumerable<ISymbol> Resolve(ISymbol member) =>
+        this.types.IsEmpty
+        || (member.ContainingType?.TypeKind != TypeKind.Interface
+            && member is { IsAbstract: false, IsVirtual: false, IsOverride: false })
+            ? [member]
+            : this.OwnersOf(member)
+                .Select(type => ResolveIn(type: type, member: member))
+                .Distinct(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     The same object, as a value of the given type. Of two objects, only
+    ///     one whose type is a value of the given type can be that value. A type
+    ///     that says nothing keeps the two.
+    /// </summary>
+    public Construction Narrow(ITypeSymbol? type)
     {
-        if (this.type == null
-            || (member.ContainingType?.TypeKind != TypeKind.Interface
-                && member is { IsAbstract: false, IsVirtual: false, IsOverride: false }))
+        if (this.types.Length < 2 || type == null || SaysNothing(type))
         {
-            return member;
+            return this;
         }
 
-        for (INamedTypeSymbol? current = this.type; current != null; current = current.BaseType)
+        ImmutableArray<INamedTypeSymbol> owners =
+            this.types.Where(own => IsOne(own: own, type: type)).ToImmutableArray();
+
+        return owners.Length == this.types.Length ? this : new Construction(members: this.members, types: owners);
+    }
+
+    // Of two objects, only the one whose type has the member can be the object that the code
+    // reads it on. The key of a pair is not its value. When no type has the member, the
+    // evaluator does not know the object, and each type stays.
+    private ImmutableArray<INamedTypeSymbol> OwnersOf(ISymbol member)
+    {
+        if (this.types.Length == 1 || member.ContainingType is not { } declaring)
+        {
+            return this.types;
+        }
+
+        ImmutableArray<INamedTypeSymbol> owners =
+            this.types.Where(type => IsOne(own: type, type: declaring)).ToImmutableArray();
+
+        return owners.IsEmpty ? this.types : owners;
+    }
+
+    /// <summary>
+    ///     The state of a member that the code reads through an interface or a
+    ///     base type. For a value that is one of two objects, it is the join of
+    ///     the states of the member of each.
+    /// </summary>
+    public LoopState StateThrough(ISymbol member) =>
+        this.Resolve(member)
+            .Aggregate(seed: LoopState.None, func: (joined, actual) => joined.Join(this.StateOf(actual)));
+
+    private static ISymbol ResolveIn(INamedTypeSymbol type, ISymbol member)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
         {
             ISymbol? found =
                 current.GetMembers(member.Name)
@@ -256,13 +319,14 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
     ///     an interface calls these methods.
     /// </summary>
     public IEnumerable<IMethodSymbol> Implementations(Func<INamedTypeSymbol, bool> isInterface) =>
-        this.type == null
-            ? []
-            : this.type.AllInterfaces
-                .Where(isInterface)
-                .SelectMany(static contract => contract.GetMembers().OfType<IMethodSymbol>())
-                .Select(this.type.FindImplementationForInterfaceMember)
-                .OfType<IMethodSymbol>();
+        this.types
+            .SelectMany(type =>
+                type.AllInterfaces
+                    .Where(isInterface)
+                    .SelectMany(static contract => contract.GetMembers().OfType<IMethodSymbol>())
+                    .Select(type.FindImplementationForInterfaceMember)
+                    .OfType<IMethodSymbol>())
+            .Distinct<IMethodSymbol>(SymbolEqualityComparer.Default);
 
     public static Construction? Merge(Construction? first, Construction? second)
     {
@@ -276,19 +340,8 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
             return first;
         }
 
-        // A value that is one of two objects has the members of the two, and no type when their
-        // types are different. An object with no member that has a state adds nothing that a
-        // read can find. Thus, the other object keeps its type.
-        if (!second.HasState)
-        {
-            return first;
-        }
-
-        if (!first.HasState)
-        {
-            return second;
-        }
-
+        // A value that is one of two objects has the members and the types of the two. A member
+        // has the symbol of its type as its key, thus the members of two types stay apart.
         ImmutableDictionary<ISymbol, LoopState>.Builder merged = first.members.ToBuilder();
 
         foreach (KeyValuePair<ISymbol, LoopState> pair in second.members)
@@ -301,7 +354,9 @@ internal sealed class Construction(in ImmutableDictionary<ISymbol, LoopState> me
 
         return new Construction(
             members: merged.ToImmutable(),
-            type: SymbolEqualityComparer.Default.Equals(x: first.type, y: second.type) ? first.type : null);
+            types: first.types
+                .Union<INamedTypeSymbol>(second: second.types, comparer: SymbolEqualityComparer.Default)
+                .ToImmutableArray());
     }
 
     // An element of a tuple has a name in the code and a position in the type. The position is

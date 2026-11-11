@@ -453,7 +453,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (owner.Members.CanOwn(member))
         {
-            return owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin);
+            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
         }
 
         // The members are those of an object that the owner contains, as a pair of the platform
