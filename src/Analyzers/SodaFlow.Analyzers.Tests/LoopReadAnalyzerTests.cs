@@ -558,7 +558,17 @@ internal sealed class LoopReadAnalyzerTests
             ["MethodOfAnInterfaceThatOneOfTwoObjectsHasExplicitly"] = ["SF1005"],
             ["PropertyOfAnInterfaceOnOneOfTwoObjects"] = ["SF1001"],
             ["ConcatOfOneOfTwoObjectsThroughTheSecondType"] = ["SF1005"],
-            ["LambdaGivenToAMethodThatOneOfTwoObjectsHasExplicitly"] = ["SF1001"]
+            ["LambdaGivenToAMethodThatOneOfTwoObjectsHasExplicitly"] = ["SF1001"],
+            ["ExplicitMethodThroughTheInterface"] = ["SF1005"],
+            ["ExplicitGetterThroughTheInterface"] = ["SF1005"],
+            ["ExplicitGetterByAPattern"] = ["SF1005"],
+            ["ExplicitMethodOnAnElementOfAList"] = ["SF1005"],
+            ["MethodWithTheNameOfAnExplicitOne"] = ["SF1005"],
+            ["ExplicitMethodOfAGenericInterface"] = ["SF1005"],
+            ["ExplicitMethodOfABaseType"] = ["SF1005"],
+            ["ExplicitDisposeAtAUsing"] = ["SF1005"],
+            ["ForeachOverASequenceWithAnExplicitEnumerator"] = ["SF1005"],
+            ["ExplicitOverloadOfAGenericInterface"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -4350,6 +4350,58 @@ public static class Shapes
     public static Cell<int> LambdaGivenToAMethodThatOneOfTwoObjectsHasExplicitly() =>
         Cell.Loop<int>().WithoutCaptures(l => { IRuns r = Numbers.Length > 100 ? new RunsExplicitly(l.Map(v => v)) : new RunsNow(l.Map(v => v)); Kept.Add(r.Run(() => l.Sample())); return S.Hold(0); });
 
+    // S775. A method that the type has as an explicit member of an interface, called through the interface.
+    public static Cell<int> ExplicitMethodThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = new ShownExplicitReader(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S776. The same for a getter.
+    public static Cell<int> ExplicitGetterThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IHasNow h = new NowExplicitReader(l.Map(v => v)); Kept.Add(h.Now); return S.Hold(0); });
+
+    // S777. The same getter, read by a property pattern.
+    public static Cell<int> ExplicitGetterByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IHasNow h = new NowExplicitReader(l.Map(v => v)); if (h is { Now: var n }) { Kept.Add(n); } return S.Hold(0); });
+
+    // S778. The same method, on an element of a list.
+    public static Cell<int> ExplicitMethodOnAnElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IShown> all = [new ShownExplicitReader(l.Map(v => v))]; Kept.Add(all[0].Show()); return S.Hold(0); });
+
+    // S779. An explicit method that reads nothing.
+    public static Cell<int> ExplicitMethodThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = new ShownExplicitly(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S780. The type has a second method with the same name, which reads. The interface calls the explicit one.
+    public static Cell<int> ExplicitMethodBesideAMethodWithTheSameName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = new ShownTwice(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S781. The second method of that type, called on the type itself.
+    public static Cell<int> MethodWithTheNameOfAnExplicitOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ShownTwice s = new(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S782. An explicit member of a generic interface.
+    public static Cell<int> ExplicitMethodOfAGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparable<RankedExplicitly> c = new RankedExplicitly(l.Map(v => v)); Kept.Add(c.CompareTo(new RankedExplicitly(Plain))); return S.Hold(0); });
+
+    // S783. The base type has the explicit member.
+    public static Cell<int> ExplicitMethodOfABaseType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IShown s = new ShownDerived(l.Map(v => v)); Kept.Add(s.Show()); return S.Hold(0); });
+
+    // S784. A using statement calls an explicit Dispose.
+    public static Cell<int> ExplicitDisposeAtAUsing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (new ClosesExplicitly(l.Map(v => v))) { Kept.Add(1); } return S.Hold(0); });
+
+    // S785. A foreach over a sequence whose GetEnumerator is an explicit member.
+    public static Cell<int> ForeachOverASequenceWithAnExplicitEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> seq = new SackExplicitly(l.Map(v => v)); foreach (int x in seq) { Kept.Add(x); } return S.Hold(0); });
+
+    // S786. A generic interface with two methods of one name. The type has each as an explicit member, and the second one reads.
+    public static Cell<int> ExplicitOverloadOfAGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IPicks<int> picks = new PicksExplicitly(l.Map(v => v)); Kept.Add(picks.Pick(1, 2)); return S.Hold(0); });
+
+    // S787. The first method of the two reads nothing.
+    public static Cell<int> ExplicitOverloadThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IPicks<int> picks = new PicksExplicitly(l.Map(v => v)); Kept.Add(picks.Pick(1)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -5247,6 +5299,65 @@ public static class Shapes
         public int Run(Func<int> function) => function();
 
         public bool Has() => share != null;
+    }
+
+    public sealed class ShownExplicitReader(Cell<int> share) : IShown
+    {
+        string IShown.Show() => share.Sample().ToString();
+    }
+
+    public sealed class NowExplicitReader(Cell<int> share) : IHasNow
+    {
+        int IHasNow.Now => share.Sample();
+    }
+
+    public sealed class ShownTwice(Cell<int> share) : IShown
+    {
+        string IShown.Show() => "plain";
+
+        public string Show() => share.Sample().ToString();
+    }
+
+    public sealed class RankedExplicitly(Cell<int> share) : IComparable<RankedExplicitly>
+    {
+        int IComparable<RankedExplicitly>.CompareTo(RankedExplicitly? other) => share.Sample();
+    }
+
+    public class ShownBaseExplicitly(Cell<int> share) : IShown
+    {
+        string IShown.Show() => share.Sample().ToString();
+    }
+
+    public sealed class ShownDerived(Cell<int> share) : ShownBaseExplicitly(share);
+
+    public sealed class ClosesExplicitly(Cell<int> share) : IDisposable
+    {
+        void IDisposable.Dispose() => share.Sample();
+    }
+
+    public sealed class SackExplicitly(Cell<int> share) : IEnumerable<int>
+    {
+        IEnumerator<int> IEnumerable<int>.GetEnumerator()
+        {
+            yield return share.Sample();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+            ((IEnumerable<int>)this).GetEnumerator();
+    }
+
+    public interface IPicks<T>
+    {
+        int Pick(T value);
+
+        int Pick(T value, int more);
+    }
+
+    public sealed class PicksExplicitly(Cell<int> share) : IPicks<int>
+    {
+        int IPicks<int>.Pick(int value) => value;
+
+        int IPicks<int>.Pick(int value, int more) => share.Sample() + more;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

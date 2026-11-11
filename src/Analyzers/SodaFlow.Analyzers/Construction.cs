@@ -289,6 +289,32 @@ internal sealed class Construction(
 
     private static ISymbol ResolveIn(INamedTypeSymbol type, ISymbol member)
     {
+        // The compiler knows the member that a type has for a member of an interface. An explicit
+        // member has the name of the interface before its own name, thus the search by name
+        // below does not find it.
+        if (type.FindImplementationForInterfaceMember(member) is { } implemented)
+        {
+            return implemented;
+        }
+
+        // A caller gives the member of the definition of a generic interface, such as
+        // IComparable<T>. The type has that interface with its type arguments.
+        if (member.ContainingType is { TypeKind: TypeKind.Interface, IsGenericType: true })
+        {
+            foreach (INamedTypeSymbol contract in type.AllInterfaces)
+            {
+                if (contract.GetMembers(member.Name)
+                        .FirstOrDefault(candidate =>
+                            SymbolEqualityComparer.Default.Equals(
+                                x: candidate.OriginalDefinition,
+                                y: member.OriginalDefinition)) is { } ofContract
+                    && type.FindImplementationForInterfaceMember(ofContract) is { } constructed)
+                {
+                    return constructed;
+                }
+            }
+        }
+
         for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
         {
             ISymbol? found =
