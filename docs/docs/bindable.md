@@ -125,10 +125,10 @@ an open transaction only queues its write, so the exception comes out of that tr
 
 If you write your own `IBindingScheduler`, let a posted action throw. A scheduler that catches it
 and carries on hides the bug again. Two more rules: run posts in the order they were made, and run
-a post made inside a transaction even when that transaction fails. A bindable value marks a
-refresh as on its way when it posts one, and only that refresh clears the mark, so a scheduler
-that drops the posts of a failed transaction leaves the value frozen. A dispatcher behaves this way
-without being asked.
+a post made inside a transaction even when that transaction fails. A scheduler that drops those
+posts loses them. A bindable value catches up at its next update, but a post that is not a refresh
+is gone for good, such as the notification a command sends when it is disposed. A dispatcher keeps
+every post without being asked.
 
 ## Commands
 
