@@ -23,9 +23,14 @@ namespace SodaFlow.Analyzers;
 ///     after a conditional, has the type of each. Empty when the evaluator does
 ///     not know the type.
 /// </param>
+/// <param name="hasParts">
+///     True when a member is a part of a pair of the platform. A join of two
+///     states asks for it each time, thus the object keeps the answer.
+/// </param>
 internal sealed class Construction(
     in ImmutableDictionary<ISymbol, LoopState> members,
-    in ImmutableArray<INamedTypeSymbol> types)
+    in ImmutableArray<INamedTypeSymbol> types,
+    in bool hasParts)
 {
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
 
@@ -37,7 +42,8 @@ internal sealed class Construction(
     public static Construction Empty { get; } =
         new(
             members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            types: ImmutableArray<INamedTypeSymbol>.Empty);
+            types: ImmutableArray<INamedTypeSymbol>.Empty,
+            hasParts: false);
 
     /// <summary>
     ///     An object of the given type, with no member that the evaluator knows.
@@ -47,14 +53,49 @@ internal sealed class Construction(
 
     /// <summary>An object of the given type, with the members that its constructor set.</summary>
     public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members, INamedTypeSymbol type) =>
-        new(members: members, types: ImmutableArray.Create(type));
+        new(members: members, types: ImmutableArray.Create(type), hasParts: members.Keys.Any(IsPart));
 
     /// <summary>An object with no type that the evaluator knows, with the given members.</summary>
     public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members) =>
-        new(members: members, types: ImmutableArray<INamedTypeSymbol>.Empty);
+        new(members: members, types: ImmutableArray<INamedTypeSymbol>.Empty, hasParts: members.Keys.Any(IsPart));
 
     /// <summary>True when the evaluator knows a state for one member or more.</summary>
     public bool HasState => this.members.Values.Any(static state => !state.IsNone);
+
+    /// <summary>
+    ///     True when a member is a part of a pair of the platform that the
+    ///     evaluator saw made. <see cref="SodaFlowSymbols.HoldsParts" /> names the
+    ///     types.
+    /// </summary>
+    public bool HasParts { get; } = hasParts;
+
+    private static bool IsPart(ISymbol member) => SodaFlowSymbols.HoldsParts(member.ContainingType);
+
+    /// <summary>
+    ///     This object, where each part that a second state does not know has
+    ///     that state also.
+    /// </summary>
+    /// <remarks>
+    ///     The second state can be a pair that the evaluator did not see made, as
+    ///     a pair from a dictionary is. Each part of such a pair has the state of
+    ///     all that the pair contains. Without this, a value that is one of the
+    ///     two pairs has, for that part, only the state from the first pair.
+    /// </remarks>
+    public Construction FillParts(LoopState other)
+    {
+        ImmutableDictionary<ISymbol, LoopState>.Builder? filled = null;
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in this.members
+                     .Where(pair => IsPart(pair.Key) && other.Members?.members.ContainsKey(pair.Key) != true))
+        {
+            filled ??= this.members.ToBuilder();
+            filled[pair.Key] = pair.Value.Join(other.AsElement);
+        }
+
+        return filled == null
+            ? this
+            : new Construction(members: filled.ToImmutable(), types: this.types, hasParts: this.HasParts);
+    }
 
     /// <summary>The state of each member that the evaluator knows.</summary>
     public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.members;
@@ -71,7 +112,10 @@ internal sealed class Construction(
     ///     replaces the state from the constructor.
     /// </summary>
     public Construction With(ISymbol member, LoopState state) =>
-        new(members: this.members.SetItem(key: KeyOf(member), value: state), types: this.types);
+        new(
+            members: this.members.SetItem(key: KeyOf(member), value: state),
+            types: this.types,
+            hasParts: this.HasParts || IsPart(member));
 
     /// <summary>
     ///     True when the evaluator knows the type of this object, and an object of
@@ -226,7 +270,7 @@ internal sealed class Construction(
             changed[pair.Key] = change(pair.Value);
         }
 
-        return new Construction(members: changed.ToImmutable(), types: this.types);
+        return new Construction(members: changed.ToImmutable(), types: this.types, hasParts: this.HasParts);
     }
 
     /// <summary>
@@ -259,7 +303,9 @@ internal sealed class Construction(
         ImmutableArray<INamedTypeSymbol> owners =
             this.types.Where(own => IsOne(own: own, type: type)).ToImmutableArray();
 
-        return owners.Length == this.types.Length ? this : new Construction(members: this.members, types: owners);
+        return owners.Length == this.types.Length
+            ? this
+            : new Construction(members: this.members, types: owners, hasParts: this.HasParts);
     }
 
     // Of two objects, only the one whose type has the member can be the object that the code
@@ -382,7 +428,8 @@ internal sealed class Construction(
             members: merged.ToImmutable(),
             types: first.types
                 .Union<INamedTypeSymbol>(second: second.types, comparer: SymbolEqualityComparer.Default)
-                .ToImmutableArray());
+                .ToImmutableArray(),
+            hasParts: first.HasParts || second.HasParts);
     }
 
     // An element of a tuple has a name in the code and a position in the type. The position is

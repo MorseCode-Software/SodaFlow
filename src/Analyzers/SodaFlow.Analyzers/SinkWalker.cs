@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace SodaFlow.Analyzers;
 
@@ -204,7 +205,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct
+            this.region.Symbols.DeclaresDeconstruct || elements.Members is { HasParts: true }
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
                 : null;
 
@@ -348,7 +349,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     return;
                 case VarPatternSyntax variable:
-                    this.DeclareDesignation(designation: variable.Designation, state: state);
+                    this.DeclareVar(pattern: variable, state: state);
 
                     return;
                 case RecursivePatternSyntax recursive:
@@ -403,6 +404,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    // A var pattern with parts, as in var (key, value), calls Deconstruct for a value that is not
+    // a tuple. A pair that has a state for each of its parts gives each variable its part.
+    private void DeclareVar(VarPatternSyntax pattern, LoopState state)
+    {
+        if (pattern.Designation is ParenthesizedVariableDesignationSyntax several
+            && state.Members is { HasParts: true }
+            && this.region.ModelFor(pattern).GetOperation(several)
+                is IRecursivePatternOperation { DeconstructSymbol: IMethodSymbol deconstruct }
+            && PartsOfAPair(pair: state, deconstruct: deconstruct) is { } states)
+        {
+            for (int i = 0; i < states.Count; i++)
+            {
+                this.DeclareDesignation(designation: several.Variables[i], state: states[i]);
+            }
+
+            return;
+        }
+
+        this.DeclareDesignation(designation: pattern.Designation, state: state);
+    }
+
     /// <summary>
     ///     The state of the member that a part of a property pattern names, on a
     ///     value with the given state. The pattern reads the member as a member
@@ -454,6 +476,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return owner;
         }
 
+        // A pair that the evaluator saw made has a state for each of its parts.
+        if (SodaFlowSymbols.HoldsParts(member.ContainingType) && owner.Members.Has(member))
+        {
+            return owner.Members.StateOf(member).FromIfUnknown(owner.Origin);
+        }
+
         if (owner.Members.CanOwn(member))
         {
             return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
@@ -486,30 +514,73 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct
+            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
                 ? this.region.ModelFor(clause).GetSymbolInfo(clause).Symbol as IMethodSymbol
                 : null;
 
-        Followed? followed =
-            method != null && MatchedValueOf(clause) is { } value
-                ? this.evaluator.FollowDeconstruct(call: clause, method: method, value: value, owner: state)
-                : null;
+        IReadOnlyList<LoopState>? states = method == null ? null : PartsOfAPair(pair: state, deconstruct: method);
 
-        this.Report(followed);
-
-        ImmutableArray<IParameterSymbol> outs =
-            followed == null || method == null ? ImmutableArray<IParameterSymbol>.Empty : OutsOf(method);
+        if (states == null
+            && method != null
+            && MatchedValueOf(clause) is { } value
+            && this.evaluator.FollowDeconstruct(call: clause, method: method, value: value, owner: state)
+                is { } followed)
+        {
+            this.Report(followed);
+            states = OutStates(method: method, followed: followed);
+        }
 
         for (int i = 0; i < clause.Subpatterns.Count; i++)
         {
             this.DeclarePattern(
                 pattern: clause.Subpatterns[i].Pattern,
-                state: followed == null
+                state: states == null
                     ? state
-                    : i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? part)
-                        ? part
+                    : i < states.Count
+                        ? states[i]
                         : LoopState.None);
         }
+    }
+
+    // The state that a followed Deconstruct method gives to each out parameter, in order.
+    private static IReadOnlyList<LoopState> OutStates(IMethodSymbol method, Followed followed) =>
+    [
+        .. OutsOf(method)
+            .Select(parameter =>
+                followed.Outs.TryGetValue(key: parameter, value: out LoopState? given) ? given : LoopState.None)
+    ];
+
+    /// <summary>
+    ///     The state that <c>Deconstruct</c> of the platform gives to each
+    ///     target, for a pair that has a state for each of its parts. Each
+    ///     <c>out</c> parameter has the name of its property. Null for each other
+    ///     value.
+    /// </summary>
+    private static IReadOnlyList<LoopState>? PartsOfAPair(LoopState pair, IMethodSymbol deconstruct)
+    {
+        // An extension method gets the pair as its first argument, as the one for Tuple does.
+        IMethodSymbol definition = (deconstruct.ReducedFrom ?? deconstruct).OriginalDefinition;
+        ITypeSymbol holder = definition.IsStatic ? definition.Parameters[0].Type : definition.ContainingType;
+
+        // A Deconstruct of this compilation can give each parameter a different value.
+        if (pair.Members is not { } members || !SodaFlowSymbols.HoldsParts(holder))
+        {
+            return null;
+        }
+
+        List<LoopState> states = [];
+
+        foreach (IParameterSymbol parameter in OutsOf(deconstruct))
+        {
+            if (SodaFlowSymbols.PartFor(holder: holder, parameter: parameter) is not { } part || !members.Has(part))
+            {
+                return null;
+            }
+
+            states.Add(members.StateOf(part).FromIfUnknown(pair.Origin));
+        }
+
+        return states;
     }
 
     // The expression that a pattern is for: the left side of an is, or the value of a switch.
@@ -556,24 +627,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         IMethodSymbol? method,
         bool replaces)
     {
-        if (method == null
-            || PartsOf(target) is not { } parts
-            || this.evaluator.FollowDeconstruct(call: call, method: method, value: value, owner: owner)
-                is not { } followed)
+        if (method == null || PartsOf(target) is not { } parts)
         {
             return false;
         }
 
-        this.Report(followed);
+        IReadOnlyList<LoopState>? states = PartsOfAPair(pair: owner, deconstruct: method);
 
-        ImmutableArray<IParameterSymbol> outs = OutsOf(method);
+        if (states == null)
+        {
+            if (this.evaluator.FollowDeconstruct(call: call, method: method, value: value, owner: owner)
+                is not { } followed)
+            {
+                return false;
+            }
+
+            this.Report(followed);
+            states = OutStates(method: method, followed: followed);
+        }
 
         for (int i = 0; i < parts.Count; i++)
         {
-            LoopState part =
-                i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? given)
-                    ? given
-                    : LoopState.None;
+            LoopState part = i < states.Count ? states[i] : LoopState.None;
 
             if (parts[i] is ExpressionSyntax expression)
             {
@@ -712,10 +787,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.CheckAccessor(node);
 
         bool replaces = this.AlwaysRuns(node);
+        LoopState right = this.evaluator.Eval(node.Right);
 
         // A deconstruction of a value that is not a tuple calls a Deconstruct method.
         IMethodSymbol? deconstruct =
-            this.region.Symbols.DeclaresDeconstruct
+            (this.region.Symbols.DeclaresDeconstruct || right.Members is { HasParts: true })
             && node.Right is not TupleExpressionSyntax
             && PartsOf(node.Left) != null
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
@@ -725,7 +801,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 call: node,
                 target: node.Left,
                 value: node.Right,
-                owner: this.evaluator.Eval(node.Right),
+                owner: right,
                 method: deconstruct,
                 replaces: replaces))
         {

@@ -4582,6 +4582,198 @@ public static class Shapes
     public static Cell<int> AppendByNameKeepsEachQuery() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> lists = Numbers.Select(x => Numbers.Where(y => y > l.Sample())).ToList(); List<IEnumerable<int>> other = []; return S.Hold(lists.Select(other.Append).ToList().Count); });
 
+    // S833. A pair of two objects of one type. The key is plain and the value is pending. The pair has a state for each part.
+    public static Cell<int> PlainKeyOfAPairOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S834. The value of that pair.
+    public static Cell<int> PendingValueOfAPairOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S835. The key is pending and the value is plain.
+    public static Cell<int> PendingKeyOfAPairOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(l.Map(v => v)), new Titled(Plain)); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S836. The plain value of that pair.
+    public static Cell<int> PlainValueOfAPairOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(l.Map(v => v)), new Titled(Plain)); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S837. Create of KeyValuePair gives each part its argument.
+    public static Cell<int> PlainKeyOfAPairFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = KeyValuePair.Create(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S838. The value of the pair from Create.
+    public static Cell<int> PendingValueOfAPairFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = KeyValuePair.Create(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S839. Named arguments in the other order.
+    public static Cell<int> PlainKeyOfAPairWithNamedArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(value: new Titled(l.Map(v => v)), key: new Titled(Plain)); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S840. The value, with named arguments in the other order.
+    public static Cell<int> PendingValueOfAPairWithNamedArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(value: new Titled(l.Map(v => v)), key: new Titled(Plain)); Kept.Add(p.Value.ToString()); return S.Hold(0); });
+
+    // S841. The plain item of a Tuple from Create.
+    public static Cell<int> PlainItemOfATupleOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, Titled> t = Tuple.Create(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(t.Item1.ToString()); return S.Hold(0); });
+
+    // S842. The pending item of that Tuple.
+    public static Cell<int> PendingItemOfATupleOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, Titled> t = Tuple.Create(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(t.Item2.ToString()); return S.Hold(0); });
+
+    // S843. The plain item of a Tuple from its constructor.
+    public static Cell<int> PlainItemOfATupleFromItsConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, Titled> t = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(t.Item1.ToString()); return S.Hold(0); });
+
+    // S844. The plain key of a DictionaryEntry.
+    public static Cell<int> PlainKeyOfADictionaryEntry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.DictionaryEntry e = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(e.Key.ToString()!); return S.Hold(0); });
+
+    // S845. The pending value of a DictionaryEntry.
+    public static Cell<int> PendingValueOfADictionaryEntry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.DictionaryEntry e = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(e.Value!.ToString()!); return S.Hold(0); });
+
+    // S846. A property pattern reads the plain key.
+    public static Cell<int> PlainKeyOfAPairByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is { Key: var k }) { Kept.Add(k.ToString()); } return S.Hold(0); });
+
+    // S847. A property pattern reads the pending value.
+    public static Cell<int> PendingValueOfAPairByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is { Value: var v }) { Kept.Add(v.ToString()); } return S.Hold(0); });
+
+    // S848. Deconstruct of the platform gives each target the state of its part.
+    public static Cell<int> PlainKeyOfAPairFromADeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); (Titled k, Titled _) = p; Kept.Add(k.ToString()); return S.Hold(0); });
+
+    // S849. The pending value from the Deconstruct.
+    public static Cell<int> PendingValueOfAPairFromADeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); (Titled _, Titled v) = p; Kept.Add(v.ToString()); return S.Hold(0); });
+
+    // S850. A deconstruction with var.
+    public static Cell<int> PlainKeyOfAPairFromAVarDeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); var (k, _) = p; Kept.Add(k.ToString()); return S.Hold(0); });
+
+    // S851. The pending value from a deconstruction with var.
+    public static Cell<int> PendingValueOfAPairFromAVarDeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); var (_, v) = p; Kept.Add(v.ToString()); return S.Hold(0); });
+
+    // S852. Deconstruct of a Tuple is an extension method of the platform.
+    public static Cell<int> PlainItemOfATupleFromADeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, Titled> t = Tuple.Create(new Titled(Plain), new Titled(l.Map(v => v))); (Titled a, Titled _) = t; Kept.Add(a.ToString()); return S.Hold(0); });
+
+    // S853. The pending item from the Deconstruct of a Tuple.
+    public static Cell<int> PendingItemOfATupleFromADeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<Titled, Titled> t = Tuple.Create(new Titled(Plain), new Titled(l.Map(v => v))); (Titled _, Titled b) = t; Kept.Add(b.ToString()); return S.Hold(0); });
+
+    // S854. A var pattern with parts calls Deconstruct of the platform.
+    public static Cell<int> PlainKeyOfAPairByAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is var (k, _)) { Kept.Add(k.ToString()); } return S.Hold(0); });
+
+    // S855. The pending value by a positional pattern.
+    public static Cell<int> PendingValueOfAPairByAPositionalPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is (_, var v)) { Kept.Add(v.ToString()); } return S.Hold(0); });
+
+    // S856. A foreach over a list of pairs that deconstructs each one.
+    public static Cell<int> PlainKeyOfEachPairOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<KeyValuePair<Titled, Titled>> pairs = [new(new Titled(Plain), new Titled(l.Map(v => v)))]; foreach ((Titled k, Titled _) in pairs) { Kept.Add(k.ToString()); } return S.Hold(0); });
+
+    // S857. The pending value of each pair of the list.
+    public static Cell<int> PendingValueOfEachPairOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<KeyValuePair<Titled, Titled>> pairs = [new(new Titled(Plain), new Titled(l.Map(v => v)))]; foreach ((Titled _, Titled v) in pairs) { Kept.Add(v.ToString()); } return S.Hold(0); });
+
+    // S858. A pair in a list, read by its index.
+    public static Cell<int> PlainKeyOfAPairInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); List<KeyValuePair<Titled, Titled>> pairs = [p]; Kept.Add(pairs[0].Key.ToString()); return S.Hold(0); });
+
+    // S859. The pending value of the pair in the list.
+    public static Cell<int> PendingValueOfAPairInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); List<KeyValuePair<Titled, Titled>> pairs = [p]; Kept.Add(pairs[0].Value.ToString()); return S.Hold(0); });
+
+    // S860. A value that is one of two pairs. The first one is from a dictionary, and the evaluator did not see it made. Its key is pending.
+    public static Cell<int> KeyOfAPairThatCanBeFromADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { { new Titled(l.Map(v => v)), new Titled(Plain) } }; KeyValuePair<Titled, Titled> made = new(new Titled(Plain), new Titled(l.Map(v => v))); KeyValuePair<Titled, Titled> p = Numbers.Length > 0 ? d.First() : made; Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S861. The same, with the pair that the block made first.
+    public static Cell<int> KeyOfAPairThatCanBeFromADictionaryAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { { new Titled(l.Map(v => v)), new Titled(Plain) } }; KeyValuePair<Titled, Titled> made = new(new Titled(Plain), new Titled(l.Map(v => v))); KeyValuePair<Titled, Titled> p = Numbers.Length > 5 ? made : d.First(); Kept.Add(p.Key.ToString()); return S.Hold(0); });
+
+    // S862. A list has a pair that the block made and a pair from a dictionary.
+    public static Cell<int> KeyOfAPairFromADictionaryInAListOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { { new Titled(l.Map(v => v)), new Titled(Plain) } }; KeyValuePair<Titled, Titled> made = new(new Titled(Plain), new Titled(l.Map(v => v))); List<KeyValuePair<Titled, Titled>> all = [made, d.First()]; Kept.Add(all[1].Key.ToString()); return S.Hold(0); });
+
+    // S863. The pair from the dictionary has cells, and thus no object with members.
+    public static Cell<int> KeyOfAPairOfCellsThatCanBeFromADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Cell<int>, Cell<int>> d = new() { { l.Map(v => v), Plain } }; KeyValuePair<Cell<int>, Cell<int>> made = new(Plain, l.Map(v => v)); KeyValuePair<Cell<int>, Cell<int>> p = Numbers.Length > 0 ? d.First() : made; return S.Hold(p.Key.Sample()); });
+
+    // S864. The code sets the key of a DictionaryEntry after the constructor.
+    public static Cell<int> KeyOfADictionaryEntrySetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.DictionaryEntry e = new(new Titled(Plain), new Titled(Plain)); e.Key = new Titled(l.Map(v => v)); Kept.Add(e.Key.ToString()!); return S.Hold(0); });
+
+    // S865. The same, for an entry that has a state for each part.
+    public static Cell<int> KeyOfADictionaryEntryWithPartsSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.DictionaryEntry e = new(new Titled(Plain), new Titled(l.Map(v => v))); e.Key = new Titled(l.Map(v => v)); Kept.Add(e.Key.ToString()!); return S.Hold(0); });
+
+    // S866. A method gets the pair and reads its plain key.
+    public static Cell<int> PlainKeyOfAPairInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(KeyTextOf(p)); return S.Hold(0); });
+
+    // S867. A method gets the pair and reads its pending value.
+    public static Cell<int> PendingValueOfAPairOfOneTypeInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(ValueTextOfBoth(p)); return S.Hold(0); });
+
+    // S868. The pair goes through a task of the platform, and keeps the state of each part.
+    public static Cell<int> PlainKeyOfAPairThroughATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(Task.FromResult(p).Result.Key.ToString()); return S.Hold(0); });
+
+    // S869. The pending value of the pair through the task.
+    public static Cell<int> PendingValueOfAPairThroughATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(Task.FromResult(p).Result.Value.ToString()); return S.Hold(0); });
+
+    // S870. A positional pattern with a variable for the key.
+    public static Cell<int> PlainKeyOfAPairByAPositionalPatternWithAVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is (var k, _)) { Kept.Add(k.ToString()); } return S.Hold(0); });
+
+    // S871. A var pattern with parts, for the pending value.
+    public static Cell<int> PendingValueOfAPairByAVarPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); if (p is var (_, v)) { Kept.Add(v.ToString()); } return S.Hold(0); });
+
+    // S872. Two pairs in a list, each with a state for its parts. The key of each is plain.
+    public static Cell<int> PlainKeyOfTwoPairsInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<KeyValuePair<Titled, Titled>> pairs = [new(new Titled(Plain), new Titled(l.Map(v => v))), new(new Titled(Plain), new Titled(l.Map(v => v)))]; Kept.Add(pairs[0].Key.ToString()); return S.Hold(0); });
+
+    // S873. A list from a dictionary gets one pair more, whose key is null. The key of a pair from the dictionary is pending.
+    public static Cell<int> KeyOfAPairFromADictionaryInAListWithOneMore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { { new Titled(l.Map(v => v)), new Titled(Plain) } }; List<KeyValuePair<Titled, Titled>> all = d.ToList(); all.Add(new KeyValuePair<Titled, Titled>(null!, new Titled(l.Map(v => v)))); Kept.Add(all[0].Key.ToString()); return S.Hold(0); });
+
+    // S874. A Deconstruct of this compilation gives each parameter the property of the other name. The pair types of the platform do not.
+    public static Cell<int> DeconstructThatCrossesItsParts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> a, Cell<int> _) = new CrossedParts(Plain, l.Map(v => v)); return S.Hold(a.Sample()); });
+
+    // S875. A pair from a dictionary has no state for its parts. Deconstruct gives each target the state of all that the pair contains.
+    public static Cell<int> KeyOfAPairFromADictionaryByADeconstruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { { new Titled(l.Map(v => v)), new Titled(Plain) } }; (Titled k, Titled _) = d.First(); Kept.Add(k.ToString()); return S.Hold(0); });
+
+    // S876. A value that is one of two objects. The second type overrides the property, and the state knows the property of the base type also. Only a part of a pair is read by its own state.
+    public static Cell<int> OverriddenPropertyOfAValueThatIsOneOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Leveled x = Numbers.Length > 0 ? new LeveledLate(l.Map(v => v)) : new Leveled(Plain); return S.Hold(x.Level.Sample()); });
+
+    // S877. The same read by a property pattern.
+    public static Cell<int> OverriddenPropertyOfOneOfTwoByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Leveled x = Numbers.Length > 0 ? new LeveledLate(l.Map(v => v)) : new Leveled(Plain); return S.Hold(x is { Level: var c } ? c.Sample() : 0); });
+
+    // S878. A method deconstructs the pair that it gets, and reads the pending value.
+    public static Cell<int> PendingValueOfAPairDeconstructedInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(SecondTextOf(p)); return S.Hold(0); });
+
+    // S879. The method reads the plain key.
+    public static Cell<int> PlainKeyOfAPairDeconstructedInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Titled> p = new(new Titled(Plain), new Titled(l.Map(v => v))); Kept.Add(FirstTextOf(p)); return S.Hold(0); });
+
+    // S880. A list has a pair and a pending cell. No element is the object that the pair has as its key, and that object is plain.
+    public static Cell<int> PlainObjectInAPairInAListWithACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, Cell<int>> made = new(new Titled(Plain), l.Map(v => v)); List<object> all = [made, l.Map(v => v)]; foreach (object o in all) { if (o is Titled t) { Kept.Add(t.ToString()); } } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -5592,6 +5784,47 @@ public static class Shapes
         }
 
         return n;
+    }
+
+    private static string KeyTextOf(KeyValuePair<Titled, Titled> pair) => pair.Key.ToString();
+
+    private static string ValueTextOfBoth(KeyValuePair<Titled, Titled> pair) => pair.Value.ToString();
+
+    public sealed class CrossedParts(Cell<int> first, Cell<int> second)
+    {
+        public Cell<int> First { get; } = first;
+
+        public Cell<int> Second { get; } = second;
+
+        public void Deconstruct(out Cell<int> first, out Cell<int> second)
+        {
+            first = this.Second;
+            second = this.First;
+        }
+    }
+
+    public class Leveled(Cell<int> level)
+    {
+        public virtual Cell<int> Level { get; } = level;
+    }
+
+    public sealed class LeveledLate(Cell<int> late) : Leveled(Plain)
+    {
+        public override Cell<int> Level { get; } = late;
+    }
+
+    private static string FirstTextOf(KeyValuePair<Titled, Titled> pair)
+    {
+        (Titled first, Titled _) = pair;
+
+        return first.ToString();
+    }
+
+    private static string SecondTextOf(KeyValuePair<Titled, Titled> pair)
+    {
+        (Titled _, Titled second) = pair;
+
+        return second.ToString();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

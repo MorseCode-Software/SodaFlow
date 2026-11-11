@@ -227,7 +227,9 @@ internal sealed class LoopState
         return new LoopState(
             pending: this.Pending || other.Pending,
             linked: this.Linked || other.Linked,
-            members: Construction.Merge(first: this.Members, second: other.Members),
+            members: Construction.Merge(
+                first: FilledParts(known: this, other: other),
+                second: FilledParts(known: other, other: this)),
             content: this.content == null
                 ? other.content
                 : other.content == null
@@ -248,6 +250,10 @@ internal sealed class LoopState
                     ? this.IsContainer
                     : this.IsContainer && other.IsContainer);
     }
+
+    // A part of a pair that only one of two states knows gets the state of the other one also.
+    private static Construction? FilledParts(LoopState known, LoopState other) =>
+        known.Members is { HasParts: true } members ? members.FillParts(other) : known.Members;
 
     public LoopState WithPending(bool pending) =>
         new(

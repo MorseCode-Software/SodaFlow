@@ -647,6 +647,16 @@ internal sealed class LoopStateEvaluator
                     // no state for the element is a tuple that the evaluator did not see made.
                     // A pair, a task, a nullable, or an enumerator of the platform has the members
                     // of the object that it contains. Its own property is not one of them.
+                    // A pair that the evaluator saw made has a state for each of its parts.
+                    if (owner.Members != null
+                        && SodaFlowSymbols.HoldsParts(symbol.ContainingType)
+                        && owner.Members.Has(symbol))
+                    {
+                        return owner.Members.StateOf(symbol)
+                            .FromIfUnknown(owner.Origin)
+                            .Join(this.TypeState(expression));
+                    }
+
                     if (owner.Members != null
                         && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
@@ -734,7 +744,12 @@ internal sealed class LoopStateEvaluator
         {
             LoopState result =
                 this.Classify(call: invocation, method: method) == CalleeKind.Mover
-                    ? this.MovedResult(invocation: invocation, method: method)
+                    ? this.WithParts(
+                        state: this.MovedResult(invocation: invocation, method: method),
+                        // Only the factory of the type itself puts each argument in its property.
+                        made: SodaFlowSymbols.HoldsParts(method.ContainingType) ? method.ReturnType : null,
+                        callee: method,
+                        arguments: invocation.ArgumentList.Arguments)
                     : LoopState.None;
 
             result =
@@ -946,8 +961,57 @@ internal sealed class LoopStateEvaluator
         // Thus, it contains the objects that have the members, and is not one of them.
         return this.region.SymbolOf(creation) is IMethodSymbol constructor
                && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
-            ? state.AsContainer
+            ? this.WithParts(
+                state: state.AsContainer,
+                made: constructor.ContainingType,
+                callee: constructor,
+                arguments: creation switch
+                {
+                    ObjectCreationExpressionSyntax o => o.ArgumentList?.Arguments ?? default,
+                    ImplicitObjectCreationExpressionSyntax i => i.ArgumentList.Arguments,
+                    _ => default
+                })
             : state;
+    }
+
+    /// <summary>
+    ///     Gives a pair that the code makes a state for each of its parts. The
+    ///     state of a part is the state of the argument for the parameter with the
+    ///     name of the property.
+    /// </summary>
+    /// <remarks>
+    ///     The pair keeps the state of all that it contains. A path that reads
+    ///     the pair as a container uses that state, as a list of pairs does.
+    /// </remarks>
+    /// <param name="state">The state of all that the pair contains.</param>
+    /// <param name="made">The type of the object that the callee makes.</param>
+    /// <param name="callee">The constructor, or <c>Create</c>.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    private LoopState WithParts(
+        LoopState state,
+        ITypeSymbol? made,
+        IMethodSymbol callee,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        // Most pairs contain nothing with a state, and need no state for a part.
+        if (made == null || state.IsNone || !SodaFlowSymbols.HoldsParts(made))
+        {
+            return state;
+        }
+
+        Construction parts = Construction.Empty;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (SodaFlowSymbols.ParameterOf(callee: callee.OriginalDefinition, argument: arguments[i], position: i)
+                    is { } parameter
+                && SodaFlowSymbols.PartFor(holder: made, parameter: parameter) is { } part)
+            {
+                parts = parts.With(member: part, state: this.Eval(arguments[i].Expression));
+            }
+        }
+
+        return state.WithMembers(Construction.Merge(first: state.Members, second: parts));
     }
 
     /// <summary>

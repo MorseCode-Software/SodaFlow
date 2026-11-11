@@ -600,7 +600,35 @@ internal sealed class LoopReadAnalyzerTests
             ["SelectManyOfACastByName"] = ["SF1001"],
             ["ChainFromAMethodWhoseFunctionEnumeratesAQuery"] = ["SF1004"],
             ["QueryOfArraysEnumeratedInAGenericMethod"] = ["SF1001"],
-            ["PlainIteratorOfAnEnumeratorMoved"] = ["SF1004"]
+            ["PlainIteratorOfAnEnumeratorMoved"] = ["SF1004"],
+            ["PendingValueOfAPairOfOneType"] = ["SF1005"],
+            ["PendingKeyOfAPairOfOneType"] = ["SF1005"],
+            ["PendingValueOfAPairFromCreate"] = ["SF1005"],
+            ["PendingValueOfAPairWithNamedArguments"] = ["SF1005"],
+            ["PendingItemOfATupleOfOneType"] = ["SF1005"],
+            ["PendingValueOfADictionaryEntry"] = ["SF1005"],
+            ["PendingValueOfAPairByAPattern"] = ["SF1005"],
+            ["PendingValueOfAPairFromADeconstruct"] = ["SF1005"],
+            ["PendingValueOfAPairFromAVarDeconstruct"] = ["SF1005"],
+            ["PendingItemOfATupleFromADeconstruct"] = ["SF1005"],
+            ["PendingValueOfAPairByAPositionalPattern"] = ["SF1005"],
+            ["PendingValueOfEachPairOfAList"] = ["SF1005"],
+            ["PendingValueOfAPairInAList"] = ["SF1005"],
+            ["KeyOfAPairThatCanBeFromADictionary"] = ["SF1005"],
+            ["KeyOfAPairThatCanBeFromADictionaryAfter"] = ["SF1005"],
+            ["KeyOfAPairFromADictionaryInAListOfTwo"] = ["SF1005"],
+            ["KeyOfAPairOfCellsThatCanBeFromADictionary"] = ["SF1001"],
+            ["KeyOfADictionaryEntrySetAfter"] = ["SF1005"],
+            ["KeyOfADictionaryEntryWithPartsSetAfter"] = ["SF1005"],
+            ["PendingValueOfAPairOfOneTypeInAHelper"] = ["SF1004"],
+            ["PendingValueOfAPairThroughATask"] = ["SF1005"],
+            ["PendingValueOfAPairByAVarPattern"] = ["SF1005"],
+            ["KeyOfAPairFromADictionaryInAListWithOneMore"] = ["SF1005"],
+            ["DeconstructThatCrossesItsParts"] = ["SF1001"],
+            ["KeyOfAPairFromADictionaryByADeconstruct"] = ["SF1005"],
+            ["OverriddenPropertyOfAValueThatIsOneOfTwo"] = ["SF1001"],
+            ["OverriddenPropertyOfOneOfTwoByAPattern"] = ["SF1001"],
+            ["PendingValueOfAPairDeconstructedInAHelper"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -837,6 +865,168 @@ internal sealed class LoopReadAnalyzerTests
 
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1005", "SF1005", "SF1005", "SF1005"]);
+    }
+
+    /// <summary>
+    ///     The analyzer asks the compiler for a <c>Deconstruct</c> method in two
+    ///     cases. The compilation declares one, or the value is a pair with a
+    ///     state for each part. The shapes file declares one, thus it cannot show
+    ///     the second case. An assignment, a foreach, and a positional pattern
+    ///     each have that condition. A state must keep the answer for the second
+    ///     case in three more places. The state goes to a method, the code sets a
+    ///     member of the collection that has the pair, or a join fills a part.
+    /// </summary>
+    [Test]
+    public async Task APairGivesItsPartsInACompilationThatDeclaresNoDeconstruct()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> PlainKeyByAnAssignment() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        KeyValuePair<Shown, Shown> p = new(new Shown(Plain), new Shown(l.Map(v => v)));
+                        (Shown k, Shown _) = p;
+                        Kept.Add(k.ToString());
+
+                        return S.Hold(0);
+                    });
+
+                public static Cell<int> PendingValueByAnAssignment() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        KeyValuePair<Shown, Shown> p = new(new Shown(Plain), new Shown(l.Map(v => v)));
+                        (Shown _, Shown v) = p;
+                        Kept.Add(v.ToString());
+
+                        return S.Hold(0);
+                    });
+
+                public static Cell<int> PlainKeyByAForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<KeyValuePair<Shown, Shown>> all = [new(new Shown(Plain), new Shown(l.Map(v => v)))];
+
+                        foreach ((Shown k, Shown _) in all)
+                        {
+                            Kept.Add(k.ToString());
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                public static Cell<int> PendingValueByAForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<KeyValuePair<Shown, Shown>> all = [new(new Shown(Plain), new Shown(l.Map(v => v)))];
+
+                        foreach ((Shown _, Shown v) in all)
+                        {
+                            Kept.Add(v.ToString());
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                public static Cell<int> PlainKeyByAPattern() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        KeyValuePair<Shown, Shown> p = new(new Shown(Plain), new Shown(l.Map(v => v)));
+
+                        if (p is (var k, _))
+                        {
+                            Kept.Add(k.ToString());
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                public static Cell<int> PendingValueByAPattern() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        KeyValuePair<Shown, Shown> p = new(new Shown(Plain), new Shown(l.Map(v => v)));
+
+                        if (p is (_, var v))
+                        {
+                            Kept.Add(v.ToString());
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                // The pair goes to a method, which gives each of its states an origin.
+                public static Cell<int> PlainKeyInAMethod() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        KeyValuePair<Shown, Shown> p = new(new Shown(Plain), new Shown(l.Map(v => v)));
+                        Kept.Add(KeyTextOf(p));
+
+                        return S.Hold(0);
+                    });
+
+                // The code sets a member of the list that has the pair.
+                public static Cell<int> PlainKeyAfterAMemberOfTheList() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<KeyValuePair<Shown, Shown>> all = [new(new Shown(Plain), new Shown(l.Map(v => v)))];
+                        all.Capacity = 4;
+
+                        foreach ((Shown k, Shown _) in all)
+                        {
+                            Kept.Add(k.ToString());
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                // The value is one of two pairs, and the one from the dictionary has no state for
+                // its parts.
+                public static Cell<int> PlainKeyOfOneOfTwoPairs() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Dictionary<Shown, Shown> d = new() { { new Shown(Plain), new Shown(Plain) } };
+                        KeyValuePair<Shown, Shown> made = new(new Shown(Plain), new Shown(l.Map(v => v)));
+                        KeyValuePair<Shown, Shown> p = d.Count > 5 ? made : d.First();
+                        (Shown k, Shown _) = p;
+                        Kept.Add(k.ToString());
+
+                        return S.Hold(0);
+                    });
+
+                private static string KeyTextOf(KeyValuePair<Shown, Shown> pair)
+                {
+                    (Shown k, Shown _) = pair;
+
+                    return k.ToString();
+                }
+
+                public sealed class Shown(Cell<int> share)
+                {
+                    public override string ToString() => share.Sample().ToString();
+                }
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyAPair"));
+
+        // One report for each read of the pending value, and none for a read of the plain key.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1005", "SF1005", "SF1005"]);
     }
 
     // An assertion on a collection names ten of its items and counts the others. The reason names

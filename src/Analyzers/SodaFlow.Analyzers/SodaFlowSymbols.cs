@@ -533,6 +533,31 @@ internal sealed class SodaFlowSymbols
     private static bool IsSystem(INamespaceSymbol? space) =>
         space is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
 
+    /// <summary>
+    ///     True for a type of the platform that only holds the values that its
+    ///     constructor gets: <c>KeyValuePair</c>, <c>Tuple</c>, and
+    ///     <c>DictionaryEntry</c>. Each value is in the property that has the name
+    ///     of the parameter. Thus, the evaluator can keep a state for each part.
+    /// </summary>
+    public static bool HoldsParts(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { Name: "KeyValuePair" or "Tuple" or "DictionaryEntry" } named
+        && (named.Name, named.ContainingNamespace?.ToDisplayString())
+            is ("KeyValuePair", "System.Collections.Generic")
+            or ("Tuple", "System")
+            or ("DictionaryEntry", "System.Collections");
+
+    /// <summary>
+    ///     The property of a type from <see cref="HoldsParts" /> that holds the
+    ///     value of a parameter. The parameter is one of the constructor, of
+    ///     <c>Create</c>, or an <c>out</c> parameter of <c>Deconstruct</c>. The
+    ///     names are the same, but for the case of the first letter.
+    /// </summary>
+    public static IPropertySymbol? PartFor(ITypeSymbol holder, IParameterSymbol parameter) =>
+        holder.OriginalDefinition.GetMembers()
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(property =>
+                string.Equals(a: property.Name, b: parameter.Name, comparisonType: StringComparison.OrdinalIgnoreCase));
+
     private static bool IsCollections(ISymbol? space) =>
         space?.ToDisplayString() is "System.Collections.Generic" or "System.Collections";
 
