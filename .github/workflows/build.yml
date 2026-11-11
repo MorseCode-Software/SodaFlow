@@ -125,7 +125,9 @@ jobs:
           # 8.0 was here for one project, the benchmarks, and went when they moved to net10.0.
           #
           # 6.0 is the one thing genuinely missing: no 6.0 SDK, no 6.0 runtime, and - the part that
-          # matters - no 6.0 entry under the reference packs on disk. That absence is why the lock
+          # matters - no 6.0 entry under the reference packs on disk. The runtime matters too, since
+          # the test projects target net6.0 to run the net6.0 builds of the libraries; net10.0 runs
+          # their net8.0 builds. That absence is why the lock
           # files record no framework package for net6.0: with the SDK installed the pack is found
           # locally and nothing is downloaded. Drop this and the build has to fetch
           # Microsoft.NETCore.App.Ref from NuGet, which is a package appearing where the lock file

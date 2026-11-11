@@ -11,6 +11,15 @@ runs the transaction start hooks a second time, which made a TimerSystem read it
 same release, a one-way bindable value and a command's CanExecute no longer show a value from a transaction that
 failed. That package's notes have the details of both.
 
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
+
 4.0.4
 
 No change in API or behavior. This release raises the dependency floor, so that a new install gets

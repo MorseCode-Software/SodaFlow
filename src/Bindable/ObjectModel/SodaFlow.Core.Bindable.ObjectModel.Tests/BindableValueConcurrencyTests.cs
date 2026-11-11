@@ -1196,6 +1196,98 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(b.Value).IsEqualTo(5);
     }
 
+    // After an update whose transaction failed, that transaction is over. Thus, a refresh of a
+    // one-way value that runs in a different transaction reads the cell there. Before, the refresh
+    // waited also after the failure, and a drain in a transaction made no progress.
+    [Test]
+    public async Task AOneWayRefreshInATransactionAfterAFailedUpdateReadsTheCell()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        IListener throws = c.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            c.Send(2);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        // A drain in a transaction, as a nested message loop runs it from a callback.
+        int ranInside = 0;
+        Transaction.RunVoid(() => ranInside = scheduler.RunAll());
+        int shownAfterTheDrain = b.Value;
+        List<int> observedAfterTheDrain = [.. observed];
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction");
+        await Assert.That(shownAfterTheDrain).IsEqualTo(1).Because("it read the cell, which holds 1");
+
+        await Assert.That(observedAfterTheDrain)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(ranAfter).IsEqualTo(0).Because("and it did not post itself again");
+    }
+
+    // The same for a two-way value.
+    [Test]
+    public async Task ATwoWayRefreshInATransactionAfterAFailedUpdateReadsTheCell()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        IListener throws = c.Updates().Listen(static _ => throw new InvalidOperationException("from the graph"));
+
+        try
+        {
+            c.Send(2);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        finally
+        {
+            throws.Unlisten();
+        }
+
+        // A drain in a transaction, as a nested message loop runs it from a callback.
+        int ranInside = 0;
+        Transaction.RunVoid(() => ranInside = scheduler.RunAll());
+        int shownAfterTheDrain = b.Value;
+        List<int> observedAfterTheDrain = [.. observed];
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction");
+        await Assert.That(shownAfterTheDrain).IsEqualTo(1).Because("it read the cell, which holds 1");
+
+        await Assert.That(observedAfterTheDrain)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(ranAfter).IsEqualTo(0).Because("and it did not post itself again");
+    }
+
     /// <summary>
     ///     Queues as <see cref="QueueingScheduler" /> does, but drops the posts of a
     ///     transaction that fails. A transaction discards its posted actions when it

@@ -135,7 +135,8 @@ every post without being asked.
 `CreateBindableAction` turns a `StreamSink<T>` into an `ICommand`. The `CommandParameter` is
 carried through to the stream, and enablement comes from an optional `Cell<bool>` — omit it
 and the command is always enabled. `CanExecuteChanged` is raised for you when that cell
-changes; nothing raises it by hand.
+changes; nothing raises it by hand. Changes that reach the UI thread together raise it once, for
+the last value, and not at all if that leaves `CanExecute` where it was.
 
 The command checks its enablement twice. `CanExecute` answers from a copy of the cell that the
 binding scheduler carries to the UI thread, so for a moment after the cell changes it can still
