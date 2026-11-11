@@ -557,7 +557,10 @@ IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMo
 net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
 cannot see one thing that the native AOT compiler reports. A native AOT publish that roots the assembly reports IL3054
 on generic expansions that the compiler stopped, because MaybeInternal<T> nests inside itself with no limit that the
-compiler can prove. The code of an expansion that stopped throws if it runs.
+compiler can prove. The code of an expansion that stopped throws if it runs. A root makes the compiler follow each
+method of each expansion, and an app does not. The publish of an app that uses Gate, Calm, Snapshot, Accum, Collect,
+OrElse, Merge, Hold, Lift, Updates, and Listen reported none. The build of the repository now publishes that app with
+each warning as an error, and runs it.
 
 5.0.0
 

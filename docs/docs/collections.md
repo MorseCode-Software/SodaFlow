@@ -268,7 +268,7 @@ and the keyed, unordered deltas remain available as `ItemChangesStream`, on the 
 To change what a view sorts by — as clickable column headers need — hold the order in a cell
 and pass it to `SortBy`. A `KeyOrder<TKey, TIdentity, TState>` carries its own sort value type
 inside itself, so one cell holds orders that sort by an `int` and by a `string` alike, while the
-sort key stays a real generic parameter down to the comparer and sort values are never boxed.
+sort key stays a real generic parameter down to the comparer and its sort values are not boxed.
 Build them with the factories on `KeyOrder` itself, which mirror the sort methods one for one:
 
 ```csharp
@@ -333,10 +333,16 @@ ReactiveCollection<Guid, AccountId, AccountState> page = accounts
     .Slice(0, 20);
 ```
 
-Each level runs in its own direction and keeps its own sort value type down to its comparer, so
-nothing is boxed however many levels there are. The key still breaks the last tie, ascending, with
-the comparer the first level was given. And an order is over the identity alone only if every
-level is: one level that reads the state is enough for a state edit to re-file a key.
+Each level runs in its own direction and compares with its own comparer. An order with one level
+or two keeps each sort value in its own type, so nothing is boxed. From the third level on, the
+order holds each sort value as an object: a level whose value is a value type boxes it once for
+each key the order files, and a comparison still allocates nothing. That keeps the type of an order
+from growing with every level, which matters under native AOT, where the compiler builds every
+generic type ahead of time and gives up past a fixed depth.
+
+The key still breaks the last tie, ascending, with the comparer the first level was given. And an
+order is over the identity alone only if every level is: one level that reads the state is enough
+for a state edit to re-file a key.
 
 ## How the chain stays incremental
 
