@@ -1222,6 +1222,16 @@ internal sealed class LoopStateEvaluator
                 state =
                     state.Join(
                         this.Eval(expression is AssignmentExpressionSyntax indexed ? indexed.Right : expression));
+
+                // A setter with no body to read keeps each index also, as the indexer of a
+                // dictionary keeps its key.
+                if (expression is AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax keyed }
+                    && this.region.SymbolOf(keyed) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
+                {
+                    state =
+                        state.Join(
+                            this.JoinAll(keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+                }
             }
         }
 

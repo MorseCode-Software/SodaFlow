@@ -947,9 +947,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 }
 
                 return;
-            // A value put into a collection is in the collection.
+            // A value put into a collection is in the collection. A setter with no body to read
+            // keeps each index also, as the indexer of a dictionary keeps its key.
             case ElementAccessExpressionSyntax element:
                 this.evaluator.Absorb(target: element.Expression, state: state);
+
+                if (this.region.SymbolOf(element) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
+                {
+                    foreach (ArgumentSyntax index in element.ArgumentList.Arguments)
+                    {
+                        this.evaluator.Absorb(
+                            target: element.Expression,
+                            state: this.evaluator.Eval(index.Expression));
+                    }
+                }
 
                 return;
         }

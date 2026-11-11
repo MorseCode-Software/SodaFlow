@@ -4990,6 +4990,38 @@ public static class Shapes
     public static Cell<int> ElementOfAnArrayAfterADecrementBeforeIt() =>
         Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; --steps[0]; return S.Hold(steps[0].Now.Sample()); });
 
+    // S935. An initializer with an index gives the dictionary its key also.
+    public static Cell<int> KeyOfADictionaryFromAnIndexInTheInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new() { [new Titled(l.Map(v => v))] = new Titled(Plain) }; Kept.Add(d.First().Key.ToString()); return S.Hold(0); });
+
+    // S936. An assignment through the indexer gives the dictionary its key also.
+    public static Cell<int> KeyOfADictionaryFromAnAssignmentByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(l.Map(v => v))] = new Titled(Plain); Kept.Add(d.First().Key.ToString()); return S.Hold(0); });
+
+    // S937. The key through the Keys of the dictionary.
+    public static Cell<int> KeyThroughKeysFromAnAssignmentByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(l.Map(v => v))] = new Titled(Plain); Kept.Add(d.Keys.First().ToString()); return S.Hold(0); });
+
+    // S938. The key is a cell.
+    public static Cell<int> CellKeyFromAnAssignmentByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Cell<int>, int> d = new(); d[l.Map(v => v)] = 1; return S.Hold(d.Keys.First().Sample()); });
+
+    // S939. The key of a Hashtable.
+    public static Cell<int> KeyOfAHashtableFromAnAssignmentByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.Hashtable h = new(); h[new Titled(l.Map(v => v))] = new Titled(Plain); foreach (System.Collections.DictionaryEntry entry in h) { Kept.Add(entry.Key.ToString()!); } return S.Hold(0); });
+
+    // S940. A plain key and a plain value.
+    public static Cell<int> PlainKeyFromAnAssignmentByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(Plain)] = new Titled(Plain); Kept.Add(d.First().Key.ToString()); return S.Hold(0); });
+
+    // S941. An indexer of this compilation reads its index and keeps the value only. The walk reads its setter.
+    public static Cell<int> IndexOfAnIndexerOfThisCompilation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ledger ledger = new(); ledger[new Titled(Plain)] = Plain; return S.Hold(ledger.Last.Sample()); });
+
+    // S942. The setter of that indexer reads a pending index.
+    public static Cell<int> PendingIndexOfAnIndexerOfThisCompilation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ledger ledger = new(); ledger[new Titled(l.Map(v => v))] = Plain; return S.Hold(ledger.Last.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -6057,6 +6089,21 @@ public static class Shapes
     public sealed class Marked(Cell<int> share)
     {
         public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class Ledger
+    {
+        public Cell<int> Last { get; private set; } = Plain;
+
+        public Cell<int> this[Titled at]
+        {
+            get => this.Last;
+            set
+            {
+                Kept.Add(at.ToString());
+                this.Last = value;
+            }
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

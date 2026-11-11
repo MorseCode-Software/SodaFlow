@@ -663,7 +663,13 @@ internal sealed class LoopReadAnalyzerTests
             ["ObjectOfAListFromElementsWithBraces"] = ["SF1005"],
             ["ElementOfAnArrayAfterAnIncrementBeforeIt"] = ["SF1001"],
             ["ElementOfAnArrayAfterADecrement"] = ["SF1001"],
-            ["ElementOfAnArrayAfterADecrementBeforeIt"] = ["SF1001"]
+            ["ElementOfAnArrayAfterADecrementBeforeIt"] = ["SF1001"],
+            ["KeyOfADictionaryFromAnIndexInTheInitializer"] = ["SF1005"],
+            ["KeyOfADictionaryFromAnAssignmentByIndex"] = ["SF1005"],
+            ["KeyThroughKeysFromAnAssignmentByIndex"] = ["SF1005"],
+            ["CellKeyFromAnAssignmentByIndex"] = ["SF1001"],
+            ["KeyOfAHashtableFromAnAssignmentByIndex"] = ["SF1005"],
+            ["PendingIndexOfAnIndexerOfThisCompilation"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
