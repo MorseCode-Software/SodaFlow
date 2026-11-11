@@ -107,6 +107,35 @@ internal static class PlatformCallers
             Row(type: "XContainer", callbacks: PlatformCallbacks.Text, "Add", "AddFirst", "ReplaceNodes"),
             Row(type: "XAttribute", callbacks: PlatformCallbacks.Text, ".ctor", "SetValue"));
 
+    /// <summary>
+    ///     The methods of the table that compare the elements of one sequence
+    ///     with each other, and with no other value. A sort and the constructor of
+    ///     a set are such methods. A search is not: it compares a value that it
+    ///     gets with each element. Such a method compares nothing when the sequence
+    ///     has one element.
+    /// </summary>
+    public static readonly ImmutableHashSet<(string Type, string Method)> AmongTheElements =
+        ImmutableHashSet.Create(
+            ("Array", "Sort"),
+            ("List", "Sort"),
+            ("Enumerable", "OrderBy"),
+            ("Enumerable", "OrderByDescending"),
+            ("Enumerable", "Order"),
+            ("Enumerable", "OrderDescending"),
+            ("Enumerable", "Min"),
+            ("Enumerable", "Max"),
+            ("Enumerable", "MinBy"),
+            ("Enumerable", "MaxBy"),
+            ("Enumerable", "Distinct"),
+            ("Enumerable", "DistinctBy"),
+            ("Enumerable", "GroupBy"),
+            ("Enumerable", "ToDictionary"),
+            ("Enumerable", "ToHashSet"),
+            ("Enumerable", "ToLookup"),
+            ("HashSet", ".ctor"),
+            ("SortedSet", ".ctor"),
+            ("PriorityQueue", ".ctor"));
+
     private static readonly ImmutableDictionary<(string Type, string Method), PlatformCallbacks> ByMethod =
         Rows.SelectMany(static row => row.Methods.Select(method => (Key: (row.Type, method), row.Callbacks)))
             .ToImmutableDictionary(
@@ -133,6 +162,16 @@ internal static class PlatformCallers
         return type.SpecialType == SpecialType.System_Object && !definition.IsStatic
             ? PlatformCallbacks.None
             : callbacks;
+    }
+
+    /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
+    public static bool ComparesOnlyItsElements(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { } type
+               && SodaFlowSymbols.IsPlatform(type)
+               && AmongTheElements.Contains((type.Name, definition.Name));
     }
 
     /// <summary>

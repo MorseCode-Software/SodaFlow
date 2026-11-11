@@ -733,7 +733,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.FollowPlatformMember(
                         member: accessor,
                         collection: keyed.Expression,
-                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                        alone: false,
+                        others: [keyed.Expression]));
             }
 
             return;
@@ -1065,8 +1067,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.evaluator.FollowPlatformMember(
                 member: add,
                 collection: node,
-                values: node.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression)));
+                values: node.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression),
+                alone: node.Elements.Count == 1 && !node.Elements.OfType<SpreadElementSyntax>().Any(),
+                others: node.Elements.OfType<SpreadElementSyntax>().Select(static spread => spread.Expression)));
     }
+
+    // True for a collection whose constructor got no argument. It is empty before its initializer.
+    // A constructor with an argument can put objects into the collection.
+    private static bool IsNew(ExpressionSyntax made) =>
+        made
+            is ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
+            or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 };
+
+    // True for an initializer that gives one element to a collection that is empty before it.
+    private static bool IsTheOnlyElement(SyntaxNode initializer, ExpressionSyntax made) =>
+        initializer is InitializerExpressionSyntax { Expressions.Count: 1 } && IsNew(made);
 
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
@@ -1113,7 +1128,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.FollowPlatformMember(
                         member: indexer,
                         collection: made,
-                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                        alone: IsTheOnlyElement(initializer: initializer, made: made),
+                        others: IsNew(made) ? [] : [made]));
             }
 
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
@@ -1150,7 +1167,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // An Add of the platform can call a member of the element, as the Add of a set does.
         if (add.DeclaringSyntaxReferences.IsEmpty)
         {
-            this.Report(this.evaluator.FollowPlatformMember(member: add, collection: made, values: values));
+            this.Report(
+                this.evaluator.FollowPlatformMember(
+                    member: add,
+                    collection: made,
+                    values: values,
+                    alone: IsTheOnlyElement(initializer: initializer, made: made),
+                    others: IsNew(made) ? [] : [made]));
 
             return;
         }

@@ -43,6 +43,13 @@ internal sealed class LoopFrame
     /// </summary>
     public Dictionary<ISymbol, ExpressionSyntax> ElementOf { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     For a local of this code that a literal made: true when the collection
+    ///     has one element and no code can change that number. A local that no
+    ///     code asked about is not here.
+    /// </summary>
+    public Dictionary<ISymbol, bool> HasOneElement { get; } = new(SymbolEqualityComparer.Default);
+
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
     /// <summary>

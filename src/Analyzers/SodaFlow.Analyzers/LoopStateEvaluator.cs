@@ -46,6 +46,9 @@ internal sealed class LoopStateEvaluator
     // The most owners that a change to an element goes up to.
     private const int MaxOwners = 8;
 
+    // The members that the platform calls with two objects.
+    private const PlatformCallbacks ComparesTwo = PlatformCallbacks.Compare | PlatformCallbacks.Equals;
+
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
     private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
@@ -706,29 +709,73 @@ internal sealed class LoopStateEvaluator
             return known;
         }
 
-        IReadOnlyList<ExpressionSyntax>? elements = null;
-
-        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
-            && this.LiteralElements(made: made, type: local.Type) is { } written
-            && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
-            && scope.DescendantNodes()
-                .OfType<IdentifierNameSyntax>()
-                .Where(name => name.Identifier.ValueText == local.Name
-                               && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
-                .All(this.IsARead))
-        {
-            elements = written;
-        }
+        IReadOnlyList<ExpressionSyntax>? elements =
+            this.LiteralOf(local) is (var written, var uses) && uses.All(this.IsARead) ? written : null;
 
         this.Frame.Positions[local] = elements;
 
         return elements;
     }
 
+    // The elements of the literal that made a local, and each name of the local in its block.
+    private (IReadOnlyList<ExpressionSyntax> Elements, IEnumerable<IdentifierNameSyntax> Uses)? LiteralOf(
+        ILocalSymbol local) =>
+        local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+        && this.LiteralElements(made: made, type: local.Type) is { } written
+        && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+            ? (written,
+                scope.DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Where(name => name.Identifier.ValueText == local.Name
+                                   && SymbolEqualityComparer.Default.Equals(
+                                       x: this.region.SymbolOf(name),
+                                       y: local)))
+            : null;
+
+    /// <summary>
+    ///     True for a collection that has one element, as far as the code says.
+    ///     The expression is a literal with one element, or a local that such a
+    ///     literal made and whose number of elements no code can change.
+    /// </summary>
+    /// <remarks>
+    ///     An array has the number of elements that it got. Thus, each use of an
+    ///     array in a local keeps it, but an assignment to the local and a
+    ///     <c>ref</c> to it. A list keeps it while each use is a read, a
+    ///     <c>Sort</c>, or a <c>Reverse</c>.
+    /// </remarks>
+    private bool HasOneElement(ExpressionSyntax collection)
+    {
+        if (this.region.SymbolOf(collection) is not ILocalSymbol local)
+        {
+            return this.LiteralElements(made: collection, type: this.region.TypeOf(collection)) is { Count: 1 };
+        }
+
+        if (!this.Frame.HasOneElement.TryGetValue(key: local, value: out bool known))
+        {
+            known =
+                this.LiteralOf(local) is ({ Count: 1 }, var uses)
+                && uses.All(local.Type is IArrayTypeSymbol ? static name => !IsWritten(name) : this.KeepsTheNumber);
+
+            this.Frame.HasOneElement[local] = known;
+        }
+
+        return known;
+    }
+
+    // A read of a list, or a call of its Sort or its Reverse, which change only the order.
+    private bool KeepsTheNumber(IdentifierNameSyntax name) =>
+        this.IsARead(name)
+        || (name.Parent is MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "Sort" or "Reverse", Parent: InvocationExpressionSyntax call
+            }
+            && this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner }
+            && SodaFlowSymbols.IsPlatform(owner));
+
     // The elements of a literal whose object has them in the order of the code. A spread has a
     // number of elements that the code does not say.
-    private IReadOnlyList<ExpressionSyntax>? LiteralElements(ExpressionSyntax made, ITypeSymbol type) =>
+    private IReadOnlyList<ExpressionSyntax>? LiteralElements(ExpressionSyntax made, ITypeSymbol? type) =>
         made switch
         {
             CollectionExpressionSyntax collection
@@ -2503,10 +2550,24 @@ internal sealed class LoopStateEvaluator
     /// <param name="member">The method or the accessor.</param>
     /// <param name="collection">The collection, which has the values that it got before.</param>
     /// <param name="values">The values that the member gets, in the order of its parameters.</param>
+    /// <param name="alone">
+    ///     True when the value is the only one of a new collection, as the one
+    ///     element of a collection expression is. The member then has no second
+    ///     object to compare it with.
+    /// </param>
+    /// <param name="others">
+    ///     Each expression for a collection whose objects the collection has
+    ///     before the values. That is the collection itself when code before made
+    ///     it, an argument of its constructor, or a spread. The member can call a
+    ///     member of one of those objects. The walk reads each value of a literal
+    ///     where the literal gives it, thus the literal is not here.
+    /// </param>
     public Followed? FollowPlatformMember(
         IMethodSymbol member,
         ExpressionSyntax? collection,
-        IEnumerable<ExpressionSyntax> values)
+        IEnumerable<ExpressionSyntax> values,
+        bool alone,
+        IEnumerable<ExpressionSyntax> others)
     {
         if (!this.region.Symbols.DeclaresKeyMembers
             || PlatformCallers.Of(member) == PlatformCallbacks.None)
@@ -2516,17 +2577,20 @@ internal sealed class LoopStateEvaluator
 
         ImmutableArray<IParameterSymbol> parameters = member.OriginalDefinition.Parameters;
 
+        List<Operand> operands =
+        [
+            .. values.Select((value, position) =>
+                new Operand(
+                    written: value,
+                    parameter: position < parameters.Length ? parameters[position].Type : null,
+                    isReceiver: false)),
+            .. others.Select(static other => new Operand(written: other, parameter: null, isReceiver: true))
+        ];
+
         return this.FollowPlatform(
             method: member,
-            calls: PlatformCallers.Of(member),
-            operands:
-            [
-                .. values.Select((value, position) =>
-                    new Operand(
-                        written: value,
-                        parameter: position < parameters.Length ? parameters[position].Type : null,
-                        isReceiver: false))
-            ],
+            calls: alone ? PlatformCallers.Of(member) & ~ComparesTwo : PlatformCallers.Of(member),
+            operands: operands,
             keeper: collection,
             also: this.Eval(collection),
             given: null,
@@ -2622,7 +2686,9 @@ internal sealed class LoopStateEvaluator
             ? this.FollowPlatformMember(
                 member: getter,
                 collection: access.Expression,
-                values: access.ArgumentList.Arguments.Select(static index => index.Expression))
+                values: access.ArgumentList.Arguments.Select(static index => index.Expression),
+                alone: false,
+                others: [access.Expression])
             : null;
 
     private Followed? FollowPlatform(
@@ -2652,6 +2718,18 @@ internal sealed class LoopStateEvaluator
         if (operands.Any(static operand => IsComparison(operand.Parameter)))
         {
             callbacks &= PlatformCallbacks.Text;
+        }
+
+        // A callee that compares the elements of one sequence with each other compares nothing
+        // when the sequence has one element. It can make a hash code or text from that element.
+        if ((callbacks & ComparesTwo) != PlatformCallbacks.None
+            && PlatformCallers.ComparesOnlyItsElements(method)
+            && operands.Where(static operand => operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter))
+                .Select(static operand => operand.Written)
+                .ToArray() is { Length: 1 } sequences
+            && this.HasOneElement(sequences[0]))
+        {
+            callbacks &= ~ComparesTwo;
         }
 
         if (callbacks == PlatformCallbacks.None)
@@ -2847,9 +2925,16 @@ internal sealed class LoopStateEvaluator
         // A list has the members of its elements in its state. The list is one of those objects
         // only for a method that reads elements. A type such as object does not tell a list from
         // an element, and the state then says which the value is.
+        // The elements of a dictionary are pairs, and the method compares the keys in them.
+        ITypeSymbol? element = asSequence ? SodaFlowSymbols.ElementTypeOf(written) : null;
+
         bool isOwner =
             ((written == null || members.Is(written)) && !(state.IsContainer && Construction.SaysNothing(written)))
-            || (asSequence && members.Is(SodaFlowSymbols.ElementTypeOf(written)));
+            || (element != null
+                && (members.Is(element)
+                    || (element is INamedTypeSymbol pair
+                        && SodaFlowSymbols.HoldsParts(pair)
+                        && pair.TypeArguments.Any(members.Is))));
 
         return isOwner && (compared.IsEmpty || compared.Any(members.Is)) ? [(state, members)] : [];
     }

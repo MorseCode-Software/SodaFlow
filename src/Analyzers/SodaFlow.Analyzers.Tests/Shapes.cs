@@ -5227,6 +5227,102 @@ public static class Shapes
     public static Cell<int> XStreamingElementInTheContentOfAnXElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new XStreamingElement("b", Numbers.Select(x => x + l.Sample())))); return S.Hold(0); });
 
+    // S994. A sort of an array with one element compares nothing.
+    public static Cell<int> SortOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Array.Sort(one); return S.Hold(0); });
+
+    // S995. A sort of a list with one element.
+    public static Cell<int> SortOfAListOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> one = [new(l.Map(v => v))]; one.Sort(); return S.Hold(one.Count); });
+
+    // S996. Order of an array with one element.
+    public static Cell<int> OrderOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(one.Order().Count()); });
+
+    // S997. Max of an array with one element.
+    public static Cell<int> MaxOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(one.Max()!); return S.Hold(0); });
+
+    // S998. Distinct of an array with one element makes a hash code, and compares nothing.
+    public static Cell<int> DistinctOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.Distinct().Count()); });
+
+    // S999. A set from a collection expression with one element.
+    public static Cell<int> SetOfOneFromACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new Alike(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S1000. A set from an initializer with one element.
+    public static Cell<int> SetOfOneFromAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = new() { new Alike(l.Map(v => v)) }; return S.Hold(set.Count); });
+
+    // S1001. A set whose constructor gets an array with one element.
+    public static Cell<int> SetOfOneFromAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = new(new[] { new Alike(l.Map(v => v)) }); return S.Hold(set.Count); });
+
+    // S1002. A sorted set with one element.
+    public static Cell<int> SortedSetOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = [new(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S1003. A dictionary with one key, from an index in the initializer.
+    public static Cell<int> DictionaryOfOneFromAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Alike, int> d = new() { [new Alike(l.Map(v => v))] = 1 }; return S.Hold(d.Count); });
+
+    // S1004. A dictionary with one key, from an Add in the initializer.
+    public static Cell<int> DictionaryOfOneFromAnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Alike, int> d = new() { { new Alike(l.Map(v => v)), 1 } }; return S.Hold(d.Count); });
+
+    // S1005. A set of one element makes its hash code.
+    public static Cell<int> SetOfOneWhoseHashCodeReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Hashed> set = [new Hashed(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S1006. A sort of an array with two elements.
+    public static Cell<int> SortOfAnArrayOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] two = [new(l.Map(v => v)), new(Plain)]; Array.Sort(two); return S.Hold(0); });
+
+    // S1007. The list gets one element more before the sort.
+    public static Cell<int> SortOfAListOfOneThenOneMore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v))]; all.Add(new(Plain)); all.Sort(); return S.Hold(0); });
+
+    // S1008. An array from two spreads of an array with one element.
+    public static Cell<int> SortOfTwoSpreadsOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Ranked[] more = [.. one, .. one]; Array.Sort(more); return S.Hold(0); });
+
+    // S1009. The local gets a different array before the sort.
+    public static Cell<int> SortOfAnArrayOfOneThatIsReplaced() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; one = [new(l.Map(v => v)), new(Plain)]; Array.Sort(one); return S.Hold(0); });
+
+    // S1010. Resize gives the local a longer array through a ref.
+    public static Cell<int> SortOfAnArrayOfOneThatIsResized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Array.Resize(ref one, 2); one[1] = new(Plain); Array.Sort(one); return S.Hold(0); });
+
+    // S1011. A set of one element gets one element more.
+    public static Cell<int> SetOfOneThenOneMore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new Alike(l.Map(v => v))]; set.Add(new Alike(Plain)); return S.Hold(set.Count); });
+
+    // S1012. The constructor of the set gets an array, so the element of the initializer is not the only one.
+    public static Cell<int> SetFromAnArrayAndAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] first = [new Alike(l.Map(v => v))]; HashSet<Alike> set = new(first) { new Alike(Plain) }; return S.Hold(set.Count); });
+
+    // S1013. A search compares the value that it gets with the one element.
+    public static Cell<int> ContainsInAListOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Alike> one = [new Alike(l.Map(v => v))]; Kept.Add(one.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1014. A set from a collection expression with two elements.
+    public static Cell<int> SetOfTwoFromACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new Alike(l.Map(v => v)), new Alike(Plain)]; return S.Hold(set.Count); });
+
+    // S1015. An assignment by index compares the new key with a key that the dictionary has.
+    public static Cell<int> KeyComparedWithAKeyOfTheDictionaryAtAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Alike, int> d = new() { { new Alike(l.Map(v => v)), 1 } }; d[new Alike(Plain)] = 2; return S.Hold(d.Count); });
+
+    // S1016. A read by index compares the key with a key that the dictionary has.
+    public static Cell<int> KeyComparedWithAKeyOfTheDictionaryAtARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Alike, int> d = new() { { new Alike(l.Map(v => v)), 1 } }; return S.Hold(d[new Alike(Plain)]); });
+
+    // S1017. A spread puts the elements of an array into the set before the one element of the expression.
+    public static Cell<int> SetFromASpreadAndOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] first = [new Alike(l.Map(v => v))]; HashSet<Alike> set = [.. first, new Alike(Plain)]; return S.Hold(set.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -255,7 +255,7 @@ internal sealed class LoopReadAnalyzerTests
             ["MaxOfObjectsFromAQuery"] = ["SF1004", "SF1005"],
             ["SortedSetInitializerOfObjects"] = ["SF1004", "SF1005"],
             ["SortedSetAddOfObjects"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
-            ["SortedDictionaryAddOfObjectKeys"] = ["SF1004", "SF1005"],
+            ["SortedDictionaryAddOfObjectKeys"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
             ["SortedDictionaryIndexerOfObjectKeys"] = ["SF1004", "SF1005"],
             ["SortedSetContainsAnObject"] = ["SF1004", "SF1005"],
             ["ListContainsWithAPendingElement"] = ["SF1004", "SF1005"],
@@ -712,7 +712,20 @@ internal sealed class LoopReadAnalyzerTests
             ["QueryInAnXStreamingElementThatMakesText"] = ["SF1001"],
             ["QueryInAnXStreamingElementThatIsSaved"] = ["SF1001"],
             ["QueryAddedToAnXStreamingElementThatMakesText"] = ["SF1001"],
-            ["XStreamingElementInTheContentOfAnXElement"] = ["SF1001"]
+            ["XStreamingElementInTheContentOfAnXElement"] = ["SF1001"],
+            ["SetOfOneWhoseHashCodeReads"] = ["SF1005"],
+            ["SortOfAnArrayOfTwo"] = ["SF1004", "SF1005"],
+            ["SortOfAListOfOneThenOneMore"] = ["SF1004", "SF1005"],
+            ["SortOfTwoSpreadsOfAnArrayOfOne"] = ["SF1004", "SF1005"],
+            ["SortOfAnArrayOfOneThatIsReplaced"] = ["SF1004", "SF1005"],
+            ["SortOfAnArrayOfOneThatIsResized"] = ["SF1004", "SF1005"],
+            ["SetOfOneThenOneMore"] = ["SF1004", "SF1005"],
+            ["SetFromAnArrayAndAnInitializer"] = ["SF1004", "SF1005"],
+            ["ContainsInAListOfOne"] = ["SF1004", "SF1005"],
+            ["SetOfTwoFromACollectionExpression"] = ["SF1004", "SF1005"],
+            ["KeyComparedWithAKeyOfTheDictionaryAtAnAssignment"] = ["SF1004", "SF1005"],
+            ["KeyComparedWithAKeyOfTheDictionaryAtARead"] = ["SF1004", "SF1005"],
+            ["SetFromASpreadAndOneElement"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
