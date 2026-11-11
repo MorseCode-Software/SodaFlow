@@ -273,17 +273,19 @@ sets, `foreach`, deconstructions, patterns, and `out` arguments. A value keeps w
 knows about it when a platform type holds it or hands it back, as in `pair.Value`, `task.Result`, or
 `list.First()`, and also where its type is only `object`. An object or a tuple of yours held as
 `object` is still read as what it is, so `o.ToString()` reaches your `ToString`, and an object keeps
-its type when the block sets its properties after `new`. It follows it into your own helpers,
-constructors, getters, records, and object initializers, and through an interface to the object you
-built behind it. When one of your helpers or constructors puts a value into a collection or an
-object you passed to it, the caller's collection or object has that value afterwards. It knows which
-library methods run a function at once: a transaction, a loop block, and the `Fold` of a collection.
-Code outside the library that takes a function, such as `List<T>.ForEach` or `Maybe.Match`, is taken
-to run it in the call, and a constructor is taken to keep it. A `Lazy<T>` keeps its function until
-something reads `Value`, so the analyzer reads the function at that read, including through the
-`Map` and `Lift` of `SodaFlow.Functional`. A lambda that one of your own constructors or helpers
-keeps is read where it finally runs, and reported there. A property pattern reads a property just as
-a member access does, so `row is { Total: > 0 }` is checked like `row.Total > 0`.
+its type when the block sets its properties after `new`. Where a value can be one of several of your
+types, as after a `?:` or in a list of mixed rows, a call through `object` or an interface is read
+for each of them. It follows it into your own helpers, constructors, getters, records, and object
+initializers, and through an interface to the object you built behind it. When one of your helpers
+or constructors puts a value into a collection or an object you passed to it, the caller's
+collection or object has that value afterwards. It knows which library methods run a function at
+once: a transaction, a loop block, and the `Fold` of a collection. Code outside the library that
+takes a function, such as `List<T>.ForEach` or `Maybe.Match`, is taken to run it in the call, and a
+constructor is taken to keep it. A `Lazy<T>` keeps its function until something reads `Value`, so
+the analyzer reads the function at that read, including through the `Map` and `Lift` of
+`SodaFlow.Functional`. A lambda that one of your own constructors or helpers keeps is read where it
+finally runs, and reported there. A property pattern reads a property just as a member access does,
+so `row is { Total: > 0 }` is checked like `row.Total > 0`.
 
 A LINQ query runs nothing when you build it. `Select`, `Where`, `OrderBy`, and the other methods of
 `Enumerable` that return a sequence keep their functions until something enumerates the result. A
@@ -328,9 +330,11 @@ It does not see everything, and in a few places it guesses on the careful side:
   to the end of the block.
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
   read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
-  `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort
-  of a single item. A comparer kept by a collection is the same: the first `Add` to an empty
-  sorted set compares nothing, and it is reported.
+  `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort of
+  a single item. A comparer kept by a collection is the same: the first `Add` to an empty sorted set
+  compares nothing, and it is reported. A value that may be one of two types is read the same way:
+  the member of each type is read, though only one object is there at run time.
+
 - When the platform compares two of your objects, the analyzer does not know which of them gets
   the call. A `CompareTo` or an `Equals` that reads only its own object is reported for either.
 - Code without source that takes a query as `object` or as a type parameter is taken to keep it,
