@@ -4250,6 +4250,18 @@ public static class Shapes
     public static Cell<int> IteratorPropertyByAPatternInAHelperThenCount() =>
         Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(ValuesByAPattern(r).Count()); return S.Hold(0); });
 
+    // S750. An element of a tuple through ITuple, and a cast to its type. The element is one of the elements.
+    public static Cell<int> ElementOfATupleThroughITupleThenCast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Runtime.CompilerServices.ITuple t = (new Titled(l.Map(v => v)), 1); Titled x = (Titled)t[0]!; Kept.Add(x.ToString()); return S.Hold(0); });
+
+    // S751. An element of a list of objects is the tuple, and the code reads the plain element of it.
+    public static Cell<int> PlainElementOfATupleInAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> all = [(new Titled(l.Map(v => v)), new Titled(Plain))]; Kept.Add(((ValueTuple<Titled, Titled>)all[0]).Item2.ToString()); return S.Hold(0); });
+
+    // S752. An array of tuples from a method of the platform. An element of it is a tuple.
+    public static Cell<int> PlainElementOfATupleInAnArrayFromThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Titled N, Titled M)[] all = Enumerable.Repeat((new Titled(l.Map(v => v)), new Titled(Plain)), 1).ToArray(); Kept.Add(all[0].M.ToString()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

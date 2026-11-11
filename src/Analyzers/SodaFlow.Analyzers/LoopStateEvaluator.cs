@@ -2014,7 +2014,6 @@ internal sealed class LoopStateEvaluator
         // the tuple, which calls the same member of each element.
         if (calls == PlatformCallbacks.None
             && receiver != null
-            && method is { ReducedFrom: null, IsStatic: false }
             && this.Eval(receiver).Members is { IsTuple: true })
         {
             calls = PlatformCallers.OfTuple(definition.Name);

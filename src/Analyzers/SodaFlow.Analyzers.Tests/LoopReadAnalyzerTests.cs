@@ -539,7 +539,8 @@ internal sealed class LoopReadAnalyzerTests
             ["IteratorPropertyOfAMemberByAPatternThenCount"] = ["SF1005"],
             ["EnumeratorPropertyByAPatternMoved"] = ["SF1005"],
             ["GetterWithCodeByAPattern"] = ["SF1005"],
-            ["IteratorPropertyByAPatternInAHelperThenCount"] = ["SF1004"]
+            ["IteratorPropertyByAPatternInAHelperThenCount"] = ["SF1004"],
+            ["ElementOfATupleThroughITupleThenCast"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
