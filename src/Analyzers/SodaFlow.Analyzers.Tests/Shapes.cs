@@ -4146,6 +4146,50 @@ public static class Shapes
     public static Cell<int> OneOfTwoObjectsReadThroughObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Plainly() : new Titled(l.Map(v => v)); Kept.Add(o.ToString()!); return S.Hold(0); });
 
+    // S724. A tuple in a local of the type object. ToString of a tuple calls the one of each element.
+    public static Cell<int> ToStringOfATupleThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Titled(l.Map(v => v)), 1); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S725. The same through ValueType.
+    public static Cell<int> ToStringOfATupleThroughValueType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ValueType t = (new Titled(l.Map(v => v)), 1); Kept.Add(t.ToString()!); return S.Hold(0); });
+
+    // S726. The elements of this tuple read nothing.
+    public static Cell<int> ToStringOfAPlainTupleThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Titled(Plain), 1); Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S727. The indexer of ITuple gives one element of the tuple.
+    public static Cell<int> ElementOfATupleThroughITuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Runtime.CompilerServices.ITuple t = (new Titled(l.Map(v => v)), 1); Kept.Add(t[0]!.ToString()!); return S.Hold(0); });
+
+    // S728. Equals of a tuple through object calls Equals of each element.
+    public static Cell<int> EqualsOfATupleThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Alike(l.Map(v => v)), 1); object p = (new Alike(Plain), 1); Kept.Add(o.Equals(p)); return S.Hold(0); });
+
+    // S729. GetHashCode of a tuple calls the one of each element.
+    public static Cell<int> GetHashCodeOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Hashed H, int I) t = (new Hashed(l.Map(v => v)), 1); Kept.Add(t.GetHashCode()); return S.Hold(0); });
+
+    // S730. The same through object.
+    public static Cell<int> GetHashCodeOfATupleThroughObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Hashed(l.Map(v => v)), 1); Kept.Add(o.GetHashCode()); return S.Hold(0); });
+
+    // S731. CompareTo of a tuple calls the one of each element.
+    public static Cell<int> CompareToOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Ranked R, int I) t = (new Ranked(l.Map(v => v)), 1); Kept.Add(t.CompareTo((new Ranked(Plain), 1))); return S.Hold(0); });
+
+    // S732. The same through IComparable.
+    public static Cell<int> CompareToOfATupleThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparable c = (new Ranked(l.Map(v => v)), 1); Kept.Add(c.CompareTo((new Ranked(Plain), 1))); return S.Hold(0); });
+
+    // S733. An element of a list of tuples is a tuple, and the code reads one element of it.
+    public static Cell<int> PendingElementOfATupleInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<(Titled N, int I)> all = [(new Titled(l.Map(v => v)), 1)]; Kept.Add(all[0].N.ToString()); return S.Hold(0); });
+
+    // S734. The other element of that tuple is a number.
+    public static Cell<int> PlainElementOfATupleInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<(Titled N, int I)> all = [(new Titled(l.Map(v => v)), 1)]; Kept.Add(all[0].I.ToString()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

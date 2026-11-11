@@ -521,7 +521,16 @@ internal sealed class LoopReadAnalyzerTests
             ["PropertySetAfterTheConstructorReadThroughItsType"] = ["SF1005"],
             ["PropertySetByAHelperAfterTheConstructorReadThroughObject"] = ["SF1005"],
             ["PropertySetByAnInitializerReadThroughObject"] = ["SF1005"],
-            ["OneOfTwoObjectsReadThroughObject"] = ["SF1005"]
+            ["OneOfTwoObjectsReadThroughObject"] = ["SF1005"],
+            ["ToStringOfATupleThroughObject"] = ["SF1005"],
+            ["ToStringOfATupleThroughValueType"] = ["SF1005"],
+            ["ElementOfATupleThroughITuple"] = ["SF1005"],
+            ["EqualsOfATupleThroughObject"] = ["SF1004", "SF1005"],
+            ["GetHashCodeOfATuple"] = ["SF1005"],
+            ["GetHashCodeOfATupleThroughObject"] = ["SF1005"],
+            ["CompareToOfATuple"] = ["SF1004", "SF1005"],
+            ["CompareToOfATupleThroughAnInterface"] = ["SF1004", "SF1005"],
+            ["PendingElementOfATupleInAList"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

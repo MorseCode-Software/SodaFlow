@@ -93,6 +93,8 @@ internal static class PlatformCallers
             Row(type: "PriorityQueue", callbacks: PlatformCallbacks.Compare,
                 ".ctor", "Enqueue", "EnqueueRange", "EnqueueDequeue"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Equals, "Equals"),
+            Row(type: "ValueTuple", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
+            Row(type: "ValueTuple", callbacks: PlatformCallbacks.Compare, "CompareTo"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "String", callbacks: PlatformCallbacks.Text, "Join", "Concat", "Format"),
             Row(type: "StringBuilder", callbacks: PlatformCallbacks.Text,
@@ -128,6 +130,17 @@ internal static class PlatformCallers
             ? PlatformCallbacks.None
             : callbacks;
     }
+
+    /// <summary>
+    ///     The members that a tuple calls on its elements, for a member with the
+    ///     given name. The code can call that member through a type that is not
+    ///     the type of the tuple, such as <c>object</c>. Then, the method in the
+    ///     code is not the one of the tuple, and has no row.
+    /// </summary>
+    public static PlatformCallbacks OfTuple(string member) =>
+        ByMethod.TryGetValue(key: ("ValueTuple", member), value: out PlatformCallbacks callbacks)
+            ? callbacks
+            : PlatformCallbacks.None;
 
     /// <summary>
     ///     The types of the values that a method compares. A method with a type

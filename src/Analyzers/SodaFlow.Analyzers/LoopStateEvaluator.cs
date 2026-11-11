@@ -503,14 +503,27 @@ internal sealed class LoopStateEvaluator
     ///     objects that the collection contains. An element of a list of lists is
     ///     a list, which contains them also. The type of the element tells the
     ///     two apart. It is a sequence, and the objects that have the members
-    ///     cannot be a value of it.
+    ///     cannot be a value of it. An element of a tuple is one of its elements,
+    ///     and the evaluator does not know which.
     /// </summary>
     /// <param name="collection">The state of the collection.</param>
     /// <param name="type">The type of the element.</param>
-    public static LoopState ElementOf(LoopState collection, ITypeSymbol? type) =>
-        SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
+    public static LoopState ElementOf(LoopState collection, ITypeSymbol? type)
+    {
+        // The indexer of ITuple gives one element of a tuple, as an object. A list of tuples
+        // gives a tuple, and its state has the mark of a container.
+        if (collection is { IsContainer: false, Members: { IsTuple: true } tuple }
+            && type is not INamedTypeSymbol { IsTupleType: true })
+        {
+            return tuple.TupleElements.Aggregate(
+                seed: LoopState.None,
+                func: static (all, element) => all.Join(element));
+        }
+
+        return SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
             ? collection
             : collection.AsElement;
+    }
 
     private LoopState EvalName(ExpressionSyntax expression)
     {
@@ -1981,8 +1994,21 @@ internal sealed class LoopStateEvaluator
                     parameter: ParameterFor(method: method, argument: argument, position: position)?.Type,
                     isReceiver: false)));
 
+        PlatformCallbacks calls = PlatformCallers.Of(method);
+
+        // A tuple in a local of a type that says nothing, such as object. The call is the one of
+        // the tuple, which calls the same member of each element.
+        if (calls == PlatformCallbacks.None
+            && receiver != null
+            && method is { ReducedFrom: null, IsStatic: false }
+            && this.Eval(receiver).Members is { IsTuple: true })
+        {
+            calls = PlatformCallers.OfTuple(definition.Name);
+        }
+
         return this.FollowPlatform(
             method: method,
+            calls: calls,
             operands: operands,
             keeper: method.ReducedFrom == null ? receiver : null,
             also: LoopState.None,
@@ -1995,6 +2021,7 @@ internal sealed class LoopStateEvaluator
         this.region.Symbols.DeclaresPlatformMembers
             ? this.FollowPlatform(
                 method: constructor,
+                calls: PlatformCallers.Of(constructor),
                 operands:
                 [
                     .. arguments.Select((argument, position) =>
@@ -2037,6 +2064,7 @@ internal sealed class LoopStateEvaluator
 
         return this.FollowPlatform(
             method: member,
+            calls: PlatformCallers.Of(member),
             operands:
             [
                 .. values.Select((value, position) =>
@@ -2133,6 +2161,7 @@ internal sealed class LoopStateEvaluator
 
     private Followed? FollowPlatform(
         IMethodSymbol method,
+        PlatformCallbacks calls,
         IReadOnlyCollection<Operand> operands,
         ExpressionSyntax? keeper,
         LoopState also,
@@ -2150,7 +2179,7 @@ internal sealed class LoopStateEvaluator
 
         all = Both(first: all, second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
 
-        PlatformCallbacks callbacks = PlatformCallers.Of(method) & this.region.Symbols.DeclaredCallbacks;
+        PlatformCallbacks callbacks = calls & this.region.Symbols.DeclaredCallbacks;
 
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
         // GetHashCode of an object.
