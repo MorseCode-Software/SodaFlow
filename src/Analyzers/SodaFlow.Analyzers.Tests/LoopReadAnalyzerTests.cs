@@ -751,7 +751,28 @@ internal sealed class LoopReadAnalyzerTests
             ["SortedDictionaryAssignmentOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
             ["SpanContainsOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
             ["PriorityQueueEnqueueOfAPendingPriority"] = ["SF1005"],
-            ["FieldListContainsAPendingValueWhoseEqualsReadsTheOther"] = ["SF1004"]
+            ["FieldListContainsAPendingValueWhoseEqualsReadsTheOther"] = ["SF1004"],
+            ["ObjectGivenToAddFirstOfAnXElement"] = ["SF1005"],
+            ["ObjectGivenToReplaceNodesOfAnXElement"] = ["SF1005"],
+            ["ObjectGivenToReplaceAllOfAnXElement"] = ["SF1005"],
+            ["ObjectGivenToSetValueOfAnXAttribute"] = ["SF1005"],
+            ["QueryInAnXStreamingElementThatIsWritten"] = ["SF1001"],
+            ["SequenceOfThisCompilationInTheContentOfAnXElement"] = ["SF1005"],
+            ["SetInitializerWhoseEqualsReadsTheOther"] = ["SF1004"],
+            ["ListLastIndexOfOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["SetRemoveOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["DictionaryRemoveOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["DictionaryReadOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["TupleCompareToOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["DictionaryAddOfAKeyOwnStateWhereTheReceiverIsPending"] = ["SF1005"],
+            ["ChangeAndReadThroughAForeachVariable"] = ["SF1001"],
+            ["ChangeThroughALocalThatGetsItsOwnElement"] = ["SF1001"],
+            ["SpanContainsAPlainValueWhereTheElementIsPending"] = ["SF1004"],
+            ["QueryInAnArrayThatIsTheContentOfAnXDocument"] = ["SF1001"],
+            ["PriorityQueueOfTwoComparesThePriorities"] = ["SF1005"],
+            ["AssignmentByIndexThroughALocalThatGetsItsOwnElement"] = ["SF1001"],
+            ["AssignmentByIndexThroughTwoLocalsThatOwnEachOther"] = ["SF1001"],
+            ["PendingValueThatAnIndexerOfThisCompilationKeeps"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

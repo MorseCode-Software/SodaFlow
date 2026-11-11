@@ -5531,6 +5531,178 @@ public static class Shapes
     public static Cell<int> FieldListContainsAPendingValueOwnState() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(StoredOwns.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
 
+    // S1070. An object given to AddFirst of an XElement.
+    public static Cell<int> ObjectGivenToAddFirstOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.AddFirst(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S1071. An object given to ReplaceNodes.
+    public static Cell<int> ObjectGivenToReplaceNodesOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.ReplaceNodes(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S1072. An object given to ReplaceAll.
+    public static Cell<int> ObjectGivenToReplaceAllOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XElement e = new("a"); e.ReplaceAll(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S1073. An object given to SetValue of an XAttribute.
+    public static Cell<int> ObjectGivenToSetValueOfAnXAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XAttribute a = new("a", 1); a.SetValue(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S1074. WriteTo of an XStreamingElement enumerates the content that it kept.
+    public static Cell<int> QueryInAnXStreamingElementThatIsWritten() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using System.Xml.XmlWriter writer = System.Xml.XmlWriter.Create(new StringBuilder()); new XStreamingElement("a", Numbers.Select(x => x + l.Sample())).WriteTo(writer); return S.Hold(0); });
+
+    // S1075. A sequence of this compilation in the content of an XElement.
+    public static Cell<int> SequenceOfThisCompilationInTheContentOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", new TallyBag(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1076. OrderBy of an array with one element compares nothing.
+    public static Cell<int> OrderByOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(one.OrderBy(x => x).Count()); });
+
+    // S1077. OrderByDescending.
+    public static Cell<int> OrderByDescendingOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(one.OrderByDescending(x => x).Count()); });
+
+    // S1078. OrderDescending.
+    public static Cell<int> OrderDescendingOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(one.OrderDescending().Count()); });
+
+    // S1079. Min.
+    public static Cell<int> MinOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(one.Min()!); return S.Hold(0); });
+
+    // S1080. MinBy.
+    public static Cell<int> MinByOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(one.MinBy(x => x)!); return S.Hold(0); });
+
+    // S1081. MaxBy.
+    public static Cell<int> MaxByOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(one.MaxBy(x => x)!); return S.Hold(0); });
+
+    // S1082. DistinctBy.
+    public static Cell<int> DistinctByOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.DistinctBy(x => x).Count()); });
+
+    // S1083. GroupBy.
+    public static Cell<int> GroupByOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.GroupBy(x => x).Count()); });
+
+    // S1084. ToDictionary.
+    public static Cell<int> ToDictionaryOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.ToDictionary(x => x).Count); });
+
+    // S1085. ToHashSet.
+    public static Cell<int> ToHashSetOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.ToHashSet().Count); });
+
+    // S1086. ToLookup.
+    public static Cell<int> ToLookupOfAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; return S.Hold(one.ToLookup(x => x).Count); });
+
+    // S1087. The constructor of a SortedSet gets an array with one element.
+    public static Cell<int> SortedSetFromAnArrayOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(new SortedSet<Ranked>(one).Count); });
+
+    // S1088. An initializer gives a set two objects whose Equals reads only the object that it gets. The second one is pending.
+    public static Cell<int> SetInitializerWhoseEqualsReadsTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikePeer> set = new() { new AlikePeer(Plain), new AlikePeer(l.Map(v => v)) }; return S.Hold(set.Count); });
+
+    // S1089. List.LastIndexOf. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> ListLastIndexOfOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(Plain)]; return S.Hold(all.LastIndexOf(new AlikeOwn(l.Map(v => v)))); });
+
+    // S1090. The same call, where the object that gets the call is pending.
+    public static Cell<int> ListLastIndexOfOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; return S.Hold(all.LastIndexOf(new AlikeOwn(Plain))); });
+
+    // S1091. HashSet.Remove. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> SetRemoveOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(Plain)]; Kept.Add(set.Remove(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1092. The same call, where the object that gets the call is pending.
+    public static Cell<int> SetRemoveOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<AlikeOwn> set = [new AlikeOwn(l.Map(v => v))]; Kept.Add(set.Remove(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1093. Dictionary.Remove. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryRemoveOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; Kept.Add(d.Remove(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1094. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryRemoveOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; Kept.Add(d.Remove(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1095. A read by index of a dictionary. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryReadOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; return S.Hold(d[new AlikeOwn(l.Map(v => v))]); });
+
+    // S1096. The same call, where the object that gets the call is pending.
+    public static Cell<int> DictionaryReadOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; return S.Hold(d[new AlikeOwn(Plain)]); });
+
+    // S1097. The CompareTo of a tuple. The object that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> TupleCompareToOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold((new RankedOwn(Plain), 1).CompareTo((new RankedOwn(l.Map(v => v)), 1))); });
+
+    // S1098. The same call, where the object that gets the call is pending.
+    public static Cell<int> TupleCompareToOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold((new RankedOwn(l.Map(v => v)), 1).CompareTo((new RankedOwn(Plain), 1))); });
+
+    // S1099. Dictionary.Add of a key that is equal to the key that the dictionary has. The key that gets the call is plain, and its member reads only its own object.
+    public static Cell<int> DictionaryAddOfAKeyOwnStateWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(Plain), 1 } }; try { d.Add(new AlikeOwn(l.Map(v => v)), 2); } catch (ArgumentException) { } return S.Hold(d.Count); });
+
+    // S1100. The same call, where the key that gets the call is pending.
+    public static Cell<int> DictionaryAddOfAKeyOwnStateWhereTheReceiverIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<AlikeOwn, int> d = new() { { new AlikeOwn(l.Map(v => v)), 1 } }; try { d.Add(new AlikeOwn(Plain), 2); } catch (ArgumentException) { } return S.Hold(d.Count); });
+
+    // S1101. A method of this compilation makes a new list, and does not give one of the lists that its owner has.
+    public static Cell<int> ChangeThroughTheResultOfAMethodOfThisCompilation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; rows.Fresh().Add(l.Map(v => v)); return S.Hold(rows[0].Count == 0 ? Plain.Sample() : rows[0][0].Sample()); });
+
+    // S1102. The variable of a foreach gets the change itself also. The read is through that variable.
+    public static Cell<int> ChangeAndReadThroughAForeachVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Cell<int>>> rows = [new(), new()]; foreach (List<Cell<int>> row in rows) { row.Add(l.Map(v => v)); return S.Hold(row[0].Sample()); } return S.Hold(0); });
+
+    // S1103. A local gets an element of its own collection, and then names its own owner.
+    public static Cell<int> ChangeThroughALocalThatGetsItsOwnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> list = [new List<object>()]; list = (List<object>)list[0]; list.Add(l.Map(v => v)); return S.Hold(((Cell<int>)list[0]).Sample()); });
+
+    // S1104. Contains of a span gives the call to the value, which reads the element that the span has.
+    public static Cell<int> SpanContainsAPlainValueWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Equatable[] all = [new(l.Map(v => v))]; Kept.Add(((ReadOnlySpan<Equatable>)all).Contains(new Equatable(Plain))); return S.Hold(0); });
+
+    // S1105. The content of an XDocument is an array that has a query.
+    public static Cell<int> QueryInAnArrayThatIsTheContentOfAnXDocument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XDocument(new object[] { new XElement("r"), Numbers.Select(x => x + l.Sample()).Select(n => new XComment(n.ToString())) })); return S.Hold(0); });
+
+    // S1106. The constructor of a PriorityQueue gets one pair, and compares nothing. Enqueue gives the call to the priority that it gets, which is plain.
+    public static Cell<int> PriorityQueueOfOneThenEnqueueOfAPlainPriority() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (int, RankedOwn)[] one = [(1, new RankedOwn(l.Map(v => v)))]; PriorityQueue<int, RankedOwn> queue = new(one); queue.Enqueue(2, new RankedOwn(Plain)); return S.Hold(queue.Count); });
+
+    // S1107. The constructor of a PriorityQueue gets two pairs, and compares their priorities.
+    public static Cell<int> PriorityQueueOfTwoComparesThePriorities() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (int, RankedOwn)[] two = [(1, new RankedOwn(l.Map(v => v))), (2, new RankedOwn(Plain))]; PriorityQueue<int, RankedOwn> queue = new(two); return S.Hold(queue.Count); });
+
+    // S1108. A local names itself as its owner, and an assignment by index goes up to each owner.
+    public static Cell<int> AssignmentByIndexThroughALocalThatGetsItsOwnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> list = [new List<object> { 0 }]; list = (List<object>)list[0]; list[0] = l.Map(v => v); return S.Hold(((Cell<int>)list[0]).Sample()); });
+
+    // S1109. Each of two locals has an element of the other one, and an assignment by index goes up to each owner.
+    public static Cell<int> AssignmentByIndexThroughTwoLocalsThatOwnEachOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> first = [new List<object> { new List<object> { 0 } }]; List<object> second = (List<object>)first[0]; first = (List<object>)second[0]; first[0] = l.Map(v => v); return S.Hold(((Cell<int>)first[0]).Sample()); });
+
+    // S1110. An indexer of this compilation does not keep its index. The list has only the value.
+    public static Cell<int> PendingIndexThatAnIndexerOfThisCompilationDoesNotKeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Pile pile = new(); pile[l.Map(v => v)] = Plain; return S.Hold(pile[0].Sample()); });
+
+    // S1111. The same indexer keeps a pending value.
+    public static Cell<int> PendingValueThatAnIndexerOfThisCompilationKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Pile pile = new(); pile[Plain] = l.Map(v => v); return S.Hold(pile[0].Sample()); });
+
+    // S1112. The same indexer in an initializer.
+    public static Cell<int> PendingIndexInAnInitializerThatAnIndexerOfThisCompilationDoesNotKeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Pile pile = new() { [l.Map(v => v)] = Plain }; return S.Hold(pile[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -6652,6 +6824,14 @@ public static class Shapes
         public int CompareTo(RankedOwn? other) => share.Sample().CompareTo(0);
     }
 
+    public sealed class Pile : List<Cell<int>>
+    {
+        public Cell<int> this[Cell<int> at]
+        {
+            set => this.Add(value);
+        }
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -6660,6 +6840,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static T Fresh<T>(this List<T> all)
+        where T : new() =>
+        all.Count < 0 ? all[0] : new T();
+
     public static int Count(this List<Shapes.Marked> all)
     {
         all.Reverse();
