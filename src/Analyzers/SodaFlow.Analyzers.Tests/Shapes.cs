@@ -4190,6 +4190,66 @@ public static class Shapes
     public static Cell<int> PlainElementOfATupleInAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<(Titled N, int I)> all = [(new Titled(l.Map(v => v)), 1)]; Kept.Add(all[0].I.ToString()); return S.Hold(0); });
 
+    // S735. A property pattern reads a property whose getter is an iterator. The block keeps the result.
+    public static Cell<int> IteratorPropertyByAPatternKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: var v }) { Kept.Add(v); } return S.Hold(0); });
+
+    // S736. The block enumerates the variable of the pattern.
+    public static Cell<int> IteratorPropertyByAPatternThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: var v }) { return S.Hold(v.Count()); } return S.Hold(0); });
+
+    // S737. A foreach enumerates the variable of the pattern.
+    public static Cell<int> IteratorPropertyByAPatternInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: var v }) { foreach (int x in v) { Kept.Add(x); } } return S.Hold(0); });
+
+    // S738. The condition of the same statement enumerates the variable.
+    public static Cell<int> IteratorPropertyByAPatternThenAnyInTheCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: var v } && v.Any()) { Kept.Add(1); } return S.Hold(0); });
+
+    // S739. The variable kept, and then enumerated.
+    public static Cell<int> IteratorPropertyByAPatternKeptThenEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: var v }) { Kept.Add(v); return S.Hold(string.Join(",", v).Length); } return S.Hold(0); });
+
+    // S740. A pattern that only tests the property for null enumerates nothing.
+    public static Cell<int> IteratorPropertyByAPatternThatTestsForNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Values: not null }) { Kept.Add(1); } return S.Hold(0); });
+
+    // S741. The pattern of a switch expression, and the block keeps the result.
+    public static Cell<int> IteratorPropertyByASwitchExpressionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r switch { { Values: var x } => x }; Kept.Add(v); return S.Hold(0); });
+
+    // S742. The same, and the block enumerates the result.
+    public static Cell<int> IteratorPropertyByASwitchExpressionThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r switch { { Values: var x } => x }; return S.Hold(v.Count()); return S.Hold(0); });
+
+    // S743. The property of a member of the object, kept.
+    public static Cell<int> IteratorPropertyOfAMemberByAPatternKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { YielderHolder h = new(new Yielder(l.Map(v => v))); if (h is { Inner.Values: var v }) { Kept.Add(v); } return S.Hold(0); });
+
+    // S744. The same, enumerated.
+    public static Cell<int> IteratorPropertyOfAMemberByAPatternThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { YielderHolder h = new(new Yielder(l.Map(v => v))); if (h is { Inner.Values: var v }) { return S.Hold(v.Count()); } return S.Hold(0); });
+
+    // S745. A property that is an enumerator, read by a pattern and kept.
+    public static Cell<int> EnumeratorPropertyByAPatternKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Steps: var e }) { Kept.Add(e); } return S.Hold(0); });
+
+    // S746. MoveNext of that enumerator runs the getter.
+    public static Cell<int> EnumeratorPropertyByAPatternMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Steps: var e }) { e.MoveNext(); return S.Hold(e.Current); } return S.Hold(0); });
+
+    // S747. A getter with code and no yield runs at the pattern.
+    public static Cell<int> GetterWithCodeByAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); if (r is { Now: var n }) { Kept.Add(n); } return S.Hold(0); });
+
+    // S748. A method reads the property by a pattern and gives the result back. The block keeps it.
+    public static Cell<int> IteratorPropertyByAPatternInAHelperKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(ValuesByAPattern(r)); return S.Hold(0); });
+
+    // S749. The same, and the block enumerates it.
+    public static Cell<int> IteratorPropertyByAPatternInAHelperThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(ValuesByAPattern(r).Count()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4974,6 +5034,13 @@ public static class Shapes
 
         public override string ToString() => this.Share!.Sample().ToString();
     }
+
+    public sealed class YielderHolder(Yielder inner)
+    {
+        public Yielder Inner => inner;
+    }
+
+    private static IEnumerable<int> ValuesByAPattern(Yielder r) => r is { Values: var v } ? v : [];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

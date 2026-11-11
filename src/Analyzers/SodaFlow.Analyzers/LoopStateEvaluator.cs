@@ -125,6 +125,20 @@ internal sealed class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     Records a query for a read that has no expression of its own, and
+    ///     gives the state with that query. A property pattern reads a property
+    ///     whose getter is an iterator so.
+    /// </summary>
+    /// <param name="read">The node that makes the query. The walk reads the getter through it.</param>
+    /// <param name="state">The state of what the getter returns.</param>
+    public LoopState Waiting(SyntaxNode read, LoopState state)
+    {
+        this.Wait(read);
+
+        return state.WithQuery(this.QueryAt(read));
+    }
+
     /// <summary>The query that a call or a query expression of this code makes.</summary>
     private QueryValue QueryAt(SyntaxNode call)
     {

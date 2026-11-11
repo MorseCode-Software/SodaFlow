@@ -530,7 +530,16 @@ internal sealed class LoopReadAnalyzerTests
             ["GetHashCodeOfATupleThroughObject"] = ["SF1005"],
             ["CompareToOfATuple"] = ["SF1004", "SF1005"],
             ["CompareToOfATupleThroughAnInterface"] = ["SF1004", "SF1005"],
-            ["PendingElementOfATupleInAList"] = ["SF1005"]
+            ["PendingElementOfATupleInAList"] = ["SF1005"],
+            ["IteratorPropertyByAPatternThenCount"] = ["SF1005"],
+            ["IteratorPropertyByAPatternInAForeach"] = ["SF1005"],
+            ["IteratorPropertyByAPatternThenAnyInTheCondition"] = ["SF1005"],
+            ["IteratorPropertyByAPatternKeptThenEnumerated"] = ["SF1005"],
+            ["IteratorPropertyByASwitchExpressionThenCount"] = ["SF1005"],
+            ["IteratorPropertyOfAMemberByAPatternThenCount"] = ["SF1005"],
+            ["EnumeratorPropertyByAPatternMoved"] = ["SF1005"],
+            ["GetterWithCodeByAPattern"] = ["SF1005"],
+            ["IteratorPropertyByAPatternInAHelperThenCount"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

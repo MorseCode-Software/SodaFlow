@@ -433,6 +433,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             else if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
                      && this.evaluator.FollowPatternMember(name: name, owner: owner) is { } getter)
             {
+                // The getter of an iterator runs nothing at the pattern. The walk reports what it
+                // found where something enumerates the result.
+                if (LoopStateEvaluator.IsIteratorProperty(property))
+                {
+                    return this.evaluator.Waiting(read: name, state: getter.State);
+                }
+
                 this.Report(getter);
 
                 return getter.State;
