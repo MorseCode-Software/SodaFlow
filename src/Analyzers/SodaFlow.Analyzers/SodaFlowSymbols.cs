@@ -81,6 +81,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
+    private readonly Lazy<bool> declaresCompare;
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
@@ -118,8 +119,14 @@ internal sealed class SodaFlowSymbols
                 | (declaresGetHashCode.Value ? PlatformCallbacks.Hash : PlatformCallbacks.None)
                 | (this.declaresToString.Value ? PlatformCallbacks.Text : PlatformCallbacks.None));
 
+        // Compare of a comparer, which a collection of the platform that keeps the comparer calls.
+        this.declaresCompare = Declares(compilation: compilation, name: "Compare");
+
         this.declaresPlatformMembers =
-            new Lazy<bool>(() => this.DeclaresEnumerators || this.DeclaredCallbacks != PlatformCallbacks.None);
+            new Lazy<bool>(() =>
+                this.DeclaresEnumerators
+                || this.DeclaredCallbacks != PlatformCallbacks.None
+                || this.declaresCompare.Value);
 
         this.declaresOperators =
             new Lazy<bool>(() =>
@@ -205,9 +212,11 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True when the compilation declares a member that a collection of the
-    ///     platform calls on an element or a key.
+    ///     platform calls. The collection calls it on an element, on a key, or on
+    ///     a comparer that it keeps.
     /// </summary>
-    public bool DeclaresKeyMembers => (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None;
+    public bool DeclaresKeyMembers =>
+        (this.DeclaredCallbacks & ~PlatformCallbacks.Text) != PlatformCallbacks.None || this.declaresCompare.Value;
 
     /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
     public IMethodSymbol? ObjectToString { get; }
@@ -380,6 +389,60 @@ internal sealed class SodaFlowSymbols
     ///     a sequence, or an enumerator that the callee moves.
     /// </summary>
     public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
+
+    /// <summary>
+    ///     True for <c>Exchange</c> and <c>CompareExchange</c> of
+    ///     <c>Interlocked</c>. The result is the value that the location had, and
+    ///     not one of the values that the callee got.
+    /// </summary>
+    public static bool IsExchange(IMethodSymbol definition) =>
+        definition is { Name: "Exchange" or "CompareExchange", ContainingType: { Name: "Interlocked" } owner }
+        && owner.ContainingNamespace?.ToDisplayString() == "System.Threading";
+
+    /// <summary>
+    ///     True for a method of a serializer that writes a value. Such a method
+    ///     enumerates each sequence in the value, and reads the public properties
+    ///     of each object in it. The rows are <c>JsonSerializer</c> of
+    ///     <c>System.Text.Json</c>, <c>JsonConvert</c> and <c>JsonSerializer</c>
+    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>.
+    /// </summary>
+    public static bool IsSerializer(IMethodSymbol definition) =>
+        definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal)
+        && definition.ContainingType is { } owner
+        && (owner.Name, owner.ContainingNamespace?.ToDisplayString())
+            is ("JsonSerializer", "System.Text.Json")
+            or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
+            or ("XmlSerializer", "System.Xml.Serialization");
+
+    /// <summary>
+    ///     True for a serializer that writes the public fields of an object, and
+    ///     thus the elements of a tuple. <c>System.Text.Json</c> writes only
+    ///     properties, unless an option says differently.
+    /// </summary>
+    public static bool WritesFields(IMethodSymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() != "System.Text.Json";
+
+    /// <summary>
+    ///     True for a property that the serializer reads. It is public, it is
+    ///     not an indexer, and it has no attribute that tells a serializer to
+    ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
+    ///     set.
+    /// </summary>
+    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer) =>
+        property is
+        {
+            IsStatic: false,
+            IsIndexer: false,
+            DeclaredAccessibility: Accessibility.Public,
+            GetMethod.DeclaredAccessibility: Accessibility.Public
+        }
+        && (serializer.ContainingType?.Name != "XmlSerializer"
+            || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
+        && !property.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
+                // A condition on JsonIgnore reads the value before it decides.
+                && attribute.NamedArguments.IsEmpty);
 
     /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in

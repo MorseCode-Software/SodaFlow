@@ -151,6 +151,13 @@ internal sealed class LoopStateEvaluator
             _ => false
         };
 
+    /// <summary>
+    ///     True for a property whose getter is an iterator. A read of such a
+    ///     property runs nothing, as a call of an iterator method runs nothing.
+    /// </summary>
+    public static bool IsIteratorProperty(IPropertySymbol property) =>
+        property.OriginalDefinition.GetMethod is { } getter && IsIterator(getter);
+
     private static bool IsIterator(IMethodSymbol definition) =>
         SodaFlowSymbols.IsEnumerated(definition.ReturnType)
         && BodyOf(definition) is BlockSyntax block
@@ -207,8 +214,14 @@ internal sealed class LoopStateEvaluator
             && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
         {
+            // A parameter starts with the state of its argument, which has the type of the object.
+            // The callee gives this state back, and the object of the caller keeps its type.
             LoopState known =
-                this.locals.TryGetValue(key: holder, value: out LoopState? existing) ? existing : LoopState.None;
+                this.locals.TryGetValue(key: holder, value: out LoopState? existing)
+                    ? existing
+                    : this.bound.TryGetValue(key: holder, value: out LoopState? given)
+                        ? given
+                        : LoopState.None;
 
             this.locals[holder] =
                 known.WithMembers((known.Members ?? Construction.Empty).With(member: member, state: state));
@@ -231,15 +244,20 @@ internal sealed class LoopStateEvaluator
     ///     Adds a state to what a name holds, for a value that a call puts into
     ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
     /// </summary>
-    public void Absorb(ExpressionSyntax target, LoopState state)
+    public void Absorb(ExpressionSyntax target, LoopState state) =>
+        // The object contains the value. It is not the value.
+        this.Merge(target: target, state: state.AsContainer);
+
+    /// <summary>
+    ///     Adds a state to what a name holds, as it is. A callee that put a
+    ///     value into the object of a parameter gives that state to the argument.
+    /// </summary>
+    public void Merge(ExpressionSyntax target, LoopState state)
     {
         if (state.IsNone)
         {
             return;
         }
-
-        // The object contains the value. It is not the value.
-        state = state.AsContainer;
 
         switch (this.region.SymbolOf(target))
         {
@@ -411,7 +429,8 @@ internal sealed class LoopStateEvaluator
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
-                : this.Eval(e.Expression).AsElement.Join(this.TypeState(expression)),
+                : ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
+                    .Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
@@ -479,6 +498,20 @@ internal sealed class LoopStateEvaluator
         return LoopState.None.WithMembers(properties);
     }
 
+    /// <summary>
+    ///     The state of one element of a collection. An element is one of the
+    ///     objects that the collection contains. An element of a list of lists is
+    ///     a list, which contains them also. The type of the element tells the
+    ///     two apart. It is a sequence, and the objects that have the members
+    ///     cannot be a value of it.
+    /// </summary>
+    /// <param name="collection">The state of the collection.</param>
+    /// <param name="type">The type of the element.</param>
+    public static LoopState ElementOf(LoopState collection, ITypeSymbol? type) =>
+        SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
+            ? collection
+            : collection.AsElement;
+
     private LoopState EvalName(ExpressionSyntax expression)
     {
         ISymbol? symbol = this.region.SymbolOf(expression);
@@ -523,7 +556,10 @@ internal sealed class LoopStateEvaluator
                     if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
                         && this.Follow(expression) is { } getter)
                     {
-                        return getter.State.Join(this.TypeState(expression));
+                        LoopState got = getter.State.Join(this.TypeState(expression));
+
+                        // The getter of an iterator runs when something enumerates the result.
+                        return IsIteratorProperty(property) ? got.WithQuery(this.QueryAt(expression)) : got;
                     }
 
                     // A property of the library that reads the current value gives the value that
@@ -577,10 +613,10 @@ internal sealed class LoopStateEvaluator
                     // wherever the object came from: a local, a hold, or a lambda parameter. The
                     // code can read the member through an interface of the object. A tuple with
                     // no state for the element is a tuple that the evaluator did not see made.
-                    // A pair, a task, or an enumerator of the platform has the members of the
-                    // object that it contains. Its own property is not one of them.
+                    // A pair, a task, a nullable, or an enumerator of the platform has the members
+                    // of the object that it contains. Its own property is not one of them.
                     if (owner.Members != null
-                        && owner.Members.CanBe(symbol.ContainingType)
+                        && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
                         return owner.Members.StateOf(owner.Members.Resolve(symbol))
@@ -1029,6 +1065,39 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The location of an exchange and the value that the callee puts
+    ///     there, or null when the call is not an exchange.
+    /// </summary>
+    public static (ExpressionSyntax Location, ExpressionSyntax Value)? ExchangeOf(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol definition)
+    {
+        if (!SodaFlowSymbols.IsExchange(definition))
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        ExpressionSyntax? location = null;
+        ExpressionSyntax? value = null;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            switch (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i)?.Ordinal)
+            {
+                case 0:
+                    location = arguments[i].Expression;
+                    break;
+                case 1:
+                    value = arguments[i].Expression;
+                    break;
+            }
+        }
+
+        return location != null && value != null ? (location, value) : null;
+    }
+
+    /// <summary>
     ///     The result of a call to code that cannot know the library, where the
     ///     type of the result can hold a state. The result has the state of the
     ///     values that the callee got, and of what a lambda that it runs returns.
@@ -1048,6 +1117,11 @@ internal sealed class LoopStateEvaluator
             || SodaFlowSymbols.IsReflection(definition))
         {
             return LoopState.None;
+        }
+
+        if (ExchangeOf(invocation: invocation, definition: definition) is { } exchange)
+        {
+            return this.Eval(exchange.Location);
         }
 
         LoopState moved = this.Moved(invocation: invocation, method: method, withReceiver: true);
@@ -1905,6 +1979,7 @@ internal sealed class LoopStateEvaluator
         return this.FollowPlatform(
             method: method,
             operands: operands,
+            keeper: method.ReducedFrom == null ? receiver : null,
             also: LoopState.None,
             given: () => this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement,
             returned: () => this.Follow(invocation)?.State ?? LoopState.None);
@@ -1927,6 +2002,7 @@ internal sealed class LoopStateEvaluator
                                 ?.Type,
                             isReceiver: false))
                 ],
+                keeper: null,
                 also: LoopState.None,
                 given: null,
                 returned: null)
@@ -1964,6 +2040,7 @@ internal sealed class LoopStateEvaluator
                         parameter: position < parameters.Length ? parameters[position].Type : null,
                         isReceiver: false))
             ],
+            keeper: collection,
             also: this.Eval(collection),
             given: null,
             returned: null);
@@ -2052,6 +2129,7 @@ internal sealed class LoopStateEvaluator
     private Followed? FollowPlatform(
         IMethodSymbol method,
         IReadOnlyCollection<Operand> operands,
+        ExpressionSyntax? keeper,
         LoopState also,
         Func<LoopState>? given,
         Func<LoopState>? returned)
@@ -2064,6 +2142,8 @@ internal sealed class LoopStateEvaluator
                     seed: (Followed?)null,
                     func: (followed, operand) =>
                         Both(first: followed, second: this.FollowEnumeration(operand.Written)));
+
+        all = Both(first: all, second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
 
         PlatformCallbacks callbacks = PlatformCallers.Of(method) & this.region.Symbols.DeclaredCallbacks;
 
@@ -2160,6 +2240,67 @@ internal sealed class LoopStateEvaluator
                                     owner: owner.State,
                                     arguments: member.Parameters.Length == 1 ? one : [])));
             });
+    }
+
+    /// <summary>
+    ///     The calls that a method of the platform makes on a comparer of this
+    ///     compilation which its collection keeps. The constructor of a sorted set
+    ///     keeps the comparer that it gets, and calls nothing. Then, each method
+    ///     of the set that compares calls the comparer. A constructor that gets
+    ///     items and a comparer calls the comparer itself.
+    /// </summary>
+    /// <param name="method">The method of the platform.</param>
+    /// <param name="operands">The values that the method gets.</param>
+    /// <param name="keeper">The collection that the code calls the method on. Null when there is none.</param>
+    private Followed? FollowKeptComparer(
+        IMethodSymbol method,
+        IReadOnlyCollection<Operand> operands,
+        ExpressionSyntax? keeper)
+    {
+        const PlatformCallbacks comparing =
+            PlatformCallbacks.Compare | PlatformCallbacks.Equals | PlatformCallbacks.Hash;
+
+        if ((PlatformCallers.Of(method) & comparing) == PlatformCallbacks.None)
+        {
+            return null;
+        }
+
+        // The collection has the state of the comparer that its constructor got.
+        IEnumerable<ExpressionSyntax> holders =
+            method.MethodKind == MethodKind.Constructor
+                ? operands.Any(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
+                    ? operands
+                        .Where(static operand => SodaFlowSymbols.IsComparer(operand.Parameter))
+                        .Select(static operand => operand.Written)
+                    : []
+                : keeper != null
+                    ? [keeper]
+                    : [];
+
+        Followed? all = null;
+
+        foreach (ExpressionSyntax holder in holders)
+        {
+            if (this.Eval(holder) is not { Members: { HasType: true } members } kept)
+            {
+                continue;
+            }
+
+            all =
+                members.Implementations(SodaFlowSymbols.IsComparerInterface)
+                    .Aggregate(
+                        seed: all,
+                        func: (found, member) =>
+                            Both(
+                                first: found,
+                                second: this.FollowImplied(
+                                    call: holder,
+                                    member: member,
+                                    owner: kept,
+                                    arguments: [])));
+        }
+
+        return all;
     }
 
     /// <summary>
@@ -2590,7 +2731,13 @@ internal sealed class LoopStateEvaluator
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
 
-        foreach (Binding binding in bindings.Where(static binding => binding.Parameter.RefKind != RefKind.None))
+        // A parameter has a state here only when the callee gave it one. For a parameter that is
+        // not ref or out, that is a value that the callee put into the object, as Add does. The
+        // caller has the same object. An assignment to the parameter changes only the local of
+        // the callee, and a struct is a copy.
+        foreach (Binding binding in bindings.Where(binding =>
+                     binding.Parameter.RefKind != RefKind.None
+                     || (!binding.Parameter.Type.IsValueType && !inner.assigned.Contains(binding.Parameter))))
         {
             if (inner.locals.TryGetValue(key: binding.Parameter, value: out LoopState? assigned))
             {

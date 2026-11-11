@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using SodaFlow;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -3766,6 +3770,358 @@ public static class Shapes
     public static Cell<int> MaxOrNoneWithAFunctionThatSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> max = Numbers.MaxOrNone(x => x + l.Sample()); Kept.Add(max); return S.Hold(0); });
 
+    // S630. A tuple in a pair is not the pair. Value gives the tuple, and the tuple has the object.
+    public static Cell<int> ValueOfAPairOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, (Titled N, int I)> p = new("a", (new Titled(l.Map(v => v)), 1)); Kept.Add(p.Value.N.ToString()); return S.Hold(0); });
+
+    // S631. The same for a tuple in a task.
+    public static Cell<int> ResultOfATaskOfATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<(Titled N, int I)> t = Task.FromResult((new Titled(l.Map(v => v)), 1)); Kept.Add(t.Result.N.ToString()); return S.Hold(0); });
+
+    // S632. The other element of that tuple is a number.
+    public static Cell<int> PlainElementOfATupleInAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, (Titled N, int I)> p = new("a", (new Titled(l.Map(v => v)), 1)); Kept.Add(p.Value.I.ToString()); return S.Hold(0); });
+
+    // S633. A tuple is a value of object and of ValueType. A local of such a type keeps the elements.
+    public static Cell<int> TupleKeptAsObjectThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = (new Titled(l.Map(v => v)), 1); ValueType t = (ValueTuple<Titled, int>)o; Kept.Add(((ValueTuple<Titled, int>)t).Item1.ToString()); return S.Hold(0); });
+
+    // S634. A tuple is a value of each interface of its struct.
+    public static Cell<int> TupleKeptAsAnInterfaceThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparable t = (new Titled(l.Map(v => v)), 1); Kept.Add(((ValueTuple<Titled, int>)t).Item1.ToString()); return S.Hold(0); });
+
+    // S635. A nullable tuple holds the tuple. Value is a member of the nullable.
+    public static Cell<int> ValueOfANullableTuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Titled N, int I)? t = (new Titled(l.Map(v => v)), 1); Kept.Add(t.Value.N.ToString()); return S.Hold(0); });
+
+    // S636. The same for a struct of the compilation.
+    public static Cell<int> ValueOfANullableStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledValue? t = new TitledValue(l.Map(v => v)); Kept.Add(t.Value.ToString()); return S.Hold(0); });
+
+    // S637. HasValue of that nullable reads nothing.
+    public static Cell<int> HasValueOfANullableStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledValue? t = new TitledValue(l.Map(v => v)); Kept.Add(t.HasValue); return S.Hold(0); });
+
+    // S638. A pattern reads the tuple in the nullable.
+    public static Cell<int> NullableTupleThroughAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Titled N, int I)? t = (new Titled(l.Map(v => v)), 1); if (t is { N: var n }) { Kept.Add(n.ToString()); } return S.Hold(0); });
+
+    // S639. A method of the compilation adds a value to a list that it gets. The list of the caller has the value.
+    public static Cell<int> HelperAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddTo(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S640. The same for a local function.
+    public static Cell<int> LocalFunctionAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; Put(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); static void Put(List<Cell<int>> cells, Cell<int> one) => cells.Add(one); return S.Hold(0); });
+
+    // S641. The same, and nothing reads the list.
+    public static Cell<int> HelperAddsThenNothingReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddTo(cs, l.Map(v => v)); Kept.Add(cs); return S.Hold(0); });
+
+    // S642. A method sets a property of an object that it gets.
+    public static Cell<int> HelperSetsAMemberOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new(); FillSlot(slot, l.Map(v => v)); int x = slot.Share!.Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S643. A method puts a value into a dictionary that it gets.
+    public static Cell<int> HelperPutsIntoADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cs = []; PutIn(cs, l.Map(v => v)); int x = cs["a"].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S644. A method sets an element of an array that it gets.
+    public static Cell<int> HelperSetsAnArrayElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cs = [Plain]; SetFirst(cs, l.Map(v => v)); int x = cs[0].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S645. An extension method adds to its first parameter.
+    public static Cell<int> ExtensionMethodAddsToItsReceiver() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; cs.AddOne(l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S646. A constructor adds to a list that it gets.
+    public static Cell<int> ConstructorAddsToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; Kept.Add(new Registrar(cs, l.Map(v => v))); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S647. A method that calls the method that adds.
+    public static Cell<int> HelperAddsThroughASecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddToThroughOne(cs, l.Map(v => v)); int x = cs[1].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S648. A method assigns a new list to its parameter, and adds to that list. The list of the caller is the same.
+    public static Cell<int> HelperAddsToAListOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain]; AddToANewList(cs, l.Map(v => v)); int x = cs[0].Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S649. A struct is a copy. A method that sets a property of its copy changes nothing for the caller.
+    public static Cell<int> HelperSetsAMemberOfAStructCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue slot = new() { Share = Plain }; FillCopy(slot, l.Map(v => v)); int x = slot.Share!.Sample(); Kept.Add(x); return S.Hold(0); });
+
+    // S650. An element of a list of lists is a list. ToString of it is the one of the platform.
+    public static Cell<int> ListInAListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S651. The same for the variable of a foreach.
+    public static Cell<int> ForeachInnerListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; foreach (List<Titled> inner in outer) { object o = inner; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
+    // S652. The same for an array of arrays.
+    public static Cell<int> ArrayInAnArrayAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled[][] outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S653. An element of the inner list is one of the objects.
+    public static Cell<int> ElementOfTheInnerList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; Kept.Add(outer[0][0].ToString()); return S.Hold(0); });
+
+    // S654. The same after the inner list was a local of the type object.
+    public static Cell<int> InnerListAsObjectThenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; object o = outer[0]; Kept.Add(((List<Titled>)o)[0].ToString()); return S.Hold(0); });
+
+    // S655. The same through two foreach statements.
+    public static Cell<int> ForeachInnerThenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<List<Titled>> outer = [[new(l.Map(v => v))]]; foreach (List<Titled> inner in outer) { foreach (Titled n in inner) { Kept.Add(n.ToString()); } } return S.Hold(0); });
+
+    // S656. A sequence of the compilation in a list is one of the objects, and it has its own ToString.
+    public static Cell<int> PileInAListAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> piles = [new TitledPile(l.Map(v => v))]; object o = piles[0]; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S657. The same for the variable of a foreach.
+    public static Cell<int> ForeachPileAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> piles = [new TitledPile(l.Map(v => v))]; foreach (IEnumerable<int> pile in piles) { object o = pile; Kept.Add(o.ToString()!); } return S.Hold(0); });
+
+    // S658. Exchange gives back the value that the location had. That value is a plain one here.
+    public static Cell<int> OldValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object old = Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S659. The value that the location had is the pending one.
+    public static Cell<int> OldPendingValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object old = Interlocked.Exchange(ref slot, new Plainly()); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S660. The location has the new value after the exchange.
+    public static Cell<int> SlotAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S661. The same as the first, for a location with a type of the compilation.
+    public static Cell<int> TypedOldValueOfAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled slot = new(Plain); Titled old = Interlocked.Exchange(ref slot, new Titled(l.Map(v => v))); Kept.Add(old.ToString()); return S.Hold(0); });
+
+    // S662. CompareExchange gives back the value that the location had also.
+    public static Cell<int> OldValueOfACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object same = slot; object old = Interlocked.CompareExchange(ref slot, new Titled(l.Map(v => v)), same); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S663. The same, and that value is the pending one.
+    public static Cell<int> OldPendingValueOfACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object same = slot; object old = Interlocked.CompareExchange(ref slot, new Plainly(), same); Kept.Add(old.ToString()!); return S.Hold(0); });
+
+    // S664. After CompareExchange, the location can have the new value.
+    public static Cell<int> SlotAfterACompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object same = slot; Interlocked.CompareExchange(ref slot, new Titled(l.Map(v => v)), same); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S665. After Exchange, the location does not have the old value.
+    public static Cell<int> SlotAfterAnExchangeOfAPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); Interlocked.Exchange(ref slot, new Plainly()); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S666. The arguments of an exchange by name, in a different sequence.
+    public static Cell<int> OldValueOfAnExchangeWithNamedArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Plainly(); object old = Interlocked.Exchange(value: new Titled(l.Map(v => v)), location1: ref slot); Kept.Add(old.ToString()!); Kept.Add(slot); return S.Hold(0); });
+
+    // S667. A property whose getter is an iterator runs nothing at the read. The block keeps the result.
+    public static Cell<int> IteratorPropertyKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Values); return S.Hold(0); });
+
+    // S668. A foreach enumerates the property, and the getter runs.
+    public static Cell<int> IteratorPropertyInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); int n = 0; foreach (int v in r.Values) { n += v; } return S.Hold(n); });
+
+    // S669. ToList enumerates it.
+    public static Cell<int> IteratorPropertyToList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(r.Values.ToList().Count); });
+
+    // S670. A query on the property waits also.
+    public static Cell<int> IteratorPropertyThenSelectKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Values.Select(x => x + 1)); return S.Hold(0); });
+
+    // S671. The property in a local, and then Count.
+    public static Cell<int> IteratorPropertyInALocalThenCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r.Values; return S.Hold(v.Count()); });
+
+    // S672. A method of the object reads the property with no owner, and gives it back.
+    public static Cell<int> IteratorPropertyWithNoOwnerKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Held()); return S.Hold(0); });
+
+    // S673. A method of the object reads the property with no owner, and enumerates it.
+    public static Cell<int> IteratorPropertyWithNoOwnerSum() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); return S.Hold(r.Sum()); });
+
+    // S674. The property through a conditional access, kept.
+    public static Cell<int> IteratorPropertyThroughAConditionKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder? r = new(l.Map(v => v)); Kept.Add(r?.Values!); return S.Hold(0); });
+
+    // S675. The property through a conditional access, enumerated.
+    public static Cell<int> IteratorPropertyThroughAConditionEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder? r = new(l.Map(v => v)); return S.Hold(r?.Values.Count() ?? 0); });
+
+    // S676. A property that is an enumerator, kept.
+    public static Cell<int> EnumeratorPropertyKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Steps); return S.Hold(0); });
+
+    // S677. MoveNext of that enumerator runs the getter.
+    public static Cell<int> EnumeratorPropertyMoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerator<int> e = r.Steps; e.MoveNext(); return S.Hold(e.Current); });
+
+    // S678. A spread enumerates the property.
+    public static Cell<int> IteratorPropertySpread() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); int[] all = [.. r.Values]; return S.Hold(all.Length); });
+
+    // S679. The property kept, and then enumerated.
+    public static Cell<int> IteratorPropertyKeptThenEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); IEnumerable<int> v = r.Values; Kept.Add(v); return S.Hold(string.Join(",", v).Length); });
+
+    // S680. A getter with code and no yield runs at the read.
+    public static Cell<int> GetterWithCodeThatReturnsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Yielder r = new(l.Map(v => v)); Kept.Add(r.Now); return S.Hold(0); });
+
+    // S681. A serializer enumerates a query that it gets.
+    public static Cell<int> QuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize(q)); return S.Hold(0); });
+
+    // S682. The same for a query given as an object.
+    public static Cell<int> QuerySerializedAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize<object>(q)); return S.Hold(0); });
+
+    // S683. The same for a query in an anonymous object.
+    public static Cell<int> QueryInAnAnonymousObjectSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize(new { Values = q })); return S.Hold(0); });
+
+    // S684. A serializer calls each public getter of an object.
+    public static Cell<int> ObjectWithAGetterThatReadsSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S685. The getters of this object read nothing.
+    public static Cell<int> ObjectWithAPlainGetterSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialPlainRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S686. A serializer does not call a getter that has JsonIgnore, or one that is not public.
+    public static Cell<int> ObjectWithIgnoredGettersSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialIgnoredRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S687. JsonIgnore with a condition reads the value before it decides.
+    public static Cell<int> ObjectWithAConditionOnJsonIgnoreSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialConditionRow row = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S688. A serializer writes an object that a getter gives, and calls the getters of that object.
+    public static Cell<int> ObjectInAnObjectSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialOuter outer = new(new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.Serialize(outer)); return S.Hold(0); });
+
+    // S689. A serializer writes each element of a list.
+    public static Cell<int> ListOfObjectsSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SerialRow> rows = [new(l.Map(v => v))]; Kept.Add(JsonSerializer.Serialize(rows)); return S.Hold(0); });
+
+    // S690. A getter gives a query, and the serializer enumerates it.
+    public static Cell<int> ObjectWithAGetterThatGivesAQuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); SerialQueryRow row = new(q); Kept.Add(JsonSerializer.Serialize(row)); return S.Hold(0); });
+
+    // S691. An object keeps a query that no property gives. The serializer does not get it.
+    public static Cell<int> ObjectWithAQueryThatNoGetterGivesSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); QueryHolder holder = new(q); Kept.Add(JsonSerializer.Serialize(holder)); return S.Hold(0); });
+
+    // S692. System.Text.Json does not write the fields of a tuple.
+    public static Cell<int> TupleOfAQuerySerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(JsonSerializer.Serialize((q, 1))); return S.Hold(0); });
+
+    // S693. JsonConvert of Newtonsoft.Json enumerates a query.
+    public static Cell<int> QuerySerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(q)); return S.Hold(0); });
+
+    // S694. JsonConvert calls each public getter of an object.
+    public static Cell<int> ObjectSerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialRow row = new(l.Map(v => v)); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(row)); return S.Hold(0); });
+
+    // S695. JsonConvert writes the fields of a tuple.
+    public static Cell<int> TupleOfAQuerySerializedByJsonConvert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Numbers.Select(x => x + l.Sample()); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject((q, 1))); return S.Hold(0); });
+
+    // S696. XmlSerializer calls the getter of a property that it can set.
+    public static Cell<int> ObjectSerializedByXmlSerializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XmlRow row = new(l.Map(v => v)); new XmlSerializer(typeof(XmlRow)).Serialize(TextWriter.Null, row); return S.Hold(0); });
+
+    // S697. XmlSerializer does not write a property with no setter.
+    public static Cell<int> ObjectWithNoSetterSerializedByXmlSerializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { XmlFixedRow row = new(l.Map(v => v)); new XmlSerializer(typeof(XmlFixedRow)).Serialize(TextWriter.Null, row); return S.Hold(0); });
+
+    // S698. A sorted set keeps the comparer that its constructor gets. The second Add calls it.
+    public static Cell<int> ComparerKeptBySortedSetThenTwoAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); set.Add(1); set.Add(2); return S.Hold(set.Count); });
+
+    // S699. The constructor keeps the comparer and calls nothing.
+    public static Cell<int> ComparerKeptBySortedSetOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); Kept.Add(set); return S.Hold(set.Count); });
+
+    // S700. The same for the indexer of a sorted dictionary.
+    public static Cell<int> ComparerKeptBySortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<int, int> d = new(new ReadingComparer(l.Map(v => v))); d[1] = 1; d[2] = 2; return S.Hold(d.Count); });
+
+    // S701. A dictionary keeps an equality comparer. The indexer calls GetHashCode of it.
+    public static Cell<int> EqualityKeptByDictionaryThenSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> d = new(new ReadingEquality(l.Map(v => v))); d[1] = 1; return S.Hold(d.Count); });
+
+    // S702. The constructor of a hash set keeps the equality comparer and calls nothing.
+    public static Cell<int> EqualityKeptByHashSetOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> set = new(new ReadingEquality(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S703. A constructor that gets items and a comparer calls the comparer.
+    public static Cell<int> ComparerAndItemsInTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(Numbers, new ReadingComparer(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S704. Clear and Max of the set call nothing.
+    public static Cell<int> ComparerKeptThenClearAndMax() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))); set.Clear(); return S.Hold(set.Max); });
+
+    // S705. A collection initializer calls Add, and Add calls the comparer.
+    public static Cell<int> ComparerKeptThenACollectionInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new ReadingComparer(l.Map(v => v))) { 1, 2 }; return S.Hold(set.Count); });
+
+    // S706. An initializer with an index calls the indexer.
+    public static Cell<int> EqualityKeptThenAnInitializerWithAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> d = new(new ReadingEquality(l.Map(v => v))) { [1] = 1 }; return S.Hold(d.Count); });
+
+    // S707. A priority queue keeps a comparer for its priorities. The second Enqueue calls it.
+    public static Cell<int> ComparerKeptByAPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.Enqueue(1, 1); queue.Enqueue(2, 2); return S.Hold(queue.Count); });
+
+    // S708. EnqueueDequeue on a queue with one element calls the comparer.
+    public static Cell<int> ComparerKeptByAPriorityQueueThenEnqueueDequeue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.Enqueue(1, 1); return S.Hold(queue.EnqueueDequeue(2, 2)); });
+
+    // S709. EnqueueRange calls the comparer.
+    public static Cell<int> ComparerKeptByAPriorityQueueThenEnqueueRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new(new ReadingComparer(l.Map(v => v))); queue.EnqueueRange([(1, 1), (2, 2)]); return S.Hold(queue.Count); });
+
+    // S710. The constructor of a priority queue that gets items and a comparer calls the comparer.
+    public static Cell<int> ComparerAndItemsInTheConstructorOfAPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> queue = new([(1, 1), (2, 2)], new ReadingComparer(l.Map(v => v))); return S.Hold(queue.Count); });
+
+    // S711. A priority queue with no comparer calls CompareTo of its priorities.
+    public static Cell<int> PrioritiesOfAPriorityQueueCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, Ranked> queue = new(); queue.Enqueue(1, new Ranked(l.Map(v => v))); queue.Enqueue(2, new Ranked(Plain)); return S.Hold(queue.Count); });
+
+    // S712. A priority queue does not compare its elements.
+    public static Cell<int> ElementsOfAPriorityQueueNotCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<Ranked, int> queue = new(); queue.Enqueue(new Ranked(l.Map(v => v)), 1); queue.Enqueue(new Ranked(Plain), 2); return S.Hold(queue.Count); });
+
+    // S713. A sorted set of objects with a comparer calls the comparer, and not CompareTo of the objects.
+    public static Cell<int> ComparerKeptBySortedSetOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = new(new RankedByOffset(l.Map(v => v))); set.Add(new Ranked(Plain)); set.Add(new Ranked(Plain)); return S.Hold(set.Count); });
+
+    // S714. An object that a method filled is not a container. In a local of the type object, it is the object.
+    public static Cell<int> ToStringOfAnObjectFilledByAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TitledSlot slot = new(l.Map(v => v)); FillTitled(slot, l.Map(v => v)); object o = slot; Kept.Add(o.ToString()!); return S.Hold(0); });
+
+    // S715. CompareExchange with a comparand that is a different object leaves the old value in the location.
+    public static Cell<int> SlotAfterACompareExchangeThatDoesNotExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object slot = new Titled(l.Map(v => v)); object other = new Plainly(); Interlocked.CompareExchange(ref slot, new Plainly(), other); Kept.Add(slot.ToString()!); return S.Hold(0); });
+
+    // S716. A serializer does not write a static property.
+    public static Cell<int> ObjectWithAStaticGetterSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SerialStaticRow.Shared = l.Map(v => v); Kept.Add(JsonSerializer.Serialize(new SerialStaticRow())); return S.Hold(0); });
+
+    // S717. A serializer enumerates a sequence of the compilation.
+    public static Cell<int> SequenceOfTheCompilationSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Sack sack = new(l.Map(v => v)); Kept.Add(JsonSerializer.Serialize(sack)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -4376,6 +4732,172 @@ public static class Shapes
         }
     }
 
+    public readonly struct TitledValue(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public override string ToString() => this.share.Sample().ToString();
+    }
+
+    private static void AddTo(List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+
+    private static void AddToThroughOne(List<Cell<int>> cells, Cell<int> one) => AddTo(cells, one);
+
+    private static void AddToANewList(List<Cell<int>> cells, Cell<int> one)
+    {
+        cells = [];
+        cells.Add(one);
+    }
+
+    private static void FillSlot(SettableSlot slot, Cell<int> one) => slot.Share = one;
+
+    private static void FillCopy(SlotValue slot, Cell<int> one) => slot.Share = one;
+
+    private static void PutIn(Dictionary<string, Cell<int>> cells, Cell<int> one) => cells["a"] = one;
+
+    private static void SetFirst(Cell<int>[] cells, Cell<int> one) => cells[0] = one;
+
+    public sealed class SettableSlot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public struct SlotValue
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Registrar
+    {
+        public Registrar(List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+    }
+
+    public sealed class Yielder(Cell<int> share)
+    {
+        public IEnumerable<int> Values
+        {
+            get
+            {
+                yield return share.Sample();
+            }
+        }
+
+        public IEnumerator<int> Steps
+        {
+            get
+            {
+                yield return share.Sample();
+            }
+        }
+
+        public IEnumerable<int> Now
+        {
+            get
+            {
+                int now = share.Sample();
+
+                return [now];
+            }
+        }
+
+        public object Held() => this.Values;
+
+        public int Sum() => this.Values.Sum();
+    }
+
+    public sealed class SerialRow(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed class SerialPlainRow(Cell<int> share)
+    {
+        public int Three => 3;
+
+        public bool Has() => share != null;
+    }
+
+    public sealed class SerialIgnoredRow(Cell<int> share)
+    {
+        [JsonIgnore]
+        public int Now => share.Sample();
+
+        internal int Later => share.Sample();
+
+        public int this[int index] => share.Sample() + index;
+
+        public static int Count => 0;
+    }
+
+    public sealed class SerialConditionRow(Cell<int> share)
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public int Now => share.Sample();
+    }
+
+    public sealed class SerialOuter(SerialRow inner)
+    {
+        public SerialRow Inner => inner;
+    }
+
+    public sealed class SerialQueryRow(IEnumerable<int> values)
+    {
+        public IEnumerable<int> Values => values;
+    }
+
+    public sealed class XmlRow
+    {
+        private readonly Cell<int>? share;
+
+        public XmlRow()
+        {
+        }
+
+        public XmlRow(Cell<int> share) => this.share = share;
+
+        public int Now
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
+    }
+
+    public sealed class XmlFixedRow
+    {
+        private readonly Cell<int>? share;
+
+        public XmlFixedRow()
+        {
+        }
+
+        public XmlFixedRow(Cell<int> share) => this.share = share;
+
+        public int Fixed => this.share?.Sample() ?? 0;
+    }
+
+    public sealed class RankedByOffset(Cell<int> offset) : IComparer<Ranked>
+    {
+        public int Compare(Ranked? x, Ranked? y) => offset.Sample();
+    }
+
+    private static void FillTitled(TitledSlot slot, Cell<int> one) => slot.Share = one;
+
+    public sealed class TitledSlot(Cell<int> first)
+    {
+        public Cell<int>? Share { get; set; }
+
+        public override string ToString() => first.Sample().ToString();
+    }
+
+    public sealed class SerialStaticRow
+    {
+        public static Cell<int>? Shared { get; set; }
+
+        public static int Now => Shared!.Sample();
+
+        public int Three => 3;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -4384,6 +4906,8 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static void AddOne(this List<Cell<int>> cells, Cell<int> one) => cells.Add(one);
+
     public static Stream<T> SwitchCWithDeferredValues<T>(this Cell<Cell<T>> cca) =>
         Operational.Defer(cca.SwitchC().Values());
 }

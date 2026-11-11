@@ -456,7 +456,67 @@ internal sealed class LoopReadAnalyzerTests
             ["ChooseThenFirstOrNone"] = ["SF1001"],
             ["AllSomeOrNoneWithAFunctionThatSamples"] = ["SF1001"],
             ["FirstOrNoneWithAFunctionThatSamples"] = ["SF1001"],
-            ["MaxOrNoneWithAFunctionThatSamples"] = ["SF1001"]
+            ["MaxOrNoneWithAFunctionThatSamples"] = ["SF1001"],
+            ["ValueOfAPairOfATuple"] = ["SF1005"],
+            ["ResultOfATaskOfATuple"] = ["SF1005"],
+            ["TupleKeptAsObjectThenRead"] = ["SF1005"],
+            ["TupleKeptAsAnInterfaceThenRead"] = ["SF1005"],
+            ["ValueOfANullableTuple"] = ["SF1005"],
+            ["ValueOfANullableStruct"] = ["SF1005"],
+            ["NullableTupleThroughAPattern"] = ["SF1005"],
+            ["HelperAddsToAList"] = ["SF1001"],
+            ["LocalFunctionAddsToAList"] = ["SF1001"],
+            ["HelperSetsAMemberOfAnObject"] = ["SF1001"],
+            ["HelperPutsIntoADictionary"] = ["SF1001"],
+            ["HelperSetsAnArrayElement"] = ["SF1001"],
+            ["ExtensionMethodAddsToItsReceiver"] = ["SF1001"],
+            ["ConstructorAddsToAList"] = ["SF1001"],
+            ["HelperAddsThroughASecondHelper"] = ["SF1001"],
+            ["ElementOfTheInnerList"] = ["SF1005"],
+            ["InnerListAsObjectThenElement"] = ["SF1005"],
+            ["ForeachInnerThenElement"] = ["SF1005"],
+            ["PileInAListAsObject"] = ["SF1005"],
+            ["ForeachPileAsObject"] = ["SF1005"],
+            ["OldPendingValueOfAnExchange"] = ["SF1005"],
+            ["SlotAfterAnExchange"] = ["SF1005"],
+            ["OldPendingValueOfACompareExchange"] = ["SF1005"],
+            ["SlotAfterACompareExchange"] = ["SF1005"],
+            ["IteratorPropertyInAForeach"] = ["SF1005"],
+            ["IteratorPropertyToList"] = ["SF1005"],
+            ["IteratorPropertyInALocalThenCount"] = ["SF1005"],
+            ["IteratorPropertyWithNoOwnerSum"] = ["SF1005"],
+            ["IteratorPropertyThroughAConditionEnumerated"] = ["SF1005"],
+            ["EnumeratorPropertyMoved"] = ["SF1005"],
+            ["IteratorPropertySpread"] = ["SF1005"],
+            ["IteratorPropertyKeptThenEnumerated"] = ["SF1005"],
+            ["GetterWithCodeThatReturnsASequence"] = ["SF1005"],
+            ["QuerySerialized"] = ["SF1001"],
+            ["QuerySerializedAsAnObject"] = ["SF1001"],
+            ["QueryInAnAnonymousObjectSerialized"] = ["SF1001"],
+            ["ObjectWithAGetterThatReadsSerialized"] = ["SF1005"],
+            ["ObjectWithAConditionOnJsonIgnoreSerialized"] = ["SF1005"],
+            ["ObjectInAnObjectSerialized"] = ["SF1005"],
+            ["ListOfObjectsSerialized"] = ["SF1005"],
+            ["ObjectWithAGetterThatGivesAQuerySerialized"] = ["SF1001"],
+            ["QuerySerializedByJsonConvert"] = ["SF1001"],
+            ["ObjectSerializedByJsonConvert"] = ["SF1005"],
+            ["TupleOfAQuerySerializedByJsonConvert"] = ["SF1001"],
+            ["ObjectSerializedByXmlSerializer"] = ["SF1005"],
+            ["ComparerKeptBySortedSetThenTwoAdds"] = ["SF1005", "SF1005"],
+            ["ComparerKeptBySortedDictionary"] = ["SF1005", "SF1005"],
+            ["EqualityKeptByDictionaryThenSet"] = ["SF1005"],
+            ["ComparerAndItemsInTheConstructor"] = ["SF1005"],
+            ["ComparerKeptThenACollectionInitializer"] = ["SF1005"],
+            ["EqualityKeptThenAnInitializerWithAnIndex"] = ["SF1005"],
+            ["ComparerKeptByAPriorityQueue"] = ["SF1005", "SF1005"],
+            ["ComparerKeptByAPriorityQueueThenEnqueueDequeue"] = ["SF1005", "SF1005"],
+            ["ComparerKeptByAPriorityQueueThenEnqueueRange"] = ["SF1005"],
+            ["ComparerAndItemsInTheConstructorOfAPriorityQueue"] = ["SF1005"],
+            ["PrioritiesOfAPriorityQueueCompared"] = ["SF1004", "SF1005"],
+            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"],
+            ["ToStringOfAnObjectFilledByAHelper"] = ["SF1005"],
+            ["SlotAfterACompareExchangeThatDoesNotExchange"] = ["SF1005"],
+            ["SequenceOfTheCompilationSerialized"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -491,7 +551,9 @@ internal sealed class LoopReadAnalyzerTests
         typeof(IBindableFactory).Assembly,
         typeof(IOneWayBindableValue<>).Assembly,
         typeof(IIdentity<>).Assembly,
-        typeof(CollectionExtensionMethods).Assembly
+        typeof(CollectionExtensionMethods).Assembly,
+        // The shapes of the serializer rule call it. The run of the shapes holds the rule to it.
+        typeof(Newtonsoft.Json.JsonConvert).Assembly
     ];
 
     private static Task<string> ReadShapes() =>
@@ -634,6 +696,65 @@ internal sealed class LoopReadAnalyzerTests
         await Assert.That(count).IsGreaterThanOrEqualTo(1).Because("the test found shapes to run");
     }
 
+    /// <summary>
+    ///     The analyzer skips the search for a member that the platform calls
+    ///     when the compilation declares no such member. A comparer is one of
+    ///     them. The shapes file declares each kind, thus it cannot show that the
+    ///     search runs for a compilation that declares only a comparer. The
+    ///     search has one gate for a call and one for an indexer, and the code has
+    ///     the two.
+    /// </summary>
+    [Test]
+    public async Task AKeptComparerIsReadInACompilationThatDeclaresNoOtherMember()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+
+                public static Cell<int> Kept() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        SortedSet<int> set = new(new ByOffset(l.Map(v => v)));
+                        set.Add(1);
+                        set.Add(2);
+
+                        return S.Hold(set.Count);
+                    });
+
+                public static Cell<int> KeptByAnIndexer() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        SortedDictionary<int, int> all = new(new ByOffset(l.Map(v => v)));
+                        all[1] = 1;
+                        all[2] = 2;
+
+                        return S.Hold(all.Count);
+                    });
+
+                public sealed class ByOffset(Cell<int> offset) : IComparer<int>
+                {
+                    public int Compare(int x, int y) => x.CompareTo(y + offset.Sample());
+                }
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyAComparer"));
+
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1005", "SF1005", "SF1005", "SF1005"]);
+    }
+
     private static Outcome OutcomeOf(string rule) =>
         rule switch
         {
@@ -656,20 +777,28 @@ internal sealed class LoopReadAnalyzerTests
         }
         catch (TargetInvocationException invocation) when (invocation.InnerException is { } thrown)
         {
-            Outcome outcome =
-                thrown switch
-                {
-                    DependencyCycleException => Outcome.MakesCycle,
-                    InvalidOperationException when Says(exception: thrown, text: "sampled before it was looped") =>
-                        Outcome.ReadsEarly,
-                    InvalidOperationException when Says(exception: thrown, text: "lazy sample forces itself") =>
-                        Outcome.ForcesItself,
-                    _ => Outcome.Other
-                };
+            // A serializer puts the exception of a getter into one of its own.
+            Outcome outcome = Outcome.Other;
+
+            for (Exception? cause = thrown; cause != null && outcome == Outcome.Other; cause = cause.InnerException)
+            {
+                outcome = OutcomeOf(cause);
+            }
 
             return (outcome, $"throws {thrown.GetType().Name}: {thrown.Message}");
         }
     }
+
+    private static Outcome OutcomeOf(Exception thrown) =>
+        thrown switch
+        {
+            DependencyCycleException => Outcome.MakesCycle,
+            InvalidOperationException when Says(exception: thrown, text: "sampled before it was looped") =>
+                Outcome.ReadsEarly,
+            InvalidOperationException when Says(exception: thrown, text: "lazy sample forces itself") =>
+                Outcome.ForcesItself,
+            _ => Outcome.Other
+        };
 
     private static bool Says(Exception exception, string text) =>
         exception.Message.Contains(value: text, comparisonType: StringComparison.Ordinal);

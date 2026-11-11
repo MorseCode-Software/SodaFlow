@@ -179,7 +179,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
-        LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
+        LoopState elements =
+            LoopStateEvaluator.ElementOf(
+                    collection: this.evaluator.Eval(node.Expression),
+                    type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
+                .Join(this.Enumerate(node));
 
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {
@@ -440,7 +444,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return owner;
         }
 
-        if (owner.Members.CanBe(member.ContainingType))
+        if (owner.Members.CanOwn(member))
         {
             return owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin);
         }
@@ -1069,7 +1073,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     given: LoopState.None,
                     oneTime: false);
 
-                this.AssignOuts(arguments: arguments, method: method, followed: followed, moved: LoopState.None);
+                this.AssignOuts(
+                    arguments: arguments,
+                    method: method,
+                    followed: followed,
+                    moved: LoopState.None,
+                    receiver: receiver);
 
                 break;
             // A query keeps its functions for the code that enumerates it. The walk reads them
@@ -1106,7 +1115,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
                 }
 
-                this.AssignOuts(arguments: arguments, method: method, followed: null, moved: moved);
+                if (LoopStateEvaluator.ExchangeOf(
+                        invocation: node,
+                        definition: (method.ReducedFrom ?? method).OriginalDefinition) is { } exchange)
+                {
+                    // The result is the state that the location has now. The evaluator keeps the
+                    // state of an expression, thus it must read the result before the location
+                    // changes.
+                    this.evaluator.Eval(node);
+
+                    LoopState put = this.evaluator.Eval(exchange.Value);
+
+                    // Exchange always puts the value there. CompareExchange can leave the old one.
+                    bool always = method.Name == "Exchange";
+
+                    this.AssignState(
+                        target: exchange.Location,
+                        state: always ? put : this.evaluator.Eval(exchange.Location).Join(put),
+                        replaces: always);
+                }
+                else
+                {
+                    this.AssignOuts(
+                        arguments: arguments,
+                        method: method,
+                        followed: null,
+                        moved: moved,
+                        receiver: null);
+                }
 
                 // The callee can call a member of an object that it gets, as a sort calls CompareTo.
                 this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
@@ -1234,7 +1270,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(initializer);
-        this.Report(this.evaluator.Follow(node));
+
+        Followed? followed = this.evaluator.Follow(node);
+        this.Report(followed);
+
+        if (arguments != null && kind == CalleeKind.Body)
+        {
+            this.AssignOuts(
+                arguments: arguments.Arguments,
+                method: constructor,
+                followed: followed,
+                moved: LoopState.None,
+                receiver: null);
+        }
 
         if (arguments == null)
         {
@@ -1353,6 +1401,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         IMethodSymbol callee =
             method.MethodKind == MethodKind.DelegateInvoke ? method : (method.ReducedFrom ?? method).OriginalDefinition;
 
+        // A serializer has no parameter that is a sequence, and it enumerates what it gets.
+        if (SodaFlowSymbols.IsSerializer(callee))
+        {
+            foreach (ArgumentSyntax argument in arguments)
+            {
+                this.Report(this.evaluator.FollowEnumeration(argument.Expression));
+
+                this.Serialize(
+                    written: argument.Expression,
+                    state: this.evaluator.Eval(argument.Expression),
+                    serializer: callee,
+                    depth: 0);
+            }
+
+            return;
+        }
+
         if (!starts && !this.region.Symbols.TakesASequence(callee))
         {
             return;
@@ -1375,6 +1440,57 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
             {
                 this.RunQueries(arguments[i].Expression);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Reads what a serializer runs when it writes a value. It enumerates
+    ///     each query that the value is or contains. For an object of this
+    ///     compilation, it calls the getter of each property that it writes. It
+    ///     writes the result of that getter in the same way.
+    /// </summary>
+    /// <remarks>
+    ///     An object of this compilation can keep a query that no property gives.
+    ///     The serializer does not get that query. Thus, the walk reads the members
+    ///     of such an object only through its getters.
+    /// </remarks>
+    private void Serialize(SyntaxNode written, LoopState state, IMethodSymbol serializer, int depth)
+    {
+        // The elements of a tuple are fields, and not each serializer writes a field.
+        if (state.Members is { IsTuple: true } && !SodaFlowSymbols.WritesFields(serializer))
+        {
+            return;
+        }
+
+        this.Run(state);
+
+        // An object in an object in an object: the depth has an end, as a followed call has.
+        if (state.Members is not { } members || depth > 3)
+        {
+            return;
+        }
+
+        // An anonymous object or a tuple: the serializer writes each value in it.
+        if (!members.HasType)
+        {
+            foreach (KeyValuePair<ISymbol, LoopState> member in members.Members)
+            {
+                this.Serialize(written: written, state: member.Value, serializer: serializer, depth: depth + 1);
+            }
+
+            return;
+        }
+
+        foreach (IPropertySymbol property in members.Properties)
+        {
+            if (property.GetMethod is { } read
+                && SodaFlowSymbols.IsSerialized(property: property, serializer: serializer)
+                && this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: [])
+                    is { } getter)
+            {
+                this.Report(getter);
+                this.Serialize(written: written, state: getter.State, serializer: serializer, depth: depth + 1);
             }
         }
     }
@@ -1463,6 +1579,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 return;
             }
+            // The read of a property whose getter is an iterator.
+            case MemberAccessExpressionSyntax or MemberBindingExpressionSyntax or IdentifierNameSyntax:
+                this.Report(this.evaluator.Follow(call));
+
+                return;
         }
     }
 
@@ -1513,28 +1634,51 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     /// <summary>
     ///     Gives the target of each <c>out</c> or <c>ref</c> argument the state
-    ///     that the callee gives to that parameter.
+    ///     that the callee gives to that parameter. Each other argument gets the
+    ///     state of a value that the callee put into its object.
     /// </summary>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="method">The callee.</param>
+    /// <param name="followed">What the evaluator found in the body, if it has one.</param>
+    /// <param name="moved">The state that a callee with no body gives to a parameter.</param>
+    /// <param name="receiver">
+    ///     The owner in the call. For an extension method, it is the argument
+    ///     for the first parameter.
+    /// </param>
     private void AssignOuts(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         IMethodSymbol method,
         Followed? followed,
-        LoopState moved)
+        LoopState moved,
+        ExpressionSyntax? receiver)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         int offset = method.ReducedFrom != null ? 1 : 0;
 
+        if (offset == 1
+            && receiver != null
+            && followed != null
+            && followed.Outs.TryGetValue(key: definition.Parameters[0], value: out LoopState? intoReceiver))
+        {
+            this.evaluator.Merge(target: receiver, state: intoReceiver);
+        }
+
         for (int i = 0; i < arguments.Count; i++)
         {
-            if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
-                && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
+            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
+                is not { } parameter)
             {
                 continue;
             }
 
-            if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
-                is not { } parameter)
+            if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+                && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
             {
+                if (followed != null && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put))
+                {
+                    this.evaluator.Merge(target: arguments[i].Expression, state: put);
+                }
+
                 continue;
             }
 
@@ -1577,14 +1721,29 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    // A getter runs at the read of its property. The getter of an iterator runs nothing there:
+    // the read makes a query, and the walk reads the getter where something enumerates it.
+    private void ReadGetter(SyntaxNode node, IPropertySymbol property)
+    {
+        if (LoopStateEvaluator.IsIteratorProperty(property))
+        {
+            this.evaluator.Wait(node);
+        }
+        else
+        {
+            this.Report(this.evaluator.Follow(node));
+        }
+    }
+
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
-            && this.region.SymbolOf(node) is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 })
+            && this.region.SymbolOf(node)
+                is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 } property)
         {
-            this.Report(this.evaluator.Follow(node));
+            this.ReadGetter(node: node, property: property);
         }
     }
 
@@ -1605,7 +1764,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // value of a Lazy is the result of a function, which can be one of this compilation.
             if (property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
             {
-                this.Report(this.evaluator.Follow(node));
+                this.ReadGetter(node: node, property: property);
             }
         }
         else if (SodaFlowSymbols.ReadMembers.Contains(property.Name))
