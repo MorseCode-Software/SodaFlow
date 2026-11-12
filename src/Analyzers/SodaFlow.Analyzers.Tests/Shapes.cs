@@ -5703,6 +5703,106 @@ public static class Shapes
     public static Cell<int> PendingIndexInAnInitializerThatAnIndexerOfThisCompilationDoesNotKeep() =>
         Cell.Loop<int>().WithoutCaptures(l => { Pile pile = new() { [l.Map(v => v)] = Plain }; return S.Hold(pile[0].Sample()); });
 
+    // S1113. A collection expression in the call of a constructor has no type of its own. The set compares its two elements.
+    public static Cell<int> SetFromACollectionExpressionOfTwoInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new SortedSet<Ranked>([new Ranked(l.Map(v => v)), new Ranked(Plain)]).Count); });
+
+    // S1114. The same call with a spread of an array that has two elements.
+    public static Cell<int> SetFromASpreadOfTwoInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; return S.Hold(new SortedSet<Ranked>([..all]).Count); });
+
+    // S1115. One element in the call. The set compares nothing.
+    public static Cell<int> SetFromACollectionExpressionOfOneInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new SortedSet<Ranked>([new Ranked(l.Map(v => v))]).Count); });
+
+    // S1116. A spread of an array of one in the call. The set compares nothing.
+    public static Cell<int> SetFromASpreadOfOneInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(new SortedSet<Ranked>([..one]).Count); });
+
+    // S1117. A spread and one more element in the call.
+    public static Cell<int> SetFromASpreadAndOneElementInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; return S.Hold(new SortedSet<Ranked>([..one, new Ranked(Plain)]).Count); });
+
+    // S1118. A HashSet from two elements in the call compares them, because each has the same hash code.
+    public static Cell<int> HashSetFromACollectionExpressionOfTwoInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new HashSet<Alike>([new Alike(l.Map(v => v)), new Alike(Plain)]).Count); });
+
+    // S1119. A HashSet from one element in the call.
+    public static Cell<int> HashSetFromACollectionExpressionOfOneInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new HashSet<Alike>([new Alike(l.Map(v => v))]).Count); });
+
+    // S1120. A PriorityQueue from one pair in the call.
+    public static Cell<int> PriorityQueueFromOnePairInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, RankedOwn> queue = new([(1, new RankedOwn(l.Map(v => v)))]); return S.Hold(queue.Count); });
+
+    // S1121. A PriorityQueue from two pairs in the call.
+    public static Cell<int> PriorityQueueFromTwoPairsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, RankedOwn> queue = new([(1, new RankedOwn(l.Map(v => v))), (2, new RankedOwn(Plain))]); return S.Hold(queue.Count); });
+
+    // S1122. A method that makes text gets a collection expression.
+    public static Cell<int> JoinOfACollectionExpressionInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", [new Titled(l.Map(v => v))])); return S.Hold(0); });
+
+    // S1123. Concat gets a collection expression.
+    public static Cell<int> ConcatOfACollectionExpressionInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Concat([new Titled(l.Map(v => v)), new Titled(Plain)])); return S.Hold(0); });
+
+    // S1124. A collection expression of plain objects in the call.
+    public static Cell<int> SetFromPlainObjectsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(l.Map(v => v)); return S.Hold(new SortedSet<Ranked>([new Ranked(Plain), new Ranked(Plain)]).Count); });
+
+    // S1125. A search in a collection expression in the call.
+    public static Cell<int> ContainsInACollectionExpressionInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Enumerable.Contains([new AlikeOwn(l.Map(v => v))], new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1126. The same search, where the value is pending and the element is plain.
+    public static Cell<int> ContainsOfAPendingValueInACollectionExpressionInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Enumerable.Contains([new AlikeOwn(Plain)], new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1127. A sort of a collection expression behind a cast.
+    public static Cell<int> OrderOfACollectionExpressionBehindACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(((IEnumerable<Ranked>)[new Ranked(l.Map(v => v)), new Ranked(Plain)]).Order().ToArray().Length); });
+
+    // S1128. A conditional with two collection expressions in the call has no type of its own.
+    public static Cell<int> SetFromAConditionalOfCollectionExpressionsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool flag = Numbers.Length > 0; return S.Hold(new SortedSet<Ranked>(flag ? [new Ranked(l.Map(v => v)), new Ranked(Plain)] : []).Count); });
+
+    // S1129. A collection expression with a query in the call of a method that enumerates each sequence.
+    public static Cell<int> ConcatOfQueriesInACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<IEnumerable<int>> all = [Numbers.Select(x => x + l.Sample())]; return S.Hold(all.SelectMany(x => x).Count()); });
+
+    // S1130. A switch expression with collection expressions in the call has no type of its own.
+    public static Cell<int> SetFromASwitchOfCollectionExpressionsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = Numbers.Length; return S.Hold(new SortedSet<Ranked>(n switch { 0 => [], _ => [new Ranked(l.Map(v => v)), new Ranked(Plain)] }).Count); });
+
+    // S1131. A collection expression in parentheses in the call.
+    public static Cell<int> SetFromACollectionExpressionInParenthesesInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new SortedSet<Ranked>(([new Ranked(l.Map(v => v)), new Ranked(Plain)])).Count); });
+
+    // S1132. A conditional with one element for each result. The analyzer does not count a conditional.
+    public static Cell<int> SetFromAConditionalOfOneElementInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool flag = Numbers.Length > 0; return S.Hold(new SortedSet<Ranked>(flag ? [new Ranked(l.Map(v => v))] : [new Ranked(Plain)]).Count); });
+
+    // S1133. A switch expression with one element for each result.
+    public static Cell<int> SetFromASwitchOfOneElementInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = Numbers.Length; return S.Hold(new SortedSet<Ranked>(n switch { 0 => [new Ranked(Plain)], _ => [new Ranked(l.Map(v => v))] }).Count); });
+
+    // S1134. One element in parentheses in the call.
+    public static Cell<int> SetFromOneElementInParenthesesInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new SortedSet<Ranked>(([new Ranked(l.Map(v => v))])).Count); });
+
+    // S1135. A conditional where one result has two elements.
+    public static Cell<int> SetFromAConditionalOfOneOrTwoElementsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool flag = Numbers.Length > 0; return S.Hold(new SortedSet<Ranked>(flag ? [new Ranked(l.Map(v => v)), new Ranked(Plain)] : [new Ranked(Plain)]).Count); });
+
+    // S1136. A switch expression where one result has two elements.
+    public static Cell<int> SetFromASwitchOfOneOrTwoElementsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = Numbers.Length; return S.Hold(new SortedSet<Ranked>(n switch { 0 => [new Ranked(Plain)], _ => [new Ranked(l.Map(v => v)), new Ranked(Plain)] }).Count); });
+
+    // S1137. A spread of an array of one, and that array then gets a new value with two elements.
+    public static Cell<int> SetFromASpreadOfAnArrayThatIsReplaced() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(Plain)]; one = [new(l.Map(v => v)), new(Plain)]; return S.Hold(new SortedSet<Ranked>([..one]).Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

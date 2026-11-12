@@ -746,6 +746,23 @@ internal sealed class LoopStateEvaluator
     /// </remarks>
     private bool HasOneElement(ExpressionSyntax collection)
     {
+        while (collection is ParenthesizedExpressionSyntax inner)
+        {
+            collection = inner.Expression;
+        }
+
+        switch (collection)
+        {
+            // A collection expression in a call has one element for each type that the compiler
+            // makes from it. A spread has the number of elements of its collection.
+            case CollectionExpressionSyntax { Elements.Count: 1 } written:
+                return written.Elements[0] is not SpreadElementSyntax spread || this.HasOneElement(spread.Expression);
+            case ConditionalExpressionSyntax either:
+                return this.HasOneElement(either.WhenTrue) && this.HasOneElement(either.WhenFalse);
+            case SwitchExpressionSyntax { Arms.Count: > 0 } chosen:
+                return chosen.Arms.All(arm => this.HasOneElement(arm.Expression));
+        }
+
         if (this.region.SymbolOf(collection) is not ILocalSymbol local)
         {
             return this.LiteralElements(made: collection, type: this.region.TypeOf(collection)) is { Count: 1 };

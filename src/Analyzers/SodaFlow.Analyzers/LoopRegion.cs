@@ -129,12 +129,27 @@ internal sealed class LoopRegion(
     public bool Converts(ITypeSymbol from, ITypeSymbol to) =>
         this.compilation.ClassifyConversion(source: from, destination: to).IsImplicit;
 
-    /// <summary>The type of an expression.</summary>
+    /// <summary>
+    ///     The type of an expression. A collection expression has no type of its
+    ///     own, and has the type that the compiler converts it to. A conditional
+    ///     or a switch expression whose results are such expressions is the same.
+    /// </summary>
     public ITypeSymbol? TypeOf(ExpressionSyntax expression)
     {
         if (!this.typeOf.TryGetValue(key: expression, value: out ITypeSymbol? type))
         {
-            type = this.ModelFor(expression).GetTypeInfo(expression).Type;
+            TypeInfo info = this.ModelFor(expression).GetTypeInfo(expression);
+
+            type =
+                info.Type == null
+                && expression
+                    is CollectionExpressionSyntax
+                    or ConditionalExpressionSyntax
+                    or SwitchExpressionSyntax
+                    or ParenthesizedExpressionSyntax
+                    ? info.ConvertedType
+                    : info.Type;
+
             this.typeOf[expression] = type;
         }
 

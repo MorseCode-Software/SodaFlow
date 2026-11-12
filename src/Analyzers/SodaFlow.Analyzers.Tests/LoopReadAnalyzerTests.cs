@@ -772,7 +772,23 @@ internal sealed class LoopReadAnalyzerTests
             ["PriorityQueueOfTwoComparesThePriorities"] = ["SF1005"],
             ["AssignmentByIndexThroughALocalThatGetsItsOwnElement"] = ["SF1001"],
             ["AssignmentByIndexThroughTwoLocalsThatOwnEachOther"] = ["SF1001"],
-            ["PendingValueThatAnIndexerOfThisCompilationKeeps"] = ["SF1001"]
+            ["PendingValueThatAnIndexerOfThisCompilationKeeps"] = ["SF1001"],
+            ["SetFromACollectionExpressionOfTwoInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromASpreadOfTwoInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromASpreadAndOneElementInTheCall"] = ["SF1004", "SF1005"],
+            ["HashSetFromACollectionExpressionOfTwoInTheCall"] = ["SF1004", "SF1005"],
+            ["PriorityQueueFromTwoPairsInTheCall"] = ["SF1005"],
+            ["JoinOfACollectionExpressionInTheCall"] = ["SF1005"],
+            ["ConcatOfACollectionExpressionInTheCall"] = ["SF1005"],
+            ["ContainsInACollectionExpressionInTheCall"] = ["SF1005"],
+            ["OrderOfACollectionExpressionBehindACast"] = ["SF1004", "SF1005"],
+            ["SetFromAConditionalOfCollectionExpressionsInTheCall"] = ["SF1004", "SF1005"],
+            ["ConcatOfQueriesInACollectionExpression"] = ["SF1001"],
+            ["SetFromASwitchOfCollectionExpressionsInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromACollectionExpressionInParenthesesInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromAConditionalOfOneOrTwoElementsInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromASwitchOfOneOrTwoElementsInTheCall"] = ["SF1004", "SF1005"],
+            ["SetFromASpreadOfAnArrayThatIsReplaced"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
