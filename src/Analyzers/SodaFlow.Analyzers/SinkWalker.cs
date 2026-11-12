@@ -1768,7 +1768,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         for (int i = 0; i < arguments.Count; i++)
         {
             if (SodaFlowSymbols.IsEnumerated(
-                    LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
+                    this.evaluator.KnownTypeFor(method: method, argument: arguments[i], position: i)))
             {
                 this.RunQueries(arguments[i].Expression);
             }

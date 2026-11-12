@@ -1675,6 +1675,41 @@ internal sealed class LoopStateEvaluator
                 position: position + (method.ReducedFrom != null ? 1 : 0));
 
     /// <summary>
+    ///     The type that a callee knows for an argument: the type of the parameter
+    ///     of its definition. For a <c>params</c> parameter that gets its
+    ///     arguments one by one, it is the type of one element. The callee then
+    ///     has the argument as an element, and not as the sequence.
+    /// </summary>
+    public ITypeSymbol? KnownTypeFor(IMethodSymbol method, ArgumentSyntax argument, int position)
+    {
+        IParameterSymbol? parameter = ParameterFor(method: method, argument: argument, position: position);
+
+        if (parameter is not { IsParams: true } || argument.Parent is not BaseArgumentListSyntax list)
+        {
+            return parameter?.Type;
+        }
+
+        // The parameter of the call has the types of this call. The compiler gives the arguments
+        // one by one when they are more than the parameters. It does that also for one argument
+        // that it converts to an element, and not to the type of the parameter.
+        IParameterSymbol own = method.Parameters[method.Parameters.Length - 1];
+
+        bool oneByOne =
+            list.Arguments.Count > method.Parameters.Length
+            || (this.region.TypeOf(argument.Expression) is { } given
+                && !this.region.Converts(from: given, to: own.Type));
+
+        return oneByOne
+            ? parameter.Type switch
+            {
+                IArrayTypeSymbol array => array.ElementType,
+                INamedTypeSymbol { TypeArguments.Length: 1 } collection => collection.TypeArguments[0],
+                _ => parameter.Type
+            }
+            : parameter.Type;
+    }
+
+    /// <summary>
     ///     A type whose lambdas run on a different thread or after the block, so
     ///     not in the block.
     /// </summary>
@@ -2510,7 +2545,7 @@ internal sealed class LoopStateEvaluator
             arguments.Select((argument, position) =>
                 new Operand(
                     written: argument.Expression,
-                    parameter: ParameterFor(method: method, argument: argument, position: position)?.Type,
+                    parameter: this.KnownTypeFor(method: method, argument: argument, position: position),
                     isReceiver: false)));
 
         PlatformCallbacks calls = PlatformCallers.Of(method);

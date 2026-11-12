@@ -788,7 +788,13 @@ internal sealed class LoopReadAnalyzerTests
             ["SetFromACollectionExpressionInParenthesesInTheCall"] = ["SF1004", "SF1005"],
             ["SetFromAConditionalOfOneOrTwoElementsInTheCall"] = ["SF1004", "SF1005"],
             ["SetFromASwitchOfOneOrTwoElementsInTheCall"] = ["SF1004", "SF1005"],
-            ["SetFromASpreadOfAnArrayThatIsReplaced"] = ["SF1004", "SF1005"]
+            ["SetFromASpreadOfAnArrayThatIsReplaced"] = ["SF1004", "SF1005"],
+            ["JoinOfOnlyAQuery"] = ["SF1001"],
+            ["JoinOfAnObjectAndOneMoreValue"] = ["SF1005"],
+            ["JoinOfOneArrayOfObjects"] = ["SF1005"],
+            ["FormatOfAnObjectAmongFourValues"] = ["SF1005"],
+            ["QueryAsOneOfTwoContentsOfAnXElement"] = ["SF1001"],
+            ["ConcatOfTwoQueriesThatIsEnumerated"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

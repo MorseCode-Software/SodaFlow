@@ -5803,6 +5803,54 @@ public static class Shapes
     public static Cell<int> SetFromASpreadOfAnArrayThatIsReplaced() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(Plain)]; one = [new(l.Map(v => v)), new(Plain)]; return S.Hold(new SortedSet<Ranked>([..one]).Count); });
 
+    // S1138. Join with a query and one more value gets the two as objects, one by one. It makes text from the query object, and does not enumerate it.
+    public static Cell<int> JoinOfAQueryAndOneMoreValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", Numbers.Select(x => x + l.Sample()), 1)); return S.Hold(0); });
+
+    // S1139. Join with only a query enumerates it.
+    public static Cell<int> JoinOfOnlyAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S1140. Join with a sequence of this compilation and one more value does not enumerate the sequence.
+    public static Cell<int> JoinOfASequenceOfThisCompilationAndOneMoreValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", new TallyBag(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S1141. Join with a list of objects and one more value makes text from the list, and not from its objects.
+    public static Cell<int> JoinOfAListOfObjectsAndOneMoreValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new(l.Map(v => v))]; Kept.Add(string.Join(",", all, 1)); return S.Hold(0); });
+
+    // S1142. Join with two arrays makes text from each array, and not from its objects.
+    public static Cell<int> JoinOfTwoArraysOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Titled[] first = [new(l.Map(v => v))]; Titled[] second = [new(Plain)]; Kept.Add(string.Join(",", first, second)); return S.Hold(0); });
+
+    // S1143. Join with an object and one more value makes text from the object.
+    public static Cell<int> JoinOfAnObjectAndOneMoreValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", new Titled(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S1144. Join with one array of objects gets the array as the sequence, and makes text from each object.
+    public static Cell<int> JoinOfOneArrayOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] all = [new Titled(l.Map(v => v))]; Kept.Add(string.Join(",", all)); return S.Hold(0); });
+
+    // S1145. Format with four values. One of them is a query.
+    public static Cell<int> FormatOfAQueryAmongFourValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Format("{0}{1}{2}{3}", Numbers.Select(x => x + l.Sample()), 1, 2, 3)); return S.Hold(0); });
+
+    // S1146. Format with four values. One of them is an object.
+    public static Cell<int> FormatOfAnObjectAmongFourValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Format("{0}{1}{2}{3}", new Titled(l.Map(v => v)), 1, 2, 3)); return S.Hold(0); });
+
+    // S1147. AppendJoin of a StringBuilder with a query and one more value.
+    public static Cell<int> AppendJoinOfAQueryAndOneMoreValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new StringBuilder().AppendJoin(",", Numbers.Select(x => x + l.Sample()), 1).ToString()); return S.Hold(0); });
+
+    // S1148. An XElement gets its content one by one, and enumerates each sequence in it.
+    public static Cell<int> QueryAsOneOfTwoContentsOfAnXElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new XElement("a", Numbers.Select(x => x + l.Sample()).Select(n => new XElement("b", n)), new XElement("c"))); return S.Hold(0); });
+
+    // S1149. Concat of LINQ gets two queries, each as a sequence.
+    public static Cell<int> ConcatOfTwoQueriesThatIsEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Numbers.Concat(Numbers.Select(x => x + l.Sample())).ToArray().Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
