@@ -6227,6 +6227,190 @@ public static class Shapes
     public static Cell<int> SpanInALocalContainsWhereTheElementIsPending() =>
         Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; Kept.Add(Has(all)); return S.Hold(0); static bool Has(ReadOnlySpan<AlikeOwn> span) => span.Contains(new AlikeOwn(Plain)); });
 
+    // S1244. The code has an object in a local, and a list literal gets it. A change through the local is a change to what the list has.
+    public static Cell<int> ChangeThroughALocalThatAListLiteralHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1245. The list gets the object with Add.
+    public static Cell<int> ChangeThroughALocalThatAListGotWithAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = new(); slots.Add(slot); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1246. The array gets the object with an assignment to an element.
+    public static Cell<int> ChangeThroughALocalThatAnElementGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot[] slots = new SettableSlot[1]; slots[0] = slot; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1247. An array with an initializer.
+    public static Cell<int> ChangeThroughALocalThatAnArrayInitializerHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot[] slots = { slot }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1248. An array creation with an initializer.
+    public static Cell<int> ChangeThroughALocalThatAnArrayCreationHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot[] slots = new[] { slot }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1249. A List with a collection initializer.
+    public static Cell<int> ChangeThroughALocalThatACollectionInitializerHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = new() { slot }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1250. A dictionary gets the object through its indexer.
+    public static Cell<int> ChangeThroughALocalThatADictionaryGotByIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<string, SettableSlot> map = new(); map["a"] = slot; slot.Share = l.Map(v => v); return S.Hold(map["a"].Share!.Sample()); });
+
+    // S1251. A dictionary gets the object with Add.
+    public static Cell<int> ChangeThroughALocalThatADictionaryGotWithAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<string, SettableSlot> map = new(); map.Add("a", slot); slot.Share = l.Map(v => v); return S.Hold(map["a"].Share!.Sample()); });
+
+    // S1252. A dictionary initializer with an index.
+    public static Cell<int> ChangeThroughALocalThatADictionaryInitializerHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<string, SettableSlot> map = new() { ["a"] = slot }; slot.Share = l.Map(v => v); return S.Hold(map["a"].Share!.Sample()); });
+
+    // S1253. A dictionary initializer with a pair in braces.
+    public static Cell<int> ChangeThroughALocalThatAPairInADictionaryInitializerHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<string, SettableSlot> map = new() { { "a", slot } }; slot.Share = l.Map(v => v); return S.Hold(map["a"].Share!.Sample()); });
+
+    // S1254. A local that the code declared before gets a literal with the object.
+    public static Cell<int> ChangeThroughALocalThatAnAssignedLiteralHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = []; slots = [slot]; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1255. Insert of a list.
+    public static Cell<int> ChangeThroughALocalThatAListGotWithInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = new(); slots.Insert(0, slot); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1256. Push of a stack.
+    public static Cell<int> ChangeThroughALocalThatAStackGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Stack<SettableSlot> slots = new(); slots.Push(slot); slot.Share = l.Map(v => v); return S.Hold(slots.Peek().Share!.Sample()); });
+
+    // S1257. Enqueue of a queue.
+    public static Cell<int> ChangeThroughALocalThatAQueueGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Queue<SettableSlot> slots = new(); slots.Enqueue(slot); slot.Share = l.Map(v => v); return S.Hold(slots.Peek().Share!.Sample()); });
+
+    // S1258. A literal in a literal.
+    public static Cell<int> ChangeThroughALocalThatAnInnerLiteralHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<List<SettableSlot>> rows = [[slot]]; slot.Share = l.Map(v => v); return S.Hold(rows[0][0].Share!.Sample()); });
+
+    // S1259. A literal that a list gets with Add.
+    public static Cell<int> ChangeThroughALocalThatAnAddedLiteralHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<List<SettableSlot>> rows = new(); rows.Add([slot]); slot.Share = l.Map(v => v); return S.Hold(rows[0][0].Share!.Sample()); });
+
+    // S1260. Two lists get the object. The read is from the first one.
+    public static Cell<int> ChangeThroughALocalThatTwoListsHaveReadFromTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> first = new(); List<SettableSlot> second = new(); first.Add(slot); second.Add(slot); slot.Share = l.Map(v => v); return S.Hold(first[0].Share!.Sample()); });
+
+    // S1261. The same, where the read is from the second one.
+    public static Cell<int> ChangeThroughALocalThatTwoListsHaveReadFromTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> first = new(); List<SettableSlot> second = new(); first.Add(slot); second.Add(slot); slot.Share = l.Map(v => v); return S.Hold(second[0].Share!.Sample()); });
+
+    // S1262. A list gets the object, and a second list gets that list.
+    public static Cell<int> ChangeThroughALocalThatAListInAListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> inner = new(); List<List<SettableSlot>> outer = new(); inner.Add(slot); outer.Add(inner); slot.Share = l.Map(v => v); return S.Hold(outer[0][0].Share!.Sample()); });
+
+    // S1263. The local gets a new object after the list got the first one. The change is to the new object.
+    public static Cell<int> ChangeThroughALocalThatHasANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; slot = new SettableSlot { Share = Plain }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1264. The list gets the object after the change, and has the pending member from the start.
+    public static Cell<int> ListGetsAnObjectAfterTheChange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; slot.Share = l.Map(v => v); List<SettableSlot> slots = [slot]; return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1265. The change is a plain value.
+    public static Cell<int> PlainChangeThroughALocalThatAListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; Kept.Add(l.Map(v => v)); slot.Share = Plain; return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1266. The object in the local is a list. The code adds it to a list of rows, and then fills it.
+    public static Cell<int> RowFilledAfterTheRowsGotIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> row = new(); List<List<Cell<int>>> rows = new(); rows.Add(row); row.Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S1267. The same with a literal for the rows.
+    public static Cell<int> RowFilledAfterALiteralOfRowsGotIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> row = new(); List<List<Cell<int>>> rows = [row]; row.Add(l.Map(v => v)); return S.Hold(rows[0][0].Sample()); });
+
+    // S1268. A helper changes the object that the list has.
+    public static Cell<int> HelperChangesALocalThatAListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; Fill(slot, l.Map(v => v)); return S.Hold(slots[0].Share!.Sample()); static void Fill(SettableSlot into, Cell<int> share) => into.Share = share; });
+
+    // S1269. A parameter of a lambda is the local whose object a list gets.
+    public static Cell<int> ChangeThroughAParameterThatAListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = new(); Action<SettableSlot> put = slot => { slots.Add(slot); slot.Share = l.Map(v => v); }; put(new SettableSlot { Share = Plain }); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1270. A search reads the object of a local, and the list does not get it. A change through the local after that is not a change to what the list has.
+    public static Cell<int> ChangeThroughALocalAfterContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [new() { Share = Plain }]; Kept.Add(slots.Contains(slot)); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1271. IndexOf.
+    public static Cell<int> ChangeThroughALocalAfterIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [new() { Share = Plain }]; Kept.Add(slots.IndexOf(slot)); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1272. LastIndexOf.
+    public static Cell<int> ChangeThroughALocalAfterLastIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [new() { Share = Plain }]; Kept.Add(slots.LastIndexOf(slot)); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1273. Remove of an object that the list does not have.
+    public static Cell<int> ChangeThroughALocalAfterRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [new() { Share = Plain }]; Kept.Add(slots.Remove(slot)); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1274. ContainsKey of a dictionary.
+    public static Cell<int> ChangeThroughALocalAfterContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<SettableSlot, SettableSlot> map = new() { { new() { Share = Plain }, new() { Share = Plain } } }; Kept.Add(map.ContainsKey(slot)); slot.Share = l.Map(v => v); return S.Hold(map.Keys.First().Share!.Sample()); });
+
+    // S1275. ContainsValue of a dictionary.
+    public static Cell<int> ChangeThroughALocalAfterContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<SettableSlot, SettableSlot> map = new() { { new() { Share = Plain }, new() { Share = Plain } } }; Kept.Add(map.ContainsValue(slot)); slot.Share = l.Map(v => v); return S.Hold(map.Values.First().Share!.Sample()); });
+
+    // S1276. TryGetValue of a dictionary.
+    public static Cell<int> ChangeThroughALocalAfterTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<SettableSlot, SettableSlot> map = new() { { new() { Share = Plain }, new() { Share = Plain } } }; Kept.Add(map.TryGetValue(slot, out _)); slot.Share = l.Map(v => v); return S.Hold(map.Values.First().Share!.Sample()); });
+
+    // S1277. A literal has the object, and a second literal has the local of the first one.
+    public static Cell<int> ChangeThroughALocalThatALiteralInALiteralOfLocalsHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> inner = [slot]; List<List<SettableSlot>> outer = [inner]; slot.Share = l.Map(v => v); return S.Hold(outer[0][0].Share!.Sample()); });
+
+    // S1278. Each of two lists has the other one. The walk to the collections that got an object has an end.
+    public static Cell<int> ListsThatHaveEachOtherGetAValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> first = new(); List<object> second = new(); first.Add(second); second.Add(first); first.Add(l.Map(v => v)); return S.Hold(((Cell<int>)((List<object>)second[0])[1]).Sample()); });
+
+    // S1279. Equals of an object of this compilation gets the object of a local, and does not keep it. The object that got the call is not a collection.
+    public static Cell<int> ChangeThroughALocalAfterEqualsOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; Kept.Add(first.Equals(slot)); slot.Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
+
+    // S1280. A list type of this compilation gets the object with the Add of List.
+    public static Cell<int> ChangeThroughALocalThatAListTypeOfThisCompilationGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SlotList slots = new(); slots.Add(slot); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1281. An object initializer gives a member the object of a local. The object with that member is not a collection, and its own member with the same name stays plain.
+    public static Cell<int> ChangeThroughALocalThatAMemberOfAnObjectGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotNode tail = new() { Share = Plain }; SlotNode head = new() { Share = Plain, Next = tail }; tail.Share = l.Map(v => v); return S.Hold(head.Share!.Sample()); });
+
+    // S1282. A conditional where the second result has two elements, and the code takes that one.
+    public static Cell<int> SetFromAConditionalWhereTheSecondResultHasTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool flag = Numbers.Length == 0; return S.Hold(new SortedSet<Ranked>(flag ? [new Ranked(Plain)] : [new Ranked(l.Map(v => v)), new Ranked(Plain)]).Count); });
+
+    // S1283. A PriorityQueue is a collection of the platform that is not a sequence. It gets the object with Enqueue.
+    public static Cell<int> ChangeThroughALocalThatAPriorityQueueGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; PriorityQueue<SettableSlot, int> queue = new(); queue.Enqueue(slot, 1); slot.Share = l.Map(v => v); return S.Hold(queue.Peek().Share!.Sample()); });
+
+    // S1284. An array creation with its type and an initializer.
+    public static Cell<int> ChangeThroughALocalThatAnArrayCreationWithATypeHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot[] slots = new SettableSlot[] { slot }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1285. An object creation with its type and a collection initializer.
+    public static Cell<int> ChangeThroughALocalThatAnObjectCreationWithATypeHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = new List<SettableSlot> { slot }; slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1286. A params parameter gets one query, which the compiler gives as one element. The callee keeps the query.
+    public static Cell<int> OneQueryForAParamsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(System.Collections.Immutable.ImmutableList.Create(Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
+    // S1287. SequenceCompareTo of a span, with an element type that is IComparable with no type argument. The compiler takes the overload with a comparer parameter. The element is pending, and it gets the call.
+    public static Cell<int> SpanSequenceCompareToOfAPlainComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedPlainOwn[] all = [new(l.Map(v => v))]; RankedPlainOwn[] other = [new(Plain)]; Kept.Add(all.SequenceCompareTo(other)); return S.Hold(0); });
+
+    // S1288. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanSequenceCompareToOfAPlainComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedPlainOwn[] all = [new(Plain)]; RankedPlainOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.SequenceCompareTo(other)); return S.Hold(0); });
+
+    // S1289. Join gets one value, a query with the type of object. The compiler gives it as one element of the params parameter. Join makes text from the query object.
+    public static Cell<int> JoinOfOneQueryAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", (object)Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -7354,6 +7538,20 @@ public static class Shapes
         {
             set => this.Add(value);
         }
+    }
+
+    public sealed class SlotList : List<SettableSlot>;
+
+    public sealed class SlotNode
+    {
+        public Cell<int>? Share { get; set; }
+
+        public SlotNode? Next { get; set; }
+    }
+
+    public sealed class RankedPlainOwn(Cell<int> share) : IComparable
+    {
+        public int CompareTo(object? obj) => share.Sample().CompareTo(0);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

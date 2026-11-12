@@ -233,19 +233,22 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state)
     {
+        LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
+
         // The owner is an element of a collection. The collection then contains an object whose
         // member has the state.
         if (owner != null && this.CollectionOf(owner) != null)
         {
-            this.Merge(
-                target: owner,
-                state: LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state)));
+            this.Merge(target: owner, state: changed);
         }
 
         if (owner is IdentifierNameSyntax
             && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
         {
+            // A collection that got the object of this local contains that object also.
+            this.MergeIntoHolders(local: holder, state: changed.AsContainer, level: 1);
+
             // A parameter starts with the state of its argument, which has the type of the object.
             // The callee gives this state back, and the object of the caller keeps its type.
             LoopState known =
@@ -280,6 +283,12 @@ internal sealed class LoopStateEvaluator
     /// <param name="replaces">True when the local then has only this value.</param>
     public void HoldsValueOf(ISymbol local, ExpressionSyntax value, bool replaces)
     {
+        // The collections that got the object of the local do not have its new object.
+        if (replaces)
+        {
+            this.Frame.Holders.Remove(local);
+        }
+
         if (this.CollectionOf(value) is { } collection)
         {
             this.HoldsOneOf(local: local, collection: collection);
@@ -287,6 +296,71 @@ internal sealed class LoopStateEvaluator
         else if (replaces)
         {
             this.Frame.ElementOf.Remove(local);
+        }
+    }
+
+    /// <summary>
+    ///     Records that a collection got a value. The value can be the object of
+    ///     a local. That object then has two names, and a change through the local
+    ///     is a change to what the collection contains. A literal gives the
+    ///     collection each of its elements.
+    /// </summary>
+    /// <param name="collection">
+    ///     The expression of the collection, or the declaration of the local that
+    ///     a literal is for.
+    /// </param>
+    /// <param name="value">The expression of the value.</param>
+    public void Gets(SyntaxNode collection, ExpressionSyntax value)
+    {
+        if (Unwrapped(value) is IdentifierNameSyntax name
+            && this.region.SymbolOf(name) is { } local and (ILocalSymbol or IParameterSymbol))
+        {
+            if (!this.Frame.Holders.TryGetValue(key: local, value: out List<SyntaxNode>? holders))
+            {
+                holders = [];
+                this.Frame.Holders[local] = holders;
+            }
+
+            if (!holders.Contains(collection))
+            {
+                holders.Add(collection);
+            }
+
+            return;
+        }
+
+        this.GetsElementsOf(collection: collection, literal: value);
+    }
+
+    /// <summary>
+    ///     Records that a collection got each element of a literal. An expression
+    ///     that is not a literal gives nothing here.
+    /// </summary>
+    public void GetsElementsOf(SyntaxNode collection, ExpressionSyntax literal)
+    {
+        IEnumerable<ExpressionSyntax> elements =
+            Unwrapped(literal) switch
+            {
+                CollectionExpressionSyntax written =>
+                    written.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression),
+                // An initializer with a name gives a member a value, and puts nothing into a
+                // collection. An initializer with an index puts its value there.
+                InitializerExpressionSyntax initializer =>
+                    initializer.Expressions
+                        .Where(static element =>
+                            element is not AssignmentExpressionSyntax { Left: not ImplicitElementAccessSyntax })
+                        .Select(static element =>
+                            element is AssignmentExpressionSyntax indexed ? indexed.Right : element),
+                ArrayCreationExpressionSyntax { Initializer: { } initializer } => [initializer],
+                ImplicitArrayCreationExpressionSyntax implied => [implied.Initializer],
+                ObjectCreationExpressionSyntax { Initializer: { } initializer } => [initializer],
+                ImplicitObjectCreationExpressionSyntax { Initializer: { } initializer } => [initializer],
+                _ => []
+            };
+
+        foreach (ExpressionSyntax element in elements)
+        {
+            this.Gets(collection: collection, value: element);
         }
     }
 
@@ -310,7 +384,9 @@ internal sealed class LoopStateEvaluator
     ///     Adds a state to what a name holds, as it is. A callee that put a
     ///     value into the object of a parameter gives that state to the argument.
     /// </summary>
-    public void Merge(ExpressionSyntax target, LoopState state)
+    public void Merge(ExpressionSyntax target, LoopState state) => this.Merge(target: target, state: state, level: 0);
+
+    private void Merge(ExpressionSyntax target, LoopState state, int level)
     {
         if (state.IsNone)
         {
@@ -321,7 +397,7 @@ internal sealed class LoopStateEvaluator
         // The element is then not the one that the literal made. Thus, the collection does not
         // keep its positions. The collection can be an element also, and the walk goes up to
         // each owner. The number of owners has an end, because a local can name its own owner.
-        for (int level = 0; level < MaxOwners; level++)
+        for (; level < MaxOwners; level++)
         {
             ExpressionSyntax? collection = this.CollectionOf(target);
 
@@ -329,6 +405,13 @@ internal sealed class LoopStateEvaluator
             if (collection == null || target is not ElementAccessExpressionSyntax)
             {
                 this.MergeInto(target: target, state: state);
+            }
+
+            // The object of a local can be in a collection that got it from that local.
+            if (Unwrapped(target) is IdentifierNameSyntax name
+                && this.region.SymbolOf(name) is { } held and (ILocalSymbol or IParameterSymbol))
+            {
+                this.MergeIntoHolders(local: held, state: state.AsContainer, level: level + 1);
             }
 
             if (collection == null)
@@ -343,6 +426,32 @@ internal sealed class LoopStateEvaluator
 
             target = collection;
             state = state.AsContainer;
+        }
+    }
+
+    // Each collection that got the object of a local contains the change to that object.
+    private void MergeIntoHolders(ISymbol local, LoopState state, int level)
+    {
+        if (level >= MaxOwners || !this.Frame.Holders.TryGetValue(key: local, value: out List<SyntaxNode>? holders))
+        {
+            return;
+        }
+
+        foreach (SyntaxNode holder in holders.ToArray())
+        {
+            // A collection in an expression got the object in a call or in an assignment. Such a
+            // use is not a read, thus the collection has no positions.
+            if (holder is ExpressionSyntax written)
+            {
+                this.Merge(target: written, state: state, level: level);
+            }
+            else if (this.region.ModelFor(holder).GetDeclaredSymbol(holder) is ILocalSymbol declared)
+            {
+                // A literal in a declaration. The local has no expression there.
+                this.Frame.Positions[declared] = null;
+                this.Declare(local: declared, state: state);
+                this.MergeIntoHolders(local: declared, state: state.AsContainer, level: level + 1);
+            }
         }
     }
 

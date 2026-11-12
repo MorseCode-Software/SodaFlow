@@ -558,6 +558,21 @@ internal sealed class SodaFlowSymbols
             } named
             && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
 
+    /// <summary>
+    ///     True for a method of a collection of the platform that looks for the
+    ///     value that it gets, and does not keep that value. The name says it.
+    ///     Each other method can keep its argument, as <c>Add</c> does.
+    /// </summary>
+    public static bool IsASearch(IMethodSymbol method) =>
+        method.Name
+            is "Contains"
+            or "ContainsKey"
+            or "ContainsValue"
+            or "IndexOf"
+            or "LastIndexOf"
+            or "Remove"
+            or "TryGetValue";
+
     public static bool IsLinqEnumerable(ISymbol? type) =>
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 

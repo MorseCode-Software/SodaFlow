@@ -114,6 +114,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
                 this.evaluator.HoldsValueOf(local: local, value: declarator.Initializer.Value, replaces: true);
+                this.evaluator.GetsElementsOf(collection: declarator, literal: declarator.Initializer.Value);
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
@@ -938,6 +939,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.evaluator.HoldsValueOf(local: named, value: value, replaces: replaces);
         }
 
+        // An element that gets a value puts it into the collection. Each other target that gets
+        // a literal has the elements of that literal.
+        if (target is ElementAccessExpressionSyntax indexed)
+        {
+            this.evaluator.Gets(collection: indexed.Expression, value: value);
+        }
+        else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)
+        {
+            this.evaluator.GetsElementsOf(collection: written, literal: value);
+        }
+
         // A deconstruction of a value that is not a tuple expression. Each target gets the state
         // of its element, when the evaluator knows the elements. Otherwise, each gets the state of
         // the value.
@@ -1279,6 +1291,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.Absorb(
                         target: receiver,
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+
+                    // A search reads its argument, and the collection does not get it. An object
+                    // of this compilation that is not a sequence is not a collection. It can call
+                    // a method of object, as Equals is, and that method keeps nothing.
+                    if (!SodaFlowSymbols.IsASearch(method)
+                        && this.region.TypeOf(receiver) is { } owner
+                        && (SodaFlowSymbols.IsSequence(owner) || SodaFlowSymbols.IsPlatform(owner)))
+                    {
+                        foreach (ArgumentSyntax argument in arguments)
+                        {
+                            this.evaluator.Gets(collection: receiver, value: argument.Expression);
+                        }
+                    }
                 }
 
                 if (LoopStateEvaluator.ExchangeOf(

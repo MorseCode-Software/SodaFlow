@@ -44,6 +44,14 @@ internal sealed class LoopFrame
     public Dictionary<ISymbol, ExpressionSyntax> ElementOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local of this code whose object a collection got: each such
+    ///     collection. The collection is the expression that got the object, or
+    ///     the declaration of a local whose literal has it. Thus, the local and an
+    ///     element of the collection are two names for one object.
+    /// </summary>
+    public Dictionary<ISymbol, List<SyntaxNode>> Holders { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a local of this code that a literal made: true when the collection
     ///     has one element and no code can change that number. A local that no
     ///     code asked about is not here.
