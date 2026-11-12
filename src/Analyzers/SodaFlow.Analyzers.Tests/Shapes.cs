@@ -5851,6 +5851,382 @@ public static class Shapes
     public static Cell<int> ConcatOfTwoQueriesThatIsEnumerated() =>
         Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Numbers.Concat(Numbers.Select(x => x + l.Sample())).ToArray().Length); });
 
+    // S1150. Contains of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanContainsOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.Contains(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1151. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanContainsOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.Contains(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1152. Contains of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanContainsOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1153. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanContainsOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1154. IndexOf of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanIndexOfOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.IndexOf(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1155. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOf(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1156. IndexOf of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.IndexOf(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1157. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanIndexOfOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOf(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1158. IndexOf of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanIndexOfASpanOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.IndexOf(other)); return S.Hold(0); });
+
+    // S1159. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfASpanOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOf(other)); return S.Hold(0); });
+
+    // S1160. IndexOf of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfASpanOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.IndexOf(other)); return S.Hold(0); });
+
+    // S1161. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanIndexOfASpanOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOf(other)); return S.Hold(0); });
+
+    // S1162. LastIndexOf of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanLastIndexOfOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOf(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1163. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOf(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1164. LastIndexOf of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOf(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1165. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanLastIndexOfOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOf(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1166. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1167. IndexOfAny of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.IndexOfAny(new AlikeOwn(Plain), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1168. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanIndexOfAnyOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAny(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1169. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1170. LastIndexOfAny of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOfAny(new AlikeOwn(Plain), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1171. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanLastIndexOfAnyOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAny(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1172. IndexOfAnyExcept of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.IndexOfAnyExcept(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1173. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAnyExcept(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1174. IndexOfAnyExcept of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.IndexOfAnyExcept(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1175. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAnyExcept(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1176. LastIndexOfAnyExcept of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOfAnyExcept(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1177. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAnyExcept(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1178. LastIndexOfAnyExcept of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOfAnyExcept(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1179. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAnyExcept(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1180. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1181. ContainsAny of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.ContainsAny(new AlikeOwn(Plain), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1182. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanContainsAnyOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAny(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1183. ContainsAnyExcept of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyExceptOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.ContainsAnyExcept(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1184. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanContainsAnyExceptOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAnyExcept(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1185. ContainsAnyExcept of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyExceptOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.ContainsAnyExcept(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1186. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanContainsAnyExceptOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAnyExcept(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1187. Count of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanCountOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.Count(new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1188. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanCountOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.Count(new EquatableOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1189. Count of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanCountOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.Count(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1190. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanCountOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.Count(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1191. CountAny of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanCountAnyOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.CountAny(other)); return S.Hold(0); });
+
+    // S1192. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanCountAnyOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.CountAny(other)); return S.Hold(0); });
+
+    // S1193. CountAny of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanCountAnyOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.CountAny(other)); return S.Hold(0); });
+
+    // S1194. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanCountAnyOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.CountAny(other)); return S.Hold(0); });
+
+    // S1195. SequenceEqual of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanSequenceEqualOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.SequenceEqual(other)); return S.Hold(0); });
+
+    // S1196. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanSequenceEqualOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.SequenceEqual(other)); return S.Hold(0); });
+
+    // S1197. SequenceEqual of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanSequenceEqualOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.SequenceEqual(other)); return S.Hold(0); });
+
+    // S1198. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanSequenceEqualOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.SequenceEqual(other)); return S.Hold(0); });
+
+    // S1199. StartsWith of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanStartsWithOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.StartsWith(other)); return S.Hold(0); });
+
+    // S1200. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanStartsWithOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.StartsWith(other)); return S.Hold(0); });
+
+    // S1201. StartsWith of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanStartsWithOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.StartsWith(other)); return S.Hold(0); });
+
+    // S1202. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanStartsWithOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.StartsWith(other)); return S.Hold(0); });
+
+    // S1203. EndsWith of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanEndsWithOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.EndsWith(other)); return S.Hold(0); });
+
+    // S1204. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanEndsWithOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.EndsWith(other)); return S.Hold(0); });
+
+    // S1205. EndsWith of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanEndsWithOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.EndsWith(other)); return S.Hold(0); });
+
+    // S1206. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanEndsWithOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.EndsWith(other)); return S.Hold(0); });
+
+    // S1207. CommonPrefixLength of a span, with an element type that is IEquatable. The element is pending, and it gets the call.
+    public static Cell<int> SpanCommonPrefixLengthOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.CommonPrefixLength(other)); return S.Hold(0); });
+
+    // S1208. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanCommonPrefixLengthOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.CommonPrefixLength(other)); return S.Hold(0); });
+
+    // S1209. CommonPrefixLength of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanCommonPrefixLengthOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; Kept.Add(all.CommonPrefixLength(other)); return S.Hold(0); });
+
+    // S1210. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanCommonPrefixLengthOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.CommonPrefixLength(other)); return S.Hold(0); });
+
+    // S1211. Replace of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanReplaceOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; all.Replace(new EquatableOwn(Plain), new EquatableOwn(Plain)); return S.Hold(0); });
+
+    // S1212. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanReplaceOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; all.Replace(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain)); return S.Hold(0); });
+
+    // S1213. Replace of a span, with an element type that has only Equals of object. The element is pending, and it gets the call.
+    public static Cell<int> SpanReplaceOfAnObjectWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; AlikeOwn[] other = [new(Plain)]; all.Replace(new AlikeOwn(Plain), new AlikeOwn(Plain)); return S.Hold(0); });
+
+    // S1214. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanReplaceOfAnObjectWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; AlikeOwn[] other = [new(l.Map(v => v))]; all.Replace(new AlikeOwn(l.Map(v => v)), new AlikeOwn(Plain)); return S.Hold(0); });
+
+    // S1215. Trim of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanTrimOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.AsSpan().Trim(new EquatableOwn(Plain)).Length); return S.Hold(0); });
+
+    // S1216. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanTrimOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.AsSpan().Trim(new EquatableOwn(l.Map(v => v))).Length); return S.Hold(0); });
+
+    // S1217. TrimStart of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanTrimStartOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.AsSpan().TrimStart(new EquatableOwn(Plain)).Length); return S.Hold(0); });
+
+    // S1218. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanTrimStartOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.AsSpan().TrimStart(new EquatableOwn(l.Map(v => v))).Length); return S.Hold(0); });
+
+    // S1219. TrimEnd of a span, with an element type that is IEquatable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanTrimEndOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain)]; Kept.Add(all.AsSpan().TrimEnd(new EquatableOwn(Plain)).Length); return S.Hold(0); });
+
+    // S1220. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanTrimEndOfAnEquatableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; EquatableOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.AsSpan().TrimEnd(new EquatableOwn(l.Map(v => v))).Length); return S.Hold(0); });
+
+    // S1221. BinarySearch of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanBinarySearchOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.BinarySearch(new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1222. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanBinarySearchOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.BinarySearch(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1223. SequenceCompareTo of a span, with an element type that is IComparable. The element is pending, and it gets the call.
+    public static Cell<int> SpanSequenceCompareToOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.SequenceCompareTo(other)); return S.Hold(0); });
+
+    // S1224. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanSequenceCompareToOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.SequenceCompareTo(other)); return S.Hold(0); });
+
+    // S1225. IndexOfAnyInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanIndexOfAnyInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.IndexOfAnyInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1226. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAnyInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1227. LastIndexOfAnyInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanLastIndexOfAnyInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOfAnyInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1228. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAnyInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1229. IndexOfAnyExceptInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.IndexOfAnyExceptInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1230. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyExceptInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAnyExceptInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1231. LastIndexOfAnyExceptInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.LastIndexOfAnyExceptInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1232. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyExceptInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAnyExceptInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1233. ContainsAnyInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanContainsAnyInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.ContainsAnyInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1234. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAnyInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1235. ContainsAnyExceptInRange of a span, with an element type that is IComparable. The element is pending, and the value gets the call.
+    public static Cell<int> SpanContainsAnyExceptInRangeOfAComparableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(l.Map(v => v))]; RankedOwn[] other = [new(Plain)]; Kept.Add(all.ContainsAnyExceptInRange(new RankedOwn(Plain), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1236. The same call, where the value is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyExceptInRangeOfAComparableWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] all = [new(Plain)]; RankedOwn[] other = [new(l.Map(v => v))]; Kept.Add(all.ContainsAnyExceptInRange(new RankedOwn(l.Map(v => v)), new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1237. Sort of a span with two elements. The first one gets the call.
+    public static Cell<int> SpanSortOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] two = [new(l.Map(v => v)), new(Plain)]; two.AsSpan().Sort(); return S.Hold(0); });
+
+    // S1238. Sort of an array as a span, with one element. It compares nothing.
+    public static Cell<int> SpanSortOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] one = [new(l.Map(v => v))]; MemoryExtensions.Sort<RankedOwn>(one); return S.Hold(0); });
+
+    // S1239. Sort of keys and items compares the keys only.
+    public static Cell<int> SpanSortOfKeysAndItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] keys = [2, 1]; RankedOwn[] items = [new(l.Map(v => v)), new(Plain)]; keys.AsSpan().Sort(items.AsSpan()); return S.Hold(0); });
+
+    // S1240. Sort of keys that are objects, with plain items.
+    public static Cell<int> SpanSortOfObjectKeysAndItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] keys = [new(l.Map(v => v)), new(Plain)]; int[] items = [1, 2]; keys.AsSpan().Sort(items.AsSpan()); return S.Hold(0); });
+
+    // S1241. Sort of a span with a comparer in a type parameter calls the comparer, and not CompareTo of an element.
+    public static Cell<int> SpanSortWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RankedOwn[] two = [new(l.Map(v => v)), new(Plain)]; two.AsSpan().Sort(Comparer<RankedOwn>.Create((x, y) => 0)); return S.Hold(0); });
+
+    // S1242. A method of MemoryExtensions that gets a comparer calls the comparer, and not Equals of an element.
+    public static Cell<int> SpanContainsWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.AsSpan().Contains(new AlikeOwn(Plain), EqualityComparer<AlikeOwn>.Create((x, y) => ReferenceEquals(x, y), x => 1))); return S.Hold(0); });
+
+    // S1243. Contains of a span in a local of the span type. The element type is from the type of the span.
+    public static Cell<int> SpanInALocalContainsWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; Kept.Add(Has(all)); return S.Hold(0); static bool Has(ReadOnlySpan<AlikeOwn> span) => span.Contains(new AlikeOwn(Plain)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

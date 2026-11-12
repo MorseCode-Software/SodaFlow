@@ -346,15 +346,17 @@ internal sealed class SodaFlowSymbols
         type is { TypeKind: TypeKind.Interface, Name: "IEnumerator" } && IsCollections(type.ContainingNamespace);
 
     /// <summary>
-    ///     The type of the elements of a sequence: an array, or a type that is
-    ///     <c>IEnumerable</c> of some type. Null for each other type, and for a
-    ///     string.
+    ///     The type of the elements of a sequence: an array, a span, or a type
+    ///     that is <c>IEnumerable</c> of some type. Null for each other type, and
+    ///     for a string.
     /// </summary>
     public static ITypeSymbol? ElementTypeOf(ITypeSymbol? type) =>
         type switch
         {
             IArrayTypeSymbol array => array.ElementType,
             INamedTypeSymbol { SpecialType: SpecialType.System_String } => null,
+            INamedTypeSymbol { Name: "Span" or "ReadOnlySpan", TypeArguments.Length: 1 } span
+                when IsSystem(span.ContainingNamespace) => span.TypeArguments[0],
             INamedTypeSymbol named =>
                 named.AllInterfaces
                     .Insert(index: 0, item: named)

@@ -25,8 +25,8 @@ internal sealed class PlatformReceiversTests
 
     // For each row: code that gives the method the two objects. The first object is the one that
     // the collection has, or the first value. The second object is the value that the code gives.
-    // A row with no code is for a member that this target framework does not have.
-    private static readonly Dictionary<(string Type, string Method), Action<Probe, Probe>?> Calls =
+    // The code calls each overload of the method that gets the two objects and no comparer.
+    private static readonly Dictionary<(string Type, string Method), Action<Probe, Probe>> Calls =
         new()
         {
             [("Array", "IndexOf")] = static (stored, given) => _ = Array.IndexOf(array: ArrayOf(stored), value: given),
@@ -90,20 +90,218 @@ internal sealed class PlatformReceiversTests
                 stored.Forget();
                 queue.Enqueue(element: 2, priority: given);
             },
-            [("MemoryExtensions", "Contains")] = static (stored, given) =>
-                _ = ((ReadOnlySpan<Probe>)ArrayOf(stored)).Contains(given)
-#else
-            [("Dictionary", "TryAdd")] = null,
-            [("PriorityQueue", "Enqueue")] = null,
-            [("MemoryExtensions", "Contains")] = null
+            [("MemoryExtensions", "Contains")] = static (stored, given) => _ = SpanOf(stored).Contains(given),
+            [("MemoryExtensions", "IndexOf")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOf(given);
+                _ = SpanOf(stored).IndexOf(ArrayOf(given));
+            },
+            [("MemoryExtensions", "LastIndexOf")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOf(given);
+                _ = SpanOf(stored).LastIndexOf(ArrayOf(given));
+            },
+            [("MemoryExtensions", "Count")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).Count(given);
+                _ = SpanOf(stored).Count(ArrayOf(given));
+            },
+            [("MemoryExtensions", "Replace")] = static (stored, given) =>
+            {
+                new Span<Probe>(ArrayOf(stored)).Replace(oldValue: given, newValue: given);
+                SpanOf(stored).Replace(destination: new Probe[1], oldValue: given, newValue: given);
+            },
+            [("MemoryExtensions", "IndexOfAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOfAnyExcept(given);
+                _ = SpanOf(stored).IndexOfAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).IndexOfAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).IndexOfAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "LastIndexOfAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOfAnyExcept(given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "ContainsAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).ContainsAnyExcept(given);
+                _ = SpanOf(stored).ContainsAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).ContainsAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).ContainsAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "CountAny")] = static (stored, given) =>
+                _ = SpanOf(stored).CountAny(ArrayOf(given)),
+            [("MemoryExtensions", "SequenceEqual")] = static (stored, given) =>
+                _ = SpanOf(stored).SequenceEqual(ArrayOf(given)),
+            [("MemoryExtensions", "StartsWith")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).StartsWith(given);
+                _ = SpanOf(stored).StartsWith(ArrayOf(given));
+            },
+            [("MemoryExtensions", "EndsWith")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).EndsWith(given);
+                _ = SpanOf(stored).EndsWith(ArrayOf(given));
+            },
+            [("MemoryExtensions", "CommonPrefixLength")] = static (stored, given) =>
+                _ = SpanOf(stored).CommonPrefixLength(ArrayOf(given)),
+            [("MemoryExtensions", "SequenceCompareTo")] = static (stored, given) =>
+                _ = SpanOf(stored).SequenceCompareTo(ArrayOf(given)),
+            [("MemoryExtensions", "Trim")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).Trim(given).Length;
+                _ = SpanOf(stored).Trim(ArrayOf(given)).Length;
+            },
+            [("MemoryExtensions", "TrimStart")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).TrimStart(given).Length;
+                _ = SpanOf(stored).TrimStart(ArrayOf(given)).Length;
+            },
+            [("MemoryExtensions", "TrimEnd")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).TrimEnd(given).Length;
+                _ = SpanOf(stored).TrimEnd(ArrayOf(given)).Length;
+            },
+            [("MemoryExtensions", "BinarySearch")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).BinarySearch(given);
+                _ = SpanOf(stored).BinarySearch<Probe>(given);
+            },
+            [("MemoryExtensions", "IndexOfAnyInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).IndexOfAnyInRange(lowInclusive: given, highInclusive: given),
+            [("MemoryExtensions", "LastIndexOfAnyInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).LastIndexOfAnyInRange(lowInclusive: given, highInclusive: given),
+            [("MemoryExtensions", "IndexOfAnyExceptInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).IndexOfAnyExceptInRange(lowInclusive: given, highInclusive: given),
+            [("MemoryExtensions", "LastIndexOfAnyExceptInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).LastIndexOfAnyExceptInRange(lowInclusive: given, highInclusive: given),
+            [("MemoryExtensions", "ContainsAnyInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).ContainsAnyInRange(lowInclusive: given, highInclusive: given),
+            [("MemoryExtensions", "ContainsAnyExceptInRange")] = static (stored, given) =>
+                _ = SpanOf(stored).ContainsAnyExceptInRange(lowInclusive: given, highInclusive: given)
 #endif
         };
+
+#if NET
+    // The same for the rows of an overload that has a parameter for a comparer. The type of the
+    // objects is not IEquatable, thus the compiler takes that overload, and the code gives no
+    // comparer. Only a span method has such a row, and .NET Framework has no span method.
+    private static readonly Dictionary<(string Type, string Method), Action<PlainProbe, PlainProbe>> PlainCalls =
+        new()
+        {
+            [("MemoryExtensions", "Contains")] = static (stored, given) =>
+                _ = SpanOf(stored).Contains(given),
+            [("MemoryExtensions", "ContainsAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).ContainsAny(value0: given, value1: given);
+                _ = SpanOf(stored).ContainsAny(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).ContainsAny(ArrayOf(given));
+            },
+            [("MemoryExtensions", "IndexOfAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOfAny(value0: given, value1: given);
+                _ = SpanOf(stored).IndexOfAny(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).IndexOfAny(ArrayOf(given));
+            },
+            [("MemoryExtensions", "LastIndexOfAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOfAny(value0: given, value1: given);
+                _ = SpanOf(stored).LastIndexOfAny(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).LastIndexOfAny(ArrayOf(given));
+            },
+            [("MemoryExtensions", "IndexOf")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOf(given);
+                _ = SpanOf(stored).IndexOf(ArrayOf(given));
+            },
+            [("MemoryExtensions", "LastIndexOf")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOf(given);
+                _ = SpanOf(stored).LastIndexOf(ArrayOf(given));
+            },
+            [("MemoryExtensions", "Count")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).Count(given);
+                _ = SpanOf(stored).Count(ArrayOf(given));
+            },
+            [("MemoryExtensions", "Replace")] = static (stored, given) =>
+            {
+                new Span<PlainProbe>(ArrayOf(stored)).Replace(oldValue: given, newValue: given);
+                SpanOf(stored).Replace(destination: new PlainProbe[1], oldValue: given, newValue: given);
+            },
+            [("MemoryExtensions", "IndexOfAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOfAnyExcept(given);
+                _ = SpanOf(stored).IndexOfAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).IndexOfAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).IndexOfAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "LastIndexOfAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOfAnyExcept(given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).LastIndexOfAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "ContainsAnyExcept")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).ContainsAnyExcept(given);
+                _ = SpanOf(stored).ContainsAnyExcept(value0: given, value1: given);
+                _ = SpanOf(stored).ContainsAnyExcept(value0: given, value1: given, value2: given);
+                _ = SpanOf(stored).ContainsAnyExcept(ArrayOf(given));
+            },
+            [("MemoryExtensions", "CountAny")] = static (stored, given) =>
+                _ = SpanOf(stored).CountAny(ArrayOf(given)),
+            [("MemoryExtensions", "SequenceEqual")] = static (stored, given) =>
+                _ = SpanOf(stored).SequenceEqual(ArrayOf(given)),
+            [("MemoryExtensions", "StartsWith")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).StartsWith(given);
+                _ = SpanOf(stored).StartsWith(ArrayOf(given));
+            },
+            [("MemoryExtensions", "EndsWith")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).EndsWith(given);
+                _ = SpanOf(stored).EndsWith(ArrayOf(given));
+            },
+            [("MemoryExtensions", "SequenceCompareTo")] = static (stored, given) =>
+                _ = SpanOf(stored).SequenceCompareTo(ArrayOf(given))
+        };
+#endif
 
     [Test]
     public async Task EachRowNamesTheObjectThatGetsTheCall() =>
         await Assert.That(
-                PlatformReceivers.ByMethod.SelectMany(static row => WrongFor(key: row.Key, receiver: row.Value)))
+                PlatformReceivers.ByMethod
+                    .Where(static row => IsOnThisFramework(row.Key))
+                    .SelectMany(static row =>
+                        WrongFor(
+                            calls: Calls,
+                            make: static (name, rank, record) => new Probe(name: name, rank: rank, record: record),
+                            key: row.Key,
+                            receiver: row.Value)))
             .IsEmpty();
+
+#if NET
+    [Test]
+    public async Task EachRowWithNoComparerGivenNamesTheObjectThatGetsTheCall() =>
+        await Assert.That(
+                PlatformReceivers.WithNoComparerGiven.SelectMany(static row =>
+                    WrongFor(
+                        calls: PlainCalls,
+                        make: static (name, rank, record) => new PlainProbe(name: name, rank: rank, record: record),
+                        key: row.Key,
+                        receiver: row.Value)))
+            .IsEmpty();
+
+    [Test]
+    public async Task EachCallWithNoComparerGivenHasARow() =>
+        await Assert.That(PlainCalls.Keys.Where(static key => !PlatformReceivers.WithNoComparerGiven.ContainsKey(key)))
+            .IsEmpty();
+#endif
 
     [Test]
     public async Task EachCallHasARow() =>
@@ -112,27 +310,34 @@ internal sealed class PlatformReceiversTests
     [Test]
     public async Task NoRowSaysEither() =>
         await Assert.That(
-                PlatformReceivers.ByMethod.Values.Where(static receiver => receiver == PlatformReceiver.Either))
+                PlatformReceivers.ByMethod.Values.Concat(PlatformReceivers.WithNoComparerGiven.Values)
+                    .Where(static receiver => receiver == PlatformReceiver.Either))
             .IsEmpty();
 
+    // False for a row whose member this target framework does not have. .NET Framework has no
+    // PriorityQueue and no TryAdd, and it has the span methods only from a package.
+    private static bool IsOnThisFramework((string Type, string Method) key) =>
+#if NET
+        key.Type.Length > 0;
+#else
+        key.Type is not ("MemoryExtensions" or "PriorityQueue") && key != ("Dictionary", "TryAdd");
+#endif
+
     // One line for a row that is not correct, and no line for a row that is correct.
-    private static IEnumerable<string> WrongFor((string Type, string Method) key, PlatformReceiver receiver)
+    private static IEnumerable<string> WrongFor<T>(
+        IReadOnlyDictionary<(string Type, string Method), Action<T, T>> calls,
+        Func<string, int, List<string>, T> make,
+        (string Type, string Method) key,
+        PlatformReceiver receiver)
     {
-        if (!Calls.TryGetValue(key: key, value: out Action<Probe, Probe>? call))
+        if (!calls.TryGetValue(key: key, value: out Action<T, T>? call))
         {
             return [$"{key.Type}.{key.Method}: no code calls it"];
         }
 
-        if (call == null)
-        {
-            return [];
-        }
-
         List<string> record = [];
 
-        call(
-            arg1: new Probe(name: Stored, rank: 1, record: record),
-            arg2: new Probe(name: Given, rank: 2, record: record));
+        call(arg1: make(arg1: Stored, arg2: 1, arg3: record), arg2: make(arg1: Given, arg2: 2, arg3: record));
 
         string expected = receiver == PlatformReceiver.Given ? Given : Stored;
 
@@ -145,7 +350,11 @@ internal sealed class PlatformReceiversTests
             : [];
     }
 
-    private static Probe[] ArrayOf(Probe stored) => [stored];
+    private static T[] ArrayOf<T>(T stored) => [stored];
+
+#if NET
+    private static ReadOnlySpan<T> SpanOf<T>(T stored) => ArrayOf(stored);
+#endif
 
     private static List<Probe> ListOf(Probe stored) => [stored];
 
@@ -239,4 +448,31 @@ internal sealed class PlatformReceiversTests
             return other == null ? 1 : this.rank.CompareTo(other.rank);
         }
     }
+
+#if NET
+    // The same object with only the members that each type can have. It is not IEquatable, and it
+    // is IComparable only with no type argument.
+    private sealed class PlainProbe(in string name, in int rank, in List<string> record) : IComparable
+    {
+        private readonly string name = name;
+        private readonly int rank = rank;
+        private readonly List<string> record = record;
+
+        public override bool Equals(object? obj)
+        {
+            this.record.Add(this.name);
+
+            return ReferenceEquals(objA: this, objB: obj);
+        }
+
+        public override int GetHashCode() => 1;
+
+        public int CompareTo(object? obj)
+        {
+            this.record.Add(this.name);
+
+            return obj is PlainProbe other ? this.rank.CompareTo(other.rank) : 1;
+        }
+    }
+#endif
 }

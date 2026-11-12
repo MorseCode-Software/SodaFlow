@@ -80,7 +80,14 @@ internal static class PlatformCallers
             Row(type: "Enumerable", callbacks: HashAndEquals,
                 "Distinct", "DistinctBy", "GroupBy", "ToDictionary", "ToHashSet", "ToLookup", "Union", "Intersect",
                 "Except", "Join"),
-            Row(type: "MemoryExtensions", callbacks: PlatformCallbacks.Equals, "Contains"),
+            Row(type: "MemoryExtensions", callbacks: PlatformCallbacks.Equals,
+                "Contains", "ContainsAny", "ContainsAnyExcept", "IndexOf", "LastIndexOf", "IndexOfAny",
+                "LastIndexOfAny", "IndexOfAnyExcept", "LastIndexOfAnyExcept", "Count", "CountAny", "SequenceEqual",
+                "StartsWith", "EndsWith", "CommonPrefixLength", "Replace", "Trim", "TrimStart", "TrimEnd"),
+            Row(type: "MemoryExtensions", callbacks: PlatformCallbacks.Compare,
+                "Sort", "BinarySearch", "SequenceCompareTo", "IndexOfAnyInRange", "LastIndexOfAnyInRange",
+                "IndexOfAnyExceptInRange", "LastIndexOfAnyExceptInRange", "ContainsAnyInRange",
+                "ContainsAnyExceptInRange"),
             Row(type: "Comparer", callbacks: PlatformCallbacks.Compare, "Compare"),
             Row(type: "EqualityComparer", callbacks: PlatformCallbacks.Equals, "Equals"),
             Row(type: "Object", callbacks: PlatformCallbacks.Equals, "Equals"),
@@ -118,6 +125,7 @@ internal static class PlatformCallers
         ImmutableHashSet.Create(
             ("Array", "Sort"),
             ("List", "Sort"),
+            ("MemoryExtensions", "Sort"),
             ("Enumerable", "OrderBy"),
             ("Enumerable", "OrderByDescending"),
             ("Enumerable", "Order"),
@@ -169,15 +177,23 @@ internal static class PlatformCallers
     ///     <see cref="PlatformReceiver.Either" /> for a method with no row in
     ///     <see cref="PlatformReceivers" />.
     /// </summary>
+    /// <remarks>
+    ///     An overload with a parameter for a comparer has a row of its own. The
+    ///     code gives no comparer here, because a method that gets one calls it,
+    ///     and calls no member of an object.
+    /// </remarks>
     public static PlatformReceiver ReceiverOf(IMethodSymbol method)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
+        IReadOnlyDictionary<(string Type, string Method), PlatformReceiver> rows =
+            definition.Parameters.Any(static parameter => SodaFlowSymbols.IsComparer(parameter.Type))
+                ? PlatformReceivers.WithNoComparerGiven
+                : PlatformReceivers.ByMethod;
+
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && PlatformReceivers.ByMethod.TryGetValue(
-                   key: (type.Name, definition.Name),
-                   value: out PlatformReceiver receiver)
+               && rows.TryGetValue(key: (type.Name, definition.Name), value: out PlatformReceiver receiver)
             ? receiver
             : PlatformReceiver.Either;
     }

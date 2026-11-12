@@ -88,7 +88,9 @@ internal sealed class PlatformCallersTests
         ];
 
         await Assert.That(
-                PlatformCallers.AmongTheElements.Concat(PlatformReceivers.ByMethod.Keys)
+                PlatformCallers.AmongTheElements
+                    .Concat(PlatformReceivers.ByMethod.Keys)
+                    .Concat(PlatformReceivers.WithNoComparerGiven.Keys)
                     .Where(entry => !comparing.Contains(entry)))
             .IsEmpty();
     }

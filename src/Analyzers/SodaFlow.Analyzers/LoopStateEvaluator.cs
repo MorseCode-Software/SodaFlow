@@ -3094,7 +3094,9 @@ internal sealed class LoopStateEvaluator
     // A comparer, or a delegate of the type Comparison, which a sort can get.
     private static bool IsComparison(ITypeSymbol? type) =>
         SodaFlowSymbols.IsComparer(type)
-        || type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, Name: "Comparison" };
+        || type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, Name: "Comparison" }
+        // A type parameter for a comparer, as in Sort<T, TComparer>.
+        || (type is ITypeParameterSymbol generic && generic.ConstraintTypes.Any(SodaFlowSymbols.IsComparer));
 
     // The elements that a callee gets from a sequence of this compilation, when the callee
     // enumerates what it gets for the parameter.
