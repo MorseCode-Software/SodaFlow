@@ -251,6 +251,10 @@ internal sealed class Construction(
     /// <summary>True when the evaluator knows the type of this object.</summary>
     public bool HasType => !this.types.IsEmpty;
 
+    /// <summary>The state of each part, for a type from <see cref="SodaFlowSymbols.HoldsParts" />.</summary>
+    public IEnumerable<LoopState> Parts =>
+        this.members.Where(static pair => IsPart(pair.Key)).Select(static pair => pair.Value);
+
     /// <summary>The state of each element, when this object is a tuple.</summary>
     public IEnumerable<LoopState> TupleElements =>
         this.members

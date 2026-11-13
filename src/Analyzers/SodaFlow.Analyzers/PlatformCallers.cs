@@ -97,14 +97,14 @@ internal static class PlatformCallers
             Row(type: "HashSet", callbacks: HashAndEquals,
                 ".ctor", "Add", "Contains", "Remove", "TryGetValue", "ExceptWith", "IntersectWith", "IsProperSubsetOf",
                 "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExceptWith",
-                "UnionWith"),
+                "UnionWith", "RemoveWhere"),
             Row(type: "Dictionary", callbacks: HashAndEquals,
                 ".ctor", "Add", "TryAdd", "ContainsKey", "TryGetValue", "Remove", "get_Item", "set_Item"),
             Row(type: "Dictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
             Row(type: "SortedSet", callbacks: PlatformCallbacks.Compare,
                 ".ctor", "Add", "Contains", "Remove", "TryGetValue", "GetViewBetween", "ExceptWith", "IntersectWith",
                 "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals",
-                "SymmetricExceptWith", "UnionWith"),
+                "SymmetricExceptWith", "UnionWith", "RemoveWhere"),
             Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Compare,
                 ".ctor", "Add", "ContainsKey", "TryGetValue", "Remove", "get_Item", "set_Item"),
             Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
@@ -113,6 +113,7 @@ internal static class PlatformCallers
             Row(type: "SortedList", callbacks: PlatformCallbacks.Equals, "ContainsValue", "IndexOfValue"),
             Row(type: "PriorityQueue", callbacks: PlatformCallbacks.Compare,
                 ".ctor", "Enqueue", "EnqueueRange", "EnqueueDequeue", "DequeueEnqueue"),
+            Row(type: "PriorityQueue", callbacks: PlatformCallbacks.Equals, "Remove"),
             Row(type: "LinkedList", callbacks: PlatformCallbacks.Equals, "Contains", "Find", "FindLast", "Remove"),
             Row(type: "Queue", callbacks: PlatformCallbacks.Equals, "Contains"),
             Row(type: "Stack", callbacks: PlatformCallbacks.Equals, "Contains"),
@@ -155,8 +156,9 @@ internal static class PlatformCallers
             Row(type: "FrozenDictionary", callbacks: HashAndEquals,
                 "ToFrozenDictionary", "ContainsKey", "TryGetValue", "GetValueRefOrNullRef", "get_Item"),
             Row(type: "ArrayList", callbacks: PlatformCallbacks.Equals, "Contains", "IndexOf", "LastIndexOf", "Remove"),
+            Row(type: "ArrayList", callbacks: PlatformCallbacks.Compare, "Sort", "BinarySearch"),
             Row(type: "Hashtable", callbacks: HashAndEquals,
-                "Add", "Contains", "ContainsKey", "Remove", "get_Item", "set_Item"),
+                ".ctor", "Add", "Contains", "ContainsKey", "Remove", "get_Item", "set_Item"),
             Row(type: "Hashtable", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
             // A member of an interface has a row when each collection of the platform that implements
             // it compares. A run of each such collection found that. The callbacks are those of all
@@ -180,7 +182,11 @@ internal static class PlatformCallers
             Row(type: "IImmutableDictionary", callbacks: AllThree,
                 "Add", "AddRange", "Contains", "Remove", "RemoveRange", "SetItem", "SetItems", "TryGetKey"),
             Row(type: "EqualityComparer", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
-            Row(type: "HashCode", callbacks: PlatformCallbacks.Hash, "Combine"),
+            Row(type: "HashCode", callbacks: PlatformCallbacks.Hash, "Combine", "Add"),
+            Row(type: "Tuple", callbacks: PlatformCallbacks.Equals, "Equals"),
+            Row(type: "Tuple", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
+            Row(type: "Tuple", callbacks: PlatformCallbacks.Compare, "CompareTo"),
+            Row(type: "Tuple", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Equals, "Equals"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Compare, "CompareTo"),
@@ -207,6 +213,7 @@ internal static class PlatformCallers
         ImmutableHashSet.Create(
             ("Array", "Sort"),
             ("List", "Sort"),
+            ("ArrayList", "Sort"),
             ("MemoryExtensions", "Sort"),
             ("Enumerable", "OrderBy"),
             ("Enumerable", "OrderByDescending"),
@@ -242,6 +249,34 @@ internal static class PlatformCallers
             ("ImmutableSortedDictionary", "ToImmutableSortedDictionary"),
             ("FrozenSet", "ToFrozenSet"),
             ("FrozenDictionary", "ToFrozenDictionary"));
+
+    /// <summary>
+    ///     The methods of the table that get a function, and compare the
+    ///     elements themselves. The function only says which elements the method
+    ///     removes. Each other method that gets a function compares what the
+    ///     function returns, as a sort by a key does.
+    /// </summary>
+    public static readonly ImmutableHashSet<(string Type, string Method)> WithAFunctionThatChooses =
+        ImmutableHashSet.Create(("HashSet", "RemoveWhere"), ("SortedSet", "RemoveWhere"));
+
+    /// <summary>
+    ///     The type parameters whose values a method compares, where that is not
+    ///     the rule of <see cref="ComparedTypes" />. <c>Remove</c> of a queue
+    ///     compares the elements, and not the priorities. <c>TryUpdate</c>
+    ///     compares the key, and the value that it has with the value for the
+    ///     comparison.
+    /// </summary>
+    private static readonly ImmutableDictionary<(string Type, string Method), ImmutableArray<string>>
+        ComparedParameters =
+            ImmutableDictionary.CreateRange(
+            [
+                new KeyValuePair<(string Type, string Method), ImmutableArray<string>>(
+                    key: ("PriorityQueue", "Remove"),
+                    value: ImmutableArray.Create("TElement")),
+                new KeyValuePair<(string Type, string Method), ImmutableArray<string>>(
+                    key: ("ConcurrentDictionary", "TryUpdate"),
+                    value: ImmutableArray.Create(item1: "TKey", item2: "TValue"))
+            ]);
 
     private static readonly ImmutableDictionary<(string Type, string Method), PlatformCallbacks> ByMethod =
         Rows.SelectMany(static row => row.Methods.Select(method => (Key: (row.Type, method), row.Callbacks)))
@@ -319,8 +354,22 @@ internal static class PlatformCallers
     ///     new value where that element was.
     /// </summary>
     public static bool IsOnlyKept(IParameterSymbol? parameter) =>
-        parameter is { Name: "newValue", ContainingSymbol: IMethodSymbol { Name: "Replace", ContainingType: { } type } }
+        parameter is
+        {
+            Name: "newValue",
+            ContainingSymbol: IMethodSymbol { Name: "Replace" or "TryUpdate", ContainingType: { } type }
+        }
         && SodaFlowSymbols.IsPlatform(type);
+
+    /// <summary>True for a method of <see cref="WithAFunctionThatChooses" />.</summary>
+    public static bool ComparesWhatAFunctionChooses(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { } type
+               && SodaFlowSymbols.IsPlatform(type)
+               && WithAFunctionThatChooses.Contains((type.Name, NameOf(definition)));
+    }
 
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
     public static bool ComparesOnlyItsElements(IMethodSymbol method)
@@ -361,6 +410,15 @@ internal static class PlatformCallers
 
         (ITypeParameterSymbol Parameter, ITypeSymbol Argument)[] pairs = [.. all];
 
+        if (ComparedParameters.TryGetValue(
+                key: (called.ContainingType.Name, NameOf(called)),
+                value: out ImmutableArray<string> names))
+        {
+            return pairs.Where(pair => names.Contains(pair.Parameter.Name))
+                .SelectMany(static pair => Parts(pair.Argument))
+                .ToImmutableArray();
+        }
+
         // A search for a value of a dictionary compares the values, and not the keys.
         bool forValues = NameOf(called) is "ContainsValue" or "IndexOfValue";
 
@@ -388,8 +446,14 @@ internal static class PlatformCallers
             ? parameters.Select((parameter, position) => (parameter, arguments[position]))
             : [];
 
+    // A Tuple object compares its elements, as a tuple with parentheses does.
     private static IEnumerable<ITypeSymbol> Parts(ITypeSymbol type) =>
-        type is INamedTypeSymbol { IsTupleType: true } tuple
-            ? tuple.TupleElements.SelectMany(static element => Parts(element.Type))
-            : [type];
+        type switch
+        {
+            INamedTypeSymbol { IsTupleType: true } tuple =>
+                tuple.TupleElements.SelectMany(static element => Parts(element.Type)),
+            INamedTypeSymbol holder when SodaFlowSymbols.IsTupleObject(holder) =>
+                holder.TypeArguments.SelectMany(Parts),
+            _ => [type]
+        };
 }

@@ -75,6 +75,8 @@ internal sealed class PlatformCallersTests
         typeof(ArrayList),
         typeof(Hashtable),
         typeof(HashCode),
+        typeof(Tuple<>),
+        typeof(Tuple<,>),
         typeof(ICollection<>),
         typeof(IList<>),
         typeof(IList),
@@ -116,10 +118,11 @@ internal sealed class PlatformCallersTests
     }
 
     /// <summary>
-    ///     A method that compares only its own elements, and a method with a known
-    ///     receiver, are methods that call <c>Equals</c> or <c>CompareTo</c>. Thus,
-    ///     each of them has a row with one of those two in the first table. A name
-    ///     with no such row does nothing.
+    ///     Three kinds of method call <c>Equals</c> or <c>CompareTo</c>. They are
+    ///     a method that compares only its own elements, a method with a known
+    ///     receiver, and a method that compares what a function chooses. Thus, each
+    ///     of them has a row with one of those two in the first table. A name with
+    ///     no such row does nothing.
     /// </summary>
     [Test]
     public async Task EachMethodOfTheTwoSmallTablesHasARowThatCompares()
@@ -137,6 +140,7 @@ internal sealed class PlatformCallersTests
                     .Concat(PlatformReceivers.ByMethod.Keys)
                     .Concat(PlatformReceivers.WithNoComparerGiven.Keys)
                     .Concat(PlatformReceivers.WithValuesOneByOne.Keys)
+                    .Concat(PlatformCallers.WithAFunctionThatChooses)
                     .Where(entry => !comparing.Contains(entry)))
             .IsEmpty();
     }
@@ -206,10 +210,15 @@ internal sealed class PlatformCallersTests
         assembly.GetType(name: name, throwOnError: true) ?? throw new InvalidOperationException(name);
 
     // A constructor has the name .ctor in the table, and an accessor has the name that the
-    // compiler gives it.
+    // compiler gives it. An explicit implementation of a member of an interface has the name of
+    // that member, as CompareTo of a Tuple object has. Its own name has the interface before a dot.
     private static bool Has(Type type, string method) =>
         method == ".ctor"
             ? type.GetConstructors().Length > 0
             : type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
-                .Any(candidate => candidate.Name == method);
+                  .Any(candidate => candidate.Name == method)
+              || type.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
+                  .Any(candidate =>
+                      candidate.IsPrivate
+                      && candidate.Name.EndsWith(value: "." + method, comparisonType: StringComparison.Ordinal));
 }

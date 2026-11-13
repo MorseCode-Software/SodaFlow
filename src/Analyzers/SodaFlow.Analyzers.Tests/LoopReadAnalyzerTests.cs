@@ -1125,7 +1125,19 @@ internal sealed class LoopReadAnalyzerTests
             ["ContainsThroughICollectionInALocalFunction"] = ["SF1004"],
             ["TryGetValueThroughIDictionaryFromAMethod"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
             ["RemoveThroughICollectionFromAMethod"] = ["SF1004", "SF1005"],
-            ["OverlapsThroughIReadOnlySetFromAMethod"] = ["SF1004", "SF1005"]
+            ["OverlapsThroughIReadOnlySetFromAMethod"] = ["SF1004", "SF1005"],
+            ["RemoveWhereOfAHashSet"] = ["SF1004", "SF1005"],
+            ["RemoveWhereOfASortedSet"] = ["SF1004", "SF1005"],
+            ["RemoveOfAPriorityQueue"] = ["SF1004", "SF1005"],
+            ["EqualsOfATupleObject"] = ["SF1004", "SF1005"],
+            ["GetHashCodeOfATupleObject"] = ["SF1005"],
+            ["CompareToOfATupleObjectThroughAnInterface"] = ["SF1005"],
+            ["HashSetOfTupleObjects"] = ["SF1005"],
+            ["TryUpdateComparesTheValues"] = ["SF1004", "SF1005"],
+            ["AddOfAHashCode"] = ["SF1005"],
+            ["SortOfAnArrayList"] = ["SF1004", "SF1005"],
+            ["BinarySearchOfAnArrayList"] = ["SF1004", "SF1005"],
+            ["HashtableFromADictionary"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -547,8 +547,9 @@ internal sealed class SodaFlowSymbols
     /// <summary>
     ///     True for a type whose object has the elements of a collection
     ///     expression in the order of the code. The types are an array,
-    ///     <c>List</c>, and each interface that the compiler gives a list or an
-    ///     array for. A set or a sorted collection has a different order.
+    ///     <c>List</c>, <c>ArrayList</c>, and each interface that the compiler
+    ///     gives a list or an array for. A set or a sorted collection has a
+    ///     different order.
     /// </summary>
     public static bool KeepsTheOrder(ITypeSymbol? type) =>
         type is IArrayTypeSymbol
@@ -556,7 +557,9 @@ internal sealed class SodaFlowSymbols
             {
                 Name: "List" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection" or "IList" or "ICollection"
             } named
-            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        || (type is INamedTypeSymbol { Name: "ArrayList" } untyped
+            && untyped.ContainingNamespace?.ToDisplayString() == "System.Collections");
 
     /// <summary>
     ///     True for a method of a collection of the platform that looks for the
@@ -614,6 +617,12 @@ internal sealed class SodaFlowSymbols
             is ("KeyValuePair", "System.Collections.Generic")
             or ("Tuple", "System")
             or ("DictionaryEntry", "System.Collections");
+
+    /// <summary>
+    ///     True for <c>Tuple</c>, the class. The platform calls the same member of
+    ///     each of its parts, as it does for a tuple with parentheses.
+    /// </summary>
+    public static bool IsTupleObject(ITypeSymbol? type) => type is { Name: "Tuple" } && HoldsParts(type);
 
     /// <summary>
     ///     The property of a type from <see cref="HoldsParts" /> that holds the

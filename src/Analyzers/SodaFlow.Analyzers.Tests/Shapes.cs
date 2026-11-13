@@ -7576,6 +7576,68 @@ public static class Shapes
     public static Cell<int> AddThroughICollectionFromAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeAList(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
 
+    // S1580. RemoveWhere of a HashSet gets a function, and compares each element that it removes. With one element, it compares that element with itself.
+    public static Cell<int> RemoveWhereOfAHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new(l.Map(v => v))]; Kept.Add(set.RemoveWhere(x => true)); return S.Hold(0); });
+
+    // S1581. RemoveWhere of a SortedSet calls CompareTo.
+    public static Cell<int> RemoveWhereOfASortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> set = [new(l.Map(v => v))]; Kept.Add(set.RemoveWhere(x => true)); return S.Hold(0); });
+
+    // S1582. RemoveWhere of a HashSet of plain objects reads nothing.
+    public static Cell<int> RemoveWhereOfAHashSetOfPlainObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = [new(Plain)]; Kept.Add(set.RemoveWhere(x => true)); return S.Hold(0); });
+
+    // S1583. Remove of a PriorityQueue compares the element that it gets with each element of the queue.
+    public static Cell<int> RemoveOfAPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Alike, int)[] one = [(new Alike(l.Map(v => v)), 1)]; PriorityQueue<Alike, int> queue = new(one); Kept.Add(queue.Remove(new Alike(Plain), out _, out _)); return S.Hold(0); });
+
+    // S1584. Remove of a PriorityQueue compares the elements, and not the priorities. The two types are
+    // different: a state does not tell an element from a priority of the same type.
+    public static Cell<int> RemoveOfAPriorityQueueWithAPendingPriority() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Alike, AlikeOwn)[] one = [(new Alike(Plain), new AlikeOwn(l.Map(v => v)))]; PriorityQueue<Alike, AlikeOwn> queue = new(one); Kept.Add(queue.Remove(new Alike(Plain), out _, out _)); return S.Hold(0); });
+
+    // S1585. Equals of a Tuple object calls Equals of each element.
+    public static Cell<int> EqualsOfATupleObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Tuple.Create(new Alike(l.Map(v => v)), 1).Equals(Tuple.Create(new Alike(Plain), 1))); return S.Hold(0); });
+
+    // S1586. GetHashCode of a Tuple object calls GetHashCode of each element.
+    public static Cell<int> GetHashCodeOfATupleObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Tuple.Create(new Hashed(l.Map(v => v)), 1).GetHashCode()); return S.Hold(0); });
+
+    // S1587. CompareTo of a Tuple object, through IComparable, calls CompareTo of each element. It needs
+    // IComparable with no type argument.
+    public static Cell<int> CompareToOfATupleObjectThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparable first = Tuple.Create(new RankedLoose(l.Map(v => v)), 1); Kept.Add(first.CompareTo(Tuple.Create(new RankedLoose(Plain), 1))); return S.Hold(0); });
+
+    // S1588. A HashSet of Tuple objects calls Equals of the elements of each tuple.
+    public static Cell<int> HashSetOfTupleObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Tuple<Alike, int>> set = [Tuple.Create(new Alike(l.Map(v => v)), 1)]; set.Add(Tuple.Create(new Alike(Plain), 1)); return S.Hold(set.Count); });
+
+    // S1589. TryUpdate of a ConcurrentDictionary compares the value that it has with the value for the comparison.
+    public static Cell<int> TryUpdateComparesTheValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Alike>[] one = [new("a", new Alike(l.Map(v => v)))]; ConcurrentDictionary<string, Alike> map = new(one); Kept.Add(map.TryUpdate("a", new Alike(Plain), new Alike(Plain))); return S.Hold(0); });
+
+    // S1590. TryUpdate only keeps the new value, and does not compare it.
+    public static Cell<int> TryUpdateKeepsTheNewValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Alike>[] one = [new("a", new Alike(Plain))]; ConcurrentDictionary<string, Alike> map = new(one); Kept.Add(map.TryUpdate("a", new Alike(l.Map(v => v)), new Alike(Plain))); return S.Hold(0); });
+
+    // S1591. Add of a HashCode calls GetHashCode of the value.
+    public static Cell<int> AddOfAHashCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashCode code = new(); code.Add(new Hashed(l.Map(v => v))); return S.Hold(code.ToHashCode()); });
+
+    // S1592. Sort of an ArrayList calls CompareTo of IComparable with no type argument.
+    public static Cell<int> SortOfAnArrayList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList all = new() { new RankedLoose(l.Map(v => v)), new RankedLoose(Plain) }; all.Sort(); return S.Hold(all.Count); });
+
+    // S1593. BinarySearch of an ArrayList.
+    public static Cell<int> BinarySearchOfAnArrayList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList all = new() { new RankedLoose(l.Map(v => v)) }; Kept.Add(all.BinarySearch(new RankedLoose(Plain))); return S.Hold(0); });
+
+    // S1594. The constructor of a Hashtable calls GetHashCode of each key of the dictionary that it gets.
+    public static Cell<int> HashtableFromADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Hashed, int> from = new() { { new Hashed(l.Map(v => v)), 1 } }; return S.Hold(new Hashtable(from).Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -8762,6 +8824,14 @@ public static class Shapes
     private static IReadOnlySet<Alike> MakeAReadOnlySet(Alike first) => new HashSet<Alike> { first };
 
     private static ICollection<Alike> MakeAList() => new List<Alike>();
+
+    // CompareTo of IComparable with no type argument, which reads both objects.
+    public sealed class RankedLoose(Cell<int> share) : IComparable
+    {
+        public int CompareTo(object? obj) => this.Read().CompareTo((obj as RankedLoose)?.Read() ?? 0);
+
+        private int Read() => share.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

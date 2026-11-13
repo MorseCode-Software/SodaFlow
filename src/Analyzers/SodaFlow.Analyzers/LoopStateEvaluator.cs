@@ -915,7 +915,8 @@ internal sealed class LoopStateEvaluator
             {
                 Name.Identifier.ValueText: "Sort" or "Reverse", Parent: InvocationExpressionSyntax call
             }
-            && this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner }
+            && this.region.SymbolOf(call)
+                is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" or "ArrayList" } owner }
             && SodaFlowSymbols.IsPlatform(owner));
 
     // The elements of a literal whose object has them in the order of the code. A spread has a
@@ -3024,7 +3025,9 @@ internal sealed class LoopStateEvaluator
 
         // A callee that gets a function compares what the function returns, as a sort by a key
         // does. It does not compare the values that it gives to the function.
-        bool byFunction = operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
+        bool byFunction =
+            !PlatformCallers.ComparesWhatAFunctionChooses(method)
+            && operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
 
         // A member of LINQ to XML knows its content as object, and makes text from each object of
         // a sequence in it.
@@ -3252,6 +3255,13 @@ internal sealed class LoopStateEvaluator
         {
             return members.TupleElements.SelectMany(element =>
                 CallbackOwners(state: element, written: null, asSequence: false, compared: compared));
+        }
+
+        // The state of a Tuple object has the state of each part.
+        if (SodaFlowSymbols.IsTupleObject(written) && members.HasParts)
+        {
+            return members.Parts.SelectMany(part =>
+                CallbackOwners(state: part, written: null, asSequence: false, compared: compared));
         }
 
         // A list has the members of its elements in its state. The list is one of those objects
