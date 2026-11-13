@@ -7702,6 +7702,82 @@ public static class Shapes
     public static Cell<int> ContainsKeyThroughIReadOnlyDictionaryFromAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { IReadOnlyDictionary<Alike, int> map = MakeAReadOnlyMap(new Alike(l.Map(v => v))); Kept.Add(map.ContainsKey(new Alike(Plain))); return S.Hold(0); });
 
+    // S1611. Add through ICollection, on a set that a helper makes. Each return of the helper makes a HashSet, thus the call is Add of a HashSet.
+    public static Cell<int> AddThroughICollectionOfASetFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeASetAsACollection(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1612. The same, with a helper that keeps the set in a local and returns the local.
+    public static Cell<int> AddThroughICollectionOfASetFromAHelperWithALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeASetInALocal(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1613. The same, with a helper that returns a set in two places.
+    public static Cell<int> AddThroughICollectionOfASetFromAHelperWithTwoReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeASetInTwoPlaces(early: false); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1614. A helper that returns the collection that it gets. The call has the type of the argument.
+    public static Cell<int> AddThroughICollectionOfASetThroughAHelperThatReturnsItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = TheSame(new HashSet<Alike>()); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1615. A helper that returns a set or a list. The list returns, and a list adds with no comparison.
+    public static Cell<int> AddThroughICollectionOfASetOrAListFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeASetOrAList(set: false); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1616. A virtual helper. The override returns a list, thus the type of the base method does not hold.
+    public static Cell<int> AddThroughICollectionFromAnOverriddenHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CollectionMaker maker = new ListMaker(); ICollection<Alike> all = maker.Make(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1617. A helper that gives its parameter a list before it returns it.
+    public static Cell<int> AddThroughICollectionOfAHelperThatChangesItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = AListInstead(new HashSet<Alike>()); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1618. A local function that makes the set.
+    public static Cell<int> AddThroughICollectionOfASetFromALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { static ICollection<Alike> Make() => new HashSet<Alike>(); ICollection<Alike> all = Make(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1619. Contains through ICollection, on a list that a helper makes. A list gives the call to its element, and the value that the code gives is pending.
+    public static Cell<int> ContainsThroughICollectionOfAListFromAHelperWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<AlikeOwn> all = MakeAnOwnList(new AlikeOwn(Plain)); Kept.Add(all.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1620. The same, where the element of the list is pending.
+    public static Cell<int> ContainsThroughICollectionOfAListFromAHelperWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<AlikeOwn> all = MakeAnOwnList(new AlikeOwn(l.Map(v => v))); Kept.Add(all.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1621. Add through ISet, on a set from a helper that returns one of two types. The row of the interface holds.
+    public static Cell<int> AddThroughISetOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISet<Alike> set = MakeAHashSetOrASortedSet(sorted: false); set.Add(new Alike(l.Map(v => v))); set.Add(new Alike(Plain)); return S.Hold(set.Count); });
+
+    // S1622. TryGetValue through IDictionary, on a dictionary of a type that the analyzer cannot know.
+    public static Cell<int> TryGetValueThroughIDictionaryOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> map = MakeADictionaryOrASortedOne(sorted: false); map[new Alike(l.Map(v => v))] = 1; Kept.Add(map.TryGetValue(new Alike(Plain), out int found) ? found : 0); return S.Hold(0); });
+
+    // S1623. Overlaps through IReadOnlySet, on a set of a type that the analyzer cannot know.
+    public static Cell<int> OverlapsThroughIReadOnlySetOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IReadOnlySet<Alike> set = MakeAReadOnlySetOfOneOfTwoTypes(new Alike(l.Map(v => v)), sorted: false); Kept.Add(set.Overlaps([new Alike(Plain)])); return S.Hold(0); });
+
+    // S1624. Add through IImmutableSet, on a set of a type that the analyzer cannot know.
+    public static Cell<int> AddThroughIImmutableSetOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IImmutableSet<Alike> set = MakeAnImmutableSetOfOneOfTwoTypes(new Alike(l.Map(v => v)), sorted: false); Kept.Add(set.Add(new Alike(Plain))); return S.Hold(0); });
+
+    // S1625. Add through IImmutableDictionary, on a dictionary of a type that the analyzer cannot know.
+    public static Cell<int> AddThroughIImmutableDictionaryOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IImmutableDictionary<Alike, int> map = MakeAnImmutableMapOfOneOfTwoTypes(new Alike(l.Map(v => v)), sorted: false); Kept.Add(map.Add(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1626. ContainsKey through IReadOnlyDictionary, on a dictionary of a type that the analyzer cannot know.
+    public static Cell<int> ContainsKeyThroughIReadOnlyDictionaryOfAnUnknownType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IReadOnlyDictionary<Alike, int> map = MakeAReadOnlyMapOfOneOfTwoTypes(new Alike(l.Map(v => v)), sorted: false); Kept.Add(map.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1627. An override that a type can override again. The call can run a different body, thus the type of this one does not hold.
+    public static Cell<int> AddThroughICollectionFromAnOverrideThatCanBeOverridden() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MiddleMaker maker = new LastMaker(); ICollection<Alike> all = maker.Make(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1628. A helper with two returns of different types. The list returns, and the set is in the last return.
+    public static Cell<int> AddThroughICollectionOfAListOrASetInTwoPlaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeAListOrASetInTwoPlaces(list: true); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1629. A helper that calls itself. The evaluator stops at the most calls that it follows for a type, and the row of the interface holds.
+    public static Cell<int> AddThroughISetOfARecursiveHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISet<Alike> set = MakeASetByRecursion(2); set.Add(new Alike(l.Map(v => v))); set.Add(new Alike(Plain)); return S.Hold(set.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -8904,6 +8980,100 @@ public static class Shapes
 
     private static IReadOnlyDictionary<Alike, int> MakeAReadOnlyMap(Alike first) =>
         new Dictionary<Alike, int> { { first, 1 } };
+
+    private static ICollection<Alike> MakeASetAsACollection() => new HashSet<Alike>();
+
+    private static ICollection<Alike> MakeASetInALocal()
+    {
+        HashSet<Alike> set = [];
+
+        return set;
+    }
+
+    private static ICollection<Alike> MakeASetInTwoPlaces(bool early)
+    {
+        if (early)
+        {
+            return new HashSet<Alike>();
+        }
+
+        return new HashSet<Alike>();
+    }
+
+    private static ICollection<Alike> TheSame(ICollection<Alike> given) => given;
+
+    private static ICollection<Alike> MakeASetOrAList(bool set) => set ? new HashSet<Alike>() : new List<Alike>();
+
+    // The helper gives its parameter a new value. The call then has the type of that value.
+    private static ICollection<Alike> AListInstead(ICollection<Alike> given)
+    {
+        given = new List<Alike>();
+
+        return given;
+    }
+
+    private static ICollection<AlikeOwn> MakeAnOwnList(AlikeOwn first) => new List<AlikeOwn> { first };
+
+    public class CollectionMaker
+    {
+        public virtual ICollection<Alike> Make() => new HashSet<Alike>();
+    }
+
+    public sealed class ListMaker : CollectionMaker
+    {
+        public override ICollection<Alike> Make() => new List<Alike>();
+    }
+
+    // Each helper below returns an object of one of two types, thus the analyzer does not know the type.
+    private static ISet<Alike> MakeAHashSetOrASortedSet(bool sorted) =>
+        sorted ? new SortedSet<Alike>() : new HashSet<Alike>();
+
+    private static IDictionary<Alike, int> MakeADictionaryOrASortedOne(bool sorted) =>
+        sorted ? new SortedDictionary<Alike, int>() : new Dictionary<Alike, int>();
+
+    private static IReadOnlySet<Alike> MakeAReadOnlySetOfOneOfTwoTypes(Alike first, bool sorted) =>
+        sorted ? new SortedSet<Alike> { first } : new HashSet<Alike> { first };
+
+    private static IImmutableSet<Alike> MakeAnImmutableSetOfOneOfTwoTypes(Alike first, bool sorted) =>
+        sorted ? ImmutableSortedSet.Create(first) : ImmutableHashSet.Create(first);
+
+    private static IImmutableDictionary<Alike, int> MakeAnImmutableMapOfOneOfTwoTypes(Alike first, bool sorted) =>
+        sorted
+            ? ImmutableSortedDictionary<Alike, int>.Empty.Add(key: first, value: 1)
+            : ImmutableDictionary<Alike, int>.Empty.Add(key: first, value: 1);
+
+    private static IReadOnlyDictionary<Alike, int> MakeAReadOnlyMapOfOneOfTwoTypes(Alike first, bool sorted) =>
+        sorted ? new SortedDictionary<Alike, int> { { first, 1 } } : new Dictionary<Alike, int> { { first, 1 } };
+
+    private static ICollection<Alike> MakeAListOrASetInTwoPlaces(bool list)
+    {
+        if (list)
+        {
+            return new List<Alike>();
+        }
+
+        return new HashSet<Alike>();
+    }
+
+    private static ISet<Alike> MakeASetByRecursion(int depth)
+    {
+        if (depth > 0)
+        {
+            return MakeASetByRecursion(depth - 1);
+        }
+
+        return new HashSet<Alike>();
+    }
+
+    public class MiddleMaker : CollectionMaker
+    {
+        public override ICollection<Alike> Make() => new HashSet<Alike>();
+    }
+
+    public sealed class LastMaker : MiddleMaker
+    {
+        public override ICollection<Alike> Make() => new List<Alike>();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

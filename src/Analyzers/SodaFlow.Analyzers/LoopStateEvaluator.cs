@@ -2733,11 +2733,15 @@ internal sealed class LoopStateEvaluator
     ///     The type of the object that an expression gives, when it is a class
     ///     or a struct. A cast does not change the object. A local that no code
     ///     changes after its declaration has the type of the value that it got.
+    ///     A call of a method of this compilation has the type that each of its
+    ///     returns gives.
     /// </summary>
-    private ITypeSymbol? KnownTypeOf(ExpressionSyntax written)
+    /// <param name="written">The expression.</param>
+    /// <param name="depth">The number of locals and calls that the evaluator went through before this one.</param>
+    private ITypeSymbol? KnownTypeOf(ExpressionSyntax written, int depth = 0)
     {
         // A local can get its value from a second local.
-        for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
+        for (; depth <= MaxKnownTypeDepth; depth++)
         {
             ExpressionSyntax inner = Unwrapped(written);
 
@@ -2749,6 +2753,11 @@ internal sealed class LoopStateEvaluator
                 } known)
             {
                 return known;
+            }
+
+            if (inner is InvocationExpressionSyntax call)
+            {
+                return this.ReturnedTypeOf(call: call, depth: depth + 1);
             }
 
             if (inner is not IdentifierNameSyntax name
@@ -2766,6 +2775,80 @@ internal sealed class LoopStateEvaluator
 
         return null;
     }
+
+    /// <summary>
+    ///     The type of the object that a call of a method of this compilation
+    ///     gives. It is known when each return of the method gives an object of
+    ///     that type. A return of a parameter gives the object of the argument,
+    ///     when the method does not change that parameter.
+    /// </summary>
+    /// <remarks>
+    ///     A method that a type can override can run a different body. Thus, it
+    ///     gives no type.
+    /// </remarks>
+    private ITypeSymbol? ReturnedTypeOf(InvocationExpressionSyntax call, int depth)
+    {
+        if (depth > MaxKnownTypeDepth
+            || this.region.SymbolOf(call) is not IMethodSymbol { ReducedFrom: null } method
+            || method is { IsVirtual: true, ContainingType.IsSealed: false }
+            || method is { IsOverride: true, IsSealed: false, ContainingType.IsSealed: false }
+            || method.OriginalDefinition is not { } definition
+            || BodyOf(definition) is not { } body)
+        {
+            return null;
+        }
+
+        ITypeSymbol? type = null;
+        IEnumerable<ExpressionSyntax> returns = body is ExpressionSyntax expression ? [expression] : ReturnExpressions(body);
+
+        foreach (ExpressionSyntax given in returns.Select(returned =>
+                     this.ArgumentFor(call: call, definition: definition, returned: returned) ?? returned))
+        {
+            if (this.KnownTypeOf(written: given, depth: depth) is not { } one
+                || (type != null && !SymbolEqualityComparer.Default.Equals(x: type, y: one)))
+            {
+                return null;
+            }
+
+            type = one;
+        }
+
+        return type;
+    }
+
+    // The argument of a call for the parameter that a return of the callee gives. Null when the
+    // return gives no parameter, or when the callee writes that parameter.
+    private ExpressionSyntax? ArgumentFor(
+        InvocationExpressionSyntax call,
+        IMethodSymbol definition,
+        ExpressionSyntax returned)
+    {
+        if (Unwrapped(returned) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not IParameterSymbol parameter
+            || IsWrittenIn(parameter: parameter, region: this.region))
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        return arguments
+            .Where((argument, position) =>
+                SymbolEqualityComparer.Default.Equals(
+                    x: SodaFlowSymbols.ParameterOf(callee: definition, argument: argument, position: position),
+                    y: parameter))
+            .Select(static argument => argument.Expression)
+            .FirstOrDefault();
+    }
+
+    // True for a parameter that the code of its method writes.
+    private static bool IsWrittenIn(ISymbol parameter, LoopRegion region) =>
+        parameter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax().Parent?.Parent is not { } declaration
+        || declaration.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Any(name => name.Identifier.ValueText == parameter.Name
+                         && IsWritten(name)
+                         && SymbolEqualityComparer.Default.Equals(x: region.SymbolOf(name), y: parameter));
 
     // Each name of a local in the block that declares it. Null for a local of the top-level
     // statements, which have no block.
