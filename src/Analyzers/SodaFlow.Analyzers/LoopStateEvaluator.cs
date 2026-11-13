@@ -399,16 +399,19 @@ internal sealed class LoopStateEvaluator
         // each owner. The number of owners has an end, because a local can name its own owner.
         for (; level < MaxOwners; level++)
         {
+            // Parentheses, a cast, and the operator that says not null do not hide the name.
+            target = Unwrapped(target);
+
             ExpressionSyntax? collection = this.CollectionOf(target);
 
             // An index has no name of its own to keep a state.
             if (collection == null || target is not ElementAccessExpressionSyntax)
             {
-                this.MergeInto(target: target, state: state);
+                this.MergeInto(target: target, state: state, level: level);
             }
 
             // The object of a local can be in a collection that got it from that local.
-            if (Unwrapped(target) is IdentifierNameSyntax name
+            if (target is IdentifierNameSyntax name
                 && this.region.SymbolOf(name) is { } held and (ILocalSymbol or IParameterSymbol))
             {
                 this.MergeIntoHolders(local: held, state: state.AsContainer, level: level + 1);
@@ -455,7 +458,7 @@ internal sealed class LoopStateEvaluator
         }
     }
 
-    private void MergeInto(SyntaxNode target, LoopState state)
+    private void MergeInto(SyntaxNode target, LoopState state, int level)
     {
         switch (this.region.SymbolOf(target))
         {
@@ -469,6 +472,19 @@ internal sealed class LoopStateEvaluator
                 break;
             case { } field and (IFieldSymbol or IPropertySymbol):
                 this.SetField(field: field, state: state);
+
+                // A member of an object that a name is for, as in box.Items. An object that the
+                // evaluator saw made keeps a state for each member, and a read of the member
+                // through the object has that state. Thus, the object gets the state for the
+                // member also.
+                if (target is MemberAccessExpressionSyntax { Expression: var owner })
+                {
+                    this.Merge(
+                        target: owner,
+                        state: LoopState.None.WithMembers(Construction.Empty.With(member: field, state: state)),
+                        level: level + 1);
+                }
+
                 break;
         }
     }

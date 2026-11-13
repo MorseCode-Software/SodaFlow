@@ -6459,6 +6459,50 @@ public static class Shapes
     public static Cell<int> ListSortWithAComparerThatReadsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; all.Sort(Comparer<Ranked>.Create((x, y) => 0)); return S.Hold(all.Count); });
 
+    // S1302. A list that a property of an object in a local gives. The code puts a pending cell into it, and reads it through the same property.
+    public static Cell<int> ListInAPropertyOfALocalObjectGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox box = new(); box.Cells.Add(l.Map(v => v)); return S.Hold(box.Cells[0].Sample()); });
+
+    // S1303. The list gets an object with a pending member.
+    public static Cell<int> ListInAPropertyOfALocalObjectGetsAPendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotBox box = new(); box.Slots.Add(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(box.Slots[0].Share!.Sample()); });
+
+    // S1304. The list is in a field.
+    public static Cell<int> ListInAFieldOfALocalObjectGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellCrate crate = new(); crate.Cells.Add(l.Map(v => v)); return S.Hold(crate.Cells[0].Sample()); });
+
+    // S1305. The list is in a property that an object initializer set.
+    public static Cell<int> ListInASetPropertyOfALocalObjectGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellTray tray = new() { Cells = new() }; tray.Cells!.Add(l.Map(v => v)); return S.Hold(tray.Cells[0].Sample()); });
+
+    // S1306. The list is in a property of a property.
+    public static Cell<int> ListInAPropertyOfAPropertyGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellOuter outer = new(); outer.Box.Cells.Add(l.Map(v => v)); return S.Hold(outer.Box.Cells[0].Sample()); });
+
+    // S1307. An element of the list gets the pending cell in an assignment.
+    public static Cell<int> ElementOfAListInAPropertyGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox box = new(); box.Cells.Add(Plain); box.Cells[0] = l.Map(v => v); return S.Hold(box.Cells[0].Sample()); });
+
+    // S1308. A dictionary in a property gets the pending cell through its indexer.
+    public static Cell<int> DictionaryInAPropertyGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellMap map = new(); map.Cells["a"] = l.Map(v => v); return S.Hold(map.Cells["a"].Sample()); });
+
+    // S1309. A method of the object reads the list that the code filled through the property.
+    public static Cell<int> MethodOfTheObjectReadsTheListThatTheCodeFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox box = new(); box.Cells.Add(l.Map(v => v)); return S.Hold(box.First()); });
+
+    // S1310. Two objects of one type. The list of the first one gets the pending cell, and the read is from the second.
+    public static Cell<int> ListOfASecondObjectOfTheSameTypeIsPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox first = new(); CellBox second = new(); first.Cells.Add(l.Map(v => v)); second.Cells.Add(Plain); return S.Hold(second.Cells[0].Sample()); });
+
+    // S1311. The list of an object in a local gets the object of a second local, and a change through that local.
+    public static Cell<int> ChangeThroughALocalThatAListOfAnObjectHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SlotBox box = new(); box.Slots.Add(slot); slot.Share = l.Map(v => v); return S.Hold(box.Slots[0].Share!.Sample()); });
+
+    // S1312. The object is a value of a list. The list in its property gets the pending cell.
+    public static Cell<int> ListInAPropertyOfAnElementGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<CellBox> boxes = [new()]; boxes[0].Cells.Add(l.Map(v => v)); return S.Hold(boxes[0].Cells[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -7600,6 +7644,38 @@ public static class Shapes
     public sealed class RankedPlainOwn(Cell<int> share) : IComparable
     {
         public int CompareTo(object? obj) => share.Sample().CompareTo(0);
+    }
+
+    public sealed class CellBox
+    {
+        public List<Cell<int>> Cells { get; } = new();
+
+        public int First() => this.Cells[0].Sample();
+    }
+
+    public sealed class SlotBox
+    {
+        public List<SettableSlot> Slots { get; } = new();
+    }
+
+    public sealed class CellCrate
+    {
+        public readonly List<Cell<int>> Cells = new();
+    }
+
+    public sealed class CellTray
+    {
+        public List<Cell<int>>? Cells { get; set; }
+    }
+
+    public sealed class CellOuter
+    {
+        public CellBox Box { get; } = new();
+    }
+
+    public sealed class CellMap
+    {
+        public Dictionary<string, Cell<int>> Cells { get; } = new();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
