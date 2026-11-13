@@ -1267,7 +1267,23 @@ internal sealed class LoopReadAnalyzerTests
             ["KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper"] = ["SF1001"],
             ["SecondElementOfAnInitializerOnASetThatGotOnlyAComparer"] = ["SF1005"],
             ["SecondElementOfAnInitializerOnASetThatGotOnlyACapacity"] = ["SF1005"],
-            ["InitializerOnASetThatGotASequenceAndAComparer"] = ["SF1005"]
+            ["InitializerOnASetThatGotASequenceAndAComparer"] = ["SF1005"],
+            ["QueryExpressionSelectsAPendingCell"] = ["SF1001"],
+            ["QueryExpressionSelectsAnObjectWithAPendingCell"] = ["SF1001"],
+            ["ForeachOverAQueryExpressionThatSelectsAnObject"] = ["SF1001"],
+            ["QueryExpressionSelectsAnAnonymousObject"] = ["SF1001"],
+            ["SelectClauseSamplesItsRangeVariable"] = ["SF1001"],
+            ["WhereClauseSamplesItsRangeVariable"] = ["SF1001"],
+            ["OrderByClauseSamplesItsRangeVariable"] = ["SF1001"],
+            ["LetClauseGivesItsVariableTheRangeVariable"] = ["SF1001"],
+            ["SecondFromClauseSamplesItsRangeVariable"] = ["SF1001"],
+            ["JoinClauseSamplesItsRangeVariable"] = ["SF1001"],
+            ["JoinIntoClauseSamplesAnElementOfItsGroup"] = ["SF1001"],
+            ["ContinuationSamplesWhatTheSelectBeforeItMakes"] = ["SF1001"],
+            ["GroupClauseKeepsItsElements"] = ["SF1001"],
+            ["GroupClauseKeepsItsKey"] = ["SF1001"],
+            ["ContinuationOfAGroupSamplesAnElement"] = ["SF1001"],
+            ["QueryExpressionSelectsItsRangeVariable"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

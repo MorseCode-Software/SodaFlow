@@ -945,8 +945,12 @@ internal sealed class LoopStateEvaluator
                 state: this.JoinAll(a.Initializer.Expressions).AsContainer,
                 exact: true),
             InitializerExpressionSyntax i => this.JoinAll(i.Expressions).AsContainer,
-            // A query expression has the queries of its first source, and is one more.
-            QueryExpressionSyntax q => this.Eval(q.FromClause.Expression).OnlyQueries.WithQuery(this.QueryAt(q)),
+            // A query expression has the queries of its first source, and is one more. Its elements
+            // are what its last select or group clause makes.
+            QueryExpressionSyntax q => this.Eval(q.FromClause.Expression)
+                .OnlyQueries
+                .WithQuery(this.QueryAt(q))
+                .Join(this.MadeBy(LastClauseOf(q.Body)).AsContainer),
             // An indexer of this compilation gives what its getter returns. An element of a
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e when this.PositionOf(e) is { } position =>
@@ -1298,12 +1302,60 @@ internal sealed class LoopStateEvaluator
         }
     }
 
+    // The clause that makes the elements of the result of a query body. A body with a
+    // continuation gives its elements to the body after it.
+    private static SelectOrGroupClauseSyntax LastClauseOf(QueryBodySyntax body)
+    {
+        while (body.Continuation != null)
+        {
+            body = body.Continuation.Body;
+        }
+
+        return body.SelectOrGroup;
+    }
+
+    /// <summary>
+    ///     The state of one element that a select or a group clause makes. A group
+    ///     has the state of its elements and of its key together, as a pair from a
+    ///     dictionary has.
+    /// </summary>
+    private LoopState MadeBy(SelectOrGroupClauseSyntax clause) =>
+        clause switch
+        {
+            SelectClauseSyntax select => this.Eval(select.Expression),
+            GroupClauseSyntax group =>
+                this.Eval(group.GroupExpression).AsContainer.Join(this.Eval(group.ByExpression).AsContainer),
+            _ => LoopState.None
+        };
+
+    /// <summary>
+    ///     The state of a range variable of a query expression, from the clause
+    ///     that declares it. The variable of a from or a join clause is an element
+    ///     of its source. The variable of a let clause has the state of its
+    ///     expression. The variable after <c>into</c> is the group of a join, or
+    ///     what the clause before it makes.
+    /// </summary>
+    private LoopState EvalRangeVariable(ExpressionSyntax expression, IRangeVariableSymbol variable) =>
+        variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
+        {
+            FromClauseSyntax from =>
+                ElementOf(collection: this.Eval(from.Expression), type: this.region.TypeOf(expression)),
+            JoinClauseSyntax join =>
+                ElementOf(collection: this.Eval(join.InExpression), type: this.region.TypeOf(expression)),
+            JoinIntoClauseSyntax { Parent: JoinClauseSyntax join } => this.Eval(join.InExpression),
+            LetClauseSyntax let => this.Eval(let.Expression),
+            QueryContinuationSyntax { Parent: QueryBodySyntax before } => this.MadeBy(before.SelectOrGroup),
+            _ => LoopState.None
+        };
+
     private LoopState EvalName(ExpressionSyntax expression)
     {
         ISymbol? symbol = this.region.SymbolOf(expression);
 
         switch (symbol)
         {
+            case IRangeVariableSymbol variable:
+                return this.EvalRangeVariable(expression: expression, variable: variable);
             case ILocalSymbol or IParameterSymbol:
             {
                 if (SymbolEqualityComparer.Default.Equals(x: symbol, y: this.region.Placeholder))

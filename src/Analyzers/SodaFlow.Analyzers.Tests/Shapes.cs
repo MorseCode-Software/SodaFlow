@@ -8455,6 +8455,86 @@ public static class Shapes
     public static Cell<int> InitializerOnASetThatGotASequenceAndAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(new[] { new SameOwn(l.Map(v => v)) }, EqualityComparer<SameOwn>.Default) { new(Plain) }; Kept.Add(made); return S.Hold(0); });
 
+    // S1798. A query expression selects a pending cell. An element of its result is that cell.
+    public static Cell<int> QueryExpressionSelectsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = (from i in new[] { 0 } select l.Map(v => v)).ToList(); return S.Hold(list[0].Sample()); });
+
+    // S1799. A query expression selects an object with a pending cell.
+    public static Cell<int> QueryExpressionSelectsAnObjectWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = (from i in new[] { 0 } select new SettableSlot { Share = l.Map(v => v) }).ToList(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S1800. A foreach over a query expression that selects an object with a pending cell.
+    public static Cell<int> ForeachOverAQueryExpressionThatSelectsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (SettableSlot each in from i in new[] { 0 } select new SettableSlot { Share = l.Map(v => v) }) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S1801. A query expression selects an anonymous object with a pending cell.
+    public static Cell<int> QueryExpressionSelectsAnAnonymousObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var list = (from i in new[] { 0 } select new { Share = l.Map(v => v) }).ToList(); return S.Hold(list[0].Share.Sample()); });
+
+    // S1802. The range variable of a from clause is an element of its source. The select clause samples it.
+    public static Cell<int> SelectClauseSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells select c.Sample()).ToList().Count); });
+
+    // S1803. The where clause samples the range variable.
+    public static Cell<int> WhereClauseSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells where c.Sample() > 0 select 1).ToList().Count); });
+
+    // S1804. The orderby clause samples the range variable.
+    public static Cell<int> OrderByClauseSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells orderby c.Sample() select 1).ToList().Count); });
+
+    // S1805. A let clause gives its variable the state of its expression.
+    public static Cell<int> LetClauseGivesItsVariableTheRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells let d = c select d.Sample()).ToList().Count); });
+
+    // S1806. The range variable of a second from clause.
+    public static Cell<int> SecondFromClauseSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from i in new[] { 0 } from c in cells select c.Sample()).ToList().Count); });
+
+    // S1807. The range variable of a join clause.
+    public static Cell<int> JoinClauseSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from i in new[] { 0 } join c in cells on i equals 0 select c.Sample()).ToList().Count); });
+
+    // S1808. The variable of a join into clause has the elements of the second source.
+    public static Cell<int> JoinIntoClauseSamplesAnElementOfItsGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from i in new[] { 0 } join c in cells on i equals 0 into found select found.First().Sample()).ToList().Count); });
+
+    // S1809. The variable after into has what the select clause before it makes.
+    public static Cell<int> ContinuationSamplesWhatTheSelectBeforeItMakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells select c into d select d.Sample()).ToList().Count); });
+
+    // S1810. A group clause makes groups of its elements. An element of a group is a pending cell.
+    public static Cell<int> GroupClauseKeepsItsElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; var groups = (from c in cells group c by 1).ToList(); return S.Hold(groups[0].First().Sample()); });
+
+    // S1811. The key of a group is a pending cell.
+    public static Cell<int> GroupClauseKeepsItsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; var groups = (from c in cells group 1 by c).ToList(); return S.Hold(groups[0].Key.Sample()); });
+
+    // S1812. The variable after into of a group clause is a group.
+    public static Cell<int> ContinuationOfAGroupSamplesAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells group c by 1 into g select g.First().Sample()).ToList().Count); });
+
+    // S1813. The range variable itself is the result. An element of the result is an element of the source.
+    public static Cell<int> QueryExpressionSelectsItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; List<Cell<int>> list = (from c in cells select c).ToList(); return S.Hold(list[0].Sample()); });
+
+    // S1814. A query expression over a list with a pending cell selects a plain cell. The result has only what the select clause makes.
+    public static Cell<int> QueryExpressionOverAPendingSourceSelectsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; List<Cell<int>> list = (from c in cells select Plain).ToList(); return S.Hold(list[0].Sample()); });
+
+    // S1815. A query expression over plain cells samples its range variable.
+    public static Cell<int> SelectClauseSamplesAPlainRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; return S.Hold((from c in cells select c.Sample()).ToList().Count); });
+
+    // S1816. A query expression that samples its range variable, and that the block only keeps.
+    public static Cell<int> KeptQueryExpressionThatSamplesItsRangeVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; Kept.Add(from c in cells select c.Sample()); return S.Hold(0); });
+
+    // S1817. A let clause gives its variable a plain cell beside a pending range variable.
+    public static Cell<int> LetClauseGivesItsVariableAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells let d = Plain select d.Sample()).ToList().Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
