@@ -1157,7 +1157,14 @@ internal sealed class LoopReadAnalyzerTests
             ["AddThroughIImmutableSetOfAnUnknownType"] = ["SF1004", "SF1005"],
             ["AddThroughIImmutableDictionaryOfAnUnknownType"] = ["SF1004", "SF1004", "SF1004", "SF1005"],
             ["ContainsKeyThroughIReadOnlyDictionaryOfAnUnknownType"] = ["SF1004", "SF1005"],
-            ["AddThroughISetOfARecursiveHelper"] = ["SF1004", "SF1004", "SF1005", "SF1005"]
+            ["AddThroughISetOfARecursiveHelper"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
+            ["ListSortWithANullComparerParameter"] = ["SF1004"],
+            ["ListSortWithADefaultComparerParameter"] = ["SF1004"],
+            ["ListSortWithAnOptionalComparerParameter"] = ["SF1004"],
+            ["ListSortWithANullComparerParameterByName"] = ["SF1004"],
+            ["ListSortWithANullComparerThroughTwoHelpers"] = ["SF1004"],
+            ["ListSortWithANullComparerInALocalGivenToAParameter"] = ["SF1004"],
+            ["ListSortWithANullComparerParameterInALocalFunction"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1167,7 +1174,8 @@ internal sealed class LoopReadAnalyzerTests
         {
             ["MethodBlock"] = "BlockThatReads",
             ["MethodBlockCloses"] = "BlockThatClosesWithItself",
-            ["MethodBlockSnapshots"] = "BlockThatSnapshots"
+            ["MethodBlockSnapshots"] = "BlockThatSnapshots",
+            ["ListSortWithAnOptionalComparerOfTheMethodOfTheBlock"] = "SortInABlock"
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,

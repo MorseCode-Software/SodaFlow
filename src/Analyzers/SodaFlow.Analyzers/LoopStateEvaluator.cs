@@ -30,9 +30,15 @@ internal sealed class LoopStateEvaluator
     private static readonly ImmutableDictionary<ISymbol, LoopState> NoSymbols =
         ImmutableDictionary<ISymbol, LoopState>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
+    private static readonly ImmutableHashSet<ISymbol> NoParameters =
+        ImmutableHashSet<ISymbol>.Empty.WithComparer(SymbolEqualityComparer.Default);
+
     // The locals and parameters that an assignment gave a new state, which replaced the first one.
     private readonly HashSet<ISymbol> assigned;
     private readonly ImmutableDictionary<ISymbol, LoopState> bound;
+
+    // The parameters whose argument at this call is null or default.
+    private readonly ImmutableHashSet<ISymbol> noValues;
     private readonly int depth;
     private readonly Dictionary<SyntaxNode, Followed?> followed = [];
 
@@ -69,6 +75,7 @@ internal sealed class LoopStateEvaluator
         : this(
             region: region,
             bound: NoSymbols,
+            noValues: NoParameters,
             depth: 0,
             frame: new LoopFrame(),
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
@@ -81,6 +88,7 @@ internal sealed class LoopStateEvaluator
     private LoopStateEvaluator(
         LoopRegion region,
         ImmutableDictionary<ISymbol, LoopState> bound,
+        ImmutableHashSet<ISymbol> noValues,
         int depth,
         LoopFrame frame,
         Dictionary<ISymbol, LoopState> locals,
@@ -90,6 +98,7 @@ internal sealed class LoopStateEvaluator
     {
         this.region = region;
         this.bound = bound;
+        this.noValues = noValues;
         this.depth = depth;
         this.Frame = frame;
         this.locals = locals;
@@ -109,6 +118,7 @@ internal sealed class LoopStateEvaluator
             : new LoopStateEvaluator(
                 region: this.region,
                 bound: this.bound,
+                noValues: this.noValues,
                 depth: this.depth,
                 frame: this.Frame,
                 locals: new Dictionary<ISymbol, LoopState>(
@@ -3415,12 +3425,26 @@ internal sealed class LoopStateEvaluator
 
     // An argument that is null or default, or a local that only gets such a value. A callee that
     // gets it for a comparer has no comparer, and uses the default one, which calls the members of
-    // the objects.
+    // the objects. A parameter is the same when the call gives it such a value, and the callee
+    // does not change it.
     private bool IsNoValue(ExpressionSyntax written) =>
         IsNoValueLiteral(written)
         || (Unwrapped(written) is IdentifierNameSyntax name
-            && this.region.SymbolOf(name) is ILocalSymbol local
-            && this.OnlyGetsNoValue(local));
+            && this.region.SymbolOf(name) switch
+            {
+                ILocalSymbol local => this.OnlyGetsNoValue(local),
+                IParameterSymbol parameter => this.GetsNoValue(parameter),
+                _ => false
+            });
+
+    // A call that gives no argument for an optional parameter gives its default value. The walk of
+    // a callee binds each argument that the call gives, thus a parameter with no binding got none.
+    private bool GetsNoValue(IParameterSymbol parameter) =>
+        (this.noValues.Contains(parameter)
+         || (this.depth > 0
+             && !this.bound.ContainsKey(parameter)
+             && parameter is { HasExplicitDefaultValue: true, ExplicitDefaultValue: null }))
+        && !IsWrittenIn(parameter: parameter, region: this.region);
 
     private static bool IsNoValueLiteral(ExpressionSyntax written) =>
         Unwrapped(written)
@@ -3715,7 +3739,9 @@ internal sealed class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> members)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
+        ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
         HashSet<ISymbol> given = new(SymbolEqualityComparer.Default);
+        HashSet<ISymbol> withAValue = new(SymbolEqualityComparer.Default);
 
         foreach (Binding binding in bindings)
         {
@@ -3724,11 +3750,23 @@ internal sealed class LoopStateEvaluator
             // A params parameter gets the states of all its arguments.
             parameters[binding.Parameter] =
                 given.Add(binding.Parameter) ? state : parameters[binding.Parameter].Join(state);
+
+            // A parameter has no value when each argument for it is null or default.
+            if (this.IsNoValue(binding.Argument) && !withAValue.Contains(binding.Parameter))
+            {
+                noValue.Add(binding.Parameter);
+            }
+            else
+            {
+                withAValue.Add(binding.Parameter);
+                noValue.Remove(binding.Parameter);
+            }
         }
 
         return new LoopStateEvaluator(
             region: this.region,
             bound: parameters.ToImmutable(),
+            noValues: noValue.ToImmutable(),
             depth: this.depth + 1,
             frame: definer?.Frame ?? new LoopFrame(),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
@@ -4326,6 +4364,7 @@ internal sealed class LoopStateEvaluator
                 : new LoopStateEvaluator(
                     region: this.region,
                     bound: parameters.ToImmutable(),
+                    noValues: this.noValues,
                     depth: this.depth,
                     frame: this.Frame,
                     locals: this.locals,

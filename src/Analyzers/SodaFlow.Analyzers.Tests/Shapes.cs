@@ -7778,6 +7778,52 @@ public static class Shapes
     public static Cell<int> AddThroughISetOfARecursiveHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { ISet<Alike> set = MakeASetByRecursion(2); set.Add(new Alike(l.Map(v => v))); set.Add(new Alike(Plain)); return S.Hold(set.Count); });
 
+    // S1630. A local function gets a null comparer and gives it to Sort, which then calls CompareTo.
+    public static Cell<int> ListSortWithANullComparerParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; static void SortWith(List<Ranked> items, IComparer<Ranked>? comparer) => items.Sort(comparer); SortWith(all, null); return S.Hold(all.Count); });
+
+    // S1631. A method of the class gets the default literal for its comparer.
+    public static Cell<int> ListSortWithADefaultComparerParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithComparer(all, default); return S.Hold(all.Count); });
+
+    // S1632. An optional comparer parameter whose default is null, and a call that gives no comparer.
+    public static Cell<int> ListSortWithAnOptionalComparerParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithAnOptionalComparer(all); return S.Hold(all.Count); });
+
+    // S1633. A null comparer by name, with the arguments in a different order.
+    public static Cell<int> ListSortWithANullComparerParameterByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithComparer(comparer: null, items: all); return S.Hold(all.Count); });
+
+    // S1634. A helper that gives its comparer parameter to a second helper. CompareTo of RankedOwn reads with no
+    // helper of its own, thus the chain is within the depth that the evaluator follows.
+    public static Cell<int> ListSortWithANullComparerThroughTwoHelpers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<RankedOwn> all = [new(l.Map(v => v)), new(Plain)]; SortThrough(all, null); return S.Hold(all.Count); });
+
+    // S1635. A local that only gets null, given to the comparer parameter.
+    public static Cell<int> ListSortWithANullComparerInALocalGivenToAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? none = null; SortWithComparer(all, none); return S.Hold(all.Count); });
+
+    // S1636. A helper whose comparer parameter gets a comparer in its body when it is null. That comparer reads nothing.
+    public static Cell<int> ListSortWithAComparerParameterThatTheHelperFills() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithAComparerIfNone(all, null); return S.Hold(all.Count); });
+
+    // S1637. A comparer that reads nothing, given to the parameter.
+    public static Cell<int> ListSortWithAComparerParameterThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithComparer(all, Comparer<Ranked>.Create((x, y) => 0)); return S.Hold(all.Count); });
+
+    // S1638. The block reads an optional comparer of the method that contains the block. The analyzer does not know the argument, thus the comparer is a comparer.
+    public static Cell<int> ListSortWithAnOptionalComparerOfTheMethodOfTheBlock() =>
+        SortInABlock(Comparer<Ranked>.Create((x, y) => 0));
+
+    // S1639. An optional comparer parameter that the call gives a comparer. That comparer reads nothing, and Sort calls it.
+    public static Cell<int> ListSortWithAnOptionalComparerParameterThatGetsAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortWithAnOptionalComparer(all, Comparer<Ranked>.Create((x, y) => 0)); return S.Hold(all.Count); });
+
+    // S1640. A local function of the helper reads the comparer parameter that got null. CompareTo of RankedOwn reads
+    // with no helper of its own, thus the chain is within the depth that the evaluator follows.
+    public static Cell<int> ListSortWithANullComparerParameterInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<RankedOwn> all = [new(l.Map(v => v)), new(Plain)]; SortInALocalFunction(all, null); return S.Hold(all.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9073,6 +9119,40 @@ public static class Shapes
     public sealed class LastMaker : MiddleMaker
     {
         public override ICollection<Alike> Make() => new List<Alike>();
+    }
+
+    private static void SortWithComparer(List<Ranked> items, IComparer<Ranked>? comparer) => items.Sort(comparer);
+
+    private static void SortWithAnOptionalComparer(List<Ranked> items, IComparer<Ranked>? comparer = null) =>
+        items.Sort(comparer);
+
+    private static void SortThrough(List<RankedOwn> items, IComparer<RankedOwn>? comparer) =>
+        SortOwnWithComparer(items: items, comparer: comparer);
+
+    private static void SortOwnWithComparer(List<RankedOwn> items, IComparer<RankedOwn>? comparer) =>
+        items.Sort(comparer);
+
+    // A null comparer gets one that reads nothing.
+    private static void SortWithAComparerIfNone(List<Ranked> items, IComparer<Ranked>? comparer)
+    {
+        comparer ??= Comparer<Ranked>.Create(static (_, _) => 0);
+        items.Sort(comparer);
+    }
+
+    private static Cell<int> SortInABlock(IComparer<Ranked>? comparer = null) =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            List<Ranked> all = [new(l.Map(v => v)), new(Plain)];
+            all.Sort(comparer);
+
+            return S.Hold(all.Count);
+        });
+
+    private static void SortInALocalFunction(List<RankedOwn> items, IComparer<RankedOwn>? comparer)
+    {
+        void Sort() => items.Sort(comparer);
+
+        Sort();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
