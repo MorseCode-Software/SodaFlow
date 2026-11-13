@@ -253,7 +253,7 @@ internal sealed class LoopReadAnalyzerTests
             ["MaxByAnObjectKey"] = ["SF1004", "SF1005"],
             ["OrderByATupleKeyWithAnObject"] = ["SF1004", "SF1005"],
             ["MaxOfObjectsFromAQuery"] = ["SF1004", "SF1005"],
-            ["SortedSetInitializerOfObjects"] = ["SF1004", "SF1005"],
+            ["SortedSetInitializerOfObjects"] = ["SF1004"],
             ["SortedSetAddOfObjects"] = ["SF1004", "SF1005"],
             ["SortedDictionaryAddOfObjectKeys"] = ["SF1004", "SF1005"],
             ["SortedDictionaryIndexerOfObjectKeys"] = ["SF1005"],
@@ -282,7 +282,7 @@ internal sealed class LoopReadAnalyzerTests
             ["HashSetAddOfAnObject"] = ["SF1005"],
             ["HashSetConstructorWithObjects"] = ["SF1005"],
             ["HashSetContainsAnObject"] = ["SF1005"],
-            ["HashSetOfObjectsWithOneHashCode"] = ["SF1004", "SF1005"],
+            ["HashSetOfObjectsWithOneHashCode"] = ["SF1005"],
             ["DictionaryAddOfAnObjectKey"] = ["SF1005"],
             ["DictionaryIndexerSetOfAnObjectKey"] = ["SF1005"],
             ["DictionaryIndexerGetOfAnObjectKey"] = ["SF1005"],
@@ -722,7 +722,7 @@ internal sealed class LoopReadAnalyzerTests
             ["SetOfOneThenOneMore"] = ["SF1005"],
             ["SetFromAnArrayAndAnInitializer"] = ["SF1005"],
             ["ContainsInAListOfOne"] = ["SF1005"],
-            ["SetOfTwoFromACollectionExpression"] = ["SF1004", "SF1005"],
+            ["SetOfTwoFromACollectionExpression"] = ["SF1005"],
             ["KeyComparedWithAKeyOfTheDictionaryAtAnAssignment"] = ["SF1005"],
             ["KeyComparedWithAKeyOfTheDictionaryAtARead"] = ["SF1005"],
             ["SetFromASpreadAndOneElement"] = ["SF1005"],
@@ -1189,7 +1189,13 @@ internal sealed class LoopReadAnalyzerTests
             ["AddOrUpdateWithTwoFunctions"] = ["SF1005"],
             ["GetOrAddWithAFunctionWhereTheGivenKeyIsPending"] = ["SF1004"],
             ["ExceptByComparesTheKeysWithTheSecondSequence"] = ["SF1004", "SF1005"],
-            ["IntersectByComparesTheKeysWithTheSecondSequence"] = ["SF1004", "SF1005"]
+            ["IntersectByComparesTheKeysWithTheSecondSequence"] = ["SF1004", "SF1005"],
+            ["SetExpressionWhereTheFirstElementIsPending"] = ["SF1005"],
+            ["SetExpressionOfThreeWhereTheSecondElementIsPending"] = ["SF1005"],
+            ["SetInitializerWhereTheFirstElementIsPending"] = ["SF1005"],
+            ["DictionaryInitializerWhereTheFirstKeyIsPending"] = ["SF1005"],
+            ["DictionaryIndexInitializerWhereTheFirstKeyIsPending"] = ["SF1005"],
+            ["SortedSetExpressionWhereTheSecondElementIsPending"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -2921,12 +2921,20 @@ internal sealed class LoopStateEvaluator
     ///     member of one of those objects. The walk reads each value of a literal
     ///     where the literal gives it, thus the literal is not here.
     /// </param>
+    /// <param name="before">
+    ///     For an element of a literal: the values of each element that the
+    ///     literal gave before it, in the order of the parameters of the member.
+    ///     The collection has those objects when it gets this element, and the
+    ///     member gives the call to one side, as a call of it does. Null for a
+    ///     member that is not an element of a literal.
+    /// </param>
     public Followed? FollowPlatformMember(
         IMethodSymbol member,
         ExpressionSyntax? collection,
         IEnumerable<ExpressionSyntax> values,
         bool alone,
-        IEnumerable<ExpressionSyntax> others)
+        IEnumerable<ExpressionSyntax> others,
+        IEnumerable<IEnumerable<ExpressionSyntax>>? before = null)
     {
         member = this.ImplementationOf(method: member, receiver: collection);
 
@@ -2938,6 +2946,18 @@ internal sealed class LoopStateEvaluator
 
         ImmutableArray<IParameterSymbol> parameters = member.OriginalDefinition.Parameters;
 
+        // Of an element before, the collection compares only the values that the member compares,
+        // as the key of a pair of a dictionary.
+        ImmutableHashSet<ITypeParameterSymbol>? compared = PlatformCallers.ComparedTypeParameters(member);
+
+        IEnumerable<ExpressionSyntax> earlier =
+            (before ?? []).SelectMany(element =>
+                element.Where((_, position) =>
+                    compared == null
+                    || position >= parameters.Length
+                    || parameters[position].Type is not ITypeParameterSymbol parameter
+                    || compared.Contains(parameter)));
+
         List<Operand> operands =
         [
             .. values.Select((value, position) =>
@@ -2945,6 +2965,7 @@ internal sealed class LoopStateEvaluator
                     written: value,
                     parameter: position < parameters.Length ? parameters[position].Type : null,
                     isReceiver: false)),
+            .. earlier.Select(static value => new Operand(written: value, parameter: null, isReceiver: true)),
             .. others.Select(static other => new Operand(written: other, parameter: null, isReceiver: true))
         ];
 
@@ -2953,7 +2974,8 @@ internal sealed class LoopStateEvaluator
             calls: alone ? PlatformCallers.Of(member) & ~ComparesTwo : PlatformCallers.Of(member),
             operands: operands,
             keeper: collection,
-            also: this.Eval(collection),
+            // The state of a literal has each of its elements, also the ones after this one.
+            also: before == null ? this.Eval(collection) : LoopState.None,
             given: null,
             returned: null,
             firstIsStored: false);

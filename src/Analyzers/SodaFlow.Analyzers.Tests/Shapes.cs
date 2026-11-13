@@ -7963,6 +7963,54 @@ public static class Shapes
     public static Cell<int> ExceptByDoesNotCompareTheElementsOfItsFirstSequence() =>
         Cell.Loop<int>().WithoutCaptures(l => { Alike[] first = [new(l.Map(v => v))]; Alike[] second = [new(Plain)]; return S.Hold(first.ExceptBy(second, x => new Alike(Plain)).ToArray().Length); });
 
+    // S1675. A collection expression of a HashSet calls Add for each element, and Add gives the call to the element that the set has. The pending element is the second one, and gets no call.
+    public static Cell<int> SetExpressionWhereTheSecondElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain), new(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S1676. The same, where the pending element is the first one. The Add of the second element calls its Equals.
+    public static Cell<int> SetExpressionWhereTheFirstElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v)), new(Plain)]; return S.Hold(set.Count); });
+
+    // S1677. Three elements. The Add of the third calls Equals of the second, which is pending.
+    public static Cell<int> SetExpressionOfThreeWhereTheSecondElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain), new(l.Map(v => v)), new(Plain)]; return S.Hold(set.Count); });
+
+    // S1678. An initializer of a HashSet, where the pending element is the second one.
+    public static Cell<int> SetInitializerWhereTheSecondElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = new() { new(Plain), new(l.Map(v => v)) }; return S.Hold(set.Count); });
+
+    // S1679. An initializer of a HashSet, where the pending element is the first one.
+    public static Cell<int> SetInitializerWhereTheFirstElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = new() { new(l.Map(v => v)), new(Plain) }; return S.Hold(set.Count); });
+
+    // S1680. An initializer of a Dictionary, where the pending key is the second one.
+    public static Cell<int> DictionaryInitializerWhereTheSecondKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> map = new() { { new(Plain), 1 }, { new(l.Map(v => v)), 2 } }; return S.Hold(map.Count); });
+
+    // S1681. An initializer of a Dictionary, where the pending key is the first one.
+    public static Cell<int> DictionaryInitializerWhereTheFirstKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> map = new() { { new(l.Map(v => v)), 1 }, { new(Plain), 2 } }; return S.Hold(map.Count); });
+
+    // S1682. An initializer of a Dictionary with indexes, where the pending key is the second one.
+    public static Cell<int> DictionaryIndexInitializerWhereTheSecondKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> map = new() { [new(Plain)] = 1, [new(l.Map(v => v))] = 2 }; return S.Hold(map.Count); });
+
+    // S1683. An initializer of a Dictionary with indexes, where the pending key is the first one.
+    public static Cell<int> DictionaryIndexInitializerWhereTheFirstKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> map = new() { [new(l.Map(v => v))] = 1, [new(Plain)] = 2 }; return S.Hold(map.Count); });
+
+    // S1684. Add of a SortedSet gives the call to the element that it gets. The pending element is the second one.
+    public static Cell<int> SortedSetExpressionWhereTheSecondElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(Plain), new(l.Map(v => v))]; return S.Hold(set.Count); });
+
+    // S1685. The same, where the pending element is the first one. It is the argument of CompareTo, which reads only its own object.
+    public static Cell<int> SortedSetExpressionWhereTheFirstElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(l.Map(v => v)), new(Plain)]; return S.Hold(set.Count); });
+
+    // S1686. The value of an initializer of a Dictionary has the type of the key and is pending. Add compares the keys.
+    public static Cell<int> DictionaryInitializerWhereAValueOfTheTypeOfTheKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, SameOwn> map = new() { { new(Plain), new(l.Map(v => v)) }, { new(Plain), new(Plain) } }; return S.Hold(map.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9343,6 +9391,14 @@ public static class Shapes
     private static int KeepNow(DeepReader reader) => new NowKeeper(reader).Now;
 
     private static int KeepNowThrough(DeepReader reader) => KeepNow(reader);
+
+    // Equals reads only its own object, and is true only for the same object.
+    public sealed class SameOwn(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => share.Sample() >= 0 && ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 1;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

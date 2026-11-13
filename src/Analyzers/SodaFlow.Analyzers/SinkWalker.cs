@@ -1075,14 +1075,46 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.Report(
-            this.evaluator.FollowPlatformMember(
-                member: add,
-                collection: node,
-                values: node.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression),
-                alone: node.Elements.Count == 1 && !node.Elements.OfType<SpreadElementSyntax>().Any(),
-                others: node.Elements.OfType<SpreadElementSyntax>().Select(static spread => spread.Expression)));
+        ExpressionSyntax[] spreads =
+            [.. node.Elements.OfType<SpreadElementSyntax>().Select(static spread => spread.Expression)];
+
+        List<ExpressionSyntax[]> before = [];
+
+        // Each element is one Add, and the set has the elements before it.
+        foreach (ExpressionElementSyntax element in node.Elements.OfType<ExpressionElementSyntax>())
+        {
+            this.Report(
+                this.evaluator.FollowPlatformMember(
+                    member: add,
+                    collection: node,
+                    values: [element.Expression],
+                    alone: before.Count == 0 && spreads.Length == 0,
+                    others: spreads,
+                    before: before.ToArray()));
+
+            before.Add([element.Expression]);
+        }
     }
+
+    // The values of each element that an initializer gives before one of its elements. An element
+    // with braces gives its values to one Add, and an element with an index gives its indexes.
+    private static IEnumerable<IEnumerable<ExpressionSyntax>> Before(SyntaxNode initializer, ExpressionSyntax expression) =>
+        ((InitializerExpressionSyntax)initializer).Expressions
+        .TakeWhile(earlier => earlier != expression)
+        .Select(static earlier =>
+            earlier switch
+            {
+                InitializerExpressionSyntax several => several.Expressions,
+                AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax keyed } =>
+                    keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                _ => (IEnumerable<ExpressionSyntax>)new[] { earlier }
+            });
+
+    // True for the first element of an initializer of a collection that is empty before it.
+    private static bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, ExpressionSyntax made) =>
+        initializer is InitializerExpressionSyntax { Expressions.Count: > 0 } all
+        && all.Expressions[0] == expression
+        && IsNew(made);
 
     // True for a collection whose constructor got no argument. It is empty before its initializer.
     // A constructor with an argument can put objects into the collection.
@@ -1090,10 +1122,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         made
             is ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
             or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 };
-
-    // True for an initializer that gives one element to a collection that is empty before it.
-    private static bool IsTheOnlyElement(SyntaxNode initializer, ExpressionSyntax made) =>
-        initializer is InitializerExpressionSyntax { Expressions.Count: 1 } && IsNew(made);
 
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
@@ -1141,8 +1169,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         member: indexer,
                         collection: made,
                         values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
-                        alone: IsTheOnlyElement(initializer: initializer, made: made),
-                        others: IsNew(made) ? [] : [made]));
+                        alone: IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                        others: IsNew(made) ? [] : [made],
+                        before: Before(initializer: initializer, expression: expression)));
             }
 
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
@@ -1184,8 +1213,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     member: add,
                     collection: made,
                     values: values,
-                    alone: IsTheOnlyElement(initializer: initializer, made: made),
-                    others: IsNew(made) ? [] : [made]));
+                    alone: IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                    others: IsNew(made) ? [] : [made],
+                    before: Before(initializer: initializer, expression: expression)));
 
             return;
         }
