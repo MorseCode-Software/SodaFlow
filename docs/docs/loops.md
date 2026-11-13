@@ -328,31 +328,40 @@ and `Equals` when two hash codes match. `string.Join`, `string.Format`, and the 
 build text call `ToString`. A collection constructor, a spread, or a LINQ query once something
 enumerates it, enumerates a sequence type of yours. The analyzer has a table of the collection,
 LINQ, span, and text methods of the platform that do this, and it reads the member where the call
-is, or for a query, where the query is enumerated. The collection part of the table comes from a
-run over the constructors and methods of the platform's collection types. It has the set
-operations, the sorted, immutable, frozen, and concurrent collections, and the older `ArrayList`
-and `Hashtable`. The span methods matter more than their name
-suggests: in C# 14, `Contains`, `IndexOf`, or `SequenceEqual` called on an array is a method of
-`MemoryExtensions`. A collection expression written directly as an argument, as in
-`new SortedSet<T>([a, b])`, is read like a collection in a variable. Arguments given one by one to
-a `params` parameter are separate values: `string.Join(",", query, 1)` writes the query object as
-text and does not enumerate it. A method that gets a comparer calls the comparer and
-not these members, and the analyzer knows that too. A comparer argument written as `null` or
-`default` is no comparer: the method falls back to these members, and they are read. A collection
-built with a comparer of yours,
-such as a `SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`,
-keeps it and calls it from its own methods, and the analyzer reads the comparer at those calls.
+is, or for a query, where the query is enumerated. The collection part of the table comes from a run
+over the constructors and methods of the platform's collection types, and over the members of the
+collection interfaces on each type that implements them. It has the set operations, the sorted,
+immutable, frozen, and concurrent collections, and the older `ArrayList` and `Hashtable`. A `Tuple`
+object compares, hashes, and writes its elements, as a tuple in parentheses does. The span methods
+matter more than their name suggests: in C# 14, `Contains`, `IndexOf`, or `SequenceEqual` called on
+an array is a method of `MemoryExtensions`. A collection expression written directly as an argument,
+as in `new SortedSet<T>([a, b])`, is read like a collection in a variable. Arguments given one by
+one to a `params` parameter are separate values: `string.Join(",", query, 1)` writes the query
+object as text and does not enumerate it. A method that gets a comparer calls the comparer and not
+these members, and the analyzer knows that too. A comparer argument written as `null` or `default`
+is no comparer: the method falls back to these members, and they are read. So is a local that only
+ever gets `null` or `default` in its block. A collection built with a comparer of yours, such as a
+`SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`, keeps it
+and calls it from its own methods, and the analyzer reads the comparer at those calls.
 
-Two things narrow what is read there. A sort or a set of a single element compares nothing, and
-the analyzer knows the count when the collection is a literal of one element that the block does
-not grow. And where the platform compares a value you pass with an item a collection already
-holds, as `Contains`, `IndexOf`, `Remove`, `BinarySearch`, and the lookups of a set or a dictionary
-do, only one of the two objects gets the call, the same one on every runtime the repository tests
-on. The analyzer reads the member of that object, with the other one as its argument. For a list, a
-hash set, or a dictionary it is the item already held. For a `SortedSet<T>`, a
-`SortedDictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>` it is the value you
-pass. A span method depends on the element type: most of the searches give the call to the value
-you pass when the type is `IEquatable<T>`, and to the item already held when it is not.
+A call through an interface of the platform, such as `ICollection<T>.Contains` or
+`IDictionary<TKey, TValue>.Add`, runs the method of the object behind it. Where the variable got
+that object from a constructor in the block, the analyzer reads the method of that type. Otherwise
+it does not know which collection the object is, and it reads the members that every collection
+of the platform calls for that interface member.
+
+Two things narrow what is read there. A sort or a set of a single element compares nothing, and the
+analyzer knows the count when the collection is a literal of one element that the block does not
+grow. And where the platform compares a value you pass with an item a collection already holds, as
+`Contains`, `IndexOf`, `Remove`, `BinarySearch`, and the lookups of a set or a dictionary do, only
+one of the two objects gets the call. A run on .NET Framework and on each .NET from 6 to 11 shows
+which one, and the repository's tests hold that on the runtimes they target. The analyzer reads the
+member of that object, with the other one as its argument. For a list, a hash set, a dictionary, an
+`ImmutableArray<T>`, and most other collections that hash or keep an order, it is the item already
+held. For the sorted collections, a `PriorityQueue<TElement, TPriority>`, the frozen sets, and the
+immutable lists, sets, and sorted dictionaries, it is the value you pass. A span method depends on
+the element type: most of the searches give the call to the value you pass when the type is
+`IEquatable<T>`, and to the item already held when it is not.
 
 A serializer does more with a value than keep it. `JsonSerializer` of `System.Text.Json`,
 `JsonConvert` and `JsonSerializer` of Json.NET, and `XmlSerializer` enumerate the sequences in the
@@ -397,13 +406,15 @@ It does not see everything, and in a few places it guesses on the careful side:
   that got the object from it. A second variable for the same object, a change made through the
   collection and read through the variable, and an object that a tuple, a pair, or a property of
   another object got from a variable are not followed.
-- For the searches of the collection types beyond those named above, such as `LinkedList<T>` or
-  the immutable collections, the analyzer does not know which object gets the call, and reads both.
-  The same goes for a span method called with a span of values, such as `IndexOfAny(values)`,
-  because the runtimes do not agree there.
-- The table is keyed by the type that declares the method. A call through an interface of the
-  platform, such as `IDictionary<TKey, TValue>.Add` or `ICollection<T>.Contains`, has no row and is
-  not read.
+- For a few searches the runtimes do not agree, or the run could not show which object gets the
+  call, and the analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` and
+  `IsProperSubsetOf` of a set are among them, and so is a span method called with a span of values,
+  such as `IndexOfAny(values)`.
+- A call through an interface on an object whose type the analyzer does not know reads both
+  objects, because the collections do not agree on which one gets the call. `ICollection<T>.Add`
+  on such an object is not read at all, because a list adds without comparing.
+- A priority queue whose elements and priorities have the same type keeps them in one state, so
+  `Remove` reads the priorities as well as the elements.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
