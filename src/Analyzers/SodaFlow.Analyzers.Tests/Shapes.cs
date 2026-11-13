@@ -7939,7 +7939,7 @@ public static class Shapes
     public static Cell<int> AddOrUpdateWithTwoFunctions() =>
         Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(l.Map(v => v))] = 1 }; Kept.Add(map.AddOrUpdate(new Alike(Plain), _ => 2, (_, old) => old + 1)); return S.Hold(0); });
 
-    // S1669. GetOrAdd where the key that the code gives is pending, and the key of the dictionary reads both.
+    // S1669. GetOrAdd where the key that the code gives is pending, and the key of the dictionary reads the two keys.
     public static Cell<int> GetOrAddWithAFunctionWhereTheGivenKeyIsPending() =>
         Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(Plain)] = 1 }; Kept.Add(map.GetOrAdd(new Alike(l.Map(v => v)), _ => 2)); return S.Hold(0); });
 
@@ -8035,7 +8035,7 @@ public static class Shapes
     public static Cell<int> IsSubsetOfAnArgumentOfAnUnknownTypeThatIsAnArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; IEnumerable<SameOwn> other = MakeASetOrAnArray(false, new SameOwn(Plain), new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
 
-    // S1693. IsSubsetOf where the argument is a HashSet that got a comparer. The analyzer does not know that the two comparers are the same, and reads both objects.
+    // S1693. IsSubsetOf where the argument is a HashSet that got a comparer. The analyzer does not know that the two comparers are the same, and reads the two objects.
     public static Cell<int> IsSubsetOfAHashSetArgumentThatGotAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; HashSet<SameOwn> other = new(EqualityComparer<SameOwn>.Default); other.Add(new(Plain)); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
 

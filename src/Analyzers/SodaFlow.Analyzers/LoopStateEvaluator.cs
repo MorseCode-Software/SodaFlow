@@ -20,9 +20,9 @@ internal sealed class LoopStateEvaluator
 {
     /// <summary>
     ///     How many calls deep the evaluator follows a helper or a construction.
-    ///     Four is sufficient for a helper that calls a helper, and a member of an
-    ///     object there that calls a helper of its own, as a sort two helpers down
-    ///     does. The limit is also what ends a recursive chain.
+    ///     Four is sufficient for a sort two helpers down. The two helpers are two
+    ///     calls, and the member of an element and its own helper are two more.
+    ///     The limit is also what ends a recursive chain.
     /// </summary>
     private const int MaxInlineDepth = 4;
 
@@ -536,8 +536,8 @@ internal sealed class LoopStateEvaluator
         // The evaluator can go in a cycle only through a reassignment, and none is the correct
         // answer for the first visit.
         this.memo[expression] = LoopState.None;
-        // A value has the state of the place where the walk reads it first. A second read of the
-        // same node is not a later read.
+        // The walk reads a node one time, and the value keeps the state from that read. A second
+        // read of the same node does not see a change that came after the first.
         LoopState state =
             this.Refreshed(
                 expression: expression,
@@ -549,10 +549,10 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>
     ///     The object in a member of one object of the store. Each read of the
-    ///     member, through each name of the owner, is that one object, also when
-    ///     the walk did not read the constructor of the owner. Null for a member
-    ///     that has an object of the store already, and for a member that is not
-    ///     one of this compilation.
+    ///     member, through each name of the owner, is that one object. That is
+    ///     true also when the walk did not read the constructor of the owner. Null
+    ///     for a member whose state has an object of the store, and for a member
+    ///     that is not one of this compilation.
     /// </summary>
     /// <remarks>
     ///     A member of the platform, such as <c>Values</c> of a dictionary, keeps
@@ -622,7 +622,7 @@ internal sealed class LoopStateEvaluator
     ///     one state.
     /// </summary>
     /// <remarks>
-    ///     A local, a parameter, or a member that names one object takes the
+    ///     A local, a parameter, or a member that names one object gets the
     ///     members of the store. An element and the result of a call are one of
     ///     the values that they can be, and keep what they have. A value that can
     ///     be an object that the store does not know keeps what it has also.
@@ -659,7 +659,7 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The state of a new object, with the object that this place makes in
+    ///     The state of a new object, with the object that the expression makes in
     ///     this frame. The store keeps the state.
     /// </summary>
     /// <remarks>
@@ -3134,10 +3134,10 @@ internal sealed class LoopStateEvaluator
     /// </param>
     /// <param name="before">
     ///     For an element of a literal: the values of each element that the
-    ///     literal gave before it, in the order of the parameters of the member.
-    ///     The collection has those objects when it gets this element, and the
-    ///     member gives the call to one side, as a call of it does. Null for a
-    ///     member that is not an element of a literal.
+    ///     literal gave before it. The values of one element are in the order of
+    ///     the parameters of the member. The collection has those objects when it
+    ///     gets this element, and the member gives the call to one side, as a call
+    ///     of it does. Null for a member that is not an element of a literal.
     /// </param>
     public Followed? FollowPlatformMember(
         IMethodSymbol member,
@@ -3145,7 +3145,7 @@ internal sealed class LoopStateEvaluator
         IEnumerable<ExpressionSyntax> values,
         bool alone,
         IEnumerable<ExpressionSyntax> others,
-        IEnumerable<IEnumerable<ExpressionSyntax>>? before = null)
+        IEnumerable<IEnumerable<ExpressionSyntax>>? before)
     {
         member = this.ImplementationOf(method: member, receiver: collection);
 
@@ -3283,7 +3283,8 @@ internal sealed class LoopStateEvaluator
                 collection: access.Expression,
                 values: access.ArgumentList.Arguments.Select(static index => index.Expression),
                 alone: false,
-                others: [access.Expression])
+                others: [access.Expression],
+                before: null)
             : null;
 
     /// <param name="method">The method of the platform.</param>
@@ -3561,18 +3562,21 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     Which object gets the call from a method of the platform. For a set
-    ///     operation, a set of the same kind as the argument can take a different
-    ///     path in the platform, when the two sets have one comparer.
+    ///     Which object gets the call from a method of the platform. A set
+    ///     operation can use a different path in the platform when its argument is
+    ///     a set with the same comparer.
     /// </summary>
     /// <remarks>
     ///     The analyzer knows that the two comparers are the same only when it
     ///     sees that each set was made with no comparer. A collection expression
     ///     for a sequence makes a list or an array, which is not a set. An
     ///     argument whose type the analyzer does not know can be such a set, and
-    ///     then the analyzer reads both objects.
+    ///     then the analyzer reads the two objects.
     /// </remarks>
-    private PlatformReceiver ReceiverFor(IMethodSymbol method, IReadOnlyList<Operand> operands, ExpressionSyntax? keeper)
+    private PlatformReceiver ReceiverFor(
+        IMethodSymbol method,
+        IReadOnlyList<Operand> operands,
+        ExpressionSyntax? keeper)
     {
         PlatformReceiver row = PlatformCallers.ReceiverOf(method);
 
@@ -3601,9 +3605,9 @@ internal sealed class LoopStateEvaluator
             : PlatformReceiver.Either;
     }
 
-    // True when the code made the set with no comparer: a creation, a collection expression, or a
-    // factory of the platform, each with no parameter for a comparer. A local that no code changes
-    // has the set that its declaration made.
+    // True when the code made the set with no comparer. A creation, a collection expression, and a
+    // factory of the platform do that when they have no parameter for a comparer. A local that no
+    // code changes has the set that its declaration made.
     private bool HasTheDefaultComparer(ExpressionSyntax written)
     {
         for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
@@ -4131,10 +4135,10 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     Records a member of an object that this code calls and that the walk
-    ///     does not read, when a member of the object has a state. The code can
-    ///     read that member. A pending argument of such a call gets the same
-    ///     report from the walk.
+    ///     Records a member that this code calls and that the walk does not read.
+    ///     It does that only when a member of the same object has a state, because
+    ///     the code can read that member. A pending argument of such a call gets
+    ///     the same report from the walk.
     /// </summary>
     private void DoesNotRead(SyntaxNode call, string name, Dictionary<ISymbol, LoopState> members)
     {

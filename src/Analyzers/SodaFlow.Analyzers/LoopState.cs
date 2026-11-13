@@ -223,7 +223,7 @@ internal sealed class LoopState
     /// </summary>
     /// <param name="stored">The state of the store.</param>
     /// <param name="one">
-    ///     True for a name of one object. It takes the members of the store, which
+    ///     True for a name of one object. It gets the members of the store, which
     ///     have each change to the object. A value that is one of two or more
     ///     keeps its own members also.
     /// </param>
@@ -246,8 +246,8 @@ internal sealed class LoopState
             objects: this.Objects,
             held: Union(first: this.Held, second: stored.Held));
 
-    // A value that is one of two, where only one is an object of the store, can be an object that
-    // the store does not know. A pair from a dictionary is such an object.
+    // A value can be one of two, where only one is an object of the store. The value can then be
+    // an object that the store does not know. A pair from a dictionary is such an object.
     private static ImmutableArray<MadeObject> AnUnknownObject(LoopState first, LoopState second) =>
         first.Objects.IsEmpty != second.Objects.IsEmpty
         && (first.Objects.IsEmpty ? first : second) is { Members: not null } or { Pending: true }

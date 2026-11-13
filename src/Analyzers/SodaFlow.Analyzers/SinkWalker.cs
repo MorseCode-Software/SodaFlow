@@ -736,7 +736,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         collection: keyed.Expression,
                         values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
                         alone: false,
-                        others: [keyed.Expression]));
+                        others: [keyed.Expression],
+                        before: null));
             }
 
             return;
@@ -1098,7 +1099,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // The values of each element that an initializer gives before one of its elements. An element
     // with braces gives its values to one Add, and an element with an index gives its indexes.
-    private static IEnumerable<IEnumerable<ExpressionSyntax>> Before(SyntaxNode initializer, ExpressionSyntax expression) =>
+    private static IEnumerable<IEnumerable<ExpressionSyntax>> Before(
+        SyntaxNode initializer,
+        ExpressionSyntax expression) =>
         ((InitializerExpressionSyntax)initializer).Expressions
         .TakeWhile(earlier => earlier != expression)
         .Select(static earlier =>

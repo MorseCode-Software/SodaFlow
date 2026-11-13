@@ -584,7 +584,7 @@ internal sealed class PlatformReceiversTests
             .IsEmpty();
 
     // The methods of a set that get a second sequence. The object that gets the call depends on the
-    // type of that sequence, thus the test with one object on each side does not hold them.
+    // type of that sequence. Thus, the test with one object on each side does not hold them.
     private static readonly HashSet<string> SetOperations =
     [
         "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "ExceptWith",
@@ -611,20 +611,20 @@ internal sealed class PlatformReceiversTests
         };
 
     // The numbers of objects in the set and in the argument. A set operation can end at the two
-    // numbers alone, with no comparison.
+    // numbers alone, and compare nothing.
     private static readonly (int Stored, int Given)[] Counts = [(1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 2)];
 
     /// <summary>
-    ///     Each set operation with a row gives each call as the row says, for an
-    ///     array and for each kind of set as its argument, with one to three
-    ///     objects on each side. A set of a kind that
+    ///     Each set operation with a row gives each call as the row says. The
+    ///     argument is an array and each type of set in turn, with one to three
+    ///     objects on each side. A set of a type that
     ///     <see cref="PlatformReceivers.WithASetArgument" /> names has the receiver
     ///     from there.
     /// </summary>
     /// <remarks>
     ///     The objects record the side of the object that gets a call and the
-    ///     side of its argument. Thus, the test tells a comparison of two given
-    ///     values from a comparison of a given value with an element of the set.
+    ///     side of its argument. Thus, the test tells a call between two given
+    ///     values from a call between a given value and an element of the set.
     /// </remarks>
     [Test]
     public async Task EachSetOperationGivesEachCallAsItsRowSaysForEachKindOfArgument() =>
@@ -641,8 +641,8 @@ internal sealed class PlatformReceiversTests
                     !PlatformReceivers.ByMethod.ContainsKey((key.Type, key.Method))))
             .IsEmpty();
 
-    // One line for each kind of argument where a call is not one that the receiver permits, and one
-    // line for an array as the argument when no number of objects makes a call.
+    // One line for each type of argument where a call is not one that the receiver permits. One
+    // more line for an array as the argument when no number of objects makes a call.
     private static IEnumerable<string> WrongForEachArgument((string Type, string Method) key, PlatformReceiver receiver)
     {
         Func<Side[], IEnumerable<Side>> makeSet = Sets[key.Type];
@@ -655,7 +655,10 @@ internal sealed class PlatformReceiversTests
         }
 
         foreach (KeyValuePair<string, Func<Side[], IEnumerable<Side>>> argument in
-                 Sets.Append(new KeyValuePair<string, Func<Side[], IEnumerable<Side>>>(key: "array", value: static sides => sides)))
+                 Sets.Append(
+                     new KeyValuePair<string, Func<Side[], IEnumerable<Side>>>(
+                         key: "array",
+                         value: static sides => sides)))
         {
             PlatformReceiver expected =
                 PlatformReceivers.WithASetArgument.TryGetValue(
@@ -961,9 +964,9 @@ internal sealed class PlatformReceiversTests
         public int CompareTo(object? obj) => this.CompareTo(obj as Probe);
     }
 
-    // An object that records, for each call of its Equals or its CompareTo, its own side and the side
-    // of its argument. Two of them are never equal, and each has the same hash code. The objects of
-    // the set have the lower ranks.
+    // An object that records each call of its Equals and of its CompareTo: its own side, and the
+    // side of its argument. Two of them are never equal, and each has the same hash code. The
+    // objects of the set have the lower ranks.
     private sealed class Side(in string side, in int rank, in List<string> calls) : IEquatable<Side>, IComparable<Side>
     {
         private readonly string side = side;

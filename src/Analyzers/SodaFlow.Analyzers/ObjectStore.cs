@@ -24,10 +24,10 @@ internal sealed class ObjectStore
     public bool IsEmpty => this.states.Count == 0;
 
     /// <summary>
-    ///     The object that a place of the code makes in a frame of the walk. The
-    ///     first walk of the place gives the object its first state. A second walk
-    ///     of the same place in the same frame is the same object, which can have
-    ///     changed.
+    ///     The object that an expression makes in a frame of the walk. The first
+    ///     walk of the expression gives the object its first state. A second walk
+    ///     of the same expression in the same frame is the same object, and its
+    ///     state stays.
     /// </summary>
     public MadeObject MadeAt(SyntaxNode place, LoopFrame frame, ITypeSymbol type, LoopState state)
     {

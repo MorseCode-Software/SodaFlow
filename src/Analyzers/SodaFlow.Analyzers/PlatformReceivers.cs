@@ -294,17 +294,17 @@ internal static class PlatformReceivers
         };
 
     /// <summary>
-    ///     The receiver of a set operation when its argument is a set of the type
-    ///     with the given name, and has the comparer of the set of the call. The
-    ///     platform then takes a different path, and a row of
+    ///     The receiver of a set operation for an argument that is a set of the
+    ///     type with the given name. The argument must have the comparer of the
+    ///     set of the call. The platform then uses a different path, and a row of
     ///     <see cref="ByMethod" /> does not hold. <see cref="PlatformReceiver.Either" />
     ///     is here for a path that differs between the runtimes, or that gives
     ///     the call to each side.
     /// </summary>
     /// <remarks>
-    ///     A run called each set operation of each set type with an array, a
-    ///     list, a query, and each set type as its argument, with one to three
-    ///     objects on each side. An argument that is not here, and a set with a
+    ///     A run called each set operation of each set type, with one to three
+    ///     objects on each side. Its argument was an array, a list, a query, and
+    ///     each set type in turn. An argument that is not here, and a set with a
     ///     different comparer, has the row of <see cref="ByMethod" />.
     /// </remarks>
     public static readonly IReadOnlyDictionary<(string Type, string Method, string Argument), PlatformReceiver>
