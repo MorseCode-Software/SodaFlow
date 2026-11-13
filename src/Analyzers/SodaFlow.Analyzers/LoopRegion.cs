@@ -38,6 +38,7 @@ internal sealed class LoopRegion(
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
+    private int objectFrames;
 
     /// <summary>The one state of each object that the code of the region makes.</summary>
     public ObjectStore Objects { get; } = new();
@@ -181,6 +182,14 @@ internal sealed class LoopRegion(
     ///     read.
     /// </summary>
     public bool TryEnter() => ++this.frames <= MaxFrames;
+
+    /// <summary>
+    ///     Counts one more callee body that the walk reads only because the callee
+    ///     gets an object of the store. No state from the loop goes into such a
+    ///     callee. These bodies have their own limit, thus they do not use the
+    ///     frames that a pending value needs.
+    /// </summary>
+    public bool TryEnterForObjects() => ++this.objectFrames <= MaxFrames;
 
     /// <summary>
     ///     Walks the region for reads that run before the close, then checks each

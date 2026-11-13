@@ -2581,8 +2581,11 @@ internal sealed class LoopStateEvaluator
 
         // A constructor that gets no state gives no member a state, and the evaluator does not
         // read it. The object keeps its type, because the code can set a member of it later.
-        if (!this.region.HasFields
-            && bindings.All(static binding => binding.State.IsNone && binding.State.Objects.IsEmpty))
+        // A constructor that gets an object of the store can keep it, which gives the object a
+        // second name. The evaluator reads such a constructor while ReadsForObjects permits.
+        bool noState = !this.region.HasFields && bindings.All(static binding => binding.State.IsNone);
+
+        if (noState && !this.ReadsForObjects(bindings))
         {
             return new Followed(
                 state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
@@ -2590,7 +2593,7 @@ internal sealed class LoopStateEvaluator
                 outs: Followed.Nothing.Outs);
         }
 
-        if (this.depth >= MaxInlineDepth || !this.region.TryEnter())
+        if (!noState && (this.depth >= MaxInlineDepth || !this.region.TryEnter()))
         {
             return null;
         }
@@ -3555,7 +3558,7 @@ internal sealed class LoopStateEvaluator
                             .Select(owner => (operand.Written, owner.State, owner.Members, true)));
                 }
 
-                if (!alsoKeys || operand.Parameter?.TypeKind == TypeKind.Delegate)
+                if (!alsoKeys)
                 {
                     continue;
                 }
@@ -3588,7 +3591,7 @@ internal sealed class LoopStateEvaluator
         if (knowsTheReceiver)
         {
             argument = owners
-                .Where(owner => among || !owner.Gets)
+                .Where(static owner => !owner.Gets)
                 .Aggregate(seed: argument, func: static (joined, owner) => joined.Join(owner.State));
         }
 
@@ -4176,15 +4179,20 @@ internal sealed class LoopStateEvaluator
     {
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
-        if (definer == null
+        // A callee that gets an object of the store can give the object a second name. The walk
+        // reads such a callee while ReadsForObjects permits.
+        bool noState =
+            definer == null
             && members.Count == 0
             && !this.region.HasFields
-            && bindings.All(static binding => binding.State.IsNone && binding.State.Objects.IsEmpty))
+            && bindings.All(static binding => binding.State.IsNone);
+
+        if (noState && !this.ReadsForObjects(bindings))
         {
             return Followed.Nothing;
         }
 
-        if (this.depth >= MaxInlineDepth || !this.region.TryEnter())
+        if (!noState && (this.depth >= MaxInlineDepth || !this.region.TryEnter()))
         {
             this.DoesNotRead(call: call, name: name, members: members);
 
@@ -4252,6 +4260,13 @@ internal sealed class LoopStateEvaluator
                     name),
                 subject: name));
     }
+
+    // True when the walk reads a callee that gets no state from the loop. It does that only for an
+    // object of the store, to the depth limit, and while the region has frames for such callees.
+    private bool ReadsForObjects(IReadOnlyList<Binding> bindings) =>
+        bindings.Any(static binding => !binding.State.Objects.IsEmpty)
+        && this.depth < MaxInlineDepth
+        && this.region.TryEnterForObjects();
 
     /// <summary>
     ///     The evaluator for the body of a callee, with each parameter bound to
