@@ -464,13 +464,14 @@ internal static class PlatformCallers
             ? parameters.Select((parameter, position) => (parameter, arguments[position]))
             : [];
 
-    // A Tuple object compares its elements, as a tuple with parentheses does.
+    // A Tuple object compares its elements, as a tuple with parentheses does. A KeyValuePair is a
+    // struct: its Equals calls Equals of each part, and a dictionary compares its key and its value.
     private static IEnumerable<ITypeSymbol> Parts(ITypeSymbol type) =>
         type switch
         {
             INamedTypeSymbol { IsTupleType: true } tuple =>
                 tuple.TupleElements.SelectMany(static element => Parts(element.Type)),
-            INamedTypeSymbol holder when SodaFlowSymbols.IsTupleObject(holder) =>
+            INamedTypeSymbol holder when SodaFlowSymbols.HoldsParts(holder) && !holder.TypeArguments.IsEmpty =>
                 holder.TypeArguments.SelectMany(Parts),
             _ => [type]
         };

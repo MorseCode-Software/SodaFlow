@@ -3396,10 +3396,10 @@ internal sealed class LoopStateEvaluator
             return [];
         }
 
-        // The state of a tuple or of a Tuple object has the state of each part.
+        // The state of a tuple, of a Tuple object, or of a KeyValuePair has the state of each part.
         bool ofATuple = !members.HasType;
 
-        if (ofATuple || (SodaFlowSymbols.IsTupleObject(written) && members.HasParts))
+        if (ofATuple || (SodaFlowSymbols.HoldsParts(written) && members.HasParts))
         {
             return members.PartsAt(ofATuple)
                 .Where(part => keeps?.Invoke(part.Position) ?? true)
@@ -3433,7 +3433,7 @@ internal sealed class LoopStateEvaluator
     {
         if (keeps == null
             || state.Members is not { } members
-            || (members.HasType && !(SodaFlowSymbols.IsTupleObject(written) && members.HasParts)))
+            || (members.HasType && !(SodaFlowSymbols.HoldsParts(written) && members.HasParts)))
         {
             return state;
         }

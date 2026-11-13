@@ -619,12 +619,6 @@ internal sealed class SodaFlowSymbols
             or ("DictionaryEntry", "System.Collections");
 
     /// <summary>
-    ///     True for <c>Tuple</c>, the class. The platform calls the same member of
-    ///     each of its parts, as it does for a tuple with parentheses.
-    /// </summary>
-    public static bool IsTupleObject(ITypeSymbol? type) => type is { Name: "Tuple" } && HoldsParts(type);
-
-    /// <summary>
     ///     The property of a type from <see cref="HoldsParts" /> that holds the
     ///     value of a parameter. The parameter is one of the constructor, of
     ///     <c>Create</c>, or an <c>out</c> parameter of <c>Deconstruct</c>. The

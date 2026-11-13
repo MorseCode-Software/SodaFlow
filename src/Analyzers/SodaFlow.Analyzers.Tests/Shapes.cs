@@ -7848,6 +7848,46 @@ public static class Shapes
     public static Cell<int> PriorityQueueOfTwoPairsWhoseElementAndPriorityHaveOneTypeWithAPendingElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { (Ranked, Ranked)[] two = [(new Ranked(l.Map(v => v)), new Ranked(Plain)), (new Ranked(Plain), new Ranked(Plain))]; PriorityQueue<Ranked, Ranked> queue = new(two); return S.Hold(queue.Count); });
 
+    // S1647. Contains of a pair through ICollection of a dictionary looks for the key, then compares the values.
+    public static Cell<int> ContainsOfAPairThroughICollectionOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, int>> pairs = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(pairs.Contains(new KeyValuePair<Alike, int>(new Alike(Plain), 1))); return S.Hold(0); });
+
+    // S1648. Remove of a pair through ICollection of a dictionary.
+    public static Cell<int> RemoveOfAPairThroughICollectionOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, int>> pairs = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(pairs.Remove(new KeyValuePair<Alike, int>(new Alike(Plain), 1))); return S.Hold(0); });
+
+    // S1649. Contains of a pair whose value is pending. The dictionary finds the key, and compares the two values.
+    public static Cell<int> ContainsOfAPairThroughICollectionOfADictionaryWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<int, Alike>> pairs = new Dictionary<int, Alike> { { 1, new Alike(l.Map(v => v)) } }; Kept.Add(pairs.Contains(new KeyValuePair<int, Alike>(1, new Alike(Plain)))); return S.Hold(0); });
+
+    // S1650. Add of a pair through ICollection of a dictionary compares the key.
+    public static Cell<int> AddOfAPairThroughICollectionOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, int>> pairs = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; pairs.Add(new KeyValuePair<Alike, int>(new Alike(Plain), 2)); return S.Hold(pairs.Count); });
+
+    // S1651. Add of a pair compares only the key. The value has the type of the key, is pending, and gets no call.
+    public static Cell<int> AddOfAPairThroughICollectionOfADictionaryWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, Alike>> pairs = new Dictionary<Alike, Alike>(); pairs.Add(new KeyValuePair<Alike, Alike>(new Alike(Plain), new Alike(l.Map(v => v)))); return S.Hold(pairs.Count); });
+
+    // S1652. Contains of a pair through ICollection of a SortedDictionary compares the keys with CompareTo.
+    public static Cell<int> ContainsOfAPairThroughICollectionOfASortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Ranked, int>> pairs = new SortedDictionary<Ranked, int> { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(pairs.Contains(new KeyValuePair<Ranked, int>(new Ranked(Plain), 1))); return S.Hold(0); });
+
+    // S1653. CopyTo of the pairs of a dictionary compares nothing.
+    public static Cell<int> CopyToOfThePairsOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, int>> pairs = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; KeyValuePair<Alike, int>[] copy = new KeyValuePair<Alike, int>[1]; pairs.CopyTo(copy, 0); return S.Hold(copy.Length); });
+
+    // S1654. Contains of a list of pairs. Equals of a KeyValuePair calls Equals of each part.
+    public static Cell<int> ContainsOfAPairInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<KeyValuePair<Alike, int>> pairs = [new KeyValuePair<Alike, int>(new Alike(l.Map(v => v)), 1)]; Kept.Add(pairs.Contains(new KeyValuePair<Alike, int>(new Alike(Plain), 1))); return S.Hold(0); });
+
+    // S1655. Contains of a pair whose key is pending, through ICollection of a dictionary. The key of the dictionary gets Equals with the pending key.
+    public static Cell<int> ContainsOfAPairWithAPendingKeyThroughICollectionOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<Alike, int>> pairs = new Dictionary<Alike, int> { { new Alike(Plain), 1 } }; Kept.Add(pairs.Contains(new KeyValuePair<Alike, int>(new Alike(l.Map(v => v)), 1))); return S.Hold(0); });
+
+    // S1656. The same, where the value of the pair is pending. The dictionary finds the key, and compares the values.
+    public static Cell<int> ContainsOfAPairWithAPendingValueThroughICollectionOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<int, Alike>> pairs = new Dictionary<int, Alike> { { 1, new Alike(Plain) } }; Kept.Add(pairs.Contains(new KeyValuePair<int, Alike>(1, new Alike(l.Map(v => v))))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

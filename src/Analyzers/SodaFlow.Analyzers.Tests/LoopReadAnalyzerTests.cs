@@ -1166,7 +1166,15 @@ internal sealed class LoopReadAnalyzerTests
             ["ListSortWithANullComparerInALocalGivenToAParameter"] = ["SF1004"],
             ["ListSortWithANullComparerParameterInALocalFunction"] = ["SF1004"],
             ["RemoveOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingElement"] = ["SF1004"],
-            ["EnqueueOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingPriority"] = ["SF1004"]
+            ["EnqueueOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingPriority"] = ["SF1004"],
+            ["ContainsOfAPairThroughICollectionOfADictionary"] = ["SF1004", "SF1005"],
+            ["RemoveOfAPairThroughICollectionOfADictionary"] = ["SF1005"],
+            ["ContainsOfAPairThroughICollectionOfADictionaryWhereTheValueIsPending"] = ["SF1004", "SF1005"],
+            ["AddOfAPairThroughICollectionOfADictionary"] = ["SF1005"],
+            ["ContainsOfAPairThroughICollectionOfASortedDictionary"] = ["SF1004", "SF1005"],
+            ["ContainsOfAPairInAList"] = ["SF1005"],
+            ["ContainsOfAPairWithAPendingKeyThroughICollectionOfADictionary"] = ["SF1004", "SF1005"],
+            ["ContainsOfAPairWithAPendingValueThroughICollectionOfADictionary"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
