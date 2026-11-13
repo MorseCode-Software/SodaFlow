@@ -326,6 +326,12 @@ place that enumerates the sequence: a `foreach`, a spread, a method such as `ToL
 there through locals, fields, collections, helpers, and a `Lazy<T>`. A query that the block only
 builds and keeps, to be enumerated after the close, is not reported.
 
+A query expression is followed like the method form. Each range variable is an item of its source, a
+`let` variable is what its expression gives, the variable after `into` is what the clause before it
+built, and the result holds what the last `select` or `group` builds. So `from c in cells select
+c.Sample()` reads each cell where the query is enumerated, and the items of `(from row in rows select
+row.Total).ToList()` are those totals.
+
 A query inside a collection, or inside another query, is read where the code enumerates that query
 itself. Counting a list of queries, keeping it, or looping over it without touching the items runs
 none of them, and the analyzer reports none. It reports an inner query at the `foreach` over that
@@ -378,7 +384,11 @@ so a list of pairs compares both too. Where a method compares the values of only
 parameters, the analyzer reads only those, also when two type parameters have the same type:
 `Enqueue` of a `PriorityQueue<TElement, TPriority>` compares the priorities and not the elements,
 `Remove` compares the elements and not the priorities, and `Add` of a dictionary compares the key of
-the pair and not its value. A function argument does not always pick what is compared either.
+the pair and not its value. An immutable dictionary is the exception for values: when it is handed
+a key it already holds, `Add`, `AddRange`, `SetItem`, `SetItems`, the indexer of its builder, and
+the factories such as `ToImmutableDictionary` call `Equals` on the value already held, with the new
+value as its argument, and the analyzer reads that call. A function argument does not always pick
+what is compared either.
 `GetOrAdd` and `AddOrUpdate` of a `ConcurrentDictionary<TKey, TValue>` compare the key you pass, and
 their function only makes the value. `ExceptBy` and `IntersectBy` compare the keys their function
 returns with the keys in the second sequence.
@@ -398,7 +408,9 @@ the element type: most of the searches give the call to the value you pass when 
 
 A set or a dictionary that a collection expression or an initializer fills is read as the `Add`
 calls it stands for. Each element is compared with the elements written before it, and the same
-object gets the call as in an `Add` on that collection.
+object gets the call as in an `Add` on that collection. A constructor that was given only a comparer
+or a capacity leaves the collection empty, so the first element of its initializer compares nothing,
+and neither does an `Add` on the `Empty` instance of an immutable dictionary.
 
 A set operation such as `IsSubsetOf`, `SetEquals`, or `UnionWith` depends on its argument. With an
 array, a list, or a query, one side gets the call, as above. With a set of the same kind and the
@@ -436,10 +448,11 @@ It does not see everything, and in a few places it guesses on the careful side:
   read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
   `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort of
   a single item that is not a literal of one element. A comparer kept by a collection is the same:
-  the first `Add` to an empty sorted set compares nothing, and it is reported. So is the first
-  element of an initializer on a set or a dictionary whose constructor got an argument, also when
-  that argument is only a comparer or a capacity. A value that may be one of two types is read the
-  same way: the member of each type is read, though only one object is there at run time.
+  the first `Add` to an empty sorted set compares nothing, and it is reported. So is `Equals` of a
+  value in an immutable dictionary, which runs only when a key repeats: the analyzer does not know
+  your keys. It knows that a dictionary calls its value comparer instead only where it sees the
+  dictionary built with one. A value that may be one of two types is read the same way: the member
+  of each type is read, though only one object is there at run time.
 
 - In a sort, and in the other methods that compare the items of one sequence with each other,
   the analyzer does not know which of two objects gets the call, and the runtimes do not agree. A
@@ -465,12 +478,8 @@ It does not see everything, and in a few places it guesses on the careful side:
   path the platform takes: where a comparer comes from a variable or a call, where both sets got a
   comparer, where the type of the argument is not known, and for the few combinations where the
   runtimes differ or each side gets a call.
-- An immutable dictionary compares the values as well as the keys when a key repeats, as in an
-  `Add` of a key it already holds or a `ToImmutableDictionary` over pairs with one key. The
-  analyzer reads the keys only.
-- A query expression is read for what its clauses read, but what its `select` builds does not
-  carry what the analyzer knows to the code that enumerates the query. The same query written
-  with `Select` and a lambda is followed.
+- A group from a `group` clause has what the analyzer knows about its key and its items
+  together, as a pair that comes out of a dictionary does.
 - A call through an interface on an object whose type the analyzer does not know reads both
   objects, because the collections do not agree on which one gets the call. `ICollection<T>.Add`
   on such an object is not read at all, because a list adds without comparing.
