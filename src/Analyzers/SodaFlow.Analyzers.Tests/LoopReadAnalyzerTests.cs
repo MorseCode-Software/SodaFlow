@@ -69,9 +69,9 @@ internal sealed class LoopReadAnalyzerTests
             ["DeferredSampleRead"] = ["SF1001"],
             ["BlockHelpers"] = ["SF1001"],
             ["NestedLoop"] = ["SF1001", "SF1002"],
-            ["HelperChains"] = ["SF1001", "SF1001", "SF1003"],
-            ["RowMethodThroughSecondMethod"] = ["SF1005"],
-            ["HelperSamplesThroughHelper"] = ["SF1003", "SF1004"],
+            ["HelperChains"] = ["SF1001", "SF1001", "SF1001", "SF1003"],
+            ["RowMethodThroughSecondMethod"] = ["SF1005", "SF1005"],
+            ["HelperSamplesThroughHelper"] = ["SF1003", "SF1004", "SF1004"],
             ["RecursiveHelper"] = ["SF1003"],
             ["ConstructorInitializerCallsHelper"] = ["SF1001"],
             ["CloseThroughSinkOfRow"] = ["SF1002"],
@@ -1174,7 +1174,16 @@ internal sealed class LoopReadAnalyzerTests
             ["ContainsOfAPairThroughICollectionOfASortedDictionary"] = ["SF1004", "SF1005"],
             ["ContainsOfAPairInAList"] = ["SF1005"],
             ["ContainsOfAPairWithAPendingKeyThroughICollectionOfADictionary"] = ["SF1004", "SF1005"],
-            ["ContainsOfAPairWithAPendingValueThroughICollectionOfADictionary"] = ["SF1004", "SF1005"]
+            ["ContainsOfAPairWithAPendingValueThroughICollectionOfADictionary"] = ["SF1004", "SF1005"],
+            ["CompareToTwoHelpersDown"] = ["SF1004"],
+            ["SortTwoHelpersDown"] = ["SF1004"],
+            ["SortWithANullComparerTwoHelpersDown"] = ["SF1004"],
+            ["SortWithANullComparerInALocalFunctionOfAHelper"] = ["SF1004"],
+            ["SortThreeHelpersDown"] = ["SF1003"],
+            ["CompareToThreeHelpersDown"] = ["SF1003"],
+            ["GetterTwoHelpersDown"] = ["SF1004"],
+            ["GetterThreeHelpersDown"] = ["SF1003"],
+            ["GetterInAConstructorTwoHelpersDown"] = ["SF1003"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

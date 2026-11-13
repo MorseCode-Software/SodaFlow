@@ -356,13 +356,15 @@ public static class Shapes
             int two = Two(l).Sample();
             int three = Three(l).Sample();
             int four = Four(l).Sample();
-            return S.Hold(two + three + four);
+            int five = Five(l).Sample();
+            return S.Hold(two + three + four + five);
         });
 
     private static Cell<int> One(Cell<int> c) => c.Map(v => v + 1);
     private static Cell<int> Two(Cell<int> c) => One(c);
     private static Cell<int> Three(Cell<int> c) => Two(c);
     private static Cell<int> Four(Cell<int> c) => Three(c);
+    private static Cell<int> Five(Cell<int> c) => Four(c);
 
     // S53. A row method that reads a pending member through a second method and a computed property.
     public static Cell<decimal> RowMethodThroughSecondMethod() =>
@@ -374,11 +376,12 @@ public static class Shapes
 
     // S54. A helper that samples its parameter through a second helper.
     public static Cell<int> HelperSamplesThroughHelper() =>
-        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadViaOne(l) + ReadViaThree(l)));
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(ReadViaOne(l) + ReadViaThree(l) + ReadViaFour(l)));
 
     private static int ReadViaOne(Cell<int> c) => ReadIt(c);
     private static int ReadViaTwo(Cell<int> c) => ReadViaOne(c);
     private static int ReadViaThree(Cell<int> c) => ReadViaTwo(c);
+    private static int ReadViaFour(Cell<int> c) => ReadViaThree(c);
 
     // S55. A constructor whose initializer calls a helper on the parameter.
     public static Cell<decimal> ConstructorInitializerCallsHelper() =>
@@ -7888,6 +7891,42 @@ public static class Shapes
     public static Cell<int> ContainsOfAPairWithAPendingValueThroughICollectionOfADictionary() =>
         Cell.Loop<int>().WithoutCaptures(l => { ICollection<KeyValuePair<int, Alike>> pairs = new Dictionary<int, Alike> { { 1, new Alike(Plain) } }; Kept.Add(pairs.Contains(new KeyValuePair<int, Alike>(1, new Alike(l.Map(v => v))))); return S.Hold(0); });
 
+    // S1657. CompareTo of Ranked calls a helper of its own. Two helpers down, that helper is the fourth call, which the evaluator follows.
+    public static Cell<int> CompareToTwoHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(CompareRankedThrough(all)); return S.Hold(0); });
+
+    // S1658. A sort two helpers down.
+    public static Cell<int> SortTwoHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedThrough(all); return S.Hold(all.Count); });
+
+    // S1659. A sort with a null comparer two helpers down.
+    public static Cell<int> SortWithANullComparerTwoHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedWithThrough(all, null); return S.Hold(all.Count); });
+
+    // S1660. A sort with a null comparer in a local function of a helper.
+    public static Cell<int> SortWithANullComparerInALocalFunctionOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedInALocalFunction(all, null); return S.Hold(all.Count); });
+
+    // S1661. A sort three helpers down. The helper of CompareTo is the fifth call, and the evaluator does not read it. The object has a pending member, thus the call gets the report for code that the analyzer does not read.
+    public static Cell<int> SortThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedThroughTwo(all); return S.Hold(all.Count); });
+
+    // S1662. A call of CompareTo three helpers down.
+    public static Cell<int> CompareToThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; Kept.Add(CompareRankedThroughTwo(all)); return S.Hold(0); });
+
+    // S1663. A getter that calls a helper, two helpers down.
+    public static Cell<int> GetterTwoHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(NowThrough(reader)); return S.Hold(0); });
+
+    // S1664. The same getter three helpers down. The evaluator does not read its helper.
+    public static Cell<int> GetterThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(NowThroughTwo(reader)); return S.Hold(0); });
+
+    // S1665. A constructor two helpers down reads the getter, whose helper the evaluator does not read.
+    public static Cell<int> GetterInAConstructorTwoHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(KeepNowThrough(reader)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9218,6 +9257,56 @@ public static class Shapes
 
         Sort();
     }
+
+    private static void SortRanked(List<Ranked> items) => items.Sort();
+
+    private static void SortRankedThrough(List<Ranked> items) => SortRanked(items);
+
+    private static void SortRankedThroughTwo(List<Ranked> items) => SortRankedThrough(items);
+
+    private static int CompareRanked(List<Ranked> items) => items[0].CompareTo(items[1]);
+
+    private static int CompareRankedThrough(List<Ranked> items) => CompareRanked(items);
+
+    private static int CompareRankedThroughTwo(List<Ranked> items) => CompareRankedThrough(items);
+
+    private static void SortRankedWithThrough(List<Ranked> items, IComparer<Ranked>? comparer) =>
+        SortWithComparer(items: items, comparer: comparer);
+
+    private static void SortRankedInALocalFunction(List<Ranked> items, IComparer<Ranked>? comparer)
+    {
+        void Sort() => items.Sort(comparer);
+
+        Sort();
+    }
+
+    // The getter reads through a helper of the object.
+    public sealed class DeepReader(Cell<int> share)
+    {
+        public int Now => this.Read();
+
+        private int Read() => share.Sample();
+    }
+
+    private static int NowOf(DeepReader reader) => reader.Now;
+
+    private static int NowThrough(DeepReader reader) => NowOf(reader);
+
+    private static int NowThroughTwo(DeepReader reader) => NowThrough(reader);
+
+    public sealed class NowKeeper
+    {
+        public NowKeeper(DeepReader reader)
+        {
+            this.Now = reader.Now;
+        }
+
+        public int Now { get; }
+    }
+
+    private static int KeepNow(DeepReader reader) => new NowKeeper(reader).Now;
+
+    private static int KeepNowThrough(DeepReader reader) => KeepNow(reader);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

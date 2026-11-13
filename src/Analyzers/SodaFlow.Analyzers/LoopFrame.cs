@@ -60,6 +60,24 @@ internal sealed class LoopFrame
 
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
+    private readonly List<Finding> unread = [];
+
+    /// <summary>
+    ///     Records a member of an object that the code of this frame calls, and
+    ///     that the walk does not read. The walk of the frame reports it with what
+    ///     it found.
+    /// </summary>
+    public void DoesNotRead(Finding member) => this.unread.Add(member);
+
+    /// <summary>The members from <see cref="DoesNotRead" />, each given one time.</summary>
+    public IReadOnlyList<Finding> TakeUnread()
+    {
+        Finding[] all = [.. this.unread];
+        this.unread.Clear();
+
+        return all;
+    }
+
     /// <summary>
     ///     True after the walk of the code of this frame. A function that the
     ///     code made can run after that, when the caller kept it. Then, no walk

@@ -186,6 +186,11 @@ internal sealed class LoopRegion(
         new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
             .Visit(root);
 
+        foreach (Finding unread in evaluator.Frame.TakeUnread())
+        {
+            this.Report(unread.Diagnostic);
+        }
+
         if (!checkLinks)
         {
             return;

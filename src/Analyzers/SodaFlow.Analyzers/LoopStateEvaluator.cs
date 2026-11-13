@@ -20,10 +20,11 @@ internal sealed class LoopStateEvaluator
 {
     /// <summary>
     ///     How many calls deep the evaluator follows a helper or a construction.
-    ///     Three is sufficient for a helper that calls a helper that calls one more.
-    ///     The limit is also what ends a recursive chain.
+    ///     Four is sufficient for a helper that calls a helper, and a member of an
+    ///     object there that calls a helper of its own, as a sort two helpers down
+    ///     does. The limit is also what ends a recursive chain.
     /// </summary>
-    private const int MaxInlineDepth = 3;
+    private const int MaxInlineDepth = 4;
 
     private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create(item1: "Impl", item2: "Internal");
 
@@ -2368,6 +2369,8 @@ internal sealed class LoopStateEvaluator
             walker.Visit(explicitConstructor.Body ?? (SyntaxNode?)explicitConstructor.ExpressionBody?.Expression);
         }
 
+        found.AddRange(inner.Frame.TakeUnread());
+
         IReadOnlyList<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving = walker.RunWaitingApart();
 
         return this.Leave(
@@ -3760,6 +3763,8 @@ internal sealed class LoopStateEvaluator
 
         if (this.depth >= MaxInlineDepth || !this.region.TryEnter())
         {
+            this.DoesNotRead(call: call, name: name, members: members);
+
             return null;
         }
 
@@ -3774,6 +3779,7 @@ internal sealed class LoopStateEvaluator
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         walker.Visit(body);
+        found.AddRange(inner.Frame.TakeUnread());
 
         // A lambda and a local function are part of a frame that can run more code. A query of
         // such a frame stays for the code that enumerates it. A callee that returns runs no more
@@ -3795,6 +3801,32 @@ internal sealed class LoopStateEvaluator
                 : inner.JoinAll(ReturnExpressions(body)),
             found: found,
             leaving: leaving);
+    }
+
+    /// <summary>
+    ///     Records a member of an object that this code calls and that the walk
+    ///     does not read, when a member of the object has a state. The code can
+    ///     read that member. A pending argument of such a call gets the same
+    ///     report from the walk.
+    /// </summary>
+    private void DoesNotRead(SyntaxNode call, string name, Dictionary<ISymbol, LoopState> members)
+    {
+        if (this.quiet || members.Values.FirstOrDefault(static member => !member.IsNone) is not { } pending)
+        {
+            return;
+        }
+
+        this.Frame.DoesNotRead(
+            new Finding(
+                home: this.Frame,
+                origin: pending.AnyOrigin,
+                escape: true,
+                diagnostic: Diagnostic.Create(
+                    descriptor: Diagnostics.Escape,
+                    location: call.GetLocation(),
+                    this.region.PlaceholderName,
+                    name),
+                subject: name));
     }
 
     /// <summary>
