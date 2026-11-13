@@ -12,6 +12,8 @@ namespace SodaFlow.Analyzers;
 /// </remarks>
 internal sealed class LoopState
 {
+    private static readonly ImmutableArray<MadeObject> NoObjects = ImmutableArray<MadeObject>.Empty;
+
     public static readonly LoopState None = new(
         pending: false,
         linked: false,
@@ -20,7 +22,9 @@ internal sealed class LoopState
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
         queries: ImmutableArray<QueryValue>.Empty,
-        isContainer: false);
+        isContainer: false,
+        objects: NoObjects,
+        held: NoObjects);
 
     public static readonly LoopState PendingPlaceholder = new(
         pending: true,
@@ -30,7 +34,9 @@ internal sealed class LoopState
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
         queries: ImmutableArray<QueryValue>.Empty,
-        isContainer: false);
+        isContainer: false,
+        objects: NoObjects,
+        held: NoObjects);
 
     public static readonly LoopState StreamPlaceholder = new(
         pending: false,
@@ -40,7 +46,9 @@ internal sealed class LoopState
         origin: null,
         functions: ImmutableArray<FunctionValue>.Empty,
         queries: ImmutableArray<QueryValue>.Empty,
-        isContainer: false);
+        isContainer: false,
+        objects: NoObjects,
+        held: NoObjects);
 
     private readonly LoopState? content;
 
@@ -58,12 +66,16 @@ internal sealed class LoopState
                     origin: null,
                     functions: ImmutableArray<FunctionValue>.Empty,
                     queries: ImmutableArray<QueryValue>.Empty,
-                    isContainer: false)
+                    isContainer: false,
+                    objects: NoObjects,
+                    held: NoObjects)
                 : null,
             origin: null,
             functions: ImmutableArray<FunctionValue>.Empty,
             queries: ImmutableArray<QueryValue>.Empty,
-            isContainer: false)
+            isContainer: false,
+            objects: NoObjects,
+            held: NoObjects)
     {
     }
 
@@ -75,8 +87,12 @@ internal sealed class LoopState
         ISymbol? origin,
         ImmutableArray<FunctionValue> functions,
         ImmutableArray<QueryValue> queries,
-        bool isContainer)
+        bool isContainer,
+        ImmutableArray<MadeObject> objects,
+        ImmutableArray<MadeObject> held)
     {
+        this.Objects = objects;
+        this.Held = held;
         this.Pending = pending;
         this.Linked = linked;
         this.Members = members;
@@ -141,6 +157,112 @@ internal sealed class LoopState
     /// </summary>
     public ISymbol? AnyOrigin => this.Origin ?? this.content?.AnyOrigin ?? this.Members?.AnyOrigin;
 
+    /// <summary>
+    ///     The objects of <see cref="ObjectStore" /> that the value can be. Empty
+    ///     for a value that the walk did not see made, and for a struct, which is
+    ///     a copy at each assignment.
+    /// </summary>
+    public ImmutableArray<MadeObject> Objects { get; }
+
+    /// <summary>
+    ///     For a collection, the objects of <see cref="ObjectStore" /> that it
+    ///     holds. An element of the collection is one of them.
+    /// </summary>
+    public ImmutableArray<MadeObject> Held { get; }
+
+    /// <summary>
+    ///     The same state, for a value that is no object of the store and holds
+    ///     none. A tuple and a pair are such values: their parts keep the objects.
+    /// </summary>
+    public LoopState WithNoObjects =>
+        this.Objects.IsEmpty && this.Held.IsEmpty
+            ? this
+            : new LoopState(
+                pending: this.Pending,
+                linked: this.Linked,
+                members: this.Members,
+                content: this.content,
+                origin: this.Origin,
+                functions: this.Functions,
+                queries: this.Queries,
+                isContainer: this.IsContainer,
+                objects: NoObjects,
+                held: NoObjects);
+
+    /// <summary>The same state, for a collection that also holds the given objects.</summary>
+    public LoopState Holding(ImmutableArray<MadeObject> more) =>
+        new(
+            pending: this.Pending,
+            linked: this.Linked,
+            members: this.Members,
+            content: this.content,
+            origin: this.Origin,
+            functions: this.Functions,
+            queries: this.Queries,
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: Union(first: this.Held, second: more));
+
+    /// <summary>The same state, for a value that is one of the given objects.</summary>
+    public LoopState WithObjects(ImmutableArray<MadeObject> objects) =>
+        new(
+            pending: this.Pending,
+            linked: this.Linked,
+            members: this.Members,
+            content: this.content,
+            origin: this.Origin,
+            functions: this.Functions,
+            queries: this.Queries,
+            isContainer: this.IsContainer,
+            objects: objects,
+            held: this.Held);
+
+    /// <summary>
+    ///     The state of a name of an object, with the state that the store has
+    ///     for the object.
+    /// </summary>
+    /// <param name="stored">The state of the store.</param>
+    /// <param name="one">
+    ///     True for a name of one object. It takes the members of the store, which
+    ///     have each change to the object. A value that is one of two or more
+    ///     keeps its own members also.
+    /// </param>
+    public LoopState RefreshedFrom(LoopState stored, bool one) =>
+        new(
+            pending: this.Pending || stored.Pending,
+            linked: this.Linked || stored.Linked,
+            members: one
+                ? stored.Members ?? this.Members
+                : Construction.Merge(first: this.Members, second: stored.Members),
+            content: this.content == null
+                ? stored.content
+                : stored.content == null
+                    ? this.content
+                    : this.content.Join(stored.content),
+            origin: this.Origin,
+            functions: this.Functions.AddRange(stored.Functions.Where(function => !this.Functions.Contains(function))),
+            queries: this.Queries.AddRange(stored.Queries.Where(query => !this.Queries.Contains(query))),
+            isContainer: stored.Members != null ? stored.IsContainer : this.IsContainer,
+            objects: this.Objects,
+            held: Union(first: this.Held, second: stored.Held));
+
+    // A value that is one of two, where only one is an object of the store, can be an object that
+    // the store does not know. A pair from a dictionary is such an object.
+    private static ImmutableArray<MadeObject> AnUnknownObject(LoopState first, LoopState second) =>
+        first.Objects.IsEmpty != second.Objects.IsEmpty
+        && (first.Objects.IsEmpty ? first : second) is { Members: not null } or { Pending: true }
+            ? ImmutableArray.Create(MadeObject.Unknown)
+            : NoObjects;
+
+    private static ImmutableArray<MadeObject> Union(
+        ImmutableArray<MadeObject> first,
+        ImmutableArray<MadeObject> second) =>
+        second.IsEmpty
+            ? first
+            : first.IsEmpty
+                ? second
+                : first.AddRange(second.Where(made => !first.Contains(made)));
+
     /// <summary>The state of a value that this expression holds.</summary>
     public LoopState Content => this.content ?? None;
 
@@ -158,7 +280,9 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: ImmutableArray<FunctionValue>.Empty,
             queries: ImmutableArray<QueryValue>.Empty,
-            isContainer: false);
+            isContainer: false,
+            objects: NoObjects,
+            held: NoObjects);
 
     /// <summary>
     ///     The state of a value that the code can get only after the close, as
@@ -177,7 +301,9 @@ internal sealed class LoopState
                 origin: this.Origin,
                 functions: ImmutableArray<FunctionValue>.Empty,
                 queries: ImmutableArray<QueryValue>.Empty,
-                isContainer: this.IsContainer);
+                isContainer: this.IsContainer,
+                objects: NoObjects,
+                held: NoObjects);
 
     /// <summary>True when the analyzer knows nothing about the expression.</summary>
     public bool IsNone =>
@@ -210,16 +336,18 @@ internal sealed class LoopState
             origin: null,
             functions: ImmutableArray.Create(function),
             queries: ImmutableArray<QueryValue>.Empty,
-            isContainer: false);
+            isContainer: false,
+            objects: NoObjects,
+            held: NoObjects);
 
     public LoopState Join(LoopState other)
     {
-        if (other.IsNone)
+        if (other.IsNone && other.Objects.IsEmpty && other.Held.IsEmpty)
         {
             return this;
         }
 
-        if (this.IsNone)
+        if (this.IsNone && this.Objects.IsEmpty && this.Held.IsEmpty)
         {
             return other;
         }
@@ -248,7 +376,11 @@ internal sealed class LoopState
                 ? other.IsContainer
                 : other.Members == null
                     ? this.IsContainer
-                    : this.IsContainer && other.IsContainer);
+                    : this.IsContainer && other.IsContainer,
+            objects: Union(
+                first: Union(first: this.Objects, second: other.Objects),
+                second: AnUnknownObject(first: this, second: other)),
+            held: Union(first: this.Held, second: other.Held));
     }
 
     // A part of a pair that only one of two states knows gets the state of the other one also.
@@ -264,7 +396,9 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: this.Functions,
             queries: this.Queries,
-            isContainer: this.IsContainer);
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: this.Held);
 
     public LoopState WithLinked(bool linked) =>
         new(
@@ -275,7 +409,9 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: this.Functions,
             queries: this.Queries,
-            isContainer: this.IsContainer);
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: this.Held);
 
     public LoopState WithMembers(Construction? members) =>
         new(
@@ -286,7 +422,9 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: this.Functions,
             queries: this.Queries,
-            isContainer: this.IsContainer);
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: this.Held);
 
     /// <summary>The same state for a value that is also the given query.</summary>
     public LoopState WithQuery(QueryValue query) =>
@@ -300,7 +438,9 @@ internal sealed class LoopState
                 origin: this.Origin,
                 functions: this.Functions,
                 queries: this.Queries.Add(query),
-                isContainer: this.IsContainer);
+                isContainer: this.IsContainer,
+                objects: this.Objects,
+                held: this.Held);
 
     /// <summary>A state that has only the queries of this one.</summary>
     public LoopState OnlyQueries =>
@@ -314,7 +454,9 @@ internal sealed class LoopState
                 origin: null,
                 functions: ImmutableArray<FunctionValue>.Empty,
                 queries: this.Queries,
-                isContainer: false);
+                isContainer: false,
+                objects: NoObjects,
+                held: NoObjects);
 
     private LoopState WithContainer(bool isContainer) =>
         new(
@@ -325,7 +467,11 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: this.Functions,
             queries: this.Queries,
-            isContainer: isContainer);
+            isContainer: isContainer,
+            // A container holds the objects that the value is. An element is one of the objects
+            // that its container holds.
+            objects: isContainer ? NoObjects : this.Held,
+            held: isContainer ? Union(first: this.Objects, second: this.Held) : NoObjects);
 
     public LoopState WithContent(LoopState content) =>
         new(
@@ -336,7 +482,9 @@ internal sealed class LoopState
             origin: this.Origin,
             functions: this.Functions,
             queries: this.Queries,
-            isContainer: this.IsContainer);
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: this.Held);
 
     /// <summary>
     ///     The same state with each origin changed: the origin of the value, of
@@ -354,7 +502,9 @@ internal sealed class LoopState
                 origin: map(this.Origin),
                 functions: this.Functions,
                 queries: this.Queries,
-                isContainer: this.IsContainer);
+                isContainer: this.IsContainer,
+                objects: this.Objects,
+                held: this.Held);
 
     /// <summary>The same state, with the one origin for each of its parts.</summary>
     public LoopState From(ISymbol origin) => this.WithOrigins(_ => origin);

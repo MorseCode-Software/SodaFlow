@@ -8059,6 +8059,110 @@ public static class Shapes
     public static Cell<int> IntersectWithOfAHashSetComparesItsElements() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SamePeer> set = new(); set.Add(new(l.Map(v => v))); set.Add(new(Plain)); set.IntersectWith([new SamePeer(Plain)]); return S.Hold(set.Count); });
 
+    // S1699. A second local is a second name of the object. A change through it is a change for the first local.
+    public static Cell<int> ChangeThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot other = slot; other.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1700. The same, with the change through the first local and the read through the second.
+    public static Cell<int> ChangeThroughTheFirstLocalReadThroughTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot other = slot; slot.Share = l.Map(v => v); return S.Hold(other.Share!.Sample()); });
+
+    // S1701. An element of a list is a name of the object that the list got. The read is through the local.
+    public static Cell<int> ChangeThroughAnElementReadThroughTheLocalThatTheListGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; slots[0].Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1702. A local that got an element is a name of that element.
+    public static Cell<int> ChangeThroughAnElementReadThroughALocalOfThatElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new() { Share = Plain }]; SettableSlot slot = slots[0]; slots[0].Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1703. The variable of a foreach is a name of each element.
+    public static Cell<int> ChangeThroughAForeachVariableReadThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; foreach (SettableSlot each in slots) { each.Share = l.Map(v => v); } return S.Hold(slot.Share!.Sample()); });
+
+    // S1704. A tuple holds the object, and not a copy of its state.
+    public static Cell<int> ChangeThroughALocalThatATupleHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; (SettableSlot First, int Second) pair = (slot, 1); slot.Share = l.Map(v => v); return S.Hold(pair.First.Share!.Sample()); });
+
+    // S1705. The same for a KeyValuePair.
+    public static Cell<int> ChangeThroughALocalThatAKeyValuePairHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; KeyValuePair<string, SettableSlot> pair = new("a", slot); slot.Share = l.Map(v => v); return S.Hold(pair.Value.Share!.Sample()); });
+
+    // S1706. The same for a member of a second object.
+    public static Cell<int> ChangeThroughALocalThatAnObjectHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SlotHolder holder = new() { Item = slot }; slot.Share = l.Map(v => v); return S.Hold(holder.Item!.Share!.Sample()); });
+
+    // S1707. A helper puts the object into a list. The element of the list is a name of the object.
+    public static Cell<int> ChangeThroughALocalThatAHelperPutIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = new(); Put(slots, slot); slot.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); static void Put(List<SettableSlot> into, SettableSlot one) => into.Add(one); });
+
+    // S1708. A copy of a list is a new list that holds the same objects.
+    public static Cell<int> ChangeThroughALocalThatACopyOfTheListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> first = [slot]; List<SettableSlot> second = new(first); slot.Share = l.Map(v => v); return S.Hold(second[0].Share!.Sample()); });
+
+    // S1709. The same for a spread of the list.
+    public static Cell<int> ChangeThroughALocalThatASpreadOfTheListHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> first = [slot]; List<SettableSlot> second = [..first]; slot.Share = l.Map(v => v); return S.Hold(second[0].Share!.Sample()); });
+
+    // S1710. A local that got the list in a property is a name of that list.
+    public static Cell<int> ListInAPropertyThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox box = new(); List<Cell<int>> cells = box.Cells; cells.Add(l.Map(v => v)); return S.Hold(box.Cells[0].Sample()); });
+
+    // S1711. A constructor keeps the list that it got. The list gets the pending cell after the constructor.
+    public static Cell<int> ListThatAConstructorGotChangesLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = new(); CellKeeper keeper = new(cells); cells.Add(l.Map(v => v)); return S.Hold(keeper.Cells[0].Sample()); });
+
+    // S1712. A second local of a list is a name of the list.
+    public static Cell<int> ListGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<Cell<int>> other = cells; other.Add(l.Map(v => v)); return S.Hold(cells[1].Sample()); });
+
+    // S1713. A list in a list gets a pending cell through its local. The read is through the outer list.
+    public static Cell<int> ListInAListGetsAPendingCellThroughItsLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<List<Cell<int>>> outer = [cells]; cells.Add(l.Map(v => v)); return S.Hold(outer[0][1].Sample()); });
+
+    // S1714. The same, with the change through the outer list and the read through the local.
+    public static Cell<int> ListGetsAPendingCellThroughAnElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<List<Cell<int>>> outer = [cells]; outer[0].Add(l.Map(v => v)); return S.Hold(cells[1].Sample()); });
+
+    // S1715. A second local of a dictionary is a name of the dictionary.
+    public static Cell<int> DictionaryGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> map = new(); Dictionary<string, Cell<int>> other = map; other["a"] = l.Map(v => v); return S.Hold(map["a"].Sample()); });
+
+    // S1716. A second local of an array is a name of the array.
+    public static Cell<int> ArrayGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int>[] other = cells; other[0] = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S1717. A second local gives the object a plain cell after the pending one. The object has only the plain cell.
+    public static Cell<int> PlainThroughASecondLocalAfterPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = l.Map(v => v) }; SettableSlot other = slot; other.Share = Plain; return S.Hold(slot.Share!.Sample()); });
+
+    // S1718. Two objects of one type are not one object. A change to one is not a change to the other.
+    public static Cell<int> ChangeToTheSecondOfTwoObjectsOfOneType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S1719. A change to an object that the list does not hold is not a change to its element.
+    public static Cell<int> ChangeToAnObjectThatTheListDoesNotHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new() { Share = Plain }]; SettableSlot other = new() { Share = Plain }; other.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S1720. A local that gets a new object is no longer a name of the first one.
+    public static Cell<int> ChangeThroughALocalThatGotANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot other = slot; other = new() { Share = Plain }; other.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1721. A copy of a list is a new list. A cell that the copy gets is not in the first list.
+    public static Cell<int> CopyOfAListGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<Cell<int>> copy = new(cells); copy.Add(l.Map(v => v)); return S.Hold(cells[0].Sample()); });
+
+    // S1722. The same for a copy that ToList makes.
+    public static Cell<int> ToListCopyOfAListGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<Cell<int>> copy = cells.ToList(); copy.Add(l.Map(v => v)); return S.Hold(cells[0].Sample()); });
+
+    // S1723. A struct is a copy at each assignment. A change to the copy is not a change to the first value.
+    public static Cell<int> CopyOfAStructGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue first = new() { Share = Plain }; SlotValue second = first; second.Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
+
+    // S1724. A with expression makes a new object. A change to the copy is not a change to the first object.
+    public static Cell<int> WithCopyOfARecordGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotRecord first = new() { Share = Plain }; SlotRecord second = first with { }; second.Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9471,6 +9575,21 @@ public static class Shapes
     // The analyzer does not know the type of the result.
     private static IEnumerable<SameOwn> MakeASetOrAnArray(bool set, SameOwn first, SameOwn second) =>
         set ? new HashSet<SameOwn> { first, second } : new[] { first, second };
+
+    public sealed class SlotHolder
+    {
+        public SettableSlot? Item { get; set; }
+    }
+
+    public sealed class CellKeeper(List<Cell<int>> cells)
+    {
+        public List<Cell<int>> Cells { get; } = cells;
+    }
+
+    public sealed record SlotRecord
+    {
+        public Cell<int>? Share { get; set; }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

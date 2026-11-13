@@ -1204,7 +1204,25 @@ internal sealed class LoopReadAnalyzerTests
             ["OverlapsOfASortedSetArgumentWhereTheElementIsPending"] = ["SF1005"],
             ["UnionOfAnImmutableHashSetComparesTheGivenValues"] = ["SF1004"],
             ["UnionWithOfASortedSetComparesTheGivenValues"] = ["SF1004"],
-            ["IntersectWithOfAHashSetComparesItsElements"] = ["SF1004", "SF1004"]
+            ["IntersectWithOfAHashSetComparesItsElements"] = ["SF1004", "SF1004"],
+            ["ChangeThroughASecondLocal"] = ["SF1001"],
+            ["ChangeThroughTheFirstLocalReadThroughTheSecond"] = ["SF1001"],
+            ["ChangeThroughAnElementReadThroughTheLocalThatTheListGot"] = ["SF1001"],
+            ["ChangeThroughAnElementReadThroughALocalOfThatElement"] = ["SF1001"],
+            ["ChangeThroughAForeachVariableReadThroughTheLocal"] = ["SF1001"],
+            ["ChangeThroughALocalThatATupleHas"] = ["SF1001"],
+            ["ChangeThroughALocalThatAKeyValuePairHas"] = ["SF1001"],
+            ["ChangeThroughALocalThatAnObjectHas"] = ["SF1001"],
+            ["ChangeThroughALocalThatAHelperPutIntoAList"] = ["SF1001"],
+            ["ChangeThroughALocalThatACopyOfTheListHas"] = ["SF1001"],
+            ["ChangeThroughALocalThatASpreadOfTheListHas"] = ["SF1001"],
+            ["ListInAPropertyThroughASecondLocal"] = ["SF1001"],
+            ["ListThatAConstructorGotChangesLater"] = ["SF1001"],
+            ["ListGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["ListInAListGetsAPendingCellThroughItsLocal"] = ["SF1001"],
+            ["ListGetsAPendingCellThroughAnElementOfAList"] = ["SF1001"],
+            ["DictionaryGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["ArrayGetsAPendingCellThroughASecondLocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

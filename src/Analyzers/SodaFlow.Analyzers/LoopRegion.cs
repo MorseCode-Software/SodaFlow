@@ -38,6 +38,9 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
 
+    /// <summary>The one state of each object that the code of the region makes.</summary>
+    public ObjectStore Objects { get; } = new();
+
     /// <summary>The assemblies of the library, as this compilation sees them.</summary>
     public SodaFlowSymbols Symbols { get; } = symbols;
 

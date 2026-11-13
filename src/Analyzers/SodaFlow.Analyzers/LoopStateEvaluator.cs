@@ -249,6 +249,15 @@ internal sealed class LoopStateEvaluator
     {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
+        // The object of the store gets the state for the member, for each name of the object.
+        if (owner != null)
+        {
+            this.Change(
+                owner: this.Eval(owner),
+                change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: state)),
+                joins: false);
+        }
+
         // The owner is an element of a collection. The collection then contains an object whose
         // member has the state.
         if (owner != null && this.CollectionOf(owner) != null)
@@ -326,6 +335,13 @@ internal sealed class LoopStateEvaluator
     /// <param name="value">The expression of the value.</param>
     public void Gets(SyntaxNode collection, ExpressionSyntax value)
     {
+        // The collection holds the object of the value. Only a put does that: a call that can
+        // keep its argument, as Contains is for the analyzer, makes no second name.
+        if (collection is ExpressionSyntax written && this.Eval(value).Objects is { IsEmpty: false } put)
+        {
+            this.Change(owner: this.Eval(written), change: old => old.Holding(put), joins: true);
+        }
+
         if (Unwrapped(value) is IdentifierNameSyntax name
             && this.region.SymbolOf(name) is { } local and (ILocalSymbol or IParameterSymbol))
         {
@@ -392,7 +408,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public void Absorb(ExpressionSyntax target, LoopState state) =>
         // The object contains the value. It is not the value.
-        this.Merge(target: target, state: state.AsContainer);
+        this.Merge(target: target, state: state.AsContainer.WithNoObjects);
 
     /// <summary>
     ///     Adds a state to what a name holds, as it is. A callee that put a
@@ -415,6 +431,8 @@ internal sealed class LoopStateEvaluator
         {
             // Parentheses, a cast, and the operator that says not null do not hide the name.
             target = Unwrapped(target);
+            LoopState added = state;
+            this.Change(owner: this.Eval(target), change: old => old.Join(added), joins: true);
 
             ExpressionSyntax? collection = this.CollectionOf(target);
 
@@ -518,10 +536,179 @@ internal sealed class LoopStateEvaluator
         // The evaluator can go in a cycle only through a reassignment, and none is the correct
         // answer for the first visit.
         this.memo[expression] = LoopState.None;
-        LoopState state = this.EvalUncached(expression);
+        // A value has the state of the place where the walk reads it first. A second read of the
+        // same node is not a later read.
+        LoopState state =
+            this.Refreshed(
+                expression: expression,
+                state: this.OnlyObjectsOfItsType(expression: expression, state: this.EvalUncached(expression)));
         this.memo[expression] = state;
 
         return state;
+    }
+
+    /// <summary>
+    ///     The object in a member of one object of the store. Each read of the
+    ///     member, through each name of the owner, is that one object, also when
+    ///     the walk did not read the constructor of the owner. Null for a member
+    ///     that has an object of the store already, and for a member that is not
+    ///     one of this compilation.
+    /// </summary>
+    /// <remarks>
+    ///     A member of the platform, such as <c>Values</c> of a dictionary, keeps
+    ///     the rule that a member of a pending value is pending. An evaluator that
+    ///     reads code which does not run now makes no object.
+    /// </remarks>
+    private LoopState? InMember(LoopState owner, ISymbol member, ExpressionSyntax expression)
+    {
+        if (owner.Objects.Length != 1
+            || member.DeclaringSyntaxReferences.IsEmpty
+            || this.region.TypeOf(expression) is not { IsReferenceType: true } type
+            || type.SpecialType == SpecialType.System_String
+            || type.TypeKind == TypeKind.Delegate
+            || this.region.Symbols.IsSodaFlow(type))
+        {
+            return null;
+        }
+
+        LoopState inOwner =
+            owner.Members != null && owner.Members.Has(member) ? owner.Members.StateOf(member) : LoopState.None;
+
+        if (!inOwner.Objects.IsEmpty)
+        {
+            return null;
+        }
+
+        MadeObject? made = this.region.Objects.InMember(owner: owner.Objects[0], member: member);
+
+        if (made == null)
+        {
+            if (this.quiet)
+            {
+                return null;
+            }
+
+            made =
+                this.region.Objects.MakeInMember(
+                    owner: owner.Objects[0],
+                    member: member,
+                    type: type,
+                    state: inOwner.Join(this.TypeState(expression)));
+        }
+
+        return this.region.Objects.StateOf(made)
+            ?.WithObjects(ImmutableArray.Create(made))
+            .FromIfUnknown(owner.Origin);
+    }
+
+    // An object that a value of the type of the expression cannot be is not the value. The element
+    // of a dictionary is a pair, and not the object that the pair holds.
+    private LoopState OnlyObjectsOfItsType(ExpressionSyntax expression, LoopState state)
+    {
+        if (state.Objects.IsEmpty)
+        {
+            return state;
+        }
+
+        ITypeSymbol? written = this.region.TypeOf(expression);
+        ImmutableArray<MadeObject> kept = state.Objects.RemoveAll(made => !made.CanBe(written));
+
+        return kept.Length == state.Objects.Length ? state : state.WithObjects(kept);
+    }
+
+    /// <summary>
+    ///     The state of a value that is an object of the store, with the state
+    ///     that the store has for the object. Each name of the object reads that
+    ///     one state.
+    /// </summary>
+    /// <remarks>
+    ///     A local, a parameter, or a member that names one object takes the
+    ///     members of the store. An element and the result of a call are one of
+    ///     the values that they can be, and keep what they have. A value that can
+    ///     be an object that the store does not know keeps what it has also.
+    /// </remarks>
+    private LoopState Refreshed(ExpressionSyntax expression, LoopState state)
+    {
+        if (state.Objects.IsEmpty || this.region.Objects.IsEmpty)
+        {
+            return state;
+        }
+
+        LoopState? stored = null;
+        bool known = true;
+
+        foreach (MadeObject made in state.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is not { } one)
+            {
+                known = false;
+
+                continue;
+            }
+
+            stored = stored == null ? one : stored.Join(one);
+        }
+
+        return stored == null
+            ? state
+            : state.RefreshedFrom(
+                stored: stored.FromIfUnknown(state.AnyOrigin),
+                one: known
+                     && state.Objects.Length == 1
+                     && Unwrapped(expression) is IdentifierNameSyntax or MemberAccessExpressionSyntax);
+    }
+
+    /// <summary>
+    ///     The state of a new object, with the object that this place makes in
+    ///     this frame. The store keeps the state.
+    /// </summary>
+    /// <remarks>
+    ///     A struct is a copy at each assignment, thus a second name of it is not
+    ///     the same object. It holds the objects of its parts in its members. An
+    ///     evaluator that reads code which does not run now makes no object.
+    /// </remarks>
+    private LoopState MadeHere(ExpressionSyntax place, LoopState state)
+    {
+        TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
+
+        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
+        {
+            return state.WithNoObjects;
+        }
+
+        // A new collection holds the objects that it got, and is not one of them.
+        LoopState apart = state.WithObjects(ImmutableArray<MadeObject>.Empty);
+
+        return this.quiet
+            ? apart
+            : apart.WithObjects(
+                ImmutableArray.Create(
+                    this.region.Objects.MadeAt(place: place, frame: this.Frame, type: type, state: apart)));
+    }
+
+    /// <summary>
+    ///     Changes the state of each object that a value can be. A value that is
+    ///     one object gives it the new state. A value that can be two or more
+    ///     objects adds the new state to each.
+    /// </summary>
+    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool joins)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        foreach (MadeObject made in owner.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is { } old)
+            {
+                LoopState changed = change(old);
+
+                this.region.Objects.Set(
+                    found: made,
+                    state: joins || owner.Objects.Length > 1 ? old.Join(changed) : changed);
+            }
+        }
     }
 
     /// <summary>
@@ -641,21 +828,28 @@ internal sealed class LoopStateEvaluator
             // The value of a?.b is the value of .b, whose owner is a.
             ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
-            WithExpressionSyntax w => this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
+            // A copy is a new object.
+            WithExpressionSyntax w => this.MadeHere(
+                place: w,
+                state: this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer)),
             TupleExpressionSyntax t => this.EvalTuple(t),
             AnonymousObjectCreationExpressionSyntax a => this.EvalAnonymous(a),
             // A collection contains its elements, and is not one of them.
-            CollectionExpressionSyntax c => this.JoinAll(
-                    c.Elements.Select(static e =>
-                        e switch
-                        {
-                            ExpressionElementSyntax x => x.Expression,
-                            SpreadElementSyntax x => x.Expression,
-                            _ => null
-                        }))
-                .AsContainer,
-            ArrayCreationExpressionSyntax { Initializer: { } init } => this.JoinAll(init.Expressions).AsContainer,
-            ImplicitArrayCreationExpressionSyntax a => this.JoinAll(a.Initializer.Expressions).AsContainer,
+            CollectionExpressionSyntax c => this.MadeHere(
+                place: c,
+                state: this.JoinAll(
+                        c.Elements.Select(static e =>
+                            e switch
+                            {
+                                ExpressionElementSyntax x => x.Expression,
+                                SpreadElementSyntax x => x.Expression,
+                                _ => null
+                            }))
+                    .AsContainer),
+            ArrayCreationExpressionSyntax { Initializer: { } init } =>
+                this.MadeHere(place: expression, state: this.JoinAll(init.Expressions).AsContainer),
+            ImplicitArrayCreationExpressionSyntax a =>
+                this.MadeHere(place: expression, state: this.JoinAll(a.Initializer.Expressions).AsContainer),
             InitializerExpressionSyntax i => this.JoinAll(i.Expressions).AsContainer,
             // A query expression has the queries of its first source, and is one more.
             QueryExpressionSyntax q => this.Eval(q.FromClause.Expression).OnlyQueries.WithQuery(this.QueryAt(q)),
@@ -693,7 +887,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private LoopState EvalTuple(TupleExpressionSyntax tuple)
     {
-        LoopState all = this.JoinAll(tuple.Arguments.Select(static argument => argument.Expression));
+        LoopState all = this.JoinAll(tuple.Arguments.Select(static argument => argument.Expression)).WithNoObjects;
         TypeInfo info = this.region.ModelFor(tuple).GetTypeInfo(tuple);
 
         if ((info.Type ?? info.ConvertedType) is not INamedTypeSymbol { IsTupleType: true } type
@@ -1107,6 +1301,11 @@ internal sealed class LoopStateEvaluator
                 {
                     LoopState owner = this.Eval(ownerExpression);
 
+                    if (this.InMember(owner: owner, member: symbol, expression: expression) is { } inMember)
+                    {
+                        return inMember;
+                    }
+
                     // An object whose construction was followed gives each member its own state,
                     // wherever the object came from: a local, a hold, or a lambda parameter. The
                     // code can read the member through an interface of the object. A tuple with
@@ -1229,6 +1428,14 @@ internal sealed class LoopStateEvaluator
                         callee: method,
                         arguments: invocation.ArgumentList.Arguments)
                     : LoopState.None;
+
+            // The result is a new object, or one that the store does not know, and holds what
+            // the callee got. A method whose result is a type parameter, such as First, gives one
+            // of the objects that it got.
+            if ((method.ReducedFrom ?? method).OriginalDefinition.ReturnType is not ITypeParameterSymbol)
+            {
+                result = result.WithObjects(ImmutableArray<MadeObject>.Empty);
+            }
 
             result =
                 result
@@ -1437,9 +1644,11 @@ internal sealed class LoopStateEvaluator
 
         // An object of code that cannot know the library is not an object of this compilation.
         // Thus, it contains the objects that have the members, and is not one of them.
-        return this.region.SymbolOf(creation) is IMethodSymbol constructor
-               && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
-            ? this.WithParts(
+        return this.MadeHere(
+            place: creation,
+            state: this.region.SymbolOf(creation) is IMethodSymbol constructor
+                   && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
+                ? this.WithParts(
                 state: state.AsContainer,
                 made: constructor.ContainingType,
                 callee: constructor,
@@ -1449,7 +1658,7 @@ internal sealed class LoopStateEvaluator
                     ImplicitObjectCreationExpressionSyntax i => i.ArgumentList.Arguments,
                     _ => default
                 })
-            : state;
+            : state);
     }
 
     /// <summary>
@@ -2280,7 +2489,8 @@ internal sealed class LoopStateEvaluator
 
         // A constructor that gets no state gives no member a state, and the evaluator does not
         // read it. The object keeps its type, because the code can set a member of it later.
-        if (!this.region.HasFields && bindings.All(static binding => binding.State.IsNone))
+        if (!this.region.HasFields
+            && bindings.All(static binding => binding.State.IsNone && binding.State.Objects.IsEmpty))
         {
             return new Followed(
                 state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
@@ -2303,7 +2513,8 @@ internal sealed class LoopStateEvaluator
         {
             foreach (IParameterSymbol parameter in definition.Parameters)
             {
-                if (!inner.bound.TryGetValue(key: parameter, value: out LoopState? given) || given.IsNone)
+                if (!inner.bound.TryGetValue(key: parameter, value: out LoopState? given)
+                    || (given.IsNone && given.Objects.IsEmpty))
                 {
                     continue;
                 }
@@ -3319,9 +3530,10 @@ internal sealed class LoopStateEvaluator
         // When the analyzer does not know which of them gets the call, each object can be the
         // parameter.
         LoopState others =
-            knowsTheReceiver
+            (knowsTheReceiver
                 ? argument
-                : owners.Aggregate(seed: also, func: static (joined, owner) => joined.Join(owner.State));
+                : owners.Aggregate(seed: also, func: static (joined, owner) => joined.Join(owner.State)))
+            .WithNoObjects;
 
         return owners.Aggregate(
             seed: all,
@@ -3871,7 +4083,7 @@ internal sealed class LoopStateEvaluator
         if (definer == null
             && members.Count == 0
             && !this.region.HasFields
-            && bindings.All(static binding => binding.State.IsNone))
+            && bindings.All(static binding => binding.State.IsNone && binding.State.Objects.IsEmpty))
         {
             return Followed.Nothing;
         }
