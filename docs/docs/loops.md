@@ -340,15 +340,29 @@ one to a `params` parameter are separate values: `string.Join(",", query, 1)` wr
 object as text and does not enumerate it. A method that gets a comparer calls the comparer and not
 these members, and the analyzer knows that too. A comparer argument written as `null` or `default`
 is no comparer: the method falls back to these members, and they are read. So is a local that only
-ever gets `null` or `default` in its block. A collection built with a comparer of yours, such as a
+ever gets `null` or `default` in its block, and a comparer parameter of one of your helpers when the
+call passes `null` or `default`, or leaves out an optional comparer whose default is `null`, and the
+helper does not change it. A collection built with a comparer of yours, such as a
 `SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`, keeps it
 and calls it from its own methods, and the analyzer reads the comparer at those calls.
 
 A call through an interface of the platform, such as `ICollection<T>.Contains` or
 `IDictionary<TKey, TValue>.Add`, runs the method of the object behind it. Where the variable got
-that object from a constructor in the block, the analyzer reads the method of that type. Otherwise
-it does not know which collection the object is, and it reads the members that every collection
-of the platform calls for that interface member.
+that object from a constructor in the block, the analyzer reads the method of that type. The same
+holds for a method of yours that makes the object, when every return in it gives an object of one
+type, or gives back an argument that the method does not change. A method that a derived class can
+override gives no type, because the override can return something else. Otherwise the analyzer does
+not know which collection the object is, and it reads the members that every collection of the
+platform calls for that interface member.
+
+A pair is compared by its parts. A dictionary seen as a collection of `KeyValuePair<TKey, TValue>`,
+as through `ICollection<T>`, looks up the key of the pair you pass, and `Contains` and `Remove` then
+compare the values. The `Equals` of a `KeyValuePair` itself calls `Equals` on its key and its value,
+so a list of pairs compares both too. Where a method compares the values of only some of its type
+parameters, the analyzer reads only those, also when two type parameters have the same type:
+`Enqueue` of a `PriorityQueue<TElement, TPriority>` compares the priorities and not the elements,
+`Remove` compares the elements and not the priorities, and `Add` of a dictionary compares the key of
+the pair and not its value.
 
 Two things narrow what is read there. A sort or a set of a single element compares nothing, and the
 analyzer knows the count when the collection is a literal of one element that the block does not
@@ -396,7 +410,9 @@ It does not see everything, and in a few places it guesses on the careful side:
 
 - In a sort, and in the other methods that compare the items of one sequence with each other,
   the analyzer does not know which of two objects gets the call, and the runtimes do not agree. A
-  `CompareTo` or an `Equals` that reads only its own object is reported for either.
+  `CompareTo` or an `Equals` that reads only its own object is reported for either. A set or a
+  dictionary that a collection expression or an initializer fills is read the same way, although
+  each `Add` there gives the call to the item already held.
 - Code without source that takes a query as `object` or as a type parameter is taken to keep it,
   as `list.Add(query)` does. The serializers and LINQ to XML named above are the exceptions. Other
   code that walks a value it was handed as `object` is not seen, and a serializer is read as it
@@ -406,15 +422,20 @@ It does not see everything, and in a few places it guesses on the careful side:
   that got the object from it. A second variable for the same object, a change made through the
   collection and read through the variable, and an object that a tuple, a pair, or a property of
   another object got from a variable are not followed.
-- For a few searches the runtimes do not agree, or the run could not show which object gets the
-  call, and the analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` and
-  `IsProperSubsetOf` of a set are among them, and so is a span method called with a span of values,
-  such as `IndexOfAny(values)`.
+- For a few searches the object that gets the call depends on the data or the runtime, and the
+  analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
+  key already held when it is the first one with its hash code, and to the key you pass when it is
+  not. A span method called with a span of values, such as `IndexOfAny(values)`, differs between
+  .NET Framework and .NET.
+- The rows for the set operations, such as `IsSubsetOf`, `SetEquals`, and `UnionWith`, were
+  measured with an array as the argument. When the argument is a set of the same kind with the same
+  comparer, several of them take a faster path that gives the call to the other object, and the
+  immutable sets and `SortedSet<T>.UnionWith` also compare the values you pass with each other. The
+  analyzer does not see either yet. `IsProperSubsetOf` of a `HashSet<T>` has no row for this reason,
+  and reads both objects.
 - A call through an interface on an object whose type the analyzer does not know reads both
   objects, because the collections do not agree on which one gets the call. `ICollection<T>.Add`
   on such an object is not read at all, because a list adds without comparing.
-- A priority queue whose elements and priorities have the same type keeps them in one state, so
-  `Remove` reads the priorities as well as the elements.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
@@ -422,7 +443,12 @@ It does not see everything, and in a few places it guesses on the careful side:
   method of another library that returns a sequence is taken to run its function in the call.
 - Reflection is not followed. An object from `Activator.CreateInstance`, or a result of
   `MethodInfo.Invoke`, carries nothing the analyzer knows.
-- A chain of your own calls is followed three calls deep. Past that, the value gets `SF1003`.
+- A chain of your own calls is followed three calls deep. Past that, a pending value you pass gets
+  `SF1003`. A member of one of your objects that runs past that depth is not read at all, though:
+  a `CompareTo` that calls a helper of its own, run by a sort two helpers down, gives no report.
+- A method that takes a function for the value it adds, such as `GetOrAdd(key, factory)` of a
+  `ConcurrentDictionary<TKey, TValue>`, is read as a method that compares what the function returns,
+  as a sort by a key does. The key you pass is not read.
 - A function kept by a constructor outside your project is not read when the block then uses that
   object. `Lazy<T>` and a comparer kept by a platform collection are the exceptions, and a
   `Lazy<T>` handed to code outside your project is taken as kept, not forced.
