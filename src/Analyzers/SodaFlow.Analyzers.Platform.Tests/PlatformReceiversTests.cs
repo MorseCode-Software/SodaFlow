@@ -286,6 +286,43 @@ internal sealed class PlatformReceiversTests
             .IsEmpty();
 
 #if NET
+    // The same for the rows of an overload that gets its values one by one.
+    private static readonly Dictionary<(string Type, string Method), Action<Probe, Probe>> ValueCalls =
+        new()
+        {
+            [("MemoryExtensions", "IndexOfAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).IndexOfAny(value0: given, value1: given);
+                _ = SpanOf(stored).IndexOfAny(value0: given, value1: given, value2: given);
+            },
+            [("MemoryExtensions", "LastIndexOfAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).LastIndexOfAny(value0: given, value1: given);
+                _ = SpanOf(stored).LastIndexOfAny(value0: given, value1: given, value2: given);
+            },
+            [("MemoryExtensions", "ContainsAny")] = static (stored, given) =>
+            {
+                _ = SpanOf(stored).ContainsAny(value0: given, value1: given);
+                _ = SpanOf(stored).ContainsAny(value0: given, value1: given, value2: given);
+            }
+        };
+
+    [Test]
+    public async Task EachRowWithValuesOneByOneNamesTheObjectThatGetsTheCall() =>
+        await Assert.That(
+                PlatformReceivers.WithValuesOneByOne.SelectMany(static row =>
+                    WrongFor(
+                        calls: ValueCalls,
+                        make: static (name, rank, record) => new Probe(name: name, rank: rank, record: record),
+                        key: row.Key,
+                        receiver: row.Value)))
+            .IsEmpty();
+
+    [Test]
+    public async Task EachCallWithValuesOneByOneHasARow() =>
+        await Assert.That(ValueCalls.Keys.Where(static key => !PlatformReceivers.WithValuesOneByOne.ContainsKey(key)))
+            .IsEmpty();
+
     [Test]
     public async Task EachRowWithNoComparerGivenNamesTheObjectThatGetsTheCall() =>
         await Assert.That(

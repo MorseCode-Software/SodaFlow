@@ -262,17 +262,42 @@ internal static class PlatformCallers
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
-        IReadOnlyDictionary<(string Type, string Method), PlatformReceiver> rows =
-            definition.Parameters.Any(static parameter => SodaFlowSymbols.IsComparer(parameter.Type))
-                ? PlatformReceivers.WithNoComparerGiven
-                : PlatformReceivers.ByMethod;
+        if (definition.ContainingType is not { } type || !SodaFlowSymbols.IsPlatform(type))
+        {
+            return PlatformReceiver.Either;
+        }
 
-        return definition.ContainingType is { } type
-               && SodaFlowSymbols.IsPlatform(type)
-               && rows.TryGetValue(key: (type.Name, definition.Name), value: out PlatformReceiver receiver)
+        (string Type, string Method) key = (type.Name, definition.Name);
+
+        if (definition.Parameters.Any(static parameter => SodaFlowSymbols.IsComparer(parameter.Type)))
+        {
+            return PlatformReceivers.WithNoComparerGiven.TryGetValue(key: key, value: out PlatformReceiver plain)
+                ? plain
+                : PlatformReceiver.Either;
+        }
+
+        // The second parameter of an extension method is the first value. An overload that gets
+        // its values one by one has a type parameter there, and not a span.
+        if (definition.Parameters.Length > 1
+            && definition.Parameters[1].Type is ITypeParameterSymbol
+            && PlatformReceivers.WithValuesOneByOne.TryGetValue(key: key, value: out PlatformReceiver byValue))
+        {
+            return byValue;
+        }
+
+        return PlatformReceivers.ByMethod.TryGetValue(key: key, value: out PlatformReceiver receiver)
             ? receiver
             : PlatformReceiver.Either;
     }
+
+    /// <summary>
+    ///     True for a parameter whose value a method keeps and does not compare.
+    ///     <c>Replace</c> compares the old value with each element, and puts the
+    ///     new value where that element was.
+    /// </summary>
+    public static bool IsOnlyKept(IParameterSymbol? parameter) =>
+        parameter is { Name: "newValue", ContainingSymbol: IMethodSymbol { Name: "Replace", ContainingType: { } type } }
+        && SodaFlowSymbols.IsPlatform(type);
 
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
     public static bool ComparesOnlyItsElements(IMethodSymbol method)

@@ -1089,7 +1089,17 @@ internal sealed class LoopReadAnalyzerTests
             ["HashtableAssignment"] = ["SF1004", "SF1005"],
             ["HashtableContainsValue"] = ["SF1004", "SF1005"],
             ["EqualityComparerGetHashCode"] = ["SF1005"],
-            ["HashCodeCombine"] = ["SF1005"]
+            ["HashCodeCombine"] = ["SF1005"],
+            ["SpanIndexOfAnyOfThreeValuesWhereTheValueIsPending"] = ["SF1005"],
+            ["SpanIndexOfAnyOfASpanOfValuesWhereTheElementIsPending"] = ["SF1005"],
+            ["SpanLastIndexOfAnyOfThreeValuesWhereTheValueIsPending"] = ["SF1005"],
+            ["SpanLastIndexOfAnyOfASpanOfValuesWhereTheElementIsPending"] = ["SF1005"],
+            ["SpanContainsAnyOfThreeValuesWhereTheValueIsPending"] = ["SF1005"],
+            ["SpanContainsAnyOfASpanOfValuesWhereTheElementIsPending"] = ["SF1005"],
+            ["SpanReplaceOfAnEquatableWhereTheOldValueIsPending"] = ["SF1005"],
+            ["ListInAnElementOfATupleGetsAPendingCell"] = ["SF1001"],
+            ["ListInItem1OfATupleGetsAPendingCell"] = ["SF1001"],
+            ["ListInTheValueOfAPairGetsAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -2666,12 +2666,18 @@ internal sealed class LoopStateEvaluator
                     : new Operand(written: receiver, parameter: null, isReceiver: true));
         }
 
+        // The callee does not compare a value that it only keeps.
         operands.AddRange(
-            arguments.Select((argument, position) =>
-                new Operand(
-                    written: argument.Expression,
-                    parameter: this.KnownTypeFor(method: method, argument: argument, position: position),
-                    isReceiver: false)));
+            arguments
+                .Select(static (argument, position) => (Argument: argument, Position: position))
+                .Where(pair =>
+                    !PlatformCallers.IsOnlyKept(
+                        ParameterFor(method: method, argument: pair.Argument, position: pair.Position)))
+                .Select(pair =>
+                    new Operand(
+                        written: pair.Argument.Expression,
+                        parameter: this.KnownTypeFor(method: method, argument: pair.Argument, position: pair.Position),
+                        isReceiver: false)));
 
         PlatformCallbacks calls = PlatformCallers.Of(method);
 

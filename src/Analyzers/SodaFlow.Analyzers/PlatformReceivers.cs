@@ -49,9 +49,11 @@ internal enum PlatformReceiver
 ///     </para>
 ///     <para>
 ///         A row is for each overload of the method that gets no comparer. Thus, a
-///         method whose overloads do not agree has no row. <c>IndexOfAny</c> of a
-///         span is such a method. It gives the call to the value for two values,
-///         and to the element for a span of values.
+///         method whose overloads do not agree has no row here.
+///         <c>IndexOfAny</c> of a span is such a method. It gives the call to the
+///         value for two values, and to the element for a span of values.
+///         <see cref="PlatformReceivers.WithValuesOneByOne" /> has the row for
+///         the first of the two.
 ///     </para>
 ///     <para>
 ///         This file uses no type of the compiler, because that test compiles it
@@ -118,6 +120,21 @@ internal static class PlatformReceivers
             [("MemoryExtensions", "SequenceCompareTo")] = PlatformReceiver.Stored,
             [("Comparer", "Compare")] = PlatformReceiver.FirstValue,
             [("EqualityComparer", "Equals")] = PlatformReceiver.FirstValue
+        };
+
+    /// <summary>
+    ///     The receiver for an overload that gets its values one by one. The
+    ///     second parameter of such an overload is one value. A row is here when
+    ///     the overload with a span of values gives the call to a different
+    ///     object. It is here also when that overload differs between the
+    ///     runtimes.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<(string Type, string Method), PlatformReceiver> WithValuesOneByOne =
+        new Dictionary<(string Type, string Method), PlatformReceiver>
+        {
+            [("MemoryExtensions", "IndexOfAny")] = PlatformReceiver.Given,
+            [("MemoryExtensions", "LastIndexOfAny")] = PlatformReceiver.Given,
+            [("MemoryExtensions", "ContainsAny")] = PlatformReceiver.Given
         };
 
     /// <summary>

@@ -7356,6 +7356,90 @@ public static class Shapes
     public static Cell<int> EnumerableAggregateByOfOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(one.AggregateBy(x => x, 0, (sum, x) => sum + 1).ToArray().Length); return S.Hold(0); });
 
+    // S1525. IndexOfAny of a span with two values, for a type that is IEquatable. Each value gets the call, and the element is pending.
+    public static Cell<int> SpanIndexOfAnyOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAny(new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1526. IndexOfAny with three values. The element is pending.
+    public static Cell<int> SpanIndexOfAnyOfThreeValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.IndexOfAny(new EquatableOwn(Plain), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1527. IndexOfAny with three values. The first value is pending, and it gets the call.
+    public static Cell<int> SpanIndexOfAnyOfThreeValuesWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; Kept.Add(all.IndexOfAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1528. IndexOfAny with a span of values is a different overload, and the element gets the call on .NET 10. The element is pending.
+    public static Cell<int> SpanIndexOfAnyOfASpanOfValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain), new(Plain)]; Kept.Add(all.IndexOfAny(other)); return S.Hold(0); });
+
+    // S1529. LastIndexOfAny of a span with two values, for a type that is IEquatable. Each value gets the call, and the element is pending.
+    public static Cell<int> SpanLastIndexOfAnyOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAny(new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1530. LastIndexOfAny with three values. The element is pending.
+    public static Cell<int> SpanLastIndexOfAnyOfThreeValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.LastIndexOfAny(new EquatableOwn(Plain), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1531. LastIndexOfAny with three values. The first value is pending, and it gets the call.
+    public static Cell<int> SpanLastIndexOfAnyOfThreeValuesWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; Kept.Add(all.LastIndexOfAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1532. LastIndexOfAny with a span of values is a different overload, and the element gets the call on .NET 10. The element is pending.
+    public static Cell<int> SpanLastIndexOfAnyOfASpanOfValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain), new(Plain)]; Kept.Add(all.LastIndexOfAny(other)); return S.Hold(0); });
+
+    // S1533. ContainsAny of a span with two values, for a type that is IEquatable. Each value gets the call, and the element is pending.
+    public static Cell<int> SpanContainsAnyOfAnEquatableWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.ContainsAny(new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1534. ContainsAny with three values. The element is pending.
+    public static Cell<int> SpanContainsAnyOfThreeValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.ContainsAny(new EquatableOwn(Plain), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1535. ContainsAny with three values. The first value is pending, and it gets the call.
+    public static Cell<int> SpanContainsAnyOfThreeValuesWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; Kept.Add(all.ContainsAny(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain), new EquatableOwn(Plain))); return S.Hold(0); });
+
+    // S1536. ContainsAny with a span of values is a different overload, and the element gets the call on .NET 10. The element is pending.
+    public static Cell<int> SpanContainsAnyOfASpanOfValuesWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(l.Map(v => v))]; EquatableOwn[] other = [new(Plain), new(Plain)]; Kept.Add(all.ContainsAny(other)); return S.Hold(0); });
+
+    // S1537. Replace of a span compares the old value with each element. The new value is pending, and gets no call.
+    public static Cell<int> SpanReplaceOfAnEquatableWhereTheNewValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; all.Replace(new EquatableOwn(Plain), new EquatableOwn(l.Map(v => v))); return S.Hold(0); });
+
+    // S1538. The same for a type with only Equals of object.
+    public static Cell<int> SpanReplaceOfAnObjectWhereTheNewValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; all.Replace(new AlikeOwn(Plain), new AlikeOwn(l.Map(v => v))); return S.Hold(0); });
+
+    // S1539. Replace of an ImmutableList. The new value is pending, and gets no call.
+    public static Cell<int> ImmutableListReplaceWhereTheNewValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<AlikeOwn> c = ImmutableList.Create(new AlikeOwn(Plain)); Kept.Add(c.Replace(new AlikeOwn(Plain), new AlikeOwn(l.Map(v => v))).Count); return S.Hold(0); });
+
+    // S1540. Replace of an ImmutableArray. The new value is pending, and gets no call.
+    public static Cell<int> ImmutableArrayReplaceWhereTheNewValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<AlikeOwn> c = ImmutableArray.Create(new AlikeOwn(Plain)); Kept.Add(c.Replace(new AlikeOwn(Plain), new AlikeOwn(l.Map(v => v))).Length); return S.Hold(0); });
+
+    // S1541. Replace of a span where the old value is pending, and it gets the call.
+    public static Cell<int> SpanReplaceOfAnEquatableWhereTheOldValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { EquatableOwn[] all = [new(Plain)]; all.Replace(new EquatableOwn(l.Map(v => v)), new EquatableOwn(Plain)); return S.Hold(0); });
+
+    // S1542. A list that is an element of a tuple gets a pending cell. An element of a tuple is a member of the platform.
+    public static Cell<int> ListInAnElementOfATupleGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (List<Cell<int>> First, List<Cell<int>> Second) pair = (new(), new()); pair.First.Add(l.Map(v => v)); return S.Hold(pair.First[0].Sample()); });
+
+    // S1543. The other list of the same tuple is plain.
+    public static Cell<int> OtherListOfATupleIsPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (List<Cell<int>> First, List<Cell<int>> Second) pair = (new(), new()); pair.First.Add(l.Map(v => v)); pair.Second.Add(Plain); return S.Hold(pair.Second[0].Sample()); });
+
+    // S1544. A list that is an element of a tuple with no names. Item1 is a member of the platform.
+    public static Cell<int> ListInItem1OfATupleGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (List<Cell<int>>, int) pair = (new(), 1); pair.Item1.Add(l.Map(v => v)); return S.Hold(pair.Item1[0].Sample()); });
+
+    // S1545. A list that is the value of a KeyValuePair. Value is a property of the platform.
+    public static Cell<int> ListInTheValueOfAPairGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, List<Cell<int>>> pair = new("a", new()); pair.Value.Add(l.Map(v => v)); return S.Hold(pair.Value[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
