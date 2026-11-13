@@ -1704,15 +1704,15 @@ internal sealed class LoopReadAnalyzerTests
     }
 
     /// <summary>
-    ///     The walk reads a limited number of callee bodies for one block. A member
-    ///     that the block calls after that limit is code that the analyzer does
-    ///     not read. The object of the member has a pending cell, thus the call
+    ///     The walk has a limit for the number of callee bodies that it reads for
+    ///     one block. A member that the block calls after that limit is code that
+    ///     the analyzer does not read. The object of the member has a pending cell, thus the call
     ///     gets the report for such code.
     /// </summary>
     /// <remarks>
     ///     The helpers call each other eight times at each of three levels, which
     ///     is more bodies than the limit. The shapes file cannot have this block:
-    ///     its calls past the limit get the same rule, and a shape has only a set
+    ///     its calls after the limit get the same rule, and a shape has only a set
     ///     of rules.
     /// </remarks>
     [Test]
@@ -1769,7 +1769,7 @@ internal sealed class LoopReadAnalyzerTests
             .. diagnostics
                 .Where(static diagnostic => diagnostic.Id == "SF1003")
                 .Select(static diagnostic =>
-                    diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan))
+                    diagnostic.Location.SourceTree?.GetText().ToString(diagnostic.Location.SourceSpan) ?? string.Empty)
         ];
 
         await Assert.That(notRead).Contains("reader.Now");
@@ -1778,7 +1778,7 @@ internal sealed class LoopReadAnalyzerTests
     /// <summary>
     ///     A callee that gets only an object of the store, and no state from the
     ///     loop, has its own limit of bodies. A block that calls many such callees
-    ///     still has each body that a pending value needs.
+    ///     has each body that a pending value needs.
     /// </summary>
     /// <remarks>
     ///     The helpers get an empty list, and call each other eight times at each
@@ -1810,16 +1810,16 @@ internal sealed class LoopReadAnalyzerTests
 
                 private static int NowOf(Cell<int> c) => c.Sample();
 
-                private static int Wide0(List<Cell<int>> list) => list.Count;
+                private static int Wide0(List<Cell<int>> xs) => xs.Count;
 
-                private static int Wide1(List<Cell<int>> list) =>
-                    Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list);
+                private static int Wide1(List<Cell<int>> xs) =>
+                    Wide0(xs) + Wide0(xs) + Wide0(xs) + Wide0(xs) + Wide0(xs) + Wide0(xs) + Wide0(xs) + Wide0(xs);
 
-                private static int Wide2(List<Cell<int>> list) =>
-                    Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list);
+                private static int Wide2(List<Cell<int>> xs) =>
+                    Wide1(xs) + Wide1(xs) + Wide1(xs) + Wide1(xs) + Wide1(xs) + Wide1(xs) + Wide1(xs) + Wide1(xs);
 
-                private static int Wide3(List<Cell<int>> list) =>
-                    Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list);
+                private static int Wide3(List<Cell<int>> xs) =>
+                    Wide2(xs) + Wide2(xs) + Wide2(xs) + Wide2(xs) + Wide2(xs) + Wide2(xs) + Wide2(xs) + Wide2(xs);
             }
             """;
 

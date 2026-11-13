@@ -23,8 +23,8 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats)
     /// <summary>
     ///     True when the walk reads the code of this frame one time for two or
     ///     more calls. The call is then in a loop, in a function in the code of
-    ///     its caller, or in a frame that repeats. An object that such code makes
-    ///     is two or more objects at run time.
+    ///     its caller, or in a frame for which this is true. An object that such
+    ///     code makes is two or more objects at run time.
     /// </summary>
     public bool Repeats { get; } = repeats;
 

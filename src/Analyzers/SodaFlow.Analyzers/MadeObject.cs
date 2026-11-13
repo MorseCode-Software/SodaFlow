@@ -48,12 +48,12 @@ internal sealed class MadeObject(in ITypeSymbol? type, in bool exact, in LoopFra
     /// </summary>
     public bool CanBe(ITypeSymbol? written)
     {
-        if (this.type == null || Construction.SaysNothing(written))
+        if (this.type == null || written == null || Construction.SaysNothing(written))
         {
             return true;
         }
 
-        if (written!.IsValueType)
+        if (written.IsValueType)
         {
             return false;
         }

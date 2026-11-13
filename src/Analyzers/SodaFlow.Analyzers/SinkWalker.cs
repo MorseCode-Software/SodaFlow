@@ -1092,7 +1092,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     values: [element.Expression],
                     alone: before.Count == 0 && spreads.Length == 0,
                     others: spreads,
-                    before: before.ToArray()));
+                    before: [.. before]));
 
             before.Add([element.Expression]);
         }
@@ -1111,7 +1111,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 InitializerExpressionSyntax several => several.Expressions,
                 AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax keyed } =>
                     keyed.ArgumentList.Arguments.Select(static index => index.Expression),
-                _ => (IEnumerable<ExpressionSyntax>)new[] { earlier }
+                _ => [earlier]
             });
 
     // True for the first element of an initializer of a collection that is empty before it.

@@ -168,7 +168,7 @@ internal sealed class LoopState
     ///     For a collection, the objects of <see cref="ObjectStore" /> that it
     ///     holds. An element of the collection is one of them.
     /// </summary>
-    public ImmutableArray<MadeObject> Held { get; }
+    private ImmutableArray<MadeObject> Held { get; }
 
     /// <summary>
     ///     The same state, for a value that is no object of the store and holds
@@ -342,7 +342,7 @@ internal sealed class LoopState
 
     public LoopState Join(LoopState other)
     {
-        if (other.IsNone && other.Objects.IsEmpty && other.Held.IsEmpty)
+        if (other is { IsNone: true, Objects.IsEmpty: true, Held.IsEmpty: true })
         {
             return this;
         }

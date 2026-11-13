@@ -8163,7 +8163,7 @@ public static class Shapes
     public static Cell<int> WithCopyOfARecordGetsAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotRecord first = new() { Share = Plain }; SlotRecord second = first with { }; second.Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
 
-    // S1725. A write under a condition does not always run. The object keeps the pending cell also.
+    // S1725. A write in an if statement does not always run. The object keeps the pending cell also.
     public static Cell<int> MemberSetUnderAConditionThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { x.Share = Plain; } return S.Hold(x.Share!.Sample()); });
 
@@ -8171,7 +8171,7 @@ public static class Shapes
     public static Cell<int> MemberSetThroughASecondNameUnderACondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; if (Never) { y.Share = Plain; } return S.Hold(x.Share!.Sample()); });
 
-    // S1727. A helper under a condition sets a plain cell. The call does not always run.
+    // S1727. A call of a helper in an if statement sets a plain cell. The call does not always run.
     public static Cell<int> HelperUnderAConditionThatDoesNotRunSetsAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { FillSlot(x, Plain); } return S.Hold(x.Share!.Sample()); });
 
@@ -8235,7 +8235,7 @@ public static class Shapes
     public static Cell<int> GetterOfAPlainObjectInAConstructorThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(Plain); Kept.Add(KeepNowThroughTwo(reader)); return S.Hold(0); });
 
-    // S1743. A lambda that the block only keeps does not run. A member that it calls past the depth gets no report.
+    // S1743. A lambda that the block only keeps does not run. A member that it calls at a depth that the evaluator does not read gets no report.
     public static Cell<int> KeptLambdaCallsAGetterThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Func<int> later = () => KeepNowThroughTwo(reader); Kept.Add(later); return S.Hold(0); });
 
@@ -8263,7 +8263,7 @@ public static class Shapes
     public static Cell<int> IsSubsetOfAHashSetWhereTheArgumentIsAnImmutableHashSet() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; ImmutableHashSet<SameOwn> other = ImmutableHashSet.Create(new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
 
-    // S1750. The function of a Map does not run in the block. A member that it calls past the depth gets no report.
+    // S1750. The function of a Map does not run in the block. A member that it calls at a depth that the evaluator does not read gets no report.
     public static Cell<int> MapFunctionCallsAGetterThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(Plain.Map(v => v + KeepNowThroughTwo(reader))); return S.Hold(0); });
 

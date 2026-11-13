@@ -540,12 +540,14 @@ internal sealed class LoopStateEvaluator
         // The evaluator can go in a cycle only through a reassignment, and none is the correct
         // answer for the first visit.
         this.memo[expression] = LoopState.None;
+
         // The walk reads a node one time, and the value keeps the state from that read. A second
         // read of the same node does not see a change that came after the first.
         LoopState state =
             this.Refreshed(
                 expression: expression,
                 state: this.OnlyObjectsOfItsType(expression: expression, state: this.EvalUncached(expression)));
+
         this.memo[expression] = state;
 
         return state;
@@ -668,8 +670,8 @@ internal sealed class LoopStateEvaluator
     ///     A struct is a copy at each assignment, thus a second name of it is not
     ///     the same object. It holds the objects of its parts in its members. An
     ///     evaluator that reads code which does not run now makes no object. Code
-    ///     that can run two or more times makes two or more objects, and the store
-    ///     has none of them: each name then has its own state.
+    ///     that can run two or more times makes two or more objects. The store has
+    ///     none of them, and each name then has its own state.
     /// </remarks>
     /// <param name="place">The expression that makes the object.</param>
     /// <param name="state">The state of the object.</param>
@@ -699,14 +701,14 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True when the code at a place runs one time at most for each time that
-    ///     the code of this frame runs, and this frame does not repeat. An object
-    ///     that such code makes is one object.
+    ///     True when an expression runs one time at most for each run of the code
+    ///     of this frame, and <see cref="LoopFrame.Repeats" /> is false for the
+    ///     frame. An object that such an expression makes is one object.
     /// </summary>
     /// <remarks>
     ///     A loop runs its code again. A lambda, a local function, and a query can
-    ///     run two or more times, and the walk reads each in the frame of the code
-    ///     that it is in.
+    ///     run two or more times. The walk reads each of them in the frame of the
+    ///     code that contains it.
     /// </remarks>
     private bool RunsOneTime(SyntaxNode place)
     {
@@ -749,7 +751,7 @@ internal sealed class LoopStateEvaluator
     ///     see made. Only the names from this call have it, and each of them is a
     ///     name of that one object.
     /// </remarks>
-    private LoopState ReturnedHere(InvocationExpressionSyntax call, LoopState result) =>
+    private LoopState ReturnedHere(ExpressionSyntax call, LoopState result) =>
         result.Objects.IsEmpty && this.region.TypeOf(call) is { } type && this.CanBeAnObject(type)
             ? this.MadeHere(place: call, state: result, exact: false)
             : result;
@@ -766,10 +768,11 @@ internal sealed class LoopStateEvaluator
     ///     that object. Each other change adds the new state.
     /// </summary>
     /// <remarks>
-    ///     The change is sure when the value is one object, the change always runs
-    ///     in its function, and the code of this frame or of a callee made the
-    ///     object. A callee can run under a condition of its caller. Thus, a
-    ///     change that a callee makes to an object of its caller only adds.
+    ///     The change is sure when three things are true. The value is one object.
+    ///     The change always runs in its function. The code of this frame, or of a
+    ///     callee of it, made the object. A caller can call a callee in a branch.
+    ///     Thus, a change that a callee makes to an object of its caller only
+    ///     adds.
     /// </remarks>
     /// <param name="owner">The state of the value.</param>
     /// <param name="change">The new state of an object, from its state now.</param>
@@ -2585,17 +2588,15 @@ internal sealed class LoopStateEvaluator
         // second name. The evaluator reads such a constructor while ReadsForObjects permits.
         bool noState = !this.region.HasFields && bindings.All(static binding => binding.State.IsNone);
 
-        if (noState && !this.ReadsForObjects(bindings))
+        switch (noState)
         {
-            return new Followed(
-                state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
-                findings: Followed.Nothing.Findings,
-                outs: Followed.Nothing.Outs);
-        }
-
-        if (!noState && (this.depth >= MaxInlineDepth || !this.region.TryEnter()))
-        {
-            return null;
+            case true when !this.ReadsForObjects(bindings):
+                return new Followed(
+                    state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
+                    findings: Followed.Nothing.Findings,
+                    outs: Followed.Nothing.Outs);
+            case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
+                return null;
         }
 
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
@@ -2609,7 +2610,7 @@ internal sealed class LoopStateEvaluator
             foreach (IParameterSymbol parameter in definition.Parameters)
             {
                 if (!inner.bound.TryGetValue(key: parameter, value: out LoopState? given)
-                    || (given.IsNone && given.Objects.IsEmpty))
+                    || given is { IsNone: true, Objects.IsEmpty: true })
                 {
                     continue;
                 }
@@ -3672,7 +3673,7 @@ internal sealed class LoopStateEvaluator
     /// </remarks>
     private PlatformReceiver ReceiverFor(
         IMethodSymbol method,
-        IReadOnlyList<Operand> operands,
+        IEnumerable<Operand> operands,
         ExpressionSyntax? keeper)
     {
         PlatformReceiver row = PlatformCallers.ReceiverOf(method);
@@ -3724,21 +3725,19 @@ internal sealed class LoopStateEvaluator
         {
             ExpressionSyntax inner = Unwrapped(written);
 
-            if (inner is IdentifierNameSyntax name
-                && this.region.SymbolOf(name) is ILocalSymbol local
-                && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                    is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
-                && NamesOf(local: local, declarator: declarator, region: this.region) is { } uses
-                && uses.All(static use => !IsWritten(use)))
+            switch (inner)
             {
-                written = made;
+                case IdentifierNameSyntax name
+                    when this.region.SymbolOf(name) is ILocalSymbol local
+                         && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                             is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                         && NamesOf(local: local, declarator: declarator, region: this.region) is { } uses
+                         && uses.All(static use => !IsWritten(use)):
+                    written = made;
 
-                continue;
-            }
-
-            if (inner is CollectionExpressionSyntax)
-            {
-                return KeptComparer.Default;
+                    continue;
+                case CollectionExpressionSyntax:
+                    return KeptComparer.Default;
             }
 
             SeparatedSyntaxList<ArgumentSyntax> arguments =
@@ -4250,16 +4249,14 @@ internal sealed class LoopStateEvaluator
             && !this.region.HasFields
             && bindings.All(static binding => binding.State.IsNone);
 
-        if (noState && !this.ReadsForObjects(bindings))
+        switch (noState)
         {
-            return Followed.Nothing;
-        }
+            case true when !this.ReadsForObjects(bindings):
+                return Followed.Nothing;
+            case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
+                this.DoesNotRead(call: call, name: name, members: members);
 
-        if (!noState && (this.depth >= MaxInlineDepth || !this.region.TryEnter()))
-        {
-            this.DoesNotRead(call: call, name: name, members: members);
-
-            return null;
+                return null;
         }
 
         // A function of the walk, read by an evaluator that changes nothing: it gets a copy of
@@ -4271,6 +4268,7 @@ internal sealed class LoopStateEvaluator
 
         LoopStateEvaluator inner =
             this.Inner(call: call, bindings: bindings, definer: definer, members: members);
+
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         walker.Visit(body);
@@ -4326,7 +4324,7 @@ internal sealed class LoopStateEvaluator
 
     // True when the walk reads a callee that gets no state from the loop. It does that only for an
     // object of the store, to the depth limit, and while the region has frames for such callees.
-    private bool ReadsForObjects(IReadOnlyList<Binding> bindings) =>
+    private bool ReadsForObjects(IEnumerable<Binding> bindings) =>
         bindings.Any(static binding => !binding.State.Objects.IsEmpty)
         && this.depth < MaxInlineDepth
         && this.region.TryEnterForObjects();
