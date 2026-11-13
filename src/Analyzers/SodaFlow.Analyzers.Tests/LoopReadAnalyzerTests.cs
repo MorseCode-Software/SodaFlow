@@ -1283,7 +1283,27 @@ internal sealed class LoopReadAnalyzerTests
             ["GroupClauseKeepsItsElements"] = ["SF1001"],
             ["GroupClauseKeepsItsKey"] = ["SF1001"],
             ["ContinuationOfAGroupSamplesAnElement"] = ["SF1001"],
-            ["QueryExpressionSelectsItsRangeVariable"] = ["SF1001"]
+            ["QueryExpressionSelectsItsRangeVariable"] = ["SF1001"],
+            ["ImmutableDictionaryAddWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryAddWhereEqualsReadsTheGivenValue"] = ["SF1004"],
+            ["ImmutableDictionarySetItemWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionarySetItemsWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryAddRangeWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryAddRangeComparesTheValueThatItHasWithItself"] = ["SF1004"],
+            ["ImmutableDictionaryBuilderAddOfAPairWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryBuilderAddWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryBuilderIndexerWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableDictionaryBuilderAddRangeWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableSortedDictionaryAddWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableSortedDictionarySetItemWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableSortedDictionaryAddRangeWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ImmutableSortedDictionaryBuilderAddWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ToImmutableDictionaryWhereAKeyRepeats"] = ["SF1005"],
+            ["CreateRangeOfAnImmutableSortedDictionaryWhereAKeyRepeats"] = ["SF1005"],
+            ["ImmutableDictionaryContainsOfAPairWhereTheValueThatItHasIsPending"] = ["SF1005"],
+            ["ToImmutableDictionaryWithAKeyComparerWhereAKeyRepeats"] = ["SF1005"],
+            ["ToImmutableDictionaryWithAKeyFunctionWhereAKeyRepeats"] = ["SF1005"],
+            ["QueryExpressionWithAContinuationSelectsAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

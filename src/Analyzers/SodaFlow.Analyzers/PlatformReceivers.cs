@@ -331,6 +331,50 @@ internal static class PlatformReceivers
             };
 
     /// <summary>
+    ///     The receiver for the values of a dictionary. An immutable dictionary
+    ///     that gets a key that it has compares the value that it has with the
+    ///     value that the call gives, with <c>Equals</c>. A member that is here
+    ///     makes that call beside the calls of its row for the keys.
+    /// </summary>
+    /// <remarks>
+    ///     A run called each member of the immutable dictionaries, of their
+    ///     builders, and of their factories, on .NET Framework 4.8 and on each
+    ///     .NET from 6 to 11. A member of a builder has the name of its dictionary
+    ///     before the name <c>Builder</c>. A row is for the overloads that get a
+    ///     value or a pair: <c>Remove</c> of a key compares no value. A factory
+    ///     has no dictionary before the call, and its receiver says which value
+    ///     of its sequence gets the call: the one that comes first.
+    /// </remarks>
+    public static readonly IReadOnlyDictionary<(string Type, string Method), PlatformReceiver> ForValues =
+        new Dictionary<(string Type, string Method), PlatformReceiver>
+        {
+            [("ImmutableDictionary", "Add")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary", "AddRange")] = PlatformReceiver.StoredAlsoAmong,
+            [("ImmutableDictionary", "Contains")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary", "CreateRange")] = PlatformReceiver.StoredAlsoAmong,
+            [("ImmutableDictionary", "SetItem")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary", "SetItems")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary", "ToImmutableDictionary")] = PlatformReceiver.StoredAlsoAmong,
+            [("ImmutableDictionary.Builder", "Add")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary.Builder", "AddRange")] = PlatformReceiver.StoredAlsoAmong,
+            [("ImmutableDictionary.Builder", "Contains")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary.Builder", "Remove")] = PlatformReceiver.Stored,
+            [("ImmutableDictionary.Builder", "set_Item")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "Add")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "AddRange")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "Contains")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "CreateRange")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "SetItem")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "SetItems")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary", "ToImmutableSortedDictionary")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary.Builder", "Add")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary.Builder", "AddRange")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary.Builder", "Contains")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary.Builder", "Remove")] = PlatformReceiver.Stored,
+            [("ImmutableSortedDictionary.Builder", "set_Item")] = PlatformReceiver.Stored
+        };
+
+    /// <summary>
     ///     The receiver for an overload that gets its values one by one. The
     ///     second parameter of such an overload is one value. A row is here when
     ///     the overload with a span of values gives the call to a different

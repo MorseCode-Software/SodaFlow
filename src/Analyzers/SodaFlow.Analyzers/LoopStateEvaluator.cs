@@ -3069,7 +3069,7 @@ internal sealed class LoopStateEvaluator
             calls = PlatformCallers.OfTuple(definition.Name);
         }
 
-        return this.FollowPlatform(
+        return this.FollowPlatformAndItsValues(
             method: method,
             calls: calls,
             operands: operands,
@@ -3239,7 +3239,7 @@ internal sealed class LoopStateEvaluator
     /// <summary>The same as <see cref="FollowPlatformCall" />, for a constructor of the platform.</summary>
     public Followed? FollowPlatformCreation(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
         this.region.Symbols.DeclaresPlatformMembers
-            ? this.FollowPlatform(
+            ? this.FollowPlatformAndItsValues(
                 method: constructor,
                 calls: PlatformCallers.Of(constructor),
                 operands:
@@ -3299,8 +3299,11 @@ internal sealed class LoopStateEvaluator
     {
         member = this.ImplementationOf(method: member, receiver: collection);
 
+        // A member with no row can compare the values of a dictionary, as the indexer of a builder
+        // of an immutable dictionary does.
         if (!this.region.Symbols.DeclaresKeyMembers
-            || PlatformCallers.Of(member) == PlatformCallbacks.None)
+            || (PlatformCallers.Of(member) == PlatformCallbacks.None
+                && PlatformCallers.ValueReceiverOf(member) == null))
         {
             return null;
         }
@@ -3309,7 +3312,8 @@ internal sealed class LoopStateEvaluator
 
         // Of an element before, the collection compares only the values that the member compares,
         // as the key of a pair of a dictionary.
-        ImmutableHashSet<ITypeParameterSymbol>? compared = PlatformCallers.ComparedTypeParameters(member);
+        ImmutableHashSet<ITypeParameterSymbol>? compared =
+            PlatformCallers.ComparedTypeParameters(method: member, ofValues: false);
 
         IEnumerable<ExpressionSyntax> earlier =
             (before ?? []).SelectMany(element =>
@@ -3330,7 +3334,7 @@ internal sealed class LoopStateEvaluator
             .. others.Select(static other => new Operand(written: other, parameter: null, isReceiver: true))
         ];
 
-        return this.FollowPlatform(
+        return this.FollowPlatformAndItsValues(
             method: member,
             calls: alone ? PlatformCallers.Of(member) & ~ComparesTwo : PlatformCallers.Of(member),
             operands: operands,
@@ -3436,6 +3440,55 @@ internal sealed class LoopStateEvaluator
                 before: null)
             : null;
 
+    // True for the static member Empty of a collection of the platform, as
+    // ImmutableDictionary<TKey, TValue>.Empty. A member of it compares nothing.
+    private bool IsTheEmptyCollection(ExpressionSyntax written) =>
+        Unwrapped(written) is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Empty" } access
+        && this.region.SymbolOf(access) is IFieldSymbol { IsStatic: true } empty
+        && SodaFlowSymbols.IsPlatform(empty.ContainingType);
+
+    /// <summary>
+    ///     The calls that a method of the platform makes, for its row, and then
+    ///     for the values of a dictionary when the method compares those also.
+    /// </summary>
+    private Followed? FollowPlatformAndItsValues(
+        IMethodSymbol method,
+        PlatformCallbacks calls,
+        IReadOnlyList<Operand> operands,
+        ExpressionSyntax? keeper,
+        LoopState also,
+        Func<LoopState>? given,
+        Func<LoopState>? returned,
+        bool firstIsStored)
+    {
+        Followed? forTheRow =
+            this.FollowPlatform(
+                method: method,
+                calls: calls,
+                operands: operands,
+                keeper: keeper,
+                also: also,
+                given: given,
+                returned: returned,
+                firstIsStored: firstIsStored,
+                forValues: null);
+
+        return PlatformCallers.ValueReceiverOf(method) is { } forValues
+            ? Both(
+                first: forTheRow,
+                second: this.FollowPlatform(
+                    method: method,
+                    calls: calls,
+                    operands: operands,
+                    keeper: keeper,
+                    also: also,
+                    given: given,
+                    returned: returned,
+                    firstIsStored: firstIsStored,
+                    forValues: forValues))
+            : forTheRow;
+    }
+
     /// <param name="method">The method of the platform.</param>
     /// <param name="calls">The members that the method calls on an object that it gets.</param>
     /// <param name="operands">The values that the method gets, with the owner of the call first.</param>
@@ -3447,6 +3500,11 @@ internal sealed class LoopStateEvaluator
     ///     True when the first operand is the collection of the call, for a
     ///     method with no owner, as the array is for <c>Array.IndexOf</c>.
     /// </param>
+    /// <param name="forValues">
+    ///     Null for the calls of the row of the method. For the second reading of
+    ///     a member of a dictionary that also compares its values: the receiver of
+    ///     those calls. That reading is for <c>Equals</c> of the values only.
+    /// </param>
     private Followed? FollowPlatform(
         IMethodSymbol method,
         PlatformCallbacks calls,
@@ -3455,24 +3513,35 @@ internal sealed class LoopStateEvaluator
         LoopState also,
         Func<LoopState>? given,
         Func<LoopState>? returned,
-        bool firstIsStored)
+        bool firstIsStored,
+        PlatformReceiver? forValues)
     {
-        // A callee that gets a sequence enumerates it.
+        // A callee that gets a sequence enumerates it. The first reading of the call has that.
         Followed? all =
-            operands
-                .Where(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
-                .Aggregate(
-                    seed: (Followed?)null,
-                    func: (followed, operand) =>
-                        Both(first: followed, second: this.FollowEnumeration(operand.Written)));
+            forValues != null
+                ? null
+                : operands
+                    .Where(static operand => SodaFlowSymbols.IsSequence(operand.Parameter))
+                    .Aggregate(
+                        seed: (Followed?)null,
+                        func: (followed, operand) =>
+                            Both(first: followed, second: this.FollowEnumeration(operand.Written)));
 
-        all = Both(first: all, second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
+        if (forValues == null)
+        {
+            all = Both(
+                first: all,
+                second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
+        }
 
-        PlatformCallbacks callbacks = calls & this.region.Symbols.DeclaredCallbacks;
+        PlatformCallbacks callbacks =
+            (forValues == null ? calls : PlatformCallbacks.Equals) & this.region.Symbols.DeclaredCallbacks;
 
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
-        // GetHashCode of an object.
-        if (operands.Any(operand => IsComparison(operand.Parameter) && !this.IsNoValue(operand.Written)))
+        // GetHashCode of an object. A factory of a dictionary gets the comparer of its values
+        // after the comparer of its keys.
+        if (operands.Count(operand => IsComparison(operand.Parameter) && !this.IsNoValue(operand.Written))
+            > (forValues == null ? 0 : 1))
         {
             callbacks &= PlatformCallbacks.Text;
         }
@@ -3500,18 +3569,24 @@ internal sealed class LoopStateEvaluator
             return all;
         }
 
-        ImmutableArray<ITypeSymbol> compared = PlatformCallers.ComparedTypes(method);
+        ImmutableArray<ITypeSymbol> compared =
+            PlatformCallers.ComparedTypes(method: method, ofValues: forValues != null);
 
         // A type can be the type of two type parameters, as in a queue whose elements and priorities
         // have one type. The type parameter then says which values the method compares.
-        ImmutableHashSet<ITypeParameterSymbol>? comparedParameters = PlatformCallers.ComparedTypeParameters(method);
+        ImmutableHashSet<ITypeParameterSymbol>? comparedParameters =
+            PlatformCallers.ComparedTypeParameters(method: method, ofValues: forValues != null);
+
         INamedTypeSymbol collection = (method.ReducedFrom ?? method).OriginalDefinition.ContainingType;
 
         // A callee that gets a function compares what the function returns, as a sort by a key
         // does. It does not compare the values that it gives to the function.
+        // For the values of a dictionary, a function for the key says nothing: the method
+        // compares the elements of its source when no function makes the values.
         bool byFunction =
             !PlatformCallers.ComparesWhatAFunctionChooses(method)
-            && operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
+            && operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate)
+            && !(forValues != null && PlatformCallers.MakesItsValuesFromItsElements(method));
 
         // Some of those methods also compare the values of a sequence that they get, as ExceptBy
         // compares the keys of its second sequence.
@@ -3528,7 +3603,7 @@ internal sealed class LoopStateEvaluator
         PlatformReceiver receiver =
             !hasCollection && !firstIsStored
                 ? PlatformReceiver.Either
-                : this.ReceiverFor(method: method, operands: operands, keeper: keeper);
+                : forValues ?? this.ReceiverFor(method: method, operands: operands, keeper: keeper);
 
         // The object that gets the call can get a second object of its own side as the argument.
         bool among = receiver is PlatformReceiver.StoredAlsoAmong or PlatformReceiver.GivenAlsoAmong;
@@ -3651,8 +3726,10 @@ internal sealed class LoopStateEvaluator
 
         // The object that gets the call can be one that the evaluator did not see made. An element
         // of a list from a different place is such an object. It has the type of the other
-        // object, and no state.
-        if (knowsTheReceiver && !owners.Any(static owner => owner.Gets))
+        // object, and no state. The empty collection of the platform has no such object.
+        if (knowsTheReceiver
+            && !owners.Any(static owner => owner.Gets)
+            && !operands.Any(operand => operand.IsReceiver && this.IsTheEmptyCollection(operand.Written)))
         {
             owners.AddRange(
                 owners.ToArray()

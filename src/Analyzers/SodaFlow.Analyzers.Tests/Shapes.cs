@@ -8535,6 +8535,126 @@ public static class Shapes
     public static Cell<int> LetClauseGivesItsVariableAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; return S.Hold((from c in cells let d = Plain select d.Sample()).ToList().Count); });
 
+    // S1818. Add of an ImmutableDictionary with a key that it has compares the two values. The value that it has gets the call, and it is pending.
+    public static Cell<int> ImmutableDictionaryAddWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1819. The same, where Equals reads the value that it gets, and the value that the call gives is pending.
+    public static Cell<int> ImmutableDictionaryAddWhereEqualsReadsTheGivenValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikePeer> map = ImmutableDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(Plain)); Kept.Add(map.Add("a", new AlikePeer(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1820. SetItem compares the two values also.
+    public static Cell<int> ImmutableDictionarySetItemWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.SetItem("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1821. SetItems compares the two values also.
+    public static Cell<int> ImmutableDictionarySetItemsWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.SetItems(new[] { new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain)) })); return S.Hold(0); });
+
+    // S1822. AddRange compares the two values also.
+    public static Cell<int> ImmutableDictionaryAddRangeWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.AddRange(new[] { new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain)) })); return S.Hold(0); });
+
+    // S1823. AddRange of an ImmutableDictionary also gives the value that it has to its own Equals. Equals reads the value that it gets, and the value of the dictionary is pending.
+    public static Cell<int> ImmutableDictionaryAddRangeComparesTheValueThatItHasWithItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikePeer> map = ImmutableDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(l.Map(v => v))); Kept.Add(map.AddRange(new[] { new KeyValuePair<string, AlikePeer>("a", new AlikePeer(Plain)) })); return S.Hold(0); });
+
+    // S1824. Add of a pair through ICollection of a builder.
+    public static Cell<int> ImmutableDictionaryBuilderAddOfAPairWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); map.Add(new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1825. Add of a builder of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryBuilderAddWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); map.Add("a", new AlikeOwn(Plain)); return S.Hold(0); });
+
+    // S1826. The indexer of a builder of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryBuilderIndexerWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); map["a"] = new AlikeOwn(Plain); return S.Hold(0); });
+
+    // S1827. AddRange of a builder of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryBuilderAddRangeWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); map.AddRange(new[] { new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain)) }); return S.Hold(0); });
+
+    // S1828. Add of an ImmutableSortedDictionary. The keys have CompareTo, and the values have Equals.
+    public static Cell<int> ImmutableSortedDictionaryAddWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<string, AlikeOwn> map = ImmutableSortedDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1829. SetItem of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionarySetItemWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<string, AlikeOwn> map = ImmutableSortedDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.SetItem("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1830. AddRange of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryAddRangeWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<string, AlikeOwn> map = ImmutableSortedDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.AddRange(new[] { new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain)) })); return S.Hold(0); });
+
+    // S1831. Add of a builder of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryBuilderAddWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<string, AlikeOwn>.Builder map = ImmutableSortedDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); map.Add("a", new AlikeOwn(Plain)); return S.Hold(0); });
+
+    // S1832. ToImmutableDictionary over two pairs with one key, where the first value is pending.
+    public static Cell<int> ToImmutableDictionaryWhereAKeyRepeats() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v))), new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))]; Kept.Add(pairs.ToImmutableDictionary()); return S.Hold(0); });
+
+    // S1833. CreateRange of an ImmutableSortedDictionary over two pairs with one key.
+    public static Cell<int> CreateRangeOfAnImmutableSortedDictionaryWhereAKeyRepeats() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v))), new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))]; Kept.Add(ImmutableSortedDictionary.CreateRange(pairs)); return S.Hold(0); });
+
+    // S1834. Contains of a pair. The value that the dictionary has gets the call.
+    public static Cell<int> ImmutableDictionaryContainsOfAPairWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Contains(new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain)))); return S.Hold(0); });
+
+    // S1835. Add where the value that the call gives is pending. The plain value of the dictionary gets the call.
+    public static Cell<int> ImmutableDictionaryAddWhereTheGivenValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(Plain)); Kept.Add(map.Add("a", new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1836. Add where Equals reads the value that it gets, and the value of the dictionary is pending.
+    public static Cell<int> ImmutableDictionaryAddWhereEqualsReadsThePlainGivenValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikePeer> map = ImmutableDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(l.Map(v => v))); Kept.Add(map.Add("a", new AlikePeer(Plain))); return S.Hold(0); });
+
+    // S1837. Remove and TryGetValue compare no value.
+    public static Cell<int> ImmutableDictionaryRemoveAndTryGetValueCompareNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Remove("a")); Kept.Add(map.TryGetValue("a", out AlikeOwn? found)); return S.Hold(0); });
+
+    // S1838. ContainsValue gives the call to the value that the call gives.
+    public static Cell<int> ImmutableDictionaryContainsValueWhereTheValueThatItHasIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.ContainsValue(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1839. A value with no Equals of its own.
+    public static Cell<int> ImmutableDictionaryAddOfAValueWithNoEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, SettableSlot> map = ImmutableDictionary<string, SettableSlot>.Empty.Add("a", new SettableSlot { Share = l.Map(v => v) }); Kept.Add(map.SetItem("a", new SettableSlot { Share = Plain })); return S.Hold(0); });
+
+    // S1840. ToImmutableDictionary over one pair compares nothing.
+    public static Cell<int> ToImmutableDictionaryOfOnePair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v)))]; Kept.Add(pairs.ToImmutableDictionary()); return S.Hold(0); });
+
+    // S1841. Add to the empty dictionary of the platform compares nothing, also when Equals reads the value that it gets.
+    public static Cell<int> ImmutableDictionaryAddToTheEmptyDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1842. The same for the empty sorted dictionary.
+    public static Cell<int> ImmutableSortedDictionaryAddToTheEmptyDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableSortedDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1843. ToImmutableDictionary with a comparer for the keys still compares the values with Equals.
+    public static Cell<int> ToImmutableDictionaryWithAKeyComparerWhereAKeyRepeats() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v))), new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))]; Kept.Add(pairs.ToImmutableDictionary(StringComparer.Ordinal)); return S.Hold(0); });
+
+    // S1844. ToImmutableDictionary with a function for the key makes the values from the elements of its source.
+    public static Cell<int> ToImmutableDictionaryWithAKeyFunctionWhereAKeyRepeats() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] items = [new(l.Map(v => v)), new(Plain)]; Kept.Add(items.ToImmutableDictionary(static _ => "a")); return S.Hold(0); });
+
+    // S1845. A query expression with a continuation. The last select clause makes the elements of the result.
+    public static Cell<int> QueryExpressionWithAContinuationSelectsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = (from i in new[] { 0 } select i into j select l.Map(v => v)).ToList(); return S.Hold(list[0].Sample()); });
+
+    // S1846. ToImmutableDictionary with a comparer for the values calls that comparer, and not Equals of a value.
+    public static Cell<int> ToImmutableDictionaryWithAValueComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v))), new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))]; Kept.Add(pairs.ToImmutableDictionary(StringComparer.Ordinal, new AlwaysTheSame())); return S.Hold(0); });
+
+    // S1847. Remove of a key of a builder compares no value.
+    public static Cell<int> ImmutableDictionaryBuilderRemoveOfAKeyComparesNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Remove("a")); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -10046,6 +10166,13 @@ public static class Shapes
     public sealed class SlotInAMember
     {
         public SettableSlot Slot { get; } = new() { Share = Plain };
+    }
+
+    public sealed class AlwaysTheSame : IEqualityComparer<AlikeOwn>
+    {
+        public bool Equals(AlikeOwn? x, AlikeOwn? y) => true;
+
+        public int GetHashCode(AlikeOwn obj) => 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

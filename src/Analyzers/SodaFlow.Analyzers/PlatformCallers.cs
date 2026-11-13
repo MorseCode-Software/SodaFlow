@@ -363,6 +363,59 @@ internal static class PlatformCallers
     }
 
     /// <summary>
+    ///     The receiver for the values that a member of a dictionary compares
+    ///     beside its keys, from <see cref="PlatformReceivers.ForValues" />. Null
+    ///     for a member that compares no value, and for an overload that gets no
+    ///     value, as <c>Remove</c> of a key.
+    /// </summary>
+    public static PlatformReceiver? ValueReceiverOf(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (definition.ContainingType is not { } type || !SodaFlowSymbols.IsPlatform(type))
+        {
+            return null;
+        }
+
+        string name = type.ContainingType is { } outer ? outer.Name + "." + type.Name : type.Name;
+
+        return PlatformReceivers.ForValues.TryGetValue(
+                   key: (name, NameOf(definition)),
+                   value: out PlatformReceiver receiver)
+               && ComparedPairs(method: definition, ofValues: true).Pairs is { Count: > 0 } values
+               && definition.Parameters.Any(parameter =>
+                   values.Any(pair => Mentions(type: parameter.Type, parameter: pair.Parameter)))
+            ? receiver
+            : null;
+    }
+
+    /// <summary>
+    ///     True for a method with no type parameter for the values of a dictionary.
+    ///     A factory with a function for the key only is such a method: the
+    ///     elements of its source are the values.
+    /// </summary>
+    public static bool MakesItsValuesFromItsElements(IMethodSymbol method) =>
+        ComparedPairs(method: method, ofValues: true).Pairs.All(static pair => pair.Parameter.Name != "TValue");
+
+    private static IEnumerable<INamedTypeSymbol> Outward(INamedTypeSymbol? type)
+    {
+        for (; type != null; type = type.ContainingType)
+        {
+            yield return type;
+        }
+    }
+
+    private static bool Mentions(ITypeSymbol type, ITypeParameterSymbol parameter) =>
+        type switch
+        {
+            ITypeParameterSymbol named => SymbolEqualityComparer.Default.Equals(x: named, y: parameter),
+            IArrayTypeSymbol array => Mentions(type: array.ElementType, parameter: parameter),
+            INamedTypeSymbol constructed =>
+                constructed.TypeArguments.Any(argument => Mentions(type: argument, parameter: parameter)),
+            _ => false
+        };
+
+    /// <summary>
     ///     True for a method that has a row in
     ///     <see cref="PlatformReceivers.WithASetArgument" />. The object that gets
     ///     the call then depends on the type of the argument.
@@ -456,8 +509,11 @@ internal static class PlatformCallers
     ///     type. A tuple compares its elements. The result is empty for a method
     ///     with no type argument, which gets its values as <c>object</c>.
     /// </summary>
-    public static ImmutableArray<ITypeSymbol> ComparedTypes(IMethodSymbol method) =>
-        ComparedPairs(method).Pairs.SelectMany(static pair => Parts(pair.Argument)).ToImmutableArray();
+    public static ImmutableArray<ITypeSymbol> ComparedTypes(IMethodSymbol method, bool ofValues) =>
+        ComparedPairs(method: method, ofValues: ofValues)
+            .Pairs
+            .SelectMany(static pair => Parts(pair.Argument))
+            .ToImmutableArray();
 
     /// <summary>
     ///     The type parameters whose values a method compares, by the rule of
@@ -467,8 +523,10 @@ internal static class PlatformCallers
     ///     <c>Enqueue</c> of a queue whose elements and priorities have one type
     ///     compares only the priorities.
     /// </summary>
-    public static ImmutableHashSet<ITypeParameterSymbol>? ComparedTypeParameters(IMethodSymbol method) =>
-        ComparedPairs(method) is { All: false } chosen
+    public static ImmutableHashSet<ITypeParameterSymbol>? ComparedTypeParameters(
+        IMethodSymbol method,
+        bool ofValues) =>
+        ComparedPairs(method: method, ofValues: ofValues) is { All: false } chosen
             ? chosen.Pairs.Select(static pair => pair.Parameter)
                 .ToImmutableHashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default)
             : null;
@@ -476,15 +534,27 @@ internal static class PlatformCallers
     // The pairs of a type parameter and its type argument whose values the method compares. All is
     // true when they are all the pairs.
     private static (IReadOnlyList<(ITypeParameterSymbol Parameter, ITypeSymbol Argument)> Pairs, bool All)
-        ComparedPairs(IMethodSymbol method)
+        ComparedPairs(IMethodSymbol method, bool ofValues)
     {
         IMethodSymbol called = method.ReducedFrom ?? method;
 
+        // A type in a type, as the builder of a dictionary is, has the type parameters of the type
+        // that it is in.
         IEnumerable<(ITypeParameterSymbol Parameter, ITypeSymbol Argument)> all =
-            Pairs(parameters: called.ContainingType.TypeParameters, arguments: called.ContainingType.TypeArguments)
+            Outward(called.ContainingType)
+                .SelectMany(static type => Pairs(parameters: type.TypeParameters, arguments: type.TypeArguments))
                 .Concat(Pairs(parameters: called.TypeParameters, arguments: method.TypeArguments));
 
         (ITypeParameterSymbol Parameter, ITypeSymbol Argument)[] pairs = [.. all];
+
+        // The values of a dictionary have the type parameter for the value. A factory with no
+        // such type parameter makes the values from the elements of its source.
+        if (ofValues)
+        {
+            string values = pairs.Any(static pair => pair.Parameter.Name == "TValue") ? "TValue" : "TSource";
+
+            return ([.. pairs.Where(pair => pair.Parameter.Name == values)], false);
+        }
 
         if (ComparedParameters.TryGetValue(
                 key: (called.ContainingType.Name, NameOf(called)),
