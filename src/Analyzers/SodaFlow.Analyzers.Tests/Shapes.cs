@@ -8671,6 +8671,22 @@ public static class Shapes
     public static Cell<int> ResultOfAQueryExpressionThroughObjectIsNoElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { object made = from i in new[] { 0 } select new Titled(l.Map(v => v)); Kept.Add(made.ToString()!); return S.Hold(0); });
 
+    // S1852. A dictionary that the code made with a comparer for its keys only compares its values with Equals.
+    public static Cell<int> ImmutableDictionaryThatGotAKeyComparerOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary.Create<string, AlikeOwn>(StringComparer.Ordinal).Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1853. A dictionary that the code made with a comparer for its values calls that comparer, and not Equals of a value.
+    public static Cell<int> ImmutableDictionaryThatGotAValueComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary.Create<string, AlikeOwn>(StringComparer.Ordinal, new AlwaysTheSame()).Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1854. The same for WithComparers.
+    public static Cell<int> ImmutableDictionaryThatGotAValueComparerFromWithComparers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary<string, AlikeOwn>.Empty.WithComparers(StringComparer.Ordinal, new AlwaysTheSame()).Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1855. A dictionary that got null for the comparer of its values has the default one, and compares its values with Equals.
+    public static Cell<int> ImmutableDictionaryThatGotNullForItsValueComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary.Create<string, AlikeOwn>(StringComparer.Ordinal, null).Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

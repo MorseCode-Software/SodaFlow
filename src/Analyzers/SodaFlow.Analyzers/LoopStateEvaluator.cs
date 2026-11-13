@@ -3547,6 +3547,12 @@ internal sealed class LoopStateEvaluator
             callbacks &= PlatformCallbacks.Text;
         }
 
+        // A dictionary that the code made with a comparer for its values calls that comparer.
+        if (forValues != null && keeper != null && this.GotAValueComparer(keeper))
+        {
+            callbacks &= PlatformCallbacks.Text;
+        }
+
         // A callee that compares the elements of one sequence with each other compares nothing
         // when the sequence has one element. It can make a hash code or text from that element.
         // A factory that gets its elements one by one, as Create does, is the same with one value.
@@ -3847,6 +3853,56 @@ internal sealed class LoopStateEvaluator
         // The code made the set with a new comparer, or with a static member that is not Default.
         Different,
         NotKnown
+    }
+
+    // True when the code made the dictionary with a comparer for its values: a factory or
+    // WithComparers that gets a second comparer. A member of a dictionary that gives a new
+    // dictionary keeps its comparers. A local that no code changes has the dictionary that its
+    // declaration made.
+    private bool GotAValueComparer(ExpressionSyntax written)
+    {
+        for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
+        {
+            switch (Unwrapped(written))
+            {
+                case IdentifierNameSyntax name
+                    when this.region.SymbolOf(name) is ILocalSymbol local
+                         && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                             is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                         && NamesOf(local: local, declarator: declarator, region: this.region) is { } uses
+                         && uses.All(static use => !IsWritten(use)):
+                    written = made;
+
+                    continue;
+                case InvocationExpressionSyntax call
+                    when this.region.SymbolOf(call) is IMethodSymbol maker
+                         && SodaFlowSymbols.IsPlatform(maker.ContainingType):
+                    if ((maker.ReducedFrom ?? maker).Parameters
+                        .Where(static parameter => SodaFlowSymbols.IsComparer(parameter.Type))
+                        .Skip(1)
+                        .FirstOrDefault() is { } forTheValues)
+                    {
+                        return this.ComparerIn(
+                                   arguments: call.ArgumentList.Arguments,
+                                   maker: maker,
+                                   parameter: forTheValues)
+                               != KeptComparer.Default;
+                    }
+
+                    if (maker.IsStatic || call.Expression is not MemberAccessExpressionSyntax onADictionary)
+                    {
+                        return false;
+                    }
+
+                    written = onADictionary.Expression;
+
+                    continue;
+                default:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     // The comparer of a set that the code made. A creation, a collection expression, and a factory
