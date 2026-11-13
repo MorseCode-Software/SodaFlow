@@ -159,8 +159,21 @@ those analyzers don't exist for them.
 The F# packages aren't marked. The analyzers don't run on F#, and a native AOT publish that roots
 the F# packages reports warnings inside FSharp.Core.
 
-The analyzers can't see everything the native AOT compiler checks. A native AOT publish that roots
-`SodaFlow.Core` or `SodaFlow.Core.Collections` reports IL3054: the compiler stops expanding some
-generic types, because internal types nest inside one another with no limit it can prove. Code that
-needed one of those expansions would throw at run time. The compiler expands only what an app
-reaches, so how many of these warnings an app sees depends on what it uses.
+The analyzers can't see everything the native AOT compiler checks. The compiler builds the code of
+every generic type before the app runs. Where a type nests inside itself with no limit the compiler
+can prove, it stops at a fixed depth and reports IL3054, and code that needed an expansion past
+that depth throws at run time.
+
+So the build also publishes a small app with native AOT, treats every warning from the compiler as
+an error, and runs the result. The app uses the stream and cell operations and sorts a collection
+by more levels than that depth. It covers only what it calls, so read the output of your own
+publish for IL3054 as well.
+
+Native AOT also has a cost that no warning reports. An order with two levels makes the compiler
+build one type for each pairing of the sort value types an app uses, so the publish slows down as
+an app sorts by more value types. [Views](collections.md#views) has the measurements and a way to
+keep the number down.
+
+A publish that roots a whole assembly is a different matter. Rooting `SodaFlow.Core` with
+`TrimmerRootAssembly` still reports IL3054, because it makes the compiler build every method of
+every generic type, including combinations that no app calls.

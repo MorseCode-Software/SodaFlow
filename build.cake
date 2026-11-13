@@ -244,6 +244,49 @@ Task("Pack")
     }
 });
 
+// The one check here that compiles the libraries the way an app with native AOT does. The trim and
+// AOT analyzers run in the build of each library and cannot see a generic type that nests in itself:
+// the native AOT compiler stops such an expansion at a depth, reports IL3054, and leaves code that
+// throws if it runs. Only the compile of an app finds that, because the compiler makes just the code
+// the app reaches.
+//
+// The project sets TreatWarningsAsErrors, so any warning from the compiler fails the publish, and the
+// app returns the number of its own checks that failed, so a wrong result fails the run.
+//
+// Not a dependency of Build or of Default. The link step needs the C++ build tools, which the CI
+// image has and a developer's machine may not, and a target that fails for a missing tool on the way
+// to every local build would teach people to stop running it.
+Task("Verify-Native-Aot")
+    .Description("Publishes the native AOT check app, with every warning as an error, and runs it.")
+    .IsDependentOn("Build")
+    .Does(() =>
+{
+    var projectDirectory = Directory("./src/CSharp/SodaFlow.NativeAotCheck");
+    var project = projectDirectory + File("SodaFlow.NativeAotCheck.csproj");
+
+    // Under the project's own bin, which is ignored already, and not under artifacts, which Pack
+    // cleans and the workflow uploads.
+    var output = projectDirectory + Directory("bin/publish");
+
+    CleanDirectory(output);
+
+    DotNetPublish(
+        project,
+        new DotNetPublishSettings
+        {
+            Configuration = configuration,
+            OutputDirectory = output,
+            NoRestore = true,
+        });
+
+    var exitCode = StartProcess(output + File("SodaFlow.NativeAotCheck.exe"));
+
+    if (exitCode != 0)
+    {
+        throw new CakeException($"The native AOT check app failed {exitCode} of its checks. Its output is above.");
+    }
+});
+
 // compiler(line): RuleId: text - the shape a compiler error takes, because it is the shape an
 // editor, a log reader and a person all already know how to scan.
 string Describe(IIssue issue) =>

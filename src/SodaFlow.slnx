@@ -46,6 +46,7 @@
         <Project Path="CSharp/SodaFlow.Benchmarks.Blotter/SodaFlow.Benchmarks.Blotter.csproj"/>
         <Project Path="CSharp/SodaFlow.Benchmarks/SodaFlow.Benchmarks.csproj"/>
         <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>
+        <Project Path="CSharp/SodaFlow.NativeAotCheck/SodaFlow.NativeAotCheck.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Memory/SodaFlow.Tests.Memory.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj"/>

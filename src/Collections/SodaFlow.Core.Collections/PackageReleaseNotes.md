@@ -156,9 +156,32 @@ Added: the net8.0 build is marked as compatible with trimming and native AOT. Th
 AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
 IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
 net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
-cannot see one thing that the native AOT compiler reports. A native AOT publish that roots the assembly reports IL3054
-on generic expansions of SortKeyOrder that the compiler stopped, because each Then nests the sort key in one more pair.
-The code of an expansion that stopped throws if it runs.
+cannot see a generic type that nests in itself, which the native AOT compiler stops at a depth and reports as IL3054. So
+the build of the repository also publishes an app with native AOT, with each warning as an error, and runs it. The app
+sorts a collection with one to seven levels.
+
+Fixed: an order with more than one level made a deeper generic type at each level, because each ThenBy put the sort
+value in one more pair. The native AOT compiler makes the code of each generic type before the app runs, and it stops at
+a depth. An app that called ThenBy one time got six IL3054 warnings at its native AOT publish. The compiler made the
+orders of up to five levels, so by the text of the warning an order with six levels or more throws in such an app. An
+order with two levels still holds a pair of the two sort value types and boxes nothing. An order with three levels or
+more now holds each sort value as an object, so its type is the same at each count of levels. A level whose sort value
+is a value type boxes it one time for each key that the order sorts, and a comparison allocates nothing.
+
+Measured with the new SortLevelsBenchmarks, on an order of three levels of which two are int levels. A sort of the full
+set of 100,000 keys allocates 23.4 MB where it allocated 15.6 MB. It takes 153 ms where it took 125 ms on .NET 10, and
+263 ms where it took 260 ms on .NET Framework. A state edit that moves one key did not change, at about 9 microseconds
+and 10.8 KB on .NET 10. Orders with one level and with two levels did not change. With two levels also held as objects,
+the same sort of a two-level order took 124 ms and 22.7 MB on .NET 10, where the pair takes 88 ms and 14.1 MB, and that
+is why two levels keep the pair.
+
+The pair has a cost at a native AOT publish, and only there. The compiler cannot know which two levels meet at run time,
+so it makes one pair type for each sort value type of the app with each type that the app gives to ThenBy. The reference
+types share one form. Each value type counts, and each enum and each nullable type is one. Measured in the compiler step
+of the publish of the app above, with more value types as sort values: 5.3 s with 6, 13.3 s with 12, 35.4 s with 20,
+91 s with 30, and 398 s with 50. With no pair, that step takes 3.5 s. The machine code of the app is 0.95 MB with 6 and
+10.9 MB with 50. A selector that returns an int for an enum makes that level an int level, which lowers the count. An
+order of three levels or more adds no type. An app on the JIT has no such cost.
 
 2.0.0
 

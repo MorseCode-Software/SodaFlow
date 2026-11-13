@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <!-- net10.0, as the tests and the benchmarks, thus CI needs no other SDK. The libraries give
+             this app their net8.0 builds, which are the builds that have the mark for native AOT. -->
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.NativeAotCheck</AssemblyName>
+        <RootNamespace>SodaFlow.NativeAotCheck</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <!-- The target Verify-Native-Aot of build.cake publishes this app and runs it. The runtime is
+             here and not on the command line, because the restore must know it: the compiler is a
+             package for one runtime. The build runs on Windows. -->
+        <PublishAot>true</PublishAot>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+        <!-- The compiler reports each warning with its place. Without this, it reports one warning for
+             each assembly that has warnings, and that warning does not say which. -->
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+
+        <!-- The purpose of this app. A warning from the compiler, such as IL3054, stops the publish. -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+        <!-- The app compares strings with the ordinal comparer only, thus it needs no culture data. -->
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <!--
+        This project alone has no lock file. For an app that sets PublishAot, the SDK adds the native
+        AOT compiler as a package at the version of the SDK, and it refuses a version from the project
+        that is not the version of its runtime pack. Thus, a lock file from one SDK fails a locked
+        restore with NU1004 on each other SDK, and CI does not have the SDK of each developer. The
+        project ships nothing, and each other package has its version from src/Directory.Build.props.
+    -->
+    <PropertyGroup>
+        <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+        <RestoreLockedMode>false</RestoreLockedMode>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Program.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Collections\CSharp\SodaFlow.Collections\SodaFlow.Collections.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
+        <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
+    </ItemGroup>
+
+</Project>
