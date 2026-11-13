@@ -46,6 +46,9 @@ internal sealed class LoopStateEvaluator
     // The most owners that a change to an element goes up to.
     private const int MaxOwners = 8;
 
+    // The most locals in a chain that the evaluator goes through for the type of an object.
+    private const int MaxKnownTypeDepth = 8;
+
     // The members that the platform calls with two objects.
     private const PlatformCallbacks ComparesTwo = PlatformCallbacks.Compare | PlatformCallbacks.Equals;
 
@@ -2651,8 +2654,9 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
-        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
+        method = this.ImplementationOf(method: method, receiver: receiver);
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
         List<Operand> operands = [];
 
@@ -2700,6 +2704,79 @@ internal sealed class LoopStateEvaluator
             returned: () => this.Follow(invocation)?.State ?? LoopState.None,
             firstIsStored: true);
     }
+
+    /// <summary>
+    ///     The method that a call through an interface of the platform runs, when
+    ///     the code says the type of the object. The method of the interface
+    ///     otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     A member of an interface has a row only when each collection of the
+    ///     platform compares in it. <c>Add</c> of <c>ICollection</c> has no row,
+    ///     because a list adds with no comparison. Thus, the row of the method of
+    ///     the type is more correct. When that method has no row, the row of the
+    ///     interface member holds.
+    /// </remarks>
+    private IMethodSymbol ImplementationOf(IMethodSymbol method, ExpressionSyntax? receiver) =>
+        receiver != null
+        && method.ContainingType is { TypeKind: TypeKind.Interface } contract
+        && SodaFlowSymbols.IsPlatform(contract)
+        && this.KnownTypeOf(receiver) is INamedTypeSymbol type
+        && type.FindImplementationForInterfaceMember(method) is IMethodSymbol implemented
+        && SodaFlowSymbols.IsPlatform(implemented.ContainingType)
+        && PlatformCallers.Of(implemented) != PlatformCallbacks.None
+            ? implemented
+            : method;
+
+    /// <summary>
+    ///     The type of the object that an expression gives, when it is a class
+    ///     or a struct. A cast does not change the object. A local that no code
+    ///     changes after its declaration has the type of the value that it got.
+    /// </summary>
+    private ITypeSymbol? KnownTypeOf(ExpressionSyntax written)
+    {
+        // A local can get its value from a second local.
+        for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
+        {
+            ExpressionSyntax inner = Unwrapped(written);
+
+            if (this.region.TypeOf(inner)
+                is
+                {
+                    TypeKind: TypeKind.Class or TypeKind.Struct or TypeKind.Array,
+                    SpecialType: not SpecialType.System_Object
+                } known)
+            {
+                return known;
+            }
+
+            if (inner is not IdentifierNameSyntax name
+                || this.region.SymbolOf(name) is not ILocalSymbol local
+                || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is not VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                || NamesOf(local: local, declarator: declarator, region: this.region) is not { } uses
+                || !uses.All(static use => !IsWritten(use)))
+            {
+                return null;
+            }
+
+            written = made;
+        }
+
+        return null;
+    }
+
+    // Each name of a local in the block that declares it. Null for a local of the top-level
+    // statements, which have no block.
+    private static IEnumerable<IdentifierNameSyntax>? NamesOf(
+        ISymbol local,
+        SyntaxNode declarator,
+        LoopRegion region) =>
+        declarator.FirstAncestorOrSelf<BlockSyntax>()
+            ?.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == local.Name
+                           && SymbolEqualityComparer.Default.Equals(x: region.SymbolOf(name), y: local));
 
     /// <summary>The same as <see cref="FollowPlatformCall" />, for a constructor of the platform.</summary>
     public Followed? FollowPlatformCreation(IMethodSymbol constructor, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
@@ -2754,6 +2831,8 @@ internal sealed class LoopStateEvaluator
         bool alone,
         IEnumerable<ExpressionSyntax> others)
     {
+        member = this.ImplementationOf(method: member, receiver: collection);
+
         if (!this.region.Symbols.DeclaresKeyMembers
             || PlatformCallers.Of(member) == PlatformCallbacks.None)
         {
@@ -3178,7 +3257,8 @@ internal sealed class LoopStateEvaluator
         // A list has the members of its elements in its state. The list is one of those objects
         // only for a method that reads elements. A type such as object does not tell a list from
         // an element, and the state then says which the value is.
-        // The elements of a dictionary are pairs, and the method compares the keys in them.
+        // The elements of a dictionary are pairs, and the method compares the keys in them. The
+        // elements of a lookup are groups, and each group has its key.
         ITypeSymbol? element = asSequence ? SodaFlowSymbols.ElementTypeOf(written) : null;
 
         // A collection with no type argument, as an ArrayList is, does not say the type of its
@@ -3188,7 +3268,7 @@ internal sealed class LoopStateEvaluator
             || (element != null
                 && (members.Is(element)
                     || (element is INamedTypeSymbol pair
-                        && SodaFlowSymbols.HoldsParts(pair)
+                        && (SodaFlowSymbols.HoldsParts(pair) || SodaFlowSymbols.IsGrouping(pair))
                         && pair.TypeArguments.Any(members.Is))))
             || (asSequence && element == null && SodaFlowSymbols.IsSequence(written));
 
@@ -3249,25 +3329,17 @@ internal sealed class LoopStateEvaluator
             or DefaultExpressionSyntax;
 
     // True for a local whose declaration and each assignment in its block give it null or default.
-    // A ref, a deconstruction, or a compound assignment can give it a value that the code does not
-    // say here.
-    private bool OnlyGetsNoValue(ILocalSymbol local) =>
+    // A ref or a deconstruction can give it a value that the code does not say here. The compound
+    // assignment of a comparer is ??=, and with null or default it leaves the value as it was.
+    private bool OnlyGetsNoValue(ISymbol local) =>
         local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is VariableDeclaratorSyntax declarator
         && (declarator.Initializer == null || IsNoValueLiteral(declarator.Initializer.Value))
-        && declarator.Ancestors().FirstOrDefault(static node => node is BlockSyntax or CompilationUnitSyntax)
-            is { } scope
-        && scope.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Where(name => name.Identifier.ValueText == local.Name
-                           && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
-            .All(static name =>
-                !IsWritten(name)
-                || (name.Parent is AssignmentExpressionSyntax
-                    {
-                        RawKind: (int)SyntaxKind.SimpleAssignmentExpression
-                    } assignment
-                    && assignment.Left == name
-                    && IsNoValueLiteral(assignment.Right)));
+        && NamesOf(local: local, declarator: declarator, region: this.region) is { } names
+        && names.All(static name =>
+            !IsWritten(name)
+            || (name.Parent is AssignmentExpressionSyntax assignment
+                && assignment.Left == name
+                && IsNoValueLiteral(assignment.Right)));
 
     // A comparer, or a delegate of the type Comparison, which a sort can get.
     private static bool IsComparison(ITypeSymbol? type) =>

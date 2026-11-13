@@ -577,6 +577,13 @@ internal sealed class SodaFlowSymbols
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
     /// <summary>
+    ///     True for <c>IGrouping</c>, the element of a lookup. It has a key and
+    ///     the values for that key.
+    /// </summary>
+    public static bool IsGrouping(ISymbol? type) =>
+        type is { Name: "IGrouping" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
+
+    /// <summary>
     ///     True for a symbol of the platform: one in the <c>System</c> namespace,
     ///     or in a namespace in it.
     /// </summary>

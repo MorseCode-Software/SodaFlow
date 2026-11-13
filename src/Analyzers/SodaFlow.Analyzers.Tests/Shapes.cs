@@ -7492,6 +7492,90 @@ public static class Shapes
     public static Cell<int> ListSortWithALocalThatGetsAComparerByCoalescing() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; some ??= Comparer<Ranked>.Create((x, y) => 0); all.Sort(some); return S.Hold(all.Count); });
 
+    // S1559. Add through ISet, on a HashSet that the local got. The set calls Equals.
+    public static Cell<int> AddThroughISetOfAHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISet<Alike> set = new HashSet<Alike>(); set.Add(new Alike(l.Map(v => v))); set.Add(new Alike(Plain)); return S.Hold(set.Count); });
+
+    // S1560. Add through ISet, on a SortedSet. The set calls CompareTo.
+    public static Cell<int> AddThroughISetOfASortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISet<Ranked> set = new SortedSet<Ranked>(); set.Add(new Ranked(l.Map(v => v))); set.Add(new Ranked(Plain)); return S.Hold(set.Count); });
+
+    // S1561. Add through IDictionary, on a Dictionary.
+    public static Cell<int> AddThroughIDictionaryOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> map = new Dictionary<Alike, int>(); map.Add(new Alike(l.Map(v => v)), 1); map.Add(new Alike(Plain), 2); return S.Hold(map.Count); });
+
+    // S1562. The setter of the indexer through IDictionary, on a Dictionary.
+    public static Cell<int> IndexerThroughIDictionaryOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> map = new Dictionary<Alike, int>(); map[new Alike(l.Map(v => v))] = 1; map[new Alike(Plain)] = 2; return S.Hold(map.Count); });
+
+    // S1563. Add through ICollection, on a HashSet. The set has that member as an explicit implementation.
+    public static Cell<int> AddThroughICollectionOfAHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = new HashSet<Alike>(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1564. Add through ICollection, on a List. A list compares nothing when it adds.
+    public static Cell<int> AddThroughICollectionOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = new List<Alike> { new(l.Map(v => v)) }; all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
+    // S1565. Contains through ICollection, on a List.
+    public static Cell<int> ContainsThroughICollectionOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = new List<Alike> { new(l.Map(v => v)) }; Kept.Add(all.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1566. Contains through ICollection, on a List, where the value is pending and Equals reads only its own object. The element gets the call.
+    public static Cell<int> ContainsThroughICollectionOfAListWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<AlikeOwn> all = new List<AlikeOwn> { new(Plain) }; Kept.Add(all.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1567. IndexOf through IList, on a List.
+    public static Cell<int> IndexOfThroughIListOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IList<Alike> all = new List<Alike> { new(l.Map(v => v)) }; Kept.Add(all.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1568. IndexOf through IList, on an array. The compiler does not say which method of an array that is, and the row of the interface holds.
+    public static Cell<int> IndexOfThroughIListOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IList<Alike> all = new Alike[] { new(l.Map(v => v)) }; Kept.Add(all.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1569. ContainsKey through IReadOnlyDictionary, on a Dictionary.
+    public static Cell<int> ContainsKeyThroughIReadOnlyDictionaryOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IReadOnlyDictionary<Alike, int> map = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(map.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1570. Contains through the IList with no type argument, on an ArrayList.
+    public static Cell<int> ContainsThroughIListOfAnArrayList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IList all = new ArrayList { new Alike(l.Map(v => v)) }; Kept.Add(all.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1571. Add through the IDictionary with no type argument, on a Hashtable.
+    public static Cell<int> AddThroughIDictionaryOfAHashtable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary table = new Hashtable(); table.Add(new Alike(l.Map(v => v)), 1); table.Add(new Alike(Plain), 2); return S.Hold(table.Count); });
+
+    // S1572. Add through a cast to ISet, on a local that is a HashSet.
+    public static Cell<int> AddThroughACastToISet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> set = new(); ((ISet<Alike>)set).Add(new Alike(l.Map(v => v))); ((ISet<Alike>)set).Add(new Alike(Plain)); return S.Hold(set.Count); });
+
+    // S1573. Contains through ILookup, on what ToLookup gives.
+    public static Cell<int> ContainsThroughILookup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ILookup<Alike, Alike> by = one.ToLookup(x => x); Kept.Add(by.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1574. Add through ISet, on a set that a method gives.
+    public static Cell<int> AddThroughISetFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISet<Alike> set = MakeASet(); set.Add(new Alike(l.Map(v => v))); set.Add(new Alike(Plain)); return S.Hold(set.Count); });
+
+    // S1575. Contains through ICollection, in a local function that gets the collection.
+    public static Cell<int> ContainsThroughICollectionInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { static bool Has(ICollection<Alike> all, Alike value) => all.Contains(value); Kept.Add(Has(new HashSet<Alike> { new(l.Map(v => v)) }, new Alike(Plain))); return S.Hold(0); });
+
+    // S1576. TryGetValue through IDictionary, on a dictionary that a method gives.
+    public static Cell<int> TryGetValueThroughIDictionaryFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> map = MakeAMap(); map[new Alike(l.Map(v => v))] = 1; Kept.Add(map.TryGetValue(new Alike(Plain), out int found) ? found : 0); return S.Hold(0); });
+
+    // S1577. Remove through ICollection, on a collection that a method gives.
+    public static Cell<int> RemoveThroughICollectionFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeASet(); all.Add(new Alike(l.Map(v => v))); Kept.Add(all.Remove(new Alike(Plain))); return S.Hold(0); });
+
+    // S1578. Overlaps through IReadOnlySet, on a set that a method gives.
+    public static Cell<int> OverlapsThroughIReadOnlySetFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IReadOnlySet<Alike> set = MakeAReadOnlySet(new Alike(l.Map(v => v))); Kept.Add(set.Overlaps([new Alike(Plain)])); return S.Hold(0); });
+
+    // S1579. Add through ICollection of a List that a method gives. No row: a list compares nothing when it adds.
+    public static Cell<int> AddThroughICollectionFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ICollection<Alike> all = MakeAList(); all.Add(new Alike(l.Map(v => v))); all.Add(new Alike(Plain)); return S.Hold(all.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -8670,6 +8754,14 @@ public static class Shapes
     // Gives a comparer that reads nothing.
     private static void GiveAComparer(ref IComparer<Ranked>? comparer) =>
         comparer = Comparer<Ranked>.Create(static (_, _) => 0);
+
+    private static ISet<Alike> MakeASet() => new HashSet<Alike>();
+
+    private static IDictionary<Alike, int> MakeAMap() => new Dictionary<Alike, int>();
+
+    private static IReadOnlySet<Alike> MakeAReadOnlySet(Alike first) => new HashSet<Alike> { first };
+
+    private static ICollection<Alike> MakeAList() => new List<Alike>();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

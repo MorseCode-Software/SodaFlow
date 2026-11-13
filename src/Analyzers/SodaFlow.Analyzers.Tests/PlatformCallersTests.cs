@@ -74,7 +74,18 @@ internal sealed class PlatformCallersTests
         typeof(FrozenDictionary<,>),
         typeof(ArrayList),
         typeof(Hashtable),
-        typeof(HashCode)
+        typeof(HashCode),
+        typeof(ICollection<>),
+        typeof(IList<>),
+        typeof(IList),
+        typeof(ISet<>),
+        typeof(IReadOnlySet<>),
+        typeof(IDictionary<,>),
+        typeof(IDictionary),
+        typeof(IReadOnlyDictionary<,>),
+        typeof(ILookup<,>),
+        typeof(IImmutableSet<>),
+        typeof(IImmutableDictionary<,>)
     ];
 
     [Test]
@@ -129,6 +140,67 @@ internal sealed class PlatformCallersTests
                     .Where(entry => !comparing.Contains(entry)))
             .IsEmpty();
     }
+
+    /// <summary>
+    ///     A row for a member of an interface has the callbacks of each row of a
+    ///     type of the table that implements the member. The analyzer reads that
+    ///     row when it does not know the type of the object. Thus, a callback that
+    ///     a collection makes and the row does not have is a read that the
+    ///     analyzer misses.
+    /// </summary>
+    [Test]
+    public async Task EachRowOfAnInterfaceHasTheCallbacksOfEachTypeThatImplementsIt()
+    {
+        Dictionary<(string Type, string Method), PlatformCallbacks> table = [];
+
+        foreach ((string type, PlatformCallbacks callbacks, ImmutableArray<string> methods) in PlatformCallers.Rows)
+        {
+            foreach (string method in methods)
+            {
+                table[(type, method)] = table.GetValueOrDefault(key: (type, method)) | callbacks;
+            }
+        }
+
+        List<string> missing = [];
+
+        foreach (Type contract in Types.Where(static type => type.IsInterface))
+        {
+            string contractName = NameOf(contract);
+
+            foreach (Type type in Types.Where(type => !type.IsInterface && Implements(type: type, contract: contract)))
+            {
+                InterfaceMapping map =
+                    type.GetInterfaceMap(type.GetInterfaces().First(found => IsOf(found: found, contract: contract)));
+
+                foreach (string method in map.InterfaceMethods.Select(static member => member.Name))
+                {
+                    if (!table.TryGetValue(key: (contractName, method), value: out PlatformCallbacks row)
+                        || !table.TryGetValue(key: (NameOf(type), method), value: out PlatformCallbacks own))
+                    {
+                        continue;
+                    }
+
+                    // A method that makes text is not a comparison.
+                    PlatformCallbacks more = own & ~row & ~PlatformCallbacks.Text;
+
+                    if (more != PlatformCallbacks.None)
+                    {
+                        missing.Add($"{contractName}.{method}: {NameOf(type)} also calls {more}");
+                    }
+                }
+            }
+        }
+
+        await Assert.That(missing).IsEmpty();
+    }
+
+    private static string NameOf(MemberInfo type) => type.Name.Split('`')[0];
+
+    private static bool IsOf(Type found, Type contract) =>
+        (found.IsGenericType ? found.GetGenericTypeDefinition() : found) == contract;
+
+    private static bool Implements(Type type, Type contract) =>
+        type.GetInterfaces().Any(found => IsOf(found: found, contract: contract));
 
     private static Type TypeIn(Assembly assembly, string name) =>
         assembly.GetType(name: name, throwOnError: true) ?? throw new InvalidOperationException(name);

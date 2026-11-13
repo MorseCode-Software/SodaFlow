@@ -529,7 +529,7 @@ internal sealed class LoopReadAnalyzerTests
             ["GetHashCodeOfATuple"] = ["SF1005"],
             ["GetHashCodeOfATupleThroughObject"] = ["SF1005"],
             ["CompareToOfATuple"] = ["SF1005"],
-            ["CompareToOfATupleThroughAnInterface"] = ["SF1004", "SF1005"],
+            ["CompareToOfATupleThroughAnInterface"] = ["SF1005"],
             ["PendingElementOfATupleInAList"] = ["SF1005"],
             ["IteratorPropertyByAPatternThenCount"] = ["SF1005"],
             ["IteratorPropertyByAPatternInAForeach"] = ["SF1005"],
@@ -1107,7 +1107,25 @@ internal sealed class LoopReadAnalyzerTests
             ["HashSetWithANullComparerInALocal"] = ["SF1004", "SF1005"],
             ["OrderByWithANullComparerInALocal"] = ["SF1004", "SF1005"],
             ["ListSortWithAConstantNullComparer"] = ["SF1004", "SF1005"],
-            ["SortedSetWithANullComparerInALocalThenAdd"] = ["SF1004", "SF1005"]
+            ["SortedSetWithANullComparerInALocalThenAdd"] = ["SF1004", "SF1005"],
+            ["AddThroughISetOfAHashSet"] = ["SF1004", "SF1005"],
+            ["AddThroughISetOfASortedSet"] = ["SF1004", "SF1005"],
+            ["AddThroughIDictionaryOfADictionary"] = ["SF1004", "SF1005"],
+            ["IndexerThroughIDictionaryOfADictionary"] = ["SF1004", "SF1005"],
+            ["AddThroughICollectionOfAHashSet"] = ["SF1004", "SF1005"],
+            ["ContainsThroughICollectionOfAList"] = ["SF1005"],
+            ["IndexOfThroughIListOfAList"] = ["SF1005"],
+            ["IndexOfThroughIListOfAnArray"] = ["SF1004", "SF1005"],
+            ["ContainsKeyThroughIReadOnlyDictionaryOfADictionary"] = ["SF1005"],
+            ["ContainsThroughIListOfAnArrayList"] = ["SF1004", "SF1005"],
+            ["AddThroughIDictionaryOfAHashtable"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
+            ["AddThroughACastToISet"] = ["SF1004", "SF1005"],
+            ["ContainsThroughILookup"] = ["SF1004", "SF1005"],
+            ["AddThroughISetFromAMethod"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
+            ["ContainsThroughICollectionInALocalFunction"] = ["SF1004"],
+            ["TryGetValueThroughIDictionaryFromAMethod"] = ["SF1004", "SF1004", "SF1005", "SF1005"],
+            ["RemoveThroughICollectionFromAMethod"] = ["SF1004", "SF1005"],
+            ["OverlapsThroughIReadOnlySetFromAMethod"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -61,6 +61,8 @@ internal static class PlatformCallers
 {
     private const PlatformCallbacks HashAndEquals = PlatformCallbacks.Hash | PlatformCallbacks.Equals;
 
+    private const PlatformCallbacks AllThree = HashAndEquals | PlatformCallbacks.Compare;
+
     /// <summary>
     ///     Each row: the name of a type of the platform, the members that its
     ///     methods call, and the names of those methods. A constructor has the
@@ -156,6 +158,27 @@ internal static class PlatformCallers
             Row(type: "Hashtable", callbacks: HashAndEquals,
                 "Add", "Contains", "ContainsKey", "Remove", "get_Item", "set_Item"),
             Row(type: "Hashtable", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            // A member of an interface has a row when each collection of the platform that implements
+            // it compares. A run of each such collection found that. The callbacks are those of all
+            // of them, because the analyzer does not know which collection the object is.
+            Row(type: "ICollection", callbacks: AllThree, "Contains", "Remove"),
+            Row(type: "IList", callbacks: AllThree, "IndexOf", "Remove"),
+            Row(type: "IList", callbacks: PlatformCallbacks.Compare | PlatformCallbacks.Equals, "Contains"),
+            Row(type: "ISet", callbacks: AllThree,
+                "Add", "ExceptWith", "IntersectWith", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
+                "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExceptWith", "UnionWith"),
+            Row(type: "IReadOnlySet", callbacks: AllThree,
+                "Contains", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps",
+                "SetEquals"),
+            Row(type: "IDictionary", callbacks: AllThree,
+                "Add", "Contains", "ContainsKey", "Remove", "TryGetValue", "get_Item", "set_Item"),
+            Row(type: "IReadOnlyDictionary", callbacks: AllThree, "ContainsKey", "TryGetValue", "get_Item"),
+            Row(type: "ILookup", callbacks: HashAndEquals, "Contains", "get_Item"),
+            Row(type: "IImmutableSet", callbacks: AllThree,
+                "Add", "Contains", "Except", "Intersect", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
+                "IsSupersetOf", "Overlaps", "Remove", "SetEquals", "SymmetricExcept", "TryGetValue", "Union"),
+            Row(type: "IImmutableDictionary", callbacks: AllThree,
+                "Add", "AddRange", "Contains", "Remove", "RemoveRange", "SetItem", "SetItems", "TryGetKey"),
             Row(type: "EqualityComparer", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
             Row(type: "HashCode", callbacks: PlatformCallbacks.Hash, "Combine"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Equals, "Equals"),
@@ -236,7 +259,7 @@ internal static class PlatformCallers
 
         if (definition.ContainingType is not { } type
             || !SodaFlowSymbols.IsPlatform(type)
-            || !ByMethod.TryGetValue(key: (type.Name, definition.Name), value: out PlatformCallbacks callbacks))
+            || !ByMethod.TryGetValue(key: (type.Name, NameOf(definition)), value: out PlatformCallbacks callbacks))
         {
             return PlatformCallbacks.None;
         }
@@ -267,7 +290,7 @@ internal static class PlatformCallers
             return PlatformReceiver.Either;
         }
 
-        (string Type, string Method) key = (type.Name, definition.Name);
+        (string Type, string Method) key = (type.Name, NameOf(definition));
 
         if (definition.Parameters.Any(static parameter => SodaFlowSymbols.IsComparer(parameter.Type)))
         {
@@ -306,7 +329,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && AmongTheElements.Contains((type.Name, definition.Name));
+               && AmongTheElements.Contains((type.Name, NameOf(definition)));
     }
 
     /// <summary>
@@ -339,7 +362,7 @@ internal static class PlatformCallers
         (ITypeParameterSymbol Parameter, ITypeSymbol Argument)[] pairs = [.. all];
 
         // A search for a value of a dictionary compares the values, and not the keys.
-        bool forValues = called.Name is "ContainsValue" or "IndexOfValue";
+        bool forValues = NameOf(called) is "ContainsValue" or "IndexOfValue";
 
         return (pairs.Any(static pair => pair.Parameter.Name is "TKey" or "TPriority")
                 ? pairs.Where(pair => forValues
@@ -349,6 +372,11 @@ internal static class PlatformCallers
             .SelectMany(static pair => Parts(pair.Argument))
             .ToImmutableArray();
     }
+
+    // The name of a method in the tables. An explicit implementation of a member of an interface,
+    // as ICollection<T>.Add of a HashSet is, has the name of that member.
+    private static string NameOf(IMethodSymbol method) =>
+        method.ExplicitInterfaceImplementations.FirstOrDefault()?.Name ?? method.Name;
 
     private static CallerRow Row(string type, PlatformCallbacks callbacks, params string[] methods) =>
         (type, callbacks, methods.ToImmutableArray());
