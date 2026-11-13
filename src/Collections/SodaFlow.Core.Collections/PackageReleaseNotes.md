@@ -160,6 +160,69 @@ cannot see one thing that the native AOT compiler reports. A native AOT publish 
 on generic expansions of SortKeyOrder that the compiler stopped, because each Then nests the sort key in one more pair.
 The code of an expansion that stopped throws if it runs.
 
+Changed: a filter at a new criteria finds the keys that change sides before it edits its key set. Filter and
+FilterByIdentity over a criteria cell test each key when the criteria change. The limit of a stage is 1,000 keys, or a
+tenth of the keys that it holds. Up to the limit, the stage moves each key that changed sides and reports one operation
+for each. Over the limit, it builds its set again and reports a reset. Before, the stage edited its set key by key as it
+tested. For each key up to the limit, a change over the limit made a version of an immutable set and of an immutable
+dictionary. Then the stage discarded each version and built the set again. The stage also looked up the position of each
+key that it tested, where it needed only to know if it held the key. The stage now tests first, and edits after that
+only when the count is in the limit. A stage reports what it reported before: the same keys and the same operations,
+with the same positions in the same sequence. A reset comes at the same count. New tests hold each of those at the limit
+and one key over it, which no test did before.
+
+Measured in a new benchmark, FilterCriteriaBenchmarks, which sends a criteria and then the first criteria again. The
+figures are for 10,000 items on .NET 10, with one run on each side. Through Filter, a change that moves a quarter of the
+keys took 14.4 ms and 5,505 KB, and takes 10.3 ms and 2,484 KB. Through FilterByIdentity, it took 10.6 ms and takes 7.8
+ms, with the same bytes. A change that moves no key took 5.7 ms through Filter and takes 4.5 ms, and through
+FilterByIdentity 4.9 ms and 2.5 ms. A change that moves 100 keys took 6.3 ms and takes 5.1 ms, and 4.5 ms and 2.6 ms.
+Those two allocate what they did. At 100,000 items the quarter allocates 24.2 MB where it allocated 55.1 MB. On .NET
+Framework 4.7.2, at 10,000 items, the quarter allocates 2,496 KB where it allocated 5,529 KB. Through FilterByIdentity
+there, it took 28.1 ms and takes 23.7 ms. Through Filter there, 33.4 ms and 31.4 ms are inside the noise of the two
+runs. BlotterSendBenchmarks has a search and its clear over about 7,000 orders, through two filters, a sort, and a page.
+That took 28.8 ms and 8,819 KB, and takes 22.2 ms and 5,687 KB.
+
+Changed: a filter that builds its set again takes the entries of the stage above, and makes no entry of its own. A
+filter keeps the order of the stage above. Thus, each entry that it keeps is the same entry as in the set above, with
+the same key and sort value. When no key fails, the set of the filter is the set above. Then a filter that is off costs
+one test for each key at a reset. When at most 40 percent of the keys fail, the filter removes them from the set above,
+with one builder for each tree. When more keys fail, the filter builds a set of the entries that pass, with no new entry
+and no lookup of a sort value. A filter below a slice, or below a sort that reads its set from the end, builds as
+before. A comparison of the two forms set the line at 40 percent. It used 7,000 and 100,000 entries, with the failed
+keys spread through the order. Up to a third of the keys, the removal cost less time and less memory, and from a half it
+cost more. A filter reports what it reported before. New tests check the keys of each form, and check that a filter that
+keeps each key holds the set above.
+
+Measured against the change above, on 10,000 items on .NET 10, with one run on each side. The keys that a search drops
+are spread through the order. Thus, FilterCriteriaBenchmarks now also has arms that drop each fourth key and each second
+key. Through Filter, a change that moves a quarter of the keys took 10.6 ms and 2,484 KB, and takes 4.0 ms and 225 KB. A
+change that moves each fourth key took 10.3 ms and 2,484 KB, and takes 5.1 ms and 634 KB. A change that moves each
+second key took 8.7 ms and 2,133 KB, and takes 5.1 ms and 698 KB. FilterByIdentity allocates the same bytes. It takes
+3.1 ms where it took 8.0, 5.2 ms where it took 8.4, and 5.1 ms where it took 6.9. At 100,000 items, each fourth key
+through Filter took 176.6 ms and 24.2 MB, and takes 66.5 ms and 6.0 MB. On .NET Framework 4.7.2 at 10,000 items, each
+fourth key through Filter took 26.4 ms and takes 12.5 ms. Its bytes are within 4 KB of those on .NET 10. The changes
+that move no key or 100 keys do not build, and allocate what they did. Their times moved by up to a third in each
+direction between the two runs, which is the noise of those runs. BlotterSendBenchmarks has a search and its clear over
+about 7,000 orders. That took 27.9 ms and 5,687 KB, and takes 11.2 ms and 2,716 KB.
+
+Changed: a sort below a filter keeps its list at a reset from the filter, in a transaction that edited no item. A change
+of criteria that moves more keys than the limit of the filter is a reset. Before, the sort below the filter built its
+set again from nothing at that reset. No item changed in that transaction, thus each key that stays has its sort value.
+The sort now removes the keys that left and adds the keys that came, with one builder for each tree. It does this when
+the keys that leave, and two for each key that comes, are at most the number of keys above. Over that count, it builds
+as before. A comparison on 7,000 and on 100,000 entries set that count, because a key that comes cost about two keys
+that leave. The test for an edited item compares the identity map and the state map before and after the transaction, as
+objects. A sort that reads its set from the end edits the set in its first direction, which the view reads. A sort
+reports what it reported before. New tests take a sort on the state and a sort on the identity through each kind of
+change. A test does the same with a sort that reads its set from the end. One more test edits a score in the transaction
+that changes the criteria, where the sort must build.
+
+Measured against the change above, in BlotterSendBenchmarks on .NET 10, with one run on each side. A search and its
+clear over about 7,000 orders took 11.2 ms and 2,715 KB, and takes 10.4 ms and 2,123 KB. A run of the two builds in turn
+gave 11.3 ms and 10.8 ms in the fastest runs. In KeyedCollectionViewBenchmarks, a change of the threshold moves one key,
+which is no reset, and allocates what it did. Its times in the two runs were up to a third apart. The times of the arm
+with no view were also that far apart. A run of the two builds in turn gave the same times.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

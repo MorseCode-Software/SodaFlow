@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SodaFlow.Collections;
 
@@ -172,7 +171,8 @@ internal static class CollectionViewUtility
             rebuild: RebuildFilter,
             processNewCriteria: ProcessFilterNewCriteria,
             process: ProcessFilter,
-            reorder: ReorderFilter);
+            reorder: ReorderFilter,
+            rebase: null);
 
     /// <summary>
     ///     Reorders the view. <typeparamref name="TSortKey" /> stays a generic
@@ -220,7 +220,8 @@ internal static class CollectionViewUtility
             rebuild: RebuildFilterByIdentity,
             processNewCriteria: ProcessFilterByIdentityNewCriteria,
             process: ProcessFilterByIdentity,
-            reorder: ReorderFilter);
+            reorder: ReorderFilter,
+            rebase: null);
 
     /// <summary>
     ///     Reorders the view by a value from the immutable part of each item only. A
@@ -305,7 +306,10 @@ internal static class CollectionViewUtility
             process: static (_, keys, change) => ProcessSort(state: keys, change: change),
             // The order of the stage and its members do not change, thus the list that it holds
             // is the list from a new build.
-            reorder: static (state, _) => state);
+            reorder: static (state, _) => state,
+            // In a transaction that edited no item, each key that stays has its sort value. Thus, the
+            // stage can edit the list that it holds, and does not sort each key again.
+            rebase: static (state, members, snapshot) => state.Rebase(members: members, snapshot: snapshot));
 
     /// <summary>
     ///     The first <c>limit</c> keys of the upstream, which are the highest keys of
@@ -425,7 +429,8 @@ internal static class CollectionViewUtility
             processNewCriteria: static (_, createResultFromRebuild, _, _, _, _, _) => createResultFromRebuild(),
             process: static (bounds, keys, change) => ProcessSlice(bounds: bounds, state: keys, change: change),
             // A change of the order above a window changes the keys in the window.
-            reorder: null);
+            reorder: null,
+            rebase: null);
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -433,7 +438,8 @@ internal static class CollectionViewUtility
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
-        Reorder<TKey, TIdentity, TState>? reorder)
+        Reorder<TKey, TIdentity, TState>? reorder,
+        Rebase<TKey, TIdentity, TState>? rebase)
         where TKey : notnull
         where TIdentity : notnull =>
         TransactionInternal.Apply(
@@ -445,14 +451,16 @@ internal static class CollectionViewUtility
                     rebuild: state.Rebuild,
                     processNewCriteria: state.ProcessNewCriteria,
                     process: state.Process,
-                    reorder: state.Reorder),
+                    reorder: state.Reorder,
+                    rebase: state.Rebase),
             state: (
                 Upstream: upstream,
                 CriteriaCell: criteriaCell,
                 Rebuild: rebuild,
                 ProcessNewCriteria: processNewCriteria,
                 Process: process,
-                Reorder: reorder));
+                Reorder: reorder,
+                Rebase: rebase));
 
     private static ReactiveCollection<TKey, TIdentity, TState> BuildStage<TKey, TIdentity, TState, TCriteria>(
         TransactionInternal trans,
@@ -461,7 +469,8 @@ internal static class CollectionViewUtility
         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
         Process<TCriteria, TKey, TIdentity, TState> process,
-        Reorder<TKey, TIdentity, TState>? reorder)
+        Reorder<TKey, TIdentity, TState>? reorder,
+        Rebase<TKey, TIdentity, TState>? rebase)
         where TKey : notnull
         where TIdentity : notnull
     {
@@ -475,7 +484,8 @@ internal static class CollectionViewUtility
                     Rebuild: rebuild,
                     ProcessNewCriteria: processNewCriteria,
                     Process: process,
-                    Reorder: reorder),
+                    Reorder: reorder,
+                    Rebase: rebase),
                 f: static (stateLoopCell, state) =>
                 {
                     (ReactiveCollection<TKey, TIdentity, TState> upstream,
@@ -483,7 +493,8 @@ internal static class CollectionViewUtility
                         Rebuild<TCriteria, TKey, TIdentity, TState> rebuild,
                         ProcessNewCriteria<TCriteria, TKey, TIdentity, TState> processNewCriteria,
                         Process<TCriteria, TKey, TIdentity, TState> process,
-                        Reorder<TKey, TIdentity, TState>? reorder) = state;
+                        Reorder<TKey, TIdentity, TState>? reorder,
+                        Rebase<TKey, TIdentity, TState>? rebase) = state;
 
                     // This is the store, and not the view of the store in the stage above. A read of
                     // upstream.SnapshotCell here makes the lazy scoped cell of each stage in the chain,
@@ -543,7 +554,7 @@ internal static class CollectionViewUtility
                                         onSome: change =>
                                             !hasCriteriaChange && change.ReordersOnly && reorder is not null
                                                 ? CreateReorder(reorder(state: state, change: change))
-                                                : Rebuild(),
+                                                : RebaseOrRebuild(change),
                                         onNone: Rebuild);
                                 }
 
@@ -592,6 +603,17 @@ internal static class CollectionViewUtility
 
                                 StageResult<TKey, TIdentity, TState> CreateReorder(OrderedKeys<TKey, TIdentity, TState> keys) =>
                                     CreateReset(keys: keys, reordersOnly: true);
+
+                                // A reset from above, with no criteria of this stage, in a transaction
+                                // that edited no item. Each key that stays has its value from before.
+                                StageResult<TKey, TIdentity, TState> RebaseOrRebuild(
+                                    CollectionViewChange<TKey, TIdentity, TState> change) =>
+                                    !hasCriteriaChange
+                                    && rebase is not null
+                                    && EditsNoItem(before: snapshotBefore, after: change.After)
+                                    && rebase(state: state, members: change.Keys, snapshot: snapshot) is { } rebased
+                                        ? CreateReset(keys: rebased, reordersOnly: false)
+                                        : Rebuild();
 
                                 StageResult<TKey, TIdentity, TState> Rebuild() =>
                                     CreateReset(
@@ -784,6 +806,35 @@ internal static class CollectionViewUtility
         where TIdentity : notnull;
 
     /// <summary>
+    ///     The keys of a stage after a reset from the stage above, in a transaction
+    ///     that edited no item, or null for a new build.
+    /// </summary>
+    /// <param name="state">The current content of the stage.</param>
+    /// <param name="members">The keys of the stage above after the reset.</param>
+    /// <param name="snapshot">The store after the transaction.</param>
+    private delegate OrderedKeys<TKey, TIdentity, TState>? Rebase<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        OrderedKeys<TKey, TIdentity, TState> members,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull;
+
+    /// <summary>True when a transaction edited no item of the store.</summary>
+    /// <remarks>
+    ///     The collection makes a new identity map at a structural edit and a new
+    ///     state map at each edit of a state. It keeps each map when an edit does not
+    ///     change it. Thus, the same two maps before and after mean the same items
+    ///     with the same states.
+    /// </remarks>
+    private static bool EditsNoItem<TKey, TIdentity, TState>(
+        CollectionSnapshot<TKey, TIdentity, TState> before,
+        CollectionSnapshot<TKey, TIdentity, TState> after)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        ReferenceEquals(objA: before.IdentitiesImpl, objB: after.IdentitiesImpl)
+        && ReferenceEquals(objA: before.StatesImpl, objB: after.StatesImpl);
+
+    /// <summary>
     ///     The keys of a stage after the stage above it changed its order and nothing
     ///     else changed. This applies to a stage that can answer with no new build.
     /// </summary>
@@ -910,12 +961,9 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        // This comes from the order of the upstream, thus this stage sorts as its upstream sorts
-        // and does not know that order.
-        FileAll(
-            order: upstreamKeys.Order,
-            keys: upstreamKeys.Where(key => Passes(key: key, predicate: predicate, snapshot: snapshot)),
-            snapshot: snapshot);
+        // The set of the upstream gives the keys in its order, thus this stage sorts as its upstream
+        // sorts and does not know that order. See OrderedKeys.Keep.
+        upstreamKeys.Keep(keeps: key => Passes(key: key, predicate: predicate, snapshot: snapshot), snapshot: snapshot);
 
     private static OrderedKeys<TKey, TIdentity, TState> RebuildFilterByIdentity<TKey, TIdentity, TState>(
         Func<TIdentity, bool> predicate,
@@ -923,9 +971,8 @@ internal static class CollectionViewUtility
         CollectionSnapshot<TKey, TIdentity, TState> snapshot)
         where TKey : notnull
         where TIdentity : notnull =>
-        FileAll(
-            order: upstreamKeys.Order,
-            keys: upstreamKeys.Where(key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot)),
+        upstreamKeys.Keep(
+            keeps: key => PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot),
             snapshot: snapshot);
 
     /// <summary>The members of a filter, in the new order of its upstream.</summary>
@@ -957,63 +1004,30 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
-        int numberOfOperations = 0;
+        List<TKey>? changedKeys = null;
 
-        OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = [];
-        bool movesKeys = false;
-        bool changesMembership = false;
-
+        // This pass edits nothing. A change over the limit builds the stage again, and each
+        // edit before that build is work with no result.
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - A query allocates an iterator
+        // and a closure at each change of criteria, and it calls a delegate for each key.
         foreach (TKey key in upstreamKeys)
         {
-            bool passes = Passes(key: key, predicate: predicate, snapshot: snapshot);
-            int index = keys.IndexOfInternal(key);
-
-            if (passes)
+            if (Passes(key: key, predicate: predicate, snapshot: snapshot) == state.Contains(key))
             {
-                if (index < 0)
-                {
-                    keys = keys.Add(key: key, snapshot: snapshot);
-
-                    int newIndex = keys.IndexOfInternal(key);
-
-                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
-                    movesKeys = true;
-                    changesMembership = true;
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                continue;
             }
-            else
+
+            changedKeys ??= [];
+
+            if (changedKeys.Count == maxNumberOfOperations)
             {
-                if (index >= 0)
-                {
-                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
-                    movesKeys = true;
-                    changesMembership = true;
-                    keys = keys.Remove(key);
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                return createResultFromRebuild();
             }
+
+            changedKeys.Add(key);
         }
 
-        return createResultFromStageOutcome(
-            new StageOutcome<TKey, TIdentity, TState>(
-                keys: keys,
-                operations: operations,
-                movesKeys: movesKeys,
-                changesMembership: changesMembership));
+        return createResultFromStageOutcome(ChangeSides(state: state, changedKeys: changedKeys, snapshot: snapshot));
     }
 
     private static StageResult<TKey, TIdentity, TState> ProcessFilterByIdentityNewCriteria<TKey, TIdentity, TState>(
@@ -1028,63 +1042,90 @@ internal static class CollectionViewUtility
         where TIdentity : notnull
     {
         int maxNumberOfOperations = GetMaxNumberOfOperations(state.Count);
-        int numberOfOperations = 0;
+        List<TKey>? changedKeys = null;
 
-        OrderedKeys<TKey, TIdentity, TState> keys = state;
-        List<ViewOperation<TKey>> operations = [];
-        bool movesKeys = false;
-        bool changesMembership = false;
-
+        // This pass edits nothing. A change over the limit builds the stage again, and each
+        // edit before that build is work with no result.
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery - A query allocates an iterator
+        // and a closure at each change of criteria, and it calls a delegate for each key.
         foreach (TKey key in upstreamKeys)
         {
-            bool passes = PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot);
+            if (PassesByIdentity(key: key, predicate: predicate, snapshot: snapshot) == state.Contains(key))
+            {
+                continue;
+            }
+
+            changedKeys ??= [];
+
+            if (changedKeys.Count == maxNumberOfOperations)
+            {
+                return createResultFromRebuild();
+            }
+
+            changedKeys.Add(key);
+        }
+
+        return createResultFromStageOutcome(ChangeSides(state: state, changedKeys: changedKeys, snapshot: snapshot));
+    }
+
+    /// <summary>
+    ///     Moves each of <paramref name="changedKeys" /> to its other side: out of the
+    ///     set when the set holds the key, and into the set when it does not.
+    /// </summary>
+    /// <param name="state">The keys of the filter before the new criteria.</param>
+    /// <param name="changedKeys">
+    ///     The keys whose test with the new criteria disagrees with the set, in the
+    ///     order of the stage above. It is null when no key changed sides.
+    /// </param>
+    /// <param name="snapshot">The collection that gives the sort value of a key that enters.</param>
+    /// <returns>The new keys, with one operation for each key, in the sequence of the edits.</returns>
+    /// <remarks>
+    ///     The position in each operation is the position of the key at that point
+    ///     in the sequence. Thus, a consumer that applies the operations in turn gets
+    ///     the new keys. Each edit writes paths through the trees of the set again.
+    ///     Thus, the caller counts the keys first, and does not call this for a
+    ///     change over its limit.
+    /// </remarks>
+    private static StageOutcome<TKey, TIdentity, TState> ChangeSides<TKey, TIdentity, TState>(
+        OrderedKeys<TKey, TIdentity, TState> state,
+        List<TKey>? changedKeys,
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+        where TKey : notnull
+        where TIdentity : notnull
+    {
+        if (changedKeys is null)
+        {
+            return new StageOutcome<TKey, TIdentity, TState>(
+                keys: state,
+                operations: [],
+                movesKeys: false,
+                changesMembership: false);
+        }
+
+        OrderedKeys<TKey, TIdentity, TState> keys = state;
+        List<ViewOperation<TKey>> operations = new(changedKeys.Count);
+
+        foreach (TKey key in changedKeys)
+        {
             int index = keys.IndexOfInternal(key);
 
-            if (passes)
+            if (index < 0)
             {
-                if (index < 0)
-                {
-                    keys = keys.Add(key: key, snapshot: snapshot);
-
-                    int newIndex = keys.IndexOfInternal(key);
-
-                    operations.Add(new ViewInsert<TKey>(key: key, index: newIndex));
-                    movesKeys = true;
-                    changesMembership = true;
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                keys = keys.Add(key: key, snapshot: snapshot);
+                operations.Add(new ViewInsert<TKey>(key: key, index: keys.IndexOfInternal(key)));
             }
             else
             {
-                if (index >= 0)
-                {
-                    operations.Add(new ViewRemove<TKey>(key: key, index: index));
-                    movesKeys = true;
-                    changesMembership = true;
-                    keys = keys.Remove(key);
-
-                    if (!OperationAddedWasValid(
-                            numberOfOperations: ref numberOfOperations,
-                            maxNumberOfOperations: maxNumberOfOperations))
-                    {
-                        return createResultFromRebuild();
-                    }
-                }
+                operations.Add(new ViewRemove<TKey>(key: key, index: index));
+                keys = keys.Remove(key);
             }
         }
 
-        return createResultFromStageOutcome(
-            new StageOutcome<TKey, TIdentity, TState>(
-                keys: keys,
-                operations: operations,
-                movesKeys: movesKeys,
-                changesMembership: changesMembership));
+        return new StageOutcome<TKey, TIdentity, TState>(
+            keys: keys,
+            operations: operations,
+            movesKeys: true,
+            changesMembership: true);
     }
 
     private static MaybeInternal<StageOutcome<TKey, TIdentity, TState>> ProcessFilter<TKey, TIdentity, TState>(
