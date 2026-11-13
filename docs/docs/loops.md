@@ -289,7 +289,8 @@ change to the collection: `rows[0].Add(x)`, a property set on the variable of a 
 in a variable and also put into a collection, with a literal, an `Add`, or an assignment to an
 element: build a row, add it to the rows, then fill the row, and the rows have what you filled in.
 A dictionary has its keys as well as its values, also when the key arrives through the indexer, as
-in `map[key] = value`.
+in `map[key] = value`. A value put into a collection that a property or a field of one of your
+objects holds, as in `box.Items.Add(x)`, is read back through that property.
 
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
@@ -327,13 +328,18 @@ and `Equals` when two hash codes match. `string.Join`, `string.Format`, and the 
 build text call `ToString`. A collection constructor, a spread, or a LINQ query once something
 enumerates it, enumerates a sequence type of yours. The analyzer has a table of the collection,
 LINQ, span, and text methods of the platform that do this, and it reads the member where the call
-is, or for a query, where the query is enumerated. The span methods matter more than their name
+is, or for a query, where the query is enumerated. The collection part of the table comes from a
+run over the constructors and methods of the platform's collection types. It has the set
+operations, the sorted, immutable, frozen, and concurrent collections, and the older `ArrayList`
+and `Hashtable`. The span methods matter more than their name
 suggests: in C# 14, `Contains`, `IndexOf`, or `SequenceEqual` called on an array is a method of
 `MemoryExtensions`. A collection expression written directly as an argument, as in
 `new SortedSet<T>([a, b])`, is read like a collection in a variable. Arguments given one by one to
 a `params` parameter are separate values: `string.Join(",", query, 1)` writes the query object as
 text and does not enumerate it. A method that gets a comparer calls the comparer and
-not these members, and the analyzer knows that too. A collection built with a comparer of yours,
+not these members, and the analyzer knows that too. A comparer argument written as `null` or
+`default` is no comparer: the method falls back to these members, and they are read. A collection
+built with a comparer of yours,
 such as a `SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`,
 keeps it and calls it from its own methods, and the analyzer reads the comparer at those calls.
 
@@ -391,8 +397,13 @@ It does not see everything, and in a few places it guesses on the careful side:
   that got the object from it. A second variable for the same object, a change made through the
   collection and read through the variable, and an object that a tuple, a pair, or a property of
   another object got from a variable are not followed.
-- A span method whose overloads do not agree on which object gets the call, such as `IndexOfAny`,
-  is read for both objects.
+- For the searches of the collection types beyond those named above, such as `LinkedList<T>` or
+  the immutable collections, the analyzer does not know which object gets the call, and reads both.
+  The same goes for a span method called with a span of values, such as `IndexOfAny(values)`,
+  because the runtimes do not agree there.
+- The table is keyed by the type that declares the method. A call through an interface of the
+  platform, such as `IDictionary<TKey, TValue>.Add` or `ICollection<T>.Contains`, has no row and is
+  not read.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
