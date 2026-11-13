@@ -1335,7 +1335,7 @@ internal sealed class LoopStateEvaluator
     ///     expression. The variable after <c>into</c> is the group of a join, or
     ///     what the clause before it makes.
     /// </summary>
-    private LoopState EvalRangeVariable(ExpressionSyntax expression, IRangeVariableSymbol variable) =>
+    private LoopState EvalRangeVariable(ExpressionSyntax expression, ISymbol variable) =>
         variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
         {
             FromClauseSyntax from =>
@@ -3448,8 +3448,8 @@ internal sealed class LoopStateEvaluator
         && SodaFlowSymbols.IsPlatform(empty.ContainingType);
 
     /// <summary>
-    ///     The calls that a method of the platform makes, for its row, and then
-    ///     for the values of a dictionary when the method compares those also.
+    ///     The calls that a method of the platform makes for its row. A method that
+    ///     also compares the values of a dictionary gets a second step for those.
     /// </summary>
     private Followed? FollowPlatformAndItsValues(
         IMethodSymbol method,
@@ -3501,9 +3501,10 @@ internal sealed class LoopStateEvaluator
     ///     method with no owner, as the array is for <c>Array.IndexOf</c>.
     /// </param>
     /// <param name="forValues">
-    ///     Null for the calls of the row of the method. For the second reading of
-    ///     a member of a dictionary that also compares its values: the receiver of
-    ///     those calls. That reading is for <c>Equals</c> of the values only.
+    ///     Null for the calls of the row of the method. For a member of a
+    ///     dictionary that also compares its values, a second step reads the call
+    ///     again. Then, this is the receiver of those calls, and the step is for
+    ///     <c>Equals</c> of the values only.
     /// </param>
     private Followed? FollowPlatform(
         IMethodSymbol method,
@@ -3516,7 +3517,7 @@ internal sealed class LoopStateEvaluator
         bool firstIsStored,
         PlatformReceiver? forValues)
     {
-        // A callee that gets a sequence enumerates it. The first reading of the call has that.
+        // A callee that gets a sequence enumerates it. The step for the row has that.
         Followed? all =
             forValues != null
                 ? null
@@ -3581,7 +3582,7 @@ internal sealed class LoopStateEvaluator
 
         // A callee that gets a function compares what the function returns, as a sort by a key
         // does. It does not compare the values that it gives to the function.
-        // For the values of a dictionary, a function for the key says nothing: the method
+        // For the values of a dictionary, a function for the key says nothing. The method
         // compares the elements of its source when no function makes the values.
         bool byFunction =
             !PlatformCallers.ComparesWhatAFunctionChooses(method)

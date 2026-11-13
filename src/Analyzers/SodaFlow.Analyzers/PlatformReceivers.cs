@@ -332,14 +332,15 @@ internal static class PlatformReceivers
 
     /// <summary>
     ///     The receiver for the values of a dictionary. An immutable dictionary
-    ///     that gets a key that it has compares the value that it has with the
-    ///     value that the call gives, with <c>Equals</c>. A member that is here
-    ///     makes that call beside the calls of its row for the keys.
+    ///     that gets a key that it has compares two values with <c>Equals</c>.
+    ///     They are the value that it has, and the value that the call gives. A
+    ///     member that is here makes that call beside the calls of its row for the
+    ///     keys.
     /// </summary>
     /// <remarks>
     ///     A run called each member of the immutable dictionaries, of their
-    ///     builders, and of their factories, on .NET Framework 4.8 and on each
-    ///     .NET from 6 to 11. A member of a builder has the name of its dictionary
+    ///     builders, and of their factories. It ran on .NET Framework 4.8 and on
+    ///     each .NET from 6 to 11. A member of a builder has the name of its dictionary
     ///     before the name <c>Builder</c>. A row is for the overloads that get a
     ///     value or a pair: <c>Remove</c> of a key compares no value. A factory
     ///     has no dictionary before the call, and its receiver says which value

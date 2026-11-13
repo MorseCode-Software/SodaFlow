@@ -405,7 +405,7 @@ internal static class PlatformCallers
         }
     }
 
-    private static bool Mentions(ITypeSymbol type, ITypeParameterSymbol parameter) =>
+    private static bool Mentions(ITypeSymbol type, ISymbol parameter) =>
         type switch
         {
             ITypeParameterSymbol named => SymbolEqualityComparer.Default.Equals(x: named, y: parameter),

@@ -644,43 +644,63 @@ internal sealed class PlatformReceiversTests
 #if NET
     // Each member with a row for the values of a dictionary. The dictionary has the first value
     // for a key, and the call gives the second value for the same key.
-    private static readonly Dictionary<(string Type, string Method), Action<Side, Side>> CallsForValues =
+    private static readonly Dictionary<(string Type, string Method), Action<Value, Value>> CallsForValues =
         new()
         {
-            [("ImmutableDictionary", "Add")] = static (stored, given) => _ = ImmutableDictionaryOf(stored).Add(key: 1, value: given),
-            [("ImmutableDictionary", "AddRange")] = static (stored, given) => _ = ImmutableDictionaryOf(stored).AddRange([PairOf(given)]),
-            [("ImmutableDictionary", "Contains")] = static (stored, given) => _ = ImmutableDictionaryOf(stored).Contains(PairOf(given)),
+            [("ImmutableDictionary", "Add")] = static (stored, given) =>
+                _ = ImmutableDictionaryOf(stored).Add(key: 1, value: given),
+            [("ImmutableDictionary", "AddRange")] = static (stored, given) =>
+                _ = ImmutableDictionaryOf(stored).AddRange([PairOf(given)]),
+            [("ImmutableDictionary", "Contains")] = static (stored, given) =>
+                _ = ImmutableDictionaryOf(stored).Contains(PairOf(given)),
             [("ImmutableDictionary", "CreateRange")] = static (stored, given) =>
                 _ = ImmutableDictionary.CreateRange([PairOf(stored), PairOf(given)]),
-            [("ImmutableDictionary", "SetItem")] = static (stored, given) => _ = ImmutableDictionaryOf(stored).SetItem(key: 1, value: given),
-            [("ImmutableDictionary", "SetItems")] = static (stored, given) => _ = ImmutableDictionaryOf(stored).SetItems([PairOf(given)]),
+            [("ImmutableDictionary", "SetItem")] = static (stored, given) =>
+                _ = ImmutableDictionaryOf(stored).SetItem(key: 1, value: given),
+            [("ImmutableDictionary", "SetItems")] = static (stored, given) =>
+                _ = ImmutableDictionaryOf(stored).SetItems([PairOf(given)]),
             [("ImmutableDictionary", "ToImmutableDictionary")] = static (stored, given) =>
                 _ = new[] { PairOf(stored), PairOf(given) }.ToImmutableDictionary(),
-            [("ImmutableDictionary.Builder", "Add")] = static (stored, given) => ImmutableDictionaryBuilderOf(stored).Add(key: 1, value: given),
-            [("ImmutableDictionary.Builder", "AddRange")] = static (stored, given) => ImmutableDictionaryBuilderOf(stored).AddRange([PairOf(given)]),
-            [("ImmutableDictionary.Builder", "Contains")] = static (stored, given) => _ = ImmutableDictionaryBuilderOf(stored).Contains(PairOf(given)),
-            [("ImmutableDictionary.Builder", "Remove")] = static (stored, given) => _ = ImmutableDictionaryBuilderOf(stored).Remove(PairOf(given)),
-            [("ImmutableDictionary.Builder", "set_Item")] = static (stored, given) => ImmutableDictionaryBuilderOf(stored)[1] = given,
-            [("ImmutableSortedDictionary", "Add")] = static (stored, given) => _ = ImmutableSortedDictionaryOf(stored).Add(key: 1, value: given),
-            [("ImmutableSortedDictionary", "AddRange")] = static (stored, given) => _ = ImmutableSortedDictionaryOf(stored).AddRange([PairOf(given)]),
-            [("ImmutableSortedDictionary", "Contains")] = static (stored, given) => _ = ImmutableSortedDictionaryOf(stored).Contains(PairOf(given)),
+            [("ImmutableDictionary.Builder", "Add")] = static (stored, given) =>
+                ImmutableDictionaryBuilderOf(stored).Add(key: 1, value: given),
+            [("ImmutableDictionary.Builder", "AddRange")] = static (stored, given) =>
+                ImmutableDictionaryBuilderOf(stored).AddRange([PairOf(given)]),
+            [("ImmutableDictionary.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableDictionaryBuilderOf(stored).Contains(PairOf(given)),
+            [("ImmutableDictionary.Builder", "Remove")] = static (stored, given) =>
+                _ = ImmutableDictionaryBuilderOf(stored).Remove(PairOf(given)),
+            [("ImmutableDictionary.Builder", "set_Item")] = static (stored, given) =>
+                ImmutableDictionaryBuilderOf(stored)[1] = given,
+            [("ImmutableSortedDictionary", "Add")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).Add(key: 1, value: given),
+            [("ImmutableSortedDictionary", "AddRange")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).AddRange([PairOf(given)]),
+            [("ImmutableSortedDictionary", "Contains")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).Contains(PairOf(given)),
             [("ImmutableSortedDictionary", "CreateRange")] = static (stored, given) =>
                 _ = ImmutableSortedDictionary.CreateRange([PairOf(stored), PairOf(given)]),
-            [("ImmutableSortedDictionary", "SetItem")] = static (stored, given) => _ = ImmutableSortedDictionaryOf(stored).SetItem(key: 1, value: given),
-            [("ImmutableSortedDictionary", "SetItems")] = static (stored, given) => _ = ImmutableSortedDictionaryOf(stored).SetItems([PairOf(given)]),
+            [("ImmutableSortedDictionary", "SetItem")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).SetItem(key: 1, value: given),
+            [("ImmutableSortedDictionary", "SetItems")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).SetItems([PairOf(given)]),
             [("ImmutableSortedDictionary", "ToImmutableSortedDictionary")] = static (stored, given) =>
                 _ = new[] { PairOf(stored), PairOf(given) }.ToImmutableSortedDictionary(),
-            [("ImmutableSortedDictionary.Builder", "Add")] = static (stored, given) => ImmutableSortedDictionaryBuilderOf(stored).Add(key: 1, value: given),
-            [("ImmutableSortedDictionary.Builder", "AddRange")] = static (stored, given) => ImmutableSortedDictionaryBuilderOf(stored).AddRange([PairOf(given)]),
-            [("ImmutableSortedDictionary.Builder", "Contains")] = static (stored, given) => _ = ImmutableSortedDictionaryBuilderOf(stored).Contains(PairOf(given)),
-            [("ImmutableSortedDictionary.Builder", "Remove")] = static (stored, given) => _ = ImmutableSortedDictionaryBuilderOf(stored).Remove(PairOf(given)),
-            [("ImmutableSortedDictionary.Builder", "set_Item")] = static (stored, given) => ImmutableSortedDictionaryBuilderOf(stored)[1] = given
+            [("ImmutableSortedDictionary.Builder", "Add")] = static (stored, given) =>
+                ImmutableSortedDictionaryBuilderOf(stored).Add(key: 1, value: given),
+            [("ImmutableSortedDictionary.Builder", "AddRange")] = static (stored, given) =>
+                ImmutableSortedDictionaryBuilderOf(stored).AddRange([PairOf(given)]),
+            [("ImmutableSortedDictionary.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryBuilderOf(stored).Contains(PairOf(given)),
+            [("ImmutableSortedDictionary.Builder", "Remove")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryBuilderOf(stored).Remove(PairOf(given)),
+            [("ImmutableSortedDictionary.Builder", "set_Item")] = static (stored, given) =>
+                ImmutableSortedDictionaryBuilderOf(stored)[1] = given
         };
 
     /// <summary>
     ///     Each row of <see cref="PlatformReceivers.ForValues" /> gives each call
-    ///     as it says: the value that the dictionary has gets the call of
-    ///     <c>Equals</c>, with the value that the call gives as its argument. A
+    ///     as it says. The value that the dictionary has gets the call of
+    ///     <c>Equals</c>, and the value that the call gives is its argument. A
     ///     member that also compares the value that it has with a value of its own
     ///     side has the receiver for that.
     /// </summary>
@@ -693,7 +713,7 @@ internal sealed class PlatformReceiversTests
 
     private static IEnumerable<string> WrongForTheValues((string Type, string Method) key, PlatformReceiver receiver)
     {
-        if (!CallsForValues.TryGetValue(key: key, value: out Action<Side, Side>? call))
+        if (!CallsForValues.TryGetValue(key: key, value: out Action<Value, Value>? call))
         {
             yield return $"{key.Type}.{key.Method}: the test has no call for the row";
 
@@ -701,20 +721,16 @@ internal sealed class PlatformReceiversTests
         }
 
         List<string> calls = [];
-
-        try
-        {
-            call(arg1: new Side(side: Stored, rank: 1, calls: calls), arg2: new Side(side: Given, rank: 1, calls: calls));
-        }
-        catch (ArgumentException)
-        {
-            // The two values are not equal, and the member does not take a second value for a key.
-        }
+        call(arg1: new Value(side: Stored, calls: calls), arg2: new Value(side: Given, calls: calls));
 
         string[] permitted =
-            receiver == PlatformReceiver.StoredAlsoAmong
-                ? [$"{Stored}<-{Given}", $"{Stored}<-{Stored}"]
-                : [$"{Stored}<-{Given}"];
+            receiver switch
+            {
+                PlatformReceiver.Stored => [$"{Stored}<-{Given}"],
+                PlatformReceiver.StoredAlsoAmong => [$"{Stored}<-{Given}", $"{Stored}<-{Stored}"],
+                PlatformReceiver.Given => [$"{Given}<-{Stored}"],
+                _ => []
+            };
 
         if (calls.Count == 0 || calls.Any(made => !permitted.Contains(made)))
         {
@@ -723,19 +739,39 @@ internal sealed class PlatformReceiversTests
         }
     }
 
-    private static KeyValuePair<int, Side> PairOf(Side value) => new(key: 1, value: value);
+    private static KeyValuePair<int, Value> PairOf(Value value) => new(key: 1, value: value);
 
-    private static ImmutableDictionary<int, Side> ImmutableDictionaryOf(Side stored) =>
-        ImmutableDictionary<int, Side>.Empty.Add(key: 1, value: stored);
+    private static ImmutableDictionary<int, Value> ImmutableDictionaryOf(Value stored) =>
+        ImmutableDictionary<int, Value>.Empty.Add(key: 1, value: stored);
 
-    private static ImmutableSortedDictionary<int, Side> ImmutableSortedDictionaryOf(Side stored) =>
-        ImmutableSortedDictionary<int, Side>.Empty.Add(key: 1, value: stored);
+    private static ImmutableSortedDictionary<int, Value> ImmutableSortedDictionaryOf(Value stored) =>
+        ImmutableSortedDictionary<int, Value>.Empty.Add(key: 1, value: stored);
 
-    private static ImmutableDictionary<int, Side>.Builder ImmutableDictionaryBuilderOf(Side stored) =>
+    private static ImmutableDictionary<int, Value>.Builder ImmutableDictionaryBuilderOf(Value stored) =>
         ImmutableDictionaryOf(stored).ToBuilder();
 
-    private static ImmutableSortedDictionary<int, Side>.Builder ImmutableSortedDictionaryBuilderOf(Side stored) =>
+    private static ImmutableSortedDictionary<int, Value>.Builder ImmutableSortedDictionaryBuilderOf(Value stored) =>
         ImmutableSortedDictionaryOf(stored).ToBuilder();
+
+    // A value of a dictionary that records each call of its Equals: its own side, and the side of
+    // its argument. Two of them are always equal. Thus, a member that compares two values for one
+    // key makes each of its calls, and refuses no value.
+    private sealed class Value(in string side, in List<string> calls) : IEquatable<Value>
+    {
+        private readonly string side = side;
+        private readonly List<string> calls = calls;
+
+        public bool Equals(Value? other)
+        {
+            this.calls.Add($"{this.side}<-{other?.side}");
+
+            return true;
+        }
+
+        public override bool Equals(object? obj) => obj is Value other && this.Equals(other);
+
+        public override int GetHashCode() => 1;
+    }
 #endif
 
     // One line for each type of argument where a call is not one that the receiver permits. One

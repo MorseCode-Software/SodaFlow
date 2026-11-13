@@ -1115,7 +1115,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             });
 
     // True for the first element of an initializer of a collection that is empty before it.
-    private bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, ExpressionSyntax made) =>
+    private bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, SyntaxNode made) =>
         initializer is InitializerExpressionSyntax { Expressions.Count: > 0 } all
         && all.Expressions[0] == expression
         && this.IsNew(made);
@@ -1124,7 +1124,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // makes such a collection. So does a constructor of the platform whose parameters are only
     // comparers and numbers, as a capacity is. A constructor that gets a sequence can put objects
     // into the collection.
-    private bool IsNew(ExpressionSyntax made) =>
+    private bool IsNew(SyntaxNode made) =>
         made
             is ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
             or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 }

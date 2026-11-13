@@ -8443,7 +8443,7 @@ public static class Shapes
     public static Cell<int> InitializerOnANamedSetThatGotOnlyAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new HashSet<SameOwn>(EqualityComparer<SameOwn>.Default) { new SameOwn(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
 
-    // S1795. The second element of such an initializer is compared with the first one, which is pending.
+    // S1795. The set compares the second element of such an initializer with the first one, which is pending.
     public static Cell<int> SecondElementOfAnInitializerOnASetThatGotOnlyAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(EqualityComparer<SameOwn>.Default) { new(l.Map(v => v)), new(Plain) }; Kept.Add(made); return S.Hold(0); });
 
@@ -8635,7 +8635,7 @@ public static class Shapes
     public static Cell<int> ImmutableSortedDictionaryAddToTheEmptyDictionary() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableSortedDictionary<string, AlikePeer>.Empty.Add("a", new AlikePeer(l.Map(v => v)))); return S.Hold(0); });
 
-    // S1843. ToImmutableDictionary with a comparer for the keys still compares the values with Equals.
+    // S1843. ToImmutableDictionary with a comparer for the keys compares the values with Equals, as with no comparer.
     public static Cell<int> ToImmutableDictionaryWithAKeyComparerWhereAKeyRepeats() =>
         Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, AlikeOwn>[] pairs = [new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(l.Map(v => v))), new KeyValuePair<string, AlikeOwn>("a", new AlikeOwn(Plain))]; Kept.Add(pairs.ToImmutableDictionary(StringComparer.Ordinal)); return S.Hold(0); });
 
@@ -8654,6 +8654,22 @@ public static class Shapes
     // S1847. Remove of a key of a builder compares no value.
     public static Cell<int> ImmutableDictionaryBuilderRemoveOfAKeyComparesNoValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn>.Builder map = ImmutableDictionary.CreateBuilder<string, AlikeOwn>(); map.Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Remove("a")); return S.Hold(0); });
+
+    // S1848. A set of this code whose constructor gets a number and fills the set. The set is not empty before the initializer, and its element reads the pending object that the initializer gives.
+    public static Cell<int> InitializerOnASetOfThisCodeThatItsConstructorFills() =>
+        Cell.Loop<int>().WithoutCaptures(l => { FilledPeers made = new(1) { new(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1849. The range variable is one element of its source, also through the type object.
+    public static Cell<int> RangeVariableThroughObjectIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> rows = [new(l.Map(v => v))]; return S.Hold((from row in rows let o = (object)row select o.ToString()).ToList().Count); });
+
+    // S1850. The variable of a join into clause is a group, and not one element. ToString of a group calls no member of an element.
+    public static Cell<int> GroupOfAJoinIntoClauseThroughObjectIsNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> rows = [new(l.Map(v => v))]; return S.Hold((from i in new[] { 0 } join row in rows on i equals 0 into found let o = (object)found select o.ToString()).ToList().Count); });
+
+    // S1851. The result of a query expression is a sequence, and not one element.
+    public static Cell<int> ResultOfAQueryExpressionThroughObjectIsNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object made = from i in new[] { 0 } select new Titled(l.Map(v => v)); Kept.Add(made.ToString()!); return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -10173,6 +10189,17 @@ public static class Shapes
         public bool Equals(AlikeOwn? x, AlikeOwn? y) => true;
 
         public int GetHashCode(AlikeOwn obj) => 1;
+    }
+
+    public sealed class FilledPeers : HashSet<SamePeer>
+    {
+        public FilledPeers(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                this.Add(new SamePeer(Plain));
+            }
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

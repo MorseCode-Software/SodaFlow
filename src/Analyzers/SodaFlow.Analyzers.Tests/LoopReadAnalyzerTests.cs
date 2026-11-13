@@ -1303,7 +1303,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ImmutableDictionaryContainsOfAPairWhereTheValueThatItHasIsPending"] = ["SF1005"],
             ["ToImmutableDictionaryWithAKeyComparerWhereAKeyRepeats"] = ["SF1005"],
             ["ToImmutableDictionaryWithAKeyFunctionWhereAKeyRepeats"] = ["SF1005"],
-            ["QueryExpressionWithAContinuationSelectsAPendingCell"] = ["SF1001"]
+            ["QueryExpressionWithAContinuationSelectsAPendingCell"] = ["SF1001"],
+            ["InitializerOnASetOfThisCodeThatItsConstructorFills"] = ["SF1004"],
+            ["RangeVariableThroughObjectIsAnElement"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
