@@ -6411,6 +6411,54 @@ public static class Shapes
     public static Cell<int> JoinOfOneQueryAsAnObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(string.Join(",", (object)Numbers.Select(x => x + l.Sample()))); return S.Hold(0); });
 
+    // S1290. A comparer argument that is null is no comparer. Sort then uses the default one, which calls CompareTo.
+    public static Cell<int> ListSortWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; all.Sort((IComparer<Ranked>?)null); return S.Hold(all.Count); });
+
+    // S1291. Array.Sort with a null comparer.
+    public static Cell<int> ArraySortWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Array.Sort(all, (IComparer<Ranked>?)null); return S.Hold(all.Length); });
+
+    // S1292. Array.Sort with a default expression for the comparer.
+    public static Cell<int> ArraySortWithADefaultComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Array.Sort(all, default(IComparer<Ranked>)); return S.Hold(all.Length); });
+
+    // S1293. Array.Sort with the default literal for the comparer.
+    public static Cell<int> ArraySortWithTheDefaultLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; Array.Sort<Ranked>(array: all, comparer: default); return S.Hold(all.Length); });
+
+    // S1294. The constructor of a SortedSet with a null comparer.
+    public static Cell<int> SortedSetWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; return S.Hold(new SortedSet<Ranked>(all, null).Count); });
+
+    // S1295. The constructor of a HashSet with a null comparer.
+    public static Cell<int> HashSetWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] all = [new(l.Map(v => v)), new(Plain)]; return S.Hold(new HashSet<Alike>(all, null).Count); });
+
+    // S1296. OrderBy with a null comparer for its keys.
+    public static Cell<int> OrderByWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; return S.Hold(all.OrderBy(x => x, null).ToArray().Length); });
+
+    // S1297. Contains of LINQ with a null comparer.
+    public static Cell<int> ContainsWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<AlikeOwn> all = [new(l.Map(v => v))]; Kept.Add(all.Contains(new AlikeOwn(Plain), null)); return S.Hold(0); });
+
+    // S1298. Contains of a span with a null comparer. The element gets the call.
+    public static Cell<int> SpanContainsWithANullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(l.Map(v => v))]; Kept.Add(all.AsSpan().Contains(new AlikeOwn(Plain), null)); return S.Hold(0); });
+
+    // S1299. The same call, where the value is pending, and the element gets the call.
+    public static Cell<int> SpanContainsWithANullComparerWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] all = [new(Plain)]; Kept.Add(all.AsSpan().Contains(new AlikeOwn(l.Map(v => v)), null)); return S.Hold(0); });
+
+    // S1300. A null comparer with the operator that says not null.
+    public static Cell<int> ListSortWithANullComparerThatSaysNotNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; all.Sort((IComparer<Ranked>)null!); return S.Hold(all.Count); });
+
+    // S1301. A comparer of this compilation that reads nothing. Sort calls it, and not CompareTo.
+    public static Cell<int> ListSortWithAComparerThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; all.Sort(Comparer<Ranked>.Create((x, y) => 0)); return S.Hold(all.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

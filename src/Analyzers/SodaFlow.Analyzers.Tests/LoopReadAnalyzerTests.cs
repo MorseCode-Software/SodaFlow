@@ -874,7 +874,17 @@ internal sealed class LoopReadAnalyzerTests
             ["ChangeThroughALocalThatAPriorityQueueGot"] = ["SF1001"],
             ["ChangeThroughALocalThatAnArrayCreationWithATypeHas"] = ["SF1001"],
             ["ChangeThroughALocalThatAnObjectCreationWithATypeHas"] = ["SF1001"],
-            ["SpanSequenceCompareToOfAPlainComparableWhereTheElementIsPending"] = ["SF1005"]
+            ["SpanSequenceCompareToOfAPlainComparableWhereTheElementIsPending"] = ["SF1005"],
+            ["ListSortWithANullComparer"] = ["SF1004", "SF1005"],
+            ["ArraySortWithANullComparer"] = ["SF1004", "SF1005"],
+            ["ArraySortWithADefaultComparer"] = ["SF1004", "SF1005"],
+            ["ArraySortWithTheDefaultLiteral"] = ["SF1004", "SF1005"],
+            ["SortedSetWithANullComparer"] = ["SF1004", "SF1005"],
+            ["HashSetWithANullComparer"] = ["SF1004", "SF1005"],
+            ["OrderByWithANullComparer"] = ["SF1004", "SF1005"],
+            ["ContainsWithANullComparer"] = ["SF1005"],
+            ["SpanContainsWithANullComparer"] = ["SF1005"],
+            ["ListSortWithANullComparerThatSaysNotNull"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

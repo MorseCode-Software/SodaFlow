@@ -2891,7 +2891,7 @@ internal sealed class LoopStateEvaluator
 
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
         // GetHashCode of an object.
-        if (operands.Any(static operand => IsComparison(operand.Parameter)))
+        if (operands.Any(static operand => IsComparison(operand.Parameter) && !IsNoValue(operand.Written)))
         {
             callbacks &= PlatformCallbacks.Text;
         }
@@ -3201,6 +3201,16 @@ internal sealed class LoopStateEvaluator
     }
 
     // A comparer, or a delegate of the type Comparison, which a sort can get.
+    // An argument that is null or default. A callee that gets it for a comparer has no comparer,
+    // and uses the default one, which calls the members of the objects.
+    private static bool IsNoValue(ExpressionSyntax written) =>
+        Unwrapped(written)
+            is LiteralExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.NullLiteralExpression or (int)SyntaxKind.DefaultLiteralExpression
+            }
+            or DefaultExpressionSyntax;
+
     private static bool IsComparison(ITypeSymbol? type) =>
         SodaFlowSymbols.IsComparer(type)
         || type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, Name: "Comparison" }
