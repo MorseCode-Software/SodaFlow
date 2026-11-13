@@ -54,8 +54,13 @@ jobs:
       # this describes a run's outcome and must not be able to change it. A Build that failed before
       # writing any results should be read as a failed Build, not as a failed report of one.
       - name: Report tests
+        id: report
+        # This step can fail with every test passed. The comment below the step says why.
+        # continue-on-error lets the job go on to the second attempt.
+        continue-on-error: true
         uses: dorny/test-reporter@v3
-        with:
+        # The anchor gives these inputs to the second attempt, so that they are written one time.
+        with: &report-inputs
           artifact: test-results
           name: Tests
           path: '**/*.trx'
@@ -71,3 +76,32 @@ jobs:
           max-annotations: 50
           fail-on-error: false
           fail-on-empty: false
+
+      # The action creates its check run, and then updates it with the result. Since 2026-11-09
+      # that update is sometimes answered Not Found, a moment after the create succeeded. The action
+      # sends the update one time, so the step failed with no test failed, and the check run that it
+      # had created stayed in progress for good.
+      #
+      # dorny/test-reporter#866 has the measurements. A plain create and update with the token of a
+      # job gets the same answer, so the fault is in the API. A second attempt 2.4 seconds later can
+      # fail too, and 10 seconds later it worked every time. So this waits 10 seconds and runs the
+      # action once more.
+      #
+      # It runs only when the first attempt failed and has no conclusion. The action sets that
+      # output after its update succeeds, so an empty one means that the update, or a step before
+      # it, failed.
+      #
+      # The second attempt creates a new check run of the same name. GitHub shows the newest check
+      # run of a name on a commit, so the one that stays in progress does not show. Measured on
+      # 2026-11-12 in MorseCode.Toolkit, which has this file too: a rerun of two failed runs did
+      # exactly that, on main and on a pull request.
+      #
+      # Remove these two steps when the action retries its own update.
+      - name: Wait before the second attempt
+        if: steps.report.outcome == 'failure' && steps.report.outputs.conclusion == ''
+        run: sleep 10
+
+      - name: Report tests, second attempt
+        if: steps.report.outcome == 'failure' && steps.report.outputs.conclusion == ''
+        uses: dorny/test-reporter@v3
+        with: *report-inputs
