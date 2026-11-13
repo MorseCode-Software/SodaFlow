@@ -1115,17 +1115,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             });
 
     // True for the first element of an initializer of a collection that is empty before it.
-    private static bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, ExpressionSyntax made) =>
+    private bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, ExpressionSyntax made) =>
         initializer is InitializerExpressionSyntax { Expressions.Count: > 0 } all
         && all.Expressions[0] == expression
-        && IsNew(made);
+        && this.IsNew(made);
 
-    // True for a collection whose constructor got no argument. It is empty before its initializer.
-    // A constructor with an argument can put objects into the collection.
-    private static bool IsNew(ExpressionSyntax made) =>
+    // True for a collection that is empty before its initializer. A constructor with no argument
+    // makes such a collection. So does a constructor of the platform whose parameters are only
+    // comparers and numbers, as a capacity is. A constructor that gets a sequence can put objects
+    // into the collection.
+    private bool IsNew(ExpressionSyntax made) =>
         made
             is ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
-            or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 };
+            or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 }
+        || (this.region.SymbolOf(made) is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+            && SodaFlowSymbols.IsPlatform(constructor.ContainingType)
+            && constructor.Parameters.All(static parameter =>
+                SodaFlowSymbols.IsComparer(parameter.Type) || parameter.Type.SpecialType == SpecialType.System_Int32));
 
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
@@ -1173,8 +1179,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         member: indexer,
                         collection: made,
                         values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
-                        alone: IsTheFirstElement(initializer: initializer, expression: expression, made: made),
-                        others: IsNew(made) ? [] : [made],
+                        alone: this.IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                        others: this.IsNew(made) ? [] : [made],
                         before: Before(initializer: initializer, expression: expression)));
             }
 
@@ -1217,8 +1223,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     member: add,
                     collection: made,
                     values: values,
-                    alone: IsTheFirstElement(initializer: initializer, expression: expression, made: made),
-                    others: IsNew(made) ? [] : [made],
+                    alone: this.IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                    others: this.IsNew(made) ? [] : [made],
                     before: Before(initializer: initializer, expression: expression)));
 
             return;

@@ -8423,6 +8423,38 @@ public static class Shapes
     public static Cell<int> KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeAPlainSlot(); Dictionary<Cell<int>, SettableSlot> map = new() { [l.Map(v => v)] = slot }; foreach (KeyValuePair<Cell<int>, SettableSlot> pair in map) { Kept.Add(pair.Key.Sample()); } return S.Hold(0); });
 
+    // S1790. An initializer on a set whose constructor got only a comparer. The set is empty before the initializer, and its first element compares nothing.
+    public static Cell<int> InitializerOnASetThatGotOnlyAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(EqualityComparer<SameOwn>.Default) { new(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1791. The same for a constructor that got only a capacity.
+    public static Cell<int> InitializerOnASetThatGotOnlyACapacity() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(4) { new(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1792. The same for a dictionary whose constructor got a capacity and a comparer.
+    public static Cell<int> InitializerOnADictionaryThatGotACapacityAndAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> made = new(4, EqualityComparer<SameOwn>.Default) { [new(l.Map(v => v))] = 1 }; Kept.Add(made); return S.Hold(0); });
+
+    // S1793. The same for a SortedSet whose constructor got only a comparer.
+    public static Cell<int> InitializerOnASortedSetThatGotOnlyAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(Comparer<RankedOwn>.Default) { new(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1794. The same for a creation that names its type.
+    public static Cell<int> InitializerOnANamedSetThatGotOnlyAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new HashSet<SameOwn>(EqualityComparer<SameOwn>.Default) { new SameOwn(l.Map(v => v)) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1795. The second element of such an initializer is compared with the first one, which is pending.
+    public static Cell<int> SecondElementOfAnInitializerOnASetThatGotOnlyAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(EqualityComparer<SameOwn>.Default) { new(l.Map(v => v)), new(Plain) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1796. The same for a constructor that got only a capacity.
+    public static Cell<int> SecondElementOfAnInitializerOnASetThatGotOnlyACapacity() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(4) { new(l.Map(v => v)), new(Plain) }; Kept.Add(made); return S.Hold(0); });
+
+    // S1797. A constructor that got a sequence and a comparer. The set has the pending object of the sequence before the initializer.
+    public static Cell<int> InitializerOnASetThatGotASequenceAndAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(new[] { new SameOwn(l.Map(v => v)) }, EqualityComparer<SameOwn>.Default) { new(Plain) }; Kept.Add(made); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

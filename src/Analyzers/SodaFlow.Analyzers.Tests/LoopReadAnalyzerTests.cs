@@ -1264,7 +1264,10 @@ internal sealed class LoopReadAnalyzerTests
             ["IsSubsetOfAnArgumentThatGotItsComparerByName"] = ["SF1005"],
             ["KeyOfAPairOfADictionaryThatHoldsAnObjectOfTheStore"] = ["SF1001"],
             ["ObjectOfALocalFunctionInALoopThatChangesTheObjectBeforeIt"] = ["SF1001"],
-            ["KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper"] = ["SF1001"]
+            ["KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper"] = ["SF1001"],
+            ["SecondElementOfAnInitializerOnASetThatGotOnlyAComparer"] = ["SF1005"],
+            ["SecondElementOfAnInitializerOnASetThatGotOnlyACapacity"] = ["SF1005"],
+            ["InitializerOnASetThatGotASequenceAndAComparer"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
