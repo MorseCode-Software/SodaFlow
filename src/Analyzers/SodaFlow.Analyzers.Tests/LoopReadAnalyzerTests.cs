@@ -1099,7 +1099,15 @@ internal sealed class LoopReadAnalyzerTests
             ["SpanReplaceOfAnEquatableWhereTheOldValueIsPending"] = ["SF1005"],
             ["ListInAnElementOfATupleGetsAPendingCell"] = ["SF1001"],
             ["ListInItem1OfATupleGetsAPendingCell"] = ["SF1001"],
-            ["ListInTheValueOfAPairGetsAPendingCell"] = ["SF1001"]
+            ["ListInTheValueOfAPairGetsAPendingCell"] = ["SF1001"],
+            ["ListSortWithANullComparerInALocal"] = ["SF1004", "SF1005"],
+            ["ArraySortWithADefaultComparerInALocal"] = ["SF1004", "SF1005"],
+            ["ListSortWithANullComparerAssignedLater"] = ["SF1004", "SF1005"],
+            ["ListSortWithANullComparerInALocalThatSaysNotNull"] = ["SF1004", "SF1005"],
+            ["HashSetWithANullComparerInALocal"] = ["SF1004", "SF1005"],
+            ["OrderByWithANullComparerInALocal"] = ["SF1004", "SF1005"],
+            ["ListSortWithAConstantNullComparer"] = ["SF1004", "SF1005"],
+            ["SortedSetWithANullComparerInALocalThenAdd"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

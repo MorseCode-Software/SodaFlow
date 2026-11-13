@@ -7440,6 +7440,58 @@ public static class Shapes
     public static Cell<int> ListInTheValueOfAPairGetsAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, List<Cell<int>>> pair = new("a", new()); pair.Value.Add(l.Map(v => v)); return S.Hold(pair.Value[0].Sample()); });
 
+    // S1546. A comparer in a local that only gets null is no comparer. Sort then uses the default one, which calls CompareTo.
+    public static Cell<int> ListSortWithANullComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? none = null; all.Sort(none); return S.Hold(all.Count); });
+
+    // S1547. The same with the default literal, for Array.Sort.
+    public static Cell<int> ArraySortWithADefaultComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? none = default; Array.Sort(all, none); return S.Hold(all.Length); });
+
+    // S1548. A local with no value in its declaration, and an assignment of null after it.
+    public static Cell<int> ListSortWithANullComparerAssignedLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? none; none = null; all.Sort(none); return S.Hold(all.Count); });
+
+    // S1549. A local that gets null with the operator that says not null.
+    public static Cell<int> ListSortWithANullComparerInALocalThatSaysNotNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked> none = null!; all.Sort(none); return S.Hold(all.Count); });
+
+    // S1550. A null comparer in a local for the constructor of a HashSet.
+    public static Cell<int> HashSetWithANullComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] all = [new(l.Map(v => v)), new(Plain)]; IEqualityComparer<Alike>? none = null; return S.Hold(new HashSet<Alike>(all, none).Count); });
+
+    // S1551. A null comparer in a local for the keys of OrderBy.
+    public static Cell<int> OrderByWithANullComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? none = null; return S.Hold(all.OrderBy(x => x, none).ToArray().Length); });
+
+    // S1552. A constant local that is null.
+    public static Cell<int> ListSortWithAConstantNullComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; const IComparer<Ranked>? none = null; all.Sort(none); return S.Hold(all.Count); });
+
+    // S1553. A null comparer in a local for the constructor of a SortedSet, and an Add after it.
+    public static Cell<int> SortedSetWithANullComparerInALocalThenAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IComparer<Ranked>? none = null; SortedSet<Ranked> set = new(none); set.Add(new(l.Map(v => v))); set.Add(new(Plain)); return S.Hold(set.Count); });
+
+    // S1554. A local that gets null, and then a comparer that reads nothing. Sort calls the comparer, and not CompareTo.
+    public static Cell<int> ListSortWithALocalThatGetsAComparerAfterNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; some = Comparer<Ranked>.Create((x, y) => 0); all.Sort(some); return S.Hold(all.Count); });
+
+    // S1555. A local that gets null, and a comparer in a branch that runs.
+    public static Cell<int> ListSortWithALocalThatGetsAComparerInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; if (all.Count > 0) { some = Comparer<Ranked>.Create((x, y) => 0); } all.Sort(some); return S.Hold(all.Count); });
+
+    // S1556. A local that gets null, and a comparer through a ref argument.
+    public static Cell<int> ListSortWithALocalThatGetsAComparerByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; GiveAComparer(ref some); all.Sort(some); return S.Hold(all.Count); });
+
+    // S1557. A local that gets null, and a comparer from a lambda.
+    public static Cell<int> ListSortWithALocalThatGetsAComparerInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; Action give = () => some = Comparer<Ranked>.Create((x, y) => 0); give(); all.Sort(some); return S.Hold(all.Count); });
+
+    // S1558. A local that gets null, and a comparer through the assignment that keeps a value that is not null.
+    public static Cell<int> ListSortWithALocalThatGetsAComparerByCoalescing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked>? some = null; some ??= Comparer<Ranked>.Create((x, y) => 0); all.Sort(some); return S.Hold(all.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -8614,6 +8666,10 @@ public static class Shapes
     {
         public Dictionary<string, Cell<int>> Cells { get; } = new();
     }
+
+    // Gives a comparer that reads nothing.
+    private static void GiveAComparer(ref IComparer<Ranked>? comparer) =>
+        comparer = Comparer<Ranked>.Create(static (_, _) => 0);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

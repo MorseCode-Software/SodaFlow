@@ -2913,7 +2913,7 @@ internal sealed class LoopStateEvaluator
 
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
         // GetHashCode of an object.
-        if (operands.Any(static operand => IsComparison(operand.Parameter) && !IsNoValue(operand.Written)))
+        if (operands.Any(operand => IsComparison(operand.Parameter) && !this.IsNoValue(operand.Written)))
         {
             callbacks &= PlatformCallbacks.Text;
         }
@@ -3231,10 +3231,16 @@ internal sealed class LoopStateEvaluator
         }
     }
 
-    // A comparer, or a delegate of the type Comparison, which a sort can get.
-    // An argument that is null or default. A callee that gets it for a comparer has no comparer,
-    // and uses the default one, which calls the members of the objects.
-    private static bool IsNoValue(ExpressionSyntax written) =>
+    // An argument that is null or default, or a local that only gets such a value. A callee that
+    // gets it for a comparer has no comparer, and uses the default one, which calls the members of
+    // the objects.
+    private bool IsNoValue(ExpressionSyntax written) =>
+        IsNoValueLiteral(written)
+        || (Unwrapped(written) is IdentifierNameSyntax name
+            && this.region.SymbolOf(name) is ILocalSymbol local
+            && this.OnlyGetsNoValue(local));
+
+    private static bool IsNoValueLiteral(ExpressionSyntax written) =>
         Unwrapped(written)
             is LiteralExpressionSyntax
             {
@@ -3242,6 +3248,28 @@ internal sealed class LoopStateEvaluator
             }
             or DefaultExpressionSyntax;
 
+    // True for a local whose declaration and each assignment in its block give it null or default.
+    // A ref, a deconstruction, or a compound assignment can give it a value that the code does not
+    // say here.
+    private bool OnlyGetsNoValue(ILocalSymbol local) =>
+        local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is VariableDeclaratorSyntax declarator
+        && (declarator.Initializer == null || IsNoValueLiteral(declarator.Initializer.Value))
+        && declarator.Ancestors().FirstOrDefault(static node => node is BlockSyntax or CompilationUnitSyntax)
+            is { } scope
+        && scope.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == local.Name
+                           && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
+            .All(static name =>
+                !IsWritten(name)
+                || (name.Parent is AssignmentExpressionSyntax
+                    {
+                        RawKind: (int)SyntaxKind.SimpleAssignmentExpression
+                    } assignment
+                    && assignment.Left == name
+                    && IsNoValueLiteral(assignment.Right)));
+
+    // A comparer, or a delegate of the type Comparison, which a sort can get.
     private static bool IsComparison(ITypeSymbol? type) =>
         SodaFlowSymbols.IsComparer(type)
         || type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, Name: "Comparison" }
