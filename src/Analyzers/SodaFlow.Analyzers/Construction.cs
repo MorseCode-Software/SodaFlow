@@ -251,15 +251,30 @@ internal sealed class Construction(
     /// <summary>True when the evaluator knows the type of this object.</summary>
     public bool HasType => !this.types.IsEmpty;
 
-    /// <summary>The state of each part, for a type from <see cref="SodaFlowSymbols.HoldsParts" />.</summary>
-    public IEnumerable<LoopState> Parts =>
-        this.members.Where(static pair => IsPart(pair.Key)).Select(static pair => pair.Value);
-
     /// <summary>The state of each element, when this object is a tuple.</summary>
     public IEnumerable<LoopState> TupleElements =>
         this.members
             .Where(static pair => pair.Key.ContainingType is { IsTupleType: true })
             .Select(static pair => pair.Value);
+
+    /// <summary>
+    ///     The state of each part, for a type from
+    ///     <see cref="SodaFlowSymbols.HoldsParts" />, or of each element of
+    ///     <see cref="TupleElements" />, with its position. The position is the
+    ///     place of the type parameter of the part in the type of the pair. It is
+    ///     -1 for a part whose type is not a type parameter.
+    /// </summary>
+    /// <remarks>The members have no order. Thus, the position comes from the member.</remarks>
+    public IEnumerable<(int Position, LoopState State)> PartsAt(bool ofATuple) =>
+        this.members
+            .Where(pair => ofATuple ? pair.Key.ContainingType is { IsTupleType: true } : IsPart(pair.Key))
+            .Select(static pair =>
+                (pair.Key switch
+                {
+                    IFieldSymbol { Type: ITypeParameterSymbol parameter } => parameter.Ordinal,
+                    IPropertySymbol { Type: ITypeParameterSymbol parameter } => parameter.Ordinal,
+                    _ => -1
+                }, pair.Value));
 
     /// <summary>True when the evaluator knows a state for the member.</summary>
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));

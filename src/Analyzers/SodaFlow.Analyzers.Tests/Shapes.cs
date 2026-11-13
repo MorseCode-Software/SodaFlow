@@ -7824,6 +7824,30 @@ public static class Shapes
     public static Cell<int> ListSortWithANullComparerParameterInALocalFunction() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<RankedOwn> all = [new(l.Map(v => v)), new(Plain)]; SortInALocalFunction(all, null); return S.Hold(all.Count); });
 
+    // S1641. Remove of a queue compares the elements. The element and the priority have one type, and the priority is pending.
+    public static Cell<int> RemoveOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingPriority() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Alike, Alike)[] one = [(new Alike(Plain), new Alike(l.Map(v => v)))]; PriorityQueue<Alike, Alike> queue = new(one); Kept.Add(queue.Remove(new Alike(Plain), out _, out _)); return S.Hold(0); });
+
+    // S1642. The same, where the element is pending.
+    public static Cell<int> RemoveOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Alike, Alike)[] one = [(new Alike(l.Map(v => v)), new Alike(Plain))]; PriorityQueue<Alike, Alike> queue = new(one); Kept.Add(queue.Remove(new Alike(Plain), out _, out _)); return S.Hold(0); });
+
+    // S1643. Enqueue compares the priorities. The element and the priority have one type, and the element is pending.
+    public static Cell<int> EnqueueOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Ranked, Ranked)[] one = [(new Ranked(l.Map(v => v)), new Ranked(Plain))]; PriorityQueue<Ranked, Ranked> queue = new(one); queue.Enqueue(new Ranked(Plain), new Ranked(Plain)); return S.Hold(queue.Count); });
+
+    // S1644. The same, where the priority is pending.
+    public static Cell<int> EnqueueOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingPriority() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Ranked, Ranked)[] one = [(new Ranked(Plain), new Ranked(l.Map(v => v)))]; PriorityQueue<Ranked, Ranked> queue = new(one); queue.Enqueue(new Ranked(Plain), new Ranked(Plain)); return S.Hold(queue.Count); });
+
+    // S1645. Enqueue compares the priorities. The element that it gets is pending and has the type of the priority, and gets no call.
+    public static Cell<int> EnqueueOfAPendingElementWhoseTypeIsThePriorityType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<Ranked, Ranked> queue = new(); queue.Enqueue(new Ranked(Plain), new Ranked(Plain)); queue.Enqueue(new Ranked(l.Map(v => v)), new Ranked(Plain)); return S.Hold(queue.Count); });
+
+    // S1646. The constructor of a queue compares the priorities of the pairs. The element is pending, has the type of the priority, and gets no call.
+    public static Cell<int> PriorityQueueOfTwoPairsWhoseElementAndPriorityHaveOneTypeWithAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Ranked, Ranked)[] two = [(new Ranked(l.Map(v => v)), new Ranked(Plain)), (new Ranked(Plain), new Ranked(Plain))]; PriorityQueue<Ranked, Ranked> queue = new(two); return S.Hold(queue.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

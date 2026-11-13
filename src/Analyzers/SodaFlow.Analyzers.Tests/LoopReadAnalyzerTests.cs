@@ -1164,7 +1164,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ListSortWithANullComparerParameterByName"] = ["SF1004"],
             ["ListSortWithANullComparerThroughTwoHelpers"] = ["SF1004"],
             ["ListSortWithANullComparerInALocalGivenToAParameter"] = ["SF1004"],
-            ["ListSortWithANullComparerParameterInALocalFunction"] = ["SF1004"]
+            ["ListSortWithANullComparerParameterInALocalFunction"] = ["SF1004"],
+            ["RemoveOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingElement"] = ["SF1004"],
+            ["EnqueueOfAQueueWhoseElementAndPriorityHaveOneTypeWithAPendingPriority"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

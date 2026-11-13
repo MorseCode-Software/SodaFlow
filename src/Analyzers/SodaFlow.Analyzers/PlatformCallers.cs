@@ -400,7 +400,27 @@ internal static class PlatformCallers
     ///     type. A tuple compares its elements. The result is empty for a method
     ///     with no type argument, which gets its values as <c>object</c>.
     /// </summary>
-    public static ImmutableArray<ITypeSymbol> ComparedTypes(IMethodSymbol method)
+    public static ImmutableArray<ITypeSymbol> ComparedTypes(IMethodSymbol method) =>
+        ComparedPairs(method).Pairs.SelectMany(static pair => Parts(pair.Argument)).ToImmutableArray();
+
+    /// <summary>
+    ///     The type parameters whose values a method compares, by the rule of
+    ///     <see cref="ComparedTypes" />. Null when the method compares the values
+    ///     of each type parameter. A value of a type parameter that is not here
+    ///     gets no call, also when its type is a type that the method compares.
+    ///     <c>Enqueue</c> of a queue whose elements and priorities have one type
+    ///     compares only the priorities.
+    /// </summary>
+    public static ImmutableHashSet<ITypeParameterSymbol>? ComparedTypeParameters(IMethodSymbol method) =>
+        ComparedPairs(method) is { All: false } chosen
+            ? chosen.Pairs.Select(static pair => pair.Parameter)
+                .ToImmutableHashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default)
+            : null;
+
+    // The pairs of a type parameter and its type argument whose values the method compares. All is
+    // true when they are all the pairs.
+    private static (IReadOnlyList<(ITypeParameterSymbol Parameter, ITypeSymbol Argument)> Pairs, bool All)
+        ComparedPairs(IMethodSymbol method)
     {
         IMethodSymbol called = method.ReducedFrom ?? method;
 
@@ -414,21 +434,19 @@ internal static class PlatformCallers
                 key: (called.ContainingType.Name, NameOf(called)),
                 value: out ImmutableArray<string> names))
         {
-            return pairs.Where(pair => names.Contains(pair.Parameter.Name))
-                .SelectMany(static pair => Parts(pair.Argument))
-                .ToImmutableArray();
+            return ([.. pairs.Where(pair => names.Contains(pair.Parameter.Name))], false);
         }
 
         // A search for a value of a dictionary compares the values, and not the keys.
         bool forValues = NameOf(called) is "ContainsValue" or "IndexOfValue";
 
-        return (pairs.Any(static pair => pair.Parameter.Name is "TKey" or "TPriority")
-                ? pairs.Where(pair => forValues
-                    ? pair.Parameter.Name == "TValue"
-                    : pair.Parameter.Name is "TKey" or "TPriority")
-                : pairs)
-            .SelectMany(static pair => Parts(pair.Argument))
-            .ToImmutableArray();
+        return pairs.Any(static pair => pair.Parameter.Name is "TKey" or "TPriority")
+            ? ([
+                    .. pairs.Where(pair => forValues
+                        ? pair.Parameter.Name == "TValue"
+                        : pair.Parameter.Name is "TKey" or "TPriority")
+                ], false)
+            : (pairs, true);
     }
 
     // The name of a method in the tables. An explicit implementation of a member of an interface,

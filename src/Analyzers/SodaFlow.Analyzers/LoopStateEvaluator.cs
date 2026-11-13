@@ -3116,6 +3116,11 @@ internal sealed class LoopStateEvaluator
 
         ImmutableArray<ITypeSymbol> compared = PlatformCallers.ComparedTypes(method);
 
+        // A type can be the type of two type parameters, as in a queue whose elements and priorities
+        // have one type. The type parameter then says which values the method compares.
+        ImmutableHashSet<ITypeParameterSymbol>? comparedParameters = PlatformCallers.ComparedTypeParameters(method);
+        INamedTypeSymbol collection = (method.ReducedFrom ?? method).OriginalDefinition.ContainingType;
+
         // A callee that gets a function compares what the function returns, as a sort by a key
         // does. It does not compare the values that it gives to the function.
         bool byFunction =
@@ -3139,6 +3144,15 @@ internal sealed class LoopStateEvaluator
         for (int position = 0; position < operands.Count; position++)
         {
             Operand operand = operands[position];
+
+            // The element of Enqueue gets no call, also when it has the type of the priority.
+            if (comparedParameters != null
+                && operand.Parameter is ITypeParameterSymbol own
+                && !comparedParameters.Contains(own))
+            {
+                continue;
+            }
+
             bool isStored = hasCollection ? operand.IsReceiver : position == 0;
 
             bool gets =
@@ -3150,9 +3164,31 @@ internal sealed class LoopStateEvaluator
                     _ => true
                 };
 
+            // The parts of a pair that the method compares. The key of a pair has the type parameter
+            // for the key.
+            IReadOnlyList<ITypeSymbol>? partTypes =
+                comparedParameters == null
+                    ? null
+                    : operand.IsReceiver
+                        ? PartTypesOf(SodaFlowSymbols.ElementTypeOf(collection))
+                          ?? (collection.TypeParameters.Length > 1 ? collection.TypeParameters : null)
+                        : PartTypesOf(operand.Parameter);
+
+            Func<int, bool>? keeps =
+                partTypes == null || comparedParameters == null
+                    ? null
+                    : part => part < 0
+                              || part >= partTypes.Count
+                              || partTypes[part] is not ITypeParameterSymbol parameter
+                              || comparedParameters.Contains(parameter);
+
             if (!gets)
             {
-                argument = argument.Join(this.Eval(operand.Written));
+                argument = argument.Join(
+                    KeptParts(
+                        state: this.Eval(operand.Written),
+                        written: this.TypeBeforeObject(operand.Written),
+                        keeps: keeps));
             }
 
             if (byFunction)
@@ -3197,7 +3233,8 @@ internal sealed class LoopStateEvaluator
                                     || SodaFlowSymbols.IsSequence(operand.Parameter)
                                     || (takesContent
                                         && SodaFlowSymbols.IsSequence(this.region.TypeOf(operand.Written))),
-                        compared: compared)
+                        compared: compared,
+                        keeps: keeps)
                     .Select(owner => (operand.Written, owner.State, owner.Members, gets)));
         }
 
@@ -3342,28 +3379,32 @@ internal sealed class LoopStateEvaluator
     /// <param name="written">The type of the expression for the value. Null when it is not known.</param>
     /// <param name="asSequence">True when the method reads the elements of a sequence that it gets here.</param>
     /// <param name="compared">The types of the values that the method compares. Empty for each type.</param>
+    /// <param name="keeps">
+    ///     For a pair, true for the position of each part that the method
+    ///     compares. Null when the method compares each part that has a type of
+    ///     <paramref name="compared" />.
+    /// </param>
     private static IEnumerable<(LoopState State, Construction Members)> CallbackOwners(
         LoopState state,
         ITypeSymbol? written,
         bool asSequence,
-        ImmutableArray<ITypeSymbol> compared)
+        ImmutableArray<ITypeSymbol> compared,
+        Func<int, bool>? keeps = null)
     {
         if (state.Members is not { } members)
         {
             return [];
         }
 
-        if (!members.HasType)
-        {
-            return members.TupleElements.SelectMany(element =>
-                CallbackOwners(state: element, written: null, asSequence: false, compared: compared));
-        }
+        // The state of a tuple or of a Tuple object has the state of each part.
+        bool ofATuple = !members.HasType;
 
-        // The state of a Tuple object has the state of each part.
-        if (SodaFlowSymbols.IsTupleObject(written) && members.HasParts)
+        if (ofATuple || (SodaFlowSymbols.IsTupleObject(written) && members.HasParts))
         {
-            return members.Parts.SelectMany(part =>
-                CallbackOwners(state: part, written: null, asSequence: false, compared: compared));
+            return members.PartsAt(ofATuple)
+                .Where(part => keeps?.Invoke(part.Position) ?? true)
+                .SelectMany(part =>
+                    CallbackOwners(state: part.State, written: null, asSequence: false, compared: compared));
         }
 
         // A list has the members of its elements in its state. The list is one of those objects
@@ -3386,6 +3427,33 @@ internal sealed class LoopStateEvaluator
 
         return isOwner && (compared.IsEmpty || compared.Any(members.Is)) ? [(state, members)] : [];
     }
+
+    // The state of a value without the parts of a pair that the method does not compare.
+    private static LoopState KeptParts(LoopState state, ITypeSymbol? written, Func<int, bool>? keeps)
+    {
+        if (keeps == null
+            || state.Members is not { } members
+            || (members.HasType && !(SodaFlowSymbols.IsTupleObject(written) && members.HasParts)))
+        {
+            return state;
+        }
+
+        return members.PartsAt(ofATuple: !members.HasType)
+            .Where(part => keeps(part.Position))
+            .Aggregate(seed: LoopState.None, func: static (joined, part) => joined.Join(part.State));
+    }
+
+    // The type of each part of a pair: a tuple, a KeyValuePair, or a Tuple object. For a sequence, the
+    // parts of its element. Null for each other type.
+    private static IReadOnlyList<ITypeSymbol>? PartTypesOf(ITypeSymbol? type) =>
+        type switch
+        {
+            INamedTypeSymbol { IsTupleType: true } tuple => [.. tuple.TupleElements.Select(static part => part.Type)],
+            INamedTypeSymbol { TypeArguments.IsEmpty: false } holder when SodaFlowSymbols.HoldsParts(holder) =>
+                holder.TypeArguments,
+            _ when SodaFlowSymbols.ElementTypeOf(type) is { } element => PartTypesOf(element),
+            _ => null
+        };
 
     private IEnumerable<IMethodSymbol> CallbackMembers(Construction members, PlatformCallbacks callbacks)
     {
