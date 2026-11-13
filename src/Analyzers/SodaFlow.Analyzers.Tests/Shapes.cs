@@ -7638,6 +7638,70 @@ public static class Shapes
     public static Cell<int> HashtableFromADictionary() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedList<Hashed, int> from = new() { { new Hashed(l.Map(v => v)), 1 } }; return S.Hold(new Hashtable(from).Count); });
 
+    // S1595. Contains of a LinkedList gives the call to the element. The value is pending, and Equals reads only its own object.
+    public static Cell<int> LinkedListContainsWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] one = [new(Plain)]; LinkedList<AlikeOwn> list = new(one); Kept.Add(list.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1596. Contains of a LinkedList, where the element is pending.
+    public static Cell<int> LinkedListContainsWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] one = [new(l.Map(v => v))]; LinkedList<AlikeOwn> list = new(one); Kept.Add(list.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1597. Contains of an ImmutableList gives the call to the value.
+    public static Cell<int> ImmutableListContainsWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<AlikeOwn> list = ImmutableList.Create(new AlikeOwn(Plain)); Kept.Add(list.Contains(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1598. Contains of an ImmutableList, where the element is pending.
+    public static Cell<int> ImmutableListContainsWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<AlikeOwn> list = ImmutableList.Create(new AlikeOwn(l.Map(v => v))); Kept.Add(list.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1599. Contains of a SortedSet gives the call to the value. The element is pending, and CompareTo reads only its own object.
+    public static Cell<int> SortedSetContainsWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(l.Map(v => v))]; Kept.Add(set.Contains(new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1600. ContainsKey of a ConcurrentDictionary gives the call to the key that it has.
+    public static Cell<int> ConcurrentDictionaryContainsKeyWhereTheValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<AlikeOwn, int>[] one = [new(new AlikeOwn(Plain), 1)]; ConcurrentDictionary<AlikeOwn, int> map = new(one); Kept.Add(map.ContainsKey(new AlikeOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1601. Contains of a FrozenSet gives the call to the value.
+    public static Cell<int> FrozenSetContainsWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AlikeOwn[] one = [new(l.Map(v => v))]; FrozenSet<AlikeOwn> set = one.ToFrozenSet(); Kept.Add(set.Contains(new AlikeOwn(Plain))); return S.Hold(0); });
+
+    // S1602. Remove of a PriorityQueue gives the call to the element that it gets.
+    public static Cell<int> PriorityQueueRemoveWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (AlikeOwn, int)[] one = [(new AlikeOwn(l.Map(v => v)), 1)]; PriorityQueue<AlikeOwn, int> queue = new(one); Kept.Add(queue.Remove(new AlikeOwn(Plain), out _, out _)); return S.Hold(0); });
+
+    // S1603. Equals of a Tuple object gives the call to the elements of that tuple.
+    public static Cell<int> TupleObjectEqualsWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Tuple.Create(new AlikeOwn(Plain), 1).Equals(Tuple.Create(new AlikeOwn(l.Map(v => v)), 1))); return S.Hold(0); });
+
+    // S1604. A queue of pairs: the object that gets no call is the priority in the pair, and CompareTo reads it.
+    public static Cell<int> PriorityQueueEnqueueDequeueReadsThePriorityInAPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (int, Ranked)[] one = [(1, new Ranked(l.Map(v => v)))]; PriorityQueue<int, Ranked> queue = new(one); Kept.Add(queue.EnqueueDequeue(2, new Ranked(Plain))); return S.Hold(0); });
+
+    // S1605. A comparer of the platform in a local, which reads nothing. Sort calls it, and not CompareTo.
+    public static Cell<int> ListSortWithAComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; IComparer<Ranked> some = Comparer<Ranked>.Create((x, y) => 0); all.Sort(some); return S.Hold(all.Count); });
+
+    // S1606. Contains through the IDictionary with no type argument, on a Dictionary. The method of the Dictionary has no row of its own, and the row of the interface holds.
+    public static Cell<int> ContainsThroughIDictionaryOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary map = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(map.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1607. Sort of an ArrayList with one element compares nothing.
+    public static Cell<int> SortOfAnArrayListWithOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList all = [new RankedLoose(l.Map(v => v))]; all.Sort(); return S.Hold(all.Count); });
+
+    // S1608. Add through IImmutableSet, on a set that a method gives.
+    public static Cell<int> AddThroughIImmutableSetFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IImmutableSet<Alike> set = MakeAnImmutableSet(new Alike(l.Map(v => v))); Kept.Add(set.Add(new Alike(Plain))); return S.Hold(0); });
+
+    // S1609. Add through IImmutableDictionary, on a dictionary that a method gives.
+    public static Cell<int> AddThroughIImmutableDictionaryFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IImmutableDictionary<Alike, int> map = MakeAnImmutableMap(new Alike(l.Map(v => v))); Kept.Add(map.Add(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1610. ContainsKey through IReadOnlyDictionary, on a dictionary that a method gives.
+    public static Cell<int> ContainsKeyThroughIReadOnlyDictionaryFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IReadOnlyDictionary<Alike, int> map = MakeAReadOnlyMap(new Alike(l.Map(v => v))); Kept.Add(map.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -8832,6 +8896,14 @@ public static class Shapes
 
         private int Read() => share.Sample();
     }
+
+    private static IImmutableSet<Alike> MakeAnImmutableSet(Alike first) => ImmutableHashSet.Create(first);
+
+    private static IImmutableDictionary<Alike, int> MakeAnImmutableMap(Alike first) =>
+        ImmutableDictionary<Alike, int>.Empty.Add(key: first, value: 1);
+
+    private static IReadOnlyDictionary<Alike, int> MakeAReadOnlyMap(Alike first) =>
+        new Dictionary<Alike, int> { { first, 1 } };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

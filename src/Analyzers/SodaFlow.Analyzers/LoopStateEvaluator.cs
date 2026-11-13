@@ -3110,6 +3110,15 @@ internal sealed class LoopStateEvaluator
 
         bool knowsTheReceiver = receiver != PlatformReceiver.Either;
 
+        // The object that gets no call is the argument of the member. The object that the method
+        // compares can be a part of a value, as the priority of a pair in a queue is.
+        if (knowsTheReceiver)
+        {
+            argument = owners
+                .Where(static owner => !owner.Gets)
+                .Aggregate(seed: argument, func: static (joined, owner) => joined.Join(owner.State));
+        }
+
         // The object that gets the call can be one that the evaluator did not see made. An element
         // of a list from a different place is such an object. It has the type of the other
         // object, and no state.
