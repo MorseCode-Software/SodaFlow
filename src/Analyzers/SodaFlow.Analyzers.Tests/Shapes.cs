@@ -7927,6 +7927,42 @@ public static class Shapes
     public static Cell<int> GetterInAConstructorTwoHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(KeepNowThrough(reader)); return S.Hold(0); });
 
+    // S1666. GetOrAdd with a function looks for the key that it gets. The function only makes the value.
+    public static Cell<int> GetOrAddWithAFunctionForTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(l.Map(v => v))] = 1 }; Kept.Add(map.GetOrAdd(new Alike(Plain), _ => 2)); return S.Hold(0); });
+
+    // S1667. GetOrAdd with a function that gets an argument.
+    public static Cell<int> GetOrAddWithAFunctionAndItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(l.Map(v => v))] = 1 }; Kept.Add(map.GetOrAdd(new Alike(Plain), (_, more) => more, 2)); return S.Hold(0); });
+
+    // S1668. AddOrUpdate with two functions that make new values.
+    public static Cell<int> AddOrUpdateWithTwoFunctions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(l.Map(v => v))] = 1 }; Kept.Add(map.AddOrUpdate(new Alike(Plain), _ => 2, (_, old) => old + 1)); return S.Hold(0); });
+
+    // S1669. GetOrAdd where the key that the code gives is pending, and the key of the dictionary reads both.
+    public static Cell<int> GetOrAddWithAFunctionWhereTheGivenKeyIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<Alike, int> map = new() { [new Alike(Plain)] = 1 }; Kept.Add(map.GetOrAdd(new Alike(l.Map(v => v)), _ => 2)); return S.Hold(0); });
+
+    // S1670. GetOrAdd gives the call to the key of the dictionary. The key that the code gives is pending, and its member reads only its own object.
+    public static Cell<int> GetOrAddWithAFunctionWhereTheGivenKeyReadsOnlyItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<AlikeOwn, int> map = new() { [new AlikeOwn(Plain)] = 1 }; Kept.Add(map.GetOrAdd(new AlikeOwn(l.Map(v => v)), _ => 2)); return S.Hold(0); });
+
+    // S1671. GetOrAdd does not compare the value that the function makes.
+    public static Cell<int> GetOrAddDoesNotCompareTheMadeValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<int, Alike> map = new(); map.GetOrAdd(1, _ => new Alike(l.Map(v => v))); Kept.Add(map.GetOrAdd(1, _ => new Alike(Plain))); return S.Hold(0); });
+
+    // S1672. ExceptBy compares what the function returns with each element of its second sequence.
+    public static Cell<int> ExceptByComparesTheKeysWithTheSecondSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] second = [new(l.Map(v => v))]; return S.Hold(Numbers.ExceptBy(second, n => new Alike(Plain)).ToArray().Length); });
+
+    // S1673. IntersectBy is the same.
+    public static Cell<int> IntersectByComparesTheKeysWithTheSecondSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] second = [new(l.Map(v => v))]; return S.Hold(Numbers.IntersectBy(second, n => new Alike(Plain)).ToArray().Length); });
+
+    // S1674. ExceptBy does not compare the elements of its first sequence, also when they have the type of the keys.
+    public static Cell<int> ExceptByDoesNotCompareTheElementsOfItsFirstSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] first = [new(l.Map(v => v))]; Alike[] second = [new(Plain)]; return S.Hold(first.ExceptBy(second, x => new Alike(Plain)).ToArray().Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

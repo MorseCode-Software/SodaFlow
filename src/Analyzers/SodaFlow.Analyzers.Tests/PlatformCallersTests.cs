@@ -141,6 +141,7 @@ internal sealed class PlatformCallersTests
                     .Concat(PlatformReceivers.WithNoComparerGiven.Keys)
                     .Concat(PlatformReceivers.WithValuesOneByOne.Keys)
                     .Concat(PlatformCallers.WithAFunctionThatChooses)
+                    .Concat(PlatformCallers.WithAFunctionAndKeys)
                     .Where(entry => !comparing.Contains(entry)))
             .IsEmpty();
     }

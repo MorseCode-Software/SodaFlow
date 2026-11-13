@@ -3130,6 +3130,10 @@ internal sealed class LoopStateEvaluator
             !PlatformCallers.ComparesWhatAFunctionChooses(method)
             && operands.Any(static operand => operand.Parameter?.TypeKind == TypeKind.Delegate);
 
+        // Some of those methods also compare the values of a sequence that they get, as ExceptBy
+        // compares the keys of its second sequence.
+        bool alsoKeys = byFunction && PlatformCallers.ComparesKeysBesideAFunction(method);
+
         // A member of LINQ to XML knows its content as object, and makes text from each object of
         // a sequence in it.
         bool takesContent = SodaFlowSymbols.TakesXmlContent((method.ReducedFrom ?? method).OriginalDefinition);
@@ -3148,9 +3152,11 @@ internal sealed class LoopStateEvaluator
         {
             Operand operand = operands[position];
 
-            // The element of Enqueue gets no call, also when it has the type of the priority.
+            // The element of Enqueue gets no call, also when it has the type of the priority. The
+            // elements of the first sequence of ExceptBy get none: the method compares their keys.
             if (comparedParameters != null
-                && operand.Parameter is ITypeParameterSymbol own
+                && (operand.Parameter as ITypeParameterSymbol
+                    ?? SodaFlowSymbols.ElementTypeOf(operand.Parameter) as ITypeParameterSymbol) is { } own
                 && !comparedParameters.Contains(own))
             {
                 continue;
@@ -3218,7 +3224,10 @@ internal sealed class LoopStateEvaluator
                             .Select(owner => (operand.Written, owner.State, owner.Members, true)));
                 }
 
-                continue;
+                if (!alsoKeys || operand.Parameter?.TypeKind == TypeKind.Delegate)
+                {
+                    continue;
+                }
             }
 
             // A method that makes text from its arguments does not read its receiver, which has

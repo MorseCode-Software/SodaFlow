@@ -251,13 +251,27 @@ internal static class PlatformCallers
             ("FrozenDictionary", "ToFrozenDictionary"));
 
     /// <summary>
-    ///     The methods of the table that get a function, and compare the
-    ///     elements themselves. The function only says which elements the method
-    ///     removes. Each other method that gets a function compares what the
-    ///     function returns, as a sort by a key does.
+    ///     The methods of the table that get a function, and do not compare what
+    ///     it returns. They compare the values that they have or get. The function
+    ///     of <c>RemoveWhere</c> only says which elements the method removes. The
+    ///     function of <c>GetOrAdd</c> or of <c>AddOrUpdate</c> only makes the
+    ///     value for the key. Each other method that gets a function compares what
+    ///     the function returns, as a sort by a key does.
     /// </summary>
     public static readonly ImmutableHashSet<(string Type, string Method)> WithAFunctionThatChooses =
-        ImmutableHashSet.Create(("HashSet", "RemoveWhere"), ("SortedSet", "RemoveWhere"));
+        ImmutableHashSet.Create(
+            ("HashSet", "RemoveWhere"),
+            ("SortedSet", "RemoveWhere"),
+            ("ConcurrentDictionary", "GetOrAdd"),
+            ("ConcurrentDictionary", "AddOrUpdate"));
+
+    /// <summary>
+    ///     The methods of the table that compare what their function returns with
+    ///     the values of a sequence that they get. <c>ExceptBy</c> compares the key
+    ///     of each element with each key of its second sequence.
+    /// </summary>
+    public static readonly ImmutableHashSet<(string Type, string Method)> WithAFunctionAndKeys =
+        ImmutableHashSet.Create(("Enumerable", "ExceptBy"), ("Enumerable", "IntersectBy"));
 
     /// <summary>
     ///     The type parameters whose values a method compares, where that is not
@@ -369,6 +383,16 @@ internal static class PlatformCallers
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
                && WithAFunctionThatChooses.Contains((type.Name, NameOf(definition)));
+    }
+
+    /// <summary>True for a method of <see cref="WithAFunctionAndKeys" />.</summary>
+    public static bool ComparesKeysBesideAFunction(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { } type
+               && SodaFlowSymbols.IsPlatform(type)
+               && WithAFunctionAndKeys.Contains((type.Name, NameOf(definition)));
     }
 
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>

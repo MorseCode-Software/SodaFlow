@@ -1183,7 +1183,13 @@ internal sealed class LoopReadAnalyzerTests
             ["CompareToThreeHelpersDown"] = ["SF1003"],
             ["GetterTwoHelpersDown"] = ["SF1004"],
             ["GetterThreeHelpersDown"] = ["SF1003"],
-            ["GetterInAConstructorTwoHelpersDown"] = ["SF1003"]
+            ["GetterInAConstructorTwoHelpersDown"] = ["SF1003"],
+            ["GetOrAddWithAFunctionForTheValue"] = ["SF1005"],
+            ["GetOrAddWithAFunctionAndItsArgument"] = ["SF1005"],
+            ["AddOrUpdateWithTwoFunctions"] = ["SF1005"],
+            ["GetOrAddWithAFunctionWhereTheGivenKeyIsPending"] = ["SF1004"],
+            ["ExceptByComparesTheKeysWithTheSecondSequence"] = ["SF1004", "SF1005"],
+            ["IntersectByComparesTheKeysWithTheSecondSequence"] = ["SF1004", "SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
