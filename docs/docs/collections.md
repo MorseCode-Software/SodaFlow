@@ -340,6 +340,18 @@ each key the order files, and a comparison still allocates nothing. That keeps t
 from growing with every level, which matters under native AOT, where the compiler builds every
 generic type ahead of time and gives up past a fixed depth.
 
+The two typed levels have a cost of their own under native AOT, and only there. The compiler can't
+tell which level will meet which at run time, so it builds a pair for every combination: each sort
+value type the app uses for a level, with each one it gives to `ThenBy`. All reference types share
+one form. Every value type counts separately, and that includes each enum and each nullable type.
+The size of the app therefore grows with the square of the number of value types the app sorts by,
+and the compiler's time grows a little faster than that. Measured on the app this repository
+publishes for its native AOT check, with sort value types added to it, the compiler took about 5
+seconds with 6 value types, 13 with 12, 35 with 20, and more than 6 minutes with 50. Everything but
+the pairs is about 3.5 seconds of that. An app that sorts by many enums can have each selector
+return the enum as an `int`, which makes all of those levels one type. A third level and beyond
+adds nothing here, because those levels are held as objects, and an app on the JIT pays none of it.
+
 The key still breaks the last tie, ascending, with the comparer the first level was given. And an
 order is over the identity alone only if every level is: one level that reads the state is enough
 for a state edit to re-file a key.

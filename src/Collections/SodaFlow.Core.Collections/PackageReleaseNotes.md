@@ -175,6 +175,14 @@ and 10.8 KB on .NET 10. Orders with one level and with two levels did not change
 the same sort of a two-level order took 124 ms and 22.7 MB on .NET 10, where the pair takes 88 ms and 14.1 MB, and that
 is why two levels keep the pair.
 
+The pair has a cost at a native AOT publish, and only there. The compiler cannot know which two levels meet at run time,
+so it makes one pair type for each sort value type of the app with each type that the app gives to ThenBy. The reference
+types share one form. Each value type counts, and each enum and each nullable type is one. Measured in the compiler step
+of the publish of the app above, with more value types as sort values: 5.3 s with 6, 13.3 s with 12, 35.4 s with 20,
+91 s with 30, and 398 s with 50. With no pair, that step takes 3.5 s. The machine code of the app is 0.95 MB with 6 and
+10.9 MB with 50. A selector that returns an int for an enum makes that level an int level, which lowers the count. An
+order of three levels or more adds no type. An app on the JIT has no such cost.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of
