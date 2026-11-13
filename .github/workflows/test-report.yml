@@ -50,13 +50,20 @@ jobs:
       # glob inside the unpacked artifact, and stays broad because upload-artifact roots an archive
       # at the common ancestor of what it matched, which is a detail neither file should depend on.
       #
-      # fail-on-error and fail-on-empty are both off for the same reason they were in build.yml:
-      # this describes a run's outcome and must not be able to change it. A Build that failed before
-      # writing any results should be read as a failed Build, not as a failed report of one.
+      # fail-on-error is on. With it off, the action completes the check run with success whatever
+      # the results are, and only the title of the check run tells of a failed test. With it on, the
+      # check run fails when a test failed, and the step fails too. continue-on-error keeps that
+      # from the job. The job of this workflow is a check on the newest commit of main, whichever
+      # Build started it, so a failed test of a pull request must not make that check fail.
+      # build.yml pairs fail-on-error and continue-on-error in the same way for the coverage upload.
+      #
+      # fail-on-empty is off. A Build that failed before writing any results should be read as a
+      # failed Build, not as a failed report of one.
       - name: Report tests
         id: report
-        # This step can fail with every test passed. The comment below the step says why.
-        # continue-on-error lets the job go on to the second attempt.
+        # This step fails when a test failed, as the comment above says. It can also fail with every
+        # test passed, as the comment below the step says. continue-on-error keeps the two from the
+        # job, and lets the job go on to the second attempt.
         continue-on-error: true
         uses: dorny/test-reporter@v3
         # The anchor gives these inputs to the second attempt, so that they are written one time.
@@ -74,7 +81,7 @@ jobs:
           # problem the annotations were not going to explain, and the full list is in the check run
           # either way.
           max-annotations: 50
-          fail-on-error: false
+          fail-on-error: true
           fail-on-empty: false
 
       # The action creates its check run, and then updates it with the result. Since 2026-11-09
@@ -89,19 +96,32 @@ jobs:
       #
       # It runs only when the first attempt failed and has no conclusion. The action sets that
       # output after its update succeeds, so an empty one means that the update, or a step before
-      # it, failed.
+      # it, failed. When the first attempt failed because a test failed, it has a conclusion, and
+      # the action does not run again.
       #
       # The second attempt creates a new check run of the same name. GitHub shows the newest check
       # run of a name on a commit, so the one that stays in progress does not show. Measured on
       # 2026-11-12 in MorseCode.Toolkit, which has this file too: a rerun of two failed runs did
       # exactly that, on main and on a pull request.
       #
-      # Remove these two steps when the action retries its own update.
+      # Remove the steps from here to the end when the action retries its own update.
       - name: Wait before the second attempt
         if: steps.report.outcome == 'failure' && steps.report.outputs.conclusion == ''
         run: sleep 10
 
       - name: Report tests, second attempt
+        id: second
         if: steps.report.outcome == 'failure' && steps.report.outputs.conclusion == ''
+        # As for the first attempt: a failed test fails this step, and not the job.
+        continue-on-error: true
         uses: dorny/test-reporter@v3
         with: *report-inputs
+
+      # continue-on-error on the second attempt also keeps a second Not Found from the job. Then
+      # each check run that the two attempts created stays in progress, and this step fails the job,
+      # so that the fault shows.
+      - name: Fail when no attempt completed the check run
+        if: steps.second.outcome == 'failure' && steps.second.outputs.conclusion == ''
+        run: |
+          echo "::error::No attempt completed the check run Tests. Each attempt logs its error."
+          exit 1
