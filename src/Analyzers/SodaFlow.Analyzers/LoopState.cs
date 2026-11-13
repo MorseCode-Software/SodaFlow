@@ -189,6 +189,12 @@ internal sealed class LoopState
                 objects: NoObjects,
                 held: NoObjects);
 
+    /// <summary>
+    ///     The same state, for a collection that also holds an object that the
+    ///     store does not know.
+    /// </summary>
+    public LoopState HoldingAnUnknownObject => this.Holding(ImmutableArray.Create(MadeObject.Unknown));
+
     /// <summary>The same state, for a collection that also holds the given objects.</summary>
     public LoopState Holding(ImmutableArray<MadeObject> more) =>
         new(
@@ -222,16 +228,16 @@ internal sealed class LoopState
     ///     for the object.
     /// </summary>
     /// <param name="stored">The state of the store.</param>
-    /// <param name="one">
-    ///     True for a name of one object. It gets the members of the store, which
-    ///     have each change to the object. A value that is one of two or more
-    ///     keeps its own members also.
+    /// <param name="all">
+    ///     True for a name whose objects the store has, each of them. It gets the
+    ///     members of the store, which have each change to those objects. Each
+    ///     other value keeps its own members also.
     /// </param>
-    public LoopState RefreshedFrom(LoopState stored, bool one) =>
+    public LoopState RefreshedFrom(LoopState stored, bool all) =>
         new(
             pending: this.Pending || stored.Pending,
             linked: this.Linked || stored.Linked,
-            members: one
+            members: all
                 ? stored.Members ?? this.Members
                 : Construction.Merge(first: this.Members, second: stored.Members),
             content: this.content == null
@@ -492,7 +498,9 @@ internal sealed class LoopState
     ///     part with no origin.
     /// </summary>
     public LoopState WithOrigins(Func<ISymbol?, ISymbol?> map) =>
-        this.IsNone
+        // An object of the store with no state can get a state after this, and that state then
+        // has the origin of the object.
+        this.IsNone && this.Objects.IsEmpty
             ? this
             : new LoopState(
                 pending: this.Pending,

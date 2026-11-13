@@ -17,31 +17,28 @@ namespace SodaFlow.Analyzers;
 internal sealed class ObjectStore
 {
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
-    private readonly Dictionary<(SyntaxNode Place, LoopFrame Frame), MadeObject> made = [];
     private readonly Dictionary<MadeObject, LoopState> states = [];
 
     /// <summary>True when the code made no object.</summary>
     public bool IsEmpty => this.states.Count == 0;
 
     /// <summary>
-    ///     The object that an expression makes in a frame of the walk. The first
-    ///     walk of the expression gives the object its first state. A second walk
-    ///     of the same expression in the same frame is the same object, and its
-    ///     state stays.
+    ///     Makes the object of an expression that the walk reads in a frame, with
+    ///     its first state.
     /// </summary>
-    /// <param name="place">The expression.</param>
+    /// <remarks>
+    ///     An evaluator reads an expression one time. Code that the walk reads two
+    ///     or more times in one frame, as the body of a lambda, makes no object.
+    ///     Thus, the store has one object for an expression in a frame.
+    /// </remarks>
     /// <param name="frame">The frame.</param>
     /// <param name="type">The type of the expression.</param>
     /// <param name="exact">True when the object has that type, and not a type that derives from it.</param>
     /// <param name="state">The first state of the object.</param>
-    public MadeObject MadeAt(SyntaxNode place, LoopFrame frame, ITypeSymbol type, bool exact, LoopState state)
+    public MadeObject Make(LoopFrame frame, ITypeSymbol type, bool exact, LoopState state)
     {
-        if (!this.made.TryGetValue(key: (place, frame), value: out MadeObject? found))
-        {
-            found = new MadeObject(type: type, exact: exact, frame: frame);
-            this.made[(place, frame)] = found;
-            this.states[found] = state;
-        }
+        MadeObject found = new(type: type, exact: exact, frame: frame);
+        this.states[found] = state;
 
         return found;
     }

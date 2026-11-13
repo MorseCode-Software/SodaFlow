@@ -1240,7 +1240,31 @@ internal sealed class LoopReadAnalyzerTests
             ["IsSubsetOfAHashSetWhereTheArgumentIsAnImmutableHashSet"] = ["SF1005"],
             ["IsSubsetOfAnArgumentWhoseComparerIsInALocal"] = ["SF1005"],
             ["IsSubsetOfASetFromAHelperWithADifferentComparer"] = ["SF1005"],
-            ["OverlapsOfASortedSetWhereTheArgumentIsAViewOfASetWithAComparer"] = ["SF1004"]
+            ["OverlapsOfASortedSetWhereTheArgumentIsAViewOfASetWithAComparer"] = ["SF1004"],
+            ["ElementThatIsNoObjectOfTheStoreBesideOneThatIs"] = ["SF1001"],
+            ["NameOfAnObjectOfTheStoreOrOfAnObjectOfALoop"] = ["SF1001"],
+            ["PlainThroughANameOfTwoObjectsWhereTheOtherIsPending"] = ["SF1001"],
+            ["ArrayCreationGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["ArrayCreationWithNoTypeGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["ArrayCreationWithALengthGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["ChangeThroughAnElementFromACallReadThroughTheLocal"] = ["SF1001"],
+            ["ListThatARecordGotChangesLater"] = ["SF1001"],
+            ["ListThatAPrimaryConstructorGotChangesLater"] = ["SF1005"],
+            ["ListInAMemberOfAnObjectReadInAHelper"] = ["SF1004"],
+            ["ChangeThroughALocalReadThroughAPairOfADictionary"] = ["SF1001"],
+            ["ListOfCellsOfCellsGetsAPendingContentThroughASecondLocal"] = ["SF1001"],
+            ["ListGetsAPendingCellThroughALocalOfAnInterface"] = ["SF1001"],
+            ["ChangeThroughTheResultOfAGenericHelper"] = ["SF1001"],
+            ["HelperWithABodyInAnIfStatementSetsAPlainCell"] = ["SF1001"],
+            ["ObjectOfAHelperInALoopWhereTheHelperChangesTheObjectBeforeIt"] = ["SF1001"],
+            ["TwoObjectsOfALocalFunction"] = ["SF1001"],
+            ["TwoObjectsOfALambda"] = ["SF1001"],
+            ["ListFromAHelperThatReturnsAnInterfaceUnderTwoNames"] = ["SF1001"],
+            ["ListInAnInterfaceMemberUnderTwoNames"] = ["SF1001"],
+            ["IsSubsetOfAnArgumentThatGotItsComparerByName"] = ["SF1005"],
+            ["KeyOfAPairOfADictionaryThatHoldsAnObjectOfTheStore"] = ["SF1001"],
+            ["ObjectOfALocalFunctionInALoopThatChangesTheObjectBeforeIt"] = ["SF1001"],
+            ["KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

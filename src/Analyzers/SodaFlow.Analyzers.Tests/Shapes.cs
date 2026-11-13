@@ -30,39 +30,39 @@ public static class Shapes
 
     public static void Main() { }
 
-    // S01. Direct read.
+    // S1. Direct read.
     public static Cell<int> DirectSample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = l.Sample(); return S.Hold(x); });
 
-    // S02. Read through Map.
+    // S2. Read through Map.
     public static Cell<int> MapSample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v + 1).Sample(); return S.Hold(x); });
 
-    // S03. Read through Lift, placeholder as argument.
+    // S3. Read through Lift, placeholder as argument.
     public static Cell<int> LiftSample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Lift(l, (a, b) => a + b).Sample(); return S.Hold(x); });
 
-    // S04. Read through Calm.
+    // S4. Read through Calm.
     public static Cell<int> CalmSample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = l.Calm().Sample(); return S.Hold(x); });
 
-    // S05. Read through SwitchC on a looped cell of cells.
+    // S5. Read through SwitchC on a looped cell of cells.
     public static Cell<Cell<int>> SwitchCSample() =>
         Cell.Loop<Cell<int>>().WithoutCaptures(l => { int x = l.SwitchC().Sample(); return Cell.Constant(Cell.Constant(x)); });
 
-    // S06. Read through HoldLazy of a lazy sample of the placeholder.
+    // S6. Read through HoldLazy of a lazy sample of the placeholder.
     public static Cell<int> HoldLazySample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Stream.Never<int>().HoldLazy(l.SampleLazy()).Sample(); return S.Hold(x); });
 
-    // S07. Read through ConstantLazy and a lazy Map.
+    // S7. Read through ConstantLazy and a lazy Map.
     public static Cell<int> ConstantLazySample() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.ConstantLazy(l.SampleLazy().Map(v => v + 1)).Sample(); return S.Hold(x); });
 
-    // S08. A hold with a given value is not pending.
+    // S8. A hold with a given value is not pending.
     public static Cell<int> HoldWithValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = l.Updates().Hold(7).Sample(); return S.Hold(x); });
 
-    // S09. A snapshot samples at firing time.
+    // S9. A snapshot samples at firing time.
     public static Cell<int> SnapshotHold() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = S.Snapshot(l, (a, b) => a + b).Hold(7).Sample(); return S.Hold(x); });
 
@@ -8299,6 +8299,130 @@ public static class Shapes
     public static Cell<int> OverlapsOfASortedSetWhereTheArgumentIsAViewOfASetWithAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedPeer> set = [new(l.Map(v => v), 1)]; SortedSet<RankedPeer> source = new(Comparer<RankedPeer>.Create(static (a, b) => 0)) { new(Plain, 1) }; SortedSet<RankedPeer> other = source.GetViewBetween(source.Min!, source.Max!); Kept.Add(set.Overlaps(other)); return S.Hold(0); });
 
+    // S1759. A list holds an object of the store and an object of a loop, which the store does not have. The variable of the foreach can be the second one.
+    public static Cell<int> ElementThatIsNoObjectOfTheStoreBesideOneThatIs() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; List<SettableSlot> slots = [a]; for (int i = 0; i < 1; i++) { slots.Add(new() { Share = l.Map(v => v) }); } foreach (SettableSlot each in slots) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S1760. A local that can be an object of the store or an object of a loop. A plain cell for the first one does not change the second.
+    public static Cell<int> NameOfAnObjectOfTheStoreOrOfAnObjectOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot? kept = null; for (int i = 0; i < 1; i++) { kept = new() { Share = l.Map(v => v) }; } SettableSlot one = Never ? a : kept!; a.Share = Plain; return S.Hold(one.Share!.Sample()); });
+
+    // S1761. A plain cell through a name of two objects is a change to one of them only. The other one keeps its pending cell.
+    public static Cell<int> PlainThroughANameOfTwoObjectsWhereTheOtherIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot b = new() { Share = Plain }; SettableSlot one = !Never ? b : a; one.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S1762. A local that can be one of two objects of the store. The first one gets a plain cell after the local got it, and the second one has a plain cell.
+    public static Cell<int> NameOfTwoObjectsAfterTheFirstGotAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot b = new() { Share = Plain }; SettableSlot one = Never ? b : a; a.Share = Plain; return S.Hold(one.Share!.Sample()); });
+
+    // S1763. The function of a Map does not run in the block. A member that it sets has no new state for the block.
+    public static Cell<int> MapFunctionSetsAMemberOfAnObjectOfTheStore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Kept.Add(Plain.Map(v => { slot.Share = l.Map(x => x); return v; })); return S.Hold(slot.Share!.Sample()); });
+
+    // S1764. A second local of an array that an array creation makes.
+    public static Cell<int> ArrayCreationGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new Cell<int>[] { Plain }; Cell<int>[] other = cells; other[0] = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S1765. The same for an array creation with no type.
+    public static Cell<int> ArrayCreationWithNoTypeGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new[] { Plain }; Cell<int>[] other = cells; other[0] = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S1766. The same for an array creation with a length and no element.
+    public static Cell<int> ArrayCreationWithALengthGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new Cell<int>[1]; Cell<int>[] other = cells; other[0] = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S1767. A method of the platform gives an element of the list. The result is a name of the object that the list got.
+    public static Cell<int> ChangeThroughAnElementFromACallReadThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; List<SettableSlot> slots = [slot]; SettableSlot got = slots.Single(); got.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1768. A record keeps the list that its constructor got in a property. The list gets the pending cell after the constructor.
+    public static Cell<int> ListThatARecordGotChangesLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = new(); CellsRecord keeper = new(cells); cells.Add(l.Map(v => v)); return S.Hold(keeper.Cells[0].Sample()); });
+
+    // S1769. A class keeps the list in a parameter of its primary constructor, and a method of it reads the list.
+    public static Cell<int> ListThatAPrimaryConstructorGotChangesLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = new(); CellsCapturer keeper = new(cells); cells.Add(l.Map(v => v)); return S.Hold(keeper.First()); });
+
+    // S1770. A helper reads the list in a member of an object that it gets. The report is about the argument of the call.
+    public static Cell<int> ListInAMemberOfAnObjectReadInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellBox box = new(); List<Cell<int>> cells = box.Cells; cells.Add(l.Map(v => v)); return S.Hold(FirstOfABox(box)); });
+
+    // S1771. A dictionary holds the object, and the variable of the foreach is a pair. The pair is not the object, and its value is.
+    public static Cell<int> ChangeThroughALocalReadThroughAPairOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<string, SettableSlot> map = new() { ["a"] = slot }; slot.Share = l.Map(v => v); foreach (KeyValuePair<string, SettableSlot> pair in map) { Kept.Add(pair.Value.Share!.Sample()); } return S.Hold(0); });
+
+    // S1772. A list of cells of cells gets a cell with a pending cell through a second local.
+    public static Cell<int> ListOfCellsOfCellsGetsAPendingContentThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<Cell<int>>> cells = [Cell.Constant(Plain)]; List<Cell<Cell<int>>> other = cells; other.Add(Cell.Constant(l.Map(v => v))); return S.Hold(cells[1].Sample().Sample()); });
+
+    // S1773. A local with an interface type is a name of the list.
+    public static Cell<int> ListGetsAPendingCellThroughALocalOfAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; IList<Cell<int>> view = cells; view.Add(l.Map(v => v)); return S.Hold(cells[1].Sample()); });
+
+    // S1774. A helper with a type parameter returns the object that it gets.
+    public static Cell<int> ChangeThroughTheResultOfAGenericHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; SettableSlot other = TheSameObject(slot); other.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1775. A helper with a body sets a plain cell, and the call is in an if statement. The assignment always runs in the helper, and the helper does not always run.
+    public static Cell<int> HelperWithABodyInAnIfStatementSetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { ClearASlot(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S1776. A helper in a loop makes an object, and gives a plain cell to the object of the turn before it. The object of the last turn keeps its pending cell.
+    public static Cell<int> ObjectOfAHelperInALoopWhereTheHelperChangesTheObjectBeforeIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { last = NextSlot(last, l.Map(v => v)); } return S.Hold(last!.Share!.Sample()); });
+
+    // S1777. A local function makes the object of each call. Two calls make two objects.
+    public static Cell<int> TwoObjectsOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make(Cell<int> share) { SettableSlot made = new() { Share = share }; return made; } SettableSlot a = Make(l.Map(v => v)); SettableSlot b = Make(Plain); b.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S1778. A lambda of a query makes the object of each element.
+    public static Cell<int> TwoObjectsOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = new[] { 0, 1 }.Select(i => new SettableSlot { Share = i == 0 ? l.Map(v => v) : Plain }).ToList(); SettableSlot first = list[0]; SettableSlot second = list[1]; second.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S1779. A helper returns a list as an interface, and the block names the type of the list.
+    public static Cell<int> ListFromAHelperThatReturnsAnInterfaceUnderTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = (List<Cell<int>>)MakeAListAsAnInterface(); List<Cell<int>> other = cells; other.Add(l.Map(v => v)); return S.Hold(cells[1].Sample()); });
+
+    // S1780. A list in a member with an interface type, with two names that have the type of the list.
+    public static Cell<int> ListInAnInterfaceMemberUnderTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ListBehindAnInterface box = new(); List<Cell<int>> cells = (List<Cell<int>>)box.Cells; List<Cell<int>> other = cells; other.Add(l.Map(v => v)); return S.Hold(cells[0].Sample()); });
+
+    // S1781. IsSubsetOf where the argument got a different comparer by the name of the parameter.
+    public static Cell<int> IsSubsetOfAnArgumentThatGotItsComparerByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = new(comparer: ReferenceEqualityComparer.Instance); other.Add(new(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1782. An object of a foreach loop gets a pending cell and then a plain one, in each turn.
+    public static Cell<int> PlainAfterPendingInAnObjectOfAForeachLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; foreach (int i in new[] { 0, 1 }) { SettableSlot x = new() { Share = l.Map(v => v) }; x.Share = Plain; list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1783. The same for a while loop.
+    public static Cell<int> PlainAfterPendingInAnObjectOfAWhileLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; int i = 0; while (i < 2) { SettableSlot x = new() { Share = l.Map(v => v) }; x.Share = Plain; list.Add(x); i++; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1784. The same for a do loop.
+    public static Cell<int> PlainAfterPendingInAnObjectOfADoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; int i = 0; do { SettableSlot x = new() { Share = l.Map(v => v) }; x.Share = Plain; list.Add(x); i++; } while (i < 2); return S.Hold(list[0].Share!.Sample()); });
+
+    // S1785. An object in a member, where the walk did not read the constructor of its owner. A plain cell replaces its pending cell.
+    public static Cell<int> PlainAfterPendingInAnObjectInAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotInAMember box = new(); box.Slot.Share = l.Map(v => v); box.Slot.Share = Plain; return S.Hold(box.Slot.Share!.Sample()); });
+
+    // S1786. A hold of a stream of an object. The value of the hold in the block is the first value, and the object of the stream comes after the close.
+    public static Cell<int> HoldOfAStreamOfAnObjectWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = l.Map(v => v) }; SettableSlot other = new() { Share = Plain }; Cell<SettableSlot> held = S.Map(_ => slot).Hold(other); SettableSlot now = held.Sample(); return S.Hold(now.Share!.Sample()); });
+
+    // S1787. A dictionary has a pending key and an object of the store as its value. The pair of the foreach is not that object, and has the state of its key.
+    public static Cell<int> KeyOfAPairOfADictionaryThatHoldsAnObjectOfTheStore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = new() { Share = Plain }; Dictionary<Cell<int>, SettableSlot> map = new() { [l.Map(v => v)] = slot }; foreach (KeyValuePair<Cell<int>, SettableSlot> pair in map) { Kept.Add(pair.Key.Sample()); } return S.Hold(0); });
+
+    // S1788. A local function in a loop makes an object, and gives a plain cell to the object of the turn before it.
+    public static Cell<int> ObjectOfALocalFunctionInALoopThatChangesTheObjectBeforeIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; SettableSlot Next(SettableSlot? before, Cell<int> share) { SettableSlot made = new() { Share = share }; (before ?? made).Share = Plain; return made; } for (int i = 0; i < 2; i++) { last = Next(last, l.Map(v => v)); } return S.Hold(last!.Share!.Sample()); });
+
+    // S1789. The same, where a helper made the object. The type of such an object is only the type that the code names, and a pair is still not that object.
+    public static Cell<int> KeyOfAPairOfADictionaryThatHoldsAnObjectFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeAPlainSlot(); Dictionary<Cell<int>, SettableSlot> map = new() { [l.Map(v => v)] = slot }; foreach (KeyValuePair<Cell<int>, SettableSlot> pair in map) { Kept.Add(pair.Key.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9780,6 +9904,37 @@ public static class Shapes
 
     private static HashSet<SameOwn> MakeASetThatComparesReferences(SameOwn one) =>
         new(ReferenceEqualityComparer.Instance) { one };
+
+    public sealed record CellsRecord(List<Cell<int>> Cells);
+
+    public sealed class CellsCapturer(List<Cell<int>> cells)
+    {
+        public int First() => cells[0].Sample();
+    }
+
+    private static int FirstOfABox(CellBox box) => box.Cells[0].Sample();
+
+    private static T TheSameObject<T>(T item) => item;
+
+    private static void ClearASlot(SettableSlot slot)
+    {
+        slot.Share = Plain;
+    }
+
+    private static SettableSlot NextSlot(SettableSlot? before, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+        (before ?? made).Share = Plain;
+
+        return made;
+    }
+
+    private static IList<Cell<int>> MakeAListAsAnInterface() => new List<Cell<int>> { Plain };
+
+    public sealed class SlotInAMember
+    {
+        public SettableSlot Slot { get; } = new() { Share = Plain };
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

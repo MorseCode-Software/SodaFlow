@@ -411,8 +411,14 @@ internal sealed class LoopStateEvaluator
     ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
     /// </summary>
     public void Absorb(ExpressionSyntax target, LoopState state) =>
-        // The object contains the value. It is not the value.
-        this.Merge(target: target, state: state.AsContainer.WithNoObjects);
+        // The object contains the value. It is not the value. A value with members that is no
+        // object of the store has those members only here. Thus, the object then holds an object
+        // that the store does not know.
+        this.Merge(
+            target: target,
+            state: state.Objects.IsEmpty && state.Members != null
+                ? state.AsContainer.WithNoObjects.HoldingAnUnknownObject
+                : state.AsContainer.WithNoObjects);
 
     /// <summary>
     ///     Adds a state to what a name holds, as it is. A callee that put a
@@ -626,10 +632,11 @@ internal sealed class LoopStateEvaluator
     ///     one state.
     /// </summary>
     /// <remarks>
-    ///     A local, a parameter, or a member that names one object gets the
-    ///     members of the store. An element and the result of a call are one of
-    ///     the values that they can be, and keep what they have. A value that can
-    ///     be an object that the store does not know keeps what it has also.
+    ///     A local, a parameter, or a member gets the members of the store when
+    ///     the store has each object that it can be. An element and the result of
+    ///     a call are one of the values that they can be, and keep what they have.
+    ///     A value that can be an object that the store does not know keeps what
+    ///     it has also.
     /// </remarks>
     private LoopState Refreshed(ExpressionSyntax expression, LoopState state)
     {
@@ -657,9 +664,7 @@ internal sealed class LoopStateEvaluator
             ? state
             : state.RefreshedFrom(
                 stored: stored.FromIfUnknown(state.AnyOrigin),
-                one: known
-                     && state.Objects.Length == 1
-                     && Unwrapped(expression) is IdentifierNameSyntax or MemberAccessExpressionSyntax);
+                all: known && Unwrapped(expression) is IdentifierNameSyntax or MemberAccessExpressionSyntax);
     }
 
     /// <summary>
@@ -692,12 +697,7 @@ internal sealed class LoopStateEvaluator
             ? apart
             : apart.WithObjects(
                 ImmutableArray.Create(
-                    this.region.Objects.MadeAt(
-                        place: place,
-                        frame: this.Frame,
-                        type: type,
-                        exact: exact,
-                        state: apart)));
+                    this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
     }
 
     /// <summary>
@@ -938,6 +938,8 @@ internal sealed class LoopStateEvaluator
                 exact: true),
             ArrayCreationExpressionSyntax { Initializer: { } init } =>
                 this.MadeHere(place: expression, state: this.JoinAll(init.Expressions).AsContainer, exact: true),
+            // An array with a length and no element. It gets its elements after this.
+            ArrayCreationExpressionSyntax => this.MadeHere(place: expression, state: LoopState.None, exact: true),
             ImplicitArrayCreationExpressionSyntax a => this.MadeHere(
                 place: expression,
                 state: this.JoinAll(a.Initializer.Expressions).AsContainer,
@@ -979,7 +981,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     private LoopState EvalTuple(TupleExpressionSyntax tuple)
     {
-        LoopState all = this.JoinAll(tuple.Arguments.Select(static argument => argument.Expression)).WithNoObjects;
+        LoopState all = this.JoinAll(tuple.Arguments.Select(static argument => argument.Expression));
         TypeInfo info = this.region.ModelFor(tuple).GetTypeInfo(tuple);
 
         if ((info.Type ?? info.ConvertedType) is not INamedTypeSymbol { IsTupleType: true } type
