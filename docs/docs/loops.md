@@ -292,6 +292,22 @@ A dictionary has its keys as well as its values, also when the key arrives throu
 in `map[key] = value`. A value put into a collection that a property or a field of one of your
 objects holds, as in `box.Items.Add(x)`, is read back through that property.
 
+An object the block builds is one object under every name it has. Give it a second variable, put it
+in a list, a tuple, a `KeyValuePair`, or a property of another object, or hand it to a helper or a
+constructor that keeps it, and a change made through any of those names is seen through all the
+others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. A collection is
+such an object as well: `cells.Add(x)` is seen through a second variable for `cells`, and through an
+outer list that holds it. So is what a call hands back, from a helper of yours or from the platform:
+the result of `MakeRow()` or of `Activator.CreateInstance<T>()` is one object under the names the
+block gives it. A copy is a different object. `new List<T>(list)`, `list.ToList()`, and a spread make
+a new collection that holds the same items, a `with` expression makes a new record, and a struct is
+copied at every assignment, so a change to the copy is not a change to the original.
+
+A later assignment replaces an earlier one only where it is sure to run: `slot.Share = pending;`
+followed by `slot.Share = plain;` leaves the plain value, through either name. An assignment under an
+`if`, in a loop, or in a helper that was handed the object adds to what the object already has,
+because the analyzer does not know that it runs.
+
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
 `Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it. A `Lazy<T>`
@@ -362,7 +378,10 @@ so a list of pairs compares both too. Where a method compares the values of only
 parameters, the analyzer reads only those, also when two type parameters have the same type:
 `Enqueue` of a `PriorityQueue<TElement, TPriority>` compares the priorities and not the elements,
 `Remove` compares the elements and not the priorities, and `Add` of a dictionary compares the key of
-the pair and not its value.
+the pair and not its value. A function argument does not always pick what is compared either.
+`GetOrAdd` and `AddOrUpdate` of a `ConcurrentDictionary<TKey, TValue>` compare the key you pass, and
+their function only makes the value. `ExceptBy` and `IntersectBy` compare the keys their function
+returns with the keys in the second sequence.
 
 Two things narrow what is read there. A sort or a set of a single element compares nothing, and the
 analyzer knows the count when the collection is a literal of one element that the block does not
@@ -376,6 +395,19 @@ held. For the sorted collections, a `PriorityQueue<TElement, TPriority>`, the fr
 immutable lists, sets, and sorted dictionaries, it is the value you pass. A span method depends on
 the element type: most of the searches give the call to the value you pass when the type is
 `IEquatable<T>`, and to the item already held when it is not.
+
+A set or a dictionary that a collection expression or an initializer fills is read as the `Add`
+calls it stands for. Each element is compared with the elements written before it, and the same
+object gets the call as in an `Add` on that collection.
+
+A set operation such as `IsSubsetOf`, `SetEquals`, or `UnionWith` depends on its argument. With an
+array, a list, or a query, one side gets the call, as above. With a set of the same kind and the
+same comparer, several of these methods take a faster path that gives the call to the other side,
+and some compare the items of one side with each other. The analyzer follows the faster path when it
+sees both sets built with the default comparer: with no comparer argument, with `null`, or with
+`EqualityComparer<T>.Default`. When it sees that one of the two got a different comparer, the
+platform takes the ordinary path, and so does the analyzer. It reads the items of one side against
+each other where the platform compares them.
 
 A serializer does more with a value than keep it. `JsonSerializer` of `System.Text.Json`,
 `JsonConvert` and `JsonSerializer` of Json.NET, and `XmlSerializer` enumerate the sequences in the
@@ -404,35 +436,41 @@ It does not see everything, and in a few places it guesses on the careful side:
   read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
   `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort of
   a single item that is not a literal of one element. A comparer kept by a collection is the same:
-  the first `Add` to an empty sorted set compares nothing, and it is reported. A value that may be
-  one of two types is read the same way: the member of each type is read, though only one object is
-  there at run time.
+  the first `Add` to an empty sorted set compares nothing, and it is reported. So is the first
+  element of an initializer on a set or a dictionary whose constructor got an argument, also when
+  that argument is only a comparer or a capacity. A value that may be one of two types is read the
+  same way: the member of each type is read, though only one object is there at run time.
 
 - In a sort, and in the other methods that compare the items of one sequence with each other,
   the analyzer does not know which of two objects gets the call, and the runtimes do not agree. A
-  `CompareTo` or an `Equals` that reads only its own object is reported for either. A set or a
-  dictionary that a collection expression or an initializer fills is read the same way, although
-  each `Add` there gives the call to the item already held.
+  `CompareTo` or an `Equals` that reads only its own object is reported for either.
 - Code without source that takes a query as `object` or as a type parameter is taken to keep it,
   as `list.Add(query)` does. The serializers and LINQ to XML named above are the exceptions. Other
   code that walks a value it was handed as `object` is not seen, and a serializer is read as it
   behaves without options: one told to write fields, or given a converter of its own, is not
   followed.
-- An object under two names is followed in one direction only, from a variable to a collection
-  that got the object from it. A second variable for the same object, a change made through the
-  collection and read through the variable, and an object that a tuple, a pair, or a property of
-  another object got from a variable are not followed.
+- An object is one object under all its names only where the code makes it once. An object built in
+  a loop, in a lambda, a local function, or a query, or in a helper called from one of those, is
+  many objects at run time, and the analyzer follows each name of it on its own, as it does for an
+  object that came into the block from outside: a change through one name is not seen through a
+  second variable, though a collection still has what was put into it. Where a name can be one of
+  several objects, as an element of a list of several or a variable set on two paths, a change
+  through it is added to each of them, so a plain value set that way does not clear a pending one.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
   analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
   key already held when it is the first one with its hash code, and to the key you pass when it is
   not. A span method called with a span of values, such as `IndexOfAny(values)`, differs between
   .NET Framework and .NET.
-- The rows for the set operations, such as `IsSubsetOf`, `SetEquals`, and `UnionWith`, were
-  measured with an array as the argument. When the argument is a set of the same kind with the same
-  comparer, several of them take a faster path that gives the call to the other object, and the
-  immutable sets and `SortedSet<T>.UnionWith` also compare the values you pass with each other. The
-  analyzer does not see either yet. `IsProperSubsetOf` of a `HashSet<T>` has no row for this reason,
-  and reads both objects.
+- A set operation whose argument is a set reads both objects when the analyzer cannot tell which
+  path the platform takes: where a comparer comes from a variable or a call, where both sets got a
+  comparer, where the type of the argument is not known, and for the few combinations where the
+  runtimes differ or each side gets a call.
+- An immutable dictionary compares the values as well as the keys when a key repeats, as in an
+  `Add` of a key it already holds or a `ToImmutableDictionary` over pairs with one key. The
+  analyzer reads the keys only.
+- A query expression is read for what its clauses read, but what its `select` builds does not
+  carry what the analyzer knows to the code that enumerates the query. The same query written
+  with `Select` and a lambda is followed.
 - A call through an interface on an object whose type the analyzer does not know reads both
   objects, because the collections do not agree on which one gets the call. `ICollection<T>.Add`
   on such an object is not read at all, because a list adds without comparing.
@@ -443,12 +481,11 @@ It does not see everything, and in a few places it guesses on the careful side:
   method of another library that returns a sequence is taken to run its function in the call.
 - Reflection is not followed. An object from `Activator.CreateInstance`, or a result of
   `MethodInfo.Invoke`, carries nothing the analyzer knows.
-- A chain of your own calls is followed three calls deep. Past that, a pending value you pass gets
-  `SF1003`. A member of one of your objects that runs past that depth is not read at all, though:
-  a `CompareTo` that calls a helper of its own, run by a sort two helpers down, gives no report.
-- A method that takes a function for the value it adds, such as `GetOrAdd(key, factory)` of a
-  `ConcurrentDictionary<TKey, TValue>`, is read as a method that compares what the function returns,
-  as a sort by a key does. The key you pass is not read.
+- A chain of your own calls is followed four calls deep. Past that, the code is not read, and the
+  analyzer reports `SF1003` at the call it stopped at: for a pending value you pass, and for a
+  member of one of your objects when the object holds a value the analyzer is following. A helper
+  that is handed only an object, with nothing from the loop in it, is read to the same depth so
+  that the analyzer sees where it keeps the object, and gets no report past it.
 - A function kept by a constructor outside your project is not read when the block then uses that
   object. `Lazy<T>` and a comparer kept by a platform collection are the exceptions, and a
   `Lazy<T>` handed to code outside your project is taken as kept, not forced.
