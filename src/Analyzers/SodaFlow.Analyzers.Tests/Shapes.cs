@@ -8035,7 +8035,7 @@ public static class Shapes
     public static Cell<int> IsSubsetOfAnArgumentOfAnUnknownTypeThatIsAnArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; IEnumerable<SameOwn> other = MakeASetOrAnArray(false, new SameOwn(Plain), new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
 
-    // S1693. IsSubsetOf where the argument is a HashSet that got a comparer. The analyzer does not know that the two comparers are the same, and reads the two objects.
+    // S1693. IsSubsetOf where the argument is a HashSet that got the Default of the platform for its comparer. That is the comparer of the set also, and an element of the argument gets the call.
     public static Cell<int> IsSubsetOfAHashSetArgumentThatGotAComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; HashSet<SameOwn> other = new(EqualityComparer<SameOwn>.Default); other.Add(new(Plain)); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
 
@@ -8226,6 +8226,78 @@ public static class Shapes
     // S1740. A helper makes the object, puts it into the list of the caller, and returns it. The result and the element are two names of the object.
     public static Cell<int> ObjectThatAHelperMadeAndPutIntoAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; SettableSlot slot = MakeASlotInto(list, Plain); slot.Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
+
+    // S1741. A constructor three helpers down reads the getter. The evaluator does not read the getter, and the record is in the frame of the constructor.
+    public static Cell<int> GetterInAConstructorThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(KeepNowThroughTwo(reader)); return S.Hold(0); });
+
+    // S1742. The same, where the object has only a plain cell. A member that the evaluator does not read gets no report when no member of its object has a state.
+    public static Cell<int> GetterOfAPlainObjectInAConstructorThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(Plain); Kept.Add(KeepNowThroughTwo(reader)); return S.Hold(0); });
+
+    // S1743. A lambda that the block only keeps does not run. A member that it calls past the depth gets no report.
+    public static Cell<int> KeptLambdaCallsAGetterThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Func<int> later = () => KeepNowThroughTwo(reader); Kept.Add(later); return S.Hold(0); });
+
+    // S1744. A set expression where Equals reads the object that it gets. The first element is pending, and it gets the call with the plain one.
+    public static Cell<int> SetExpressionOfPeersWhereTheFirstElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SamePeer> set = [new(l.Map(v => v)), new(Plain)]; Kept.Add(set); return S.Hold(0); });
+
+    // S1745. The same for an initializer.
+    public static Cell<int> SetInitializerOfPeersWhereTheFirstElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SamePeer> set = new() { new(l.Map(v => v)), new(Plain) }; Kept.Add(set); return S.Hold(0); });
+
+    // S1746. IsSubsetOf where the argument is a HashSet with a different comparer. The platform does not use the path for two sets, and the element of the set gets the call.
+    public static Cell<int> IsSubsetOfAHashSetArgumentWithADifferentComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = new(ReferenceEqualityComparer.Instance) { new(Plain) }; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1747. IsSubsetOf where the argument is a local that got a set with a different comparer after its declaration.
+    public static Cell<int> IsSubsetOfAHashSetArgumentThatGotADifferentSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = [new(Plain)]; other = new(ReferenceEqualityComparer.Instance) { new(Plain) }; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1748. IsSubsetOf where a factory of the platform made the argument with a different comparer.
+    public static Cell<int> IsSubsetOfASetFromAFactoryWithADifferentComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = new SameOwn[] { new(Plain) }.ToHashSet<SameOwn>(ReferenceEqualityComparer.Instance); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1749. IsSubsetOf of a HashSet where the argument is an ImmutableHashSet. The table has no row for that pair, and the element of the HashSet gets the call.
+    public static Cell<int> IsSubsetOfAHashSetWhereTheArgumentIsAnImmutableHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; ImmutableHashSet<SameOwn> other = ImmutableHashSet.Create(new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1750. The function of a Map does not run in the block. A member that it calls past the depth gets no report.
+    public static Cell<int> MapFunctionCallsAGetterThreeHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(Plain.Map(v => v + KeepNowThroughTwo(reader))); return S.Hold(0); });
+
+    // S1751. An object whose pending cell the block replaced with a plain one. A getter of it that the evaluator does not read gets no report, because no member of the object has a state.
+    public static Cell<int> GetterOfAnObjectThatGotAPlainCellFourHelpersDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DeepSlot slot = new() { Share = l.Map(v => v) }; slot.Share = Plain; Kept.Add(NowOfASlotThroughThree(slot)); return S.Hold(0); });
+
+    // S1752. IsSubsetOf where the set of the call has a comparer of the platform. That comparer calls no member of an element.
+    public static Cell<int> IsSubsetOfWhereTheSetHasADifferentComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = new(ReferenceEqualityComparer.Instance) { new(Plain) }; HashSet<SameOwn> other = [new(l.Map(v => v))]; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1753. IsSubsetOf where the argument has a different comparer and a pending element. The plain element of the set gets the call.
+    public static Cell<int> IsSubsetOfAnArgumentWithADifferentComparerWhereItsElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; HashSet<SameOwn> other = new(ReferenceEqualityComparer.Instance); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1754. IsSubsetOf where the comparer of the argument is in a local. The analyzer does not know that it is the default one, and reads the two objects.
+    public static Cell<int> IsSubsetOfAnArgumentWhoseComparerIsInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; IEqualityComparer<SameOwn> same = EqualityComparer<SameOwn>.Default; HashSet<SameOwn> other = new(same); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1755. IsSubsetOf where the argument got null for its comparer, which is the default one. The plain element of the argument gets the call.
+    public static Cell<int> IsSubsetOfAnArgumentThatGotNullForItsComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = new((IEqualityComparer<SameOwn>?)null) { new(Plain) }; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1756. IsSubsetOf where the set of the call has a comparer of this code that reads nothing.
+    public static Cell<int> IsSubsetOfWhereTheSetHasAComparerOfThisCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = new(new NeverTheSame()) { new(Plain) }; HashSet<SameOwn> other = [new(l.Map(v => v))]; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1757. IsSubsetOf where a helper of this code made the argument with a different comparer.
+    public static Cell<int> IsSubsetOfASetFromAHelperWithADifferentComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; HashSet<SameOwn> other = MakeASetThatComparesReferences(new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1758. Overlaps of a SortedSet where the argument is a view of a set with its own comparer. The view has that comparer, and the analyzer does not know it.
+    public static Cell<int> OverlapsOfASortedSetWhereTheArgumentIsAViewOfASetWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedPeer> set = [new(l.Map(v => v), 1)]; SortedSet<RankedPeer> source = new(Comparer<RankedPeer>.Create(static (a, b) => 0)) { new(Plain, 1) }; SortedSet<RankedPeer> other = source.GetViewBetween(source.Min!, source.Max!); Kept.Add(set.Overlaps(other)); return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -9679,6 +9751,35 @@ public static class Shapes
 
         return made;
     }
+
+    private static int KeepNowThroughTwo(DeepReader reader) => KeepNowThrough(reader);
+
+    public sealed class DeepSlot
+    {
+        public Cell<int>? Share { get; set; }
+
+        public int Now => this.Read();
+
+        private int Read() => this.Share!.Sample();
+    }
+
+    private static int NowOfASlot(DeepSlot slot) => slot.Now;
+
+    private static int NowOfASlotThrough(DeepSlot slot) => NowOfASlot(slot);
+
+    private static int NowOfASlotThroughTwo(DeepSlot slot) => NowOfASlotThrough(slot);
+
+    private static int NowOfASlotThroughThree(DeepSlot slot) => NowOfASlotThroughTwo(slot);
+
+    public sealed class NeverTheSame : IEqualityComparer<SameOwn>
+    {
+        public bool Equals(SameOwn? x, SameOwn? y) => false;
+
+        public int GetHashCode(SameOwn obj) => 1;
+    }
+
+    private static HashSet<SameOwn> MakeASetThatComparesReferences(SameOwn one) =>
+        new(ReferenceEqualityComparer.Instance) { one };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

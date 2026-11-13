@@ -1232,7 +1232,15 @@ internal sealed class LoopReadAnalyzerTests
             ["CopyOfAListUnderTwoNames"] = ["SF1001"],
             ["CastOfAListInAMember"] = ["SF1001"],
             ["FirstObjectOfTwoCallsOfOneHelper"] = ["SF1001"],
-            ["ObjectThatAHelperMadeAndPutIntoAList"] = ["SF1001"]
+            ["ObjectThatAHelperMadeAndPutIntoAList"] = ["SF1001"],
+            ["GetterInAConstructorThreeHelpersDown"] = ["SF1003"],
+            ["IsSubsetOfAHashSetArgumentWithADifferentComparer"] = ["SF1005"],
+            ["IsSubsetOfAHashSetArgumentThatGotADifferentSet"] = ["SF1005"],
+            ["IsSubsetOfASetFromAFactoryWithADifferentComparer"] = ["SF1005"],
+            ["IsSubsetOfAHashSetWhereTheArgumentIsAnImmutableHashSet"] = ["SF1005"],
+            ["IsSubsetOfAnArgumentWhoseComparerIsInALocal"] = ["SF1005"],
+            ["IsSubsetOfASetFromAHelperWithADifferentComparer"] = ["SF1005"],
+            ["OverlapsOfASortedSetWhereTheArgumentIsAViewOfASetWithAComparer"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1693,6 +1701,139 @@ internal sealed class LoopReadAnalyzerTests
         // pending. The third method reads the looped cell itself.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
+    }
+
+    /// <summary>
+    ///     The walk reads a limited number of callee bodies for one block. A member
+    ///     that the block calls after that limit is code that the analyzer does
+    ///     not read. The object of the member has a pending cell, thus the call
+    ///     gets the report for such code.
+    /// </summary>
+    /// <remarks>
+    ///     The helpers call each other eight times at each of three levels, which
+    ///     is more bodies than the limit. The shapes file cannot have this block:
+    ///     its calls past the limit get the same rule, and a shape has only a set
+    ///     of rules.
+    /// </remarks>
+    [Test]
+    public async Task AMemberThatTheBlockCallsPastTheLimitOfBodiesGetsAReport()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> PastTheLimit() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Reader reader = new(l.Map(v => v));
+                        Kept.Add(Wide3(l.Map(v => v)));
+                        Kept.Add(reader.Now);
+
+                        return S.Hold(0);
+                    });
+
+                private static int Wide0(Cell<int> c) => c == null ? 1 : 0;
+
+                private static int Wide1(Cell<int> c) =>
+                    Wide0(c) + Wide0(c) + Wide0(c) + Wide0(c) + Wide0(c) + Wide0(c) + Wide0(c) + Wide0(c);
+
+                private static int Wide2(Cell<int> c) =>
+                    Wide1(c) + Wide1(c) + Wide1(c) + Wide1(c) + Wide1(c) + Wide1(c) + Wide1(c) + Wide1(c);
+
+                private static int Wide3(Cell<int> c) =>
+                    Wide2(c) + Wide2(c) + Wide2(c) + Wide2(c) + Wide2(c) + Wide2(c) + Wide2(c) + Wide2(c);
+
+                public sealed class Reader(Cell<int> share)
+                {
+                    public int Now => share.Sample();
+                }
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyPastTheLimit"));
+
+        string[] notRead =
+        [
+            .. diagnostics
+                .Where(static diagnostic => diagnostic.Id == "SF1003")
+                .Select(static diagnostic =>
+                    diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan))
+        ];
+
+        await Assert.That(notRead).Contains("reader.Now");
+    }
+
+    /// <summary>
+    ///     A callee that gets only an object of the store, and no state from the
+    ///     loop, has its own limit of bodies. A block that calls many such callees
+    ///     still has each body that a pending value needs.
+    /// </summary>
+    /// <remarks>
+    ///     The helpers get an empty list, and call each other eight times at each
+    ///     of three levels. That is more bodies than the limit. The helper after
+    ///     them samples a pending cell, and the walk reads it.
+    /// </remarks>
+    [Test]
+    public async Task CalleesThatGetOnlyObjectsDoNotUseTheBodiesOfAPendingValue()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ManyCalleesWithAnObject() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> list = [];
+                        Kept.Add(Wide3(list));
+                        Kept.Add(NowOf(l.Map(v => v)));
+
+                        return S.Hold(0);
+                    });
+
+                private static int NowOf(Cell<int> c) => c.Sample();
+
+                private static int Wide0(List<Cell<int>> list) => list.Count;
+
+                private static int Wide1(List<Cell<int>> list) =>
+                    Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list) + Wide0(list);
+
+                private static int Wide2(List<Cell<int>> list) =>
+                    Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list) + Wide1(list);
+
+                private static int Wide3(List<Cell<int>> list) =>
+                    Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list) + Wide2(list);
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyManyCallees"));
+
+        // The helper samples its parameter, and the walk says so. A helper that the walk does not
+        // read gets the report for such code and no more.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["SF1004"]);
     }
 
     // An assertion on a collection names ten of its items and counts the others. The reason names

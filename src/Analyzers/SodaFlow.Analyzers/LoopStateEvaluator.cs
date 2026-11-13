@@ -3280,8 +3280,7 @@ internal sealed class LoopStateEvaluator
             calls: alone ? PlatformCallers.Of(member) & ~ComparesTwo : PlatformCallers.Of(member),
             operands: operands,
             keeper: collection,
-            // The state of a literal has each of its elements, also the ones after this one.
-            also: before == null ? this.Eval(collection) : LoopState.None,
+            also: this.Eval(collection),
             given: null,
             returned: null,
             firstIsStored: false);
@@ -3662,11 +3661,14 @@ internal sealed class LoopStateEvaluator
     ///     a set with the same comparer.
     /// </summary>
     /// <remarks>
-    ///     The analyzer knows that the two comparers are the same only when it
-    ///     sees that each set was made with no comparer. A collection expression
-    ///     for a sequence makes a list or an array, which is not a set. An
-    ///     argument whose type the analyzer does not know can be such a set, and
-    ///     then the analyzer reads the two objects.
+    ///     The platform uses that path only when the two comparers are equal. The
+    ///     analyzer knows that when it sees that each set was made with the default
+    ///     comparer. When it sees that only one of them got a different comparer,
+    ///     the method has its row. In each other case, the analyzer reads the two
+    ///     objects. A collection expression for a sequence makes a list or an
+    ///     array, which is not a set. An argument whose type the analyzer does not
+    ///     know can be such a set, and then the analyzer reads the two objects
+    ///     also.
     /// </remarks>
     private PlatformReceiver ReceiverFor(
         IMethodSymbol method,
@@ -3695,15 +3697,28 @@ internal sealed class LoopStateEvaluator
             return row;
         }
 
-        return keeper != null && this.HasTheDefaultComparer(keeper) && this.HasTheDefaultComparer(argument)
-            ? forASet
-            : PlatformReceiver.Either;
+        return (keeper == null ? KeptComparer.NotKnown : this.ComparerOf(keeper), this.ComparerOf(argument)) switch
+        {
+            (KeptComparer.Default, KeptComparer.Default) => forASet,
+            (KeptComparer.Default, KeptComparer.Different) or (KeptComparer.Different, KeptComparer.Default) => row,
+            _ => PlatformReceiver.Either
+        };
     }
 
-    // True when the code made the set with no comparer. A creation, a collection expression, and a
-    // factory of the platform do that when they have no parameter for a comparer. A local that no
-    // code changes has the set that its declaration made.
-    private bool HasTheDefaultComparer(ExpressionSyntax written)
+    // What the analyzer knows about the comparer that a set of the platform keeps.
+    private enum KeptComparer
+    {
+        // The code made the set with no comparer, with null, or with the Default of the platform.
+        Default,
+
+        // The code made the set with a new comparer, or with a static member that is not Default.
+        Different,
+        NotKnown
+    }
+
+    // The comparer of a set that the code made. A creation, a collection expression, and a factory
+    // of the platform say it. A local that no code changes has the set that its declaration made.
+    private KeptComparer ComparerOf(ExpressionSyntax written)
     {
         for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
         {
@@ -3721,21 +3736,69 @@ internal sealed class LoopStateEvaluator
                 continue;
             }
 
-            return inner switch
+            if (inner is CollectionExpressionSyntax)
             {
-                CollectionExpressionSyntax => true,
-                ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
-                    or InvocationExpressionSyntax =>
-                    this.region.SymbolOf(inner) is IMethodSymbol maker
-                    && SodaFlowSymbols.IsPlatform(maker.ContainingType)
-                    && (maker.MethodKind == MethodKind.Constructor || (maker.ReducedFrom ?? maker).IsStatic)
-                    && !(maker.ReducedFrom ?? maker).Parameters.Any(static parameter =>
-                        SodaFlowSymbols.IsComparer(parameter.Type)),
-                _ => false
-            };
+                return KeptComparer.Default;
+            }
+
+            SeparatedSyntaxList<ArgumentSyntax> arguments =
+                inner switch
+                {
+                    ObjectCreationExpressionSyntax creation => creation.ArgumentList?.Arguments ?? default,
+                    ImplicitObjectCreationExpressionSyntax creation => creation.ArgumentList.Arguments,
+                    InvocationExpressionSyntax call => call.ArgumentList.Arguments,
+                    _ => default
+                };
+
+            if (inner is not (BaseObjectCreationExpressionSyntax or InvocationExpressionSyntax)
+                || this.region.SymbolOf(inner) is not IMethodSymbol maker
+                || !SodaFlowSymbols.IsPlatform(maker.ContainingType)
+                || (maker.MethodKind != MethodKind.Constructor && !(maker.ReducedFrom ?? maker).IsStatic))
+            {
+                return KeptComparer.NotKnown;
+            }
+
+            return (maker.ReducedFrom ?? maker).Parameters
+                .Where(static parameter => SodaFlowSymbols.IsComparer(parameter.Type))
+                .Select(parameter => this.ComparerIn(arguments: arguments, maker: maker, parameter: parameter))
+                .DefaultIfEmpty(KeptComparer.Default)
+                .First();
         }
 
-        return false;
+        return KeptComparer.NotKnown;
+    }
+
+    // The comparer that a call gives for a parameter. A call that gives none, null, default, or
+    // the Default of the platform gives the default comparer.
+    private KeptComparer ComparerIn(
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        IMethodSymbol maker,
+        IParameterSymbol parameter)
+    {
+        // The object of an extension method is not in the list of its arguments.
+        int position = parameter.Ordinal - (maker.ReducedFrom == null ? 0 : 1);
+
+        ExpressionSyntax? given =
+            arguments.FirstOrDefault(argument => argument.NameColon?.Name.Identifier.ValueText == parameter.Name)
+                ?.Expression
+            ?? (position >= 0 && position < arguments.Count && arguments[position].NameColon == null
+                ? arguments[position].Expression
+                : null);
+
+        if (given == null || this.IsNoValue(given))
+        {
+            return KeptComparer.Default;
+        }
+
+        return this.region.SymbolOf(Unwrapped(given)) switch
+        {
+            IPropertySymbol { IsStatic: true, Name: "Default" } property
+                when SodaFlowSymbols.IsPlatform(property.ContainingType)
+                     && property.ContainingType.Name is "EqualityComparer" or "Comparer" => KeptComparer.Default,
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => KeptComparer.Different,
+            IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } => KeptComparer.Different,
+            _ => KeptComparer.NotKnown
+        };
     }
 
     /// <summary>
