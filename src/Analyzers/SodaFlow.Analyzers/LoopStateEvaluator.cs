@@ -78,7 +78,7 @@ internal sealed class LoopStateEvaluator
             bound: NoSymbols,
             noValues: NoParameters,
             depth: 0,
-            frame: new LoopFrame(),
+            frame: new LoopFrame(parent: null, repeats: false),
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
@@ -245,7 +245,11 @@ internal sealed class LoopStateEvaluator
     ///     members. For each other owner, and for a static member, the region keeps
     ///     the state for the field.
     /// </summary>
-    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state)
+    /// <param name="owner">The expression of the object. Null for a static member.</param>
+    /// <param name="member">The member.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="replaces">True when the assignment always runs in its function.</param>
+    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces)
     {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
@@ -255,7 +259,7 @@ internal sealed class LoopStateEvaluator
             this.Change(
                 owner: this.Eval(owner),
                 change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: state)),
-                joins: false);
+                replaces: replaces);
         }
 
         // The owner is an element of a collection. The collection then contains an object whose
@@ -339,7 +343,7 @@ internal sealed class LoopStateEvaluator
         // keep its argument, as Contains is for the analyzer, makes no second name.
         if (collection is ExpressionSyntax written && this.Eval(value).Objects is { IsEmpty: false } put)
         {
-            this.Change(owner: this.Eval(written), change: old => old.Holding(put), joins: true);
+            this.Change(owner: this.Eval(written), change: old => old.Holding(put), replaces: false);
         }
 
         if (Unwrapped(value) is IdentifierNameSyntax name
@@ -432,7 +436,7 @@ internal sealed class LoopStateEvaluator
             // Parentheses, a cast, and the operator that says not null do not hide the name.
             target = Unwrapped(target);
             LoopState added = state;
-            this.Change(owner: this.Eval(target), change: old => old.Join(added), joins: true);
+            this.Change(owner: this.Eval(target), change: old => old.Join(added), replaces: false);
 
             ExpressionSyntax? collection = this.CollectionOf(target);
 
@@ -563,10 +567,8 @@ internal sealed class LoopStateEvaluator
     {
         if (owner.Objects.Length != 1
             || member.DeclaringSyntaxReferences.IsEmpty
-            || this.region.TypeOf(expression) is not { IsReferenceType: true } type
-            || type.SpecialType == SpecialType.System_String
-            || type.TypeKind == TypeKind.Delegate
-            || this.region.Symbols.IsSodaFlow(type))
+            || this.region.TypeOf(expression) is not { } type
+            || !this.CanBeAnObject(type))
         {
             return null;
         }
@@ -665,9 +667,14 @@ internal sealed class LoopStateEvaluator
     /// <remarks>
     ///     A struct is a copy at each assignment, thus a second name of it is not
     ///     the same object. It holds the objects of its parts in its members. An
-    ///     evaluator that reads code which does not run now makes no object.
+    ///     evaluator that reads code which does not run now makes no object. Code
+    ///     that can run two or more times makes two or more objects, and the store
+    ///     has none of them: each name then has its own state.
     /// </remarks>
-    private LoopState MadeHere(ExpressionSyntax place, LoopState state)
+    /// <param name="place">The expression that makes the object.</param>
+    /// <param name="state">The state of the object.</param>
+    /// <param name="exact">True when the object has the type of the expression, as a creation has.</param>
+    private LoopState MadeHere(ExpressionSyntax place, LoopState state, bool exact)
     {
         TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
 
@@ -679,19 +686,95 @@ internal sealed class LoopStateEvaluator
         // A new collection holds the objects that it got, and is not one of them.
         LoopState apart = state.WithObjects(ImmutableArray<MadeObject>.Empty);
 
-        return this.quiet
+        return this.quiet || !this.RunsOneTime(place)
             ? apart
             : apart.WithObjects(
                 ImmutableArray.Create(
-                    this.region.Objects.MadeAt(place: place, frame: this.Frame, type: type, state: apart)));
+                    this.region.Objects.MadeAt(
+                        place: place,
+                        frame: this.Frame,
+                        type: type,
+                        exact: exact,
+                        state: apart)));
     }
 
     /// <summary>
-    ///     Changes the state of each object that a value can be. A value that is
-    ///     one object gives it the new state. A value that can be two or more
-    ///     objects adds the new state to each.
+    ///     True when the code at a place runs one time at most for each time that
+    ///     the code of this frame runs, and this frame does not repeat. An object
+    ///     that such code makes is one object.
     /// </summary>
-    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool joins)
+    /// <remarks>
+    ///     A loop runs its code again. A lambda, a local function, and a query can
+    ///     run two or more times, and the walk reads each in the frame of the code
+    ///     that it is in.
+    /// </remarks>
+    private bool RunsOneTime(SyntaxNode place)
+    {
+        if (this.Frame.Repeats)
+        {
+            return false;
+        }
+
+        foreach (SyntaxNode ancestor in place.Ancestors())
+        {
+            if (ancestor == this.region.Root)
+            {
+                return true;
+            }
+
+            switch (ancestor)
+            {
+                case ForStatementSyntax
+                    or CommonForEachStatementSyntax
+                    or WhileStatementSyntax
+                    or DoStatementSyntax
+                    or AnonymousFunctionExpressionSyntax
+                    or LocalFunctionStatementSyntax
+                    or QueryExpressionSyntax:
+                    return false;
+                case MemberDeclarationSyntax or AccessorDeclarationSyntax:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The state of the result of a call, with an object for the call when the
+    ///     store has no object for the result.
+    /// </summary>
+    /// <remarks>
+    ///     The result is then a new object, or an object that the walk did not
+    ///     see made. Only the names from this call have it, and each of them is a
+    ///     name of that one object.
+    /// </remarks>
+    private LoopState ReturnedHere(InvocationExpressionSyntax call, LoopState result) =>
+        result.Objects.IsEmpty && this.region.TypeOf(call) is { } type && this.CanBeAnObject(type)
+            ? this.MadeHere(place: call, state: result, exact: false)
+            : result;
+
+    // True for a type whose values the store keeps as objects. A string and a value of the library
+    // do not change, and a delegate has its functions.
+    private bool CanBeAnObject(ITypeSymbol type) =>
+        type is { IsReferenceType: true, SpecialType: not SpecialType.System_String, TypeKind: not TypeKind.Delegate }
+        && !this.region.Symbols.IsSodaFlow(type);
+
+    /// <summary>
+    ///     Changes the state of each object that a value can be. The new state
+    ///     replaces the state of an object only when the change is sure to be to
+    ///     that object. Each other change adds the new state.
+    /// </summary>
+    /// <remarks>
+    ///     The change is sure when the value is one object, the change always runs
+    ///     in its function, and the code of this frame or of a callee made the
+    ///     object. A callee can run under a condition of its caller. Thus, a
+    ///     change that a callee makes to an object of its caller only adds.
+    /// </remarks>
+    /// <param name="owner">The state of the value.</param>
+    /// <param name="change">The new state of an object, from its state now.</param>
+    /// <param name="replaces">True when the change always runs in its function.</param>
+    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool replaces)
     {
         if (this.quiet)
         {
@@ -706,7 +789,9 @@ internal sealed class LoopStateEvaluator
 
                 this.region.Objects.Set(
                     found: made,
-                    state: joins || owner.Objects.Length > 1 ? old.Join(changed) : changed);
+                    state: replaces && owner.Objects.Length == 1 && made.IsFrom(this.Frame)
+                        ? changed
+                        : old.Join(changed));
             }
         }
     }
@@ -831,7 +916,8 @@ internal sealed class LoopStateEvaluator
             // A copy is a new object.
             WithExpressionSyntax w => this.MadeHere(
                 place: w,
-                state: this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer)),
+                state: this.WithInitializer(state: this.Eval(w.Expression), initializer: w.Initializer),
+                exact: true),
             TupleExpressionSyntax t => this.EvalTuple(t),
             AnonymousObjectCreationExpressionSyntax a => this.EvalAnonymous(a),
             // A collection contains its elements, and is not one of them.
@@ -845,11 +931,14 @@ internal sealed class LoopStateEvaluator
                                 SpreadElementSyntax x => x.Expression,
                                 _ => null
                             }))
-                    .AsContainer),
+                    .AsContainer,
+                exact: true),
             ArrayCreationExpressionSyntax { Initializer: { } init } =>
-                this.MadeHere(place: expression, state: this.JoinAll(init.Expressions).AsContainer),
-            ImplicitArrayCreationExpressionSyntax a =>
-                this.MadeHere(place: expression, state: this.JoinAll(a.Initializer.Expressions).AsContainer),
+                this.MadeHere(place: expression, state: this.JoinAll(init.Expressions).AsContainer, exact: true),
+            ImplicitArrayCreationExpressionSyntax a => this.MadeHere(
+                place: expression,
+                state: this.JoinAll(a.Initializer.Expressions).AsContainer,
+                exact: true),
             InitializerExpressionSyntax i => this.JoinAll(i.Expressions).AsContainer,
             // A query expression has the queries of its first source, and is one more.
             QueryExpressionSyntax q => this.Eval(q.FromClause.Expression).OnlyQueries.WithQuery(this.QueryAt(q)),
@@ -1442,6 +1531,8 @@ internal sealed class LoopStateEvaluator
                     .Join(this.Follow(invocation)?.State ?? LoopState.None)
                     .Join(this.region.Symbols.StateOfType(method.ReturnType));
 
+            result = this.ReturnedHere(call: invocation, result: result);
+
             // A query and the result of an iterator keep their code for the time when
             // something enumerates them.
             return this.Waits(call: invocation, method: method)
@@ -1658,7 +1749,8 @@ internal sealed class LoopStateEvaluator
                     ImplicitObjectCreationExpressionSyntax i => i.ArgumentList.Arguments,
                     _ => default
                 })
-            : state);
+            : state,
+            exact: true);
     }
 
     /// <summary>
@@ -2504,7 +2596,7 @@ internal sealed class LoopStateEvaluator
         }
 
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
-        LoopStateEvaluator inner = this.Inner(bindings: bindings, definer: null, members: members);
+        LoopStateEvaluator inner = this.Inner(call: call, bindings: bindings, definer: null, members: members);
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         SemanticModel model = this.region.ModelFor(type);
@@ -4106,7 +4198,8 @@ internal sealed class LoopStateEvaluator
             definer = definer.Quiet();
         }
 
-        LoopStateEvaluator inner = this.Inner(bindings: bindings, definer: definer, members: members);
+        LoopStateEvaluator inner =
+            this.Inner(call: call, bindings: bindings, definer: definer, members: members);
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         walker.Visit(body);
@@ -4165,6 +4258,7 @@ internal sealed class LoopStateEvaluator
     ///     the state of its argument. The parameter is the origin of that state.
     /// </summary>
     private LoopStateEvaluator Inner(
+        SyntaxNode call,
         IEnumerable<Binding> bindings,
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members)
@@ -4199,7 +4293,7 @@ internal sealed class LoopStateEvaluator
             bound: parameters.ToImmutable(),
             noValues: noValue.ToImmutable(),
             depth: this.depth + 1,
-            frame: definer?.Frame ?? new LoopFrame(),
+            frame: definer?.Frame ?? new LoopFrame(parent: this.Frame, repeats: !this.RunsOneTime(call)),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,

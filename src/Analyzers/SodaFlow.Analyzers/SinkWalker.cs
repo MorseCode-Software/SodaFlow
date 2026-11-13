@@ -1048,7 +1048,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.evaluator.SetMemberOf(
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
                     member: member,
-                    state: state);
+                    state: state,
+                    replaces: replaces);
 
                 break;
         }

@@ -13,9 +13,37 @@ namespace SodaFlow.Analyzers;
 ///     A frame is an identity: a finding keeps the frame that its origin is a
 ///     name of.
 /// </remarks>
-internal sealed class LoopFrame
+/// <param name="parent">The frame of the code that calls this code. Null for the block.</param>
+/// <param name="repeats">The value of <see cref="Repeats" />.</param>
+internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats)
 {
+    private readonly LoopFrame? parent = parent;
     private readonly List<QueryValue> waiting = [];
+
+    /// <summary>
+    ///     True when the walk reads the code of this frame one time for two or
+    ///     more calls. The call is then in a loop, in a function in the code of
+    ///     its caller, or in a frame that repeats. An object that such code makes
+    ///     is two or more objects at run time.
+    /// </summary>
+    public bool Repeats { get; } = repeats;
+
+    /// <summary>
+    ///     True for the given frame, and for the frame of each callee that the
+    ///     code of the given frame calls.
+    /// </summary>
+    public bool IsWithin(LoopFrame other)
+    {
+        for (LoopFrame? frame = this; frame != null; frame = frame.parent)
+        {
+            if (frame == other)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     ///     The queries that the code of this frame made or got from a callee. When

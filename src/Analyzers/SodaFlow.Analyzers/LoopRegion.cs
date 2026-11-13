@@ -15,6 +15,7 @@ internal sealed class LoopRegion(
     in SodaFlowSymbols symbols,
     in ISymbol placeholder,
     in LoopState placeholderState,
+    in SyntaxNode root,
     in Action<Diagnostic> report)
 {
     // The walk reads at most this many callee bodies for one block. A block that needs more is
@@ -40,6 +41,9 @@ internal sealed class LoopRegion(
 
     /// <summary>The one state of each object that the code of the region makes.</summary>
     public ObjectStore Objects { get; } = new();
+
+    /// <summary>The body of the block.</summary>
+    public SyntaxNode Root { get; } = root;
 
     /// <summary>The assemblies of the library, as this compilation sees them.</summary>
     public SodaFlowSymbols Symbols { get; } = symbols;
@@ -182,12 +186,12 @@ internal sealed class LoopRegion(
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(SyntaxNode root, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
+    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool checkLinks)
     {
         LoopStateEvaluator evaluator = new(this);
 
         new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
-            .Visit(root);
+            .Visit(this.Root);
 
         foreach (Finding unread in evaluator.Frame.TakeUnread())
         {

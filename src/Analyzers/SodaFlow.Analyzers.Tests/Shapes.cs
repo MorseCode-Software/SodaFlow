@@ -8163,6 +8163,70 @@ public static class Shapes
     public static Cell<int> WithCopyOfARecordGetsAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotRecord first = new() { Share = Plain }; SlotRecord second = first with { }; second.Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
 
+    // S1725. A write under a condition does not always run. The object keeps the pending cell also.
+    public static Cell<int> MemberSetUnderAConditionThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { x.Share = Plain; } return S.Hold(x.Share!.Sample()); });
+
+    // S1726. The same, with the write through a second name.
+    public static Cell<int> MemberSetThroughASecondNameUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; if (Never) { y.Share = Plain; } return S.Hold(x.Share!.Sample()); });
+
+    // S1727. A helper under a condition sets a plain cell. The call does not always run.
+    public static Cell<int> HelperUnderAConditionThatDoesNotRunSetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { FillSlot(x, Plain); } return S.Hold(x.Share!.Sample()); });
+
+    // S1728. A helper sets a pending cell through a second name of the object.
+    public static Cell<int> HelperSetsAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; FillSlot(y, l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S1729. A helper with no argument makes the object. The object has two names in the block.
+    public static Cell<int> ObjectThatAHelperMadeUnderTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeAPlainSlot(); SettableSlot other = slot; other.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1730. A method of the platform makes the object. The object has two names in the block.
+    public static Cell<int> ObjectThatThePlatformMadeUnderTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = Activator.CreateInstance<SettableSlot>(); SettableSlot other = slot; other.Share = l.Map(v => v); return S.Hold(slot.Share!.Sample()); });
+
+    // S1731. A copy that ToList makes is a new list, and it has two names.
+    public static Cell<int> CopyOfAListUnderTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; List<Cell<int>> copy = cells.ToList(); List<Cell<int>> other = copy; other.Add(l.Map(v => v)); return S.Hold(copy[1].Sample()); });
+
+    // S1732. A list in a member with an interface type, where the code names the type of the list.
+    public static Cell<int> CastOfAListInAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ListBehindAnInterface box = new(); ((List<Cell<int>>)box.Cells).Add(l.Map(v => v)); return S.Hold(box.Cells[0].Sample()); });
+
+    // S1733. Two calls of one helper make two objects. The first one has the pending cell.
+    public static Cell<int> FirstObjectOfTwoCallsOfOneHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = MakeASlotWith(l.Map(v => v)); SettableSlot b = MakeASlotWith(Plain); Kept.Add(b); return S.Hold(a.Share!.Sample()); });
+
+    // S1734. The same two calls. The second object has only the plain cell.
+    public static Cell<int> SecondObjectOfTwoCallsOfOneHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = MakeASlotWith(l.Map(v => v)); SettableSlot b = MakeASlotWith(Plain); Kept.Add(a); return S.Hold(b.Share!.Sample()); });
+
+    // S1735. Two calls of a helper with no argument make two objects. A change to one is not a change to the other.
+    public static Cell<int> ChangeToTheSecondObjectOfTwoCallsOfOneHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = MakeAPlainSlot(); SettableSlot b = MakeAPlainSlot(); b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S1736. A write that always runs replaces the pending cell of an object that a helper made.
+    public static Cell<int> PlainAfterPendingInAnObjectThatAHelperMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeASlotWith(l.Map(v => v)); slot.Share = Plain; return S.Hold(slot.Share!.Sample()); });
+
+    // S1737. The same, with the write through a second name.
+    public static Cell<int> PlainThroughASecondNameInAnObjectThatAHelperMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeASlotWith(l.Map(v => v)); SettableSlot other = slot; other.Share = Plain; return S.Hold(slot.Share!.Sample()); });
+
+    // S1738. A helper makes the object and replaces its pending cell before it returns.
+    public static Cell<int> HelperReplacesThePendingCellOfTheObjectThatItMakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot slot = MakeASlotAndClear(l.Map(v => v)); return S.Hold(slot.Share!.Sample()); });
+
+    // S1739. An object of a loop gets a pending cell and then a plain one, in each turn.
+    public static Cell<int> PlainAfterPendingInAnObjectOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; x.Share = Plain; list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1740. A helper makes the object, puts it into the list of the caller, and returns it. The result and the element are two names of the object.
+    public static Cell<int> ObjectThatAHelperMadeAndPutIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; SettableSlot slot = MakeASlotInto(list, Plain); slot.Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9589,6 +9653,31 @@ public static class Shapes
     public sealed record SlotRecord
     {
         public Cell<int>? Share { get; set; }
+    }
+
+    private static SettableSlot MakeAPlainSlot() => new() { Share = Plain };
+
+    private static SettableSlot MakeASlotWith(Cell<int> share) => new() { Share = share };
+
+    private static SettableSlot MakeASlotAndClear(Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+        made.Share = Plain;
+
+        return made;
+    }
+
+    public sealed class ListBehindAnInterface
+    {
+        public IList<Cell<int>> Cells { get; } = new List<Cell<int>>();
+    }
+
+    private static SettableSlot MakeASlotInto(List<SettableSlot> into, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+        into.Add(made);
+
+        return made;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

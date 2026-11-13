@@ -113,9 +113,10 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 symbols: symbols,
                 placeholder: placeholder,
                 placeholderState: placeholderState,
+                root: body,
                 report: context.ReportDiagnostic);
 
-        region.Analyze(root: body, closings: closings, checkLinks: checkLinks);
+        region.Analyze(closings: closings, checkLinks: checkLinks);
     }
 
     /// <summary>

@@ -1222,7 +1222,17 @@ internal sealed class LoopReadAnalyzerTests
             ["ListInAListGetsAPendingCellThroughItsLocal"] = ["SF1001"],
             ["ListGetsAPendingCellThroughAnElementOfAList"] = ["SF1001"],
             ["DictionaryGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
-            ["ArrayGetsAPendingCellThroughASecondLocal"] = ["SF1001"]
+            ["ArrayGetsAPendingCellThroughASecondLocal"] = ["SF1001"],
+            ["MemberSetUnderAConditionThatDoesNotRun"] = ["SF1001"],
+            ["MemberSetThroughASecondNameUnderACondition"] = ["SF1001"],
+            ["HelperUnderAConditionThatDoesNotRunSetsAPlainCell"] = ["SF1001"],
+            ["HelperSetsAPendingCellThroughASecondName"] = ["SF1001"],
+            ["ObjectThatAHelperMadeUnderTwoNames"] = ["SF1001"],
+            ["ObjectThatThePlatformMadeUnderTwoNames"] = ["SF1001"],
+            ["CopyOfAListUnderTwoNames"] = ["SF1001"],
+            ["CastOfAListInAMember"] = ["SF1001"],
+            ["FirstObjectOfTwoCallsOfOneHelper"] = ["SF1001"],
+            ["ObjectThatAHelperMadeAndPutIntoAList"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -29,11 +29,16 @@ internal sealed class ObjectStore
     ///     of the same expression in the same frame is the same object, and its
     ///     state stays.
     /// </summary>
-    public MadeObject MadeAt(SyntaxNode place, LoopFrame frame, ITypeSymbol type, LoopState state)
+    /// <param name="place">The expression.</param>
+    /// <param name="frame">The frame.</param>
+    /// <param name="type">The type of the expression.</param>
+    /// <param name="exact">True when the object has that type, and not a type that derives from it.</param>
+    /// <param name="state">The first state of the object.</param>
+    public MadeObject MadeAt(SyntaxNode place, LoopFrame frame, ITypeSymbol type, bool exact, LoopState state)
     {
         if (!this.made.TryGetValue(key: (place, frame), value: out MadeObject? found))
         {
-            found = new MadeObject(type);
+            found = new MadeObject(type: type, exact: exact, frame: frame);
             this.made[(place, frame)] = found;
             this.states[found] = state;
         }
@@ -63,7 +68,7 @@ internal sealed class ObjectStore
             this.inMembers[owner] = members;
         }
 
-        MadeObject found = new(type);
+        MadeObject found = owner.InAMember(type);
         members[member] = found;
         this.states[found] = state;
 
