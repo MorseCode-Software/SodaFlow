@@ -285,8 +285,11 @@ initializers, and through an interface to the object you built behind it. When o
 or constructors puts a value into a collection or an object you passed to it, the caller's
 collection or object has that value afterwards. A change made through one item of a collection is a
 change to the collection: `rows[0].Add(x)`, a property set on the variable of a `foreach`, or an
-`Add` on what `Find`, `Last`, or `TryGetValue` handed back. A dictionary has its keys as well as
-its values, also when the key arrives through the indexer, as in `map[key] = value`.
+`Add` on what `Find`, `Last`, or `TryGetValue` handed back. The same holds for an object you keep
+in a variable and also put into a collection, with a literal, an `Add`, or an assignment to an
+element: build a row, add it to the rows, then fill the row, and the rows have what you filled in.
+A dictionary has its keys as well as its values, also when the key arrives through the indexer, as
+in `map[key] = value`.
 
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
@@ -323,8 +326,13 @@ The platform calls members of your types as well, with no call in your code at a
 and `Equals` when two hash codes match. `string.Join`, `string.Format`, and the other methods that
 build text call `ToString`. A collection constructor, a spread, or a LINQ query once something
 enumerates it, enumerates a sequence type of yours. The analyzer has a table of the collection,
-LINQ, and text methods of the platform that do this, and it reads the member where the call is, or
-for a query, where the query is enumerated. A method that gets a comparer calls the comparer and
+LINQ, span, and text methods of the platform that do this, and it reads the member where the call
+is, or for a query, where the query is enumerated. The span methods matter more than their name
+suggests: in C# 14, `Contains`, `IndexOf`, or `SequenceEqual` called on an array is a method of
+`MemoryExtensions`. A collection expression written directly as an argument, as in
+`new SortedSet<T>([a, b])`, is read like a collection in a variable. Arguments given one by one to
+a `params` parameter are separate values: `string.Join(",", query, 1)` writes the query object as
+text and does not enumerate it. A method that gets a comparer calls the comparer and
 not these members, and the analyzer knows that too. A collection built with a comparer of yours,
 such as a `SortedSet<T>`, a `Dictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>`,
 keeps it and calls it from its own methods, and the analyzer reads the comparer at those calls.
@@ -337,7 +345,8 @@ do, only one of the two objects gets the call, the same one on every runtime the
 on. The analyzer reads the member of that object, with the other one as its argument. For a list, a
 hash set, or a dictionary it is the item already held. For a `SortedSet<T>`, a
 `SortedDictionary<TKey, TValue>`, or a `PriorityQueue<TElement, TPriority>` it is the value you
-pass.
+pass. A span method depends on the element type: most of the searches give the call to the value
+you pass when the type is `IEquatable<T>`, and to the item already held when it is not.
 
 A serializer does more with a value than keep it. `JsonSerializer` of `System.Text.Json`,
 `JsonConvert` and `JsonSerializer` of Json.NET, and `XmlSerializer` enumerate the sequences in the
@@ -378,8 +387,12 @@ It does not see everything, and in a few places it guesses on the careful side:
   code that walks a value it was handed as `object` is not seen, and a serializer is read as it
   behaves without options: one told to write fields, or given a converter of its own, is not
   followed.
-- An object that the block holds in a local and also puts into a collection has two names. A
-  change through the local is not seen as a change to the collection.
+- An object under two names is followed in one direction only, from a variable to a collection
+  that got the object from it. A second variable for the same object, a change made through the
+  collection and read through the variable, and an object that a tuple, a pair, or a property of
+  another object got from a variable are not followed.
+- A span method whose overloads do not agree on which object gets the call, such as `IndexOfAny`,
+  is read for both objects.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
