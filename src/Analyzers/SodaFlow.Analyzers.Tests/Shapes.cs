@@ -1,5 +1,10 @@
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -6502,6 +6507,854 @@ public static class Shapes
     // S1312. The object is a value of a list. The list in its property gets the pending cell.
     public static Cell<int> ListInAPropertyOfAnElementGetsAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<CellBox> boxes = [new()]; boxes[0].Cells.Add(l.Map(v => v)); return S.Hold(boxes[0].Cells[0].Sample()); });
+
+    // S1313. ExceptWith of a HashSet.
+    public static Cell<int> HashSetExceptWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; c.ExceptWith(other); return S.Hold(0); });
+
+    // S1314. ExceptWith of a SortedSet.
+    public static Cell<int> SortedSetExceptWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; c.ExceptWith(other); return S.Hold(0); });
+
+    // S1315. IntersectWith of a HashSet.
+    public static Cell<int> HashSetIntersectWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; c.IntersectWith(other); return S.Hold(0); });
+
+    // S1316. IntersectWith of a SortedSet.
+    public static Cell<int> SortedSetIntersectWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; c.IntersectWith(other); return S.Hold(0); });
+
+    // S1317. IsProperSubsetOf of a HashSet.
+    public static Cell<int> HashSetIsProperSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain), new(Plain)]; Kept.Add(c.IsProperSubsetOf(other)); return S.Hold(0); });
+
+    // S1318. IsProperSubsetOf of a SortedSet.
+    public static Cell<int> SortedSetIsProperSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.IsProperSubsetOf(other)); return S.Hold(0); });
+
+    // S1319. IsProperSupersetOf of a HashSet.
+    public static Cell<int> HashSetIsProperSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.IsProperSupersetOf(other)); return S.Hold(0); });
+
+    // S1320. IsProperSupersetOf of a SortedSet.
+    public static Cell<int> SortedSetIsProperSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.IsProperSupersetOf(other)); return S.Hold(0); });
+
+    // S1321. IsSubsetOf of a HashSet.
+    public static Cell<int> HashSetIsSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1322. IsSubsetOf of a SortedSet.
+    public static Cell<int> SortedSetIsSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1323. IsSupersetOf of a HashSet.
+    public static Cell<int> HashSetIsSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.IsSupersetOf(other)); return S.Hold(0); });
+
+    // S1324. IsSupersetOf of a SortedSet.
+    public static Cell<int> SortedSetIsSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.IsSupersetOf(other)); return S.Hold(0); });
+
+    // S1325. Overlaps of a HashSet.
+    public static Cell<int> HashSetOverlaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.Overlaps(other)); return S.Hold(0); });
+
+    // S1326. Overlaps of a SortedSet.
+    public static Cell<int> SortedSetOverlaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.Overlaps(other)); return S.Hold(0); });
+
+    // S1327. SetEquals of a HashSet.
+    public static Cell<int> HashSetSetEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.SetEquals(other)); return S.Hold(0); });
+
+    // S1328. SetEquals of a SortedSet.
+    public static Cell<int> SortedSetSetEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; Kept.Add(c.SetEquals(other)); return S.Hold(0); });
+
+    // S1329. SymmetricExceptWith of a HashSet.
+    public static Cell<int> HashSetSymmetricExceptWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; c.SymmetricExceptWith(other); return S.Hold(0); });
+
+    // S1330. SymmetricExceptWith of a SortedSet.
+    public static Cell<int> SortedSetSymmetricExceptWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; c.SymmetricExceptWith(other); return S.Hold(0); });
+
+    // S1331. UnionWith of a HashSet.
+    public static Cell<int> HashSetUnionWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; c.UnionWith(other); return S.Hold(0); });
+
+    // S1332. UnionWith of a SortedSet.
+    public static Cell<int> SortedSetUnionWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Ranked[] other = [new(Plain)]; c.UnionWith(other); return S.Hold(0); });
+
+    // S1333. TryGetValue of a HashSet.
+    public static Cell<int> HashSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<Alike> c = [new(l.Map(v => v))]; Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1334. Remove of a SortedSet.
+    public static Cell<int> SortedSetRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Kept.Add(c.Remove(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1335. TryGetValue of a SortedSet.
+    public static Cell<int> SortedSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Kept.Add(c.TryGetValue(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1336. GetViewBetween of a SortedSet.
+    public static Cell<int> SortedSetGetViewBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ranked> c = [new(l.Map(v => v))]; Kept.Add(c.GetViewBetween(new Ranked(Plain), new Ranked(Plain)).Count); return S.Hold(0); });
+
+    // S1337. The constructor of a Dictionary.
+    public static Cell<int> DictionaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(new Dictionary<Alike, int>(two).Count); return S.Hold(0); });
+
+    // S1338. ContainsValue of a Dictionary, for a value.
+    public static Cell<int> DictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Alike> c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1339. The constructor of a SortedDictionary.
+    public static Cell<int> SortedDictionaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new SortedDictionary<Ranked, int>(new Dictionary<Ranked, int> { { new Ranked(l.Map(v => v)), 1 }, { new Ranked(Plain), 2 } }).Count); return S.Hold(0); });
+
+    // S1340. ContainsKey of a SortedDictionary.
+    public static Cell<int> SortedDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.ContainsKey(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1341. ContainsKey of a SortedList.
+    public static Cell<int> SortedListContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.ContainsKey(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1342. Remove of a SortedDictionary.
+    public static Cell<int> SortedDictionaryRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.Remove(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1343. Remove of a SortedList.
+    public static Cell<int> SortedListRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.Remove(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1344. TryGetValue of a SortedDictionary.
+    public static Cell<int> SortedDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.TryGetValue(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1345. A read by index of a SortedDictionary.
+    public static Cell<int> SortedDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c[new Ranked(Plain)]); return S.Hold(0); });
+
+    // S1346. ContainsValue of a SortedDictionary, for a value.
+    public static Cell<int> SortedDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<string, Alike> c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1347. The constructor of a SortedList.
+    public static Cell<int> SortedListConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new SortedList<Ranked, int>(new Dictionary<Ranked, int> { { new Ranked(l.Map(v => v)), 1 }, { new Ranked(Plain), 2 } }).Count); return S.Hold(0); });
+
+    // S1348. TryGetValue of a SortedList.
+    public static Cell<int> SortedListTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.TryGetValue(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1349. IndexOfKey of a SortedList.
+    public static Cell<int> SortedListIndexOfKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c.IndexOfKey(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1350. A read by index of a SortedList.
+    public static Cell<int> SortedListRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; Kept.Add(c[new Ranked(Plain)]); return S.Hold(0); });
+
+    // S1351. An assignment by index of a SortedList.
+    public static Cell<int> SortedListAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<Ranked, int> c = new() { { new Ranked(l.Map(v => v)), 1 } }; c[new Ranked(Plain)] = 2; return S.Hold(0); });
+
+    // S1352. ContainsValue of a SortedList, for a value.
+    public static Cell<int> SortedListContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<string, Alike> c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1353. IndexOfValue of a SortedList, for a value.
+    public static Cell<int> SortedListIndexOfValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedList<string, Alike> c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.IndexOfValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1354. Contains of a LinkedList.
+    public static Cell<int> LinkedListContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; LinkedList<Alike> c = new(one); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1355. Find of a LinkedList.
+    public static Cell<int> LinkedListFind() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; LinkedList<Alike> c = new(one); Kept.Add(c.Find(new Alike(Plain)) != null); return S.Hold(0); });
+
+    // S1356. FindLast of a LinkedList.
+    public static Cell<int> LinkedListFindLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; LinkedList<Alike> c = new(one); Kept.Add(c.FindLast(new Alike(Plain)) != null); return S.Hold(0); });
+
+    // S1357. Remove of a LinkedList.
+    public static Cell<int> LinkedListRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; LinkedList<Alike> c = new(one); Kept.Add(c.Remove(new Alike(Plain))); return S.Hold(0); });
+
+    // S1358. Contains of a Queue.
+    public static Cell<int> QueueContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Queue<Alike> c = new(one); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1359. Contains of a Stack.
+    public static Cell<int> StackContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Stack<Alike> c = new(one); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1360. DequeueEnqueue of a PriorityQueue.
+    public static Cell<int> PriorityQueueDequeueEnqueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (int, Ranked)[] one = [(1, new Ranked(l.Map(v => v)))]; PriorityQueue<int, Ranked> c = new(one); Kept.Add(c.DequeueEnqueue(2, new Ranked(Plain))); return S.Hold(0); });
+
+    // S1361. LastIndexOf of Array.
+    public static Cell<int> ArrayLastIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Kept.Add(Array.LastIndexOf(c, new Alike(Plain))); return S.Hold(0); });
+
+    // S1362. The constructor of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(new OrderedDictionary<Alike, int>(two).Count); return S.Hold(0); });
+
+    // S1363. Add of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; c.Add(new Alike(Plain), 2); return S.Hold(0); });
+
+    // S1364. ContainsKey of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1365. IndexOf of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1366. Remove of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.Remove(new Alike(Plain))); return S.Hold(0); });
+
+    // S1367. Insert of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; c.Insert(0, new Alike(Plain), 2); return S.Hold(0); });
+
+    // S1368. SetAt of an OrderedDictionary.
+    public static Cell<int> OrderedDictionarySetAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; c.SetAt(0, new Alike(Plain), 2); return S.Hold(0); });
+
+    // S1369. TryAdd of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryTryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.TryAdd(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1370. TryGetValue of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1371. A read by index of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c[new Alike(Plain)]); return S.Hold(0); });
+
+    // S1372. An assignment by index of an OrderedDictionary.
+    public static Cell<int> OrderedDictionaryAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; c[new Alike(Plain)] = 2; return S.Hold(0); });
+
+    // S1373. ContainsValue of an OrderedDictionary, for a value.
+    public static Cell<int> OrderedDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OrderedDictionary<string, Alike> c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1374. The constructor of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(new ConcurrentDictionary<Alike, int>(two).Count); return S.Hold(0); });
+
+    // S1375. AddOrUpdate of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryAddOrUpdate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.AddOrUpdate(new Alike(Plain), 2, (key, old) => old)); return S.Hold(0); });
+
+    // S1376. ContainsKey of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1377. GetOrAdd of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryGetOrAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.GetOrAdd(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1378. TryAdd of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryTryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.TryAdd(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1379. TryGetValue of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1380. TryRemove of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryTryRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.TryRemove(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1381. TryUpdate of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryTryUpdate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c.TryUpdate(new Alike(Plain), 2, 1)); return S.Hold(0); });
+
+    // S1382. A read by index of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); Kept.Add(c[new Alike(Plain)]); return S.Hold(0); });
+
+    // S1383. An assignment by index of a ConcurrentDictionary.
+    public static Cell<int> ConcurrentDictionaryAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ConcurrentDictionary<Alike, int> c = new(one); c[new Alike(Plain)] = 2; return S.Hold(0); });
+
+    // S1384. Contains of a Collection.
+    public static Cell<int> CollectionContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Collection<Alike> c = new(new List<Alike> { new(l.Map(v => v)) }); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1385. IndexOf of a Collection.
+    public static Cell<int> CollectionIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Collection<Alike> c = new(new List<Alike> { new(l.Map(v => v)) }); Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1386. Remove of a Collection.
+    public static Cell<int> CollectionRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Collection<Alike> c = new(new List<Alike> { new(l.Map(v => v)) }); Kept.Add(c.Remove(new Alike(Plain))); return S.Hold(0); });
+
+    // S1387. Contains of a ReadOnlyCollection.
+    public static Cell<int> ReadOnlyCollectionContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlyCollection<Alike> c = new(new List<Alike> { new(l.Map(v => v)) }); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1388. IndexOf of a ReadOnlyCollection.
+    public static Cell<int> ReadOnlyCollectionIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlyCollection<Alike> c = new(new List<Alike> { new(l.Map(v => v)) }); Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1389. ContainsKey of a ReadOnlyDictionary.
+    public static Cell<int> ReadOnlyDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlyDictionary<Alike, int> c = new(new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }); Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1390. TryGetValue of a ReadOnlyDictionary.
+    public static Cell<int> ReadOnlyDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlyDictionary<Alike, int> c = new(new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1391. A read by index of a ReadOnlyDictionary.
+    public static Cell<int> ReadOnlyDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlyDictionary<Alike, int> c = new(new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }); Kept.Add(c[new Alike(Plain)]); return S.Hold(0); });
+
+    // S1392. GetValueOrDefault of CollectionExtensions.
+    public static Cell<int> CollectionExtensionsGetValueOrDefault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Alike, int> c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.GetValueOrDefault(new Alike(Plain))); return S.Hold(0); });
+
+    // S1393. Remove of CollectionExtensions.
+    public static Cell<int> CollectionExtensionsRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> c = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.Remove(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1394. TryAdd of CollectionExtensions.
+    public static Cell<int> CollectionExtensionsTryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDictionary<Alike, int> c = new Dictionary<Alike, int> { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.TryAdd(new Alike(Plain), 2)); return S.Hold(0); });
+
+    // S1395. ExceptBy of Enumerable.
+    public static Cell<int> EnumerableExceptBy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.ExceptBy(other, x => x).ToArray().Length); return S.Hold(0); });
+
+    // S1396. IntersectBy of Enumerable.
+    public static Cell<int> EnumerableIntersectBy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.IntersectBy(other, x => x).ToArray().Length); return S.Hold(0); });
+
+    // S1397. UnionBy of Enumerable.
+    public static Cell<int> EnumerableUnionBy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.UnionBy(other, x => x).ToArray().Length); return S.Hold(0); });
+
+    // S1398. GroupJoin of Enumerable.
+    public static Cell<int> EnumerableGroupJoin() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.GroupJoin(other, x => x, y => y, (x, ys) => ys.Count()).ToArray().Length); return S.Hold(0); });
+
+    // S1399. LeftJoin of Enumerable.
+    public static Cell<int> EnumerableLeftJoin() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.LeftJoin(other, x => x, y => y, (x, y) => 1).ToArray().Length); return S.Hold(0); });
+
+    // S1400. RightJoin of Enumerable.
+    public static Cell<int> EnumerableRightJoin() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v))]; Alike[] other = [new(Plain)]; Kept.Add(c.RightJoin(other, x => x, y => y, (x, y) => 1).ToArray().Length); return S.Hold(0); });
+
+    // S1401. CountBy of Enumerable.
+    public static Cell<int> EnumerableCountBy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v)), new(Plain)]; Kept.Add(c.CountBy(x => x).ToArray().Length); return S.Hold(0); });
+
+    // S1402. AggregateBy of Enumerable.
+    public static Cell<int> EnumerableAggregateBy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] c = [new(l.Map(v => v)), new(Plain)]; Kept.Add(c.AggregateBy(x => x, 0, (sum, x) => sum + 1).ToArray().Length); return S.Hold(0); });
+
+    // S1403. Add of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Kept.Add(c.Add(new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1404. Add of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Kept.Add(c.Add(new Ranked(Plain)).Count); return S.Hold(0); });
+
+    // S1405. Contains of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1406. Contains of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Kept.Add(c.Contains(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1407. Remove of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Kept.Add(c.Remove(new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1408. Remove of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Kept.Add(c.Remove(new Ranked(Plain)).Count); return S.Hold(0); });
+
+    // S1409. TryGetValue of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1410. TryGetValue of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Kept.Add(c.TryGetValue(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1411. IndexOf of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Kept.Add(c.IndexOf(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1412. Except of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetExcept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.Except(other).Count); return S.Hold(0); });
+
+    // S1413. Except of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetExcept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.Except(other).Count); return S.Hold(0); });
+
+    // S1414. Intersect of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetIntersect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.Intersect(other).Count); return S.Hold(0); });
+
+    // S1415. Intersect of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIntersect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.Intersect(other).Count); return S.Hold(0); });
+
+    // S1416. IsProperSubsetOf of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetIsProperSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain), new(S.Hold(0))]; Kept.Add(c.IsProperSubsetOf(other)); return S.Hold(0); });
+
+    // S1417. IsProperSubsetOf of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIsProperSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain), new(S.Hold(0))]; Kept.Add(c.IsProperSubsetOf(other)); return S.Hold(0); });
+
+    // S1418. IsProperSupersetOf of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetIsProperSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.IsProperSupersetOf(other)); return S.Hold(0); });
+
+    // S1419. IsProperSupersetOf of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIsProperSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.IsProperSupersetOf(other)); return S.Hold(0); });
+
+    // S1420. IsSubsetOf of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetIsSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1421. IsSubsetOf of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIsSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1422. IsSupersetOf of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetIsSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.IsSupersetOf(other)); return S.Hold(0); });
+
+    // S1423. IsSupersetOf of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetIsSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.IsSupersetOf(other)); return S.Hold(0); });
+
+    // S1424. Overlaps of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetOverlaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.Overlaps(other)); return S.Hold(0); });
+
+    // S1425. Overlaps of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetOverlaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.Overlaps(other)); return S.Hold(0); });
+
+    // S1426. SetEquals of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetSetEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.SetEquals(other)); return S.Hold(0); });
+
+    // S1427. SetEquals of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetSetEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.SetEquals(other)); return S.Hold(0); });
+
+    // S1428. SymmetricExcept of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetSymmetricExcept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.SymmetricExcept(other).Count); return S.Hold(0); });
+
+    // S1429. SymmetricExcept of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetSymmetricExcept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.SymmetricExcept(other).Count); return S.Hold(0); });
+
+    // S1430. Union of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetUnion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; ImmutableHashSet<Alike> c = ImmutableHashSet.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.Union(other).Count); return S.Hold(0); });
+
+    // S1431. Union of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetUnion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; ImmutableSortedSet<Ranked> c = ImmutableSortedSet.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.Union(other).Count); return S.Hold(0); });
+
+    // S1432. Create of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableHashSet.Create(new Alike(l.Map(v => v)), new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1433. CreateRange of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] two = [new(l.Map(v => v)), new(Plain)]; Kept.Add(ImmutableHashSet.CreateRange(two).Count); return S.Hold(0); });
+
+    // S1434. ToImmutableHashSet of an ImmutableHashSet.
+    public static Cell<int> ImmutableHashSetToImmutableHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] two = [new(l.Map(v => v)), new(Plain)]; Kept.Add(two.ToImmutableHashSet().Count); return S.Hold(0); });
+
+    // S1435. Create of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableSortedSet.Create(new Ranked(l.Map(v => v)), new Ranked(Plain)).Count); return S.Hold(0); });
+
+    // S1436. CreateRange of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] two = [new(l.Map(v => v)), new(Plain)]; Kept.Add(ImmutableSortedSet.CreateRange(two).Count); return S.Hold(0); });
+
+    // S1437. ToImmutableSortedSet of an ImmutableSortedSet.
+    public static Cell<int> ImmutableSortedSetToImmutableSortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] two = [new(l.Map(v => v)), new(Plain)]; Kept.Add(two.ToImmutableSortedSet().Count); return S.Hold(0); });
+
+    // S1438. Add of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.Add(new Alike(Plain), 2).Count); return S.Hold(0); });
+
+    // S1439. AddRange of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryAddRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); KeyValuePair<Alike, int>[] pairs = [new(new Alike(Plain), 2)]; Kept.Add(c.AddRange(pairs).Count); return S.Hold(0); });
+
+    // S1440. Contains of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.Contains(new KeyValuePair<Alike, int>(new Alike(Plain), 1))); return S.Hold(0); });
+
+    // S1441. ContainsKey of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1442. Remove of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.Remove(new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1443. RemoveRange of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryRemoveRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Alike[] other = [new(Plain)]; Kept.Add(c.RemoveRange(other).Count); return S.Hold(0); });
+
+    // S1444. SetItem of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionarySetItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.SetItem(new Alike(Plain), 2).Count); return S.Hold(0); });
+
+    // S1445. SetItems of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionarySetItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); KeyValuePair<Alike, int>[] pairs = [new(new Alike(Plain), 2)]; Kept.Add(c.SetItems(pairs).Count); return S.Hold(0); });
+
+    // S1446. TryGetKey of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryTryGetKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.TryGetKey(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1447. TryGetValue of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1448. A read by index of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; ImmutableDictionary<Alike, int> c = ImmutableDictionary.CreateRange(one); Kept.Add(c[new Alike(Plain)]); return S.Hold(0); });
+
+    // S1449. ContainsValue of an ImmutableDictionary, for a value.
+    public static Cell<int> ImmutableDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Alike>[] one = [new("a", new Alike(l.Map(v => v)))]; ImmutableDictionary<string, Alike> c = ImmutableDictionary.CreateRange(one); Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1450. CreateRange of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(ImmutableDictionary.CreateRange(two).Count); return S.Hold(0); });
+
+    // S1451. ToImmutableDictionary of an ImmutableDictionary.
+    public static Cell<int> ImmutableDictionaryToImmutableDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(two.ToImmutableDictionary().Count); return S.Hold(0); });
+
+    // S1452. Add of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.Add(new Ranked(Plain), 2).Count); return S.Hold(0); });
+
+    // S1453. AddRange of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryAddRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); KeyValuePair<Ranked, int>[] pairs = [new(new Ranked(Plain), 2)]; Kept.Add(c.AddRange(pairs).Count); return S.Hold(0); });
+
+    // S1454. Contains of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.Contains(new KeyValuePair<Ranked, int>(new Ranked(Plain), 1))); return S.Hold(0); });
+
+    // S1455. ContainsKey of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.ContainsKey(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1456. Remove of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.Remove(new Ranked(Plain)).Count); return S.Hold(0); });
+
+    // S1457. RemoveRange of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryRemoveRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Ranked[] other = [new(Plain)]; Kept.Add(c.RemoveRange(other).Count); return S.Hold(0); });
+
+    // S1458. SetItem of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionarySetItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.SetItem(new Ranked(Plain), 2).Count); return S.Hold(0); });
+
+    // S1459. SetItems of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionarySetItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); KeyValuePair<Ranked, int>[] pairs = [new(new Ranked(Plain), 2)]; Kept.Add(c.SetItems(pairs).Count); return S.Hold(0); });
+
+    // S1460. TryGetKey of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryTryGetKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.TryGetKey(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1461. TryGetValue of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.TryGetValue(new Ranked(Plain), out _)); return S.Hold(0); });
+
+    // S1462. A read by index of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c[new Ranked(Plain)]); return S.Hold(0); });
+
+    // S1463. ContainsValue of an ImmutableSortedDictionary, for a value.
+    public static Cell<int> ImmutableSortedDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<string, Alike>[] one = [new("a", new Alike(l.Map(v => v)))]; ImmutableSortedDictionary<string, Alike> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1464. CreateRange of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] two = [new(new Ranked(l.Map(v => v)), 1), new(new Ranked(Plain), 2)]; Kept.Add(ImmutableSortedDictionary.CreateRange(two).Count); return S.Hold(0); });
+
+    // S1465. ToImmutableSortedDictionary of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryToImmutableSortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] two = [new(new Ranked(l.Map(v => v)), 1), new(new Ranked(Plain), 2)]; Kept.Add(two.ToImmutableSortedDictionary().Count); return S.Hold(0); });
+
+    // S1466. ValueRef of an ImmutableSortedDictionary.
+    public static Cell<int> ImmutableSortedDictionaryValueRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; ImmutableSortedDictionary<Ranked, int> c = ImmutableSortedDictionary.CreateRange(one); Kept.Add(c.ValueRef(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1467. Contains of an ImmutableList.
+    public static Cell<int> ImmutableListContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Alike> c = ImmutableList.Create(new Alike(l.Map(v => v))); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1468. IndexOf of an ImmutableList.
+    public static Cell<int> ImmutableListIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Alike> c = ImmutableList.Create(new Alike(l.Map(v => v))); Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1469. Remove of an ImmutableList.
+    public static Cell<int> ImmutableListRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Alike> c = ImmutableList.Create(new Alike(l.Map(v => v))); Kept.Add(c.Remove(new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1470. RemoveRange of an ImmutableList.
+    public static Cell<int> ImmutableListRemoveRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Alike> c = ImmutableList.Create(new Alike(l.Map(v => v))); Alike[] other = [new(Plain)]; Kept.Add(c.RemoveRange(other).Count); return S.Hold(0); });
+
+    // S1471. Replace of an ImmutableList.
+    public static Cell<int> ImmutableListReplace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Alike> c = ImmutableList.Create(new Alike(l.Map(v => v))); Kept.Add(c.Replace(new Alike(Plain), new Alike(Plain)).Count); return S.Hold(0); });
+
+    // S1472. Sort of an ImmutableList.
+    public static Cell<int> ImmutableListSort() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableList.Create(new Ranked(l.Map(v => v)), new Ranked(Plain)).Sort().Count); return S.Hold(0); });
+
+    // S1473. Contains of an ImmutableArray.
+    public static Cell<int> ImmutableArrayContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1474. IndexOf of an ImmutableArray.
+    public static Cell<int> ImmutableArrayIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1475. Remove of an ImmutableArray.
+    public static Cell<int> ImmutableArrayRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Kept.Add(c.Remove(new Alike(Plain)).Length); return S.Hold(0); });
+
+    // S1476. RemoveRange of an ImmutableArray.
+    public static Cell<int> ImmutableArrayRemoveRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Alike[] other = [new(Plain)]; Kept.Add(c.RemoveRange(other).Length); return S.Hold(0); });
+
+    // S1477. Replace of an ImmutableArray.
+    public static Cell<int> ImmutableArrayReplace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Kept.Add(c.Replace(new Alike(Plain), new Alike(Plain)).Length); return S.Hold(0); });
+
+    // S1478. Sort of an ImmutableArray.
+    public static Cell<int> ImmutableArraySort() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableArray.Create(new Ranked(l.Map(v => v)), new Ranked(Plain)).Sort().Length); return S.Hold(0); });
+
+    // S1479. LastIndexOf of an ImmutableArray.
+    public static Cell<int> ImmutableArrayLastIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Alike> c = ImmutableArray.Create(new Alike(l.Map(v => v))); Kept.Add(c.LastIndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1480. BinarySearch of an ImmutableList.
+    public static Cell<int> ImmutableListBinarySearch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<Ranked> c = ImmutableList.Create(new Ranked(l.Map(v => v))); Kept.Add(c.BinarySearch(new Ranked(Plain))); return S.Hold(0); });
+
+    // S1481. Contains of a FrozenSet.
+    public static Cell<int> FrozenSetContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1482. IsProperSubsetOf of a FrozenSet.
+    public static Cell<int> FrozenSetIsProperSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.IsProperSubsetOf(other)); return S.Hold(0); });
+
+    // S1483. IsProperSupersetOf of a FrozenSet.
+    public static Cell<int> FrozenSetIsProperSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.IsProperSupersetOf(other)); return S.Hold(0); });
+
+    // S1484. IsSubsetOf of a FrozenSet.
+    public static Cell<int> FrozenSetIsSubsetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1485. IsSupersetOf of a FrozenSet.
+    public static Cell<int> FrozenSetIsSupersetOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.IsSupersetOf(other)); return S.Hold(0); });
+
+    // S1486. Overlaps of a FrozenSet.
+    public static Cell<int> FrozenSetOverlaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.Overlaps(other)); return S.Hold(0); });
+
+    // S1487. SetEquals of a FrozenSet.
+    public static Cell<int> FrozenSetSetEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Alike[] other = [new(Plain)]; Kept.Add(c.SetEquals(other)); return S.Hold(0); });
+
+    // S1488. TryGetValue of a FrozenSet.
+    public static Cell<int> FrozenSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; FrozenSet<Alike> c = one.ToFrozenSet(); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1489. ToFrozenSet of a FrozenSet.
+    public static Cell<int> FrozenSetToFrozenSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] two = [new(l.Map(v => v)), new(Plain)]; Kept.Add(two.ToFrozenSet().Count); return S.Hold(0); });
+
+    // S1490. ContainsKey of a FrozenDictionary.
+    public static Cell<int> FrozenDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; FrozenDictionary<Alike, int> c = one.ToFrozenDictionary(); Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1491. TryGetValue of a FrozenDictionary.
+    public static Cell<int> FrozenDictionaryTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; FrozenDictionary<Alike, int> c = one.ToFrozenDictionary(); Kept.Add(c.TryGetValue(new Alike(Plain), out _)); return S.Hold(0); });
+
+    // S1492. A read by index of a FrozenDictionary.
+    public static Cell<int> FrozenDictionaryRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; FrozenDictionary<Alike, int> c = one.ToFrozenDictionary(); Kept.Add(c[new Alike(Plain)]); return S.Hold(0); });
+
+    // S1493. GetValueRefOrNullRef of a FrozenDictionary.
+    public static Cell<int> FrozenDictionaryGetValueRefOrNullRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; FrozenDictionary<Alike, int> c = one.ToFrozenDictionary(); Kept.Add(c.GetValueRefOrNullRef(new Alike(Plain))); return S.Hold(0); });
+
+    // S1494. ToFrozenDictionary of a FrozenDictionary.
+    public static Cell<int> FrozenDictionaryToFrozenDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] two = [new(new Alike(l.Map(v => v)), 1), new(new Alike(Plain), 2)]; Kept.Add(two.ToFrozenDictionary().Count); return S.Hold(0); });
+
+    // S1495. Contains of an ArrayList.
+    public static Cell<int> ArrayListContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList c = new() { new Alike(l.Map(v => v)) }; Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1496. IndexOf of an ArrayList.
+    public static Cell<int> ArrayListIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList c = new() { new Alike(l.Map(v => v)) }; Kept.Add(c.IndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1497. LastIndexOf of an ArrayList.
+    public static Cell<int> ArrayListLastIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList c = new() { new Alike(l.Map(v => v)) }; Kept.Add(c.LastIndexOf(new Alike(Plain))); return S.Hold(0); });
+
+    // S1498. Remove of an ArrayList.
+    public static Cell<int> ArrayListRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ArrayList c = new() { new Alike(l.Map(v => v)) }; c.Remove(new Alike(Plain)); return S.Hold(0); });
+
+    // S1499. Add of a Hashtable.
+    public static Cell<int> HashtableAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; c.Add(new Alike(Plain), 2); return S.Hold(0); });
+
+    // S1500. Contains of a Hashtable.
+    public static Cell<int> HashtableContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.Contains(new Alike(Plain))); return S.Hold(0); });
+
+    // S1501. ContainsKey of a Hashtable.
+    public static Cell<int> HashtableContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c.ContainsKey(new Alike(Plain))); return S.Hold(0); });
+
+    // S1502. Remove of a Hashtable.
+    public static Cell<int> HashtableRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; c.Remove(new Alike(Plain)); return S.Hold(0); });
+
+    // S1503. A read by index of a Hashtable.
+    public static Cell<int> HashtableRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; Kept.Add(c[new Alike(Plain)] != null); return S.Hold(0); });
+
+    // S1504. An assignment by index of a Hashtable.
+    public static Cell<int> HashtableAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { new Alike(l.Map(v => v)), 1 } }; c[new Alike(Plain)] = 2; return S.Hold(0); });
+
+    // S1505. ContainsValue of a Hashtable, for a value.
+    public static Cell<int> HashtableContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable c = new() { { "a", new Alike(l.Map(v => v)) } }; Kept.Add(c.ContainsValue(new Alike(Plain))); return S.Hold(0); });
+
+    // S1506. GetHashCode of EqualityComparer.
+    public static Cell<int> EqualityComparerGetHashCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(EqualityComparer<Hashed>.Default.GetHashCode(new Hashed(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1507. Combine of HashCode.
+    public static Cell<int> HashCodeCombine() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(HashCode.Combine(new Hashed(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S1508. The constructor of a Dictionary, with one object. It compares nothing.
+    public static Cell<int> DictionaryConstructorOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(new Dictionary<Alike, int>(one).Count); return S.Hold(0); });
+
+    // S1509. The constructor of an OrderedDictionary, with one object. It compares nothing.
+    public static Cell<int> OrderedDictionaryConstructorOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(new OrderedDictionary<Alike, int>(one).Count); return S.Hold(0); });
+
+    // S1510. The constructor of a ConcurrentDictionary, with one object. It compares nothing.
+    public static Cell<int> ConcurrentDictionaryConstructorOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(new ConcurrentDictionary<Alike, int>(one).Count); return S.Hold(0); });
+
+    // S1511. Create of an ImmutableHashSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableHashSetCreateOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableHashSet.Create(new Alike(l.Map(v => v))).Count); return S.Hold(0); });
+
+    // S1512. CreateRange of an ImmutableHashSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableHashSetCreateRangeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(ImmutableHashSet.CreateRange(one).Count); return S.Hold(0); });
+
+    // S1513. ToImmutableHashSet of an ImmutableHashSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableHashSetToImmutableHashSetOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(one.ToImmutableHashSet().Count); return S.Hold(0); });
+
+    // S1514. Create of an ImmutableSortedSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableSortedSetCreateOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableSortedSet.Create(new Ranked(l.Map(v => v))).Count); return S.Hold(0); });
+
+    // S1515. CreateRange of an ImmutableSortedSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableSortedSetCreateRangeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(ImmutableSortedSet.CreateRange(one).Count); return S.Hold(0); });
+
+    // S1516. ToImmutableSortedSet of an ImmutableSortedSet, with one object. It compares nothing.
+    public static Cell<int> ImmutableSortedSetToImmutableSortedSetOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ranked[] one = [new(l.Map(v => v))]; Kept.Add(one.ToImmutableSortedSet().Count); return S.Hold(0); });
+
+    // S1517. CreateRange of an ImmutableDictionary, with one object. It compares nothing.
+    public static Cell<int> ImmutableDictionaryCreateRangeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(ImmutableDictionary.CreateRange(one).Count); return S.Hold(0); });
+
+    // S1518. ToImmutableDictionary of an ImmutableDictionary, with one object. It compares nothing.
+    public static Cell<int> ImmutableDictionaryToImmutableDictionaryOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(one.ToImmutableDictionary().Count); return S.Hold(0); });
+
+    // S1519. CreateRange of an ImmutableSortedDictionary, with one object. It compares nothing.
+    public static Cell<int> ImmutableSortedDictionaryCreateRangeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; Kept.Add(ImmutableSortedDictionary.CreateRange(one).Count); return S.Hold(0); });
+
+    // S1520. ToImmutableSortedDictionary of an ImmutableSortedDictionary, with one object. It compares nothing.
+    public static Cell<int> ImmutableSortedDictionaryToImmutableSortedDictionaryOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Ranked, int>[] one = [new(new Ranked(l.Map(v => v)), 1)]; Kept.Add(one.ToImmutableSortedDictionary().Count); return S.Hold(0); });
+
+    // S1521. ToFrozenSet of a FrozenSet, with one object. It compares nothing.
+    public static Cell<int> FrozenSetToFrozenSetOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(one.ToFrozenSet().Count); return S.Hold(0); });
+
+    // S1522. ToFrozenDictionary of a FrozenDictionary, with one object. It compares nothing.
+    public static Cell<int> FrozenDictionaryToFrozenDictionaryOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Alike, int>[] one = [new(new Alike(l.Map(v => v)), 1)]; Kept.Add(one.ToFrozenDictionary().Count); return S.Hold(0); });
+
+    // S1523. CountBy of Enumerable, with one object. It compares nothing.
+    public static Cell<int> EnumerableCountByOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(one.CountBy(x => x).ToArray().Length); return S.Hold(0); });
+
+    // S1524. AggregateBy of Enumerable, with one object. It compares nothing.
+    public static Cell<int> EnumerableAggregateByOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Alike[] one = [new(l.Map(v => v))]; Kept.Add(one.AggregateBy(x => x, 0, (sum, x) => sum + 1).ToArray().Length); return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {

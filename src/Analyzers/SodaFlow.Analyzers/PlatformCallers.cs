@@ -70,7 +70,7 @@ internal static class PlatformCallers
     public static readonly ImmutableArray<CallerRow> Rows =
         ImmutableArray.Create(
             Row(type: "Array", callbacks: PlatformCallbacks.Compare, "Sort", "BinarySearch"),
-            Row(type: "Array", callbacks: PlatformCallbacks.Equals, "IndexOf"),
+            Row(type: "Array", callbacks: PlatformCallbacks.Equals, "IndexOf", "LastIndexOf"),
             Row(type: "List", callbacks: PlatformCallbacks.Compare, "Sort", "BinarySearch"),
             Row(type: "List", callbacks: PlatformCallbacks.Equals, "Contains", "IndexOf", "LastIndexOf", "Remove"),
             Row(type: "Enumerable", callbacks: PlatformCallbacks.Compare,
@@ -79,7 +79,8 @@ internal static class PlatformCallers
             Row(type: "Enumerable", callbacks: PlatformCallbacks.Equals, "Contains", "SequenceEqual"),
             Row(type: "Enumerable", callbacks: HashAndEquals,
                 "Distinct", "DistinctBy", "GroupBy", "ToDictionary", "ToHashSet", "ToLookup", "Union", "Intersect",
-                "Except", "Join"),
+                "Except", "Join", "UnionBy", "IntersectBy", "ExceptBy", "GroupJoin", "LeftJoin", "RightJoin", "CountBy",
+                "AggregateBy"),
             Row(type: "MemoryExtensions", callbacks: PlatformCallbacks.Equals,
                 "Contains", "ContainsAny", "ContainsAnyExcept", "IndexOf", "LastIndexOf", "IndexOfAny",
                 "LastIndexOfAny", "IndexOfAnyExcept", "LastIndexOfAnyExcept", "Count", "CountAny", "SequenceEqual",
@@ -91,14 +92,72 @@ internal static class PlatformCallers
             Row(type: "Comparer", callbacks: PlatformCallbacks.Compare, "Compare"),
             Row(type: "EqualityComparer", callbacks: PlatformCallbacks.Equals, "Equals"),
             Row(type: "Object", callbacks: PlatformCallbacks.Equals, "Equals"),
-            Row(type: "HashSet", callbacks: HashAndEquals, ".ctor", "Add", "Contains", "Remove"),
+            Row(type: "HashSet", callbacks: HashAndEquals,
+                ".ctor", "Add", "Contains", "Remove", "TryGetValue", "ExceptWith", "IntersectWith", "IsProperSubsetOf",
+                "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExceptWith",
+                "UnionWith"),
             Row(type: "Dictionary", callbacks: HashAndEquals,
-                "Add", "TryAdd", "ContainsKey", "TryGetValue", "Remove", "get_Item", "set_Item"),
-            Row(type: "SortedSet", callbacks: PlatformCallbacks.Compare, ".ctor", "Add", "Contains"),
-            Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Compare, "Add", "set_Item"),
-            Row(type: "SortedList", callbacks: PlatformCallbacks.Compare, "Add"),
+                ".ctor", "Add", "TryAdd", "ContainsKey", "TryGetValue", "Remove", "get_Item", "set_Item"),
+            Row(type: "Dictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "SortedSet", callbacks: PlatformCallbacks.Compare,
+                ".ctor", "Add", "Contains", "Remove", "TryGetValue", "GetViewBetween", "ExceptWith", "IntersectWith",
+                "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals",
+                "SymmetricExceptWith", "UnionWith"),
+            Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Compare,
+                ".ctor", "Add", "ContainsKey", "TryGetValue", "Remove", "get_Item", "set_Item"),
+            Row(type: "SortedDictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "SortedList", callbacks: PlatformCallbacks.Compare,
+                ".ctor", "Add", "ContainsKey", "TryGetValue", "Remove", "IndexOfKey", "get_Item", "set_Item"),
+            Row(type: "SortedList", callbacks: PlatformCallbacks.Equals, "ContainsValue", "IndexOfValue"),
             Row(type: "PriorityQueue", callbacks: PlatformCallbacks.Compare,
-                ".ctor", "Enqueue", "EnqueueRange", "EnqueueDequeue"),
+                ".ctor", "Enqueue", "EnqueueRange", "EnqueueDequeue", "DequeueEnqueue"),
+            Row(type: "LinkedList", callbacks: PlatformCallbacks.Equals, "Contains", "Find", "FindLast", "Remove"),
+            Row(type: "Queue", callbacks: PlatformCallbacks.Equals, "Contains"),
+            Row(type: "Stack", callbacks: PlatformCallbacks.Equals, "Contains"),
+            Row(type: "OrderedDictionary", callbacks: HashAndEquals,
+                ".ctor", "Add", "TryAdd", "Insert", "SetAt", "ContainsKey", "IndexOf", "TryGetValue", "Remove",
+                "get_Item", "set_Item"),
+            Row(type: "OrderedDictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "ConcurrentDictionary", callbacks: HashAndEquals,
+                ".ctor", "TryAdd", "GetOrAdd", "AddOrUpdate", "TryUpdate", "ContainsKey", "TryGetValue", "TryRemove",
+                "get_Item", "set_Item"),
+            Row(type: "Collection", callbacks: PlatformCallbacks.Equals, "Contains", "IndexOf", "Remove"),
+            Row(type: "ReadOnlyCollection", callbacks: PlatformCallbacks.Equals, "Contains", "IndexOf"),
+            Row(type: "ReadOnlyDictionary", callbacks: HashAndEquals, "ContainsKey", "TryGetValue", "get_Item"),
+            Row(type: "CollectionExtensions", callbacks: HashAndEquals, "GetValueOrDefault", "TryAdd", "Remove"),
+            Row(type: "ImmutableHashSet", callbacks: HashAndEquals,
+                "Create", "CreateRange", "ToImmutableHashSet", "Add", "Contains", "Remove", "TryGetValue",
+                "Except", "Intersect", "IsProperSubsetOf", "IsProperSupersetOf",
+                "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExcept", "Union"),
+            Row(type: "ImmutableSortedSet", callbacks: PlatformCallbacks.Compare,
+                "Create", "CreateRange", "ToImmutableSortedSet", "Add", "Contains", "Remove", "TryGetValue", "IndexOf",
+                "Except", "Intersect", "IsProperSubsetOf", "IsProperSupersetOf",
+                "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExcept", "Union"),
+            Row(type: "ImmutableDictionary", callbacks: HashAndEquals,
+                "CreateRange", "ToImmutableDictionary", "Add", "AddRange", "SetItem", "SetItems", "Contains",
+                "ContainsKey", "TryGetKey", "TryGetValue", "Remove", "RemoveRange", "get_Item"),
+            Row(type: "ImmutableDictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "ImmutableSortedDictionary", callbacks: PlatformCallbacks.Compare,
+                "CreateRange", "ToImmutableSortedDictionary", "Add", "AddRange", "SetItem", "SetItems", "Contains",
+                "ContainsKey", "TryGetKey", "TryGetValue", "ValueRef", "Remove", "RemoveRange", "get_Item"),
+            Row(type: "ImmutableSortedDictionary", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "ImmutableList", callbacks: PlatformCallbacks.Equals,
+                "Contains", "IndexOf", "Remove", "RemoveRange", "Replace"),
+            Row(type: "ImmutableList", callbacks: PlatformCallbacks.Compare, "Sort", "BinarySearch"),
+            Row(type: "ImmutableArray", callbacks: PlatformCallbacks.Equals,
+                "Contains", "IndexOf", "LastIndexOf", "Remove", "RemoveRange", "Replace"),
+            Row(type: "ImmutableArray", callbacks: PlatformCallbacks.Compare, "Sort"),
+            Row(type: "FrozenSet", callbacks: HashAndEquals,
+                "ToFrozenSet", "Contains", "TryGetValue", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
+                "IsSupersetOf", "Overlaps", "SetEquals"),
+            Row(type: "FrozenDictionary", callbacks: HashAndEquals,
+                "ToFrozenDictionary", "ContainsKey", "TryGetValue", "GetValueRefOrNullRef", "get_Item"),
+            Row(type: "ArrayList", callbacks: PlatformCallbacks.Equals, "Contains", "IndexOf", "LastIndexOf", "Remove"),
+            Row(type: "Hashtable", callbacks: HashAndEquals,
+                "Add", "Contains", "ContainsKey", "Remove", "get_Item", "set_Item"),
+            Row(type: "Hashtable", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "EqualityComparer", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
+            Row(type: "HashCode", callbacks: PlatformCallbacks.Hash, "Combine"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Equals, "Equals"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Compare, "CompareTo"),
@@ -140,9 +199,26 @@ internal static class PlatformCallers
             ("Enumerable", "ToDictionary"),
             ("Enumerable", "ToHashSet"),
             ("Enumerable", "ToLookup"),
+            ("Enumerable", "CountBy"),
+            ("Enumerable", "AggregateBy"),
             ("HashSet", ".ctor"),
             ("SortedSet", ".ctor"),
-            ("PriorityQueue", ".ctor"));
+            ("PriorityQueue", ".ctor"),
+            ("Dictionary", ".ctor"),
+            ("OrderedDictionary", ".ctor"),
+            ("ConcurrentDictionary", ".ctor"),
+            ("ImmutableHashSet", "Create"),
+            ("ImmutableHashSet", "CreateRange"),
+            ("ImmutableHashSet", "ToImmutableHashSet"),
+            ("ImmutableSortedSet", "Create"),
+            ("ImmutableSortedSet", "CreateRange"),
+            ("ImmutableSortedSet", "ToImmutableSortedSet"),
+            ("ImmutableDictionary", "CreateRange"),
+            ("ImmutableDictionary", "ToImmutableDictionary"),
+            ("ImmutableSortedDictionary", "CreateRange"),
+            ("ImmutableSortedDictionary", "ToImmutableSortedDictionary"),
+            ("FrozenSet", "ToFrozenSet"),
+            ("FrozenDictionary", "ToFrozenDictionary"));
 
     private static readonly ImmutableDictionary<(string Type, string Method), PlatformCallbacks> ByMethod =
         Rows.SelectMany(static row => row.Methods.Select(method => (Key: (row.Type, method), row.Callbacks)))
@@ -221,7 +297,8 @@ internal static class PlatformCallers
 
     /// <summary>
     ///     The types of the values that a method compares. A method with a type
-    ///     parameter for a key or for a priority compares those. Each other
+    ///     parameter for a key or for a priority compares those. A search for a
+    ///     value of a dictionary is different: it compares the values. Each other
     ///     generic method compares values of its type arguments, and those of its
     ///     type. A tuple compares its elements. The result is empty for a method
     ///     with no type argument, which gets its values as <c>object</c>.
@@ -236,8 +313,13 @@ internal static class PlatformCallers
 
         (ITypeParameterSymbol Parameter, ITypeSymbol Argument)[] pairs = [.. all];
 
+        // A search for a value of a dictionary compares the values, and not the keys.
+        bool forValues = called.Name is "ContainsValue" or "IndexOfValue";
+
         return (pairs.Any(static pair => pair.Parameter.Name is "TKey" or "TPriority")
-                ? pairs.Where(static pair => pair.Parameter.Name is "TKey" or "TPriority")
+                ? pairs.Where(pair => forValues
+                    ? pair.Parameter.Name == "TValue"
+                    : pair.Parameter.Name is "TKey" or "TPriority")
                 : pairs)
             .SelectMany(static pair => Parts(pair.Argument))
             .ToImmutableArray();

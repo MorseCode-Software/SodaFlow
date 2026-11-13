@@ -2914,14 +2914,20 @@ internal sealed class LoopStateEvaluator
 
         // A callee that compares the elements of one sequence with each other compares nothing
         // when the sequence has one element. It can make a hash code or text from that element.
-        if ((callbacks & ComparesTwo) != PlatformCallbacks.None
-            && PlatformCallers.ComparesOnlyItsElements(method)
-            && operands.Where(static operand => operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter))
-                .Select(static operand => operand.Written)
-                .ToArray() is { Length: 1 } sequences
-            && this.HasOneElement(sequences[0]))
+        // A factory that gets its elements one by one, as Create does, is the same with one value.
+        if ((callbacks & ComparesTwo) != PlatformCallbacks.None && PlatformCallers.ComparesOnlyItsElements(method))
         {
-            callbacks &= ~ComparesTwo;
+            ExpressionSyntax[] sequences =
+            [
+                .. operands
+                    .Where(static operand => operand.IsReceiver || SodaFlowSymbols.IsSequence(operand.Parameter))
+                    .Select(static operand => operand.Written)
+            ];
+
+            if (sequences.Length == 0 ? operands.Count == 1 : sequences.Length == 1 && this.HasOneElement(sequences[0]))
+            {
+                callbacks &= ~ComparesTwo;
+            }
         }
 
         if (callbacks == PlatformCallbacks.None)
@@ -3169,13 +3175,16 @@ internal sealed class LoopStateEvaluator
         // The elements of a dictionary are pairs, and the method compares the keys in them.
         ITypeSymbol? element = asSequence ? SodaFlowSymbols.ElementTypeOf(written) : null;
 
+        // A collection with no type argument, as an ArrayList is, does not say the type of its
+        // elements. The object in its state is then one of them.
         bool isOwner =
             ((written == null || members.Is(written)) && !(state.IsContainer && Construction.SaysNothing(written)))
             || (element != null
                 && (members.Is(element)
                     || (element is INamedTypeSymbol pair
                         && SodaFlowSymbols.HoldsParts(pair)
-                        && pair.TypeArguments.Any(members.Is))));
+                        && pair.TypeArguments.Any(members.Is))))
+            || (asSequence && element == null && SodaFlowSymbols.IsSequence(written));
 
         return isOwner && (compared.IsEmpty || compared.Any(members.Is)) ? [(state, members)] : [];
     }

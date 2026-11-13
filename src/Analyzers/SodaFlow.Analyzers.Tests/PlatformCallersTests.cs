@@ -1,6 +1,10 @@
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -43,20 +47,48 @@ internal sealed class PlatformCallersTests
         typeof(Convert),
         typeof(XElement),
         typeof(XContainer),
-        typeof(XAttribute)
+        typeof(XAttribute),
+        typeof(LinkedList<>),
+        typeof(Queue<>),
+        typeof(Stack<>),
+        typeof(OrderedDictionary<,>),
+        typeof(ConcurrentDictionary<,>),
+        typeof(Collection<>),
+        typeof(ReadOnlyCollection<>),
+        typeof(ReadOnlyDictionary<,>),
+        // A package of the test host has a type with this name also, thus the name alone is not one type.
+        TypeIn(assembly: typeof(SortedSet<>).Assembly, name: "System.Collections.Generic.CollectionExtensions"),
+        typeof(ImmutableHashSet),
+        typeof(ImmutableHashSet<>),
+        typeof(ImmutableSortedSet),
+        typeof(ImmutableSortedSet<>),
+        typeof(ImmutableDictionary),
+        typeof(ImmutableDictionary<,>),
+        typeof(ImmutableSortedDictionary),
+        typeof(ImmutableSortedDictionary<,>),
+        typeof(ImmutableList<>),
+        typeof(ImmutableArray<>),
+        typeof(FrozenSet),
+        typeof(FrozenSet<>),
+        typeof(FrozenDictionary),
+        typeof(FrozenDictionary<,>),
+        typeof(ArrayList),
+        typeof(Hashtable),
+        typeof(HashCode)
     ];
 
     [Test]
     public async Task EachRowNamesAMemberOfThePlatform()
     {
-        Dictionary<string, Type> byName =
-            Types.ToDictionary(keySelector: static type => type.Name.Split('`')[0], comparer: StringComparer.Ordinal);
+        // A name can be for two types: the type of a collection, and the type with its factories.
+        ILookup<string, Type> byName =
+            Types.ToLookup(keySelector: static type => type.Name.Split('`')[0], comparer: StringComparer.Ordinal);
 
         List<string> unknown = [];
 
         foreach ((string type, _, ImmutableArray<string> methods) in PlatformCallers.Rows)
         {
-            if (!byName.TryGetValue(key: type, value: out Type? found))
+            if (!byName.Contains(type))
             {
                 unknown.Add(type);
 
@@ -64,7 +96,9 @@ internal sealed class PlatformCallersTests
             }
 
             unknown.AddRange(
-                methods.Where(method => !Has(type: found, method: method)).Select(method => $"{type}.{method}"));
+                methods
+                    .Where(method => !byName[type].Any(found => Has(type: found, method: method)))
+                    .Select(method => $"{type}.{method}"));
         }
 
         await Assert.That(unknown).IsEmpty();
@@ -94,6 +128,9 @@ internal sealed class PlatformCallersTests
                     .Where(entry => !comparing.Contains(entry)))
             .IsEmpty();
     }
+
+    private static Type TypeIn(Assembly assembly, string name) =>
+        assembly.GetType(name: name, throwOnError: true) ?? throw new InvalidOperationException(name);
 
     // A constructor has the name .ctor in the table, and an accessor has the name that the
     // compiler gives it.
