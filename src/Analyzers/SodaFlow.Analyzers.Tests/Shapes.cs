@@ -8011,6 +8011,54 @@ public static class Shapes
     public static Cell<int> DictionaryInitializerWhereAValueOfTheTypeOfTheKeyIsPending() =>
         Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, SameOwn> map = new() { { new(Plain), new(l.Map(v => v)) }, { new(Plain), new(Plain) } }; return S.Hold(map.Count); });
 
+    // S1687. IsSubsetOf of a HashSet, where the argument is a HashSet with the same comparer. The method then looks for each of its elements in the argument, and the elements of the argument get the call.
+    public static Cell<int> IsSubsetOfAHashSetArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; HashSet<SameOwn> other = new(); other.Add(new(Plain)); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1688. The same with an array as the argument. The element of the set gets the call.
+    public static Cell<int> IsSubsetOfAnArrayArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; SameOwn[] other = [new(Plain), new(l.Map(v => v))]; Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1689. IsProperSubsetOf of a HashSet gives the call to the element of the set. A collection expression for a sequence is not a set.
+    public static Cell<int> IsProperSubsetOfWhereAGivenValueIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; Kept.Add(set.IsProperSubsetOf([new SameOwn(Plain), new SameOwn(l.Map(v => v))])); return S.Hold(0); });
+
+    // S1690. The same, where the element of the set is pending.
+    public static Cell<int> IsProperSubsetOfWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; Kept.Add(set.IsProperSubsetOf([new SameOwn(Plain), new SameOwn(Plain)])); return S.Hold(0); });
+
+    // S1691. IsSubsetOf where the analyzer does not know the type of the argument. The argument is a HashSet, and its element gets the call.
+    public static Cell<int> IsSubsetOfAnArgumentOfAnUnknownTypeThatIsASet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; IEnumerable<SameOwn> other = MakeASetOrAnArray(true, new SameOwn(Plain), new SameOwn(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1692. The same, where the argument is an array, and the element of the set is pending.
+    public static Cell<int> IsSubsetOfAnArgumentOfAnUnknownTypeThatIsAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(l.Map(v => v))]; IEnumerable<SameOwn> other = MakeASetOrAnArray(false, new SameOwn(Plain), new SameOwn(Plain)); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1693. IsSubsetOf where the argument is a HashSet that got a comparer. The analyzer does not know that the two comparers are the same, and reads both objects.
+    public static Cell<int> IsSubsetOfAHashSetArgumentThatGotAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> set = [new(Plain)]; HashSet<SameOwn> other = new(EqualityComparer<SameOwn>.Default); other.Add(new(Plain)); other.Add(new(l.Map(v => v))); Kept.Add(set.IsSubsetOf(other)); return S.Hold(0); });
+
+    // S1694. Overlaps of a SortedSet with a SortedSet argument gives the call to the element of the set, and not to the element of the argument.
+    public static Cell<int> OverlapsOfASortedSetArgumentWhereTheElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(l.Map(v => v))]; SortedSet<RankedOwn> other = [new(Plain)]; Kept.Add(set.Overlaps(other)); return S.Hold(0); });
+
+    // S1695. The same, where the element of the argument is pending.
+    public static Cell<int> OverlapsOfASortedSetArgumentWhereTheGivenElementIsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> set = [new(Plain)]; SortedSet<RankedOwn> other = [new(l.Map(v => v))]; Kept.Add(set.Overlaps(other)); return S.Hold(0); });
+
+    // S1696. Union of an ImmutableHashSet also compares the values that it gets with each other. Equals of SamePeer reads only the object that it gets.
+    public static Cell<int> UnionOfAnImmutableHashSetComparesTheGivenValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SamePeer> set = ImmutableHashSet.Create(new SamePeer(Plain)); Kept.Add(set.Union([new SamePeer(l.Map(v => v)), new SamePeer(Plain)]).Count); return S.Hold(0); });
+
+    // S1697. UnionWith of a SortedSet also compares the values that it gets with each other.
+    public static Cell<int> UnionWithOfASortedSetComparesTheGivenValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedPeer> set = [new(Plain, 2)]; set.UnionWith([new RankedPeer(l.Map(v => v), 1), new RankedPeer(Plain, 0)]); return S.Hold(set.Count); });
+
+    // S1698. IntersectWith of a HashSet removes an element, and that compares the elements of the set with each other.
+    public static Cell<int> IntersectWithOfAHashSetComparesItsElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SamePeer> set = new(); set.Add(new(l.Map(v => v))); set.Add(new(Plain)); set.IntersectWith([new SamePeer(Plain)]); return S.Hold(set.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -9399,6 +9447,30 @@ public static class Shapes
 
         public override int GetHashCode() => 1;
     }
+
+    // Equals reads only the object that it gets, and is true only for the same object.
+    public sealed class SamePeer(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => obj is SamePeer other && other.Read() >= 0 && ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 1;
+
+        private int Read() => share.Sample();
+    }
+
+    // CompareTo reads only the object that it gets, and gives the order of the two ranks.
+    public sealed class RankedPeer(Cell<int> share, int rank) : IComparable<RankedPeer>
+    {
+        public int CompareTo(RankedPeer? other) => other == null || other.Read() < 0 ? 1 : this.Rank.CompareTo(other.Rank);
+
+        private int Rank => rank;
+
+        private int Read() => share.Sample();
+    }
+
+    // The analyzer does not know the type of the result.
+    private static IEnumerable<SameOwn> MakeASetOrAnArray(bool set, SameOwn first, SameOwn second) =>
+        set ? new HashSet<SameOwn> { first, second } : new[] { first, second };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

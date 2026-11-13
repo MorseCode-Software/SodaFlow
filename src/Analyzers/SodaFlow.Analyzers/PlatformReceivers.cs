@@ -31,7 +31,23 @@ internal enum PlatformReceiver
     /// <summary>
     ///     The first of the two values that a comparer of the platform gets.
     /// </summary>
-    FirstValue
+    FirstValue,
+
+    /// <summary>
+    ///     An object that the collection has. The argument is the value that the
+    ///     code gives, or a second object that the collection has.
+    ///     <c>IntersectWith</c> of a <c>HashSet</c> removes an element, and that
+    ///     compares its elements with each other.
+    /// </summary>
+    StoredAlsoAmong,
+
+    /// <summary>
+    ///     A value that the code gives. The argument is an object that the
+    ///     collection has, or a second value that the code gives. <c>Union</c> of
+    ///     an immutable set makes a set from the values first, and that compares
+    ///     them with each other.
+    /// </summary>
+    GivenAlsoAmong
 }
 
 /// <summary>
@@ -156,7 +172,8 @@ internal static class PlatformReceivers
             [("FrozenSet", "SetEquals")] = PlatformReceiver.Given,
             [("FrozenSet", "TryGetValue")] = PlatformReceiver.Given,
             [("HashSet", "ExceptWith")] = PlatformReceiver.Stored,
-            [("HashSet", "IntersectWith")] = PlatformReceiver.Stored,
+            [("HashSet", "IntersectWith")] = PlatformReceiver.StoredAlsoAmong,
+            [("HashSet", "IsProperSubsetOf")] = PlatformReceiver.Stored,
             [("HashSet", "IsProperSupersetOf")] = PlatformReceiver.Stored,
             [("HashSet", "IsSubsetOf")] = PlatformReceiver.Stored,
             [("HashSet", "IsSupersetOf")] = PlatformReceiver.Stored,
@@ -182,13 +199,14 @@ internal static class PlatformReceivers
             [("ImmutableHashSet", "Add")] = PlatformReceiver.Given,
             [("ImmutableHashSet", "Contains")] = PlatformReceiver.Given,
             [("ImmutableHashSet", "Intersect")] = PlatformReceiver.Given,
+            [("ImmutableHashSet", "IsProperSubsetOf")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableHashSet", "IsProperSupersetOf")] = PlatformReceiver.Given,
-            [("ImmutableHashSet", "IsSubsetOf")] = PlatformReceiver.Given,
+            [("ImmutableHashSet", "IsSubsetOf")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableHashSet", "IsSupersetOf")] = PlatformReceiver.Given,
             [("ImmutableHashSet", "Overlaps")] = PlatformReceiver.Given,
-            [("ImmutableHashSet", "SetEquals")] = PlatformReceiver.Given,
+            [("ImmutableHashSet", "SetEquals")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableHashSet", "TryGetValue")] = PlatformReceiver.Given,
-            [("ImmutableHashSet", "Union")] = PlatformReceiver.Given,
+            [("ImmutableHashSet", "Union")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableList", "BinarySearch")] = PlatformReceiver.Given,
             [("ImmutableList", "Contains")] = PlatformReceiver.Given,
             [("ImmutableList", "IndexOf")] = PlatformReceiver.Given,
@@ -213,13 +231,14 @@ internal static class PlatformReceivers
             [("ImmutableSortedSet", "Except")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "IndexOf")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "Intersect")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet", "IsProperSubsetOf")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableSortedSet", "IsProperSupersetOf")] = PlatformReceiver.Given,
-            [("ImmutableSortedSet", "IsSubsetOf")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet", "IsSubsetOf")] = PlatformReceiver.GivenAlsoAmong,
             [("ImmutableSortedSet", "IsSupersetOf")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "Overlaps")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "Remove")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "TryGetValue")] = PlatformReceiver.Given,
-            [("ImmutableSortedSet", "Union")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet", "Union")] = PlatformReceiver.GivenAlsoAmong,
             [("LinkedList", "Contains")] = PlatformReceiver.Stored,
             [("LinkedList", "Find")] = PlatformReceiver.Stored,
             [("LinkedList", "FindLast")] = PlatformReceiver.Stored,
@@ -266,13 +285,50 @@ internal static class PlatformReceivers
             [("SortedSet", "Overlaps")] = PlatformReceiver.Given,
             [("SortedSet", "Remove")] = PlatformReceiver.Given,
             [("SortedSet", "SetEquals")] = PlatformReceiver.Given,
-            [("SortedSet", "SymmetricExceptWith")] = PlatformReceiver.Given,
+            [("SortedSet", "SymmetricExceptWith")] = PlatformReceiver.GivenAlsoAmong,
             [("SortedSet", "TryGetValue")] = PlatformReceiver.Given,
-            [("SortedSet", "UnionWith")] = PlatformReceiver.Given,
+            [("SortedSet", "UnionWith")] = PlatformReceiver.GivenAlsoAmong,
             [("Stack", "Contains")] = PlatformReceiver.Stored,
             [("Tuple", "CompareTo")] = PlatformReceiver.Stored,
             [("Tuple", "Equals")] = PlatformReceiver.Stored
         };
+
+    /// <summary>
+    ///     The receiver of a set operation when its argument is a set of the type
+    ///     with the given name, and has the comparer of the set of the call. The
+    ///     platform then takes a different path, and a row of
+    ///     <see cref="ByMethod" /> does not hold. <see cref="PlatformReceiver.Either" />
+    ///     is here for a path that differs between the runtimes, or that gives
+    ///     the call to each side.
+    /// </summary>
+    /// <remarks>
+    ///     A run called each set operation of each set type with an array, a
+    ///     list, a query, and each set type as its argument, with one to three
+    ///     objects on each side. An argument that is not here, and a set with a
+    ///     different comparer, has the row of <see cref="ByMethod" />.
+    /// </remarks>
+    public static readonly IReadOnlyDictionary<(string Type, string Method, string Argument), PlatformReceiver>
+        WithASetArgument =
+            new Dictionary<(string Type, string Method, string Argument), PlatformReceiver>
+            {
+                [("HashSet", "IsProperSubsetOf", "HashSet")] = PlatformReceiver.Given,
+                [("HashSet", "IsSubsetOf", "HashSet")] = PlatformReceiver.Given,
+                [("HashSet", "SetEquals", "HashSet")] = PlatformReceiver.Either,
+                [("HashSet", "IntersectWith", "HashSet")] = PlatformReceiver.Either,
+                [("SortedSet", "IsProperSubsetOf", "SortedSet")] = PlatformReceiver.StoredAlsoAmong,
+                [("SortedSet", "IsProperSupersetOf", "SortedSet")] = PlatformReceiver.GivenAlsoAmong,
+                [("SortedSet", "IsSubsetOf", "SortedSet")] = PlatformReceiver.StoredAlsoAmong,
+                [("SortedSet", "IsSupersetOf", "SortedSet")] = PlatformReceiver.GivenAlsoAmong,
+                [("SortedSet", "Overlaps", "SortedSet")] = PlatformReceiver.Stored,
+                [("SortedSet", "SetEquals", "SortedSet")] = PlatformReceiver.Stored,
+                [("SortedSet", "UnionWith", "SortedSet")] = PlatformReceiver.Either,
+                [("ImmutableHashSet", "SetEquals", "ImmutableHashSet")] = PlatformReceiver.Either,
+                [("ImmutableSortedSet", "Union", "ImmutableSortedSet")] = PlatformReceiver.Either,
+                [("FrozenSet", "IsProperSubsetOf", "ImmutableHashSet")] = PlatformReceiver.Either,
+                [("FrozenSet", "IsProperSubsetOf", "FrozenSet")] = PlatformReceiver.Either,
+                [("FrozenSet", "IsSubsetOf", "ImmutableHashSet")] = PlatformReceiver.Either,
+                [("FrozenSet", "IsSubsetOf", "FrozenSet")] = PlatformReceiver.Either
+            };
 
     /// <summary>
     ///     The receiver for an overload that gets its values one by one. The

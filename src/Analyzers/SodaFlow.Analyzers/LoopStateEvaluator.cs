@@ -3165,7 +3165,12 @@ internal sealed class LoopStateEvaluator
         bool hasCollection = operands.Any(static operand => operand.IsReceiver);
 
         PlatformReceiver receiver =
-            !hasCollection && !firstIsStored ? PlatformReceiver.Either : PlatformCallers.ReceiverOf(method);
+            !hasCollection && !firstIsStored
+                ? PlatformReceiver.Either
+                : this.ReceiverFor(method: method, operands: operands, keeper: keeper);
+
+        // The object that gets the call can get a second object of its own side as the argument.
+        bool among = receiver is PlatformReceiver.StoredAlsoAmong or PlatformReceiver.GivenAlsoAmong;
 
         int firstValue = operands.TakeWhile(static operand => operand.IsReceiver).Count();
         LoopState argument = LoopState.None;
@@ -3189,8 +3194,8 @@ internal sealed class LoopStateEvaluator
             bool gets =
                 receiver switch
                 {
-                    PlatformReceiver.Stored => isStored,
-                    PlatformReceiver.Given => !isStored,
+                    PlatformReceiver.Stored or PlatformReceiver.StoredAlsoAmong => isStored,
+                    PlatformReceiver.Given or PlatformReceiver.GivenAlsoAmong => !isStored,
                     PlatformReceiver.FirstValue => position == firstValue,
                     _ => true
                 };
@@ -3213,7 +3218,7 @@ internal sealed class LoopStateEvaluator
                               || partTypes[part] is not ITypeParameterSymbol parameter
                               || comparedParameters.Contains(parameter);
 
-            if (!gets)
+            if (!gets || among)
             {
                 argument = argument.Join(
                     KeptParts(
@@ -3279,7 +3284,7 @@ internal sealed class LoopStateEvaluator
         if (knowsTheReceiver)
         {
             argument = owners
-                .Where(static owner => !owner.Gets)
+                .Where(owner => among || !owner.Gets)
                 .Aggregate(seed: argument, func: static (joined, owner) => joined.Join(owner.State));
         }
 
@@ -3341,6 +3346,85 @@ internal sealed class LoopStateEvaluator
                                     owner: owner.State,
                                     arguments: member.Parameters.Length == 1 ? one : [])));
             });
+    }
+
+    /// <summary>
+    ///     Which object gets the call from a method of the platform. For a set
+    ///     operation, a set of the same kind as the argument can take a different
+    ///     path in the platform, when the two sets have one comparer.
+    /// </summary>
+    /// <remarks>
+    ///     The analyzer knows that the two comparers are the same only when it
+    ///     sees that each set was made with no comparer. A collection expression
+    ///     for a sequence makes a list or an array, which is not a set. An
+    ///     argument whose type the analyzer does not know can be such a set, and
+    ///     then the analyzer reads both objects.
+    /// </remarks>
+    private PlatformReceiver ReceiverFor(IMethodSymbol method, IReadOnlyList<Operand> operands, ExpressionSyntax? keeper)
+    {
+        PlatformReceiver row = PlatformCallers.ReceiverOf(method);
+
+        if (!PlatformCallers.DependsOnItsArgument(method)
+            || operands.Where(static operand => !operand.IsReceiver && SodaFlowSymbols.IsSequence(operand.Parameter))
+                .Select(static operand => operand.Written)
+                .FirstOrDefault() is not { } argument
+            || (Unwrapped(argument) is CollectionExpressionSyntax
+                && this.region.TypeOf(argument) is { TypeKind: TypeKind.Interface }))
+        {
+            return row;
+        }
+
+        if (this.KnownTypeOf(argument) is not { } type)
+        {
+            return PlatformReceiver.Either;
+        }
+
+        if (PlatformCallers.ReceiverForASet(method: method, argument: type) is not { } forASet || forASet == row)
+        {
+            return row;
+        }
+
+        return keeper != null && this.HasTheDefaultComparer(keeper) && this.HasTheDefaultComparer(argument)
+            ? forASet
+            : PlatformReceiver.Either;
+    }
+
+    // True when the code made the set with no comparer: a creation, a collection expression, or a
+    // factory of the platform, each with no parameter for a comparer. A local that no code changes
+    // has the set that its declaration made.
+    private bool HasTheDefaultComparer(ExpressionSyntax written)
+    {
+        for (int depth = 0; depth <= MaxKnownTypeDepth; depth++)
+        {
+            ExpressionSyntax inner = Unwrapped(written);
+
+            if (inner is IdentifierNameSyntax name
+                && this.region.SymbolOf(name) is ILocalSymbol local
+                && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                && NamesOf(local: local, declarator: declarator, region: this.region) is { } uses
+                && uses.All(static use => !IsWritten(use)))
+            {
+                written = made;
+
+                continue;
+            }
+
+            return inner switch
+            {
+                CollectionExpressionSyntax => true,
+                ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
+                    or InvocationExpressionSyntax =>
+                    this.region.SymbolOf(inner) is IMethodSymbol maker
+                    && SodaFlowSymbols.IsPlatform(maker.ContainingType)
+                    && (maker.MethodKind == MethodKind.Constructor || (maker.ReducedFrom ?? maker).IsStatic)
+                    && !(maker.ReducedFrom ?? maker).Parameters.Any(static parameter =>
+                        SodaFlowSymbols.IsComparer(parameter.Type)),
+                _ => false
+            };
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -363,6 +363,38 @@ internal static class PlatformCallers
     }
 
     /// <summary>
+    ///     True for a method that has a row in
+    ///     <see cref="PlatformReceivers.WithASetArgument" />. The object that gets
+    ///     the call then depends on the type of the argument.
+    /// </summary>
+    public static bool DependsOnItsArgument(IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return definition.ContainingType is { } type
+               && SodaFlowSymbols.IsPlatform(type)
+               && PlatformReceivers.WithASetArgument.Keys.Any(key =>
+                   key.Type == type.Name && key.Method == NameOf(definition));
+    }
+
+    /// <summary>
+    ///     The receiver of a method when its argument is a set of the given type
+    ///     with the same comparer. Null when such an argument has the row of the
+    ///     method.
+    /// </summary>
+    public static PlatformReceiver? ReceiverForASet(IMethodSymbol method, ITypeSymbol argument)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        return SodaFlowSymbols.IsPlatform(argument)
+               && PlatformReceivers.WithASetArgument.TryGetValue(
+                   key: (definition.ContainingType.Name, NameOf(definition), argument.Name),
+                   value: out PlatformReceiver receiver)
+            ? receiver
+            : null;
+    }
+
+    /// <summary>
     ///     True for a parameter whose value a method keeps and does not compare.
     ///     <c>Replace</c> compares the old value with each element, and puts the
     ///     new value where that element was.

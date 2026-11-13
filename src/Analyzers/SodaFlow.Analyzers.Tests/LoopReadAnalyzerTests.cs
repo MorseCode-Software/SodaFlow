@@ -897,9 +897,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ListInAPropertyOfAnElementGetsAPendingCell"] = ["SF1001"],
             ["HashSetExceptWith"] = ["SF1005"],
             ["SortedSetExceptWith"] = ["SF1004"],
-            ["HashSetIntersectWith"] = ["SF1005"],
+            ["HashSetIntersectWith"] = ["SF1004", "SF1005"],
             ["SortedSetIntersectWith"] = ["SF1004"],
-            ["HashSetIsProperSubsetOf"] = ["SF1004", "SF1005"],
+            ["HashSetIsProperSubsetOf"] = ["SF1005"],
             ["SortedSetIsProperSubsetOf"] = ["SF1004"],
             ["HashSetIsProperSupersetOf"] = ["SF1005"],
             ["SortedSetIsProperSupersetOf"] = ["SF1004"],
@@ -998,8 +998,8 @@ internal sealed class LoopReadAnalyzerTests
             ["ImmutableSortedSetExcept"] = ["SF1004"],
             ["ImmutableHashSetIntersect"] = ["SF1004"],
             ["ImmutableSortedSetIntersect"] = ["SF1004"],
-            ["ImmutableHashSetIsProperSubsetOf"] = ["SF1004", "SF1005"],
-            ["ImmutableSortedSetIsProperSubsetOf"] = ["SF1004", "SF1005"],
+            ["ImmutableHashSetIsProperSubsetOf"] = ["SF1004"],
+            ["ImmutableSortedSetIsProperSubsetOf"] = ["SF1004"],
             ["ImmutableHashSetIsProperSupersetOf"] = ["SF1004"],
             ["ImmutableSortedSetIsProperSupersetOf"] = ["SF1004"],
             ["ImmutableHashSetIsSubsetOf"] = ["SF1004"],
@@ -1195,7 +1195,16 @@ internal sealed class LoopReadAnalyzerTests
             ["SetInitializerWhereTheFirstElementIsPending"] = ["SF1005"],
             ["DictionaryInitializerWhereTheFirstKeyIsPending"] = ["SF1005"],
             ["DictionaryIndexInitializerWhereTheFirstKeyIsPending"] = ["SF1005"],
-            ["SortedSetExpressionWhereTheSecondElementIsPending"] = ["SF1005"]
+            ["SortedSetExpressionWhereTheSecondElementIsPending"] = ["SF1005"],
+            ["IsSubsetOfAHashSetArgument"] = ["SF1005"],
+            ["IsProperSubsetOfWhereTheElementIsPending"] = ["SF1005"],
+            ["IsSubsetOfAnArgumentOfAnUnknownTypeThatIsASet"] = ["SF1005"],
+            ["IsSubsetOfAnArgumentOfAnUnknownTypeThatIsAnArray"] = ["SF1005"],
+            ["IsSubsetOfAHashSetArgumentThatGotAComparer"] = ["SF1005"],
+            ["OverlapsOfASortedSetArgumentWhereTheElementIsPending"] = ["SF1005"],
+            ["UnionOfAnImmutableHashSetComparesTheGivenValues"] = ["SF1004"],
+            ["UnionWithOfASortedSetComparesTheGivenValues"] = ["SF1004"],
+            ["IntersectWithOfAHashSetComparesItsElements"] = ["SF1004", "SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

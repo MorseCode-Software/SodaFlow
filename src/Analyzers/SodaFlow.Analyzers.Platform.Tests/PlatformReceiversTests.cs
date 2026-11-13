@@ -127,14 +127,6 @@ internal sealed class PlatformReceiversTests
                 _ = new Dictionary<int, Probe> { { 1, stored } }.ContainsValue(given),
             [("Enumerable", "Intersect")] = static (stored, given) =>
                 _ = ArrayOf(stored).Intersect(ArrayOf(given)).ToArray(),
-            [("HashSet", "ExceptWith")] = static (stored, given) => SetOf(stored).ExceptWith(ArrayOf(given)),
-            [("HashSet", "IntersectWith")] = static (stored, given) => SetOf(stored).IntersectWith(ArrayOf(given)),
-            [("HashSet", "IsProperSupersetOf")] = static (stored, given) =>
-                _ = SetOf(stored).IsProperSupersetOf(ArrayOf(given)),
-            [("HashSet", "IsSubsetOf")] = static (stored, given) => _ = SetOf(stored).IsSubsetOf(ArrayOf(given)),
-            [("HashSet", "IsSupersetOf")] = static (stored, given) => _ = SetOf(stored).IsSupersetOf(ArrayOf(given)),
-            [("HashSet", "Overlaps")] = static (stored, given) => _ = SetOf(stored).Overlaps(ArrayOf(given)),
-            [("HashSet", "SetEquals")] = static (stored, given) => _ = SetOf(stored).SetEquals(ArrayOf(given)),
             [("HashSet", "TryGetValue")] = static (stored, given) =>
                 _ = SetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
             [("Hashtable", "Add")] = static (stored, given) => HashtableOf(stored).Add(key: given, value: 2),
@@ -183,27 +175,11 @@ internal sealed class PlatformReceiversTests
                 _ = SortedListOf(stored).TryGetValue(key: given, value: out _),
             [("SortedList", "get_Item")] = static (stored, given) => Try(() => _ = SortedListOf(stored)[given]),
             [("SortedList", "set_Item")] = static (stored, given) => SortedListOf(stored)[given] = 2,
-            [("SortedSet", "ExceptWith")] = static (stored, given) => SortedSetOf(stored).ExceptWith(ArrayOf(given)),
             [("SortedSet", "GetViewBetween")] = static (stored, given) =>
                 _ = SortedSetOf(stored).GetViewBetween(lowerValue: given, upperValue: given),
-            [("SortedSet", "IntersectWith")] = static (stored, given) =>
-                SortedSetOf(stored).IntersectWith(ArrayOf(given)),
-            [("SortedSet", "IsProperSubsetOf")] = static (stored, given) =>
-                _ = SortedSetOf(stored).IsProperSubsetOf(ArrayOf(given)),
-            [("SortedSet", "IsProperSupersetOf")] = static (stored, given) =>
-                _ = SortedSetOf(stored).IsProperSupersetOf(ArrayOf(given)),
-            [("SortedSet", "IsSubsetOf")] = static (stored, given) =>
-                _ = SortedSetOf(stored).IsSubsetOf(ArrayOf(given)),
-            [("SortedSet", "IsSupersetOf")] = static (stored, given) =>
-                _ = SortedSetOf(stored).IsSupersetOf(ArrayOf(given)),
-            [("SortedSet", "Overlaps")] = static (stored, given) => _ = SortedSetOf(stored).Overlaps(ArrayOf(given)),
             [("SortedSet", "Remove")] = static (stored, given) => _ = SortedSetOf(stored).Remove(given),
-            [("SortedSet", "SetEquals")] = static (stored, given) => _ = SortedSetOf(stored).SetEquals(ArrayOf(given)),
-            [("SortedSet", "SymmetricExceptWith")] = static (stored, given) =>
-                SortedSetOf(stored).SymmetricExceptWith(ArrayOf(given)),
             [("SortedSet", "TryGetValue")] = static (stored, given) =>
                 _ = SortedSetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
-            [("SortedSet", "UnionWith")] = static (stored, given) => SortedSetOf(stored).UnionWith(ArrayOf(given)),
             [("Stack", "Contains")] = static (stored, given) => _ = new Stack<Probe>(ArrayOf(stored)).Contains(given),
             [("Tuple", "CompareTo")] = static (stored, given) =>
                 _ = ((IComparable)Tuple.Create(item1: stored, item2: 1))
@@ -339,16 +315,6 @@ internal sealed class PlatformReceiversTests
             [("FrozenDictionary", "get_Item")] = static (stored, given) =>
                 Try(() => _ = FrozenDictionaryOf(stored)[given]),
             [("FrozenSet", "Contains")] = static (stored, given) => _ = FrozenSetOf(stored).Contains(given),
-            [("FrozenSet", "IsProperSubsetOf")] = static (stored, given) =>
-                _ = FrozenSetOf(stored).IsProperSubsetOf(ArrayOf(given)),
-            [("FrozenSet", "IsProperSupersetOf")] = static (stored, given) =>
-                _ = FrozenSetOf(stored).IsProperSupersetOf(ArrayOf(given)),
-            [("FrozenSet", "IsSubsetOf")] = static (stored, given) =>
-                _ = FrozenSetOf(stored).IsSubsetOf(ArrayOf(given)),
-            [("FrozenSet", "IsSupersetOf")] = static (stored, given) =>
-                _ = FrozenSetOf(stored).IsSupersetOf(ArrayOf(given)),
-            [("FrozenSet", "Overlaps")] = static (stored, given) => _ = FrozenSetOf(stored).Overlaps(ArrayOf(given)),
-            [("FrozenSet", "SetEquals")] = static (stored, given) => _ = FrozenSetOf(stored).SetEquals(ArrayOf(given)),
             [("FrozenSet", "TryGetValue")] = static (stored, given) =>
                 _ = FrozenSetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
             [("ImmutableArray", "Contains")] = static (stored, given) =>
@@ -371,22 +337,8 @@ internal sealed class PlatformReceiversTests
             [("ImmutableHashSet", "Add")] = static (stored, given) => _ = ImmutableHashSetOf(stored).Add(given),
             [("ImmutableHashSet", "Contains")] = static (stored, given) =>
                 _ = ImmutableHashSetOf(stored).Contains(given),
-            [("ImmutableHashSet", "Intersect")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).Intersect(ArrayOf(given)),
-            [("ImmutableHashSet", "IsProperSupersetOf")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).IsProperSupersetOf(ArrayOf(given)),
-            [("ImmutableHashSet", "IsSubsetOf")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).IsSubsetOf(ArrayOf(given)),
-            [("ImmutableHashSet", "IsSupersetOf")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).IsSupersetOf(ArrayOf(given)),
-            [("ImmutableHashSet", "Overlaps")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).Overlaps(ArrayOf(given)),
-            [("ImmutableHashSet", "SetEquals")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).SetEquals(ArrayOf(given)),
             [("ImmutableHashSet", "TryGetValue")] = static (stored, given) =>
                 _ = ImmutableHashSetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
-            [("ImmutableHashSet", "Union")] = static (stored, given) =>
-                _ = ImmutableHashSetOf(stored).Union(ArrayOf(given)),
             [("ImmutableList", "BinarySearch")] = static (stored, given) =>
                 _ = ImmutableList.Create(stored).BinarySearch(given),
             [("ImmutableList", "Contains")] = static (stored, given) =>
@@ -426,26 +378,12 @@ internal sealed class PlatformReceiversTests
             [("ImmutableSortedSet", "Add")] = static (stored, given) => _ = ImmutableSortedSetOf(stored).Add(given),
             [("ImmutableSortedSet", "Contains")] = static (stored, given) =>
                 _ = ImmutableSortedSetOf(stored).Contains(given),
-            [("ImmutableSortedSet", "Except")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).Except(ArrayOf(given)),
             [("ImmutableSortedSet", "IndexOf")] = static (stored, given) =>
                 _ = ImmutableSortedSetOf(stored).IndexOf(given),
-            [("ImmutableSortedSet", "Intersect")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).Intersect(ArrayOf(given)),
-            [("ImmutableSortedSet", "IsProperSupersetOf")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).IsProperSupersetOf(ArrayOf(given)),
-            [("ImmutableSortedSet", "IsSubsetOf")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).IsSubsetOf(ArrayOf(given)),
-            [("ImmutableSortedSet", "IsSupersetOf")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).IsSupersetOf(ArrayOf(given)),
-            [("ImmutableSortedSet", "Overlaps")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).Overlaps(ArrayOf(given)),
             [("ImmutableSortedSet", "Remove")] = static (stored, given) =>
                 _ = ImmutableSortedSetOf(stored).Remove(given),
             [("ImmutableSortedSet", "TryGetValue")] = static (stored, given) =>
                 _ = ImmutableSortedSetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
-            [("ImmutableSortedSet", "Union")] = static (stored, given) =>
-                _ = ImmutableSortedSetOf(stored).Union(ArrayOf(given)),
             [("OrderedDictionary", "Add")] = static (stored, given) =>
                 OrderedDictionaryOf(stored).Add(key: given, value: 2),
             [("OrderedDictionary", "ContainsKey")] = static (stored, given) =>
@@ -570,7 +508,7 @@ internal sealed class PlatformReceiversTests
     public async Task EachRowNamesTheObjectThatGetsTheCall() =>
         await Assert.That(
                 PlatformReceivers.ByMethod
-                    .Where(static row => IsOnThisFramework(row.Key))
+                    .Where(static row => IsOnThisFramework(row.Key) && !IsASetOperation(row.Key))
                     .SelectMany(static row =>
                         WrongFor(
                             calls: Calls,
@@ -644,6 +582,123 @@ internal sealed class PlatformReceiversTests
                 PlatformReceivers.ByMethod.Values.Concat(PlatformReceivers.WithNoComparerGiven.Values)
                     .Where(static receiver => receiver == PlatformReceiver.Either))
             .IsEmpty();
+
+    // The methods of a set that get a second sequence. The object that gets the call depends on the
+    // type of that sequence, thus the test with one object on each side does not hold them.
+    private static readonly HashSet<string> SetOperations =
+    [
+        "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf", "IsSupersetOf", "Overlaps", "SetEquals", "ExceptWith",
+        "IntersectWith", "SymmetricExceptWith", "UnionWith", "Except", "Intersect", "SymmetricExcept", "Union"
+    ];
+
+    private static readonly HashSet<string> SetTypes =
+        ["HashSet", "SortedSet", "ImmutableHashSet", "ImmutableSortedSet", "FrozenSet"];
+
+    private static bool IsASetOperation((string Type, string Method) key) =>
+        SetTypes.Contains(key.Type) && SetOperations.Contains(key.Method);
+
+    // The sets that this target framework has, each made from the objects that it gets.
+    private static readonly Dictionary<string, Func<Side[], IEnumerable<Side>>> Sets =
+        new()
+        {
+            ["HashSet"] = static sides => new HashSet<Side>(sides),
+            ["SortedSet"] = static sides => new SortedSet<Side>(sides),
+#if NET
+            ["ImmutableHashSet"] = static sides => ImmutableHashSet.CreateRange(sides),
+            ["ImmutableSortedSet"] = static sides => ImmutableSortedSet.CreateRange(sides),
+            ["FrozenSet"] = static sides => sides.ToFrozenSet()
+#endif
+        };
+
+    // The numbers of objects in the set and in the argument. A set operation can end at the two
+    // numbers alone, with no comparison.
+    private static readonly (int Stored, int Given)[] Counts = [(1, 1), (1, 2), (2, 1), (2, 2), (2, 3), (3, 2)];
+
+    /// <summary>
+    ///     Each set operation with a row gives each call as the row says, for an
+    ///     array and for each kind of set as its argument, with one to three
+    ///     objects on each side. A set of a kind that
+    ///     <see cref="PlatformReceivers.WithASetArgument" /> names has the receiver
+    ///     from there.
+    /// </summary>
+    /// <remarks>
+    ///     The objects record the side of the object that gets a call and the
+    ///     side of its argument. Thus, the test tells a comparison of two given
+    ///     values from a comparison of a given value with an element of the set.
+    /// </remarks>
+    [Test]
+    public async Task EachSetOperationGivesEachCallAsItsRowSaysForEachKindOfArgument() =>
+        await Assert.That(
+                PlatformReceivers.ByMethod
+                    .Where(static row => IsASetOperation(row.Key) && Sets.ContainsKey(row.Key.Type))
+                    .SelectMany(static row => WrongForEachArgument(key: row.Key, receiver: row.Value)))
+            .IsEmpty();
+
+    [Test]
+    public async Task EachRowForASetArgumentIsForAMethodWithARow() =>
+        await Assert.That(
+                PlatformReceivers.WithASetArgument.Keys.Where(static key =>
+                    !PlatformReceivers.ByMethod.ContainsKey((key.Type, key.Method))))
+            .IsEmpty();
+
+    // One line for each kind of argument where a call is not one that the receiver permits, and one
+    // line for an array as the argument when no number of objects makes a call.
+    private static IEnumerable<string> WrongForEachArgument((string Type, string Method) key, PlatformReceiver receiver)
+    {
+        Func<Side[], IEnumerable<Side>> makeSet = Sets[key.Type];
+
+        if (makeSet([]).GetType().GetMethod(name: key.Method, types: [typeof(IEnumerable<Side>)]) is not { } operation)
+        {
+            yield return $"{key.Type}.{key.Method}: the type has no such method for a sequence";
+
+            yield break;
+        }
+
+        foreach (KeyValuePair<string, Func<Side[], IEnumerable<Side>>> argument in
+                 Sets.Append(new KeyValuePair<string, Func<Side[], IEnumerable<Side>>>(key: "array", value: static sides => sides)))
+        {
+            PlatformReceiver expected =
+                PlatformReceivers.WithASetArgument.TryGetValue(
+                    key: (key.Type, key.Method, argument.Key),
+                    value: out PlatformReceiver forASet)
+                    ? forASet
+                    : receiver;
+
+            HashSet<string> found = [];
+
+            foreach ((int stored, int given) in Counts)
+            {
+                List<string> calls = [];
+                IEnumerable<Side> set = makeSet(SidesOf(side: Stored, count: stored, calls: calls));
+                IEnumerable<Side> other = argument.Value(SidesOf(side: Given, count: given, calls: calls));
+
+                // The code that makes the two collections can make a call. That call is not the
+                // one that the row is about.
+                calls.Clear();
+                _ = operation.Invoke(obj: set, parameters: [other]);
+                found.UnionWith(calls);
+            }
+
+            string[] permitted =
+                expected switch
+                {
+                    PlatformReceiver.Stored => [$"{Stored}<-{Given}"],
+                    PlatformReceiver.Given => [$"{Given}<-{Stored}"],
+                    PlatformReceiver.StoredAlsoAmong => [$"{Stored}<-{Given}", $"{Stored}<-{Stored}"],
+                    PlatformReceiver.GivenAlsoAmong => [$"{Given}<-{Stored}", $"{Given}<-{Given}"],
+                    _ => [.. found]
+                };
+
+            if (found.Any(call => !permitted.Contains(call)) || (argument.Key == "array" && found.Count == 0))
+            {
+                yield return $"{key.Type}.{key.Method} with {argument.Key}: the receiver is {expected}, and the calls "
+                             + $"were [{string.Join(separator: ", ", values: found.OrderBy(static call => call))}]";
+            }
+        }
+    }
+
+    private static Side[] SidesOf(string side, int count, List<string> calls) =>
+        [.. Enumerable.Range(start: 1, count: count).Select(rank => new Side(side: side, rank: rank, calls: calls))];
 
     // False for a row whose member this target framework does not have. .NET Framework has no
     // PriorityQueue, no OrderedDictionary, no CollectionExtensions, and no TryAdd of a dictionary.
@@ -904,6 +959,34 @@ internal sealed class PlatformReceiversTests
 
         // A Tuple object and an ArrayList compare with this form.
         public int CompareTo(object? obj) => this.CompareTo(obj as Probe);
+    }
+
+    // An object that records, for each call of its Equals or its CompareTo, its own side and the side
+    // of its argument. Two of them are never equal, and each has the same hash code. The objects of
+    // the set have the lower ranks.
+    private sealed class Side(in string side, in int rank, in List<string> calls) : IEquatable<Side>, IComparable<Side>
+    {
+        private readonly string side = side;
+        private readonly int rank = side == Stored ? rank : rank + 10;
+        private readonly List<string> calls = calls;
+
+        public bool Equals(Side? other)
+        {
+            this.calls.Add($"{this.side}<-{other?.side}");
+
+            return ReferenceEquals(objA: this, objB: other);
+        }
+
+        public override bool Equals(object? obj) => obj is Side other && this.Equals(other);
+
+        public override int GetHashCode() => 1;
+
+        public int CompareTo(Side? other)
+        {
+            this.calls.Add($"{this.side}<-{other?.side}");
+
+            return other == null ? 1 : this.rank.CompareTo(other.rank);
+        }
     }
 
 #if NET
