@@ -31,13 +31,17 @@ let private collect () =
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private listenAndSend (s: StreamSink<int>) (out: List<int>) (values: int list) =
-    let _l = s |> listenS out.Add
+    let listener = s |> listenS out.Add
     values |> List.iter (fun v -> s |> sendS v)
+    // Only this function holds the listener, and it must hold it until the sends are done.
+    GC.KeepAlive listener
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private listenAndSendMapped (s: StreamSink<int>) (s2: Stream<int>) (out: List<int>) (values: int list) =
-    let _l = s2 |> listenS out.Add
+    let listener = s2 |> listenS out.Add
     values |> List.iter (fun v -> s |> sendS v)
+    // Only this function holds the listener, and it must hold it until the sends are done.
+    GC.KeepAlive listener
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private listenAndDrop () =
