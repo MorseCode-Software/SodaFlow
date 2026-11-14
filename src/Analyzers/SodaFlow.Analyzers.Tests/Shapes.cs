@@ -9123,6 +9123,102 @@ public static class Shapes
     public static Cell<int> ElementWithNoStateThatAddRangePut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> first = [x]; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; list.AddRange(first); x.Share = l.Map(v => v); return S.Hold(list[1].Share!.Sample()); });
 
+    // S1965. A builder of an ImmutableHashSet gives the call of Equals to the object that the code gives, which has a pending cell. Add.
+    public static Cell<int> BuilderOfAnImmutableHashSetAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.CreateBuilder<SameOwn>(); made.Add(new(Plain)); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S1966. A builder of an ImmutableHashSet gives the call of Equals to the object that the code gives, which has a pending cell. Contains.
+    public static Cell<int> BuilderOfAnImmutableHashSetContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.Contains(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1967. A builder of an ImmutableHashSet gives the call of Equals to the object that the code gives, which has a pending cell. TryGetValue.
+    public static Cell<int> BuilderOfAnImmutableHashSetTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.TryGetValue(new SameOwn(l.Map(v => v)), out _)); return S.Hold(0); });
+
+    // S1968. A builder of an ImmutableHashSet gives the call of Equals to the object that the code gives, which has a pending cell. UnionWith, which has no row for its receiver.
+    public static Cell<int> BuilderOfAnImmutableHashSetUnionWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.CreateBuilder<SameOwn>(); made.Add(new(Plain)); made.UnionWith([new SameOwn(l.Map(v => v))]); return S.Hold(0); });
+
+    // S1969. A builder of an ImmutableSortedSet gives the call of CompareTo to the object that the code gives, which has a pending cell. Add.
+    public static Cell<int> BuilderOfAnImmutableSortedSetAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedSet<RankedOwn>.Builder made = ImmutableSortedSet.CreateBuilder<RankedOwn>(); made.Add(new(Plain)); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S1970. A builder of an ImmutableSortedSet gives the call of CompareTo to the object that the code gives, which has a pending cell. Contains.
+    public static Cell<int> BuilderOfAnImmutableSortedSetContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedSet<RankedOwn>.Builder made = ImmutableSortedSet.CreateBuilder<RankedOwn>(); made.Add(new(Plain)); Kept.Add(made.Contains(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1971. A builder of an ImmutableSortedSet gives the call of CompareTo to the object that the code gives, which has a pending cell. Remove.
+    public static Cell<int> BuilderOfAnImmutableSortedSetRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedSet<RankedOwn>.Builder made = ImmutableSortedSet.CreateBuilder<RankedOwn>(); made.Add(new(Plain)); Kept.Add(made.Remove(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1972. A builder of an ImmutableSortedSet gives the call of CompareTo to the object that the code gives, which has a pending cell. IntersectWith, which has no row for its receiver.
+    public static Cell<int> BuilderOfAnImmutableSortedSetIntersectWith() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedSet<RankedOwn>.Builder made = ImmutableSortedSet.CreateBuilder<RankedOwn>(); made.Add(new(Plain)); made.IntersectWith([new RankedOwn(l.Map(v => v))]); return S.Hold(0); });
+
+    // S1973. A builder of an ImmutableDictionary gives the call of Equals to the object that the code gives, which has a pending cell. Add of a key.
+    public static Cell<int> BuilderOfAnImmutableDictionaryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<SameOwn, int>.Builder made = ImmutableDictionary.CreateBuilder<SameOwn, int>(); made.Add(new(Plain), 1); made.Add(new(l.Map(v => v)), 2); return S.Hold(0); });
+
+    // S1974. A builder of an ImmutableSortedDictionary gives the call of CompareTo to the object that the code gives, which has a pending cell. Add of a key.
+    public static Cell<int> BuilderOfAnImmutableSortedDictionaryAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<RankedOwn, int>.Builder made = ImmutableSortedDictionary.CreateBuilder<RankedOwn, int>(); made.Add(new(Plain), 1); made.Add(new(l.Map(v => v)), 2); return S.Hold(0); });
+
+    // S1975. A builder of an ImmutableSortedDictionary gives the call of CompareTo to the object that the code gives, which has a pending cell. ContainsKey.
+    public static Cell<int> BuilderOfAnImmutableSortedDictionaryContainsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<RankedOwn, int>.Builder made = ImmutableSortedDictionary.CreateBuilder<RankedOwn, int>(); made.Add(new(Plain), 1); Kept.Add(made.ContainsKey(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1976. A builder of an ImmutableSortedDictionary gives the call of CompareTo to the object that the code gives, which has a pending cell. The indexer.
+    public static Cell<int> BuilderOfAnImmutableSortedDictionaryIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<RankedOwn, int>.Builder made = ImmutableSortedDictionary.CreateBuilder<RankedOwn, int>(); made.Add(new(Plain), 1); made[new RankedOwn(l.Map(v => v))] = 2; return S.Hold(0); });
+
+    // S1977. A builder of an ImmutableList gives the call of Equals to the object that the code gives, which has a pending cell. Contains.
+    public static Cell<int> BuilderOfAnImmutableListContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.Contains(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1978. A builder of an ImmutableList gives the call of Equals to the object that the code gives, which has a pending cell. IndexOf.
+    public static Cell<int> BuilderOfAnImmutableListIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.IndexOf(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1979. A builder of an ImmutableList gives the call of Equals to the object that the code gives, which has a pending cell. Remove.
+    public static Cell<int> BuilderOfAnImmutableListRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.Remove(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1980. A builder of an ImmutableArray gives the call of Equals to the object that it has, which has a pending cell. Contains.
+    public static Cell<int> BuilderOfAnImmutableArrayContains() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<SameOwn>.Builder made = ImmutableArray.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); Kept.Add(made.Contains(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1981. The same for IndexOf.
+    public static Cell<int> BuilderOfAnImmutableArrayIndexOf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<SameOwn>.Builder made = ImmutableArray.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); Kept.Add(made.IndexOf(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1982. A builder of an ImmutableHashSet gives the call of Equals in Remove to the object that it has, when that object is the first one with its hash code. Remove has no row for its receiver.
+    public static Cell<int> BuilderOfAnImmutableHashSetRemoveOfTheObjectThatItHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.Create(new SameOwn(l.Map(v => v))).ToBuilder(); Kept.Add(made.Remove(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1983. A builder of an ImmutableDictionary gives the call of Equals in ContainsKey to the key that it has, when that key is the first one with its hash code. ContainsKey has no row for its receiver.
+    public static Cell<int> BuilderOfAnImmutableDictionaryContainsKeyOfTheKeyThatItHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<SameOwn, int>.Builder made = ImmutableDictionary.CreateRange(new[] { new KeyValuePair<SameOwn, int>(new(l.Map(v => v)), 1) }).ToBuilder(); Kept.Add(made.ContainsKey(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1984. A builder of an ImmutableList has an object with a pending cell, and the object that the code gives gets the call.
+    public static Cell<int> BuilderOfAnImmutableListThatHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); Kept.Add(made.Contains(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1985. A builder of an ImmutableArray gets an object with a pending cell, and the object that it has gets the call.
+    public static Cell<int> BuilderOfAnImmutableArrayThatGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<SameOwn>.Builder made = ImmutableArray.CreateBuilder<SameOwn>(); made.Add(new(Plain)); Kept.Add(made.Contains(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S1986. A builder of an ImmutableHashSet has an object with a pending cell, and the object that the code gives gets the call.
+    public static Cell<int> BuilderOfAnImmutableHashSetThatHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.Create(new SameOwn(l.Map(v => v))).ToBuilder(); Kept.Add(made.Contains(new SameOwn(Plain))); return S.Hold(0); });
+
+    // S1987. A builder of an ImmutableSortedSet has an object with a pending cell, and the object that the code gives gets the call.
+    public static Cell<int> BuilderOfAnImmutableSortedSetThatHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedSet<RankedOwn>.Builder made = ImmutableSortedSet.Create(new RankedOwn(l.Map(v => v))).ToBuilder(); Kept.Add(made.Contains(new RankedOwn(Plain))); return S.Hold(0); });
+
+    // S1988. Add of a builder of an ImmutableList compares nothing.
+    public static Cell<int> BuilderOfAnImmutableListAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

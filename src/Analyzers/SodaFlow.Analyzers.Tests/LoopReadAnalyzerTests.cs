@@ -1383,7 +1383,26 @@ internal sealed class LoopReadAnalyzerTests
             ["ElementThatAddRangePutAndThatGetsAPendingCellAfterIt"] = ["SF1001"],
             ["ElementOfACopyOfAList"] = ["SF1001"],
             ["ElementWithNoStateBesideASecondObject"] = ["SF1001"],
-            ["ElementWithNoStateThatAddRangePut"] = ["SF1001"]
+            ["ElementWithNoStateThatAddRangePut"] = ["SF1001"],
+            ["BuilderOfAnImmutableHashSetAdd"] = ["SF1005"],
+            ["BuilderOfAnImmutableHashSetContains"] = ["SF1005"],
+            ["BuilderOfAnImmutableHashSetTryGetValue"] = ["SF1005"],
+            ["BuilderOfAnImmutableHashSetUnionWith"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedSetAdd"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedSetContains"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedSetRemove"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedSetIntersectWith"] = ["SF1005"],
+            ["BuilderOfAnImmutableDictionaryAdd"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedDictionaryAdd"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedDictionaryContainsKey"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedDictionaryIndexer"] = ["SF1005"],
+            ["BuilderOfAnImmutableListContains"] = ["SF1005"],
+            ["BuilderOfAnImmutableListIndexOf"] = ["SF1005"],
+            ["BuilderOfAnImmutableListRemove"] = ["SF1005"],
+            ["BuilderOfAnImmutableArrayContains"] = ["SF1005"],
+            ["BuilderOfAnImmutableArrayIndexOf"] = ["SF1005"],
+            ["BuilderOfAnImmutableHashSetRemoveOfTheObjectThatItHas"] = ["SF1005"],
+            ["BuilderOfAnImmutableDictionaryContainsKeyOfTheKeyThatItHas"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -150,6 +150,26 @@ internal static class PlatformCallers
             Row(type: "ImmutableArray", callbacks: PlatformCallbacks.Equals,
                 "Contains", "IndexOf", "LastIndexOf", "Remove", "RemoveRange", "Replace"),
             Row(type: "ImmutableArray", callbacks: PlatformCallbacks.Compare, "Sort"),
+            Row(type: "ImmutableHashSet.Builder", callbacks: HashAndEquals,
+                "Add", "Contains", "Remove", "TryGetValue", "ExceptWith", "IntersectWith", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
+                "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExceptWith", "UnionWith"),
+            Row(type: "ImmutableSortedSet.Builder", callbacks: PlatformCallbacks.Compare,
+                "Add", "Contains", "Remove", "TryGetValue", "IndexOf", "ExceptWith", "IntersectWith", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
+                "IsSupersetOf", "Overlaps", "SetEquals", "SymmetricExceptWith", "UnionWith"),
+            Row(type: "ImmutableDictionary.Builder", callbacks: HashAndEquals,
+                "Add", "AddRange", "Contains", "ContainsKey", "GetValueOrDefault", "TryGetKey", "TryGetValue", "Remove",
+                "RemoveRange", "get_Item", "set_Item"),
+            Row(type: "ImmutableDictionary.Builder", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "ImmutableSortedDictionary.Builder", callbacks: PlatformCallbacks.Compare,
+                "Add", "AddRange", "Contains", "ContainsKey", "GetValueOrDefault", "TryGetKey", "TryGetValue", "ValueRef",
+                "Remove", "RemoveRange", "get_Item", "set_Item"),
+            Row(type: "ImmutableSortedDictionary.Builder", callbacks: PlatformCallbacks.Equals, "ContainsValue"),
+            Row(type: "ImmutableList.Builder", callbacks: PlatformCallbacks.Equals,
+                "Contains", "IndexOf", "LastIndexOf", "Remove", "RemoveRange", "Replace"),
+            Row(type: "ImmutableList.Builder", callbacks: PlatformCallbacks.Compare, "Sort", "BinarySearch"),
+            Row(type: "ImmutableArray.Builder", callbacks: PlatformCallbacks.Equals,
+                "Contains", "IndexOf", "LastIndexOf", "Remove", "RemoveRange", "Replace"),
+            Row(type: "ImmutableArray.Builder", callbacks: PlatformCallbacks.Compare, "Sort"),
             Row(type: "FrozenSet", callbacks: HashAndEquals,
                 "ToFrozenSet", "Contains", "TryGetValue", "IsProperSubsetOf", "IsProperSupersetOf", "IsSubsetOf",
                 "IsSupersetOf", "Overlaps", "SetEquals"),
@@ -308,7 +328,7 @@ internal static class PlatformCallers
 
         if (definition.ContainingType is not { } type
             || !SodaFlowSymbols.IsPlatform(type)
-            || !ByMethod.TryGetValue(key: (type.Name, NameOf(definition)), value: out PlatformCallbacks callbacks))
+            || !ByMethod.TryGetValue(key: (NameOf(type), NameOf(definition)), value: out PlatformCallbacks callbacks))
         {
             return PlatformCallbacks.None;
         }
@@ -339,7 +359,7 @@ internal static class PlatformCallers
             return PlatformReceiver.Either;
         }
 
-        (string Type, string Method) key = (type.Name, NameOf(definition));
+        (string Type, string Method) key = (NameOf(type), NameOf(definition));
 
         if (definition.Parameters.Any(static parameter => SodaFlowSymbols.IsComparer(parameter.Type)))
         {
@@ -377,10 +397,8 @@ internal static class PlatformCallers
             return null;
         }
 
-        string name = type.ContainingType is { } outer ? outer.Name + "." + type.Name : type.Name;
-
         return PlatformReceivers.ForValues.TryGetValue(
-                   key: (name, NameOf(definition)),
+                   key: (NameOf(type), NameOf(definition)),
                    value: out PlatformReceiver receiver)
                && ComparedPairs(method: definition, ofValues: true).Pairs is { Count: > 0 } values
                && definition.Parameters.Any(parameter =>
@@ -427,7 +445,7 @@ internal static class PlatformCallers
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
                && PlatformReceivers.WithASetArgument.Keys.Any(key =>
-                   key.Type == type.Name && key.Method == NameOf(definition));
+                   key.Type == NameOf(type) && key.Method == NameOf(definition));
     }
 
     /// <summary>
@@ -441,7 +459,7 @@ internal static class PlatformCallers
 
         return SodaFlowSymbols.IsPlatform(argument)
                && PlatformReceivers.WithASetArgument.TryGetValue(
-                   key: (definition.ContainingType.Name, NameOf(definition), argument.Name),
+                   key: (NameOf(definition.ContainingType), NameOf(definition), argument.Name),
                    value: out PlatformReceiver receiver)
             ? receiver
             : null;
@@ -467,7 +485,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && WithAFunctionThatChooses.Contains((type.Name, NameOf(definition)));
+               && WithAFunctionThatChooses.Contains((NameOf(type), NameOf(definition)));
     }
 
     /// <summary>True for a method of <see cref="WithAFunctionAndKeys" />.</summary>
@@ -477,7 +495,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && WithAFunctionAndKeys.Contains((type.Name, NameOf(definition)));
+               && WithAFunctionAndKeys.Contains((NameOf(type), NameOf(definition)));
     }
 
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
@@ -487,7 +505,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && AmongTheElements.Contains((type.Name, NameOf(definition)));
+               && AmongTheElements.Contains((NameOf(type), NameOf(definition)));
     }
 
     /// <summary>
@@ -557,7 +575,7 @@ internal static class PlatformCallers
         }
 
         if (ComparedParameters.TryGetValue(
-                key: (called.ContainingType.Name, NameOf(called)),
+                key: (NameOf(called.ContainingType), NameOf(called)),
                 value: out ImmutableArray<string> names))
         {
             return ([.. pairs.Where(pair => names.Contains(pair.Parameter.Name))], false);
@@ -574,6 +592,11 @@ internal static class PlatformCallers
                 ], false)
             : (pairs, true);
     }
+
+    // The name of a type in the tables. A type in a type, as the builder of an immutable collection
+    // is, has the name of that type before its own name.
+    private static string NameOf(INamedTypeSymbol type) =>
+        type.ContainingType is { } outer ? outer.Name + "." + type.Name : type.Name;
 
     // The name of a method in the tables. An explicit implementation of a member of an interface,
     // as ICollection<T>.Add of a HashSet is, has the name of that member.

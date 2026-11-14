@@ -71,6 +71,16 @@ internal enum PlatformReceiver
 ///         <see cref="PlatformReceivers.WithValuesOneByOne" /> has the row for
 ///         the first of the two.
 ///     </para>
+    ///     <para>
+///         A builder of an immutable collection has the name of its collection
+///         before the name <c>Builder</c>. A member of a builder that is not here
+///         has no row for a cause. The lookups and <c>Remove</c> of a builder
+///         with hash codes give the call to the object that the builder has
+///         when that object is the first one with its hash code, and to the
+///         object that the code gives when it is not. The set operations of a
+///         builder have no run for each kind of argument, and
+///         <c>SetEquals</c> changed on .NET 11.
+///     </para>
 ///     <para>
 ///         This file uses no type of the compiler, because that test compiles it
 ///         for .NET Framework also.
@@ -239,6 +249,42 @@ internal static class PlatformReceivers
             [("ImmutableSortedSet", "Remove")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "TryGetValue")] = PlatformReceiver.Given,
             [("ImmutableSortedSet", "Union")] = PlatformReceiver.GivenAlsoAmong,
+            [("ImmutableHashSet.Builder", "Add")] = PlatformReceiver.Given,
+            [("ImmutableHashSet.Builder", "Contains")] = PlatformReceiver.Given,
+            [("ImmutableHashSet.Builder", "TryGetValue")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet.Builder", "Add")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet.Builder", "Contains")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet.Builder", "IndexOf")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet.Builder", "Remove")] = PlatformReceiver.Given,
+            [("ImmutableSortedSet.Builder", "TryGetValue")] = PlatformReceiver.Given,
+            [("ImmutableDictionary.Builder", "Add")] = PlatformReceiver.Given,
+            [("ImmutableDictionary.Builder", "ContainsValue")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "Add")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "AddRange")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "Contains")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "ContainsKey")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "ContainsValue")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "GetValueOrDefault")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "Remove")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "RemoveRange")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "TryGetKey")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "TryGetValue")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "ValueRef")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "get_Item")] = PlatformReceiver.Given,
+            [("ImmutableSortedDictionary.Builder", "set_Item")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "BinarySearch")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "Contains")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "IndexOf")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "LastIndexOf")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "Remove")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "RemoveRange")] = PlatformReceiver.Given,
+            [("ImmutableList.Builder", "Replace")] = PlatformReceiver.Given,
+            [("ImmutableArray.Builder", "Contains")] = PlatformReceiver.Stored,
+            [("ImmutableArray.Builder", "IndexOf")] = PlatformReceiver.Stored,
+            [("ImmutableArray.Builder", "LastIndexOf")] = PlatformReceiver.Stored,
+            [("ImmutableArray.Builder", "Remove")] = PlatformReceiver.Stored,
+            [("ImmutableArray.Builder", "RemoveRange")] = PlatformReceiver.Stored,
+            [("ImmutableArray.Builder", "Replace")] = PlatformReceiver.Stored,
             [("LinkedList", "Contains")] = PlatformReceiver.Stored,
             [("LinkedList", "Find")] = PlatformReceiver.Stored,
             [("LinkedList", "FindLast")] = PlatformReceiver.Stored,

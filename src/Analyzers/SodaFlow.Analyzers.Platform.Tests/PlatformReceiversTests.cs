@@ -384,6 +384,90 @@ internal sealed class PlatformReceiversTests
                 _ = ImmutableSortedSetOf(stored).Remove(given),
             [("ImmutableSortedSet", "TryGetValue")] = static (stored, given) =>
                 _ = ImmutableSortedSetOf(stored).TryGetValue(equalValue: given, actualValue: out _),
+            [("ImmutableHashSet.Builder", "Add")] = static (stored, given) =>
+                _ = ImmutableHashSetOf(stored).ToBuilder().Add(given),
+            [("ImmutableHashSet.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableHashSetOf(stored).ToBuilder().Contains(given),
+            [("ImmutableHashSet.Builder", "TryGetValue")] = static (stored, given) =>
+                _ = ImmutableHashSetOf(stored).ToBuilder().TryGetValue(equalValue: given, actualValue: out _),
+            [("ImmutableSortedSet.Builder", "Add")] = static (stored, given) =>
+                _ = ImmutableSortedSetOf(stored).ToBuilder().Add(given),
+            [("ImmutableSortedSet.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableSortedSetOf(stored).ToBuilder().Contains(given),
+            [("ImmutableSortedSet.Builder", "IndexOf")] = static (stored, given) =>
+                _ = ImmutableSortedSetOf(stored).ToBuilder().IndexOf(given),
+            [("ImmutableSortedSet.Builder", "Remove")] = static (stored, given) =>
+                _ = ImmutableSortedSetOf(stored).ToBuilder().Remove(given),
+            [("ImmutableSortedSet.Builder", "TryGetValue")] = static (stored, given) =>
+                _ = ImmutableSortedSetOf(stored).ToBuilder().TryGetValue(equalValue: given, actualValue: out _),
+            [("ImmutableDictionary.Builder", "Add")] = static (stored, given) =>
+            {
+                ImmutableDictionaryOf(stored).ToBuilder().Add(key: given, value: 2);
+                ImmutableDictionaryOf(stored).ToBuilder().Add(new KeyValuePair<Probe, int>(key: given, value: 2));
+            },
+            [("ImmutableDictionary.Builder", "ContainsValue")] = static (stored, given) =>
+                _ = ImmutableDictionary<int, Probe>.Empty.Add(key: 1, value: stored).ToBuilder().ContainsValue(given),
+            [("ImmutableSortedDictionary.Builder", "Add")] = static (stored, given) =>
+            {
+                ImmutableSortedDictionaryOf(stored).ToBuilder().Add(key: given, value: 2);
+                ImmutableSortedDictionaryOf(stored).ToBuilder().Add(new KeyValuePair<Probe, int>(key: given, value: 2));
+            },
+            [("ImmutableSortedDictionary.Builder", "AddRange")] = static (stored, given) =>
+                ImmutableSortedDictionaryOf(stored).ToBuilder().AddRange([new KeyValuePair<Probe, int>(key: given, value: 2)]),
+            [("ImmutableSortedDictionary.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().Contains(new KeyValuePair<Probe, int>(key: given, value: 1)),
+            [("ImmutableSortedDictionary.Builder", "ContainsKey")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().ContainsKey(given),
+            [("ImmutableSortedDictionary.Builder", "ContainsValue")] = static (stored, given) =>
+                _ = ImmutableSortedDictionary<int, Probe>.Empty.Add(key: 1, value: stored).ToBuilder().ContainsValue(given),
+            [("ImmutableSortedDictionary.Builder", "GetValueOrDefault")] = static (stored, given) =>
+            {
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().GetValueOrDefault(given);
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().GetValueOrDefault(key: given, defaultValue: 2);
+            },
+            [("ImmutableSortedDictionary.Builder", "Remove")] = static (stored, given) =>
+            {
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().Remove(given);
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().Remove(new KeyValuePair<Probe, int>(key: given, value: 1));
+            },
+            [("ImmutableSortedDictionary.Builder", "RemoveRange")] = static (stored, given) =>
+                ImmutableSortedDictionaryOf(stored).ToBuilder().RemoveRange(ArrayOf(given)),
+            [("ImmutableSortedDictionary.Builder", "TryGetKey")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().TryGetKey(equalKey: given, actualKey: out _),
+            [("ImmutableSortedDictionary.Builder", "TryGetValue")] = static (stored, given) =>
+                _ = ImmutableSortedDictionaryOf(stored).ToBuilder().TryGetValue(key: given, value: out _),
+            [("ImmutableSortedDictionary.Builder", "ValueRef")] = static (stored, given) =>
+                Try(() => _ = ImmutableSortedDictionaryOf(stored).ToBuilder().ValueRef(given)),
+            [("ImmutableSortedDictionary.Builder", "get_Item")] = static (stored, given) =>
+                Try(() => _ = ImmutableSortedDictionaryOf(stored).ToBuilder()[given]),
+            [("ImmutableSortedDictionary.Builder", "set_Item")] = static (stored, given) =>
+                ImmutableSortedDictionaryOf(stored).ToBuilder()[given] = 2,
+            [("ImmutableList.Builder", "BinarySearch")] = static (stored, given) =>
+                _ = ImmutableList.Create(stored).ToBuilder().BinarySearch(given),
+            [("ImmutableList.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableList.Create(stored).ToBuilder().Contains(given),
+            [("ImmutableList.Builder", "IndexOf")] = static (stored, given) =>
+                _ = ImmutableList.Create(stored).ToBuilder().IndexOf(given),
+            [("ImmutableList.Builder", "LastIndexOf")] = static (stored, given) =>
+                _ = ImmutableList.Create(stored).ToBuilder().LastIndexOf(given),
+            [("ImmutableList.Builder", "Remove")] = static (stored, given) =>
+                _ = ImmutableList.Create(stored).ToBuilder().Remove(given),
+            [("ImmutableList.Builder", "RemoveRange")] = static (stored, given) =>
+                ImmutableList.Create(stored).ToBuilder().RemoveRange(ArrayOf(given)),
+            [("ImmutableList.Builder", "Replace")] = static (stored, given) =>
+                Try(() => ImmutableList.Create(stored).ToBuilder().Replace(oldValue: given, newValue: given)),
+            [("ImmutableArray.Builder", "Contains")] = static (stored, given) =>
+                _ = ImmutableArray.Create(stored).ToBuilder().Contains(given),
+            [("ImmutableArray.Builder", "IndexOf")] = static (stored, given) =>
+                _ = ImmutableArray.Create(stored).ToBuilder().IndexOf(given),
+            [("ImmutableArray.Builder", "LastIndexOf")] = static (stored, given) =>
+                _ = ImmutableArray.Create(stored).ToBuilder().LastIndexOf(given),
+            [("ImmutableArray.Builder", "Remove")] = static (stored, given) =>
+                _ = ImmutableArray.Create(stored).ToBuilder().Remove(given),
+            [("ImmutableArray.Builder", "RemoveRange")] = static (stored, given) =>
+                ImmutableArray.Create(stored).ToBuilder().RemoveRange(items: (IEnumerable<Probe>)ArrayOf(given)),
+            [("ImmutableArray.Builder", "Replace")] = static (stored, given) =>
+                Try(() => ImmutableArray.Create(stored).ToBuilder().Replace(oldValue: given, newValue: given)),
             [("OrderedDictionary", "Add")] = static (stored, given) =>
                 OrderedDictionaryOf(stored).Add(key: given, value: 2),
             [("OrderedDictionary", "ContainsKey")] = static (stored, given) =>
@@ -851,7 +935,8 @@ internal sealed class PlatformReceiversTests
     [
         "MemoryExtensions", "PriorityQueue", "OrderedDictionary", "CollectionExtensions", "ImmutableArray",
         "ImmutableList", "ImmutableHashSet", "ImmutableSortedSet", "ImmutableDictionary", "ImmutableSortedDictionary",
-        "FrozenSet", "FrozenDictionary"
+        "FrozenSet", "FrozenDictionary", "ImmutableArray.Builder", "ImmutableList.Builder", "ImmutableHashSet.Builder",
+        "ImmutableSortedSet.Builder", "ImmutableDictionary.Builder", "ImmutableSortedDictionary.Builder"
     ];
 #endif
 

@@ -68,6 +68,12 @@ internal sealed class PlatformCallersTests
         typeof(ImmutableSortedDictionary<,>),
         typeof(ImmutableList<>),
         typeof(ImmutableArray<>),
+        typeof(ImmutableHashSet<>.Builder),
+        typeof(ImmutableSortedSet<>.Builder),
+        typeof(ImmutableDictionary<,>.Builder),
+        typeof(ImmutableSortedDictionary<,>.Builder),
+        typeof(ImmutableList<>.Builder),
+        typeof(ImmutableArray<>.Builder),
         typeof(FrozenSet),
         typeof(FrozenSet<>),
         typeof(FrozenDictionary),
@@ -94,8 +100,14 @@ internal sealed class PlatformCallersTests
     public async Task EachRowNamesAMemberOfThePlatform()
     {
         // A name can be for two types: the type of a collection, and the type with its factories.
+        // A type in a type, as a builder is, has the name of that type before its own name.
         ILookup<string, Type> byName =
-            Types.ToLookup(keySelector: static type => type.Name.Split('`')[0], comparer: StringComparer.Ordinal);
+            Types.ToLookup(
+                keySelector: static type =>
+                    type.DeclaringType is { } outer
+                        ? outer.Name.Split('`')[0] + "." + type.Name.Split('`')[0]
+                        : type.Name.Split('`')[0],
+                comparer: StringComparer.Ordinal);
 
         List<string> unknown = [];
 
