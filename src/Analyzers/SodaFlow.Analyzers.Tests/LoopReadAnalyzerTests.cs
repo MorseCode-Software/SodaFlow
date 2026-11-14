@@ -1482,7 +1482,17 @@ internal sealed class LoopReadAnalyzerTests
             ["ResultOfALambdaOfAHelper"] = ["SF1001"],
             ["ResultOfALambdaOfAHelperThatKeeps"] = ["SF1001"],
             ["LambdaOfAHelperThatSamples"] = ["SF1004"],
-            ["TurnResultOfALambdaOfAHelperThatKeeps"] = ["SF1001"]
+            ["TurnResultOfALambdaOfAHelperThatKeeps"] = ["SF1001"],
+            ["PlainUnderAConditionInALambda"] = ["SF1001"],
+            ["PlainUnderAConditionInALocalFunction"] = ["SF1001"],
+            ["PlainUnderAConditionInAHelperOfALoop"] = ["SF1004"],
+            ["LambdaThatReturnsBeforeItsPlainWrite"] = ["SF1001"],
+            ["PlainThroughALambdaThatTheTurnDoesNotCall"] = ["SF1001"],
+            ["TwoNamesInAHelperOfALoop"] = ["SF1004"],
+            ["TwoNamesInALambdaOfALoop"] = ["SF1004"],
+            ["TwoNamesInALambda"] = ["SF1004"],
+            ["TwoNamesInALocalFunction"] = ["SF1004"],
+            ["ObjectOfAHelperThatTheTurnBeforeKept"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

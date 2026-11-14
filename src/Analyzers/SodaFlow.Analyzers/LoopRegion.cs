@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -39,6 +40,13 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
     private int objectFrames;
+
+    // The lambdas and the local functions that the walk reads for a call now.
+    private readonly HashSet<SyntaxNode> activeFunctions = [];
+
+    // For each lambda and each local function that the walk read for a call: the locals and the
+    // parameters that a function in it reads or writes.
+    private readonly Dictionary<SyntaxNode, ImmutableHashSet<ISymbol>?> captured = [];
 
     /// <summary>The one state of each object that the code of the region makes.</summary>
     public ObjectStore Objects { get; } = new();
@@ -190,6 +198,50 @@ internal sealed class LoopRegion(
     ///     frames that a pending value needs.
     /// </summary>
     public bool TryEnterForObjects() => ++this.objectFrames <= MaxFrames;
+
+    /// <summary>
+    ///     Records the start of the read of a lambda or a local function for a
+    ///     call. False when the walk is in a read of that function now, which is
+    ///     a call of the function in its own code.
+    /// </summary>
+    public bool StartsACallOf(SyntaxNode function) => this.activeFunctions.Add(function);
+
+    /// <summary>Records the end of the read that <see cref="StartsACallOf" /> started.</summary>
+    public void EndsACallOf(SyntaxNode function) => this.activeFunctions.Remove(function);
+
+    /// <summary>
+    ///     The locals and the parameters that a function in the given function
+    ///     reads or writes. Null when the compiler cannot tell.
+    /// </summary>
+    public ImmutableHashSet<ISymbol>? CapturedIn(SyntaxNode function)
+    {
+        if (!this.captured.TryGetValue(key: function, value: out ImmutableHashSet<ISymbol>? found))
+        {
+            SyntaxNode? body =
+                function switch
+                {
+                    AnonymousFunctionExpressionSyntax lambda => lambda.Body,
+                    LocalFunctionStatementSyntax local => local.Body ?? (SyntaxNode?)local.ExpressionBody?.Expression,
+                    _ => null
+                };
+
+            DataFlowAnalysis? flow =
+                body switch
+                {
+                    StatementSyntax statement => this.ModelFor(function).AnalyzeDataFlow(statement),
+                    ExpressionSyntax expression => this.ModelFor(function).AnalyzeDataFlow(expression),
+                    _ => null
+                };
+
+            found = flow is { Succeeded: true }
+                ? flow.Captured.ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default)
+                : null;
+
+            this.captured[function] = found;
+        }
+
+        return found;
+    }
 
     /// <summary>
     ///     Walks the region for reads that run before the close, then checks each

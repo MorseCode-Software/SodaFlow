@@ -1492,6 +1492,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        // The evaluator must know where a call always runs before it follows the call.
+        if (node.Parent is ExpressionStatementSyntax)
+        {
+            bool inItsFunction = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? alwaysTurn);
+            this.evaluator.AlwaysRuns(call: node, inItsFunction: inItsFunction, turn: alwaysTurn);
+        }
+
         this.Visit(node.Expression);
 
         SodaFlowSymbols symbols = this.region.Symbols;

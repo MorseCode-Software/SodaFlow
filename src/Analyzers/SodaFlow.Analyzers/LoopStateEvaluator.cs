@@ -67,6 +67,16 @@ internal sealed class LoopStateEvaluator
 
     private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
 
+    // The call that this code runs for. Null for the code of the block.
+    private readonly CallOfThisCode? call;
+
+    // The objects that this code made for its call. Each of them is new in each call.
+    private readonly HashSet<MadeObject> madeForTheCall = [];
+
+    // For each call that the walker read as a statement: the body of the loop whose each turn
+    // always runs the call. Null when no loop does.
+    private readonly Dictionary<SyntaxNode, SyntaxNode?> alwaysTurns = [];
+
     // The queries that this code makes.
     private readonly Dictionary<SyntaxNode, QueryValue> queries = [];
 
@@ -87,7 +97,8 @@ internal sealed class LoopStateEvaluator
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             quiet: false,
-            function: null)
+            function: null,
+            call: null)
     {
     }
 
@@ -101,9 +112,11 @@ internal sealed class LoopStateEvaluator
         HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers,
         bool quiet,
-        SyntaxNode? function)
+        SyntaxNode? function,
+        CallOfThisCode? call)
     {
         this.function = function;
+        this.call = call;
         this.region = region;
         this.bound = bound;
         this.noValues = noValues;
@@ -137,7 +150,8 @@ internal sealed class LoopStateEvaluator
                     dictionary: this.thisMembers,
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
-                function: this.function);
+                function: this.function,
+                call: this.call);
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -380,11 +394,82 @@ internal sealed class LoopStateEvaluator
             state: state,
             location: (Code: this, Local: local),
             isOfItsTurn: static (turn, made, location) =>
-                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, code: turn));
+                location.Code.RunsInTheTurnOf(made)
+                || IsDeclaredIn(local: location.Local, code: turn)
+                || location.Code.IsNewInEachTurnOf(local: location.Local, turn: turn));
 
     // A location that is new in no turn.
     private LoopState InAnOldLocation(LoopState state) =>
         this.InALocation(state: state, location: false, isOfItsTurn: static (_, _, isNew) => isNew);
+
+    // A local of a callee is new in each call, and so is a local of a lambda or a local function
+    // that the walk reads for a call. When each turn of a loop runs the call one time at most, the
+    // local is new in each turn of that loop.
+    private bool IsNewInEachTurnOf(ISymbol local, SyntaxNode turn) =>
+        this.call?.Turn == turn
+        && (this.function == null ? !this.Frame.HasReturned : IsDeclaredIn(local: local, code: this.function));
+
+    // The identity of the code that this evaluator reads for its call. The block is its own.
+    private object CodeOfThisCall => this.call?.Code ?? this.Frame;
+
+    // The body of the loop whose each turn runs a call one time at most. The call can be in the
+    // body of that loop. It can also run one time for each run of this code, where each turn of a
+    // loop runs this code one time at most.
+    private SyntaxNode? TurnOfACall(SyntaxNode call) =>
+        TurnOf(call) ?? (this.RunsOneTimeInThisCode(call) ? this.call?.Turn : null);
+
+    // True when an expression runs one time at most for each run of the code that this evaluator
+    // reads: a callee, or a lambda or a local function that the walk reads for a call.
+    private bool RunsOneTimeInThisCode(SyntaxNode place)
+    {
+        foreach (SyntaxNode ancestor in place.Ancestors())
+        {
+            if (ancestor == this.function || ancestor == this.region.Root)
+            {
+                return true;
+            }
+
+            switch (ancestor)
+            {
+                case ForStatementSyntax
+                    or CommonForEachStatementSyntax
+                    or WhileStatementSyntax
+                    or DoStatementSyntax
+                    or AnonymousFunctionExpressionSyntax
+                    or LocalFunctionStatementSyntax
+                    or QueryExpressionSyntax:
+                    return false;
+                case MemberDeclarationSyntax or AccessorDeclarationSyntax:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Records where a call that is a statement always runs. The walker gives
+    ///     this before the evaluator follows the call.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="inItsFunction">True when each run of the function of the call runs the call.</param>
+    /// <param name="turn">
+    ///     The body of the loop whose each turn always runs the call. Null when no
+    ///     loop of the function of the call does.
+    /// </param>
+    public void AlwaysRuns(SyntaxNode call, bool inItsFunction, SyntaxNode? turn) =>
+        this.alwaysTurns[call] = turn ?? (inItsFunction ? this.call?.AlwaysTurn : null);
+
+    // The body of the loop whose each turn always runs a change of this code to an object. The
+    // change is a statement that always runs in its function, with no loop of that function
+    // around it. For an object that this code made for its call, that is the loop of the call.
+    // For each other object in a lambda or a local function, the call must always run in the turn.
+    private SyntaxNode? TurnOfAChangeTo(MadeObject made) =>
+        this.call == null
+            ? null
+            : this.function == null || this.madeForTheCall.Contains(made)
+                ? this.call.Turn
+                : this.call.AlwaysTurn;
 
     // True when the code of this frame runs in one turn of the loop that made the object. The
     // frame is then of a callee of the code that has the loop, and the call did not return. A
@@ -995,20 +1080,38 @@ internal sealed class LoopStateEvaluator
                     this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
         }
 
-        if (TurnOf(place) is not { } turn)
+        // An expression of a callee, or of a function that the walk reads for a call, that runs
+        // one time for that call. Its object is the object of the call.
+        bool forTheCall = this.call != null && this.RunsOneTimeInThisCode(place);
+
+        if (forTheCall && this.function != null && this.call is { RunsOneTime: true })
+        {
+            return apart.WithObjects(
+                ImmutableArray.Create(
+                    this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
+        }
+
+        if ((TurnOf(place) ?? (forTheCall ? this.call?.Turn : null)) is not { } turn)
         {
             return apart;
         }
 
-        return apart.WithObjects(
-            ImmutableArray.Create(
-                this.region.Objects.MakeInATurn(
-                    frame: this.Frame,
-                    type: type,
-                    exact: exact,
-                    turn: turn,
-                    place: place,
-                    state: apart)));
+        MadeObject made =
+            this.region.Objects.MakeInATurn(
+                frame: this.Frame,
+                type: type,
+                exact: exact,
+                turn: turn,
+                place: place,
+                code: this.CodeOfThisCall,
+                state: apart);
+
+        if (forTheCall)
+        {
+            this.madeForTheCall.Add(made);
+        }
+
+        return apart.WithObjects(ImmutableArray.Create(made));
     }
 
     /// <summary>
@@ -1145,7 +1248,9 @@ internal sealed class LoopStateEvaluator
                     now.Length == 1
                     && made.IsFrom(this.Frame)
                     && !made.IsOfTurnsBefore
-                    && (made.Turn == null ? replaces : made.Turn == turn);
+                    && (made.Turn == null
+                        ? replaces
+                        : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null)));
 
                 this.region.Objects.Set(found: made, state: sure ? changed : old.Join(changed));
             }
@@ -2895,7 +3000,8 @@ internal sealed class LoopStateEvaluator
                     definer: function.Definer,
                     members: function.Definer.thisMembers,
                     receiver: null,
-                    target: target);
+                    target: target,
+                    manyTimes: each != null);
             case LocalFunctionStatementSyntax or MethodDeclarationSyntax
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method
                      && BodyOf(method) is { } body:
@@ -2912,7 +3018,8 @@ internal sealed class LoopStateEvaluator
                         definer: function.Definer,
                         members: function.Definer.thisMembers,
                         receiver: null,
-                        target: target);
+                        target: target,
+                        manyTimes: each != null);
                 }
 
                 LoopState owner = LoopState.None.WithMembers(function.Receiver);
@@ -2925,7 +3032,8 @@ internal sealed class LoopStateEvaluator
                     definer: null,
                     members: TaggedMembers(owner),
                     receiver: owner,
-                    target: null);
+                    target: null,
+                    manyTimes: each != null);
             }
             default:
                 return null;
@@ -3017,7 +3125,13 @@ internal sealed class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
 
         LoopStateEvaluator inner =
-            this.Inner(call: call, bindings: bindings, definer: null, members: members, function: null);
+            this.Inner(
+                call: call,
+                bindings: bindings,
+                definer: null,
+                members: members,
+                function: null,
+                manyTimes: false);
 
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
@@ -4790,7 +4904,8 @@ internal sealed class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> members,
         LoopState? receiver,
         LoopState? target,
-        bool returnsAFunction = false)
+        bool returnsAFunction = false,
+        bool manyTimes = false)
     {
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
@@ -4821,16 +4936,29 @@ internal sealed class LoopStateEvaluator
         }
 
         // The body of a lambda or of a local function is a part of that function.
+        SyntaxNode? function =
+            definer == null
+                ? null
+                : body.FirstAncestorOrSelf<SyntaxNode>(static node =>
+                    node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax);
+
         LoopStateEvaluator inner =
             this.Inner(
                 call: call,
                 bindings: bindings,
                 definer: definer,
                 members: members,
-                function: definer == null
-                    ? null
-                    : body.FirstAncestorOrSelf<SyntaxNode>(static node =>
-                        node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax));
+                function: function,
+                manyTimes: manyTimes);
+
+        // A local of the function is new in each call. A call of the function in its own code
+        // keeps the locals as they are, because the first call reads them after it.
+        bool starts = function != null && this.region.StartsACallOf(function);
+
+        if (starts)
+        {
+            inner.ForgetTheLocalsOf(function!);
+        }
 
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
@@ -4844,6 +4972,14 @@ internal sealed class LoopStateEvaluator
         IReadOnlyList<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving =
             definer == null || inner.Frame.HasReturned ? walker.RunWaitingApart() : [];
 
+        LoopState result =
+            body is ExpressionSyntax expression ? inner.Eval(expression) : inner.JoinAll(ReturnExpressions(body));
+
+        if (starts)
+        {
+            this.region.EndsACallOf(function!);
+        }
+
         return this.Leave(
             call: call,
             name: name,
@@ -4852,11 +4988,28 @@ internal sealed class LoopStateEvaluator
             lexical: definer != null,
             receiver: receiver,
             target: target,
-            result: body is ExpressionSyntax expression
-                ? inner.Eval(expression)
-                : inner.JoinAll(ReturnExpressions(body)),
+            result: result,
             found: found,
             leaving: leaving);
+    }
+
+    // Takes away the state of each local and each parameter that the given function declares,
+    // before a call of that function. A local that a function in it reads keeps its state: that
+    // function can run after a later call, with the local of its own call.
+    private void ForgetTheLocalsOf(SyntaxNode function)
+    {
+        if (this.region.CapturedIn(function) is not { } captured)
+        {
+            return;
+        }
+
+        foreach (ISymbol local in this.locals.Keys
+                     .Where(local => IsDeclaredIn(local: local, code: function) && !captured.Contains(local))
+                     .ToArray())
+        {
+            this.locals.Remove(local);
+            this.assigned.Remove(local);
+        }
     }
 
     /// <summary>
@@ -4902,7 +5055,8 @@ internal sealed class LoopStateEvaluator
         IEnumerable<Binding> bindings,
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members,
-        SyntaxNode? function)
+        SyntaxNode? function,
+        bool manyTimes)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
@@ -4937,13 +5091,24 @@ internal sealed class LoopStateEvaluator
             frame: definer?.Frame
                    ?? new LoopFrame(
                        parent: this.Frame,
-                       repeats: !this.RunsOneTime(call),
+                       repeats: manyTimes || !this.RunsOneTime(call),
                        isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
             quiet: this.quiet,
-            function: function);
+            function: function,
+            // A callee with no body to read can run a function two or more times in one call.
+            // Then, no turn runs the code of that function one time.
+            call: new CallOfThisCode(
+                runsOneTime: !manyTimes
+                             && (this.RunsOneTime(call)
+                                 || (this.call is { RunsOneTime: true } && this.RunsOneTimeInThisCode(call))),
+                turn: manyTimes ? null : this.TurnOfACall(call),
+                alwaysTurn: !manyTimes && this.alwaysTurns.TryGetValue(key: call, value: out SyntaxNode? always)
+                    ? always
+                    : null,
+                code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
     }
 
     /// <summary>
@@ -5542,7 +5707,8 @@ internal sealed class LoopStateEvaluator
                     assigned: this.assigned,
                     thisMembers: this.thisMembers,
                     quiet: this.quiet,
-                    function: this.function);
+                    function: this.function,
+                    call: this.call);
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);
     }
@@ -5719,5 +5885,37 @@ internal sealed class LoopStateEvaluator
         public ExpressionSyntax Argument { get; } = argument;
 
         public LoopState State { get; } = state;
+    }
+
+    /// <summary>
+    ///     The call that an evaluator reads its code for. The code is a callee, or
+    ///     a lambda or a local function that the walk reads for a call of it.
+    /// </summary>
+    /// <param name="runsOneTime">The value of <see cref="RunsOneTime" />.</param>
+    /// <param name="turn">The value of <see cref="Turn" />.</param>
+    /// <param name="alwaysTurn">The value of <see cref="AlwaysTurn" />.</param>
+    /// <param name="code">The value of <see cref="Code" />.</param>
+    private sealed class CallOfThisCode(in bool runsOneTime, in SyntaxNode? turn, in SyntaxNode? alwaysTurn, in object code)
+    {
+        /// <summary>True when the call runs one time at most.</summary>
+        public bool RunsOneTime { get; } = runsOneTime;
+
+        /// <summary>
+        ///     The body of the loop whose each turn runs the call one time at
+        ///     most. Null when no loop does.
+        /// </summary>
+        public SyntaxNode? Turn { get; } = turn;
+
+        /// <summary>
+        ///     The body of the loop whose each turn always runs the call. Null
+        ///     when no loop does.
+        /// </summary>
+        public SyntaxNode? AlwaysTurn { get; } = alwaysTurn;
+
+        /// <summary>
+        ///     An identity for the code of the call, from
+        ///     <see cref="ObjectStore.CodeOf" />.
+        /// </summary>
+        public object Code { get; } = code;
     }
 }

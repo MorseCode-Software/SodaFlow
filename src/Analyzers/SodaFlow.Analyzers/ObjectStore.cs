@@ -24,10 +24,14 @@ internal sealed class ObjectStore
     // For the object in a member: its owner, the member, and the type of the member.
     private readonly Dictionary<MadeObject, (MadeObject Owner, ISymbol Member, ITypeSymbol Type)> memberOf = [];
 
-    // The objects of the turns before, for each expression that makes the object of a turn in a
-    // frame. The walk reads a loop two times, and each read makes an object of its turn. The two
-    // have the same objects before them.
-    private readonly Dictionary<(SyntaxNode Place, LoopFrame Frame), MadeObject> olderOf = [];
+    // The objects of the turns before, for each expression that makes the object of a turn in the
+    // code of a call. The walk reads a loop two times, and each read makes an object of its turn.
+    // The two have the same objects before them.
+    private readonly Dictionary<(SyntaxNode Place, object Code), MadeObject> olderOf = [];
+
+    // An identity for the code that each call runs. The key is the identity of the code that has
+    // the call, and the call.
+    private readonly Dictionary<(object Parent, SyntaxNode Call), object> codes = [];
 
     // The bodies of the loops that the walk is in, for each loop whose turn made an object. A loop
     // comes after each loop that is around it.
@@ -86,6 +90,7 @@ internal sealed class ObjectStore
     /// <param name="exact">True when the object has that type, and not a type that derives from it.</param>
     /// <param name="turn">The body of the loop.</param>
     /// <param name="place">The expression.</param>
+    /// <param name="code">The identity of the code that has the expression, from <see cref="CodeOf" />.</param>
     /// <param name="state">The first state of the object.</param>
     public MadeObject MakeInATurn(
         LoopFrame frame,
@@ -93,22 +98,41 @@ internal sealed class ObjectStore
         bool exact,
         SyntaxNode turn,
         SyntaxNode place,
+        object code,
         LoopState state)
     {
         MadeObject found = new(type: type, exact: exact, frame: frame, turn: turn, isOfTurnsBefore: false);
         this.states[found] = state;
         this.InATurn(found: found, turn: turn);
 
-        if (!this.olderOf.TryGetValue(key: (place, frame), value: out MadeObject? older))
+        if (!this.olderOf.TryGetValue(key: (place, code), value: out MadeObject? older))
         {
             older = found.OfTurnsBefore();
-            this.olderOf[(place, frame)] = older;
+            this.olderOf[(place, code)] = older;
             this.states[older] = LoopState.None;
         }
 
         this.before[found] = older;
 
         return found;
+    }
+
+    /// <summary>
+    ///     An identity for the code that a call runs. Each read of the same call
+    ///     from the same code gets the same identity. Thus, the second read of a
+    ///     loop finds the objects of the turns before of a callee.
+    /// </summary>
+    /// <param name="parent">The identity of the code that has the call.</param>
+    /// <param name="call">The call.</param>
+    public object CodeOf(object parent, SyntaxNode call)
+    {
+        if (!this.codes.TryGetValue(key: (parent, call), value: out object? code))
+        {
+            code = new object();
+            this.codes[(parent, call)] = code;
+        }
+
+        return code;
     }
 
     private void InATurn(MadeObject found, SyntaxNode turn)
