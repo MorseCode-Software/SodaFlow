@@ -636,6 +636,16 @@ internal sealed class LoopStateEvaluator
     private bool AlwaysRunsFor(MadeObject made) =>
         this.function == null || this.madeForTheCall.Contains(made) || this.call is { AlwaysRuns: true };
 
+    // A write in a callee to an object that the callee did not make. The write always runs in the
+    // callee. It always runs for the block when each run of the block runs the call one time. The
+    // object must be one object, and no object of a turn. A lambda or a local function of the
+    // callee can run at a different time.
+    private bool AlwaysRunsForItsCaller(MadeObject made) =>
+        made.Turn == null
+        && this.function == null
+        && !this.Frame.Repeats
+        && this.call is { AlwaysRuns: true, RunsOneTime: true };
+
     // The body of the loop whose each turn always runs a change of this code to an object. The
     // change is a statement that always runs in its function, with no loop of that function
     // around it. For an object that this code made for its call, that is the loop of the call.
@@ -737,13 +747,15 @@ internal sealed class LoopStateEvaluator
 
         this.TakeBackTheWriteBefore(name: name, member: member, code: code, position: owner.SpanStart);
 
-        List<(MadeObject Object, LoopState Before)> before =
-        [
-            .. this.region.Objects.Now(has.Objects)
-                .Select(made => (Object: made, Before: this.region.Objects.StateOf(made)))
-                .Where(static one => one.Before != null)
-                .Select(static one => (one.Object, one.Before!))
-        ];
+        List<(MadeObject Object, LoopState Before)> before = [];
+
+        foreach (MadeObject made in this.region.Objects.Now(has.Objects))
+        {
+            if (this.region.Objects.StateOf(made) is { } old)
+            {
+                before.Add((made, old));
+            }
+        }
 
         this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
 
@@ -887,7 +899,7 @@ internal sealed class LoopStateEvaluator
     // True for a use of a name that can give the name a value: the target of an assignment or of a
     // deconstruction, an argument or an expression with ref, out, or in, and the operand of an
     // operator that changes it.
-    private static bool GivesAValue(IdentifierNameSyntax use)
+    private static bool GivesAValue(SyntaxNode use)
     {
         SyntaxNode target = use;
 
@@ -1918,11 +1930,12 @@ internal sealed class LoopStateEvaluator
 
                 bool sure =
                     now.Length == 1
-                    && made.IsFrom(this.Frame)
                     && !made.IsOfTurnsBefore
-                    && (made.Turn == null
-                        ? replaces && this.AlwaysRunsFor(made)
-                        : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null)));
+                    && (made.IsFrom(this.Frame)
+                        ? made.Turn == null
+                            ? replaces && this.AlwaysRunsFor(made)
+                            : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
+                        : replaces && this.AlwaysRunsForItsCaller(made));
 
                 this.region.Objects.Set(found: made, state: sure ? changed : old.Join(changed));
             }
@@ -2262,6 +2275,14 @@ internal sealed class LoopStateEvaluator
     ///     foreach. <c>First</c> or <c>Last</c> of the platform with no argument
     ///     is a read also. Any other use can change the collection or give it a
     ///     second name. Then, the local has one state for all its elements.
+    ///     <para>
+    ///         <c>Add</c> of a list of the platform puts a value after each element
+    ///         that the list has, and moves none of them. Thus, a statement at the
+    ///         first level of the block of the local that is such a call is no
+    ///         change to a position. A read has the elements of each such statement
+    ///         before it. A function can run after a later statement, thus a read
+    ///         in a function has no positions for such a list.
+    ///     </para>
     /// </remarks>
     private IReadOnlyList<ExpressionSyntax>? ElementsOf(SyntaxNode collection)
     {
@@ -2270,18 +2291,72 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
-        if (this.Frame.Positions.TryGetValue(key: local, value: out IReadOnlyList<ExpressionSyntax>? known))
+        if (!this.Frame.Positions.TryGetValue(key: local, value: out IReadOnlyList<ExpressionSyntax>? known))
+        {
+            known = this.LiteralAndAddsOf(local);
+            this.Frame.Positions[local] = known;
+        }
+
+        // Each element of the literal is in the declaration, which is before each read.
+        if (known == null
+            || known.Count == 0
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not { } declared
+            || known[known.Count - 1].SpanStart < declared.Span.End)
         {
             return known;
         }
 
-        IReadOnlyList<ExpressionSyntax>? elements =
-            this.LiteralOf(local) is (var written, var uses) && uses.All(this.IsARead) ? written : null;
-
-        this.Frame.Positions[local] = elements;
-
-        return elements;
+        return FunctionOf(collection) == FunctionOf(declared)
+            ? [.. known.TakeWhile(element => element.SpanStart < collection.SpanStart)]
+            : null;
     }
+
+    // The elements of the literal that made a local, and then the value of each Add that is a
+    // statement at the first level of the block of the local. Null when a use of the local is not
+    // such an Add and not a read.
+    private IReadOnlyList<ExpressionSyntax>? LiteralAndAddsOf(ILocalSymbol local)
+    {
+        if (this.LiteralOf(local) is not var (written, uses)
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax().FirstAncestorOrSelf<BlockSyntax>()
+                is not { } scope)
+        {
+            return null;
+        }
+
+        List<ExpressionSyntax> all = [.. written];
+
+        foreach (IdentifierNameSyntax use in uses)
+        {
+            if (this.AddedBy(use: use, scope: scope) is { } added)
+            {
+                all.Add(added);
+            }
+            else if (!this.IsARead(use))
+            {
+                return null;
+            }
+        }
+
+        return all;
+    }
+
+    // The value that a statement at the first level of a block adds to a list of the platform, for
+    // the name of the list in that statement. Null for each other use of the name.
+    private ExpressionSyntax? AddedBy(IdentifierNameSyntax use, BlockSyntax scope) =>
+        use.Parent is MemberAccessExpressionSyntax
+        {
+            Name.Identifier.ValueText: "Add",
+            Parent: InvocationExpressionSyntax
+            {
+                ArgumentList.Arguments: { Count: 1 } arguments, Parent: ExpressionStatementSyntax statement
+            } call
+        } access
+        && access.Expression == use
+        && statement.Parent == scope
+        && this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner }
+        && SodaFlowSymbols.IsPlatform(owner)
+            ? arguments[0].Expression
+            : null;
 
     // The elements of the literal that made a local, and each name of the local in its block.
     private (IReadOnlyList<ExpressionSyntax> Elements, IEnumerable<IdentifierNameSyntax> Uses)? LiteralOf(
@@ -2456,6 +2531,9 @@ internal sealed class LoopStateEvaluator
                 when this.IsAListOf(creation: made, added: added) => [.. added.Expressions],
             ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0, Initializer: { } added }
                 when this.IsAListOf(creation: made, added: added) => [.. added.Expressions],
+            // The same with no initializer: the list has no element.
+            BaseObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 }, Initializer: null }
+                when SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(made)) => [],
             _ => null
         };
 

@@ -1657,7 +1657,24 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag53ABranchWritesAPendingCellBetween"] = ["SF1001"],
             ["Ag53ALoopWritesAPendingCellBetween"] = ["SF1001"],
             ["Ag53TheNameGetsANewValueBetween"] = ["SF1001"],
-            ["Ag53ALambdaGivesTheNameANewValueBetween"] = ["SF1001"]
+            ["Ag53ALambdaGivesTheNameANewValueBetween"] = ["SF1001"],
+            ["Ag54PlainThroughTheSecondAndAReadOfTheFirst"] = ["SF1001"],
+            ["Ag54LastBeforeALaterAdd"] = ["SF1001"],
+            ["Ag54LastInALambdaAfterALaterAdd"] = ["SF1001"],
+            ["Ag54AnAddInABranch"] = ["SF1001"],
+            ["Ag54InsertPutsThePendingOneFirst"] = ["SF1001"],
+            ["Ag54RemoveAtMakesThePendingOneTheFirst"] = ["SF1001"],
+            ["Ag54AnAssignmentToTheFirstElement"] = ["SF1001"],
+            ["Ag54AHelperPutsThePendingOneFirst"] = ["SF1001"],
+            ["Ag54AnAddInALoop"] = ["SF1001"],
+            ["Ag54TheCallOfTheHelperIsInABranch"] = ["SF1001"],
+            ["Ag54TheCallOfTheHelperIsInALoop"] = ["SF1001"],
+            ["Ag54TheWriteInTheHelperIsInABranch"] = ["SF1001"],
+            ["Ag54TheHelperReturnsBeforeTheWrite"] = ["SF1001"],
+            ["Ag54TheParameterIsOneOfTwoObjects"] = ["SF1001"],
+            ["Ag54ALambdaThatABranchCallsCallsTheHelper"] = ["SF1001"],
+            ["Ag54TheSecondHelperIsInABranch"] = ["SF1001"],
+            ["Ag54AHelperGivesAPendingCellAfterThePlainOne"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

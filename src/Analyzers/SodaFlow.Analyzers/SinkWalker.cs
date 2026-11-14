@@ -1028,8 +1028,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         turn = null;
 
-        return assignment.Parent is ExpressionStatementSyntax statement
-               && this.AlwaysRunsAt(place: statement, turn: out turn);
+        return assignment.Parent switch
+        {
+            ExpressionStatementSyntax statement => this.AlwaysRunsAt(place: statement, turn: out turn),
+            // The expression that is the body of a function is the one statement of that function.
+            ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
+            AnonymousFunctionExpressionSyntax lambda when lambda.ExpressionBody == assignment =>
+                this.AlwaysRunsAt(place: assignment, turn: out turn),
+            _ => false
+        };
     }
 
     /// <summary>

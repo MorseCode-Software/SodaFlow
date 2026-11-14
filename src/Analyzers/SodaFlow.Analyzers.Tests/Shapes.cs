@@ -10819,6 +10819,106 @@ public static class Shapes
     public static Cell<int> Ag53ALambdaGivesTheNameANewValueBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); Action swap = () => { fresh = x; }; fresh.Share = Plain; swap(); return S.Hold(fresh.Share!.Sample()); });
 
+    // S2389. AG54. The evidence of the item: two objects from Add, and a plain cell through the first one.
+    public static Cell<int> Ag54PlainThroughTheFirstOfTwoFromAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(y); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2390. AG54. The same for a list from a creation with no argument.
+    public static Cell<int> Ag54PlainThroughTheFirstOfTwoFromAddToANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = new(); list.Add(x); list.Add(y); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2391. AG54. The pending cell is in the first element, and the code samples the second one.
+    public static Cell<int> Ag54TheSecondOfTwoFromAddIsPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(y); return S.Hold(list[1].Share!.Sample()); });
+
+    // S2392. AG54. A literal has the first element, and Add gives the second one.
+    public static Cell<int> Ag54ALiteralAndThenAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Add(x); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2393. AG54. The code reads the first element before the Add of the object with the pending cell.
+    public static Cell<int> Ag54AReadBeforeTheAddOfThePendingOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); SettableSlot first = list[0]; list.Add(x); return S.Hold(first.Share!.Sample()); });
+
+    // S2394. AG54. The plain cell goes through the second element, and the code samples the first one.
+    public static Cell<int> Ag54PlainThroughTheSecondAndAReadOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(y); list[1].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2395. AG54. Last is before the Add of a plain object, and it gives the pending one.
+    public static Cell<int> Ag54LastBeforeALaterAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); SettableSlot last = list.Last(); list.Add(y); return S.Hold(last.Share!.Sample()); });
+
+    // S2396. AG54. A lambda reads Last, and it runs after the Add of the pending one.
+    public static Cell<int> Ag54LastInALambdaAfterALaterAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); Func<SettableSlot> last = () => list.Last(); list.Add(x); return S.Hold(last().Share!.Sample()); });
+
+    // S2397. AG54. An Add in a branch puts the pending one first.
+    public static Cell<int> Ag54AnAddInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(x); } list.Add(y); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2398. AG54. Insert puts the pending one first.
+    public static Cell<int> Ag54InsertPutsThePendingOneFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); list.Insert(0, x); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2399. AG54. RemoveAt makes the pending one the first.
+    public static Cell<int> Ag54RemoveAtMakesThePendingOneTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); list.Add(x); list.RemoveAt(0); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2400. AG54. An assignment to the first element puts the pending one there.
+    public static Cell<int> Ag54AnAssignmentToTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); list[0] = x; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2401. AG54. A helper puts the pending one first.
+    public static Cell<int> Ag54AHelperPutsThePendingOneFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); Ag54Front(list, x); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2402. AG54. An Add in a loop: the second turn adds the pending one, and the code samples the second element.
+    public static Cell<int> Ag54AnAddInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); for (int i = 0; i < 2; i++) { list.Add(i == 0 ? y : x); } list.Add(y); return S.Hold(list[2].Share!.Sample()); });
+
+    // S2403. AG54. The evidence of the item: a helper gives the first element of its parameter a plain cell.
+    public static Cell<int> Ag54AHelperGivesTheFirstElementAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); Ag54PlainFirst(list); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2404. AG54. A helper gives its parameter a plain cell.
+    public static Cell<int> Ag54AHelperGivesItsParameterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOf(x); return S.Hold(x.Share!.Sample()); });
+
+    // S2405. AG54. A helper calls a second helper, which gives its parameter a plain cell.
+    public static Cell<int> Ag54AHelperOfAHelperGivesItsParameterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOfDeep(x); return S.Hold(x.Share!.Sample()); });
+
+    // S2406. AG54. The call of the helper is in a branch that does not run.
+    public static Cell<int> Ag54TheCallOfTheHelperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { Ag54PlainOf(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S2407. AG54. The call of the helper is in a loop that runs no turn.
+    public static Cell<int> Ag54TheCallOfTheHelperIsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < Kept.Count - Kept.Count; i++) { Ag54PlainOf(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S2408. AG54. The write in the helper is in a branch that does not run.
+    public static Cell<int> Ag54TheWriteInTheHelperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOfWhen(x, Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2409. AG54. The helper returns before the write.
+    public static Cell<int> Ag54TheHelperReturnsBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOfUnless(x, !Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2410. AG54. The parameter of the helper is one of two objects.
+    public static Cell<int> Ag54TheParameterIsOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; Ag54PlainOf(Never ? x : y); return S.Hold(x.Share!.Sample()); });
+
+    // S2411. AG54. A lambda calls the helper, and the branch that calls the lambda does not run.
+    public static Cell<int> Ag54ALambdaThatABranchCallsCallsTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Action plain = () => Ag54PlainOf(x); if (Never) { plain(); } return S.Hold(x.Share!.Sample()); });
+
+    // S2412. AG54. The second helper is in a branch of the first one.
+    public static Cell<int> Ag54TheSecondHelperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOfDeepWhen(x, Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2413. AG54. A helper gives its parameter a pending cell after the plain one of a first helper.
+    public static Cell<int> Ag54AHelperGivesAPendingCellAfterThePlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOf(x); Ag54Set(x, l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12957,6 +13057,42 @@ public static class Shapes
     }
 
     private static void Ag53Run(Action run) => run();
+
+    private static void Ag54Front(List<SettableSlot> all, SettableSlot first) => all.Insert(0, first);
+
+    private static void Ag54PlainFirst(List<SettableSlot> all) => all[0].Share = Plain;
+
+    private static void Ag54PlainOf(SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ag54Set(SettableSlot slot, Cell<int> value) => slot.Share = value;
+
+    private static void Ag54PlainOfDeep(SettableSlot slot) => Ag54PlainOf(slot);
+
+    private static void Ag54PlainOfDeepWhen(SettableSlot slot, bool when)
+    {
+        if (when)
+        {
+            Ag54PlainOf(slot);
+        }
+    }
+
+    private static void Ag54PlainOfWhen(SettableSlot slot, bool when)
+    {
+        if (when)
+        {
+            slot.Share = Plain;
+        }
+    }
+
+    private static void Ag54PlainOfUnless(SettableSlot slot, bool skip)
+    {
+        if (skip)
+        {
+            return;
+        }
+
+        slot.Share = Plain;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
