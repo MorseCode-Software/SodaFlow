@@ -2591,6 +2591,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && followed.Outs.TryGetValue(key: definition.Parameters[0], value: out LoopState? intoReceiver))
         {
             this.evaluator.Merge(target: receiver, state: intoReceiver);
+            this.evaluator.GivesAnArgument(argument: receiver, parameter: definition.Parameters[0], followed: followed);
         }
 
         for (int i = 0; i < arguments.Count; i++)
@@ -2607,6 +2608,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 if (followed != null && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put))
                 {
                     this.evaluator.Merge(target: arguments[i].Expression, state: put);
+                    this.evaluator.GivesAnArgument(
+                        argument: arguments[i].Expression,
+                        parameter: parameter,
+                        followed: followed);
                 }
 
                 continue;

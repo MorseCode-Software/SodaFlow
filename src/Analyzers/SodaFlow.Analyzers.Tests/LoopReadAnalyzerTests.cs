@@ -1766,7 +1766,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab75AMethodOfAStructGivesAPendingCell"] = ["SF1001"],
             ["Ab75AMethodGivesAnObjectThatTheWalkDidNotSeeMadeAPendingCell"] = ["SF1001"],
             ["Ab75AMethodOnAnElementGivesAPendingCell"] = ["SF1001"],
-            ["Ab75ASecondNameReadsWhatTheMethodGave"] = ["SF1001"]
+            ["Ab75ASecondNameReadsWhatTheMethodGave"] = ["SF1001"],
+            ["Ag56TheMethodGivesItsParameterANewObject"] = ["SF1001"],
+            ["Ag56TheCallIsInALoop"] = ["SF1001"],
+            ["Ag56AMethodGivesThePendingCell"] = ["SF1001"],
+            ["Ag56AStructIsACopyForTheMethod"] = ["SF1001"],
+            ["Ag56TheMethodHasItsWriteInABranch"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

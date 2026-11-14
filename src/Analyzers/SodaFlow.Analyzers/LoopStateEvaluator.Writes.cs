@@ -46,6 +46,43 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     Gives an argument each member that a callee set through its parameter.
+    ///     For an object of the store, the callee changed the store, and this does
+    ///     nothing. A value with no object keeps its members in the name of the
+    ///     caller, and the write of the callee is a write through that name.
+    /// </summary>
+    /// <param name="argument">The expression of the argument.</param>
+    /// <param name="parameter">The parameter that got it.</param>
+    /// <param name="followed">What the walk found in the callee.</param>
+    public void GivesAnArgument(ExpressionSyntax argument, IParameterSymbol parameter, Followed followed)
+    {
+        if (this.quiet
+            || followed.Through.IsEmpty
+            || !this.Eval(argument).Objects.IsEmpty
+            || argument.FirstAncestorOrSelf<SyntaxNode>(static node =>
+                    node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
+                is not { } call)
+        {
+            return;
+        }
+
+        (bool always, SyntaxNode? turn) = this.WhereItRuns(call);
+
+        foreach ((IParameterSymbol got, ISymbol member, LoopState state, bool replaces) in followed.Through)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: got, y: parameter))
+            {
+                this.SetMemberOf(
+                    owner: argument,
+                    member: member,
+                    state: state,
+                    replaces: replaces && always,
+                    turn: replaces ? turn : null);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Gives an object each member that a callee set on it. The callee got a
     ///     copy of the members of the object, and the object is in the code of
     ///     the caller.
@@ -598,6 +635,19 @@ internal sealed partial class LoopStateEvaluator
             this.locals[holder] =
                 known.WithMembers(
                     had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
+
+            // A callee gives its caller what it set through a parameter. See GivesAnArgument.
+            if (!this.quiet)
+            {
+                if (!this.Frame.SetThrough.TryGetValue(key: holder, value: out Dictionary<ISymbol, bool>? sets))
+                {
+                    sets = new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default);
+                    this.Frame.SetThrough[holder] = sets;
+                }
+
+                ISymbol key = member.OriginalDefinition;
+                sets[key] = only || (sets.TryGetValue(key: key, value: out bool before) && before);
+            }
 
             return;
         }

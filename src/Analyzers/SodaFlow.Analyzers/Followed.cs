@@ -13,7 +13,8 @@ internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs,
-    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets)
+    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets,
+    in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)> through)
 {
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
@@ -24,7 +25,8 @@ internal sealed class Followed(
             state: LoopState.None,
             findings: ImmutableArray<Finding>.Empty,
             outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty);
+            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty,
+            through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>.Empty);
 
     public LoopState State { get; } = state;
 
@@ -38,4 +40,11 @@ internal sealed class Followed(
     ///     that always runs in the callee gave the member that state.
     /// </summary>
     public ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> Sets { get; } = sets;
+
+    /// <summary>
+    ///     Each member that the callee set through a parameter, with the state
+    ///     that the member has when the callee returns. The last part is true when
+    ///     a write that always runs in the callee gave the member that state.
+    /// </summary>
+    public ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)> Through { get; } = through;
 }

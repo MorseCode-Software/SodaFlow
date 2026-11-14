@@ -3260,7 +3260,8 @@ internal sealed partial class LoopStateEvaluator
                     state: first.State.Join(second.State),
                     findings: first.Findings.AddRange(second.Findings),
                     outs: first.Outs.SetItems(second.Outs),
-                    sets: first.Sets.AddRange(second.Sets));
+                    sets: first.Sets.AddRange(second.Sets),
+                    through: first.Through.AddRange(second.Through));
 
     private Followed? FollowFunctions(
         SyntaxNode call,
@@ -3443,7 +3444,8 @@ internal sealed partial class LoopStateEvaluator
                     state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
                     findings: Followed.Nothing.Findings,
                     outs: Followed.Nothing.Outs,
-                    sets: Followed.Nothing.Sets);
+                    sets: Followed.Nothing.Sets,
+                    through: Followed.Nothing.Through);
             case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
                 return null;
         }
@@ -4237,7 +4239,8 @@ internal sealed partial class LoopStateEvaluator
             state: elements,
             findings: all?.Findings ?? ImmutableArray<Finding>.Empty,
             outs: Followed.Nothing.Outs,
-            sets: Followed.Nothing.Sets);
+            sets: Followed.Nothing.Sets,
+            through: Followed.Nothing.Through);
     }
 
     /// <summary>
@@ -5206,7 +5209,8 @@ internal sealed partial class LoopStateEvaluator
                     func: static (state, function) => state.Join(LoopState.OfFunction(function))),
             findings: followed.Findings,
             outs: followed.Outs,
-            sets: followed.Sets);
+            sets: followed.Sets,
+            through: followed.Through);
 
         Followed? Run(LoopState given) =>
             makers.Aggregate(
@@ -5620,6 +5624,9 @@ internal sealed partial class LoopStateEvaluator
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
 
+        ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>.Builder through =
+            ImmutableArray.CreateBuilder<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>();
+
         // A parameter has a state here only when the callee gave it one. For a parameter that is
         // not ref or out, that is a value that the callee put into the object, as Add does. The
         // caller has the same object. An assignment to the parameter changes only the local of
@@ -5631,7 +5638,25 @@ internal sealed partial class LoopStateEvaluator
             if (inner.locals.TryGetValue(key: binding.Parameter, value: out LoopState? assigned))
             {
                 outs[binding.Parameter] = assigned.WithOrigins(Out).FromIfUnknown(inputs);
+
+                // The members that the callee set through the parameter. The next call of a
+                // function starts with no record.
+                if (binding.Parameter.RefKind == RefKind.None
+                    && assigned.Members is { } has
+                    && inner.Frame.SetThrough.TryGetValue(
+                        key: binding.Parameter,
+                        value: out Dictionary<ISymbol, bool>? members))
+                {
+                    through.AddRange(
+                        members.Select(set =>
+                            (binding.Parameter,
+                                set.Key,
+                                has.StateOf(set.Key).WithOrigins(Out).FromIfUnknown(inputs),
+                                set.Value)));
+                }
             }
+
+            inner.Frame.SetThrough.Remove(binding.Parameter);
         }
 
         // A callee on a different object got a copy of the members of that object. Each member
@@ -5648,7 +5673,8 @@ internal sealed partial class LoopStateEvaluator
             state: result.WithOrigins(Out).FromIfUnknown(inputs),
             findings: findings,
             outs: outs.ToImmutable(),
-            sets: sets);
+            sets: sets,
+            through: through.ToImmutable());
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)

@@ -11403,6 +11403,38 @@ public static class Shapes
     public static Cell<int> Ab75ASecondNameReadsWhatTheMethodGave() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); Ab75Slot z = x; x.Give(l.Map(v => v)); return S.Hold(z.Share!.Sample()); });
 
+    // S2535. AG56. The example of the item: a method that always runs does the second write.
+    public static Cell<int> Ag56AMethodThatAlwaysRunsDoesTheSecondWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[0]; c.Share = l.Map(v => v); Ag56MakePlain(c); return S.Hold(c.Share!.Sample()); });
+
+    // S2536. AG56. An extension method that always runs does the second write.
+    public static Cell<int> Ag56AnExtensionMethodDoesTheSecondWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[1]; c.Share = l.Map(v => v); c.Ag56Plain(); return S.Hold(c.Share!.Sample()); });
+
+    // S2537. AG56. The method gives its parameter a new object before the write.
+    public static Cell<int> Ag56TheMethodGivesItsParameterANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[2]; c.Share = l.Map(v => v); Ag56MakeANewOnePlain(c); return S.Hold(c.Share!.Sample()); });
+
+    // S2538. AG56. The call of the method is in a loop that runs no turn.
+    public static Cell<int> Ag56TheCallIsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[3]; c.Share = l.Map(v => v); for (int i = 0; i < Kept.Count - Kept.Count; i++) { Ag56MakePlain(c); } return S.Hold(c.Share!.Sample()); });
+
+    // S2539. AG56. The method gives the pending cell, after a plain one.
+    public static Cell<int> Ag56AMethodGivesThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[4]; c.Share = Plain; Ag56Give(c, l.Map(v => v)); return S.Hold(c.Share!.Sample()); });
+
+    // S2540. AG56. A struct is a copy for the method, and the local keeps its pending cell.
+    public static Cell<int> Ag56AStructIsACopyForTheMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = default; c.Share = l.Map(v => v); Ag56MakeTheCopyPlain(c); return S.Hold(c.Share!.Sample()); });
+
+    // S2541. AG56. A method calls the method that does the second write.
+    public static Cell<int> Ag56AMethodCallsTheMethodThatDoesTheSecondWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[5]; c.Share = l.Map(v => v); Ag56MakePlainThroughASecondMethod(c); return S.Hold(c.Share!.Sample()); });
+
+    // S2542. AG56. The method does the write in a branch of its own that does not run.
+    public static Cell<int> Ag56TheMethodHasItsWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[6]; c.Share = l.Map(v => v); Ag56MakePlainWhen(c, Never); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13822,6 +13854,32 @@ public static class Shapes
         public void Add(Cell<int> cell) => this.all.Add(cell);
 
         public int SampleFirst() => this.all[0].Sample();
+    }
+
+    private static readonly SettableSlot[] Ag56Slots = [new(), new(), new(), new(), new(), new(), new()];
+
+    private static void Ag56MakePlain(SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ag56Plain(this SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ag56Give(SettableSlot slot, Cell<int> cell) => slot.Share = cell;
+
+    private static void Ag56MakeTheCopyPlain(SlotValue slot) => slot.Share = Plain;
+
+    private static void Ag56MakePlainThroughASecondMethod(SettableSlot slot) => Ag56MakePlain(slot);
+
+    private static void Ag56MakeANewOnePlain(SettableSlot slot)
+    {
+        slot = new SettableSlot();
+        slot.Share = Plain;
+    }
+
+    private static void Ag56MakePlainWhen(SettableSlot slot, bool when)
+    {
+        if (when)
+        {
+            slot.Share = Plain;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
