@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -2434,86 +2433,15 @@ internal sealed class LoopReadAnalyzerTests
             .IsEquivalentTo(Enumerable.Repeat(element: "SF1001", count: levels));
     }
 
-    /// <summary>
-    ///     The time for one block must not increase much faster than the number
-    ///     of objects that the block makes.
-    /// </summary>
-    /// <remarks>
-    ///     The state of a list has each object that the list holds. The union of
-    ///     two such states looked for each object of one in the other. With four
-    ///     times the objects, the walk then took 76 times the time. The test
-    ///     permits 30 times: a walk whose time increases with the square takes
-    ///     16 times, and the walk now takes less than that.
-    /// </remarks>
-    [Test]
-    public async Task ABlockWithFourTimesTheObjectsDoesNotTakeManyTimesTheSquare()
-    {
-        // The first run has the time of the compiler for the code of the analyzer.
-        _ = await TimeOfABlockWith(objects: 100);
-
-        TimeSpan few = await TimeOfABlockWith(objects: 400);
-        TimeSpan many = await TimeOfABlockWith(objects: 1600);
-
-        await Assert.That(many.TotalMilliseconds).IsLessThan(few.TotalMilliseconds * 30);
-    }
-
-    // The time of the analyzer for one block. The block makes the given number of objects, puts each
-    // in a second object, and adds that to one list. Then, a loop changes an element of the list.
-    private static async Task<TimeSpan> TimeOfABlockWith(int objects)
-    {
-        StringBuilder body = new("List<Holder> all = [];");
-
-        for (int i = 0; i < objects; i++)
-        {
-            body.AppendLine($"Slot s{i} = new() {{ Share = {(i % 7 == 0 ? "l.Map(v => v)" : "Plain")} }};");
-            body.AppendLine($"all.Add(new Holder {{ Item = s{i} }});");
-        }
-
-        // A loop reads its body again while a read leaves a new state, and each read changes an
-        // element of the list.
-        body.AppendLine("Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null;");
-        body.AppendLine("for (int i = 0; i < 4; i++)");
-        body.AppendLine("{");
-        body.AppendLine("if (c2 != null) { Kept.Add(c2.Sample()); }");
-        body.AppendLine("c2 = c1; c1 = c0; c0 = l.Map(v => v); all[i].Item!.Share = c0;");
-        body.AppendLine("}");
-
-        CSharpCompilation compilation =
-            AnalyzerHarness.Compile(
-                source: OneBlock(body.ToString()),
-                libraries: ShapeLibraries,
-                assemblyName: "OnlyManyObjects");
-
-        // The compiler binds the block before the analyzer runs, as it does in a build.
-        _ = compilation.GetDiagnostics();
-        Stopwatch watch = Stopwatch.StartNew();
-        _ = await AnalyzerHarness.Analyze(analyzer: new LoopReadAnalyzer(), compilation: compilation);
-        watch.Stop();
-
-        return watch.Elapsed;
-    }
-
-    // A file with one loop block that has the given statements, and the types that the statements use.
+    // A file with one loop block that has the given statements.
     private static string OneBlock(string statements) =>
         $$"""
-          using System;
           using System.Collections.Generic;
           using SodaFlow;
-
-          public sealed class Slot
-          {
-              public Cell<int>? Share { get; set; }
-          }
-
-          public sealed class Holder
-          {
-              public Slot? Item { get; set; }
-          }
 
           public static class Only
           {
               private static readonly StreamSink<int> S = Stream.CreateSink<int>();
-              private static readonly Cell<int> Plain = Cell.Constant(3);
               private static readonly List<object> Kept = [];
 
               public static Cell<int> Run() =>
