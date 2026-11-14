@@ -296,14 +296,17 @@ An object the block builds is one object under every name it has. Give it a seco
 in a list, a tuple, a `KeyValuePair`, or a property of another object, or hand it to a helper or a
 constructor that keeps it, and a change made through any of those names is seen through all the
 others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. A method without
-source that takes the object is taken to keep it, for an indexer of its owner or a `foreach` over
-the owner to hand back. An item read by index, or handed back by a method such as `First`, is such
-a name as well: after `rows.Add(row); row.Share = plain;`, `rows[0].Share` is the plain value,
-whatever the row held when it went in. That holds until the code sets something through an
-item, as `rows[0].Share = x` does, or the variable of a `foreach` over the rows. The analyzer cannot
-tell which item that was, or whether the collection holds one it never saw go in, so from then on
-the items keep everything that any of them was given. The same goes for a collection that got an
-object from outside the block which already held a value. A collection is such an object as well:
+source that takes the object is taken to keep it, for an indexer of its owner, a `foreach` over the
+owner, or another method of the owner to hand back. An item read by index, or handed back by a
+method such as `First`, is such a name as well: after `rows.Add(row); row.Share = plain;`,
+`rows[0].Share` is the plain value, whatever the row held when it went in. A change made through an
+item, as `rows[0].Share = x` makes, is a change to that object too, as long as the analyzer saw
+everything that went into the collection: the block built it empty or from a literal, every object
+put into it since is one the block built, and its variable holds that collection and nothing else.
+Where it cannot know that, it cannot tell which item was changed, or whether the collection holds
+one it never saw go in, so from then on the items keep everything that any of them was given. That
+is so for a collection that came from a call or a property, one that took an object from outside
+the block, and one that code without source was handed. A collection is such an object as well:
 `cells.Add(x)` is seen through a second variable for `cells`, and through an outer list that holds
 it. So is what a call hands back, from a helper of yours or from the platform:
 the result of `MakeRow()` or of `Activator.CreateInstance<T>()` is one object under the names the
@@ -328,8 +331,13 @@ still hold an object from an earlier pass: a variable declared outside the loop,
 or an object built before the loop. So can a member or an element of what a call hands back, because
 a call may hand back the same object every time, a member of the object a method was called on, and
 a variable that a lambda or a local function reads from the code around it, because the function may
-have been kept from an earlier pass. A change through such a name is added to the object of this
-pass and to the earlier ones, and a read through it sees both. An assignment at the top level of the
+have been kept from an earlier pass. A function that the pass builds and calls itself reads the
+variables of that pass: a local function called by its name, or a lambda in a variable of the body
+that is given nothing else, also when it is handed by that name to a method of the platform such as
+`List<T>.ForEach`. A change through a name that can hold an earlier object is added to the
+object of this pass and to the earlier ones, and a read through it sees both. In a loop inside a
+loop, an object from an earlier pass of the inner loop still belongs to this pass of the outer one,
+so what it holds from the outer pass is one object. An assignment at the top level of the
 body replaces the earlier value on the object of the current pass, as it does outside a loop, unless
 a `continue`, `break`, `return`, `throw`, `goto`, or `yield break` earlier in the body can skip it.
 After the loop
@@ -517,14 +525,19 @@ It does not see everything, and in a few places it guesses on the careful side:
   two paths, a value that is either an object of the block or one from outside it, or a name that
   outlives a pass of a loop, a change through it is added to each of them, so a plain value set
   that way does not clear a pending one.
-- An item is read as the object it is only until something is set through an item of that
-  collection. From then on the items keep everything that any of them was given, so a plain value
-  set later does not clear a pending one there.
-- The analyzer reads a loop five times at most. A value that takes more passes than that to reach
-  its read, as one handed down a longer chain of variables, is not seen. A function that runs for
-  each item is read more than once only when it is a lambda with a block for its body. A local
-  function passed by name, or a lambda with an expression for its body, is read once, so a value
-  that one run leaves for the next is not seen there.
+- After something is set through an item, the items are read as the objects they are only where
+  the analyzer saw everything that went into the collection, and only through the variable that the
+  collection was built in, or a variable declared as a copy of that one. A read through any other
+  name of the collection, as a property, a parameter, or a variable that a lambda reads from the
+  code around it, sees everything that any item was given, so a plain value set later does not
+  clear a pending one there. A call to code without source ends this for every collection, because
+  that code may reach one through an object it was given. A change that a helper makes through an
+  item is added, as every change a helper makes to an object of its caller is.
+- The analyzer reads a loop until a pass leaves nothing new. A guard stops it at 32 passes, which
+  only a value handed down a chain of more variables than that would need.
+- What a method without source returns, on an object that keeps what it was handed, is taken to be
+  possibly one of those objects. So a plain value set through such a result is added, and does not
+  clear a pending one, even when the method returned something new.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
   analyzer reads both. A builder with hash codes is one of them for `Remove` and for the lookups of
   a dictionary, and the set operations of a builder are read for both objects too. The lookups of an
