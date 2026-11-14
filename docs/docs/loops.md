@@ -295,9 +295,11 @@ objects holds, as in `box.Items.Add(x)`, is read back through that property.
 An object the block builds is one object under every name it has. Give it a second variable, put it
 in a list, a tuple, a `KeyValuePair`, or a property of another object, or hand it to a helper or a
 constructor that keeps it, and a change made through any of those names is seen through all the
-others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. An item read by
-index is such a name as well: after `rows.Add(row); row.Share = plain;`, `rows[0].Share` is the plain
-value, whatever the row held when it went in. That holds until the code sets something through an
+others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. A method without
+source that takes the object is taken to keep it, for an indexer of its owner or a `foreach` over
+the owner to hand back. An item read by index, or handed back by a method such as `First`, is such
+a name as well: after `rows.Add(row); row.Share = plain;`, `rows[0].Share` is the plain value,
+whatever the row held when it went in. That holds until the code sets something through an
 item, as `rows[0].Share = x` does, or the variable of a `foreach` over the rows. The analyzer cannot
 tell which item that was, or whether the collection holds one it never saw go in, so from then on
 the items keep everything that any of them was given. The same goes for a collection that got an
@@ -312,8 +314,8 @@ copied at every assignment, so a change to the copy is not a change to the origi
 A later assignment replaces an earlier one only where it is sure to run: `slot.Share = pending;`
 followed by `slot.Share = plain;` leaves the plain value, through either name. An assignment under an
 `if`, after a `return` that can leave its method or lambda first, in a helper that was handed the
-object, or in a loop that the object was built before adds to what the object already has, because
-the analyzer does not know that it runs.
+object, in a lambda or a local function whose call might not run, or in a loop that the object was
+built before adds to what the object already has, because the analyzer does not know that it runs.
 
 The body of a `for`, `foreach`, `while`, or `do` builds a new object on every pass. The analyzer
 follows the object of the current pass apart from the ones built on earlier passes. Inside the body
@@ -333,16 +335,17 @@ a `continue`, `break`, `return`, `throw`, `goto`, or `yield break` earlier in th
 After the loop
 every object it built is one of the earlier ones, with what it had when its pass ended.
 
-The analyzer reads a loop twice, because the second pass can read what the first one left behind:
-a variable declared outside the loop that the body reads near its top and sets near its bottom, a
-list the body adds to, or a property of an object built before the loop. The same holds for the
-condition of the loop, a lambda the body runs, and a helper it calls. A variable declared outside
-the loop that the top level of the body sets has only the new value for the rest of that pass, so
-a value it is given later in the pass, and replaced at the top of the next one, is not read. The
-object it is given there is the object of that pass and no earlier one, so a plain value set
-through the variable clears a pending one. After
-the loop the variable can hold what any pass gave it, or what it held before the loop, since the
-loop may not run at all.
+The analyzer reads a loop more than once, because a later pass can read what an earlier one left
+behind: a variable declared outside the loop that the body reads near its top and sets near its
+bottom, a list the body adds to, or a property of an object built before the loop. The same holds
+for the condition of the loop, a lambda the body runs, and a helper it calls. It stops when a pass
+leaves nothing new. A function that a method such as `List<T>.ForEach` or `Select` runs for each
+item is read the same way: one run is a pass. A variable declared outside the loop that the top
+level of the body sets has only the new value for the rest of that pass, so a value it is given
+later in the pass, and replaced at the top of the next one, is not read. The object it is given
+there is the object of that pass and no earlier one, so a plain value set through the variable
+clears a pending one. After the loop the variable can hold what any pass gave it, or what it held
+before the loop, since the loop may not run at all.
 
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
@@ -487,8 +490,9 @@ It does not see everything, and in a few places it guesses on the careful side:
 - A read under a condition is reported whether or not that path runs. A comparer of keys is such a
   read: a sort calls it only when two items tie, and the analyzer does not know your data. So is
   `Equals` in a set, which runs only for two items with one hash code, and `CompareTo` in a sort of
-  a single item that is not a literal of one element. A comparer kept by a collection is the same:
-  the first `Add` to an empty sorted set compares nothing, and it is reported. So is `Equals` of a
+  a single item that is not a literal of one element. A comparer kept by a collection is the same,
+  except for the first value put into a collection that the analyzer saw built empty: nothing is
+  there to compare it with, so only a `GetHashCode` that reads is reported. So is `Equals` of a
   value in an immutable dictionary, which runs only when a key repeats: the analyzer does not know
   your keys. It knows that a dictionary calls its value comparer instead only where it sees the
   dictionary built with one. A value that may be one of two types is read the same way: the member
@@ -504,29 +508,29 @@ It does not see everything, and in a few places it guesses on the careful side:
   followed.
 - An object is one object under all its names only where the code makes it once, once on each pass
   of a loop, or once in each call of a helper, a lambda, or a local function that the code calls
-  itself. An object built in a query, or in a function that a method such as `List<T>.ForEach` or
-  `Select` runs for each item, is many objects at run time, and the analyzer follows each name of
-  it on its own, as it does for an object that came into the block from outside: a change
-  through one name is not seen through a second variable, though a collection still has what was
-  put into it, and what any of its items was given later. Where a name can be one of several
-  objects, as an element of a list of several, a variable set on two paths, or a name that outlives
-  a pass of a loop, a change through it is added to each of them, so a plain value set that way
-  does not clear a pending one.
-- An item is read as the object it is only through an index, and only until something is set
-  through an item of that collection. An item that a method hands back, as `rows.First()` does, or
-  one that went into a second collection through a query or a copy of the first, keeps everything
-  it was ever given, so a plain value set later does not clear a pending one there.
-- The analyzer reads a loop twice and no more. A value that takes two passes to reach its read, as
-  one handed from a first variable to a second and read from the second on the pass after, is not
-  seen. Neither is a variable declared in the body when a lambda made on one pass reads it on the
-  next.
+  itself, or once on each run of a function that a method such as `List<T>.ForEach` or `Select`
+  runs for each item. An object built in a clause of a query expression is many objects at run
+  time, and the analyzer follows each name of it on its own, as it does for an object that came
+  into the block from outside: a change through one name is not seen through a second variable,
+  though a collection still has what was put into it, and what any of its items was given later.
+  Where a name can be one of several objects, as an element of a list of several, a variable set on
+  two paths, a value that is either an object of the block or one from outside it, or a name that
+  outlives a pass of a loop, a change through it is added to each of them, so a plain value set
+  that way does not clear a pending one.
+- An item is read as the object it is only until something is set through an item of that
+  collection. From then on the items keep everything that any of them was given, so a plain value
+  set later does not clear a pending one there.
+- The analyzer reads a loop five times at most. A value that takes more passes than that to reach
+  its read, as one handed down a longer chain of variables, is not seen. A function that runs for
+  each item is read more than once only when it is a lambda with a block for its body. A local
+  function passed by name, or a lambda with an expression for its body, is read once, so a value
+  that one run leaves for the next is not seen there.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
   analyzer reads both. A builder with hash codes is one of them for `Remove` and for the lookups of
-  a dictionary, and the set operations of a builder are read for both objects too, as is the first
-  `Add` to an empty builder. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
-  key already held when it is the first one with its hash code, and to the key you pass when it is
-  not. A span method called with a span of values, such as `IndexOfAny(values)`, differs between
-  .NET Framework and .NET.
+  a dictionary, and the set operations of a builder are read for both objects too. The lookups of an
+  `ImmutableDictionary<TKey, TValue>` give the call to the key already held when it is the first one
+  with its hash code, and to the key you pass when it is not. A span method called with a span of
+  values, such as `IndexOfAny(values)`, differs between .NET Framework and .NET.
 - A set operation whose argument is a set reads both objects when the analyzer cannot tell which
   path the platform takes: where a comparer comes from a variable or a call, where both sets got a
   comparer, where the type of the argument is not known, and for the few combinations where the
