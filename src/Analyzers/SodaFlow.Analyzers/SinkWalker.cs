@@ -1088,8 +1088,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return null;
     }
 
-    // True when an expression can skip one of its parts: an arm of a conditional expression, the
-    // right side of an operator that stops at its left side, and the part after a conditional access.
+    // True when an expression can skip one of its parts. Such a part is an arm of a conditional
+    // expression, or the part after a conditional access. The right side of an operator that stops
+    // at its left side is one also.
     private static bool CanSkip(SyntaxNode parent, SyntaxNode child) =>
         parent switch
         {

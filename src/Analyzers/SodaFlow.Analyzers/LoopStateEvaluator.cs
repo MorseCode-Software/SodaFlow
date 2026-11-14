@@ -465,7 +465,7 @@ internal sealed class LoopStateEvaluator
         TLocation location,
         Func<SyntaxNode, MadeObject, TLocation, bool> isOfItsTurn) =>
         // The identity before can be of a turn of a loop around. A location that is older than
-        // that loop also gets the next identity only from a read before: the first read of the
+        // that loop also gets the next identity only from a read before. The first read of the
         // loop around is its first turn, which has no turn before.
         state.WithAlso(made =>
             made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
@@ -536,12 +536,12 @@ internal sealed class LoopStateEvaluator
 
     // True when code of the scope can give a local a value after its declaration. That code is an
     // assignment to the local, or an argument with ref or out.
-    private bool GetsASecondValue(ILocalSymbol local, SyntaxNode scope) =>
+    private bool GetsASecondValue(ISymbol local, SyntaxNode scope) =>
         scope.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Any(use =>
                 use.Identifier.ValueText == local.Name
-                && (use.Parent is AssignmentExpressionSyntax assignment && assignment.Left == use
+                && ((use.Parent is AssignmentExpressionSyntax assignment && assignment.Left == use)
                     || use.Parent is ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None })
                 && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local));
 

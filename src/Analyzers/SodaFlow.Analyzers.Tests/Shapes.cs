@@ -10607,7 +10607,7 @@ public static class Shapes
     public static Cell<int> RunBeforeOfAnExpressionLambdaLeftAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => Kept.Add((last ?? Plain).Sample() + ((last = Plain) == null ? 1 : 0))); return S.Hold(0); });
 
-    // S2336. A local has a lambda that gives the second element of a list a pending cell. A method with no body to read keeps the lambda, the list gets an object that the walk did not see made, and the method then runs the lambda.
+    // S2336. A local has a lambda that gives the second element of a list a pending cell. A method with no body to read keeps the lambda. The list gets an object that the walk did not see made, and the method then runs the lambda.
     public static Cell<int> ElementInALambdaThatCodeWithNoBodyKeeps() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); Action change = () => { list[1].Share = l.Map(v => v); }; IActionKeeper keeper = NewActionKeeper(); keeper.Keep(change); list.Add(UnseenSlots[0]); keeper.Run(); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
 
@@ -10615,7 +10615,7 @@ public static class Shapes
     public static Cell<int> ElementInALambdaThatIsTheArgumentOfCodeWithNoBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); IActionKeeper keeper = NewActionKeeper(); keeper.Keep(() => { list[1].Share = l.Map(v => v); }); list.Add(UnseenSlots[1]); keeper.Run(); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
 
-    // S2338. A local has a list of the block, and an assignment gives it a second list of the block, which has an object that the walk did not see made.
+    // S2338. A local has a list of the block, and an assignment gives it a second list of the block. The second list has an object that the walk did not see made.
     public static Cell<int> ElementOfALocalThatGetsASecondListOfTheBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(new SettableSlot()); List<SettableSlot> other = []; other.AddRange(UnseenLists[0]); other.Add(x); List<SettableSlot> c = list; c = other; c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
 

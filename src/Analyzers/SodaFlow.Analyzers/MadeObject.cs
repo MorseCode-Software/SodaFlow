@@ -47,8 +47,6 @@ internal sealed class MadeObject(
     in int shapePart)
 {
     private readonly LoopFrame? frame = frame;
-    private readonly MadeObject? shapeOf = shapeOf;
-    private readonly int shapePart = shapePart;
     private readonly ITypeSymbol? type = type;
 
     /// <summary>
@@ -58,10 +56,11 @@ internal sealed class MadeObject(
     ///     before, which each read has. Thus, a read that only makes the object of
     ///     its turn again changes no number.
     /// </summary>
-    public int Shape =>
-        this.shapeOf == null
-            ? RuntimeHelpers.GetHashCode(this)
-            : unchecked(this.shapeOf.Shape * 397 + this.shapePart);
+    public int Shape
+    {
+        // Zero is for an identity that has a number of its own.
+        get => field != 0 ? field : RuntimeHelpers.GetHashCode(this);
+    } = shapeOf == null ? 0 : unchecked(shapeOf.Shape * 397 + shapePart);
 
     /// <summary>
     ///     The body of the loop whose turn makes the object. Null for an object
