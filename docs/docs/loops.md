@@ -311,22 +311,26 @@ copied at every assignment, so a change to the copy is not a change to the origi
 
 A later assignment replaces an earlier one only where it is sure to run: `slot.Share = pending;`
 followed by `slot.Share = plain;` leaves the plain value, through either name. An assignment under an
-`if`, in a helper that was handed the object, or in a loop that the object was built before adds to
-what the object already has, because the analyzer does not know that it runs.
+`if`, after a `return` that can leave its method or lambda first, in a helper that was handed the
+object, or in a loop that the object was built before adds to what the object already has, because
+the analyzer does not know that it runs.
 
 The body of a `for`, `foreach`, `while`, or `do` builds a new object on every pass. The analyzer
 follows the object of the current pass apart from the ones built on earlier passes. Inside the body
 it is one object under every name that is new on each pass: a variable declared in the body, a list,
 a tuple, or an object built on the same pass, a property that its constructor sets, and a variable
-of a helper called from the body. A name that outlives the pass can still hold an object from an
-earlier pass: a variable declared outside the loop, a field, and a list or an object built before
-the loop. So can a member or an element of what a call hands back, because a call may hand back the
-same object every time, a member of the object a method was called on, and a variable that a lambda
-or a local function reads from the code around it, because the function may have been kept from an
-earlier pass. A change through such a name is added to the object of this pass and to the earlier
-ones, and a read through it sees both. An assignment at the top level of the body replaces the
-earlier value on the object of the current pass, as it does outside a loop, unless a `continue`,
-`break`, `return`, `throw`, `goto`, or `yield break` earlier in the body can skip it. After the loop
+of a helper called from the body. A helper that the body calls builds one object on each call, and
+so does a lambda or a local function that the code calls itself, in a loop or outside one: inside
+it, a second variable for the object it built is the same object. A name that outlives the pass can
+still hold an object from an earlier pass: a variable declared outside the loop, a field, and a list
+or an object built before the loop. So can a member or an element of what a call hands back, because
+a call may hand back the same object every time, a member of the object a method was called on, and
+a variable that a lambda or a local function reads from the code around it, because the function may
+have been kept from an earlier pass. A change through such a name is added to the object of this
+pass and to the earlier ones, and a read through it sees both. An assignment at the top level of the
+body replaces the earlier value on the object of the current pass, as it does outside a loop, unless
+a `continue`, `break`, `return`, `throw`, `goto`, or `yield break` earlier in the body can skip it.
+After the loop
 every object it built is one of the earlier ones, with what it had when its pass ended.
 
 The analyzer reads a loop twice, because the second pass can read what the first one left behind:
@@ -334,7 +338,9 @@ a variable declared outside the loop that the body reads near its top and sets n
 list the body adds to, or a property of an object built before the loop. The same holds for the
 condition of the loop, a lambda the body runs, and a helper it calls. A variable declared outside
 the loop that the top level of the body sets has only the new value for the rest of that pass, so
-a value it is given later in the pass, and replaced at the top of the next one, is not read. After
+a value it is given later in the pass, and replaced at the top of the next one, is not read. The
+object it is given there is the object of that pass and no earlier one, so a plain value set
+through the variable clears a pending one. After
 the loop the variable can hold what any pass gave it, or what it held before the loop, since the
 loop may not run at all.
 
@@ -343,7 +349,8 @@ of a collection. Code outside the library that takes a function, such as `List<T
 `Maybe.Match`, is taken to run it in the call, and a constructor is taken to keep it. A `Lazy<T>`
 keeps its function until something reads `Value`, so the analyzer reads the function at that read,
 including through the `Map` and `Lift` of `SodaFlow.Functional`. A lambda that one of your own
-constructors or helpers keeps is read where it finally runs, and reported there. A property pattern
+constructors or helpers keeps is read where it finally runs, and reported there, and so is one that
+a helper builds and hands back. A property pattern
 reads a property just as a member access does, so `row is { Total: > 0 }` is checked like
 `row.Total > 0`.
 
@@ -495,10 +502,11 @@ It does not see everything, and in a few places it guesses on the careful side:
   code that walks a value it was handed as `object` is not seen, and a serializer is read as it
   behaves without options: one told to write fields, or given a converter of its own, is not
   followed.
-- An object is one object under all its names only where the code makes it once, or once on each
-  pass of a loop. An object built in a lambda, a local function, or a query, or in a helper called
-  from one of those or from a loop, is many objects at run time, and the analyzer follows each name
-  of it on its own, as it does for an object that came into the block from outside: a change
+- An object is one object under all its names only where the code makes it once, once on each pass
+  of a loop, or once in each call of a helper, a lambda, or a local function that the code calls
+  itself. An object built in a query, or in a function that a method such as `List<T>.ForEach` or
+  `Select` runs for each item, is many objects at run time, and the analyzer follows each name of
+  it on its own, as it does for an object that came into the block from outside: a change
   through one name is not seen through a second variable, though a collection still has what was
   put into it, and what any of its items was given later. Where a name can be one of several
   objects, as an element of a list of several, a variable set on two paths, or a name that outlives
