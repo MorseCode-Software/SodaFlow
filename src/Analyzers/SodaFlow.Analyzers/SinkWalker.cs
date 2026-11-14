@@ -1126,7 +1126,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
-                    return this.FirstExitOf(ancestor) > place.SpanStart;
+                    // A return statement is no statement before itself.
+                    return this.FirstExitOf(ancestor) >= place.SpanStart;
                 // A block, and a statement that always runs what is in it. Also the call that
                 // runs a lambda, and the statement that the call is in.
                 case BlockSyntax

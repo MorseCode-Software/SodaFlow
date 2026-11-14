@@ -10035,6 +10035,86 @@ public static class Shapes
     public static Cell<int> RunBeforeOfALambdaThatAListRunsGaveAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); }); return S.Hold(0); });
 
+    // S2193. A lambda that a branch calls makes its own object, and gives it a plain cell after a pending one.
+    public static Cell<int> PlainAfterPendingInALambdaThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> own = share => { SettableSlot x = new() { Share = share }; x.Share = Plain; return x.Share!.Sample(); }; if (!Never) { Kept.Add(own(l.Map(v => v))); } return S.Hold(0); });
+
+    // S2194. A lambda that a branch calls calls a second lambda as a statement. The second lambda gives the object of the block a plain cell, and the branch does not run.
+    public static Cell<int> PlainThroughALambdaOfALambdaThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action<SettableSlot> plain = given => { given.Share = Plain; }; Action<SettableSlot> through = given => { plain(given); }; SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { through(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S2195. A lambda with an expression for its body calls a second lambda, which gives the object of the block a plain cell.
+    public static Cell<int> PlainThroughALambdaWithAnExpressionBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; Func<SettableSlot, int> through = given => plain(given); SettableSlot x = new() { Share = l.Map(v => v) }; Kept.Add(through(x)); return S.Hold(x.Share!.Sample()); });
+
+    // S2196. The same for a local function with an expression for its body.
+    public static Cell<int> PlainThroughALocalFunctionWithAnExpressionBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; int Through(SettableSlot given) => plain(given); SettableSlot x = new() { Share = l.Map(v => v) }; Kept.Add(Through(x)); return S.Hold(x.Share!.Sample()); });
+
+    // S2197. The call of a lambda is in a return statement, before the read.
+    public static Cell<int> PlainThroughALambdaWhoseCallIsInAReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; SettableSlot x = new() { Share = l.Map(v => v) }; return S.Hold(plain(x) + x.Share!.Sample()); });
+
+    // S2198. The call of a lambda is the right side of an operator that does not read it, where the left side is true.
+    public static Cell<int> PlainThroughALambdaAfterAnOrOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, bool> plain = given => { given.Share = Plain; return true; }; SettableSlot x = new() { Share = l.Map(v => v) }; bool b = !Never || plain(x); Kept.Add(b); return S.Hold(x.Share!.Sample()); });
+
+    // S2199. The call of a lambda is the right side of a coalescing assignment whose target has a value.
+    public static Cell<int> PlainThroughALambdaInACoalescingAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; SettableSlot x = new() { Share = l.Map(v => v) }; int? known = Kept.Count >= 0 ? 1 : null; known ??= plain(x); Kept.Add(known); return S.Hold(x.Share!.Sample()); });
+
+    // S2200. The call of a lambda is an argument of a call on a value that is null.
+    public static Cell<int> PlainThroughALambdaInACallOnNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; SettableSlot x = new() { Share = l.Map(v => v) }; List<int>? none = Kept.Count >= 0 ? null : []; none?.Add(plain(x)); return S.Hold(x.Share!.Sample()); });
+
+    // S2201. The call of a lambda is in an arm of a switch expression that does not run.
+    public static Cell<int> PlainThroughALambdaInAnArmOfASwitchExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, int> plain = given => { given.Share = Plain; return 0; }; SettableSlot x = new() { Share = l.Map(v => v) }; int n = Kept.Count switch { < 0 => plain(x), _ => 0 }; Kept.Add(n); return S.Hold(x.Share!.Sample()); });
+
+    // S2202. A switch expression gives an object of the store or an object with no state that the walk did not see made.
+    public static Cell<int> LocalFromASwitchExpressionWithAnObjectWithNoState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot c = Kept.Count switch { < 0 => x, _ => SlotsOfNoObject[0] }; c.Share = l.Map(v => v); x.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2203. The first Add to a HashSet from an empty collection expression compares nothing.
+    public static Cell<int> FirstAddToAHashSetFromAnEmptyCollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = []; made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2204. The first TryAdd of an empty Dictionary compares nothing.
+    public static Cell<int> FirstTryAddOfAnEmptyDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> made = new(); Kept.Add(made.TryAdd(new(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S2205. The first SetItem of the Empty of an ImmutableDictionary compares nothing.
+    public static Cell<int> FirstSetItemOfTheEmptyImmutableDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableDictionary<SameOwn, int>.Empty.SetItem(new(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S2206. The first GetOrAdd of an empty ConcurrentDictionary compares nothing.
+    public static Cell<int> FirstGetOrAddOfAnEmptyConcurrentDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<SameOwn, int> made = new(); Kept.Add(made.GetOrAdd(new(l.Map(v => v)), 1)); return S.Hold(0); });
+
+    // S2207. The first AddOrUpdate of an empty ConcurrentDictionary compares nothing.
+    public static Cell<int> FirstAddOrUpdateOfAnEmptyConcurrentDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<SameOwn, int> made = new(); Kept.Add(made.AddOrUpdate(new(l.Map(v => v)), 1, (k, v) => v)); return S.Hold(0); });
+
+    // S2208. The first Enqueue of an empty PriorityQueue compares nothing.
+    public static Cell<int> FirstEnqueueOfAnEmptyPriorityQueue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, RankedOwn> made = new(); made.Enqueue(1, new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2209. A collection of this compilation is not empty after its constructor, as far as the walk knows.
+    public static Cell<int> FirstAddToASortedSetOfThisCompilation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSetWithOne made = new(); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2210. A pending cell goes through four locals, and the fifth turn samples it.
+    public static Cell<int> CellFromFourTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = null; Cell<int>? b = null; Cell<int>? c = null; Cell<int>? d = null; for (int i = 0; i < 5; i++) { if (d != null) { Kept.Add(d.Sample()); } d = c; c = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2211. An object goes through two locals, and the third turn samples the cell that the second turn gave to it through the first local.
+    public static Cell<int> MemberFromTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? a = null; SettableSlot? b = null; for (int i = 0; i < 3; i++) { if (b != null) { Kept.Add(b.Share!.Sample()); } b = a; if (a != null) { a.Share = l.Map(v => v); } a = new SettableSlot { Share = Plain }; } return S.Hold(0); });
+
+    // S2212. A lambda with an expression for its body, which a query runs for each element, makes an object. The code gives one of the objects a plain cell, and samples a second one.
+    public static Cell<int> ObjectsOfAnExpressionLambdaOfAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = new[] { 1, 2 }.Select(n => new SettableSlot { Share = l.Map(v => v) }).ToList(); made[0].Share = Plain; return S.Hold(made[1].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11964,6 +12044,11 @@ public static class Shapes
         public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 
         public override int GetHashCode() => share.Sample();
+    }
+
+    public sealed class SortedSetWithOne : SortedSet<RankedOwn>
+    {
+        public SortedSetWithOne() => this.Add(new RankedOwn(Plain));
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

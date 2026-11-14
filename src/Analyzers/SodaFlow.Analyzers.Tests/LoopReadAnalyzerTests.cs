@@ -1540,7 +1540,17 @@ internal sealed class LoopReadAnalyzerTests
             ["TwoNamesInALambdaThatAListRuns"] = ["SF1001"],
             ["PlainInABranchOfALambdaThatAListRuns"] = ["SF1001"],
             ["TwoNamesInALocalFunctionThatAListRuns"] = ["SF1001"],
-            ["RunBeforeOfALambdaThatAListRunsGaveAPendingCell"] = ["SF1001"]
+            ["RunBeforeOfALambdaThatAListRunsGaveAPendingCell"] = ["SF1001"],
+            ["PlainThroughALambdaOfALambdaThatABranchCalls"] = ["SF1001"],
+            ["PlainThroughALambdaAfterAnOrOperator"] = ["SF1001"],
+            ["PlainThroughALambdaInACoalescingAssignment"] = ["SF1001"],
+            ["PlainThroughALambdaInACallOnNull"] = ["SF1001"],
+            ["PlainThroughALambdaInAnArmOfASwitchExpression"] = ["SF1001"],
+            ["LocalFromASwitchExpressionWithAnObjectWithNoState"] = ["SF1001"],
+            ["FirstAddToASortedSetOfThisCompilation"] = ["SF1005"],
+            ["CellFromFourTurnsBefore"] = ["SF1001"],
+            ["MemberFromTwoTurnsBefore"] = ["SF1001"],
+            ["ObjectsOfAnExpressionLambdaOfAQuery"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
