@@ -1358,7 +1358,12 @@ internal sealed class LoopReadAnalyzerTests
             ["TurnOlderObjectThroughAForeachOverAnOlderList"] = ["SF1001"],
             ["TurnOlderObjectThroughAMemberOfTheReceiverOfAMethod"] = ["SF1001"],
             ["TurnOlderObjectThroughTheValueOfACell"] = ["SF1001"],
-            ["TurnObjectInAMemberThatTheLoopOfAConstructorSets"] = ["SF1001"]
+            ["TurnObjectInAMemberThatTheLoopOfAConstructorSets"] = ["SF1001"],
+            ["TurnObjectsOfALambdaThatAQueryRuns"] = ["SF1001"],
+            ["TurnObjectsOfALocalFunctionThatAQueryRuns"] = ["SF1001"],
+            ["TurnObjectsOfAQueryExpression"] = ["SF1001"],
+            ["TurnPlainInALocalFunctionThatSomeTurnsCall"] = ["SF1001"],
+            ["TurnOlderObjectThroughAMemberOfAnObjectOfTheOuterTurn"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

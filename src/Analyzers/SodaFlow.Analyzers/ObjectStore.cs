@@ -36,6 +36,10 @@ internal sealed class ObjectStore
     ///     one. An object of the first loop is then new in each turn of the
     ///     second one.
     /// </summary>
+    /// <remarks>
+    ///     A loop that the walk is not in is before each loop that it is in. Thus,
+    ///     an object whose loop ended is new in no turn.
+    /// </remarks>
     /// <param name="turn">The body of the first loop. Null gives false.</param>
     /// <param name="around">The body of the second loop.</param>
     public bool IsIn(SyntaxNode? turn, SyntaxNode around) =>
@@ -94,9 +98,6 @@ internal sealed class ObjectStore
 
         made.Add(found);
     }
-
-    /// <summary>True for the object of a turn while the walk is in the loop of that turn.</summary>
-    public bool IsOfATurnNow(MadeObject found) => found.Turn != null && !this.ended.Contains(found);
 
     /// <summary>
     ///     For the object of a turn: the objects that the same code made in the

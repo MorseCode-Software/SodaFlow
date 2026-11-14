@@ -292,7 +292,7 @@ internal sealed class LoopStateEvaluator
         TLocation location,
         Func<MadeObject, TLocation, bool> isOfItsTurn) =>
         state.WithAlso(made =>
-            this.region.Objects.IsOfATurnNow(made) && !isOfItsTurn(arg1: made, arg2: location)
+            made.Turn != null && !isOfItsTurn(arg1: made, arg2: location)
                 ? this.region.Objects.BeforeOf(made)
                 : null);
 
@@ -311,24 +311,15 @@ internal sealed class LoopStateEvaluator
     private bool RunsInTheTurnOf(MadeObject made) => !made.IsFrom(this.Frame) && !this.Frame.HasReturned;
 
     // A member or an element of an object is new in each turn of the loop that made the object,
-    // and of each loop around that one. That is true while the walk is in the loop, and only for a
-    // value that is one object. The object must be a new one: the result of a call can be the same
-    // object in each turn.
+    // and of each loop around that one. That is true only for a value that is one object. The
+    // object must be a new one: the result of a call can be the same object in each turn.
     private LoopState InAnObject(LoopState owner, LoopState state) =>
         this.InALocation(
             state: state,
             location: (
                 Store: this.region.Objects,
-                Turn: owner.Objects.Length == 1
-                      && owner.Objects[0].IsNew
-                      && this.region.Objects.IsOfATurnNow(owner.Objects[0])
-                    ? owner.Objects[0].Turn
-                    : null),
+                Turn: owner.Objects.Length == 1 && owner.Objects[0].IsNew ? owner.Objects[0].Turn : null),
             isOfItsTurn: static (made, location) => location.Store.IsIn(turn: location.Turn, around: made.Turn!));
-
-    // A field of an object that the walk does not know, and the result of a call, are of no turn.
-    private LoopState InAnOldLocation(LoopState state) =>
-        this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew);
 
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
@@ -525,8 +516,10 @@ internal sealed class LoopStateEvaluator
     {
         if (!this.quiet)
         {
-            // The owner of the field is not known, thus it is of no turn.
-            this.region.SetField(field: field, state: this.InAnOldLocation(state));
+            // The owner of the field is not known, thus it is new in no turn.
+            this.region.SetField(
+                field: field,
+                state: this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew));
         }
     }
 
@@ -857,18 +850,14 @@ internal sealed class LoopStateEvaluator
             return apart;
         }
 
-        // The result of a call can be an object that is older than the turn. A creation is new,
-        // and each object that it gets is then of its turn or of a turn around it.
-        LoopState first = exact ? apart : this.InAnOldLocation(apart);
-
-        return first.WithObjects(
+        return apart.WithObjects(
             ImmutableArray.Create(
                 this.region.Objects.MakeInATurn(
                     frame: this.Frame,
                     type: type,
                     exact: exact,
                     turn: turn,
-                    state: first)));
+                    state: apart)));
     }
 
     /// <summary>

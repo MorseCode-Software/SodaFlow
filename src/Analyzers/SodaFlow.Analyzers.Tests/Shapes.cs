@@ -8955,9 +8955,9 @@ public static class Shapes
     public static Cell<int> TurnOlderObjectThroughAForeachOverAnOlderList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; List<SettableSlot>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<SettableSlot> one = [x]; if (i == 0) { kept = one; first = x; } foreach (SettableSlot each in kept!) { each.Share = l.Map(v => v); } x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
 
-    // S1923. An object of the inner turn has the object of the outer turn, and a second local of the inner body is a name of that object.
+    // S1923. An object of the inner turn has the object of the outer turn, and a local of the outer body gets that object from it.
     public static Cell<int> TurnObjectOfTheOuterTurnInAnObjectOfTheInnerTurn() =>
-        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { SlotHolder holder = new() { Item = x }; SettableSlot y = holder.Item!; Kept.Add(y);  } SettableSlot z = x; z.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot? got = null; for (int i = 0; i < 2; i++) { SlotHolder holder = new() { Item = x }; got = holder.Item; } got!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
     // S1924. A method of an object of the block keeps the first object of the loop in a member, and returns it in each turn.
     public static Cell<int> TurnOlderObjectThroughAMemberOfTheReceiverOfAMethod() =>
@@ -8978,6 +8978,26 @@ public static class Shapes
     // S1928. A member that the constructor of a base class sets has the object of the turn.
     public static Cell<int> TurnObjectInAMemberThatABaseConstructorSets() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; DerivedSlotOwner owner = new(x); SettableSlot y = owner.Item; y.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1929. A lambda that a query runs for each element makes two objects in one turn, and they have no one state.
+    public static Cell<int> TurnObjectsOfALambdaThatAQueryRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = new[] { 1, 2 }.Select(n => new SettableSlot { Share = l.Map(v => v) }).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+
+    // S1930. A local function that a query runs for each element makes two objects in one turn.
+    public static Cell<int> TurnObjectsOfALocalFunctionThatAQueryRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot Make(int n) => new() { Share = l.Map(v => v) }; List<SettableSlot> rows = new[] { 1, 2 }.Select(Make).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+
+    // S1931. A query expression makes two objects in one turn.
+    public static Cell<int> TurnObjectsOfAQueryExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = (from n in new[] { 1, 2 } select new SettableSlot { Share = l.Map(v => v) }).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+
+    // S1932. A local function of the body gives the plain cell, and only some turns call it.
+    public static Cell<int> TurnPlainInALocalFunctionThatSomeTurnsCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; void MakePlain() { x.Share = Plain; } if (i > 5) { MakePlain(); } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1933. A member of an object of the outer turn has the first object of the inner loop. Each inner turn gives that object a pending cell.
+    public static Cell<int> TurnOlderObjectThroughAMemberOfAnObjectOfTheOuterTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; } outer.Item!.Share = l.Map(v => v); x.Share = Plain; } Kept.Add(outer.Item!.Share!.Sample()); } return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {
