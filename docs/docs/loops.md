@@ -295,9 +295,15 @@ objects holds, as in `box.Items.Add(x)`, is read back through that property.
 An object the block builds is one object under every name it has. Give it a second variable, put it
 in a list, a tuple, a `KeyValuePair`, or a property of another object, or hand it to a helper or a
 constructor that keeps it, and a change made through any of those names is seen through all the
-others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. A collection is
-such an object as well: `cells.Add(x)` is seen through a second variable for `cells`, and through an
-outer list that holds it. So is what a call hands back, from a helper of yours or from the platform:
+others. After `other = slot; other.Share = pending;`, `slot.Share` is pending too. An item read by
+index is such a name as well: after `rows.Add(row); row.Share = plain;`, `rows[0].Share` is the plain
+value, whatever the row held when it went in. That holds until the code sets something through an
+item, as `rows[0].Share = x` does, or the variable of a `foreach` over the rows. The analyzer cannot
+tell which item that was, or whether the collection holds one it never saw go in, so from then on
+the items keep everything that any of them was given. The same goes for a collection that got an
+object from outside the block which already held a value. A collection is such an object as well:
+`cells.Add(x)` is seen through a second variable for `cells`, and through an outer list that holds
+it. So is what a call hands back, from a helper of yours or from the platform:
 the result of `MakeRow()` or of `Activator.CreateInstance<T>()` is one object under the names the
 block gives it. A copy is a different object. `new List<T>(list)`, `list.ToList()`, and a spread make
 a new collection that holds the same items, a `with` expression makes a new record, and a struct is
@@ -322,6 +328,15 @@ ones, and a read through it sees both. An assignment at the top level of the bod
 earlier value on the object of the current pass, as it does outside a loop, unless a `continue`,
 `break`, `return`, `throw`, `goto`, or `yield break` earlier in the body can skip it. After the loop
 every object it built is one of the earlier ones, with what it had when its pass ended.
+
+The analyzer reads a loop twice, because the second pass can read what the first one left behind:
+a variable declared outside the loop that the body reads near its top and sets near its bottom, a
+list the body adds to, or a property of an object built before the loop. The same holds for the
+condition of the loop, a lambda the body runs, and a helper it calls. A variable declared outside
+the loop that the top level of the body sets has only the new value for the rest of that pass, so
+a value it is given later in the pass, and replaced at the top of the next one, is not read. After
+the loop the variable can hold what any pass gave it, or what it held before the loop, since the
+loop may not run at all.
 
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
@@ -402,8 +417,11 @@ parameters, the analyzer reads only those, also when two type parameters have th
 the pair and not its value. An immutable dictionary is the exception for values: when it is handed
 a key it already holds, `Add`, `AddRange`, `SetItem`, `SetItems`, the indexer of its builder, and
 the factories such as `ToImmutableDictionary` call `Equals` on the value already held, with the new
-value as its argument, and the analyzer reads that call. A function argument does not always pick
-what is compared either.
+value as its argument, and the analyzer reads that call. The builder of an immutable collection
+compares as its collection does, and the analyzer reads its methods too: `Add`, `Contains`, and
+`Remove` of the builder of a set, the methods and the indexer of the builder of a dictionary, the
+searches of the builder of an `ImmutableList<T>` or an `ImmutableArray<T>`, and the set operations
+such as `UnionWith`. A function argument does not always pick what is compared either.
 `GetOrAdd` and `AddOrUpdate` of a `ConcurrentDictionary<TKey, TValue>` compare the key you pass, and
 their function only makes the value. `ExceptBy` and `IntersectBy` compare the keys their function
 returns with the keys in the second sequence.
@@ -482,11 +500,22 @@ It does not see everything, and in a few places it guesses on the careful side:
   from one of those or from a loop, is many objects at run time, and the analyzer follows each name
   of it on its own, as it does for an object that came into the block from outside: a change
   through one name is not seen through a second variable, though a collection still has what was
-  put into it. Where a name can be one of several objects, as an element of a list of several, a
-  variable set on two paths, or a name that outlives a pass of a loop, a change through it is added
-  to each of them, so a plain value set that way does not clear a pending one.
+  put into it, and what any of its items was given later. Where a name can be one of several
+  objects, as an element of a list of several, a variable set on two paths, or a name that outlives
+  a pass of a loop, a change through it is added to each of them, so a plain value set that way
+  does not clear a pending one.
+- An item is read as the object it is only through an index, and only until something is set
+  through an item of that collection. An item that a method hands back, as `rows.First()` does, or
+  one that went into a second collection through a query or a copy of the first, keeps everything
+  it was ever given, so a plain value set later does not clear a pending one there.
+- The analyzer reads a loop twice and no more. A value that takes two passes to reach its read, as
+  one handed from a first variable to a second and read from the second on the pass after, is not
+  seen. Neither is a variable declared in the body when a lambda made on one pass reads it on the
+  next.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
-  analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
+  analyzer reads both. A builder with hash codes is one of them for `Remove` and for the lookups of
+  a dictionary, and the set operations of a builder are read for both objects too, as is the first
+  `Add` to an empty builder. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
   key already held when it is the first one with its hash code, and to the key you pass when it is
   not. A span method called with a span of values, such as `IndexOfAny(values)`, differs between
   .NET Framework and .NET.
