@@ -1454,7 +1454,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ElementOfAListThatAMethodWithNoBodyFilled"] = ["SF1001"],
             ["ElementOfAListInAMemberThatTheWalkDidNotSeeSet"] = ["SF1001"],
             ["ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionExpression"] = ["SF1001"],
-            ["ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionInitializer"] = ["SF1001"]
+            ["ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionInitializer"] = ["SF1001"],
+            ["PlainThroughALocalOfTheBlockAfterTheLoop"] = ["SF1001"],
+            ["PlainThroughALocalOfTheBlockThatOneTurnAssigns"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

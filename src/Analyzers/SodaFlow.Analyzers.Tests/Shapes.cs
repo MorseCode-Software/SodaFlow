@@ -9483,6 +9483,22 @@ public static class Shapes
     public static Cell<int> ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionInitializer() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsWithAPendingCell[1]; old.Share = l.Map(v => v); SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; List<SettableSlot> list = new() { x, old }; list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[i].Share!.Sample()); });
 
+    // S2055. Each turn gives a local of the block the object of the turn. A plain cell through the local replaces the pending cell of that object.
+    public static Cell<int> PlainThroughALocalOfTheBlockThatEachTurnAssigns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2056. The same, where a second local of the block gets the object from the first one.
+    public static Cell<int> PlainThroughASecondLocalOfTheBlockThatEachTurnAssigns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; SettableSlot? z = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; y = x; z = y; z.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2057. Each turn gives a local of the block the object of the turn. After the loop, the local has the object of the last turn, and a plain cell through it is no change to the object of the first turn.
+    public static Cell<int> PlainThroughALocalOfTheBlockAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; List<SettableSlot> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; y = x; all.Add(x); } y!.Share = Plain; return S.Hold(all[0].Share!.Sample()); });
+
+    // S2058. Only the first turn gives a local of the block its object. In the second turn, a plain cell through the local is no change to the object of that turn.
+    public static Cell<int> PlainThroughALocalOfTheBlockThatOneTurnAssigns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { y = x; } y!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

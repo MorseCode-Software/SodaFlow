@@ -245,9 +245,17 @@ internal sealed class LoopStateEvaluator
     ///     only the new value.
     /// </summary>
     /// <remarks>
-    ///     A loop can run no turn, and its last turn can end before the
-    ///     assignment. Thus, the caller keeps the state that the local had, and
-    ///     gives it back with <see cref="Declare" /> after the loop.
+    ///     <para>
+    ///         A loop can run no turn, and its last turn can end before the
+    ///         assignment. Thus, the caller keeps the state that the local had, and
+    ///         gives it back with <see cref="Declare" /> after the loop.
+    ///     </para>
+    ///     <para>
+    ///         An object of the turn in the new value is only that object, and not
+    ///         one of the turns before: no code of an older turn runs before the end
+    ///         of this one. At the end of the turn, the object becomes one of the
+    ///         objects of the turns before, in each location that has it.
+    ///     </para>
     /// </remarks>
     /// <param name="local">The local.</param>
     /// <param name="state">The state of the new value.</param>
@@ -255,7 +263,7 @@ internal sealed class LoopStateEvaluator
     public LoopState AssignInATurn(ISymbol local, LoopState state)
     {
         LoopState had = this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing : LoopState.None;
-        this.locals[local] = this.InALocal(local: local, state: state);
+        this.locals[local] = state;
 
         return had;
     }
