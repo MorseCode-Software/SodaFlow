@@ -236,6 +236,9 @@ internal sealed class LoopState
     /// </summary>
     public bool IsOfNoObject => this.Members != null && this.Objects.IsEmpty;
 
+    /// <summary>True for a value that holds an object of the store, as a collection does.</summary>
+    public bool HoldsAnObject => !this.Held.IsEmpty;
+
     /// <summary>
     ///     The one object that a collection holds, of those that an element of
     ///     the given type can be. Null when it holds two or more. Null also when

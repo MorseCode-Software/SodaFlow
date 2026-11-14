@@ -10527,6 +10527,34 @@ public static class Shapes
     public static Cell<int> LambdaOfTheTurnThatARefArgumentReplaces() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int> read = () => x.Share!.Sample(); Func<int> mine = read; KeepOrGive(ref read, kept); Kept.Add(read()); x.Share = l.Map(v => v); kept = mine; } return S.Hold(0); });
 
+    // S2316. A method with no body to read gets an object with a pending cell. A second method of its owner returns a sequence, and a foreach over the sequence gives the object back.
+    public static Cell<int> ObjectFromASequenceThatItsOwnerReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); foreach (SettableSlot each in line.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S2317. The same, where First gives the object of the sequence.
+    public static Cell<int> FirstOfASequenceThatAnOwnerReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); Kept.Add(line.All().First().Share!.Sample()); return S.Hold(0); });
+
+    // S2318. The same, where a method of the owner returns one object.
+    public static Cell<int> ObjectThatItsOwnerReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); SettableSlot got = line.Last(); Kept.Add(got.Share!.Sample()); return S.Hold(0); });
+
+    // S2319. The same, where the object gets its pending cell after the owner got the object.
+    public static Cell<int> ObjectThatItsOwnerReturnsAfterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; ISlotLine line = NewSlotLine(); line.Put(x); x.Share = l.Map(v => v); Kept.Add(line.Last().Share!.Sample()); return S.Hold(0); });
+
+    // S2320. The object gets a plain cell before the foreach over the sequence of its owner.
+    public static Cell<int> ObjectFromASequenceThatItsOwnerReturnsAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); x.Share = Plain; foreach (SettableSlot each in line.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S2321. The same, where a method of the owner returns the object.
+    public static Cell<int> ObjectThatItsOwnerReturnsAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); x.Share = Plain; Kept.Add(line.Last().Share!.Sample()); return S.Hold(0); });
+
+    // S2322. The owner keeps an object with a pending cell, and a method of the owner returns a number.
+    public static Cell<int> NumberThatAnOwnerReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); Kept.Add(line.Count()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12568,6 +12596,32 @@ public static class Shapes
         {
             now = before;
         }
+    }
+
+    private static ISlotLine NewSlotLine() => new SlotLine();
+
+    public interface ISlotLine
+    {
+        void Put(SettableSlot slot);
+
+        IEnumerable<SettableSlot> All();
+
+        SettableSlot Last();
+
+        int Count();
+    }
+
+    private sealed class SlotLine : ISlotLine
+    {
+        private readonly List<SettableSlot> slots = [];
+
+        public void Put(SettableSlot slot) => this.slots.Add(slot);
+
+        public IEnumerable<SettableSlot> All() => this.slots;
+
+        public SettableSlot Last() => this.slots[this.slots.Count - 1];
+
+        public int Count() => this.slots.Count;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

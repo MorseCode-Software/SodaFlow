@@ -2536,8 +2536,10 @@ internal sealed class LoopStateEvaluator
         // what the analyzer can see.
         if (!this.region.Symbols.IsSodaFlow(method))
         {
+            CalleeKind kind = this.Classify(call: invocation, method: method);
+
             LoopState result =
-                this.Classify(call: invocation, method: method) == CalleeKind.Mover
+                kind == CalleeKind.Mover
                     ? this.WithParts(
                         state: this.MovedResult(invocation: invocation, method: method),
                         // Only the factory of the type itself puts each argument in its property.
@@ -2552,6 +2554,11 @@ internal sealed class LoopStateEvaluator
             if ((method.ReducedFrom ?? method).OriginalDefinition.ReturnType is not ITypeParameterSymbol)
             {
                 result = result.WithObjects(ImmutableArray<MadeObject>.Empty);
+            }
+
+            if (kind == CalleeKind.Unknown)
+            {
+                result = result.Join(this.KeptByTheOwnerOf(invocation: invocation, method: method));
             }
 
             result =
@@ -2975,6 +2982,30 @@ internal sealed class LoopStateEvaluator
                 func: (moved, given) =>
                     moved.Join(this.Eval(given.Written))
                         .Join(this.Enumerated(written: given.Written, parameter: given.Parameter?.Type)));
+    }
+
+    // A method with no body to read can give back an object that its owner keeps. A result that
+    // is a sequence can contain each of those objects. Each other result can be one of them. The
+    // result can be an object that the store does not know also.
+    private LoopState KeptByTheOwnerOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (method.IsStatic
+            || method.ReducedFrom != null
+            || invocation.Expression is not MemberAccessExpressionSyntax { Expression: var owner }
+            || !this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
+            || this.Eval(owner) is not { HoldsAnObject: true } has)
+        {
+            return LoopState.None;
+        }
+
+        LoopState kept = has.AsOneOfItsElements;
+
+        return SodaFlowSymbols.IsSequence(method.ReturnType)
+            ? kept.Holding(kept.Objects)
+                .WithObjects(ImmutableArray<MadeObject>.Empty)
+                .AsContainer
+                .HoldingAnUnknownObject
+            : kept.OrAnUnknownObject;
     }
 
     /// <summary>

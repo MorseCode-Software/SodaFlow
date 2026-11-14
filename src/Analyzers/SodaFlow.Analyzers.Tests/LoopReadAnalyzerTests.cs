@@ -1608,7 +1608,11 @@ internal sealed class LoopReadAnalyzerTests
             ["LambdaOfTheTurnThatABranchReplaces"] = ["SF1001"],
             ["LocalFunctionOfTheTurnBeforeThroughADelegate"] = ["SF1001"],
             ["LambdaOfTheTurnBeforeCallsALocalFunctionOfItsTurn"] = ["SF1001"],
-            ["LambdaOfTheTurnThatARefArgumentReplaces"] = ["SF1001"]
+            ["LambdaOfTheTurnThatARefArgumentReplaces"] = ["SF1001"],
+            ["ObjectFromASequenceThatItsOwnerReturns"] = ["SF1001"],
+            ["FirstOfASequenceThatAnOwnerReturns"] = ["SF1001"],
+            ["ObjectThatItsOwnerReturns"] = ["SF1001"],
+            ["ObjectThatItsOwnerReturnsAfterAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
