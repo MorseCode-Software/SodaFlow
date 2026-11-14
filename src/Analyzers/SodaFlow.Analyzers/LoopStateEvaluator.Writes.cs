@@ -30,14 +30,11 @@ internal sealed partial class LoopStateEvaluator
             location: this,
             isOfItsTurn: static (_, made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
-        // A write that always runs gives the member only the new state. A function can run no
-        // time. A callee can have the members of the object of its caller, and not a copy of them.
-        // It then writes to that object, and its call can run no time also. A copy is for one
-        // call, and the caller says if that call runs: see GivesItsOwner.
-        bool only =
-            replaces
-            && this.function == null
-            && this.call is null or { HasItsOwnMembers: true } or { AlwaysRuns: true };
+        // A write that always runs gives the member only the new state. A function has the
+        // members of the code that made it, and a callee can have the members of the object of
+        // its caller. Each of the two then writes to that object, and its call can run no time. A
+        // copy is for one call, and the caller says if that call runs: see GivesItsOwner.
+        bool only = replaces && this.call is null or { HasItsOwnMembers: true } or { AlwaysRuns: true };
 
         this.thisMembers[key] =
             !only && this.thisMembers.TryGetValue(key: key, value: out LoopState? existing)

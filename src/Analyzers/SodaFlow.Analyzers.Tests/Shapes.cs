@@ -11687,6 +11687,10 @@ public static class Shapes
     public static Cell<int> Ab74AStructElementAndAReadThroughTheName() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = new SlotValue[1]; ref SlotValue r = ref values[0]; r.Share = l.Map(v => v); r.Share = Plain; return S.Hold(r.Share!.Sample()); });
 
+    // S2606. AB75. A lambda in the method gives the plain cell, and the method always calls the lambda.
+    public static Cell<int> Ab75ALambdaThatTheMethodAlwaysCallsGivesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Later x = new(); x.GiveThenPlain(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14228,6 +14232,18 @@ public static class Shapes
     {
         slot.Share = cell;
         slot.Share = Plain;
+    }
+
+    public sealed class Ab75Later
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void GiveThenPlain(Cell<int> cell)
+        {
+            this.Share = cell;
+            Action plain = () => { this.Share = Plain; };
+            plain();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -2275,6 +2275,69 @@ internal sealed class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     A method of an object reads a field of that object with no
+    ///     <c>this</c> before the name. The field is the one collection that the
+    ///     constructor gave it. Thus, a plain cell through its first element
+    ///     replaces the pending one, and the read has no report.
+    /// </summary>
+    /// <remarks>
+    ///     The shapes file cannot have this method: the code of this solution
+    ///     must have <c>this</c> before each member.
+    /// </remarks>
+    [Test]
+    public async Task AFieldWithNoThisBeforeItsNameIsTheCollectionOfItsObject()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public sealed class Slot
+            {
+                public Cell<int>? Share { get; set; }
+            }
+
+            public sealed class Rows
+            {
+                private readonly List<Slot> all;
+
+                public Rows(Slot slot)
+                {
+                    all = [slot];
+                }
+
+                public void MakeTheFirstPlain(Cell<int> plain) => all[0].Share = plain;
+            }
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> TheFirstOfTheRows() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Slot y = new() { Share = l.Map(v => v) };
+                        Rows rows = new(y);
+                        rows.MakeTheFirstPlain(Plain);
+
+                        return S.Hold(y.Share!.Sample());
+                    });
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyAField"));
+
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEmpty();
+    }
+
+    /// <summary>
     ///     The walk has a limit for the number of callee bodies that it reads for
     ///     one block. A member that the block calls after that limit is code that
     ///     the analyzer does not read. The object of the member has a pending cell, thus the call
