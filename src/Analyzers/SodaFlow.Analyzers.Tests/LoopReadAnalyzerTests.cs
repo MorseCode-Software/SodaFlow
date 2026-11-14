@@ -1732,7 +1732,22 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab72AListThatIsOneOfTwo"] = ["SF1001"],
             ["Ab72AListThatIsOneOfTwoFromAnAssignment"] = ["SF1001"],
             ["Ab72AnOutVariableGetsAValueOfADictionary"] = ["SF1001"],
-            ["Ab72AMethodFillsAListThatIsAnElement"] = ["SF1001"]
+            ["Ab72AMethodFillsAListThatIsAnElement"] = ["SF1001"],
+            ["Ab70TheElementOfOneOfTwoGetsANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70TheElementGetsANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70TheLocalGetsANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70OneWriteAfterTheElementGotANewObject"] = ["SF1001"],
+            ["Ab70AParameterWithRefAndANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70AMethodGivesTheElementANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70APendingWriteThroughTheNameAndAReadOfTheElement"] = ["SF1001"],
+            ["Ab70APendingWriteThroughTheNameAndAReadThroughIt"] = ["SF1001"],
+            ["Ab70AReadThroughTheNameOfAnElementWithAPendingCell"] = ["SF1001"],
+            ["Ab70AMemberOfTheNameAndANewObjectBetweenTheWrites"] = ["SF1001"],
+            ["Ab70AStructElementAndAPendingWriteThroughTheName"] = ["SF1001"],
+            ["Ab70ASecondNameOfAListWithRef"] = ["SF1001"],
+            ["Ab70TheLocationOfAListGetsADifferentList"] = ["SF1001"],
+            ["Ab70TheLocalGetsANewObjectBetweenTheWritesInATurn"] = ["SF1001"],
+            ["Ab70TwoParametersWithRefForOneLocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

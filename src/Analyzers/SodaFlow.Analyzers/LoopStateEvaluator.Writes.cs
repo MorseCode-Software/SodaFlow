@@ -50,6 +50,14 @@ internal sealed partial class LoopStateEvaluator
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
 
+        // A name with ref is its location, and code can give that location a different object with
+        // no assignment to the name. Thus, a write through such a name is sure for no object.
+        if (owner != null && this.NameUnder(owner) is { } aliased && !KeepsItsObject(aliased))
+        {
+            replaces = false;
+            turn = null;
+        }
+
         // The owner can be an object that the store does not know. The write is then a change to
         // that object, and each object of the store that the owner can be keeps what it has.
         bool isKnown = !this.CanBeUnseen(owner);
@@ -377,6 +385,22 @@ internal sealed partial class LoopStateEvaluator
                     or SyntaxKind.PostDecrementExpression,
             _ => false
         };
+    }
+
+    // The local or the parameter that an expression is, or that it reads a member of.
+    private ISymbol? NameUnder(ExpressionSyntax owner)
+    {
+        ExpressionSyntax written = Unwrapped(owner);
+
+        while (written is MemberAccessExpressionSyntax access)
+        {
+            written = Unwrapped(access.Expression);
+        }
+
+        return written is IdentifierNameSyntax
+               && this.region.SymbolOf(written) is { } name and (ILocalSymbol or IParameterSymbol)
+            ? name
+            : null;
     }
 
     /// <summary>

@@ -276,10 +276,11 @@ internal sealed partial class LoopStateEvaluator
     // Records the collection of a local that has one value. The value is one new object of the
     // store, or it is a second local that is one collection. A local with no expression for its
     // value is no such local. The variable of a foreach is one element of a collection. That
-    // collection can hold an object that the walk did not see go in.
+    // collection can hold an object that the walk did not see go in. A name with ref is its
+    // location, which can get a second value with no assignment to the name.
     private void IsOneCollection(ISymbol local, LoopState state, ExpressionSyntax? from)
     {
-        if (from == null)
+        if (from == null || !KeepsItsObject(local))
         {
             this.Frame.TheOneCollectionOf.Remove(local);
         }
@@ -1807,6 +1808,8 @@ internal sealed partial class LoopStateEvaluator
         expression switch
         {
             ParenthesizedExpressionSyntax p => this.Eval(p.Expression),
+            // A name with ref has the value that its location has at this time.
+            RefExpressionSyntax r => this.Eval(r.Expression),
             // A cast that an operator of this compilation makes gives what the operator returns.
             CastExpressionSyntax c => this.FollowExpression(c) is { } converted
                 ? converted.State.Join(this.TypeState(expression))
@@ -1993,7 +1996,8 @@ internal sealed partial class LoopStateEvaluator
             ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
             : null;
 
-    // The expression in parentheses, in a cast, or before the operator that says not null.
+    // The expression in parentheses, in a cast, after ref, or before the operator that says not
+    // null.
     private static ExpressionSyntax Unwrapped(ExpressionSyntax expression)
     {
         while (true)
@@ -2002,6 +2006,9 @@ internal sealed partial class LoopStateEvaluator
             {
                 case ParenthesizedExpressionSyntax around:
                     expression = around.Expression;
+                    continue;
+                case RefExpressionSyntax location:
+                    expression = location.Expression;
                     continue;
                 case CastExpressionSyntax cast:
                     expression = cast.Expression;

@@ -11239,6 +11239,70 @@ public static class Shapes
     public static Cell<int> Ab72AMethodFillsAListThatIsAnElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> inner = []; List<List<SettableSlot>> lists = [inner, Ab72Lists[1]]; int one = Kept.Count - Kept.Count + 1; Ab72AddAndMakeTheFirstPlain(lists[one], y); return S.Hold(y.Share!.Sample()); });
 
+    // S2494. AB70. The evidence of the item: the element is one of two values, and it gets a new object between the writes.
+    public static Cell<int> Ab70TheElementOfOneOfTwoGetsANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [Never ? Ab70Slots[0] : new SettableSlot()]; SettableSlot keep = slots[0]; ref SettableSlot r = ref slots[0]; r.Share = l.Map(v => v); slots[0] = new SettableSlot(); r.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2495. AB70. The element is a new object, and it gets a new object between the writes.
+    public static Cell<int> Ab70TheElementGetsANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; SettableSlot keep = slots[0]; ref SettableSlot r = ref slots[0]; r.Share = l.Map(v => v); slots[0] = new SettableSlot(); r.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2496. AB70. The location is a local, and the local gets a new object between the writes.
+    public static Cell<int> Ab70TheLocalGetsANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new(); SettableSlot keep = a; ref SettableSlot r = ref a; r.Share = l.Map(v => v); a = new SettableSlot(); r.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2497. AB70. The location gets a new object after one write, and the pending cell is from an initializer.
+    public static Cell<int> Ab70OneWriteAfterTheElementGotANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = l.Map(v => v) }]; SettableSlot keep = slots[0]; ref SettableSlot r = ref slots[0]; slots[0] = new SettableSlot(); r.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2498. AB70. A parameter with ref: the method gives the element a new object between its two writes.
+    public static Cell<int> Ab70AParameterWithRefAndANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; SettableSlot keep = slots[0]; Ab70TwoWrites(ref slots[0], slots, l.Map(v => v)); return S.Hold(keep.Share!.Sample()); });
+
+    // S2499. AB70. A method with a body gives the element a new object between the writes.
+    public static Cell<int> Ab70AMethodGivesTheElementANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; SettableSlot keep = slots[0]; ref SettableSlot r = ref slots[0]; r.Share = l.Map(v => v); Ab70PutANewOne(slots); r.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2500. AB70. A pending cell through the name, and the read is through the element.
+    public static Cell<int> Ab70APendingWriteThroughTheNameAndAReadOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; ref SettableSlot r = ref slots[0]; r.Share = l.Map(v => v); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2501. AB70. A pending cell through the name, and the read is through the name.
+    public static Cell<int> Ab70APendingWriteThroughTheNameAndAReadThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; ref SettableSlot r = ref slots[0]; r.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S2502. AB70. The element has a pending cell, and the read is through the name.
+    public static Cell<int> Ab70AReadThroughTheNameOfAnElementWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = l.Map(v => v) }]; ref SettableSlot r = ref slots[0]; return S.Hold(r.Share!.Sample()); });
+
+    // S2503. AB70. The element has a plain cell, and the read is through the name.
+    public static Cell<int> Ab70AReadThroughTheNameOfAnElementWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; ref SettableSlot r = ref slots[0]; Kept.Add(l); return S.Hold(r.Share!.Sample()); });
+
+    // S2504. AB70. A member of the object of the name gets the two writes, and the element gets a new object between.
+    public static Cell<int> Ab70AMemberOfTheNameAndANewObjectBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OuterSlot[] outers = [new OuterSlot()]; OuterSlot keep = outers[0]; ref OuterSlot r = ref outers[0]; r.Inner.Share = l.Map(v => v); outers[0] = new OuterSlot(); r.Inner.Share = Plain; return S.Hold(keep.Inner.Share!.Sample()); });
+
+    // S2505. AB70. A struct element: a pending cell through the name, and the read is through the element.
+    public static Cell<int> Ab70AStructElementAndAPendingWriteThroughTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = new SlotValue[1]; ref SlotValue r = ref values[0]; r.Share = l.Map(v => v); return S.Hold(values[0].Share!.Sample()); });
+
+    // S2506. AB70. A local with ref is a second name of a list, and the list gets an object through it.
+    public static Cell<int> Ab70ASecondNameOfAListWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; ref List<SettableSlot> r = ref list; r.Add(y); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2507. AB70. A local with ref is a second name of a local that has a list, and that local gets a different list.
+    public static Cell<int> Ab70TheLocationOfAListGetsADifferentList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; ref List<SettableSlot> r = ref list; list = [new SettableSlot()]; r[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2508. AB70. The two writes through the name are in a turn of a loop, and the local gets a new object between.
+    public static Cell<int> Ab70TheLocalGetsANewObjectBetweenTheWritesInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot a = new(); SettableSlot keep = a; ref SettableSlot r = ref a; r.Share = l.Map(v => v); a = new SettableSlot(); r.Share = Plain; Kept.Add(keep.Share!.Sample()); } return S.Hold(0); });
+
+    // S2509. AB70. Two parameters with ref are names of one local, and the method gives it a new list through one.
+    public static Cell<int> Ab70TwoParametersWithRefForOneLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ab70ANewListThenPlain(ref list, ref list); return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13513,6 +13577,23 @@ public static class Shapes
         public void Swap(SettableSlot first) => this.kept[0] = first;
 
         public List<SettableSlot> Made() => [new SettableSlot()];
+    }
+
+    private static readonly SettableSlot[] Ab70Slots = [new()];
+
+    private static void Ab70TwoWrites(ref SettableSlot slot, SettableSlot[] all, Cell<int> first)
+    {
+        slot.Share = first;
+        all[0] = new SettableSlot();
+        slot.Share = Plain;
+    }
+
+    private static void Ab70PutANewOne(SettableSlot[] all) => all[0] = new SettableSlot();
+
+    private static void Ab70ANewListThenPlain(ref List<SettableSlot> first, ref List<SettableSlot> second)
+    {
+        second = [new SettableSlot()];
+        first[0].Share = Plain;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
