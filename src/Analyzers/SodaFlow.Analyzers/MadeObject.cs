@@ -107,9 +107,12 @@ internal sealed class MadeObject(
             return false;
         }
 
+        // The result of a call can have a type that derives from the type that the code names. It
+        // cannot be a value of a class with no relation to that type. A query is not one of its
+        // elements, and a copy of a list is not one of the objects in it.
         if (!this.IsNew)
         {
-            return true;
+            return CanHaveBoth(named: this.type, written: written);
         }
 
         for (ITypeSymbol? own = this.type; own != null; own = own.BaseType)
@@ -121,5 +124,48 @@ internal sealed class MadeObject(
         }
 
         return this.type.AllInterfaces.Any(contract => SymbolEqualityComparer.Default.Equals(x: contract, y: written));
+    }
+
+    // True when one object can have the type that the code names for it and the type of the
+    // location that it is read from. The check is false only where no type can derive from the two.
+    private static bool CanHaveBoth(ITypeSymbol named, ITypeSymbol written)
+    {
+        if (written.TypeKind != TypeKind.Class
+            || written.SpecialType is SpecialType.System_Object or SpecialType.System_Array)
+        {
+            return true;
+        }
+
+        switch (named.TypeKind)
+        {
+            // An array is no value of a class.
+            case TypeKind.Array:
+                return false;
+            // Two classes have one object only when one of them derives from the other.
+            case TypeKind.Class:
+                return DerivesFrom(type: named, other: written) || DerivesFrom(type: written, other: named);
+            // A class that no type derives from has the interface, or its object does not.
+            case TypeKind.Interface:
+                return !written.IsSealed
+                       || written.AllInterfaces.Any(contract =>
+                           SymbolEqualityComparer.Default.Equals(
+                               x: contract.OriginalDefinition,
+                               y: named.OriginalDefinition));
+            default:
+                return true;
+        }
+    }
+
+    private static bool DerivesFrom(ITypeSymbol type, ITypeSymbol other)
+    {
+        for (ITypeSymbol? own = type; own != null; own = own.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: own.OriginalDefinition, y: other.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

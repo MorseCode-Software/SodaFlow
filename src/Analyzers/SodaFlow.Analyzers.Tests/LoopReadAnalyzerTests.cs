@@ -1517,7 +1517,16 @@ internal sealed class LoopReadAnalyzerTests
             ["ElementOfAnObjectThatKeepsThroughAnInterface"] = ["SF1001"],
             ["ElementOfAnObjectThatKeepsThroughAnInterfaceAndGetsAPendingCell"] = ["SF1001"],
             ["LambdaOfTheTurnBeforeReadsALocalOfItsTurn"] = ["SF1001"],
-            ["LocalFunctionOfTheTurnBeforeReadsALocalOfItsTurn"] = ["SF1001"]
+            ["LocalFunctionOfTheTurnBeforeReadsALocalOfItsTurn"] = ["SF1001"],
+            ["FirstOfAListReadsAPendingCell"] = ["SF1001"],
+            ["FirstOfAListWithAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["LastOfAListAfterAChangeThroughAnElement"] = ["SF1001"],
+            ["ElementOfAToListThatGetsAPendingCell"] = ["SF1001"],
+            ["ElementsOfAQueryOverAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["KeyThroughACopyOfKeys"] = ["SF1005"],
+            ["KeyThroughALoopOverKeys"] = ["SF1005"],
+            ["FirstOrDefaultGivesItsArgument"] = ["SF1001"],
+            ["FirstOrDefaultOfAQueryGivesItsArgument"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

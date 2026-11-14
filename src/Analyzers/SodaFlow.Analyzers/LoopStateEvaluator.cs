@@ -1041,9 +1041,7 @@ internal sealed class LoopStateEvaluator
         LoopState refreshed =
             state.RefreshedFrom(
                 stored: stored.FromIfUnknown(state.AnyOrigin),
-                all: known
-                     && Unwrapped(expression)
-                         is IdentifierNameSyntax or MemberAccessExpressionSyntax or ElementAccessExpressionSyntax);
+                all: known && this.IsANameOfItsObjects(Unwrapped(expression)));
 
         // The store has the parts of the object of this turn. A value that can be an older object
         // can have the older parts also.
@@ -1051,6 +1049,14 @@ internal sealed class LoopStateEvaluator
 
         return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
     }
+
+    // True for an expression that is a name of the objects in its state. That is a local, a
+    // parameter, a member, or an element. It is also the result of a method of the platform that
+    // gives one value of its owner, as First does. The result of each other call is a value that
+    // the callee made or got.
+    private bool IsANameOfItsObjects(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax or MemberAccessExpressionSyntax or ElementAccessExpressionSyntax
+        || (expression is InvocationExpressionSyntax call && this.OwnerOfTheResult(call) != null);
 
     /// <summary>
     ///     The state of a new object, with the object that the expression makes in
@@ -1978,7 +1984,12 @@ internal sealed class LoopStateEvaluator
                                 type: memberType,
                                 compilation: this.region.Assembly)))
                     {
-                        fromOwner = fromOwner.Join(SodaFlowSymbols.IsSequence(memberType) ? owner : owner.AsElement);
+                        // A dictionary holds its values. Its keys are objects that the store does not
+                        // know as objects of the dictionary, thus a key keeps what it has.
+                        LoopState ofOwner = symbol.Name == "Keys" ? owner.WithNoObjects.HoldingAnUnknownObject : owner;
+
+                        fromOwner =
+                            fromOwner.Join(SodaFlowSymbols.IsSequence(memberType) ? ofOwner : ofOwner.AsElement);
                     }
                     else if (SodaFlowSymbols.CanHoldQuery(memberType))
                     {
@@ -2586,7 +2597,22 @@ internal sealed class LoopStateEvaluator
             this.region.Symbols.TakesASequence(definition)
             || (!definition.IsStatic && SodaFlowSymbols.IsEnumerated(definition.ContainingType));
 
-        return Returned(state: result, type: method.ReturnType, takesOneOut: takesOneOut);
+        LoopState returned = Returned(state: result, type: method.ReturnType, takesOneOut: takesOneOut);
+
+        if (!takesOneOut || SodaFlowSymbols.IsSequence(method.ReturnType))
+        {
+            return returned;
+        }
+
+        // A method that gives one value of a sequence can give back an argument also, as
+        // FirstOrDefault gives its default value. The result can then be the object of that
+        // argument.
+        ImmutableArray<MadeObject> given =
+            this.Moved(invocation: invocation, method: method, withReceiver: false)
+                .Objects
+                .RemoveAll(made => returned.Objects.Contains(made) || !made.CanBe(method.ReturnType));
+
+        return given.IsEmpty ? returned : returned.WithObjects(returned.Objects.AddRange(given));
     }
 
     /// <summary>
@@ -2607,7 +2633,7 @@ internal sealed class LoopStateEvaluator
     {
         if (!SodaFlowSymbols.IsSequence(type))
         {
-            return takesOneOut || !Construction.SaysNothing(type) ? state.AsElement : state;
+            return takesOneOut || !Construction.SaysNothing(type) ? state.AsOneOfItsElements : state;
         }
 
         // A method can give back a sequence that it got, as AsEnumerable does. That sequence can

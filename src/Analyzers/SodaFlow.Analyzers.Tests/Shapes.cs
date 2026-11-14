@@ -9851,6 +9851,98 @@ public static class Shapes
     public static Cell<int> LocalFunctionOfTheTurnBeforeReadsALocalOfItsTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; for (int i = 0; i < 2; i++) { if (read != null) { Kept.Add(read()); } SettableSlot x = new() { Share = l.Map(v => v) }; int Read() => x.Share!.Sample(); read = Read; } return S.Hold(0); });
 
+    // S2147. First of a list that only a collection expression filled reads the state that its object has now.
+    public static Cell<int> FirstOfALiteralReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> one = [x]; x.Share = Plain; return S.Hold(one.First().Share!.Sample()); });
+
+    // S2148. First of a list reads the state that its object has now.
+    public static Cell<int> FirstOfAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); x.Share = Plain; return S.Hold(list.First().Share!.Sample()); });
+
+    // S2149. The same for Last.
+    public static Cell<int> LastOfAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); x.Share = Plain; return S.Hold(list.Last().Share!.Sample()); });
+
+    // S2150. The same for Single.
+    public static Cell<int> SingleOfAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); x.Share = Plain; return S.Hold(list.Single().Share!.Sample()); });
+
+    // S2151. The same for ElementAt.
+    public static Cell<int> ElementAtOfAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); x.Share = Plain; return S.Hold(list.ElementAt(0).Share!.Sample()); });
+
+    // S2152. The same for Find of a list.
+    public static Cell<int> FindOfAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); x.Share = Plain; return S.Hold(list.Find(s => s != null)!.Share!.Sample()); });
+
+    // S2153. The same for First of the values of a dictionary.
+    public static Cell<int> FirstOfTheValuesOfADictionaryReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Dictionary<string, SettableSlot> map = new() { ["a"] = x }; x.Share = Plain; return S.Hold(map.Values.First().Share!.Sample()); });
+
+    // S2154. First of a list gives an object that got its pending cell after the list got the object.
+    public static Cell<int> FirstOfAListReadsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); x.Share = l.Map(v => v); return S.Hold(list.First().Share!.Sample()); });
+
+    // S2155. First of a list gives an object that the walk did not see made, which has a pending cell. The list got an object of the store after it.
+    public static Cell<int> FirstOfAListWithAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsOfNoObject[0]; old.Share = l.Map(v => v); List<SettableSlot> list = []; list.Add(old); list.Add(new SettableSlot { Share = Plain }); return S.Hold(list.First().Share!.Sample()); });
+
+    // S2156. Last of a list gives an object that the walk did not see made, which got a pending cell through its index.
+    public static Cell<int> LastOfAListAfterAChangeThroughAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(SlotsOfNoObject[1]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list.Last().Share!.Sample()); });
+
+    // S2157. A list gets its elements from a query over a second list. An element reads the state that its object has now.
+    public static Cell<int> ElementsOfAQueryGoIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; List<SettableSlot> list = []; list.AddRange(first.Where(s => s != null)); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2158. The same for a copy of the second list as an array.
+    public static Cell<int> ElementsOfACopyGoIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; List<SettableSlot> list = []; list.AddRange(first.ToArray()); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2159. A copy of a list from ToList has the same objects, and an element reads the state that its object has now.
+    public static Cell<int> ElementOfAToListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; List<SettableSlot> copy = first.ToList(); x.Share = Plain; return S.Hold(copy[0].Share!.Sample()); });
+
+    // S2160. The same for a copy from the constructor of a list.
+    public static Cell<int> ElementOfAListFromAListReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; List<SettableSlot> copy = new(first); x.Share = Plain; return S.Hold(copy[0].Share!.Sample()); });
+
+    // S2161. The same for a copy from a spread.
+    public static Cell<int> ElementOfASpreadReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; SettableSlot[] copy = [.. first]; x.Share = Plain; int i = Kept.Count >= 0 ? 0 : 1; return S.Hold(copy[i].Share!.Sample()); });
+
+    // S2162. The same for the first element of a query.
+    public static Cell<int> FirstOfAQueryReadsTheStateOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> first = [x]; x.Share = Plain; return S.Hold(first.Where(s => s != null).First().Share!.Sample()); });
+
+    // S2163. A copy of a list has an object that gets its pending cell after the copy.
+    public static Cell<int> ElementOfAToListThatGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> first = [x]; List<SettableSlot> copy = first.ToList(); x.Share = l.Map(v => v); return S.Hold(copy[0].Share!.Sample()); });
+
+    // S2164. A second list has an object that the walk did not see made, which has a pending cell. A list gets its elements from a query over the second list.
+    public static Cell<int> ElementsOfAQueryOverAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsOfNoObject[2]; old.Share = l.Map(v => v); List<SettableSlot> first = []; first.Add(old); List<SettableSlot> list = []; list.AddRange(first.Where(s => s != null)); list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2165. A key of a dictionary is not one of the values that the dictionary holds. First of a copy of the keys gives the key with the pending cell.
+    public static Cell<int> KeyThroughACopyOfKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(l.Map(v => v))] = new Titled(Plain); Kept.Add(d.Keys.ToList().First().ToString()); return S.Hold(0); });
+
+    // S2166. The same for the first key of a loop over the keys.
+    public static Cell<int> KeyThroughALoopOverKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(l.Map(v => v))] = new Titled(Plain); foreach (Titled key in d.Keys) { Kept.Add(key.ToString()); } return S.Hold(0); });
+
+    // S2167. First of the values of the same dictionary gives the value, which has a plain cell.
+    public static Cell<int> ValueThroughValuesBesideAKeyWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Titled, Titled> d = new(); d[new Titled(l.Map(v => v))] = new Titled(Plain); Kept.Add(d.Values.First().ToString()); return S.Hold(0); });
+
+    // S2168. FirstOrDefault of an empty list gives its argument, which has a pending cell.
+    public static Cell<int> FirstOrDefaultGivesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot fallback = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; return S.Hold(list.FirstOrDefault(fallback).Share!.Sample()); });
+
+    // S2169. The same, where the list has an object with a plain cell and a query gives no element.
+    public static Cell<int> FirstOrDefaultOfAQueryGivesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot fallback = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; return S.Hold(list.Where(s => s == null).FirstOrDefault(fallback).Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
