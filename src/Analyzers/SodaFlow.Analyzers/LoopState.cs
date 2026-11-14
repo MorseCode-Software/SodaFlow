@@ -190,6 +190,23 @@ internal sealed class LoopState
                 held: NoObjects);
 
     /// <summary>
+    ///     True for a state with members that holds no object. For a collection,
+    ///     the members are then of a value that no object of the store is.
+    /// </summary>
+    public bool HasMembersOfNoObject => this.Members != null && this.Held.IsEmpty;
+
+    /// <summary>True for a collection that holds an object.</summary>
+    public bool HoldsAnObject => !this.Held.IsEmpty;
+
+    /// <summary>
+    ///     The same state, for a collection that got a value. It holds each object
+    ///     that the value can be. When the value is a collection whose elements
+    ///     went in, it holds what that collection holds.
+    /// </summary>
+    public LoopState HoldingWhatCameWith(LoopState value) =>
+        this.Holding(Union(first: value.Objects, second: value.Held));
+
+    /// <summary>
     ///     The same state, for a collection that also holds an object that the
     ///     store does not know.
     /// </summary>

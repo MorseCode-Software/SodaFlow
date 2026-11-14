@@ -1375,7 +1375,15 @@ internal sealed class LoopReadAnalyzerTests
             ["TurnLambdaOfTheFirstTurnChangesItsObjectInALambdaOfAList"] = ["SF1001"],
             ["TurnAssignmentToALocalOfTheBlockWhenNoTurnRuns"] = ["SF1001"],
             ["TurnObjectsOfALambdaThatAListRuns"] = ["SF1001"],
-            ["TurnObjectsOfALocalFunctionThatAListRuns"] = ["SF1001"]
+            ["TurnObjectsOfALocalFunctionThatAListRuns"] = ["SF1001"],
+            ["ElementBesideAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["ElementOfALiteralWithAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["ElementThatGetsAPendingCellAfterTheListGotIt"] = ["SF1001"],
+            ["ElementThatAddRangePut"] = ["SF1001"],
+            ["ElementThatAddRangePutAndThatGetsAPendingCellAfterIt"] = ["SF1001"],
+            ["ElementOfACopyOfAList"] = ["SF1001"],
+            ["ElementWithNoStateBesideASecondObject"] = ["SF1001"],
+            ["ElementWithNoStateThatAddRangePut"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

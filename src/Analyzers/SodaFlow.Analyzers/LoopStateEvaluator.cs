@@ -407,7 +407,10 @@ internal sealed class LoopStateEvaluator
                 and (ILocalSymbol or IParameterSymbol))
         {
             // A collection that got the object of this local contains that object also.
-            this.MergeIntoHolders(local: holder, state: changed.AsContainer, level: 1);
+            this.MergeIntoHolders(
+                local: holder,
+                state: this.AsACopyOfAChangeTo(changed: has, state: changed),
+                level: 1);
 
             // A parameter starts with the state of its argument, which has the type of the object.
             // The callee gives this state back, and the object of the caller keeps its type.
@@ -474,9 +477,15 @@ internal sealed class LoopStateEvaluator
     {
         // The collection holds the object of the value. Only a put does that: a call that can
         // keep its argument, as Contains is for the analyzer, makes no second name.
-        if (collection is ExpressionSyntax written && this.Eval(value).Objects is { IsEmpty: false } put)
+        if (collection is ExpressionSyntax written)
         {
-            this.Change(owner: this.Eval(written), change: old => old.Holding(put), replaces: false, turn: null);
+            LoopState put = this.Eval(value);
+
+            this.Change(
+                owner: this.Eval(written),
+                change: old => old.HoldingWhatCameWith(put),
+                replaces: false,
+                turn: null);
         }
 
         if (Unwrapped(value) is IdentifierNameSyntax name
@@ -544,15 +553,18 @@ internal sealed class LoopStateEvaluator
     ///     Adds a state to what a name holds, for a value that a call puts into
     ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
     /// </summary>
-    public void Absorb(ExpressionSyntax target, LoopState state) =>
-        // The object contains the value. It is not the value. A value with members that is no
-        // object of the store has those members only here. Thus, the object then holds an object
-        // that the store does not know.
-        this.Merge(
-            target: target,
-            state: state.Objects.IsEmpty && state.Members != null
-                ? state.AsContainer.WithNoObjects.HoldingAnUnknownObject
-                : state.AsContainer.WithNoObjects);
+    public void Absorb(ExpressionSyntax target, LoopState state)
+    {
+        // The object contains the value. It is not the value.
+        LoopState put = state.AsContainer.WithNoObjects;
+
+        // A value with members that is no object of the store has those members only here. For a
+        // collection whose elements go into the object, that is a collection that holds no
+        // object. Thus, the object then holds an object that the store does not know.
+        bool ofNoObject = state.Members != null && (state.IsContainer ? !state.HoldsAnObject : state.Objects.IsEmpty);
+
+        this.Merge(target: target, state: ofNoObject ? put.HoldingAnUnknownObject : put);
+    }
 
     /// <summary>
     ///     Adds a state to what a name holds, as it is. A callee that put a
@@ -592,7 +604,10 @@ internal sealed class LoopStateEvaluator
             if (target is IdentifierNameSyntax name
                 && this.region.SymbolOf(name) is { } held and (ILocalSymbol or IParameterSymbol))
             {
-                this.MergeIntoHolders(local: held, state: state.AsContainer, level: level + 1);
+                this.MergeIntoHolders(
+                    local: held,
+                    state: this.AsACopyOfAChangeTo(changed: owner, state: state),
+                    level: level + 1);
             }
 
             if (collection == null)
@@ -606,9 +621,18 @@ internal sealed class LoopStateEvaluator
             }
 
             target = collection;
-            state = state.AsContainer;
+            state = this.AsACopyOfAChangeTo(changed: owner, state: state);
         }
     }
+
+    // A collection gets a copy of each change to a value that it contains. When the store has
+    // each object that the value can be, the store has the change also. For each other value, the
+    // copy is the only record of the change. Thus, the collection then holds an object that the
+    // store does not know, and an element of it keeps the copy.
+    private LoopState AsACopyOfAChangeTo(LoopState changed, LoopState state) =>
+        !changed.Objects.IsEmpty && changed.Objects.All(made => this.region.Objects.StateOf(made) != null)
+            ? state.AsContainer
+            : state.AsContainer.HoldingAnUnknownObject;
 
     // Each collection that got the object of a local contains the change to that object.
     private void MergeIntoHolders(ISymbol local, LoopState state, int level)
@@ -789,11 +813,12 @@ internal sealed class LoopStateEvaluator
     ///     one state.
     /// </summary>
     /// <remarks>
-    ///     A local, a parameter, or a member gets the members of the store when
-    ///     the store has each object that it can be. An element and the result of
-    ///     a call are one of the values that they can be, and keep what they have.
-    ///     A value that can be an object that the store does not know keeps what
-    ///     it has also.
+    ///     A local, a parameter, a member, or an element gets the members of the
+    ///     store when the store has each object that it can be. A collection holds
+    ///     an object that the store does not know for each value that it got with
+    ///     members and no object. Thus, an element of such a collection keeps what
+    ///     it has, as each value that can be such an object does. The result of a
+    ///     call is one of the values that it can be, and keeps what it has also.
     /// </remarks>
     private LoopState Refreshed(ExpressionSyntax expression, LoopState state)
     {
@@ -825,7 +850,9 @@ internal sealed class LoopStateEvaluator
         LoopState refreshed =
             state.RefreshedFrom(
                 stored: stored.FromIfUnknown(state.AnyOrigin),
-                all: known && Unwrapped(expression) is IdentifierNameSyntax or MemberAccessExpressionSyntax);
+                all: known
+                     && Unwrapped(expression)
+                         is IdentifierNameSyntax or MemberAccessExpressionSyntax or ElementAccessExpressionSyntax);
 
         // The store has the parts of the object of this turn. A value that can be an older object
         // can have the older parts also.
@@ -858,8 +885,11 @@ internal sealed class LoopStateEvaluator
             return state.WithNoObjects;
         }
 
-        // A new collection holds the objects that it got, and is not one of them.
-        LoopState apart = state.WithObjects(ImmutableArray<MadeObject>.Empty);
+        // A new collection holds the objects that it got, and is not one of them. Members of a
+        // value that no object of the store is are only here. Thus, the collection then holds an
+        // object that the store does not know.
+        LoopState held = state.Holding(state.Objects).WithObjects(ImmutableArray<MadeObject>.Empty);
+        LoopState apart = held.IsContainer && held.HasMembersOfNoObject ? held.HoldingAnUnknownObject : held;
 
         if (this.quiet)
         {
