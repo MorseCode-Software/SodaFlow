@@ -445,7 +445,7 @@ internal static class PlatformCallers
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
                && PlatformReceivers.WithASetArgument.Keys.Any(key =>
-                   key.Type == NameOf(type) && key.Method == NameOf(definition));
+                   key.Type == type.Name && key.Method == NameOf(definition));
     }
 
     /// <summary>
@@ -459,7 +459,7 @@ internal static class PlatformCallers
 
         return SodaFlowSymbols.IsPlatform(argument)
                && PlatformReceivers.WithASetArgument.TryGetValue(
-                   key: (NameOf(definition.ContainingType), NameOf(definition), argument.Name),
+                   key: (definition.ContainingType.Name, NameOf(definition), argument.Name),
                    value: out PlatformReceiver receiver)
             ? receiver
             : null;
@@ -485,7 +485,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && WithAFunctionThatChooses.Contains((NameOf(type), NameOf(definition)));
+               && WithAFunctionThatChooses.Contains((type.Name, NameOf(definition)));
     }
 
     /// <summary>True for a method of <see cref="WithAFunctionAndKeys" />.</summary>
@@ -495,7 +495,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && WithAFunctionAndKeys.Contains((NameOf(type), NameOf(definition)));
+               && WithAFunctionAndKeys.Contains((type.Name, NameOf(definition)));
     }
 
     /// <summary>True for a method of <see cref="AmongTheElements" />.</summary>
@@ -505,7 +505,7 @@ internal static class PlatformCallers
 
         return definition.ContainingType is { } type
                && SodaFlowSymbols.IsPlatform(type)
-               && AmongTheElements.Contains((NameOf(type), NameOf(definition)));
+               && AmongTheElements.Contains((type.Name, NameOf(definition)));
     }
 
     /// <summary>
@@ -575,7 +575,7 @@ internal static class PlatformCallers
         }
 
         if (ComparedParameters.TryGetValue(
-                key: (NameOf(called.ContainingType), NameOf(called)),
+                key: (called.ContainingType.Name, NameOf(called)),
                 value: out ImmutableArray<string> names))
         {
             return ([.. pairs.Where(pair => names.Contains(pair.Parameter.Name))], false);
@@ -593,8 +593,9 @@ internal static class PlatformCallers
             : (pairs, true);
     }
 
-    // The name of a type in the tables. A type in a type, as the builder of an immutable collection
-    // is, has the name of that type before its own name.
+    // The name of a type in the tables of the callbacks and of the receivers. A type in a type, as
+    // the builder of an immutable collection is, has the name of that type before its own name. Each
+    // other table has no row for such a type.
     private static string NameOf(INamedTypeSymbol type) =>
         type.ContainingType is { } outer ? outer.Name + "." + type.Name : type.Name;
 

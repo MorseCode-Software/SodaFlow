@@ -1416,7 +1416,16 @@ internal sealed class LoopReadAnalyzerTests
             ["LambdaReadsWhatTheTurnBeforeGave"] = ["SF1001"],
             ["CalleeReadsWhatTheTurnBeforeGave"] = ["SF1004"],
             ["InnerLoopReadsWhatTheOuterTurnBeforeGave"] = ["SF1001"],
-            ["InnerLoopReadsWhatItsTurnBeforeGave"] = ["SF1001"]
+            ["InnerLoopReadsWhatItsTurnBeforeGave"] = ["SF1001"],
+            ["ElementFromAListThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["BuilderOfAnImmutableDictionaryContainsValue"] = ["SF1005"],
+            ["BuilderOfAnImmutableSortedDictionaryContainsValue"] = ["SF1005"],
+            ["BuilderOfAnImmutableListBinarySearch"] = ["SF1005"],
+            ["BuilderOfAnImmutableListSort"] = ["SF1005"],
+            ["BuilderOfAnImmutableArraySort"] = ["SF1005"],
+            ["ConditionOfADoReadsWhatTheTurnBeforeGave"] = ["SF1001"],
+            ["TurnAssignmentOfACellWhenNoTurnRuns"] = ["SF1001"],
+            ["TurnEndsAfterItsAssignment"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

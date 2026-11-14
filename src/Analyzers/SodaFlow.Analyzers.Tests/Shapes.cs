@@ -9291,6 +9291,50 @@ public static class Shapes
     public static Cell<int> ObjectOfTheBodyHasNoStateFromTheTurnBefore() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Kept.Add(x.Share!.Sample()); x.Share = l.Map(v => v); Kept.Add(x); } return S.Hold(0); });
 
+    // S2007. A list got the elements of a list that the walk did not see made, which has an object with a pending cell.
+    public static Cell<int> ElementFromAListThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SharedSlotList.Clear(); SharedSlotList.Add(x); List<SettableSlot> list = [new SettableSlot { Share = Plain }]; list.AddRange(SharedSlotList); return S.Hold(list[1].Share!.Sample()); });
+
+    // S2008. A builder of an ImmutableDictionary gives the call of Equals in ContainsValue to the value that the code gives.
+    public static Cell<int> BuilderOfAnImmutableDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<int, SameOwn>.Builder made = ImmutableDictionary.CreateBuilder<int, SameOwn>(); made.Add(1, new(Plain)); Kept.Add(made.ContainsValue(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S2009. The same for a builder of an ImmutableSortedDictionary.
+    public static Cell<int> BuilderOfAnImmutableSortedDictionaryContainsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableSortedDictionary<int, SameOwn>.Builder made = ImmutableSortedDictionary.CreateBuilder<int, SameOwn>(); made.Add(1, new(Plain)); Kept.Add(made.ContainsValue(new SameOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S2010. A builder of an ImmutableList gives the call of CompareTo in BinarySearch to the object that the code gives.
+    public static Cell<int> BuilderOfAnImmutableListBinarySearch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<RankedOwn>.Builder made = ImmutableList.CreateBuilder<RankedOwn>(); made.Add(new(Plain)); Kept.Add(made.BinarySearch(new RankedOwn(l.Map(v => v)))); return S.Hold(0); });
+
+    // S2011. A builder of an ImmutableList sorts two objects, and each has a pending cell.
+    public static Cell<int> BuilderOfAnImmutableListSort() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<RankedOwn>.Builder made = ImmutableList.CreateBuilder<RankedOwn>(); made.Add(new(l.Map(v => v))); made.Add(new(l.Map(v => v))); made.Sort(); return S.Hold(0); });
+
+    // S2012. A builder of an ImmutableArray sorts two objects, and each has a pending cell.
+    public static Cell<int> BuilderOfAnImmutableArraySort() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<RankedOwn>.Builder made = ImmutableArray.CreateBuilder<RankedOwn>(); made.Add(new(l.Map(v => v))); made.Add(new(l.Map(v => v))); made.Sort(); return S.Hold(0); });
+
+    // S2013. A builder of an ImmutableDictionary gives the call of Equals in Add to the key that the code gives, and the key that it has has the pending cell.
+    public static Cell<int> BuilderOfAnImmutableDictionaryThatHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<SameOwn, int>.Builder made = ImmutableDictionary.CreateRange(new[] { new KeyValuePair<SameOwn, int>(new(l.Map(v => v)), 1) }).ToBuilder(); made.Add(new SameOwn(Plain), 2); return S.Hold(0); });
+
+    // S2014. The condition of a do reads a cell that the body got from the turn before.
+    public static Cell<int> ConditionOfADoReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; Cell<int>? now = null; int i = 0; do { now = last; last = l.Map(v => v); i++; } while (i < 3 && (now == null || now.Sample() >= 0)); return S.Hold(0); });
+
+    // S2015. An assignment in the body gives a local of the block a plain cell. Here, no turn runs, and the local keeps its pending cell.
+    public static Cell<int> TurnAssignmentOfACellWhenNoTurnRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> keep = l.Map(v => v); int n = 0; for (int i = 0; i < n; i++) { keep = Plain; } return S.Hold(keep.Sample()); });
+
+    // S2016. Each turn gives a local of the block a pending cell and then a plain one. After the loop, the local has the plain cell or the value from before the loop.
+    public static Cell<int> TurnGivesAPendingCellAndThenAPlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { last = l.Map(v => v); last = Plain; } return S.Hold(last!.Sample()); });
+
+    // S2017. The last turn ends at a break statement after the assignment, and the local keeps what that turn gave.
+    public static Cell<int> TurnEndsAfterItsAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> last = Plain; for (int i = 0; i < 2; i++) { last = l.Map(v => v); if (i == 0) { break; } last = Plain; } return S.Hold(last.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11017,6 +11061,8 @@ public static class Shapes
             Kept.Add(cell.Sample());
         }
     }
+
+    private static readonly List<SettableSlot> SharedSlotList = [];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

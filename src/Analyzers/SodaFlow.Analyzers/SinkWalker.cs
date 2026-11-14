@@ -29,8 +29,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
     // For the body of each loop that the walk is in: the state that a local of the code around the
-    // loop had before an assignment that each turn always runs.
+    // loop had before the first assignment of each read that each turn always runs.
     private readonly Dictionary<SyntaxNode, Dictionary<ISymbol, LoopState>> hadBefore = [];
+
+    // The locals of hadBefore that this read of the body gave a value.
+    private readonly HashSet<(SyntaxNode Turn, ISymbol Local)> assignedInThisRead = [];
 
     // The lambdas that the walk read where they are, and that their callee runs one time.
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
@@ -275,6 +278,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // again.
         this.entered.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
         this.once.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
+        this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
 
         // A for runs its incrementors after the turn, and then its condition.
         foreach (ExpressionSyntax incrementor in incrementors)
@@ -291,6 +295,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (this.hadBefore.TryGetValue(key: body, value: out Dictionary<ISymbol, LoopState>? had))
         {
             this.hadBefore.Remove(body);
+            this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
 
             foreach (KeyValuePair<ISymbol, LoopState> local in had)
             {
@@ -1213,7 +1218,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         LoopState before = this.evaluator.AssignInATurn(local: local, state: state);
-        had[local] = had.TryGetValue(key: local, value: out LoopState? earlier) ? earlier.Join(before) : before;
+
+        // A second assignment in the same turn replaces a value that no code after the loop can
+        // read: no statement between the two can end the turn.
+        if (this.assignedInThisRead.Add((turn, local)))
+        {
+            had[local] = had.TryGetValue(key: local, value: out LoopState? earlier) ? earlier.Join(before) : before;
+        }
     }
 
     // A local that the body of a loop declares is new in each turn. Thus, an assignment that each
