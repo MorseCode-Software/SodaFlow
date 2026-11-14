@@ -352,7 +352,10 @@ internal sealed partial class LoopStateEvaluator
     public void Assign(ISymbol local, LoopState state, ExpressionSyntax? from = null, ExpressionSyntax? kept = null)
     {
         state = this.InALocal(local: local, state: this.ForAName(state: state, from: kept));
-        this.IsOneCollection(local: local, state: state, from: from);
+
+        // A function can run two or more times, and at a different time. Thus, an assignment in a
+        // function makes a local no one collection.
+        this.IsOneCollection(local: local, state: state, from: this.function == null ? from : null);
         this.locals[local] = state;
         this.assigned.Add(local);
     }
@@ -726,7 +729,15 @@ internal sealed partial class LoopStateEvaluator
     ///     A change to the object in the local is then a change to what the
     ///     collection contains.
     /// </summary>
-    public void HoldsOneOf(ISymbol local, ExpressionSyntax collection) => this.Frame.ElementOf[local] = collection;
+    public void HoldsOneOf(ISymbol local, ExpressionSyntax collection)
+    {
+        this.Frame.ElementOf[local] = collection;
+
+        if (!this.HoldsOnlyWhatWentIn(collection))
+        {
+            this.Frame.CanBeUnseen.Add(local);
+        }
+    }
 
     /// <summary>
     ///     Records the value that a local gets. A value that is an element of a
@@ -741,11 +752,19 @@ internal sealed partial class LoopStateEvaluator
         if (replaces)
         {
             this.Frame.Holders.Remove(local);
+            this.Frame.CanBeUnseen.Remove(local);
+        }
+
+        // The value says if its object can be one that the store does not know. An element at a
+        // position that the walk knows is the object of that position.
+        if (this.CanBeUnseen(value))
+        {
+            this.Frame.CanBeUnseen.Add(local);
         }
 
         if (this.CollectionOf(value) is { } collection)
         {
-            this.HoldsOneOf(local: local, collection: collection);
+            this.Frame.ElementOf[local] = collection;
         }
         else if (replaces)
         {
@@ -1483,7 +1502,7 @@ internal sealed partial class LoopStateEvaluator
     private MadeObject? TheOneCollectionOf(ExpressionSyntax expression) =>
         this.function == null
         && Unwrapped(expression) is IdentifierNameSyntax name
-        && this.region.SymbolOf(name) is ILocalSymbol local
+        && this.region.SymbolOf(name) is { } local and (ILocalSymbol or IParameterSymbol)
         && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
             ? one
             : null;
@@ -5418,10 +5437,27 @@ internal sealed partial class LoopStateEvaluator
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
         HashSet<ISymbol> given = new(SymbolEqualityComparer.Default);
         HashSet<ISymbol> withAValue = new(SymbolEqualityComparer.Default);
+        Dictionary<ISymbol, MadeObject> collections = new(SymbolEqualityComparer.Default);
+        HashSet<ISymbol> unseen = new(SymbolEqualityComparer.Default);
 
         foreach (Binding binding in bindings)
         {
             LoopState state = binding.State.From(binding.Parameter);
+
+            // A parameter is the object of its argument. A params parameter is an array of them.
+            // An argument that is no name of a local can make one new object, as a local does at
+            // its declaration.
+            if (!binding.Parameter.IsParams && KeepsItsObject(binding.Parameter))
+            {
+                if (this.CanBeUnseen(binding.Argument))
+                {
+                    unseen.Add(binding.Parameter);
+                }
+                else if ((this.TheOneCollectionOf(binding.Argument) ?? TheOneNewObject(binding.State)) is { } one)
+                {
+                    collections[binding.Parameter] = one;
+                }
+            }
 
             // A params parameter gets the states of all its arguments.
             parameters[binding.Parameter] =
@@ -5441,7 +5477,7 @@ internal sealed partial class LoopStateEvaluator
 
         (bool Always, SyntaxNode? Turn) where = this.WhereItRuns(call);
 
-        return new LoopStateEvaluator(
+        LoopStateEvaluator inner = new(
             region: this.region,
             bound: parameters.ToImmutable(),
             noValues: noValue.ToImmutable(),
@@ -5472,6 +5508,16 @@ internal sealed partial class LoopStateEvaluator
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
+
+        inner.Frame.CanBeUnseen.UnionWith(unseen);
+
+        // The code of a function does not read this record: see TheOneCollectionOf.
+        foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
+        {
+            inner.Frame.TheOneCollectionOf[one.Key] = one.Value;
+        }
+
+        return inner;
     }
 
     /// <summary>

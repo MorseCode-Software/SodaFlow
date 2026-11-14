@@ -49,6 +49,10 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+
+        // The owner can be an object that the store does not know. The write is then a change to
+        // that object, and each object of the store that the owner can be keeps what it has.
+        bool isKnown = !this.CanBeUnseen(owner);
         this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
 
         if (!replaces
@@ -60,7 +64,15 @@ internal sealed partial class LoopStateEvaluator
             || !IsALocation(member)
             || FunctionOf(owner) is not { } code)
         {
-            this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
+            this.Write(
+                owner: owner,
+                member: member,
+                state: state,
+                replaces: replaces,
+                turn: turn,
+                has: has,
+                isKnown: isKnown);
+
             this.Frame.LastWrite = null;
 
             return;
@@ -78,7 +90,14 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
+        this.Write(
+            owner: owner,
+            member: member,
+            state: state,
+            replaces: replaces,
+            turn: turn,
+            has: has,
+            isKnown: isKnown);
 
         this.Frame.LastWrite =
             new WriteThroughAName(
@@ -360,6 +379,47 @@ internal sealed partial class LoopStateEvaluator
         };
     }
 
+    /// <summary>
+    ///     True when the object of an expression can be one that the store does
+    ///     not know, because a collection gave it. The expression is an element
+    ///     of a collection, a local that got such an element, or a member of one
+    ///     of the two.
+    /// </summary>
+    /// <remarks>
+    ///     An element at a position that the walk knows is the value of that
+    ///     position. Each other element can be each object that its collection
+    ///     holds.
+    /// </remarks>
+    private bool CanBeUnseen(ExpressionSyntax? written)
+    {
+        while (written != null)
+        {
+            written = Unwrapped(written);
+
+            switch (written)
+            {
+                case IdentifierNameSyntax
+                    when this.region.SymbolOf(written) is { } name and (ILocalSymbol or IParameterSymbol):
+                    return this.Frame.CanBeUnseen.Contains(name);
+                case ElementAccessExpressionSyntax element when this.PositionOf(element) is { } position:
+                    written = position;
+
+                    continue;
+                case ElementAccessExpressionSyntax or InvocationExpressionSyntax
+                    when this.CollectionOf(written) is { } collection:
+                    return !this.HoldsOnlyWhatWentIn(collection);
+                case MemberAccessExpressionSyntax access:
+                    written = access.Expression;
+
+                    continue;
+                default:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
     // True when a write that always runs in its function gives a name only the new state. The
     // function is the code of this frame, or each call of it makes the name, or its call always
     // runs.
@@ -383,14 +443,16 @@ internal sealed partial class LoopStateEvaluator
             _ => false
         };
 
-    // The write itself: what SetMemberOf records for each owner.
+    // The write itself: what SetMemberOf records for each owner. The store does not know each
+    // object that the owner can be when the last argument is false.
     private void Write(
         ExpressionSyntax? owner,
         ISymbol member,
         LoopState state,
         bool replaces,
         SyntaxNode? turn,
-        LoopState has)
+        LoopState has,
+        bool isKnown)
     {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
@@ -400,8 +462,8 @@ internal sealed partial class LoopStateEvaluator
             this.Change(
                 owner: has,
                 change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: state)),
-                replaces: replaces,
-                turn: turn);
+                replaces: replaces && isKnown,
+                turn: isKnown ? turn : null);
         }
 
         // The owner is an element of a collection. The collection then contains an object whose

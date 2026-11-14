@@ -116,6 +116,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     The locals of this code whose object can be one that the store does
+    ///     not know. Such a local got an element of a collection that did not
+    ///     have the mark from <see cref="ObjectStore.IsComplete" />.
+    /// </summary>
+    public HashSet<ISymbol> CanBeUnseen { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For each foreach statement that the walk is in, and whose collection
     ///     keeps its positions: the writes to a member through its variable.
     /// </summary>

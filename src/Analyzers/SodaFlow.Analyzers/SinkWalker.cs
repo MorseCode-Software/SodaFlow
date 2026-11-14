@@ -1390,7 +1390,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 if (replaces || IsNewInEachTurn(local: local, turn: turn))
                 {
-                    this.evaluator.Assign(local: local, state: state, kept: from);
+                    this.evaluator.Assign(local: local, state: state, from: from, kept: from);
                 }
                 else if (turn != null)
                 {

@@ -11123,6 +11123,122 @@ public static class Shapes
     public static Cell<int> Ab71TheSecondWriteInALambdaForEachElementOfNone() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71More[5]; c.Share = l.Map(v => v); Array.ForEach(Ab71None, _ => { c.Share = Plain; }); return S.Hold(c.Share!.Sample()); });
 
+    // S2465. AB72. The evidence of the item: code with no body to read gets the list, and it puts an object first.
+    public static Cell<int> Ab72TheCodeWithNoBodyPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2466. AB72. The same for a list that has its positions from a literal.
+    public static Cell<int> Ab72TheCodeWithNoBodyPutsAnObjectFirstInAListFromALiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2467. AB72. A local gets the first element after the code with no body, and the write is through the local.
+    public static Cell<int> Ab72ALocalGetsTheFirstElementAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); SettableSlot e = list[0]; e.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2468. AB72. The write is through the result of First.
+    public static Cell<int> Ab72TheWriteThroughFirstAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list.First().Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2469. AB72. The code with no body puts a different object in the position of the first one.
+    public static Cell<int> Ab72TheCodeWithNoBodyPutsAnObjectInThePositionOfTheFirstOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Swap(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2470. AB72. A foreach statement that ends after its first turn does the write.
+    public static Cell<int> Ab72AForeachThatEndsAfterItsFirstTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); foreach (SettableSlot e in list) { e.Share = Plain; break; } return S.Hold(y.Share!.Sample()); });
+
+    // S2471. AB72. An object holds the list, and the code with no body gets that object.
+    public static Cell<int> Ab72TheCodeWithNoBodyGetsAnObjectThatHoldsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ab72Box box = new(list); IAb72Keeper keeper = NewAb72Keeper(); keeper.KeepBox(box); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2472. AB72. The list never had the mark: its literal has an object that the walk did not see made.
+    public static Cell<int> Ab72AListWithAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, Ab72Slots[0]]; int one = Kept.Count - Kept.Count + 1; list[one].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2473. AB72. The list gets an object that the walk did not see made, with Add.
+    public static Cell<int> Ab72AListGetsAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Add(Ab72Slots[1]); int one = Kept.Count - Kept.Count + 1; list[one].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2474. AB72. The list is from code with no body to read, and it has an object before the Add.
+    public static Cell<int> Ab72AListFromCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = NewAb72Keeper().Made(); list.Add(y); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2475. AB72. The code with no body does not get the list, and no other code can get to it.
+    public static Cell<int> Ab72TheCodeWithNoBodyDoesNotGetTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2476. AB72. A local gets the element before the code with no body gets the list.
+    public static Cell<int> Ab72ALocalGetsTheElementBeforeTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } SettableSlot e = list[0]; IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); e.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2477. AB72. The element at a position that the walk knows is that object, where a second element is not known.
+    public static Cell<int> Ab72TheFirstPositionOfAListWithAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, Ab72More[0]]; list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2478. AB72. A second local gets the local that got the element after the code with no body.
+    public static Cell<int> Ab72ASecondLocalGetsTheLocalOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); SettableSlot e = list[0]; SettableSlot f = e; f.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2479. AB72. The local gets a new object after it got the element, and the write is to the new object.
+    public static Cell<int> Ab72TheLocalGetsANewObjectAfterTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); SettableSlot e = list[0]; e = new SettableSlot { Share = l.Map(v => v) }; SettableSlot f = e; e.Share = Plain; return S.Hold(f.Share!.Sample()); });
+
+    // S2480. AB72. A method with a body gets the element as an argument, and it does the write.
+    public static Cell<int> Ab72AMethodGetsTheElementAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); Ab72MakePlain(list[0]); return S.Hold(y.Share!.Sample()); });
+
+    // S2481. AB72. A method with a body gets the list as an argument, and it does the write through the first element.
+    public static Cell<int> Ab72AMethodGetsTheListAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); Ab72MakeTheFirstPlain(list); return S.Hold(y.Share!.Sample()); });
+
+    // S2482. AB72. A lambda gets the element as an argument, and it does the write.
+    public static Cell<int> Ab72ALambdaGetsTheElementAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); Action<SettableSlot> plain = slot => { slot.Share = Plain; }; plain(list[0]); return S.Hold(y.Share!.Sample()); });
+
+    // S2483. AB72. The write is to a member of an object in a member of the element.
+    public static Cell<int> Ab72AMemberOfAMemberOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OuterSlot y = new(); y.Inner.Share = l.Map(v => v); List<OuterSlot> list = [y, Ab72Outers[0]]; int one = Kept.Count - Kept.Count + 1; list[one].Inner.Share = Plain; return S.Hold(y.Inner.Share!.Sample()); });
+
+    // S2484. AB72. The variable of a foreach statement that ends after its first turn, and two writes through it.
+    public static Cell<int> Ab72TwoWritesThroughTheVariableOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); foreach (SettableSlot e in list) { e.Share = l.Map(v => v); e.Share = Plain; break; } return S.Hold(y.Share!.Sample()); });
+
+    // S2485. AB72. Two writes through the local of the element, and the read is through that local.
+    public static Cell<int> Ab72TwoWritesThroughTheLocalOfTheElementAndAReadThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); SettableSlot e = list[0]; e.Share = l.Map(v => v); e.Share = Plain; return S.Hold(e.Share!.Sample()); });
+
+    // S2486. AB72. A method with a body gets a list that no other code can get to, and it does the write.
+    public static Cell<int> Ab72AMethodGetsAListThatHoldsOnlyWhatWentIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ab72MakeTheFirstPlain(list); return S.Hold(y.Share!.Sample()); });
+
+    // S2487. AB72. The object of a turn is in a list that code with no body to read gets in that turn.
+    public static Cell<int> Ab72TheObjectOfATurnAndTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; Kept.Add(y.Share!.Sample()); } return S.Hold(0); });
+
+    // S2488. AB72. A method with a body gets a new list as its argument, and it does the write.
+    public static Cell<int> Ab72AMethodGetsANewListAsItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ab72MakeTheFirstPlain([y]); return S.Hold(y.Share!.Sample()); });
+
+    // S2489. AB72. A method with a body gets an element that is a list, of a list that the walk did not see filled.
+    public static Cell<int> Ab72AMethodGetsAListThatIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> inner = [y]; List<List<SettableSlot>> lists = [inner, Ab72Lists[0]]; int one = Kept.Count - Kept.Count + 1; Ab72MakeTheFirstPlain(lists[one]); return S.Hold(y.Share!.Sample()); });
+
+    // S2490. AB72. A list that is one of two: a new list, or a list that the walk did not see made, which it is.
+    public static Cell<int> Ab72AListThatIsOneOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> mine = [y]; List<SettableSlot> list = Never ? mine : Ab72Unseen; list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2491. AB72. The same, where an assignment gives the local the list.
+    public static Cell<int> Ab72AListThatIsOneOfTwoFromAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> mine = [y]; List<SettableSlot> list; list = Never ? mine : Ab72Unseen; list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2492. AB72. An out variable gets a value of a dictionary that has an object that the walk did not see made.
+    public static Cell<int> Ab72AnOutVariableGetsAValueOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Dictionary<int, SettableSlot> map = new() { [1] = y, [2] = Ab72Slots[0] }; map.TryGetValue(Kept.Count - Kept.Count + 2, out SettableSlot? e); e!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2493. AB72. A method with a body fills a list that is an element, of a list that the walk did not see filled.
+    public static Cell<int> Ab72AMethodFillsAListThatIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> inner = []; List<List<SettableSlot>> lists = [inner, Ab72Lists[1]]; int one = Kept.Count - Kept.Count + 1; Ab72AddAndMakeTheFirstPlain(lists[one], y); return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13337,6 +13453,66 @@ public static class Shapes
         {
             slot.Share = Plain;
         }
+    }
+
+    private static readonly SettableSlot[] Ab72Slots = [new(), new()];
+
+    private static readonly SettableSlot[] Ab72More = [new()];
+
+    private static readonly OuterSlot[] Ab72Outers = [new()];
+
+    private static readonly List<SettableSlot> Ab72Unseen = [new SettableSlot()];
+
+    private static readonly List<SettableSlot>[] Ab72Lists = [[new SettableSlot()], [new SettableSlot()]];
+
+    private static void Ab72MakePlain(SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ab72MakeTheFirstPlain(List<SettableSlot> all) => all[0].Share = Plain;
+
+    private static void Ab72AddAndMakeTheFirstPlain(List<SettableSlot> all, SettableSlot slot)
+    {
+        all.Add(slot);
+        all[0].Share = Plain;
+    }
+
+    private static IAb72Keeper NewAb72Keeper() => new Ab72Keeper();
+
+    public sealed class OuterSlot
+    {
+        public SettableSlot Inner { get; } = new();
+    }
+
+    public sealed class Ab72Box(List<SettableSlot> all)
+    {
+        public List<SettableSlot> All { get; } = all;
+    }
+
+    public interface IAb72Keeper
+    {
+        void Keep(List<SettableSlot> all);
+
+        void KeepBox(Ab72Box box);
+
+        void Put(SettableSlot first);
+
+        void Swap(SettableSlot first);
+
+        List<SettableSlot> Made();
+    }
+
+    private sealed class Ab72Keeper : IAb72Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void KeepBox(Ab72Box box) => this.kept = box.All;
+
+        public void Put(SettableSlot first) => this.kept.Insert(0, first);
+
+        public void Swap(SettableSlot first) => this.kept[0] = first;
+
+        public List<SettableSlot> Made() => [new SettableSlot()];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

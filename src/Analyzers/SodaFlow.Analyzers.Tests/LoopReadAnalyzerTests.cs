@@ -1710,7 +1710,29 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab71AnElementWithNoNameAndTheSecondWriteInABranch"] = ["SF1001"],
             ["Ab71ThePendingWriteInALambdaThatABranchCalls"] = ["SF1001"],
             ["Ab71AStructAndTheSecondWriteInALoop"] = ["SF1001"],
-            ["Ab71TheSecondWriteInALambdaForEachElementOfNone"] = ["SF1001"]
+            ["Ab71TheSecondWriteInALambdaForEachElementOfNone"] = ["SF1001"],
+            ["Ab72TheCodeWithNoBodyPutsAnObjectFirst"] = ["SF1001"],
+            ["Ab72TheCodeWithNoBodyPutsAnObjectFirstInAListFromALiteral"] = ["SF1001"],
+            ["Ab72ALocalGetsTheFirstElementAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72TheWriteThroughFirstAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72TheCodeWithNoBodyPutsAnObjectInThePositionOfTheFirstOne"] = ["SF1001"],
+            ["Ab72AForeachThatEndsAfterItsFirstTurn"] = ["SF1001"],
+            ["Ab72TheCodeWithNoBodyGetsAnObjectThatHoldsTheList"] = ["SF1001"],
+            ["Ab72AListWithAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab72AListGetsAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab72AListFromCodeWithNoBody"] = ["SF1001"],
+            ["Ab72ASecondLocalGetsTheLocalOfTheElement"] = ["SF1001"],
+            ["Ab72AMethodGetsTheElementAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72AMethodGetsTheListAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72ALambdaGetsTheElementAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72AMemberOfAMemberOfTheElement"] = ["SF1001"],
+            ["Ab72TwoWritesThroughTheVariableOfAForeach"] = ["SF1001"],
+            ["Ab72TheObjectOfATurnAndTheCodeWithNoBody"] = ["SF1001"],
+            ["Ab72AMethodGetsAListThatIsAnElement"] = ["SF1001"],
+            ["Ab72AListThatIsOneOfTwo"] = ["SF1001"],
+            ["Ab72AListThatIsOneOfTwoFromAnAssignment"] = ["SF1001"],
+            ["Ab72AnOutVariableGetsAValueOfADictionary"] = ["SF1001"],
+            ["Ab72AMethodFillsAListThatIsAnElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
