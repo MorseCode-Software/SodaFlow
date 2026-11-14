@@ -316,9 +316,13 @@ copied at every assignment, so a change to the copy is not a change to the origi
 
 A later assignment replaces an earlier one only where it is sure to run: `slot.Share = pending;`
 followed by `slot.Share = plain;` leaves the plain value, through either name. An assignment under an
-`if`, after a `return` that can leave its method or lambda first, in a helper that was handed the
-object, in a lambda or a local function whose call might not run, or in a loop that the object was
-built before adds to what the object already has, because the analyzer does not know that it runs.
+`if`, after a `return` that can leave its method or lambda first, or in a helper, a lambda, or a
+local function whose call might not run adds to what the object already has, because the analyzer
+does not know that it runs. In a loop that the object was built before, an assignment that every
+pass makes replaces for the rest of that pass, and after the loop the earlier value counts again,
+because the loop may not run at all. A method, a setter, or a constructor that sets a member of its
+own object is read as that assignment made at the call: `row.SetShare(pending)` leaves `row.Share`
+pending, and a second call with a plain cell clears it where that call is sure to run.
 
 The body of a `for`, `foreach`, `while`, or `do` builds a new object on every pass. The analyzer
 follows the object of the current pass apart from the ones built on earlier passes. Inside the body
@@ -542,27 +546,38 @@ It does not see everything, and in a few places it guesses on the careful side:
   was handed. So the value is added to each object the item could be, and a plain value set that
   way does not clear a pending one. The same holds for a variable that was given such an item, for
   a parameter the item was passed to, and for a member of it. An item at a known position is the
-  object written at that position. A collection reached through a member of an object, or built
-  for a `params` parameter, is read as one that could hold more, even where the block filled it.
+  object written at that position. The analyzer knows a collection this way through the variable
+  it was built in, a copy of that variable, a parameter it was passed to, the array of a `params`
+  call, and a field or an automatic property that was given the collection in a constructor, in an
+  initializer, or by an assignment that is sure to run. Reached any other way, as through a
+  property with a getter of its own, it is read as one that could hold more. A read through
+  `list[0]` straight after a value was set through `list[0]` reads that value, whatever the
+  collection holds.
 - What is set on a struct in a variable, or on an object that came into the block from outside, is
   kept with that variable. There, as on an object the block built, a later value replaces an
-  earlier one only where the assignment is sure to run. One under an `if`, in a loop that the
-  variable was declared before, or in a lambda or a local function whose call might not run is
-  added.
-- A `ref` variable or parameter names a place, not one object. It starts with what the place holds
-  when the `ref` is taken, and a value set through it is added, because the place may hold another
-  object by then. The analyzer does not follow the place after that: a read through the `ref` name
-  still sees the object from when the `ref` was taken, and an assignment to the `ref` name is not
-  seen as an assignment to the place.
+  earlier one only where the assignment is sure to run. One under an `if`, or in a lambda or a
+  local function whose call might not run, is added, and one in a loop follows the rule for loops
+  above. A helper that sets a member through its parameter does the same for the variable it was
+  handed.
+- A `ref` variable is read as the place it names, where that place is a variable, an element of an
+  array held in a variable, or a field of an object held in a variable. A read, a value set, or an
+  assignment through it goes to what the place holds at that point. Where the place is anything
+  else, where the array, the index, or the object variable is assigned after the `ref` is taken,
+  and for a `ref` parameter, the name starts with what the place held. A value set through it then
+  replaces only while nothing but writes through the name itself has run, and after a call or
+  another assignment it is added, because the place may hold another object by then. A read
+  through such a name still sees the object from when the `ref` was taken.
 - A list built with `Add` statements at the top level of its block keeps its positions, as a
   literal does, so `list[0]` is the first item added. An `Add` in a branch or a loop, or any other
   change to the list, ends that.
 - A helper replaces what it sets on an object of its caller only where the statement always runs
   in the helper and the call always runs in the block. A helper called in a branch or a loop adds.
+  What a method sets on its own object is read as an assignment at the call instead, so in a loop
+  it replaces for the rest of the pass.
 - A `foreach` replaces what its variable sets on every item once the loop is done, where the
   collection has known positions, the loop always runs, nothing in its body can skip an item or
-  leave early, and the body sets nothing else. Inside the body, and in every other loop, a value
-  set through the variable is added.
+  leave early, and the body sets nothing else. Inside the body, a value set through the variable
+  is added where the variable could be one of several items.
 - The analyzer reads a loop until a pass leaves nothing new. A value handed down a chain of
   variables, one on each pass, needs a pass for each of them. A guard far beyond what code needs
   stops a loop that would never settle.
