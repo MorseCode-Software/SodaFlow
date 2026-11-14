@@ -524,20 +524,34 @@ It does not see everything, and in a few places it guesses on the careful side:
   Where a name can be one of several objects, as an element of a list of several, a variable set on
   two paths, a value that is either an object of the block or one from outside it, or a name that
   outlives a pass of a loop, a change through it is added to each of them, so a plain value set
-  that way does not clear a pending one.
+  that way does not clear a pending one. Two cases are still read exactly. A second value set
+  through the same variable replaces the first, where nothing between the two can have given the
+  variable another object. And a read through a variable straight after a cell was set through
+  that same variable reads that cell.
 - After something is set through an item, the items are read as the objects they are only where
   the analyzer saw everything that went into the collection, and only through the variable that the
   collection was built in, or a variable declared as a copy of that one. A read through any other
   name of the collection, as a property, a parameter, or a variable that a lambda reads from the
   code around it, sees everything that any item was given, so a plain value set later does not
-  clear a pending one there. A call to code without source ends this for every collection, because
-  that code may reach one through an object it was given. A change that a helper makes through an
-  item is added, as every change a helper makes to an object of its caller is.
-- The analyzer reads a loop until a pass leaves nothing new. A guard stops it at 32 passes, which
-  only a value handed down a chain of more variables than that would need.
+  clear a pending one there. A call to code without source ends this for every collection that the
+  code could reach: one that was handed to something, stored somewhere, or used in a lambda. A list
+  that is only read and filled through its own variable stays known.
+- A list built with `Add` statements at the top level of its block keeps its positions, as a
+  literal does, so `list[0]` is the first item added. An `Add` in a branch or a loop, or any other
+  change to the list, ends that.
+- A helper replaces what it sets on an object of its caller only where the statement always runs
+  in the helper and the call always runs in the block. A helper called in a branch or a loop adds.
+- A `foreach` replaces what its variable sets on every item once the loop is done, where the
+  collection has known positions, the loop always runs, nothing in its body can skip an item or
+  leave early, and the body sets nothing else. Inside the body, and in every other loop, a value
+  set through the variable is added.
+- The analyzer reads a loop until a pass leaves nothing new. A value handed down a chain of
+  variables, one on each pass, needs a pass for each of them. A guard far beyond what code needs
+  stops a loop that would never settle.
 - What a method without source returns, on an object that keeps what it was handed, is taken to be
   possibly one of those objects. So a plain value set through such a result is added, and does not
-  clear a pending one, even when the method returned something new.
+  clear a pending one for any other name of it, even when the method returned something new. A
+  read through the same variable straight after the value was set does read that value.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
   analyzer reads both. A builder with hash codes is one of them for `Remove` and for the lookups of
   a dictionary, and the set operations of a builder are read for both objects too. The lookups of an
