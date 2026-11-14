@@ -1758,6 +1758,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // The analyzer cannot see a pending value that goes to this callee.
             case CalleeKind.Unknown:
             {
+                // The callee can keep a function that it gets, and run it after the call. Thus, the
+                // walk reads such a function with no collection that holds only what went in.
+                this.evaluator.RanCodeWithNoBody();
+
                 this.VisitArguments(
                     arguments: arguments,
                     runs: Runs,
@@ -1765,7 +1769,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     oneTime: false);
 
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
-                this.evaluator.RanCodeWithNoBody();
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 

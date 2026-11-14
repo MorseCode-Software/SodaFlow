@@ -464,16 +464,13 @@ internal sealed class LoopStateEvaluator
         LoopState state,
         TLocation location,
         Func<SyntaxNode, MadeObject, TLocation, bool> isOfItsTurn) =>
-        // The identity before can be of a turn of a loop around also. Thus, the step runs one
-        // time for each open loop.
-        Enumerable.Range(start: 0, count: this.region.Objects.OpenLoops)
-            .Aggregate(
-                seed: state,
-                func: (all, _) =>
-                    all.WithAlso(made =>
-                        made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
-                            ? this.region.Objects.BeforeOf(made)
-                            : null));
+        // The identity before can be of a turn of a loop around. A location that is older than
+        // that loop also gets the next identity only from a read before: the first read of the
+        // loop around is its first turn, which has no turn before.
+        state.WithAlso(made =>
+            made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
+                ? this.region.Objects.BeforeOf(made)
+                : null);
 
     // A local is new in each turn of the loop that declares it in its body. A local of a callee
     // that runs in the turn is new in each turn also.
@@ -502,7 +499,8 @@ internal sealed class LoopStateEvaluator
 
     // True when a call runs a function that this run of the code made. The call names a local
     // function, or it names a local whose declaration has the lambda and that gets no second
-    // value. The code of the call must be of this run also: the block, or such a function.
+    // value. A method of the platform that runs a function in the call can get such a name as an
+    // argument also. The code of the call must be of this run: the block, or such a function.
     private bool RunsAFunctionOfThisRun(SyntaxNode call, SyntaxNode function)
     {
         if ((this.function != null && this.call is not { RunsAFunctionOfThisRun: true })
@@ -511,7 +509,16 @@ internal sealed class LoopStateEvaluator
             return false;
         }
 
-        ExpressionSyntax callee = Unwrapped(invocation.Expression);
+        return this.IsAFunctionOfThisRun(name: invocation.Expression, function: function)
+               || (this.region.SymbolOf(invocation) is IMethodSymbol { ContainingType: { } owner }
+                   && SodaFlowSymbols.IsPlatform(owner)
+                   && invocation.ArgumentList.Arguments.Any(argument =>
+                       this.IsAFunctionOfThisRun(name: argument.Expression, function: function)));
+    }
+
+    private bool IsAFunctionOfThisRun(ExpressionSyntax name, SyntaxNode function)
+    {
+        ExpressionSyntax callee = Unwrapped(name);
 
         return this.region.SymbolOf(callee) switch
         {
@@ -1438,8 +1445,7 @@ internal sealed class LoopStateEvaluator
     // A callee cannot put a value into an argument that it knows only as a sequence to read, as
     // object, or as a type parameter.
     private static bool CanChangeAValueOf(IParameterSymbol parameter) =>
-        parameter.RefKind is RefKind.Ref or RefKind.Out
-        || parameter.Type is IArrayTypeSymbol
+        parameter.Type is IArrayTypeSymbol
             or INamedTypeSymbol
             {
                 SpecialType: not SpecialType.System_Object,
@@ -1471,13 +1477,12 @@ internal sealed class LoopStateEvaluator
 
     // The object of a local of this code that is one collection and no other value. A function
     // can run at a different time, thus a local that it reads from the code around it is no such
-    // name. Null also for an object of a turn that ended.
+    // name.
     private MadeObject? TheOneCollectionOf(ExpressionSyntax expression) =>
         this.function == null
         && Unwrapped(expression) is IdentifierNameSyntax name
         && this.region.SymbolOf(name) is ILocalSymbol local
         && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
-        && this.region.Objects.StateOf(one) != null
             ? one
             : null;
 
@@ -2998,7 +3003,6 @@ internal sealed class LoopStateEvaluator
         if (method.IsStatic
             || method.ReducedFrom != null
             || invocation.Expression is not MemberAccessExpressionSyntax { Expression: var owner }
-            || !this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
             || this.Eval(owner) is not { HoldsAnObject: true } has)
         {
             return LoopState.None;

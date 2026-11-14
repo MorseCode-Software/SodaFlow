@@ -10607,6 +10607,58 @@ public static class Shapes
     public static Cell<int> RunBeforeOfAnExpressionLambdaLeftAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => Kept.Add((last ?? Plain).Sample() + ((last = Plain) == null ? 1 : 0))); return S.Hold(0); });
 
+    // S2336. A local has a lambda that gives the second element of a list a pending cell. A method with no body to read keeps the lambda, the list gets an object that the walk did not see made, and the method then runs the lambda.
+    public static Cell<int> ElementInALambdaThatCodeWithNoBodyKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); Action change = () => { list[1].Share = l.Map(v => v); }; IActionKeeper keeper = NewActionKeeper(); keeper.Keep(change); list.Add(UnseenSlots[0]); keeper.Run(); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2337. The same, where the lambda is the argument of the method.
+    public static Cell<int> ElementInALambdaThatIsTheArgumentOfCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); IActionKeeper keeper = NewActionKeeper(); keeper.Keep(() => { list[1].Share = l.Map(v => v); }); list.Add(UnseenSlots[1]); keeper.Run(); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2338. A local has a list of the block, and an assignment gives it a second list of the block, which has an object that the walk did not see made.
+    public static Cell<int> ElementOfALocalThatGetsASecondListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(new SettableSlot()); List<SettableSlot> other = []; other.AddRange(UnseenLists[0]); other.Add(x); List<SettableSlot> c = list; c = other; c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
+    // S2339. The same, where the assignment is in a turn of a loop, and the turn changes the element.
+    public static Cell<int> ElementOfALocalThatATurnGivesASecondListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(new SettableSlot()); List<SettableSlot> other = []; other.AddRange(UnseenLists[1]); other.Add(x); List<SettableSlot> c = list; for (int i = 0; i < 1; i++) { c = other; c[0].Share = l.Map(v => v); } x.Share = Plain; return S.Hold(other[0].Share!.Sample()); });
+
+    // S2340. A second local is a name of the list of the block. A plain cell goes through an element of the second local, and the code samples through it.
+    public static Cell<int> PlainThroughAnElementOfASecondNameReadThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> other = list; other[0].Share = Plain; return S.Hold(other[0].Share!.Sample()); });
+
+    // S2341. An extension method of the platform puts the objects of a span into its list.
+    public static Cell<int> InsertRangeOfASpanThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.InsertRange(0, (ReadOnlySpan<SettableSlot>)UnseenArray); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2342. A list of the outer body has a holder from each inner turn. A local of the block gets the list, and the code samples through it after the two loops.
+    public static Cell<int> HolderOfAnInnerTurnAfterTheTwoLoops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder>? keep = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; for (int j = 0; j < 2; j++) { all.Add(new SlotHolder { Item = x }); } keep = all; } return S.Hold(keep![0].Item!.Share!.Sample()); });
+
+    // S2343. A list runs a local function of the outer body for each element. The function makes a holder with the object of the outer turn, and a plain cell goes through the last holder.
+    public static Cell<int> PlainThroughAHolderOfALocalFunctionForEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; void Each(int n) { SlotHolder h = new() { Item = x }; last = h; } new List<int> { 1, 2 }.ForEach(Each); last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2344. A helper that the inner loop calls makes the holder of the inner turn.
+    public static Cell<int> PlainThroughAHolderThatAHelperOfTheInnerLoopMakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; for (int j = 0; j < 2; j++) { last = HolderFor(x); } last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2345. An owner keeps an object with a pending cell. A method of the owner returns a new object, and a plain cell goes through that result.
+    public static Cell<int> PlainThroughANewObjectFromAnOwnerThatKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2346. The same, where the method returns a sequence of new objects, and the plain cell goes through its first one.
+    public static Cell<int> PlainThroughTheFirstOfNewObjectsFromAnOwnerThatKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); maker.AllFresh().First().Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2347. A query runs a local function for each element. The function returns the cell that the run before left, and the code samples the result of the second run.
+    public static Cell<int> ResultOfTheSecondRunOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; Cell<int> Step(int n) { Cell<int> was = last ?? Plain; last = l.Map(v => v); return was; } List<Cell<int>> got = new[] { 1, 2 }.Select(Step).ToList(); Kept.Add(got[1].Sample()); return S.Hold(0); });
+
+    // S2348. A method with no body to read keeps the local function of each turn, and the next turn runs the function of the turn before. The function samples a cell of a local of its turn.
+    public static Cell<int> LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IActionKeeper keeper = NewActionKeeper(); for (int i = 0; i < 2; i++) { keeper.Run(); SettableSlot x = new() { Share = Plain }; void Read() { Kept.Add(x.Share!.Sample()); } keeper.Keep(Read); x.Share = l.Map(v => v); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12677,6 +12729,50 @@ public static class Shapes
     }
 
     private static readonly List<List<SettableSlot>> UnseenListsOfLists = [[new()]];
+
+    private static readonly SettableSlot[] UnseenArray = [new()];
+
+    private static SlotHolder HolderFor(SettableSlot slot) => new() { Item = slot };
+
+    private static IActionKeeper NewActionKeeper() => new ActionKeeper();
+
+    public interface IActionKeeper
+    {
+        void Keep(Action action);
+
+        void Run();
+    }
+
+    private sealed class ActionKeeper : IActionKeeper
+    {
+        private readonly List<Action> actions = [];
+
+        public void Keep(Action action) => this.actions.Add(action);
+
+        public void Run() => this.actions.ForEach(static action => action());
+    }
+
+    private static ISlotMaker NewSlotMaker() => new SlotMaker();
+
+    public interface ISlotMaker
+    {
+        void Put(SettableSlot slot);
+
+        SettableSlot Fresh();
+
+        IEnumerable<SettableSlot> AllFresh();
+    }
+
+    private sealed class SlotMaker : ISlotMaker
+    {
+        private readonly List<SettableSlot> slots = [];
+
+        public void Put(SettableSlot slot) => this.slots.Add(slot);
+
+        public SettableSlot Fresh() => new();
+
+        public IEnumerable<SettableSlot> AllFresh() => [new SettableSlot()];
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

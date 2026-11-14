@@ -1622,7 +1622,17 @@ internal sealed class LoopReadAnalyzerTests
             ["RunBeforeOfAnExpressionLambdaThatAListRuns"] = ["SF1001"],
             ["RunBeforeOfALambdaInALocalThatAListRuns"] = ["SF1001"],
             ["RunBeforeOfALocalFunctionThatAnExpressionLambdaCalls"] = ["SF1001"],
-            ["CellFromTwoRunsBeforeOfALocalFunction"] = ["SF1001"]
+            ["CellFromTwoRunsBeforeOfALocalFunction"] = ["SF1001"],
+            ["ElementInALambdaThatCodeWithNoBodyKeeps"] = ["SF1001"],
+            ["ElementInALambdaThatIsTheArgumentOfCodeWithNoBody"] = ["SF1001"],
+            ["ElementOfALocalThatGetsASecondListOfTheBlock"] = ["SF1001"],
+            ["ElementOfALocalThatATurnGivesASecondListOfTheBlock"] = ["SF1001"],
+            ["InsertRangeOfASpanThatTheWalkDidNotSee"] = ["SF1001"],
+            ["HolderOfAnInnerTurnAfterTheTwoLoops"] = ["SF1001"],
+            ["PlainThroughANewObjectFromAnOwnerThatKeepsAnObject"] = ["SF1001"],
+            ["PlainThroughTheFirstOfNewObjectsFromAnOwnerThatKeepsAnObject"] = ["SF1001"],
+            ["ResultOfTheSecondRunOfALocalFunction"] = ["SF1001"],
+            ["LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

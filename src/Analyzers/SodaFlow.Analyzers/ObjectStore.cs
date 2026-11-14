@@ -55,13 +55,6 @@ internal sealed class ObjectStore
     public bool HasATurn => this.open.Count > 0;
 
     /// <summary>
-    ///     The number of loops that the walk is in, for each loop whose turn made
-    ///     an object. An object has one identity more than the loops that it is
-    ///     in. Thus, this is the most steps from an object to its last identity.
-    /// </summary>
-    public int OpenLoops => this.open.Count;
-
-    /// <summary>
     ///     True when a turn of the first loop runs in one turn of the second loop.
     ///     The two are then the same loop, or the second one is around the first
     ///     one. An object of the first loop is then new in each turn of the
