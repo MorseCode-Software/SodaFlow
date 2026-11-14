@@ -10243,6 +10243,26 @@ public static class Shapes
     public static Cell<int> CompoundAssignmentThroughTheIndexerOfAnEmptyHashtable() =>
         Cell.Loop<int>().WithoutCaptures(l => { Hashtable made = new(); made[new SameOwn(l.Map(v => v))] ??= 1; return S.Hold(0); });
 
+    // S2245. Three locals start with a cell that the loop feeds and that reads nothing of it at the start. A pending cell goes through them. Only the pending mark of a local changes on a turn.
+    public static Cell<int> PendingCellThroughThreeLocalsThatStartLinked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = l.Updates().Hold(0); Cell<int> b = l.Updates().Hold(0); Cell<int> c = l.Updates().Hold(0); for (int i = 0; i < 4; i++) { Kept.Add(c.Sample()); c = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2246. A pending cell goes through two locals to the member of an object that only a member of a second object names. Only the store changes on the third turn.
+    public static Cell<int> MemberOfAnObjectInAMemberFromACellTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder h = new() { Item = new SettableSlot { Share = Plain } }; Cell<int> a = Plain; Cell<int> b = Plain; for (int i = 0; i < 4; i++) { Kept.Add(h.Item!.Share!.Sample()); h.Item!.Share = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2247. A query runs a local function for each element, and a list has the objects that it made. A second query runs the function again, which gives the first object of the list a plain cell. The second object keeps its pending cell.
+    public static Cell<int> PlainThroughTheFirstElementInAFunctionThatAQueryRunsAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = [new SettableSlot { Share = Plain }]; SettableSlot Make(int n) { made[0].Share = Plain; return new SettableSlot { Share = l.Map(v => v) }; } made = new[] { 1, 2 }.Select(Make).ToList(); List<SettableSlot> again = new[] { 1 }.Select(Make).ToList(); Kept.Add(again.Count); return S.Hold(made[1].Share!.Sample()); });
+
+    // S2248. MaxBy gets a comparer object from a local. The comparer is no value of the type of the result.
+    public static Cell<int> PlainThroughMaxByWithAComparerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ReadingComparer by = new(Plain); List<SettableSlot> rows = [x]; SettableSlot top = rows.MaxBy(row => 1, by)!; top.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2249. Aggregate gets an object of a second class as its seed, and gives an element of the list. The seed is no value of the type of the result.
+    public static Cell<int> PlainThroughAggregateWithASeedOfASecondClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> rows = [x]; SettableSlot top = rows.Aggregate(new NoSlot(), (seed, row) => seed, seed => rows[0]); top.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
