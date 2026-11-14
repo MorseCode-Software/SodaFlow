@@ -1288,9 +1288,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && target is IdentifierNameSyntax aliased
             && this.evaluator.TheLocationOf(aliased) is { } location)
         {
-            this.Assign(target: location, value: value, replaces: replaces, turn: turn);
-
-            return;
+            target = location;
         }
 
         LoopState whole = this.evaluator.Eval(value);
@@ -2628,6 +2626,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                          && !this.evaluator.Eval(arguments[i].Expression).Objects.IsEmpty))
                 {
                     this.evaluator.Merge(target: arguments[i].Expression, state: put);
+
                     this.evaluator.GivesAnArgument(
                         argument: arguments[i].Expression,
                         parameter: parameter,

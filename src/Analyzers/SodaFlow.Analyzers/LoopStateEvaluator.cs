@@ -771,7 +771,7 @@ internal sealed partial class LoopStateEvaluator
         // assignment to that location, and the name keeps it.
         if (value is RefExpressionSyntax { Expression: var location })
         {
-            if (replaces && local is ILocalSymbol && IsALocationThatTheWalkCanReadAgain(location))
+            if (replaces && local is ILocalSymbol && this.IsALocationThatTheWalkCanReadAgain(location))
             {
                 this.Frame.LocationOf[local] = location;
             }
@@ -1551,7 +1551,7 @@ internal sealed partial class LoopStateEvaluator
                 // A write that each turn always runs, to an object that is older than the turn.
                 // Until the end of the turn, the member has only the new state. After the loop,
                 // it can have the state from before the loop also, because the loop can run no turn.
-                bool inItsTurn =
+                (SyntaxNode Turn, ISymbol Member)? inItsTurn =
                     !sure
                     && member != null
                     && turn != null
@@ -1559,19 +1559,21 @@ internal sealed partial class LoopStateEvaluator
                     && !made.IsOfTurnsBefore
                     && made.IsFrom(this.Frame)
                     && made.Turn != turn
-                    && IsTheBodyOfALoop(turn);
+                    && IsTheBodyOfALoop(turn)
+                        ? (turn, member)
+                        : null;
 
-                if (inItsTurn)
+                if (inItsTurn is (var itsTurn, var written))
                 {
                     this.KeepsForAfterTheLoop(
-                        turn: turn!,
+                        turn: itsTurn,
                         made: made,
                         name: null,
-                        member: member!,
-                        before: old.Members?.StateOf(member!) ?? LoopState.None);
+                        member: written,
+                        before: old.Members?.StateOf(written) ?? LoopState.None);
                 }
 
-                this.region.Objects.Set(found: made, state: sure || inItsTurn ? changed : old.Join(changed));
+                this.region.Objects.Set(found: made, state: sure || inItsTurn != null ? changed : old.Join(changed));
             }
         }
     }
@@ -5129,6 +5131,7 @@ internal sealed partial class LoopStateEvaluator
     ///     True when a callee with no body to read runs the function. It can run
     ///     the function two or more times for one call.
     /// </param>
+    /// <param name="owner">The expression of the object, when the call has one for a different object.</param>
     private Followed? Enter(
         SyntaxNode call,
         string name,
@@ -5353,11 +5356,13 @@ internal sealed partial class LoopStateEvaluator
                 parent: this.Frame,
                 repeats: eachRun != null || !this.RunsOneTime(call),
                 isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax);
+
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
         HashSet<ISymbol> given = new(SymbolEqualityComparer.Default);
         HashSet<ISymbol> withAValue = new(SymbolEqualityComparer.Default);
         Dictionary<ISymbol, MadeObject> collections = new(SymbolEqualityComparer.Default);
         HashSet<ISymbol> unseen = new(SymbolEqualityComparer.Default);
+        List<Binding> ofParamsArrays = [];
 
         foreach (Binding binding in bindings)
         {
@@ -5366,8 +5371,11 @@ internal sealed partial class LoopStateEvaluator
             // A parameter is the object of its argument. A params parameter is an array of them,
             // when the call does not give the array itself. An argument that is no name of a
             // local can make one new object, as a local does at its declaration.
-            if (!this.IsOneOfAParamsArray(parameter: binding.Parameter, argument: binding.Argument)
-                && KeepsItsObject(binding.Parameter))
+            if (this.IsOneOfAParamsArray(parameter: binding.Parameter, argument: binding.Argument))
+            {
+                ofParamsArrays.Add(binding);
+            }
+            else if (KeepsItsObject(binding.Parameter))
             {
                 if (this.CanBeUnseen(binding.Argument))
                 {
@@ -5400,12 +5408,9 @@ internal sealed partial class LoopStateEvaluator
         // code writes.
         if (definer == null && !this.quiet && !frame.Repeats)
         {
-            foreach (IGrouping<ISymbol, Binding> group in bindings
-                         .Where(binding =>
-                             this.IsOneOfAParamsArray(parameter: binding.Parameter, argument: binding.Argument))
-                         .GroupBy<Binding, ISymbol>(
-                             keySelector: static binding => binding.Parameter,
-                             comparer: SymbolEqualityComparer.Default))
+            foreach (IGrouping<ISymbol, Binding> group in ofParamsArrays.GroupBy<Binding, ISymbol>(
+                         keySelector: static binding => binding.Parameter,
+                         comparer: SymbolEqualityComparer.Default))
             {
                 LoopState holding = HoldingItsObjects(parameters[group.Key].AsContainer);
 

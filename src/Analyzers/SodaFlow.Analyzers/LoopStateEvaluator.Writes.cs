@@ -166,7 +166,7 @@ internal sealed partial class LoopStateEvaluator
     // value. Then, the name can be a different object at the use. A write to a member through the
     // name itself gives no location a value. A use in a loop can come after each statement of
     // that loop.
-    private bool ALocationCanGetAValueBefore(ISymbol name, ExpressionSyntax use)
+    private bool ALocationCanGetAValueBefore(ISymbol name, SyntaxNode use)
     {
         if (this.function != null
             || FunctionOf(use) is not { } code
@@ -202,7 +202,7 @@ internal sealed partial class LoopStateEvaluator
     // has its location as the first argument.
     private void NotesAWriteThroughAnElement(
         ExpressionSyntax? owner,
-        ExpressionSyntax? at,
+        SyntaxNode? at,
         ISymbol member,
         LoopState state,
         bool replaces)
@@ -217,7 +217,7 @@ internal sealed partial class LoopStateEvaluator
             && owner != null
             && at != null
             && Unwrapped(owner) is ElementAccessExpressionSyntax element
-            && this.CollectionAndIndexOf(element) is var (collection, index)
+            && this.CollectionAndIndexOf(element) is (var collection, var index)
             && at.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
             && FunctionOf(at) is { } code)
         {
@@ -276,7 +276,7 @@ internal sealed partial class LoopStateEvaluator
         && Unwrapped(this.TheLocationOf(owner) ?? owner) is ElementAccessExpressionSyntax element
         && owner.SpanStart >= last.End
         && FunctionOf(owner) == last.Code
-        && this.CollectionAndIndexOf(element) is var (collection, index)
+        && this.CollectionAndIndexOf(element) is (var collection, var index)
         && SymbolEqualityComparer.Default.Equals(x: collection, y: last.Collection)
         && (index is ISymbol local
             ? last.Index is ISymbol before && SymbolEqualityComparer.Default.Equals(x: local, y: before)
@@ -469,6 +469,7 @@ internal sealed partial class LoopStateEvaluator
     ///     The body of the loop whose each turn always runs the assignment. Null
     ///     when no loop does.
     /// </param>
+    /// <param name="from">The expression of the value, when the code has one.</param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -506,6 +507,7 @@ internal sealed partial class LoopStateEvaluator
         // that object, and each object of the store that the owner can be keeps what it has.
         bool isKnown = !this.CanBeUnseen(owner);
         this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
+
         this.NotesTheCollectionIn(
             owner: owner,
             has: has,
@@ -513,6 +515,7 @@ internal sealed partial class LoopStateEvaluator
             state: state,
             from: from,
             sure: replaces && isKnown);
+
         this.NotesAWriteThroughAnElement(owner: owner, at: written, member: member, state: state, replaces: replaces);
 
         if (!replaces
@@ -980,12 +983,12 @@ internal sealed partial class LoopStateEvaluator
                     : turn != null && IsMadeInEachTurn(name: holder, turn: turn);
 
             // The same as for an object of the store: see Change.
-            bool inItsTurn = !only && !this.quiet && turn != null && IsTheBodyOfALoop(turn);
+            SyntaxNode? itsTurn = !only && !this.quiet && turn != null && IsTheBodyOfALoop(turn) ? turn : null;
 
-            if (inItsTurn)
+            if (itsTurn != null)
             {
                 this.KeepsForAfterTheLoop(
-                    turn: turn!,
+                    turn: itsTurn,
                     made: null,
                     name: holder,
                     member: member,
@@ -994,7 +997,9 @@ internal sealed partial class LoopStateEvaluator
 
             this.locals[holder] =
                 known.WithMembers(
-                    had.With(member: member, state: only || inItsTurn ? state : had.StateOf(member).Join(state)));
+                    had.With(
+                        member: member,
+                        state: only || itsTurn != null ? state : had.StateOf(member).Join(state)));
 
             // A callee gives its caller what it set through a parameter. See GivesAnArgument.
             if (!this.quiet)

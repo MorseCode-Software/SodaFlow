@@ -220,7 +220,7 @@ internal sealed partial class LoopStateEvaluator
     // Records the one collection of each member that the constructor or the initializer of a
     // creation gave a collection.
     private void NotesTheCollectionsOf(
-        ExpressionSyntax creation,
+        SyntaxNode creation,
         LoopState made,
         InitializerExpressionSyntax? initializer)
     {
@@ -265,7 +265,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The one collection in a member of the object that this code is in. The code set the member,
     // or the store has the record for the object of the call.
-    private MadeObject? TheCollectionInAMemberOfThis(ExpressionSyntax written)
+    private MadeObject? TheCollectionInAMemberOfThis(SyntaxNode written)
     {
         if (this.function != null
             || this.region.SymbolOf(written) is not { IsStatic: false } member
