@@ -17,9 +17,9 @@ namespace SodaFlow.Analyzers;
 ///     </para>
 ///     <para>
 ///         The body of a loop makes a new object in each turn. The walk reads
-///         the body one time, and that pass is one turn. The object of the pass
-///         is the object of this turn. A second identity is each object that
-///         the same code made in the turns before.
+///         the body one time, and that read is one turn. The object of that
+///         read is the object of this turn. A second identity is each object
+///         that the same code made in the turns before.
 ///     </para>
 /// </remarks>
 /// <param name="type">The type of the object. Null for <see cref="Unknown" />.</param>
@@ -74,16 +74,18 @@ internal sealed class MadeObject(
     /// </summary>
     public bool IsFrom(LoopFrame code) => this.frame?.IsWithin(code) == true;
 
-    /// <summary>The object in a member of this object, where the member has the given type.</summary>
-    /// <param name="declared">The type of the member.</param>
-    /// <param name="afterItsTurn">True when the walk left the loop that made this object.</param>
-    public MadeObject InAMember(ITypeSymbol declared, bool afterItsTurn) =>
+    /// <summary>
+    ///     The object in a member of this object, where the member has the given
+    ///     type. It is of the turn of this object, or of the turns before as this
+    ///     object is.
+    /// </summary>
+    public MadeObject InAMember(ITypeSymbol declared) =>
         new(
             type: declared,
             exact: false,
             frame: this.frame,
-            turn: afterItsTurn ? null : this.Turn,
-            isOfTurnsBefore: this.IsOfTurnsBefore || afterItsTurn);
+            turn: this.Turn,
+            isOfTurnsBefore: this.IsOfTurnsBefore);
 
     /// <summary>A new identity for the objects that the same code made in the turns before.</summary>
     public MadeObject OfTurnsBefore() =>

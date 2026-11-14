@@ -20,12 +20,26 @@ internal sealed class ObjectStore
     private readonly Dictionary<MadeObject, MadeObject> before = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
+
+    // The bodies of the loops that the walk is in, for each loop whose turn made an object. A loop
+    // comes after each loop that is around it.
+    private readonly List<SyntaxNode> open = [];
     private readonly Dictionary<MadeObject, LoopState> states = [];
     private readonly Dictionary<SyntaxNode, List<MadeObject>> turns = [];
-    private int inATurn;
 
     /// <summary>True while the walk is in a loop whose turn made an object.</summary>
-    public bool HasATurn => this.inATurn > 0;
+    public bool HasATurn => this.open.Count > 0;
+
+    /// <summary>
+    ///     True when a turn of the first loop runs in one turn of the second loop.
+    ///     The two are then the same loop, or the second one is around the first
+    ///     one. An object of the first loop is then new in each turn of the
+    ///     second one.
+    /// </summary>
+    /// <param name="turn">The body of the first loop. Null gives false.</param>
+    /// <param name="around">The body of the second loop.</param>
+    public bool IsIn(SyntaxNode? turn, SyntaxNode around) =>
+        turn != null && this.open.IndexOf(turn) >= this.open.IndexOf(around);
 
     /// <summary>True when the code made no object.</summary>
     public bool IsEmpty => this.states.Count == 0;
@@ -75,10 +89,10 @@ internal sealed class ObjectStore
         {
             made = [];
             this.turns[found.Turn!] = made;
+            this.open.Add(found.Turn!);
         }
 
         made.Add(found);
-        this.inATurn++;
     }
 
     /// <summary>True for the object of a turn while the walk is in the loop of that turn.</summary>
@@ -86,7 +100,8 @@ internal sealed class ObjectStore
 
     /// <summary>
     ///     For the object of a turn: the objects that the same code made in the
-    ///     turns before. A place that is not of the turn can have one of them.
+    ///     turns before. A location that is older than the turn can have one of
+    ///     them.
     /// </summary>
     public MadeObject BeforeOf(MadeObject found)
     {
@@ -101,12 +116,15 @@ internal sealed class ObjectStore
     }
 
     /// <summary>
-    ///     The identity that an object has now. After the walk leaves a loop, the
-    ///     object of its turn is one of the objects of the turns before.
+    ///     The identities that the given objects have now, each one time. After the
+    ///     walk of a loop, the object of its turn is one of the objects of the
+    ///     turns before.
     /// </summary>
-    public MadeObject Now(MadeObject found) => this.ended.Contains(found) ? this.before[found] : found;
-
-    /// <summary>The identities that the given objects have now, each one time.</summary>
+    /// <remarks>
+    ///     A read of a value gives these identities before the store gets an
+    ///     object from that value. Thus, each other member of the store gets only
+    ///     an identity of now.
+    /// </remarks>
     public ImmutableArray<MadeObject> Now(ImmutableArray<MadeObject> objects)
     {
         ImmutableArray<MadeObject> now = objects;
@@ -124,10 +142,10 @@ internal sealed class ObjectStore
     }
 
     /// <summary>
-    ///     Records that the walk left a loop. Each object of its turn is then one
-    ///     of the objects of the turns before, and those get the state that the
-    ///     object had at the end of the turn. A member of the object goes the same
-    ///     way.
+    ///     Records the end of the walk of a loop. Each object of its turn is then
+    ///     one of the objects of the turns before. Those objects get the state that
+    ///     the object had at the end of the turn. A member of the object becomes a
+    ///     member of those objects.
     /// </summary>
     /// <param name="turn">The body of the loop.</param>
     public void EndTurns(SyntaxNode turn)
@@ -138,7 +156,7 @@ internal sealed class ObjectStore
         }
 
         this.turns.Remove(turn);
-        this.inATurn -= made.Count;
+        this.open.Remove(turn);
 
         foreach (MadeObject found in made)
         {
@@ -167,7 +185,7 @@ internal sealed class ObjectStore
     ///     that member made it.
     /// </summary>
     public MadeObject? InMember(MadeObject owner, ISymbol member) =>
-        this.inMembers.TryGetValue(key: this.Now(owner), value: out Dictionary<ISymbol, MadeObject>? members)
+        this.inMembers.TryGetValue(key: owner, value: out Dictionary<ISymbol, MadeObject>? members)
         && members.TryGetValue(key: member, value: out MadeObject? found)
             ? found
             : null;
@@ -178,16 +196,13 @@ internal sealed class ObjectStore
     /// </summary>
     public MadeObject MakeInMember(MadeObject owner, ISymbol member, ITypeSymbol type, LoopState state)
     {
-        bool afterItsTurn = this.ended.Contains(owner);
-        owner = this.Now(owner);
-
         if (!this.inMembers.TryGetValue(key: owner, value: out Dictionary<ISymbol, MadeObject>? members))
         {
             members = new Dictionary<ISymbol, MadeObject>(SymbolEqualityComparer.Default);
             this.inMembers[owner] = members;
         }
 
-        MadeObject found = owner.InAMember(declared: type, afterItsTurn: afterItsTurn);
+        MadeObject found = owner.InAMember(type);
         members[member] = found;
         this.states[found] = state;
 
@@ -202,8 +217,8 @@ internal sealed class ObjectStore
 
     /// <summary>The state of an object. Null for an object that is not in the store.</summary>
     public LoopState? StateOf(MadeObject found) =>
-        this.states.TryGetValue(key: this.Now(found), value: out LoopState? state) ? state : null;
+        this.states.TryGetValue(key: found, value: out LoopState? state) ? state : null;
 
     /// <summary>Gives an object of the store a new state.</summary>
-    public void Set(MadeObject found, LoopState state) => this.states[this.Now(found)] = state;
+    public void Set(MadeObject found, LoopState state) => this.states[found] = state;
 }

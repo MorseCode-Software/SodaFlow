@@ -888,10 +888,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </remarks>
     /// <param name="assignment">The assignment.</param>
     /// <param name="turn">
-    ///     For an assignment in a loop: the body of that loop, when the assignment
-    ///     is a statement at its first level and no statement before it can end
-    ///     the turn. Each turn of the loop then runs the assignment. Null for each
-    ///     other assignment.
+    ///     The body of a loop whose each turn runs the assignment. The assignment
+    ///     is then a statement at the first level of that body, and no statement
+    ///     before it can end the turn. Null for each other assignment.
     /// </param>
     private bool AlwaysRuns(SyntaxNode assignment, out SyntaxNode? turn)
     {
@@ -977,7 +976,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // A break statement is for the loop or the switch statement nearest to it, and a continue
-    // statement is for the loop nearest to it. Each other jump leaves each loop that it is in.
+    // statement is for the loop nearest to it. Each other jump ends the turn of each loop that it
+    // is in.
     private static bool EndsATurnOf(StatementSyntax body, SyntaxNode node) =>
         node switch
         {
@@ -1076,7 +1076,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     True when the assignment always runs. Then, a local has the new state
     ///     only. Otherwise, it has the new state and the state before it together.
     /// </param>
-    /// <param name="turn">The body of the loop whose each turn always runs the assignment. Null when no loop does.</param>
+    /// <param name="turn">
+    ///     The body of the loop whose each turn always runs the assignment. Null
+    ///     when no loop does.
+    /// </param>
     private void AssignState(SyntaxNode target, LoopState state, bool replaces, SyntaxNode? turn)
     {
         switch (target)

@@ -1347,7 +1347,18 @@ internal sealed class LoopReadAnalyzerTests
             ["TurnLocalOfACallThatReturnedKeepsTheFirstObject"] = ["SF1001"],
             ["TurnInnerObjectInAListOfTheOuterTurn"] = ["SF1001"],
             ["TurnObjectOfTheInitializerOfAForChangedThroughALocalOfTheBody"] = ["SF1001"],
-            ["TurnYieldBreakBeforeTheWrite"] = ["SF1001"]
+            ["TurnYieldBreakBeforeTheWrite"] = ["SF1001"],
+            ["TurnOlderObjectThroughALocalOfTheBlock"] = ["SF1001"],
+            ["TurnOlderObjectThroughALocalThatALocalFunctionAssigns"] = ["SF1001"],
+            ["TurnOlderObjectThroughAMemberOfAnObjectOfTheBlock"] = ["SF1001"],
+            ["TurnOlderElementReadThroughALocalOfTheBlock"] = ["SF1001"],
+            ["TurnOlderPartOfATupleReadThroughALocalOfTheBlock"] = ["SF1001"],
+            ["TurnOlderObjectThroughAMemberOfAnOlderHolder"] = ["SF1001"],
+            ["TurnOlderObjectThroughAnElementOfAnOlderList"] = ["SF1001"],
+            ["TurnOlderObjectThroughAForeachOverAnOlderList"] = ["SF1001"],
+            ["TurnOlderObjectThroughAMemberOfTheReceiverOfAMethod"] = ["SF1001"],
+            ["TurnOlderObjectThroughTheValueOfACell"] = ["SF1001"],
+            ["TurnObjectInAMemberThatTheLoopOfAConstructorSets"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

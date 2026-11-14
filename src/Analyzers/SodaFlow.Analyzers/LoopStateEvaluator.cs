@@ -78,7 +78,7 @@ internal sealed class LoopStateEvaluator
             bound: NoSymbols,
             noValues: NoParameters,
             depth: 0,
-            frame: new LoopFrame(parent: null, repeats: false),
+            frame: new LoopFrame(parent: null, repeats: false, isOfAConstructor: false),
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
@@ -231,7 +231,10 @@ internal sealed class LoopStateEvaluator
         this.assigned.Add(local);
     }
 
-    /// <summary>True for a local that the body of the given loop declares. Such a local is new in each turn.</summary>
+    /// <summary>
+    ///     True for a local that the body of the given loop declares. Such a local
+    ///     is new in each turn.
+    /// </summary>
     /// <param name="local">The local.</param>
     /// <param name="turn">The body of the loop.</param>
     public static bool IsDeclaredIn(ISymbol local, SyntaxNode turn) =>
@@ -250,8 +253,8 @@ internal sealed class LoopStateEvaluator
         };
 
     /// <summary>
-    ///     Records that the walk left a loop. Each object of its turn is then one
-    ///     of the objects of the turns before.
+    ///     Records the end of the walk of a loop. Each object of its turn is then
+    ///     one of the objects of the turns before.
     /// </summary>
     /// <param name="turn">The body of the loop.</param>
     public void EndTurns(SyntaxNode turn)
@@ -263,59 +266,69 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The state of a value in a place that can be older than a turn. Such a
-    ///     place can have the object of a turn before. Thus, where the value is
-    ///     the object of a turn, it can be one of the objects of the turns before
-    ///     also.
+    ///     The state of a value in a location that can be older than a turn. Such
+    ///     a location can have the object of a turn before. Thus, where the value
+    ///     is the object of a turn, it can be one of the objects of the turns
+    ///     before also.
     /// </summary>
     /// <param name="state">The state of the value.</param>
-    /// <param name="place">The place, as the function needs it.</param>
-    /// <param name="isOfItsTurn">True when the place is new in each turn of the loop of the given object.</param>
-    private LoopState InAPlace<TPlace>(LoopState state, TPlace place, Func<MadeObject, TPlace, bool> isOfItsTurn) =>
+    /// <param name="location">The location, as the function needs it.</param>
+    /// <param name="isOfItsTurn">
+    ///     True when the location is new in each turn of the loop of the given
+    ///     object.
+    /// </param>
+    private LoopState InALocation<TLocation>(
+        LoopState state,
+        TLocation location,
+        Func<MadeObject, TLocation, bool> isOfItsTurn) =>
         this.quiet || !this.region.Objects.HasATurn
             ? state
-            : this.WithTheObjectsBefore(state: state, place: place, isOfItsTurn: isOfItsTurn);
+            : this.WithTheObjectsBefore(state: state, location: location, isOfItsTurn: isOfItsTurn);
 
-    // Apart from InAPlace, which most calls leave at its first line: only this one makes a closure.
-    private LoopState WithTheObjectsBefore<TPlace>(
+    // This code is not in InALocation, because only this code makes a closure. Most calls of
+    // InALocation do not come here.
+    private LoopState WithTheObjectsBefore<TLocation>(
         LoopState state,
-        TPlace place,
-        Func<MadeObject, TPlace, bool> isOfItsTurn) =>
+        TLocation location,
+        Func<MadeObject, TLocation, bool> isOfItsTurn) =>
         state.WithAlso(made =>
-            this.region.Objects.IsOfATurnNow(made) && !isOfItsTurn(arg1: made, arg2: place)
+            this.region.Objects.IsOfATurnNow(made) && !isOfItsTurn(arg1: made, arg2: location)
                 ? this.region.Objects.BeforeOf(made)
                 : null);
 
     // A local is new in each turn of the loop that declares it in its body. A local of a callee
     // that runs in the turn is new in each turn also.
     private LoopState InALocal(ISymbol local, LoopState state) =>
-        this.InAPlace(
+        this.InALocation(
             state: state,
-            place: (Code: this, Local: local),
-            isOfItsTurn: static (made, place) =>
-                place.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: place.Local, turn: made.Turn!));
+            location: (Code: this, Local: local),
+            isOfItsTurn: static (made, location) =>
+                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, turn: made.Turn!));
 
     // True when the code of this frame runs in one turn of the loop that made the object. The
     // frame is then of a callee of the code that has the loop, and the call did not return. A
     // function that a callee made can run in a turn after that one, with the locals of the callee.
     private bool RunsInTheTurnOf(MadeObject made) => !made.IsFrom(this.Frame) && !this.Frame.HasReturned;
 
-    // A member or an element of the one object of a value is new in each turn of the loop that
-    // made that object, while the walk is in that loop. The object must be a new one: the result
-    // of a call can be the same object in each turn.
+    // A member or an element of an object is new in each turn of the loop that made the object,
+    // and of each loop around that one. That is true while the walk is in the loop, and only for a
+    // value that is one object. The object must be a new one: the result of a call can be the same
+    // object in each turn.
     private LoopState InAnObject(LoopState owner, LoopState state) =>
-        this.InAPlace(
+        this.InALocation(
             state: state,
-            place: owner.Objects.Length == 1
-                   && owner.Objects[0].IsNew
-                   && this.region.Objects.IsOfATurnNow(owner.Objects[0])
-                ? owner.Objects[0].Turn
-                : null,
-            isOfItsTurn: static (made, turn) => made.Turn == turn);
+            location: (
+                Store: this.region.Objects,
+                Turn: owner.Objects.Length == 1
+                      && owner.Objects[0].IsNew
+                      && this.region.Objects.IsOfATurnNow(owner.Objects[0])
+                    ? owner.Objects[0].Turn
+                    : null),
+            isOfItsTurn: static (made, location) => location.Store.IsIn(turn: location.Turn, around: made.Turn!));
 
     // A field of an object that the walk does not know, and the result of a call, are of no turn.
-    private LoopState InAnOldPlace(LoopState state) =>
-        this.InAPlace(state: state, place: false, isOfItsTurn: static (_, place) => place);
+    private LoopState InAnOldLocation(LoopState state) =>
+        this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew);
 
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
@@ -325,11 +338,12 @@ internal sealed class LoopStateEvaluator
     {
         ISymbol key = member.OriginalDefinition;
 
-        // The object can be older than a turn of a loop of this code.
-        state = this.InAPlace(
+        // The object can be older than a turn of a loop of this code. The receiver of a method can
+        // be older than a turn of a loop of the caller also. A constructor makes a new object.
+        state = this.InALocation(
             state: state,
-            place: this,
-            isOfItsTurn: static (made, code) => code.RunsInTheTurnOf(made));
+            location: this,
+            isOfItsTurn: static (made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
         this.thisMembers[key] =
             this.thisMembers.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
@@ -345,7 +359,10 @@ internal sealed class LoopStateEvaluator
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the assignment always runs in its function.</param>
-    /// <param name="turn">The body of the loop whose each turn always runs the assignment. Null when no loop does.</param>
+    /// <param name="turn">
+    ///     The body of the loop whose each turn always runs the assignment. Null
+    ///     when no loop does.
+    /// </param>
     public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces, SyntaxNode? turn)
     {
         LoopState has = this.Eval(owner);
@@ -509,7 +526,7 @@ internal sealed class LoopStateEvaluator
         if (!this.quiet)
         {
             // The owner of the field is not known, thus it is of no turn.
-            this.region.SetField(field: field, state: this.InAnOldPlace(state));
+            this.region.SetField(field: field, state: this.InAnOldLocation(state));
         }
     }
 
@@ -661,7 +678,9 @@ internal sealed class LoopStateEvaluator
         LoopState state =
             this.Refreshed(
                 expression: expression,
-                state: this.OnlyObjectsOfItsType(expression: expression, state: this.Now(this.EvalUncached(expression))));
+                state: this.OnlyObjectsOfItsType(
+                    expression: expression,
+                    state: this.Now(this.EvalUncached(expression))));
 
         this.memo[expression] = state;
 
@@ -720,7 +739,7 @@ internal sealed class LoopStateEvaluator
             .FromIfUnknown(owner.Origin);
     }
 
-    // After the walk leaves a loop, the object of its turn is one of the objects of the turns before.
+    // After the walk of a loop, the object of its turn is one of the objects of the turns before.
     private LoopState Now(LoopState state)
     {
         ImmutableArray<MadeObject> now = this.region.Objects.Now(state.Objects);
@@ -777,11 +796,21 @@ internal sealed class LoopStateEvaluator
             stored = stored == null ? one : stored.Join(one);
         }
 
-        return stored == null
-            ? state
-            : state.RefreshedFrom(
+        if (stored == null)
+        {
+            return state;
+        }
+
+        LoopState refreshed =
+            state.RefreshedFrom(
                 stored: stored.FromIfUnknown(state.AnyOrigin),
                 all: known && Unwrapped(expression) is IdentifierNameSyntax or MemberAccessExpressionSyntax);
+
+        // The store has the parts of the object of this turn. A value that can be an older object
+        // can have the older parts also.
+        LoopState parts = this.InAnObject(owner: refreshed, state: refreshed);
+
+        return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
     }
 
     /// <summary>
@@ -830,7 +859,7 @@ internal sealed class LoopStateEvaluator
 
         // The result of a call can be an object that is older than the turn. A creation is new,
         // and each object that it gets is then of its turn or of a turn around it.
-        LoopState first = exact ? apart : this.InAnOldPlace(apart);
+        LoopState first = exact ? apart : this.InAnOldLocation(apart);
 
         return first.WithObjects(
             ImmutableArray.Create(
@@ -953,7 +982,10 @@ internal sealed class LoopStateEvaluator
     /// <param name="owner">The state of the value.</param>
     /// <param name="change">The new state of an object, from its state now.</param>
     /// <param name="replaces">True when the change always runs in its function.</param>
-    /// <param name="turn">The body of the loop whose each turn always runs the change. Null when no loop does.</param>
+    /// <param name="turn">
+    ///     The body of the loop whose each turn always runs the change. Null when
+    ///     no loop does.
+    /// </param>
     private void Change(LoopState owner, Func<LoopState, LoopState> change, bool replaces, SyntaxNode? turn)
     {
         if (this.quiet)
@@ -4738,7 +4770,11 @@ internal sealed class LoopStateEvaluator
             bound: parameters.ToImmutable(),
             noValues: noValue.ToImmutable(),
             depth: this.depth + 1,
-            frame: definer?.Frame ?? new LoopFrame(parent: this.Frame, repeats: !this.RunsOneTime(call)),
+            frame: definer?.Frame
+                   ?? new LoopFrame(
+                       parent: this.Frame,
+                       repeats: !this.RunsOneTime(call),
+                       isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,

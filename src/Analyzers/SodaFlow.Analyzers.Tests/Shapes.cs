@@ -8923,6 +8923,62 @@ public static class Shapes
     public static Cell<int> TurnYieldReturnBeforeTheWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = []; foreach (SettableSlot s in SlotsThatGetAPlainCell(l.Map(v => v))) { all.Add(s); } return S.Hold(all[0].Share!.Sample()); });
 
+    // S1915. A local of the block has the first object of the loop. Each turn gives that object a pending cell, and the object of the turn a plain cell.
+    public static Cell<int> TurnOlderObjectThroughALocalOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; } first!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1916. The same, where a local function gives the local of the block its value.
+    public static Cell<int> TurnOlderObjectThroughALocalThatALocalFunctionAssigns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; void Keep(SettableSlot given) { first = given; } for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { Keep(x); } first!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1917. The same, with a member of an object of the block.
+    public static Cell<int> TurnOlderObjectThroughAMemberOfAnObjectOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; } outer.Item!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(outer.Item!.Share!.Sample()); });
+
+    // S1918. An element of the list of the block gets the pending cell, and a local of the block reads it.
+    public static Cell<int> TurnOlderElementReadThroughALocalOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; } list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1919. An element of a tuple in the list of the block gets the pending cell, and a local of the block reads it.
+    public static Cell<int> TurnOlderPartOfATupleReadThroughALocalOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; List<(SettableSlot First, int Second)> pairs = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; } pairs.Add((x, i)); pairs[0].First.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1920. A local of the block has the first holder of the loop, and the member of that holder is the first object.
+    public static Cell<int> TurnOlderObjectThroughAMemberOfAnOlderHolder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SlotHolder holder = new() { Item = x }; if (i == 0) { kept = holder; } kept!.Item!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(kept!.Item!.Share!.Sample()); });
+
+    // S1921. A local of the block has the first list of the loop, and the element of that list is the first object.
+    public static Cell<int> TurnOlderObjectThroughAnElementOfAnOlderList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; List<SettableSlot>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<SettableSlot> one = [x]; if (i == 0) { kept = one; first = x; } kept![0].Share = l.Map(v => v); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1922. A foreach over the first list of the loop gives its element the pending cell.
+    public static Cell<int> TurnOlderObjectThroughAForeachOverAnOlderList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; List<SettableSlot>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<SettableSlot> one = [x]; if (i == 0) { kept = one; first = x; } foreach (SettableSlot each in kept!) { each.Share = l.Map(v => v); } x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1923. An object of the inner turn has the object of the outer turn, and a second local of the inner body is a name of that object.
+    public static Cell<int> TurnObjectOfTheOuterTurnInAnObjectOfTheInnerTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { SlotHolder holder = new() { Item = x }; SettableSlot y = holder.Item!; Kept.Add(y);  } SettableSlot z = x; z.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1924. A method of an object of the block keeps the first object of the loop in a member, and returns it in each turn.
+    public static Cell<int> TurnOlderObjectThroughAMemberOfTheReceiverOfAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { FirstSlotOwner owner = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot k = owner.FirstOf(x); k.Share = l.Map(v => v); x.Share = Plain; Kept.Add(k.Share!.Sample()); } return S.Hold(0); });
+
+    // S1925. A lambda with a loop runs two times, and the walk reads the loop for each call. No cell is pending.
+    public static Cell<int> TurnLoopInALambdaThatRunsTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action run = () => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); } }; run(); run(); return S.Hold(0); });
+
+    // S1926. A cell of the block has the first object of the loop as its value.
+    public static Cell<int> TurnOlderObjectThroughTheValueOfACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<SettableSlot>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { kept = Cell.Constant(x); } kept!.Sample().Share = l.Map(v => v); x.Share = Plain; } return S.Hold(kept!.Sample().Share!.Sample()); });
+
+    // S1927. The loop of a constructor keeps its first object in a member of the new object.
+    public static Cell<int> TurnObjectInAMemberThatTheLoopOfAConstructorSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new FirstSlotOfALoop(l.Map(v => v)).First!.Share!.Sample()); });
+
+    // S1928. A member that the constructor of a base class sets has the object of the turn.
+    public static Cell<int> TurnObjectInAMemberThatABaseConstructorSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; DerivedSlotOwner owner = new(x); SettableSlot y = owner.Item; y.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -10571,6 +10627,57 @@ public static class Shapes
             yield return x;
 
             x.Share = Plain;
+        }
+    }
+
+    public sealed class FirstSlotOwner
+    {
+        private SettableSlot? first;
+
+        public SettableSlot FirstOf(SettableSlot given)
+        {
+            if (this.first == null)
+            {
+                this.first = given;
+            }
+
+            return this.first;
+        }
+    }
+
+    public sealed class FirstSlotOfALoop
+    {
+        public FirstSlotOfALoop(Cell<int> pending)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                SettableSlot x = new() { Share = Plain };
+
+                if (i == 0)
+                {
+                    this.First = x;
+                }
+
+                this.First!.Share = pending;
+                x.Share = Plain;
+            }
+        }
+
+        public SettableSlot? First { get; }
+    }
+
+    public class SlotOwnerBase
+    {
+        protected SlotOwnerBase(SettableSlot item) => this.Item = item;
+
+        public SettableSlot Item { get; }
+    }
+
+    public sealed class DerivedSlotOwner : SlotOwnerBase
+    {
+        public DerivedSlotOwner(SettableSlot item)
+            : base(item)
+        {
         }
     }
 

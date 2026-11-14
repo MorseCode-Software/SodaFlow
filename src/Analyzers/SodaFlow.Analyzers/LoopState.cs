@@ -516,7 +516,8 @@ internal sealed class LoopState
 
     /// <summary>
     ///     The same state, for a value that can be a second object where it can be
-    ///     an object of the store. Each part of the state changes the same way.
+    ///     an object of the store. Each part of the state gets its second objects
+    ///     also.
     /// </summary>
     /// <param name="second">Gives the second object. Null for an object that has none.</param>
     public LoopState WithAlso(Func<MadeObject, MadeObject?> second) =>

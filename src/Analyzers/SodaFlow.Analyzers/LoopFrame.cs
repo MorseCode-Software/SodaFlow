@@ -15,7 +15,8 @@ namespace SodaFlow.Analyzers;
 /// </remarks>
 /// <param name="parent">The frame of the code that calls this code. Null for the block.</param>
 /// <param name="repeats">The value of <see cref="Repeats" />.</param>
-internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats)
+/// <param name="isOfAConstructor">The value of <see cref="IsOfAConstructor" />.</param>
+internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool isOfAConstructor)
 {
     private readonly LoopFrame? parent = parent;
     private readonly List<QueryValue> waiting = [];
@@ -27,6 +28,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats)
     ///     code makes is two or more objects at run time.
     /// </summary>
     public bool Repeats { get; } = repeats;
+
+    /// <summary>
+    ///     True when the code of this frame is a constructor. The object that the
+    ///     code is in is then a new object. The receiver of a method can be older
+    ///     than the call.
+    /// </summary>
+    public bool IsOfAConstructor { get; } = isOfAConstructor;
 
     /// <summary>
     ///     True for the given frame, and for the frame of each callee that the
