@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -257,6 +259,12 @@ internal sealed class ObjectStore
 
         return found;
     }
+
+    /// <summary>A number for what the store says about its objects, from <see cref="LoopState.Shape" />.</summary>
+    public int Shape =>
+        this.states.Aggregate(
+            seed: 0,
+            func: static (sum, one) => unchecked(sum + ((RuntimeHelpers.GetHashCode(one.Key) * 31) ^ one.Value.Shape)));
 
     /// <summary>The state of an object. Null for an object that is not in the store.</summary>
     public LoopState? StateOf(MadeObject found) =>

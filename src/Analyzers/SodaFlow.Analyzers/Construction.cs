@@ -65,6 +65,12 @@ internal sealed class Construction(
     /// <summary>True when the evaluator knows a state for one member or more.</summary>
     public bool HasState => this.members.Values.Any(static state => !state.IsNone);
 
+    /// <summary>A number for what the members say, as <see cref="LoopState.Shape" /> is for a state.</summary>
+    public int Shape =>
+        this.members.Aggregate(
+            seed: 0,
+            func: static (sum, member) => unchecked(sum + ((member.Key.Name.GetHashCode() * 31) ^ member.Value.Shape)));
+
     /// <summary>
     ///     True when a member is a part of a pair of the platform that the
     ///     evaluator saw made. <see cref="SodaFlowSymbols.HoldsParts" /> names the

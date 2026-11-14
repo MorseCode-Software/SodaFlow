@@ -9991,6 +9991,50 @@ public static class Shapes
     public static Cell<int> FirstAddInALambdaThatRunsAfterASecondAdd() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); Action add = () => made.Add(new(l.Map(v => v))); made.Add(new(Plain)); add(); return S.Hold(0); });
 
+    // S2182. A pending cell goes from a first local to a second one in the turn after, and the third turn samples it.
+    public static Cell<int> CellFromTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = null; Cell<int>? b = null; for (int i = 0; i < 3; i++) { if (b != null) { Kept.Add(b.Sample()); } b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2183. The same through three locals, and the fourth turn samples it.
+    public static Cell<int> CellFromThreeTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = null; Cell<int>? b = null; Cell<int>? c = null; for (int i = 0; i < 4; i++) { if (c != null) { Kept.Add(c.Sample()); } c = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2184. An object with a pending cell goes through two locals, and the third turn samples its cell.
+    public static Cell<int> ObjectFromTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? a = null; SettableSlot? b = null; for (int i = 0; i < 3; i++) { if (b != null) { Kept.Add(b.Share!.Sample()); } b = a; a = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(0); });
+
+    // S2185. A plain cell goes through two locals, and the third turn samples it.
+    public static Cell<int> PlainCellFromTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = null; Cell<int>? b = null; for (int i = 0; i < 3; i++) { if (b != null) { Kept.Add(b.Sample()); } b = a; a = Plain; } return S.Hold(0); });
+
+    // S2186. A function of a query makes an object with two names for each element. A pending cell through the second name is a change for the first one.
+    public static Cell<int> TwoNamesInAFunctionOfAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] made = new[] { 1 }.Select(n => { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); return x.Share!.Sample(); }).ToArray(); Kept.Add(made); return S.Hold(0); });
+
+    // S2187. The same in a lambda that a list runs for each element.
+    public static Cell<int> TwoNamesInALambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new List<int> { 1 }.ForEach(n => { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); Kept.Add(x.Share!.Sample()); }); return S.Hold(0); });
+
+    // S2188. A lambda that a list runs for each element makes an object, and a plain cell through a second name replaces its pending cell.
+    public static Cell<int> PlainThroughASecondNameInALambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new List<int> { 1 }.ForEach(n => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); }); return S.Hold(0); });
+
+    // S2189. A lambda that a list runs for each element gives its object a plain cell in a branch that does not run.
+    public static Cell<int> PlainInABranchOfALambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new List<int> { 1 }.ForEach(n => { SettableSlot x = new() { Share = l.Map(v => v) }; if (n > 5) { x.Share = Plain; } Kept.Add(x.Share!.Sample()); }); return S.Hold(0); });
+
+    // S2190. A local function that a list runs for each element makes an object with two names.
+    public static Cell<int> TwoNamesInALocalFunctionThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { void Each(int n) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); Kept.Add(x.Share!.Sample()); } new List<int> { 1 }.ForEach(Each); return S.Hold(0); });
+
+    // S2191. The same, where a plain cell through the second name replaces the pending cell.
+    public static Cell<int> PlainThroughASecondNameInALocalFunctionThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { void Each(int n) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); } new List<int> { 1 }.ForEach(Each); return S.Hold(0); });
+
+    // S2192. A lambda that a list runs for each element samples the cell that the run before gave to a local of the block.
+    public static Cell<int> RunBeforeOfALambdaThatAListRunsGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); }); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -188,6 +189,42 @@ internal sealed class LoopState
                 isContainer: this.IsContainer,
                 objects: NoObjects,
                 held: NoObjects);
+
+    /// <summary>
+    ///     A number for what this state says. Two states that say the same have
+    ///     the same number. The walk of a loop reads the loop again while a read
+    ///     changes this number for a location.
+    /// </summary>
+    public int Shape
+    {
+        get
+        {
+            unchecked
+            {
+                int shape = (this.Pending ? 1 : 0) | (this.Linked ? 2 : 0) | (this.IsContainer ? 4 : 0);
+
+                shape = (shape * 397) ^ (this.content?.Shape ?? 0);
+                shape = (shape * 397) ^ (this.Members?.Shape ?? 0);
+                // A sum of the platform throws when it is too large for its type. These sums must not.
+                foreach (MadeObject made in this.Objects)
+                {
+                    shape += RuntimeHelpers.GetHashCode(made) * 31;
+                }
+
+                foreach (MadeObject made in this.Held)
+                {
+                    shape += RuntimeHelpers.GetHashCode(made) * 37;
+                }
+
+                foreach (FunctionValue function in this.Functions)
+                {
+                    shape += function.Declaration.SpanStart * 41;
+                }
+
+                return shape + (this.Queries.Length * 43);
+            }
+        }
+    }
 
     /// <summary>
     ///     True for a state with members that holds no object. For a collection,

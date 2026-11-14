@@ -1532,7 +1532,15 @@ internal sealed class LoopReadAnalyzerTests
             ["FirstAddAfterAHelperGotTheSortedSet"] = ["SF1005"],
             ["FirstAddToASortedSetInALoop"] = ["SF1005"],
             ["FirstAddToASortedSetFromASequence"] = ["SF1005"],
-            ["FirstAddInALambdaThatRunsAfterASecondAdd"] = ["SF1005"]
+            ["FirstAddInALambdaThatRunsAfterASecondAdd"] = ["SF1005"],
+            ["CellFromTwoTurnsBefore"] = ["SF1001"],
+            ["CellFromThreeTurnsBefore"] = ["SF1001"],
+            ["ObjectFromTwoTurnsBefore"] = ["SF1001"],
+            ["TwoNamesInAFunctionOfAQuery"] = ["SF1001"],
+            ["TwoNamesInALambdaThatAListRuns"] = ["SF1001"],
+            ["PlainInABranchOfALambdaThatAListRuns"] = ["SF1001"],
+            ["TwoNamesInALocalFunctionThatAListRuns"] = ["SF1001"],
+            ["RunBeforeOfALambdaThatAListRunsGaveAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

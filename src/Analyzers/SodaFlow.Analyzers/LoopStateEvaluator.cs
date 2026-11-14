@@ -330,6 +330,25 @@ internal sealed class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     A number for what the next turn of a loop can find. Its parts are each
+    ///     local that is older than the turn, each member of this object, each
+    ///     object of the store, and each field. A read that does not change it gave
+    ///     no location a new state.
+    /// </summary>
+    /// <param name="turn">The body of the loop.</param>
+    public int ShapeOfWhatALoopLeaves(SyntaxNode turn) =>
+        unchecked(
+            Shapes(this.locals.Where(local => !IsDeclaredIn(local: local.Key, code: turn)))
+            + (Shapes(this.thisMembers) * 3)
+            + (this.region.Objects.Shape * 5)
+            + (this.region.ShapeOfFields * 7));
+
+    private static int Shapes(IEnumerable<KeyValuePair<ISymbol, LoopState>> states) =>
+        states.Aggregate(
+            seed: 0,
+            func: static (sum, one) => unchecked(sum + ((one.Key.Name.GetHashCode() * 31) ^ one.Value.Shape)));
+
     private static void Forget<TKey, TValue>(Dictionary<TKey, TValue> found, SyntaxNode code, Func<TKey, SyntaxNode> node)
         where TKey : notnull
     {
@@ -1146,7 +1165,7 @@ internal sealed class LoopStateEvaluator
     ///     also. No name of its object is new in each turn. Thus, each such name
     ///     can have an older object, and a write through it only adds.
     /// </remarks>
-    private static SyntaxNode? TurnOf(SyntaxNode place)
+    private SyntaxNode? TurnOf(SyntaxNode place)
     {
         foreach (SyntaxNode ancestor in place.Ancestors())
         {
@@ -1155,14 +1174,25 @@ internal sealed class LoopStateEvaluator
                 return body;
             }
 
-            if (ancestor is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or QueryExpressionSyntax)
+            switch (ancestor)
             {
-                return null;
+                // A run of the lambda for one element is a turn, and the body of the lambda is its
+                // body.
+                case AnonymousFunctionExpressionSyntax lambda:
+                    return this.Frame.RunsForEachElement.Contains(lambda) ? lambda.Body : null;
+                case LocalFunctionStatementSyntax or QueryExpressionSyntax:
+                    return null;
             }
         }
 
         return null;
     }
+
+    /// <summary>
+    ///     Records a lambda that a callee with no body to read runs one time for
+    ///     each element. The walk then reads the lambda where it is.
+    /// </summary>
+    public void RunsForEachElement(SyntaxNode lambda) => this.Frame.RunsForEachElement.Add(lambda);
 
     /// <summary>
     ///     True when an expression runs one time at most for each run of the code
@@ -3248,7 +3278,7 @@ internal sealed class LoopStateEvaluator
                 definer: null,
                 members: members,
                 function: null,
-                manyTimes: false);
+                eachRun: null);
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
@@ -5083,7 +5113,7 @@ internal sealed class LoopStateEvaluator
                 definer: definer,
                 members: members,
                 function: function,
-                manyTimes: manyTimes);
+                eachRun: manyTimes ? body : null);
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
@@ -5112,6 +5142,12 @@ internal sealed class LoopStateEvaluator
         if (started != null)
         {
             this.region.EndsACallOf(started);
+        }
+
+        // The objects of the run become the objects of the runs before.
+        if (manyTimes)
+        {
+            inner.EndTurns(body);
         }
 
         return this.Leave(
@@ -5190,7 +5226,7 @@ internal sealed class LoopStateEvaluator
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members,
         SyntaxNode? function,
-        bool manyTimes)
+        SyntaxNode? eachRun)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
@@ -5227,22 +5263,22 @@ internal sealed class LoopStateEvaluator
             frame: definer?.Frame
                    ?? new LoopFrame(
                        parent: this.Frame,
-                       repeats: manyTimes || !this.RunsOneTime(call),
+                       repeats: eachRun != null || !this.RunsOneTime(call),
                        isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax),
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
             quiet: this.quiet,
             function: function,
-            // A callee with no body to read can run a function two or more times in one call.
-            // Then, no turn runs the code of that function one time.
+            // A callee with no body to read can run a function two or more times in one call. A
+            // run for one element is then a turn, and the body of the function is its body.
             call: new CallOfThisCode(
-                runsOneTime: !manyTimes
+                runsOneTime: eachRun == null
                              && (this.RunsOneTime(call)
                                  || (this.call is { RunsOneTime: true } && this.RunsOneTimeInThisCode(call))),
-                turn: manyTimes ? null : this.TurnOfACall(call),
-                alwaysRuns: !manyTimes && where.Always,
-                alwaysTurn: manyTimes ? null : where.Turn,
+                turn: eachRun ?? this.TurnOfACall(call),
+                alwaysRuns: eachRun == null && where.Always,
+                alwaysTurn: eachRun != null ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
     }
 

@@ -26,6 +26,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
+    // The number of reads of one loop at most. A value that comes to its read after more turns
+    // than that has no report.
+    private const int MaxReadsOfALoop = 5;
+
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
     // The key is a function that the walk asked about. The value is the position of the first
@@ -305,24 +309,43 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
         SyntaxNode? after = null)
     {
-        this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
-
-        // The walk reads a lambda that a callee runs in the call one time. The second turn runs it
-        // again.
-        this.entered.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
-        this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
-
-        this.Visit(condition);
-        this.Visit(body);
-
-        // A for runs its incrementors after the body, and a do reads its condition there.
-        foreach (ExpressionSyntax incrementor in incrementors)
-        {
-            this.Visit(incrementor);
-        }
-
-        this.Visit(after);
         this.evaluator.EndTurns(body);
+
+        int left = this.evaluator.ShapeOfWhatALoopLeaves(body);
+
+        // A value can come to its read only after two or more turns. The walk reads the loop again
+        // while a read gives a location a new state, to a limit. The locals of the body keep the
+        // state of the last read, because the result of a function can be a local of a loop.
+        for (int read = 2; read <= MaxReadsOfALoop; read++)
+        {
+            this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
+
+            // The walk reads a lambda that a callee runs in the call one time. The next turn runs
+            // it again.
+            this.entered.RemoveWhere(lambda => lambda != loop && LoopStateEvaluator.IsIn(node: lambda, code: loop));
+            this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
+
+            this.Visit(condition);
+            this.Visit(body);
+
+            // A for runs its incrementors after the body, and a do reads its condition there.
+            foreach (ExpressionSyntax incrementor in incrementors)
+            {
+                this.Visit(incrementor);
+            }
+
+            this.Visit(after);
+            this.evaluator.EndTurns(body);
+
+            int now = this.evaluator.ShapeOfWhatALoopLeaves(body);
+
+            if (now == left)
+            {
+                break;
+            }
+
+            left = now;
+        }
 
         // After the loop, a local has also what it had before an assignment of a turn.
         if (this.hadBefore.TryGetValue(key: body, value: out Dictionary<ISymbol, LoopState>? had))
@@ -1071,8 +1094,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (!this.once.Contains(lambda) || this.FirstExitOf(lambda) < place.SpanStart)
+                    if (this.FirstExitOf(lambda) < place.SpanStart)
                     {
+                        return false;
+                    }
+
+                    // A callee runs the lambda one time for each element. Each run always runs the
+                    // statement, and a run is a turn.
+                    if (!this.once.Contains(lambda))
+                    {
+                        turn = inALambda ? null : lambda.Body;
+
                         return false;
                     }
 
@@ -1986,8 +2018,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
 
             // The lambda is part of this code. The walk reads it where it is, with the same
-            // evaluator.
+            // evaluator. A callee that does not run it one time runs it for each element. A run for
+            // one element is a turn, and the walk reads a block again as it reads the body of a loop.
+            if (!oneTime)
+            {
+                this.evaluator.RunsForEachElement(lambda);
+            }
+
             this.Visit(lambda.Body);
+
+            if (oneTime)
+            {
+                continue;
+            }
+
+            if (lambda.Body is BlockSyntax)
+            {
+                this.VisitTheSecondTurn(loop: lambda, body: lambda.Body);
+            }
+            else
+            {
+                this.evaluator.EndTurns(lambda.Body);
+            }
         }
     }
 

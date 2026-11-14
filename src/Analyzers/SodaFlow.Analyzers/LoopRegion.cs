@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -68,6 +69,12 @@ internal sealed class LoopRegion(
 
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
+    public int ShapeOfFields =>
+        this.fields.Aggregate(
+            seed: 0,
+            func: static (sum, one) => unchecked(sum + ((one.Key.Name.GetHashCode() * 31) ^ one.Value.Shape)));
 
     /// <summary>
     ///     The state of a field that the code set while the loop is open. The

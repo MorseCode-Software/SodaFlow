@@ -95,6 +95,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, bool> HasOneElement { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     The lambdas that a callee with no body to read runs one time for each
+    ///     element, and that the walk reads where they are. A run for one element
+    ///     is a turn, as a turn of a loop is.
+    /// </summary>
+    public HashSet<SyntaxNode> RunsForEachElement { get; } = [];
+
+    /// <summary>
     ///     For a local that the body of a loop declares: the state that it had at
     ///     the end of the first read of the loop. A lambda or a local function of
     ///     the turn before reads that local, and not the local of this turn.
