@@ -265,13 +265,18 @@ internal sealed class LoopStateEvaluator
     }
 
     // Records the collection of a local that has one value. The value is one new object of the
-    // store, or it is a second local that is one collection.
+    // store, or it is a second local that is one collection. A local with no expression for its
+    // value is no such local. The variable of a foreach is one element of a collection. That
+    // collection can hold an object that the walk did not see go in.
     private void IsOneCollection(ISymbol local, LoopState state, ExpressionSyntax? from)
     {
-        if (from != null
-            && Unwrapped(from) is IdentifierNameSyntax name
-            && this.region.SymbolOf(name) is ILocalSymbol other
-            && this.Frame.TheOneCollectionOf.TryGetValue(key: other, value: out MadeObject? same))
+        if (from == null)
+        {
+            this.Frame.TheOneCollectionOf.Remove(local);
+        }
+        else if (Unwrapped(from) is IdentifierNameSyntax name
+                 && this.region.SymbolOf(name) is ILocalSymbol other
+                 && this.Frame.TheOneCollectionOf.TryGetValue(key: other, value: out MadeObject? same))
         {
             this.Frame.TheOneCollectionOf[local] = same;
         }

@@ -10555,6 +10555,14 @@ public static class Shapes
     public static Cell<int> NumberThatAnOwnerReturns() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotLine line = NewSlotLine(); line.Put(x); Kept.Add(line.Count()); return S.Hold(0); });
 
+    // S2323. A list of lists has a list of the block and a list that the walk did not see made. A foreach gives the first element of each list a pending cell, and the object of the block gets a plain cell after it.
+    public static Cell<int> ElementOfTheVariableOfAForeachOverAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> inner = [x]; List<List<SettableSlot>> outer = []; outer.Add(inner); outer.AddRange(UnseenListsOfLists); foreach (List<SettableSlot> each in outer) { each[0].Share = l.Map(v => v); } x.Share = Plain; return S.Hold(outer[1][0].Share!.Sample()); });
+
+    // S2324. An assignment gives a second local the list of the block, and the list has only its object.
+    public static Cell<int> PlainThroughAnElementOfALocalThatAnAssignmentGaveTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> other; other = list; other[0].Share = Plain; return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12623,6 +12631,8 @@ public static class Shapes
 
         public int Count() => this.slots.Count;
     }
+
+    private static readonly List<List<SettableSlot>> UnseenListsOfLists = [[new()]];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
