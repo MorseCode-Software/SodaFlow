@@ -325,7 +325,9 @@ internal static class StreamExtensionMethodsInternal
                         (Stream<T> s, Behavior<TTime> time, Func<Cell<TDeadline>, Stream<TTime>> at,
                             Func<TTime, TDeadline> arm, TDeadline disarmed) = state;
 
+#pragma warning disable SF1003 // The function is the timer's At, which fires in a new transaction.
                         Stream<TTime> alarm = at(deadline);
+#pragma warning restore SF1003 // The function is the timer's At, which fires in a new transaction.
 
                         // The value of each firing, for the alarm to read. This holds MaybeInternal and not
                         // the optional type of a caller. The alarm comes after a firing, thus the first value of

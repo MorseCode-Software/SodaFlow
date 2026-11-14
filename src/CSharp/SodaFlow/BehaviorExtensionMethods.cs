@@ -54,6 +54,21 @@ public static class BehaviorExtensionMethods
     public static T Sample<T>(this Behavior<T> b) => b.SampleImpl();
 
     /// <summary>
+    ///     Return a reference to this <see cref="Behavior{T}" /> as a
+    ///     <see cref="Behavior{T}" />.
+    /// </summary>
+    /// <typeparam name="T">The type of the behavior.</typeparam>
+    /// <param name="b">The behavior.</param>
+    /// <returns>This behavior.</returns>
+    /// <remarks>
+    ///     This does nothing at run time. In a loop block, it marks a value that comes
+    ///     from the placeholder as one that no callee reads before the loop closes.
+    ///     Write it at the argument that the promise is about. A static analyzer reads
+    ///     the mark, and the compiler does not.
+    /// </remarks>
+    public static Behavior<T> AsBehavior<T>(this Behavior<T> b) => b;
+
+    /// <summary>
     ///     Sample the current value of the behavior lazily.
     /// </summary>
     /// <typeparam name="T">The type of the behavior.</typeparam>

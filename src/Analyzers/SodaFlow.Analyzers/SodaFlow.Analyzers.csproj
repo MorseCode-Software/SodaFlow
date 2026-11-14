@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            netstandard2.0 is the one target an analyzer can have: the compiler loads it into
+            whichever runtime hosts the build, and Visual Studio still hosts on .NET Framework.
+        -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <!--
+        Not a package. The dll ships inside the SodaFlow package, under analyzers/dotnet/cs, which
+        SodaFlow.csproj packs from this project's output; Directory.Build.targets says why it is not a
+        package of its own. The assembly name is what a consumer sees in a diagnostic's source.
+    -->
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.Analyzers</AssemblyName>
+        <RootNamespace>SodaFlow.Analyzers</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+        The analyzer runs inside the compiler, which supplies these assemblies. An analyzer must not
+        ask for a later version than the compiler that loads it, or that compiler does not run it.
+        Roslyn 4.8 is in the .NET 8 SDK and Visual Studio 2022 17.8, and in each later one. It is the
+        first with the syntax of a collection expression, which the analyzer walks in the code it
+        reads, and that is why it is the floor and not the 4.4 of the Toolkit's analyzer. Its
+        System.Collections.Immutable has no collection builder, so the analyzer makes an immutable
+        array with Create. It brings Microsoft.CodeAnalysis.Analyzers, whose rules
+        EnforceExtendedAnalyzerRules turns on, and whose release tracking the two AnalyzerReleases
+        files are for. That package adds the two files to AdditionalFiles itself, thus this project
+        does not name them; a second listing makes docfx report each as a duplicate source file.
+        PrivateAssets keeps Roslyn out of every package that references this project.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="AssemblyInfo.cs"/>
+        <Compile Include="CalleeKind.cs"/>
+        <Compile Include="Construction.cs"/>
+        <Compile Include="Diagnostics.cs"/>
+        <Compile Include="Finding.cs"/>
+        <Compile Include="Followed.cs"/>
+        <Compile Include="FunctionValue.cs"/>
+        <Compile Include="LoopFrame.cs"/>
+        <Compile Include="LoopReadAnalyzer.cs"/>
+        <Compile Include="LoopRegion.cs"/>
+        <Compile Include="LoopState.cs"/>
+        <Compile Include="LoopStateEvaluator.cs"/>
+        <Compile Include="LoopStateEvaluator.Positions.cs"/>
+        <Compile Include="LoopStateEvaluator.Writes.cs"/>
+        <Compile Include="MadeObject.cs"/>
+        <Compile Include="ObjectStore.cs"/>
+        <Compile Include="OperatorTable.cs"/>
+        <Compile Include="PlatformCallers.cs"/>
+        <Compile Include="PlatformReceivers.cs"/>
+        <Compile Include="QueryValue.cs"/>
+        <Compile Include="ShapeNumber.cs"/>
+        <Compile Include="SinkWalker.cs"/>
+        <Compile Include="SodaFlowSymbols.cs"/>
+        <Compile Include="WriteThroughAName.cs"/>
+        <Compile Include="WritesThroughEach.cs"/>
+    </ItemGroup>
+
+</Project>

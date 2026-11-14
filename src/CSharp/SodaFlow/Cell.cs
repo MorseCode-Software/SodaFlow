@@ -135,5 +135,7 @@ public struct CellLooper<T>
     /// <returns>The resulting cell.</returns>
     [Pure]
     public Cell<T> WithoutCaptures([InstantHandle] Func<LoopedCell<T>, Cell<T>> f) =>
+#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         this.WithCaptures(l => (Cell: f(l), Captures: UnitInternal.Value)).Cell;
+#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
 }

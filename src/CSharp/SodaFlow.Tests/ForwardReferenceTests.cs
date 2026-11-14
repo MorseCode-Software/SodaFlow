@@ -147,10 +147,12 @@ public sealed class ForwardReferenceTests
     public async Task TestReferenceCannotBeReadDuringConstruction() =>
         // The reference is a promise about the value, and not the value. A read of it before the
         // construction function returns has no answer.
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
         await Assert.That(static () =>
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed - Testing for side effect only.
                 ForwardReference<int>.WithoutCaptures(static reference => reference.Sample()))
             .ThrowsExactly<InvalidOperationException>();
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
 
     private sealed class Looped(Stream<int> output, Cell<int> total)
     {
