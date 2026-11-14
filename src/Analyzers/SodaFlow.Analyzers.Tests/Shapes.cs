@@ -9523,6 +9523,34 @@ public static class Shapes
     public static Cell<int> ValueOfACoalescingAssignment() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = null; Cell<int> c = first ??= l.Map(v => v); return S.Hold(c.Sample()); });
 
+    // S2065. A for statement declares a variable for a pending cell, and its body samples the cell.
+    public static Cell<int> CellInAVariableOfAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; for (Cell<int> c = l.Map(v => v); n < 1; n++) { Kept.Add(c.Sample()); } return S.Hold(0); });
+
+    // S2066. A for statement declares a variable for an object with a pending cell.
+    public static Cell<int> ObjectInAVariableOfAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; for (SettableSlot s = new() { Share = l.Map(v => v) }; n < 1; n++) { Kept.Add(s.Share!.Sample()); } return S.Hold(0); });
+
+    // S2067. A for statement declares two variables, and the second one has the pending cell.
+    public static Cell<int> CellInTheSecondVariableOfAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; for (Cell<int> a = Plain, b = l.Map(v => v); n < 1; n++) { Kept.Add(a); Kept.Add(b.Sample()); } return S.Hold(0); });
+
+    // S2068. A for statement declares a variable for a plain cell.
+    public static Cell<int> PlainCellInAVariableOfAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; for (Cell<int> c = Plain; n < 1; n++) { Kept.Add(c.Sample()); } return S.Hold(0); });
+
+    // S2069. The object in a variable of a for statement is older than the turn. The second turn samples the pending cell that the first turn gave to it.
+    public static Cell<int> ObjectInAVariableOfAForThatTheTurnBeforeChanged() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; for (SettableSlot s = new() { Share = Plain }; n < 2; n++) { Kept.Add(s.Share!.Sample()); s.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2070. An incrementor of a for statement runs after the body. It samples the plain cell that the body gave.
+    public static Cell<int> IncrementorReadsAfterTheBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); for (int i = 0; i < 2; i++, Kept.Add(c.Sample())) { c = Plain; } return S.Hold(0); });
+
+    // S2071. The condition of a for statement runs before the first turn. It samples the pending cell that the body replaces.
+    public static Cell<int> ConditionOfAForReadsBeforeTheBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); for (int i = 0; i < 2 && c.Sample() >= 0; i++) { c = Plain; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

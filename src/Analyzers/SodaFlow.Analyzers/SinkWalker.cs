@@ -106,11 +106,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             _ => false
         };
 
-    public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
-    {
-        SemanticModel model = this.region.ModelFor(node);
+    public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node) =>
+        this.DeclareEach(declaration: node.Declaration, disposes: node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword));
 
-        foreach (VariableDeclaratorSyntax declarator in node.Declaration.Variables)
+    // Gives each variable of a declaration the state of its initializer. A local declaration
+    // statement and the declaration of a for statement are such declarations.
+    private void DeclareEach(VariableDeclarationSyntax declaration, bool disposes)
+    {
+        SemanticModel model = this.region.ModelFor(declaration);
+
+        foreach (VariableDeclaratorSyntax declarator in declaration.Variables)
         {
             if (declarator.Initializer == null)
             {
@@ -127,7 +132,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
-            if (node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            if (disposes)
             {
                 this.Report(this.evaluator.FollowDispose(declarator.Initializer.Value));
             }
@@ -240,7 +245,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitForStatement(ForStatementSyntax node)
     {
-        base.VisitForStatement(node);
+        // The parts of a for statement, in the order in which the code runs them. The
+        // incrementors run after the body.
+        if (node.Declaration is { } declaration)
+        {
+            this.DeclareEach(declaration: declaration, disposes: false);
+        }
+
+        foreach (ExpressionSyntax initializer in node.Initializers)
+        {
+            this.Visit(initializer);
+        }
+
+        this.Visit(node.Condition);
+        this.Visit(node.Statement);
+
+        foreach (ExpressionSyntax incrementor in node.Incrementors)
+        {
+            this.Visit(incrementor);
+        }
 
         this.VisitTheSecondTurn(
             loop: node,
@@ -285,14 +308,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.entered.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
         this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
 
-        // A for runs its incrementors after the turn, and then its condition.
+        this.Visit(condition);
+        this.Visit(body);
+
+        // A for runs its incrementors after the body, and a do reads its condition there.
         foreach (ExpressionSyntax incrementor in incrementors)
         {
             this.Visit(incrementor);
         }
 
-        this.Visit(condition);
-        this.Visit(body);
         this.Visit(after);
         this.evaluator.EndTurns(body);
 

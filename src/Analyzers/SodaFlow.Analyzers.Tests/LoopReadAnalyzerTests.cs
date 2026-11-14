@@ -1461,7 +1461,12 @@ internal sealed class LoopReadAnalyzerTests
             ["CoalescingAssignmentOfAnObject"] = ["SF1001"],
             ["CoalescingAssignmentKeepsWhatItsTargetHad"] = ["SF1001"],
             ["CoalescingAssignmentToAMember"] = ["SF1001"],
-            ["ValueOfACoalescingAssignment"] = ["SF1001"]
+            ["ValueOfACoalescingAssignment"] = ["SF1001"],
+            ["CellInAVariableOfAFor"] = ["SF1001"],
+            ["ObjectInAVariableOfAFor"] = ["SF1001"],
+            ["CellInTheSecondVariableOfAFor"] = ["SF1001"],
+            ["ObjectInAVariableOfAForThatTheTurnBeforeChanged"] = ["SF1001"],
+            ["ConditionOfAForReadsBeforeTheBody"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
