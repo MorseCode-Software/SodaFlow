@@ -9611,6 +9611,26 @@ public static class Shapes
     public static Cell<int> PendingCellThroughAFieldOfAnObjectThatTheWalkDoesNotKnow() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SharedHolderC.Item = x; SharedHolderC.Item!.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
 
+    // S2087. A helper with no argument returns a lambda that returns its argument. A pending cell through the result of the lambda is a change to the argument.
+    public static Cell<int> ResultOfALambdaOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = SameSlot(); SettableSlot x = new() { Share = Plain }; SettableSlot k = first(x); k.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S2088. The same, where the lambda keeps its first argument in a local of the helper.
+    public static Cell<int> ResultOfALambdaOfAHelperThatKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = FirstSlotKeeper(); SettableSlot x = new() { Share = Plain }; SettableSlot k = first(x); k.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S2089. A plain cell through the result of a lambda of a helper replaces the pending cell of the argument.
+    public static Cell<int> PlainThroughTheResultOfALambdaOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = SameSlot(); SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot k = first(x); k.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2090. A helper with no argument returns a lambda that samples its argument.
+    public static Cell<int> LambdaOfAHelperThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> read = SamplerOfACell(); return S.Hold(read(l.Map(v => v))); });
+
+    // S2091. A helper returns a lambda that keeps its first argument. In the second turn, a plain cell through the result is a change to the object of the first turn.
+    public static Cell<int> TurnResultOfALambdaOfAHelperThatKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = FirstSlotKeeper(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot k = first(x); k.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11380,6 +11400,10 @@ public static class Shapes
     private static readonly SlotHolder SharedHolderB = new() { Item = new SettableSlot() };
 
     private static readonly SlotHolder SharedHolderC = new();
+
+    private static Func<SettableSlot, SettableSlot> SameSlot() => given => given;
+
+    private static Func<Cell<int>, int> SamplerOfACell() => cell => cell.Sample();
 
     private static SettableSlot SlotThatCanReturnEarly(bool early, Cell<int> share)
     {

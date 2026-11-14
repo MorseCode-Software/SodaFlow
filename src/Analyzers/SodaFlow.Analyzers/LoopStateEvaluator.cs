@@ -2699,7 +2699,8 @@ internal sealed class LoopStateEvaluator
             definer: null,
             members: members,
             receiver: receiverState,
-            target: null);
+            target: null,
+            returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate);
     }
 
     /// <summary>
@@ -4788,12 +4789,14 @@ internal sealed class LoopStateEvaluator
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members,
         LoopState? receiver,
-        LoopState? target)
+        LoopState? target,
+        bool returnsAFunction = false)
     {
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
-        // A callee that gets an object of the store can give the object a second name. The walk
-        // reads such a callee while ReadsForObjects permits.
+        // A callee that gets an object of the store can give the object a second name. A callee
+        // that returns a delegate can return a lambda, which the caller then runs with values from
+        // the loop. The walk reads such callees while ReadsForObjects permits.
         bool noState =
             definer == null
             && members.Count == 0
@@ -4802,7 +4805,7 @@ internal sealed class LoopStateEvaluator
 
         switch (noState)
         {
-            case true when !this.ReadsForObjects(bindings):
+            case true when !this.ReadsForObjects(bindings: bindings, returnsAFunction: returnsAFunction):
                 return Followed.Nothing;
             case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
                 this.DoesNotRead(call: call, name: name, members: members);
@@ -4883,9 +4886,10 @@ internal sealed class LoopStateEvaluator
     }
 
     // True when the walk reads a callee that gets no state from the loop. It does that only for an
-    // object of the store, to the depth limit, and while the region has frames for such callees.
-    private bool ReadsForObjects(IEnumerable<Binding> bindings) =>
-        bindings.Any(static binding => !binding.State.Objects.IsEmpty)
+    // object of the store and for a callee that returns a delegate, to the depth limit, and while
+    // the region has frames for such callees.
+    private bool ReadsForObjects(IEnumerable<Binding> bindings, bool returnsAFunction = false) =>
+        (returnsAFunction || bindings.Any(static binding => !binding.State.Objects.IsEmpty))
         && this.depth < MaxInlineDepth
         && this.region.TryEnterForObjects();
 

@@ -1478,7 +1478,11 @@ internal sealed class LoopReadAnalyzerTests
             ["WriteThroughTheUnsetMemberOfOneOfTwoObjects"] = ["SF1001"],
             ["UnsetMemberThroughTheVariableOfAForeach"] = ["SF1001"],
             ["FieldOfTwoObjectsThatTheWalkDoesNotKnow"] = ["SF1001"],
-            ["PendingCellThroughAFieldOfAnObjectThatTheWalkDoesNotKnow"] = ["SF1001"]
+            ["PendingCellThroughAFieldOfAnObjectThatTheWalkDoesNotKnow"] = ["SF1001"],
+            ["ResultOfALambdaOfAHelper"] = ["SF1001"],
+            ["ResultOfALambdaOfAHelperThatKeeps"] = ["SF1001"],
+            ["LambdaOfAHelperThatSamples"] = ["SF1004"],
+            ["TurnResultOfALambdaOfAHelperThatKeeps"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
