@@ -110,7 +110,7 @@ internal sealed class MadeObject(
             turn: this.Turn,
             isOfTurnsBefore: this.IsOfTurnsBefore,
             shapeOf: this,
-            shapePart: member.Name.GetHashCode());
+            shapePart: ShapeNumber.Of(member.Name));
 
     /// <summary>
     ///     An identity for the objects that the same code makes in the turns

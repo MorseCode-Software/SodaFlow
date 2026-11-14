@@ -2366,7 +2366,7 @@ internal sealed class LoopReadAnalyzerTests
                 invocation: block,
                 model: compilation.GetSemanticModel(tree),
                 symbols: new SodaFlowSymbols(compilation),
-                report: KeepsAndCancels(found: beforeTheStop, stop: stop),
+                report: KeepsAndCancels(keep: beforeTheStop.Add, stop: stop),
                 cancellation: stop.Token);
         }
         catch (OperationCanceledException)
@@ -2379,10 +2379,10 @@ internal sealed class LoopReadAnalyzerTests
     }
 
     // An action for the walk that keeps each diagnostic and cancels the token at each one.
-    private static Action<Diagnostic> KeepsAndCancels(ICollection<Diagnostic> found, CancellationTokenSource stop) =>
+    private static Action<Diagnostic> KeepsAndCancels(Action<Diagnostic> keep, CancellationTokenSource stop) =>
         diagnostic =>
         {
-            found.Add(diagnostic);
+            keep(diagnostic);
             stop.Cancel();
         };
 

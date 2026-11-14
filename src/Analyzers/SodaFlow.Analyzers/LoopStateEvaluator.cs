@@ -454,7 +454,8 @@ internal sealed partial class LoopStateEvaluator
     private static int Shapes(IEnumerable<KeyValuePair<ISymbol, LoopState>> states) =>
         states.Aggregate(
             seed: 0,
-            func: static (sum, one) => unchecked(sum + ((one.Key.Name.GetHashCode() * 31) ^ one.Value.Shape)));
+            func: static (sum, one) => unchecked(
+                sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)));
 
     private static void Forget<TKey, TValue>(Dictionary<TKey, TValue> found, SyntaxNode code, Func<TKey, SyntaxNode> node)
         where TKey : notnull

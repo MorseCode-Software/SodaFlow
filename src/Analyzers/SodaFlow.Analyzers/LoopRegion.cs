@@ -77,7 +77,8 @@ internal sealed class LoopRegion(
     public int ShapeOfFields =>
         this.fields.Aggregate(
             seed: 0,
-            func: static (sum, one) => unchecked(sum + ((one.Key.Name.GetHashCode() * 31) ^ one.Value.Shape)));
+            func: static (sum, one) => unchecked(
+                sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)));
 
     /// <summary>
     ///     The state of a field that the code set while the loop is open. The

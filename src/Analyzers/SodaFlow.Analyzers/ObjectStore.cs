@@ -362,7 +362,8 @@ internal sealed class ObjectStore
         unchecked(
             this.states.Aggregate(
                 seed: 0,
-                func: static (sum, one) => unchecked(sum + ((one.Key.Shape * 31) ^ one.Value.Shape)))
+                func: static (sum, one) => unchecked(
+                    sum + ShapeNumber.Of(location: one.Key.Shape, state: one.Value.Shape)))
             + this.complete.Aggregate(seed: 0, func: static (sum, made) => unchecked(sum + made.Shape * 43)));
 
     /// <summary>The state of an object. Null for an object that is not in the store.</summary>

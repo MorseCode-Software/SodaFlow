@@ -69,7 +69,8 @@ internal sealed class Construction(
     public int Shape =>
         this.members.Aggregate(
             seed: 0,
-            func: static (sum, member) => unchecked(sum + ((member.Key.Name.GetHashCode() * 31) ^ member.Value.Shape)));
+            func: static (sum, member) => unchecked(
+                sum + ShapeNumber.Of(location: ShapeNumber.Of(member.Key.Name), state: member.Value.Shape)));
 
     /// <summary>
     ///     True when a member is a part of a pair of the platform that the
