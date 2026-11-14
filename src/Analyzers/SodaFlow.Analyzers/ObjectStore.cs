@@ -21,6 +21,14 @@ internal sealed class ObjectStore
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
 
+    // For the object in a member: its owner, the member, and the type of the member.
+    private readonly Dictionary<MadeObject, (MadeObject Owner, ISymbol Member, ITypeSymbol Type)> memberOf = [];
+
+    // The objects of the turns before, for each expression that makes the object of a turn in a
+    // frame. The walk reads a loop two times, and each read makes an object of its turn. The two
+    // have the same objects before them.
+    private readonly Dictionary<(SyntaxNode Place, LoopFrame Frame), MadeObject> olderOf = [];
+
     // The bodies of the loops that the walk is in, for each loop whose turn made an object. A loop
     // comes after each loop that is around it.
     private readonly List<SyntaxNode> open = [];
@@ -77,12 +85,28 @@ internal sealed class ObjectStore
     /// <param name="type">The type of the expression.</param>
     /// <param name="exact">True when the object has that type, and not a type that derives from it.</param>
     /// <param name="turn">The body of the loop.</param>
+    /// <param name="place">The expression.</param>
     /// <param name="state">The first state of the object.</param>
-    public MadeObject MakeInATurn(LoopFrame frame, ITypeSymbol type, bool exact, SyntaxNode turn, LoopState state)
+    public MadeObject MakeInATurn(
+        LoopFrame frame,
+        ITypeSymbol type,
+        bool exact,
+        SyntaxNode turn,
+        SyntaxNode place,
+        LoopState state)
     {
         MadeObject found = new(type: type, exact: exact, frame: frame, turn: turn, isOfTurnsBefore: false);
         this.states[found] = state;
         this.InATurn(found: found, turn: turn);
+
+        if (!this.olderOf.TryGetValue(key: (place, frame), value: out MadeObject? older))
+        {
+            older = found.OfTurnsBefore();
+            this.olderOf[(place, frame)] = older;
+            this.states[older] = LoopState.None;
+        }
+
+        this.before[found] = older;
 
         return found;
     }
@@ -108,9 +132,16 @@ internal sealed class ObjectStore
     {
         if (!this.before.TryGetValue(key: found, value: out MadeObject? older))
         {
-            older = found.OfTurnsBefore();
+            // Only the object in a member has none yet. The objects before it are in that member of
+            // the objects before its owner.
+            (MadeObject owner, ISymbol member, ITypeSymbol type) = this.memberOf[found];
+            MadeObject ofOwner = this.BeforeOf(owner);
+
+            older =
+                this.InMember(owner: ofOwner, member: member)
+                ?? this.MakeInMember(owner: ofOwner, member: member, type: type, state: LoopState.None);
+
             this.before[found] = older;
-            this.states[older] = LoopState.None;
         }
 
         return older;
@@ -145,8 +176,7 @@ internal sealed class ObjectStore
     /// <summary>
     ///     Records the end of the walk of a loop. Each object of its turn is then
     ///     one of the objects of the turns before. Those objects get the state that
-    ///     the object had at the end of the turn. A member of the object becomes a
-    ///     member of those objects.
+    ///     the object had at the end of the turn.
     /// </summary>
     /// <param name="turn">The body of the loop.</param>
     public void EndTurns(SyntaxNode turn)
@@ -165,19 +195,6 @@ internal sealed class ObjectStore
             this.states[older] = this.states[older].Join(this.states[found]);
             this.states.Remove(found);
             this.ended.Add(found);
-
-            if (!this.inMembers.TryGetValue(key: found, value: out Dictionary<ISymbol, MadeObject>? members))
-            {
-                continue;
-            }
-
-            Dictionary<ISymbol, MadeObject> inOlder = new(SymbolEqualityComparer.Default);
-            this.inMembers[older] = inOlder;
-
-            foreach (KeyValuePair<ISymbol, MadeObject> member in members)
-            {
-                inOlder[member.Key] = this.BeforeOf(member.Value);
-            }
         }
     }
 
@@ -205,6 +222,7 @@ internal sealed class ObjectStore
 
         MadeObject found = owner.InAMember(type);
         members[member] = found;
+        this.memberOf[found] = (owner, member, type);
         this.states[found] = state;
 
         // A member of the object of a turn is of that turn also.

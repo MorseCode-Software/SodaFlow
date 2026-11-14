@@ -28,6 +28,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
+    // For the body of each loop that the walk is in: the state that a local of the code around the
+    // loop had before an assignment that each turn always runs.
+    private readonly Dictionary<SyntaxNode, Dictionary<ISymbol, LoopState>> hadBefore = [];
+
     // The lambdas that the walk read where they are, and that their callee runs one time.
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
     private readonly LoopStateEvaluator evaluator = evaluator;
@@ -199,7 +203,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Statement);
-        this.evaluator.EndTurns(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
@@ -227,25 +231,72 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Statement);
-        this.evaluator.EndTurns(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement);
     }
 
     public override void VisitForStatement(ForStatementSyntax node)
     {
         base.VisitForStatement(node);
-        this.evaluator.EndTurns(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, node.Condition, node.Incrementors);
     }
 
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
         base.VisitWhileStatement(node);
-        this.evaluator.EndTurns(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, node.Condition);
     }
 
     public override void VisitDoStatement(DoStatementSyntax node)
     {
         base.VisitDoStatement(node);
-        this.evaluator.EndTurns(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, after: node.Condition);
+    }
+
+    /// <summary>
+    ///     Reads a turn of a loop a second time, after the first read of the loop.
+    ///     The second turn of the loop reads what the first turn gave to each
+    ///     location that is older than the turn.
+    /// </summary>
+    /// <param name="loop">The loop statement.</param>
+    /// <param name="body">The body of the loop.</param>
+    /// <param name="condition">The condition that the loop reads before each turn, if it has one.</param>
+    /// <param name="incrementors">The expressions that a <c>for</c> runs after each turn.</param>
+    /// <param name="after">The condition that a <c>do</c> reads after each turn.</param>
+    private void VisitTheSecondTurn(
+        SyntaxNode loop,
+        StatementSyntax body,
+        ExpressionSyntax? condition = null,
+        SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
+        ExpressionSyntax? after = null)
+    {
+        this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
+
+        // The walk reads a lambda that a callee runs in the call one time. The second turn runs it
+        // again.
+        this.entered.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
+        this.once.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
+
+        // A for runs its incrementors after the turn, and then its condition.
+        foreach (ExpressionSyntax incrementor in incrementors)
+        {
+            this.Visit(incrementor);
+        }
+
+        this.Visit(condition);
+        this.Visit(body);
+        this.Visit(after);
+        this.evaluator.EndTurns(body);
+
+        // After the loop, a local has also what it had before an assignment of a turn.
+        if (this.hadBefore.TryGetValue(key: body, value: out Dictionary<ISymbol, LoopState>? had))
+        {
+            this.hadBefore.Remove(body);
+
+            foreach (KeyValuePair<ISymbol, LoopState> local in had)
+            {
+                this.evaluator.Declare(local: local.Key, state: local.Value);
+            }
+        }
     }
 
     /// <summary>
@@ -1121,6 +1172,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 {
                     this.evaluator.Assign(local: local, state: state);
                 }
+                else if (turn != null)
+                {
+                    this.AssignInATurn(local: local, state: state, turn: turn);
+                }
                 else
                 {
                     this.evaluator.Declare(local: local, state: state);
@@ -1144,6 +1199,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 break;
         }
+    }
+
+    // A local of the code around a loop has only the new value for the rest of the turn. After the
+    // loop, it can have the value from before the assignment also: the loop can run no turn, and a
+    // turn can end before the next assignment.
+    private void AssignInATurn(ISymbol local, LoopState state, SyntaxNode turn)
+    {
+        if (!this.hadBefore.TryGetValue(key: turn, value: out Dictionary<ISymbol, LoopState>? had))
+        {
+            had = new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+            this.hadBefore[turn] = had;
+        }
+
+        LoopState before = this.evaluator.AssignInATurn(local: local, state: state);
+        had[local] = had.TryGetValue(key: local, value: out LoopState? earlier) ? earlier.Join(before) : before;
     }
 
     // A local that the body of a loop declares is new in each turn. Thus, an assignment that each

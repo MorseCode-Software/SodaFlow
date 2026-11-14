@@ -240,6 +240,27 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     Records an assignment that each turn of a loop always runs, to a local
+    ///     that is older than the turn. For the rest of the turn, the local has
+    ///     only the new value.
+    /// </summary>
+    /// <remarks>
+    ///     A loop can run no turn, and its last turn can end before the
+    ///     assignment. Thus, the caller keeps the state that the local had, and
+    ///     gives it back with <see cref="Declare" /> after the loop.
+    /// </remarks>
+    /// <param name="local">The local.</param>
+    /// <param name="state">The state of the new value.</param>
+    /// <returns>The state that the local had. None for a local with no state.</returns>
+    public LoopState AssignInATurn(ISymbol local, LoopState state)
+    {
+        LoopState had = this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing : LoopState.None;
+        this.locals[local] = this.InALocal(local: local, state: state);
+
+        return had;
+    }
+
+    /// <summary>
     ///     True for a local that the given code declares. A local that the body of
     ///     a loop declares is new in each turn.
     /// </summary>
@@ -259,6 +280,48 @@ internal sealed class LoopStateEvaluator
             DoStatementSyntax loop => loop.Statement,
             _ => null
         };
+
+    /// <summary>
+    ///     Records the end of the first read of a loop, before the walk reads its
+    ///     turn a second time. The second read is the second turn.
+    /// </summary>
+    /// <remarks>
+    ///     A location that is older than the turn keeps what the first read gave
+    ///     it, and the second read finds a read of that value. Each object of the
+    ///     first read is then one of the objects of the turns before. The evaluator
+    ///     reads each expression of the loop again, because its state can be a
+    ///     different one now. A local that the body declares is new in each turn,
+    ///     thus it has no state from the first read.
+    /// </remarks>
+    /// <param name="loop">The loop statement.</param>
+    /// <param name="turn">The body of the loop.</param>
+    public void StartTheSecondTurn(SyntaxNode loop, SyntaxNode turn)
+    {
+        this.EndTurns(turn);
+        Forget(found: this.memo, code: loop, node: static key => key);
+        Forget(found: this.functionResults, code: loop, node: static key => key);
+        Forget(found: this.followed, code: loop, node: static key => key);
+        Forget(found: this.implied, code: loop, node: static key => key.Node);
+
+        foreach (ISymbol local in this.locals.Keys.Where(local => IsDeclaredIn(local: local, code: turn)).ToArray())
+        {
+            this.locals.Remove(local);
+            this.assigned.Remove(local);
+        }
+    }
+
+    private static void Forget<TKey, TValue>(Dictionary<TKey, TValue> found, SyntaxNode code, Func<TKey, SyntaxNode> node)
+        where TKey : notnull
+    {
+        foreach (TKey key in found.Keys.Where(key => IsIn(node: node(key), code: code)).ToArray())
+        {
+            found.Remove(key);
+        }
+    }
+
+    /// <summary>True for a node that is a part of the given code.</summary>
+    public static bool IsIn(SyntaxNode node, SyntaxNode code) =>
+        node.SyntaxTree == code.SyntaxTree && code.Span.Contains(node.Span);
 
     /// <summary>
     ///     Records the end of the walk of a loop. Each object of its turn is then
@@ -915,6 +978,7 @@ internal sealed class LoopStateEvaluator
                     type: type,
                     exact: exact,
                     turn: turn,
+                    place: place,
                     state: apart)));
     }
 

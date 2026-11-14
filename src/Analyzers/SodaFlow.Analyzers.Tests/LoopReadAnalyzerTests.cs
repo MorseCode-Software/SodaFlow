@@ -1402,7 +1402,21 @@ internal sealed class LoopReadAnalyzerTests
             ["BuilderOfAnImmutableArrayContains"] = ["SF1005"],
             ["BuilderOfAnImmutableArrayIndexOf"] = ["SF1005"],
             ["BuilderOfAnImmutableHashSetRemoveOfTheObjectThatItHas"] = ["SF1005"],
-            ["BuilderOfAnImmutableDictionaryContainsKeyOfTheKeyThatItHas"] = ["SF1005"]
+            ["BuilderOfAnImmutableDictionaryContainsKeyOfTheKeyThatItHas"] = ["SF1005"],
+            ["TurnBeforeGaveAPendingCell"] = ["SF1001"],
+            ["TurnBeforeGaveAnObjectWithAPendingCell"] = ["SF1001"],
+            ["TurnBeforeOfAWhileGaveAPendingCell"] = ["SF1001"],
+            ["TurnBeforeOfADoGaveAPendingCell"] = ["SF1001"],
+            ["TurnBeforeOfAForeachGaveAPendingCell"] = ["SF1001"],
+            ["TurnBeforeOfAForeachOfPartsGaveAPendingCell"] = ["SF1001"],
+            ["ConditionReadsWhatTheTurnBeforeGave"] = ["SF1001"],
+            ["ConditionOfAForReadsWhatTheTurnBeforeGave"] = ["SF1001"],
+            ["TurnBeforeGaveAMemberItsObject"] = ["SF1001"],
+            ["TurnBeforePutAPendingCellIntoAList"] = ["SF1001"],
+            ["LambdaReadsWhatTheTurnBeforeGave"] = ["SF1001"],
+            ["CalleeReadsWhatTheTurnBeforeGave"] = ["SF1004"],
+            ["InnerLoopReadsWhatTheOuterTurnBeforeGave"] = ["SF1001"],
+            ["InnerLoopReadsWhatItsTurnBeforeGave"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

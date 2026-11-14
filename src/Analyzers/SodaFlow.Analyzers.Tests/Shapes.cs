@@ -9219,6 +9219,78 @@ public static class Shapes
     public static Cell<int> BuilderOfAnImmutableListAdd() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableList<SameOwn>.Builder made = ImmutableList.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); made.Add(new(l.Map(v => v))); return S.Hold(0); });
 
+    // S1989. The second turn of a for reads the cell that the first turn gave to a local of the block.
+    public static Cell<int> TurnBeforeGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } return S.Hold(0); });
+
+    // S1990. The same for an object with a pending cell.
+    public static Cell<int> TurnBeforeGaveAnObjectWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Share!.Sample()); } last = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(0); });
+
+    // S1991. The same in a while.
+    public static Cell<int> TurnBeforeOfAWhileGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; int i = 0; while (i < 2) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); i++; } return S.Hold(0); });
+
+    // S1992. The same in a do.
+    public static Cell<int> TurnBeforeOfADoGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; int i = 0; do { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); i++; } while (i < 2); return S.Hold(0); });
+
+    // S1993. The same in a foreach.
+    public static Cell<int> TurnBeforeOfAForeachGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; foreach (int i in new[] { 0, 1 }) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } return S.Hold(0); });
+
+    // S1994. The same in a foreach that deconstructs its element.
+    public static Cell<int> TurnBeforeOfAForeachOfPartsGaveAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; foreach ((int i, int j) in new[] { (0, 0), (1, 1) }) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } return S.Hold(0); });
+
+    // S1995. The condition of a while reads the cell that the turn before gave.
+    public static Cell<int> ConditionReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; int i = 0; while (i < 2 && (last == null || last.Sample() >= 0)) { last = l.Map(v => v); i++; } return S.Hold(0); });
+
+    // S1996. The condition of a for reads the cell that the turn before gave.
+    public static Cell<int> ConditionOfAForReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2 && (last == null || last.Sample() >= 0); i++) { last = l.Map(v => v); } return S.Hold(0); });
+
+    // S1997. A member of an object of the block has the object that the turn before gave.
+    public static Cell<int> TurnBeforeGaveAMemberItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { if (outer.Item != null) { Kept.Add(outer.Item.Share!.Sample()); } outer.Item = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(0); });
+
+    // S1998. A list of the block has the cell that the turn before put into it.
+    public static Cell<int> TurnBeforePutAPendingCellIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = []; for (int i = 0; i < 2; i++) { if (cells.Count > 0) { Kept.Add(cells[0].Sample()); } cells.Add(l.Map(v => v)); } return S.Hold(0); });
+
+    // S1999. A lambda that each turn runs reads the cell that the turn before gave.
+    public static Cell<int> LambdaReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { Transaction.RunVoid(() => { if (last != null) { Kept.Add(last.Sample()); } }); last = l.Map(v => v); } return S.Hold(0); });
+
+    // S2000. A method that each turn calls reads the cell that the turn before gave.
+    public static Cell<int> CalleeReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { SampleIfAny(last); last = l.Map(v => v); } return S.Hold(0); });
+
+    // S2001. An inner loop reads the cell that the outer turn before gave.
+    public static Cell<int> InnerLoopReadsWhatTheOuterTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int j = 0; j < 2; j++) { for (int i = 0; i < 1; i++) { if (last != null) { Kept.Add(last.Sample()); } } last = l.Map(v => v); } return S.Hold(0); });
+
+    // S2002. An inner loop gives the cell, and its second turn in the second outer turn reads it.
+    public static Cell<int> InnerLoopReadsWhatItsTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { Cell<int>? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } } return S.Hold(0); });
+
+    // S2003. Each turn gives the local a plain cell before it reads the local.
+    public static Cell<int> TurnGivesAPlainCellBeforeItsRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { last = Plain; Kept.Add(last.Sample()); last = l.Map(v => v); } return S.Hold(0); });
+
+    // S2004. The turn before gave a plain cell.
+    public static Cell<int> TurnBeforeGaveAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Sample()); } last = Plain; } return S.Hold(0); });
+
+    // S2005. A local of the body is new in each turn, and has no value from the turn before.
+    public static Cell<int> LocalOfTheBodyHasNoValueFromTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Cell<int>? now = null; if (now != null) { Kept.Add(now.Sample()); } now = l.Map(v => v); Kept.Add(now); } return S.Hold(0); });
+
+    // S2006. An object of the body is new in each turn, and the read comes before its pending cell.
+    public static Cell<int> ObjectOfTheBodyHasNoStateFromTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Kept.Add(x.Share!.Sample()); x.Share = l.Map(v => v); Kept.Add(x); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -10937,6 +11009,14 @@ public static class Shapes
     private static (Cell<int>? First, SettableSlot Second) PlainAnd(SettableSlot slot) => (Plain, slot);
 
     private static readonly SettableSlot[] SharedSlots = [new()];
+
+    private static void SampleIfAny(Cell<int>? cell)
+    {
+        if (cell != null)
+        {
+            Kept.Add(cell.Sample());
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
