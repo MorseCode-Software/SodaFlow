@@ -1791,7 +1791,9 @@ internal sealed class LoopStateEvaluator
                         .Join(this.TypeState(expression));
                 }
 
-                LoopState fromOwner = field;
+                // The field has the state from each owner that the walk does not know. The owner
+                // of this read can be a different one, with an object that the store does not know.
+                LoopState fromOwner = field.Objects.IsEmpty ? field : field.OrAnUnknownObject;
 
                 ExpressionSyntax? ownerExpression =
                     expression switch

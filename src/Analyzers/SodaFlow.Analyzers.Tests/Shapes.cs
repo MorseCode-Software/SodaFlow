@@ -9603,6 +9603,14 @@ public static class Shapes
     public static Cell<int> UnsetMemberThroughTheVariableOfAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; SlotHolder holder = HolderWithItsOwnSlot(); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); foreach (SlotHolder each in list) { Kept.Add(each.Item!.Share!.Sample()); } return S.Hold(0); });
 
+    // S2085. An object that the walk does not know gets an object of the store in its field. A plain cell through the same field of a second such object is no change to the object of the store.
+    public static Cell<int> FieldOfTwoObjectsThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SharedHolderA.Item = x; SharedHolderB.Item!.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2086. A pending cell through the field of an object that the walk does not know is a change to the object of the store that the field got.
+    public static Cell<int> PendingCellThroughAFieldOfAnObjectThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SharedHolderC.Item = x; SharedHolderC.Item!.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11366,6 +11374,12 @@ public static class Shapes
     }
 
     private static readonly SettableSlot[] SlotsWithAPendingCell = [new(), new()];
+
+    private static readonly SlotHolder SharedHolderA = new();
+
+    private static readonly SlotHolder SharedHolderB = new() { Item = new SettableSlot() };
+
+    private static readonly SlotHolder SharedHolderC = new();
 
     private static SettableSlot SlotThatCanReturnEarly(bool early, Cell<int> share)
     {
