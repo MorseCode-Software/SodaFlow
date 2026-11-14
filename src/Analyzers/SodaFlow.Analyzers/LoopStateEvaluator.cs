@@ -767,6 +767,20 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.CanBeUnseen.Remove(local);
         }
 
+        // A name with ref gets its location here. Each other assignment to the name is an
+        // assignment to that location, and the name keeps it.
+        if (value is RefExpressionSyntax { Expression: var location })
+        {
+            if (replaces && local is ILocalSymbol && IsALocationThatTheWalkCanReadAgain(location))
+            {
+                this.Frame.LocationOf[local] = location;
+            }
+            else
+            {
+                this.Frame.LocationOf.Remove(local);
+            }
+        }
+
         // The value says if its object can be one that the store does not know. An element at a
         // position that the walk knows is the object of that position.
         if (this.CanBeUnseen(value))
@@ -2145,6 +2159,12 @@ internal sealed partial class LoopStateEvaluator
                 if (SymbolEqualityComparer.Default.Equals(x: symbol, y: this.region.Placeholder))
                 {
                     return this.region.PlaceholderState;
+                }
+
+                // A name with ref has the value that its location has now.
+                if (this.TheLocationOf(expression) is { } location)
+                {
+                    return this.EvalAgain(location);
                 }
 
                 LoopState named =

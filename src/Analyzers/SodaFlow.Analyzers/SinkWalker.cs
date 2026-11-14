@@ -1282,6 +1282,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        // An assignment to a name with ref, with no ref for the value, is an assignment to the
+        // location of the name.
+        if (value is not RefExpressionSyntax
+            && target is IdentifierNameSyntax aliased
+            && this.evaluator.TheLocationOf(aliased) is { } location)
+        {
+            this.Assign(target: location, value: value, replaces: replaces, turn: turn);
+
+            return;
+        }
+
         LoopState whole = this.evaluator.Eval(value);
 
         if (target is IdentifierNameSyntax

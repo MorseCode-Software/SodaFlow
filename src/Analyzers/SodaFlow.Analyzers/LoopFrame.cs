@@ -116,6 +116,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local with ref of this code: the expression of its location,
+    ///     when that expression is a local, an element of an array in a local,
+    ///     or a field of an object in a local.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> LocationOf { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a loop of this code: each member that a write of its turn
     ///     replaced, on an object or through a name that is older than the turn,
     ///     with the state that the member had before the loop.

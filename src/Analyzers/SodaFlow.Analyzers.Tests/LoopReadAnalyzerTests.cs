@@ -1787,7 +1787,19 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag58AParamsArrayWithAnElementThatTheWalkDidNotSee"] = ["SF1001"],
             ["Ag58ACallBetweenTheWriteAndTheRead"] = ["SF1001"],
             ["Ag58TheIndexGetsANewValueBetweenTheWriteAndTheRead"] = ["SF1001"],
-            ["Ag58TheReadIsThroughADifferentIndex"] = ["SF1001"]
+            ["Ag58TheReadIsThroughADifferentIndex"] = ["SF1001"],
+            ["Ab74APendingWriteAfterTheElementGotANewObject"] = ["SF1001"],
+            ["Ab74APendingWriteAfterTheLocalGotANewObject"] = ["SF1001"],
+            ["Ab74AReadAfterTheElementGotANewObject"] = ["SF1001"],
+            ["Ab74AnAssignmentToTheNameOfAnElement"] = ["SF1001"],
+            ["Ab74AnAssignmentToTheNameOfALocal"] = ["SF1001"],
+            ["Ab74TheNameGetsASecondLocation"] = ["SF1001"],
+            ["Ab74TheLocalOfTheArrayGetsANewArray"] = ["SF1001"],
+            ["Ab74TheLocationIsAFieldThatGetsANewObject"] = ["SF1001"],
+            ["Ab74TheIndexGetsANewValue"] = ["SF1001"],
+            ["Ab74AParameterWithRefAndAPendingWrite"] = ["SF1001"],
+            ["Ab74AParameterWithRefAndACallBeforeTheWrite"] = ["SF1001"],
+            ["Ab74TheSecondWriteThroughTheNameIsInABranch"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

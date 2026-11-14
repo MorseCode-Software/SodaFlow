@@ -86,9 +86,127 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     The expression of the location of a name with ref, when the walk can
+    ///     read that expression again and get the location. Null for each other
+    ///     expression.
+    /// </summary>
+    /// <remarks>
+    ///     The expression names the same location while no code gives a name in
+    ///     it a value: the local of the array, the local of the index, or the
+    ///     local of the object. An assignment to the local that is the location
+    ///     is a change to the location itself. A function can run at a different
+    ///     time, thus the code of a function gets no location.
+    /// </remarks>
+    public ExpressionSyntax? TheLocationOf(ExpressionSyntax written)
+    {
+        if (this.function != null
+            || this.Frame.LocationOf.Count == 0
+            || Unwrapped(written) is not IdentifierNameSyntax use
+            || this.region.SymbolOf(use) is not ILocalSymbol name
+            || !this.Frame.LocationOf.TryGetValue(key: name, value: out ExpressionSyntax? location)
+            || FunctionOf(use) is not { } code
+            || FunctionOf(location) != code
+            || use.SpanStart <= location.Span.End)
+        {
+            return null;
+        }
+
+        ExpressionSyntax target = Unwrapped(location);
+
+        IEnumerable<IdentifierNameSyntax> parts =
+            target is IdentifierNameSyntax ? [] : target.DescendantNodes().OfType<IdentifierNameSyntax>();
+
+        return parts.Any(part =>
+            this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
+            && this.GetsAValue(
+                name: symbol,
+                code: code,
+                after: location.Span.End,
+                before: use.SpanStart,
+                orAFunctionUsesIt: false))
+            ? null
+            : location;
+    }
+
+    // True for the expression of a location that TheLocationOf can give: a local, an element of
+    // an array in a local, or a field of an object in a local or of this object.
+    private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
+        Unwrapped(location) switch
+        {
+            IdentifierNameSyntax name => this.region.SymbolOf(name) is { } local && KeepsItsObject(local),
+            ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element =>
+                Unwrapped(element.Expression) is IdentifierNameSyntax array
+                && this.region.SymbolOf(array) is { } local
+                && KeepsItsObject(local)
+                && this.region.TypeOf(array) is IArrayTypeSymbol
+                && (indexes[0].Expression is LiteralExpressionSyntax
+                    || (indexes[0].Expression is IdentifierNameSyntax index
+                        && this.region.SymbolOf(index) is { } number
+                        && KeepsItsObject(number))),
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own =>
+                this.region.SymbolOf(own) is IFieldSymbol { IsStatic: false },
+            MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax holder } access =>
+                this.region.SymbolOf(access) is IFieldSymbol { IsStatic: false }
+                && this.region.SymbolOf(holder) is { } local
+                && KeepsItsObject(local),
+            _ => false
+        };
+
+    // The state of an expression at this time. The walk reads a node one time, and this takes
+    // that read away for the expression and for each of its parts.
+    private LoopState EvalAgain(ExpressionSyntax expression)
+    {
+        foreach (ExpressionSyntax part in expression.DescendantNodesAndSelf().OfType<ExpressionSyntax>())
+        {
+            this.memo.Remove(part);
+        }
+
+        return this.Eval(expression);
+    }
+
+    // True when code between the start of a name with ref and a use of it can give a location a
+    // value. Then, the name can be a different object at the use. A write to a member through the
+    // name itself gives no location a value. A use in a loop can come after each statement of
+    // that loop.
+    private bool ALocationCanGetAValueBefore(ISymbol name, ExpressionSyntax use)
+    {
+        if (this.function != null
+            || FunctionOf(use) is not { } code
+            || name.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not { } declared
+            || use.Ancestors().TakeWhile(around => around != code).Any(static around => LoopBodyOf(around) != null))
+        {
+            return true;
+        }
+
+        int start = name is IParameterSymbol ? code.SpanStart : declared.Span.End;
+
+        return code.DescendantNodes()
+            .Any(node =>
+                node.SpanStart >= start
+                && node.Span.End <= use.SpanStart
+                && node switch
+                {
+                    AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax target } =>
+                        !SymbolEqualityComparer.Default.Equals(x: this.NameUnder(target.Expression), y: name),
+                    AssignmentExpressionSyntax or InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax => true,
+                    _ => node.Kind() is SyntaxKind.PreIncrementExpression
+                        or SyntaxKind.PreDecrementExpression
+                        or SyntaxKind.PostIncrementExpression
+                        or SyntaxKind.PostDecrementExpression
+                });
+    }
+
     // Records a write through an element for WrittenThroughItsElement. Each other write to a
     // member takes the record away.
-    private void NotesAWriteThroughAnElement(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces)
+    // The second argument is the owner as the code has it at the write: a name with ref there
+    // has its location as the first argument.
+    private void NotesAWriteThroughAnElement(
+        ExpressionSyntax? owner,
+        ExpressionSyntax? at,
+        ISymbol member,
+        LoopState state,
+        bool replaces)
     {
         this.Frame.LastElementWrite = null;
 
@@ -98,10 +216,11 @@ internal sealed partial class LoopStateEvaluator
             && state is { Members: null, Objects.IsEmpty: true }
             && IsALocation(member)
             && owner != null
+            && at != null
             && Unwrapped(owner) is ElementAccessExpressionSyntax element
             && this.CollectionAndIndexOf(element) is var (collection, index)
-            && element.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
-            && FunctionOf(element) is { } code)
+            && at.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
+            && FunctionOf(at) is { } code)
         {
             this.Frame.LastElementWrite =
                 new WriteThroughAnElement(
@@ -154,9 +273,10 @@ internal sealed partial class LoopStateEvaluator
         && this.function == null
         && this.Frame.LastElementWrite is { } last
         && last.Writes == this.region.MemberWrites
-        && Unwrapped(read.Expression) is ElementAccessExpressionSyntax element
-        && element.SpanStart >= last.End
-        && FunctionOf(element) == last.Code
+        && Unwrapped(read.Expression) is var owner
+        && Unwrapped(this.TheLocationOf(owner) ?? owner) is ElementAccessExpressionSyntax element
+        && owner.SpanStart >= last.End
+        && FunctionOf(owner) == last.Code
         && this.CollectionAndIndexOf(element) is var (collection, index)
         && SymbolEqualityComparer.Default.Equals(x: collection, y: last.Collection)
         && (index is ISymbol local
@@ -166,7 +286,7 @@ internal sealed partial class LoopStateEvaluator
         && !last.Code.DescendantNodes()
             .Any(node =>
                 node.SpanStart >= last.End
-                && node.Span.End <= element.SpanStart
+                && node.Span.End <= owner.SpanStart
                 && (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or AssignmentExpressionSyntax
                     || node.Kind() is SyntaxKind.PreIncrementExpression
                         or SyntaxKind.PreDecrementExpression
@@ -352,13 +472,26 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null)
     {
+        // A write through a name with ref is a write through its location, read at this time.
+        ExpressionSyntax? written = owner;
+
+        if (owner != null && this.TheLocationOf(owner) is { } location)
+        {
+            this.EvalAgain(location);
+            owner = location;
+        }
+
+        bool isThroughALocation = !ReferenceEquals(objA: written, objB: owner);
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
 
         // A name with ref is its location, and code can give that location a different object with
         // no assignment to the name. Thus, a write through such a name is sure for no object.
-        if (owner != null && this.NameUnder(owner) is { } aliased && !KeepsItsObject(aliased))
+        if (owner != null
+            && this.NameUnder(owner) is { } aliased
+            && !KeepsItsObject(aliased)
+            && this.ALocationCanGetAValueBefore(name: aliased, use: owner))
         {
             replaces = false;
             turn = null;
@@ -369,9 +502,10 @@ internal sealed partial class LoopStateEvaluator
         bool isKnown = !this.CanBeUnseen(owner);
         this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
         this.NotesTheCollectionIn(owner: owner, has: has, member: member, state: state, from: from, sure: replaces && isKnown);
-        this.NotesAWriteThroughAnElement(owner: owner, member: member, state: state, replaces: replaces);
+        this.NotesAWriteThroughAnElement(owner: owner, at: written, member: member, state: state, replaces: replaces);
 
         if (!replaces
+            || isThroughALocation
             || this.quiet
             || this.function != null
             || owner is not IdentifierNameSyntax
