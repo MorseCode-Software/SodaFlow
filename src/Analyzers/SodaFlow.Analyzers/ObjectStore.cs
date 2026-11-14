@@ -94,7 +94,16 @@ internal sealed class ObjectStore
     /// <param name="state">The first state of the object.</param>
     public MadeObject Make(LoopFrame frame, ITypeSymbol type, bool exact, LoopState state)
     {
-        MadeObject found = new(type: type, exact: exact, frame: frame, turn: null, isOfTurnsBefore: false);
+        MadeObject found =
+            new(
+                type: type,
+                exact: exact,
+                frame: frame,
+                turn: null,
+                isOfTurnsBefore: false,
+                shapeOf: null,
+                shapePart: 0);
+
         this.states[found] = state;
 
         return found;
@@ -128,15 +137,16 @@ internal sealed class ObjectStore
         LoopState state,
         ImmutableArray<SyntaxNode> around)
     {
-        MadeObject found = new(type: type, exact: exact, frame: frame, turn: turn, isOfTurnsBefore: false);
-        this.states[found] = state;
-
-        if (!this.olderOf.TryGetValue(key: (place, code), value: out MadeObject? older))
+        if (!this.olderOf.TryGetValue(key: (place, code), value: out MadeObject? last))
         {
-            older = found.OfTurnsBefore(null);
-            this.olderOf[(place, code)] = older;
-            this.states[older] = LoopState.None;
+            last = MadeObject.OfTurnsBefore(type: type, exact: exact, frame: frame);
+            this.olderOf[(place, code)] = last;
+            this.states[last] = LoopState.None;
         }
+
+        MadeObject found = last.OfThisTurn(turn: turn, frame: frame);
+        MadeObject older = last;
+        this.states[found] = state;
 
         // The loop that is around each other loop gets its identity first. Thus, a loop comes
         // after each loop around it in the list of the open loops.
@@ -146,7 +156,7 @@ internal sealed class ObjectStore
 
             if (!this.inATurnAround.TryGetValue(key: key, value: out MadeObject? inThatTurn))
             {
-                inThatTurn = found.OfTurnsBefore(around[i]);
+                inThatTurn = last.OfTurnsBeforeIn(around: around[i], frame: frame);
                 this.inATurnAround[key] = inThatTurn;
                 this.keyInATurnAround[inThatTurn] = key;
                 this.states[inThatTurn] = LoopState.None;
@@ -306,7 +316,7 @@ internal sealed class ObjectStore
             this.inMembers[owner] = members;
         }
 
-        MadeObject found = owner.InAMember(type);
+        MadeObject found = owner.InAMember(declared: type, member: member);
         members[member] = found;
         this.memberOf[found] = (owner, member, type);
         this.states[found] = state;
@@ -342,9 +352,11 @@ internal sealed class ObjectStore
 
     /// <summary>A number for what the store says about its objects, from <see cref="LoopState.Shape" />.</summary>
     public int Shape =>
-        this.states.Aggregate(
-            seed: 0,
-            func: static (sum, one) => unchecked(sum + ((RuntimeHelpers.GetHashCode(one.Key) * 31) ^ one.Value.Shape)));
+        unchecked(
+            this.states.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(sum + ((one.Key.Shape * 31) ^ one.Value.Shape)))
+            + this.complete.Aggregate(seed: 0, func: static (sum, made) => unchecked(sum + made.Shape * 43)));
 
     /// <summary>The state of an object. Null for an object that is not in the store.</summary>
     public LoopState? StateOf(MadeObject found) =>

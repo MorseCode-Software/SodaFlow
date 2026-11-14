@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -31,15 +32,36 @@ namespace SodaFlow.Analyzers;
 /// <param name="frame">The frame whose code made the object. Null for <see cref="Unknown" />.</param>
 /// <param name="turn">The value of <see cref="Turn" />.</param>
 /// <param name="isOfTurnsBefore">The value of <see cref="IsOfTurnsBefore" />.</param>
+/// <param name="shapeOf">
+///     The identity that gives <see cref="Shape" /> its first part. Null for an
+///     identity that has a number of its own.
+/// </param>
+/// <param name="shapePart">The second part of <see cref="Shape" />, when <paramref name="shapeOf" /> is there.</param>
 internal sealed class MadeObject(
     in ITypeSymbol? type,
     in bool exact,
     in LoopFrame? frame,
     in SyntaxNode? turn,
-    in bool isOfTurnsBefore)
+    in bool isOfTurnsBefore,
+    in MadeObject? shapeOf,
+    in int shapePart)
 {
     private readonly LoopFrame? frame = frame;
+    private readonly MadeObject? shapeOf = shapeOf;
+    private readonly int shapePart = shapePart;
     private readonly ITypeSymbol? type = type;
+
+    /// <summary>
+    ///     A number for the identity, as <see cref="LoopState.Shape" /> is for a
+    ///     state. Each read of a loop makes a new identity for the object of its
+    ///     turn. Those identities have one number, from the identity of the turns
+    ///     before, which each read has. Thus, a read that only makes the object of
+    ///     its turn again changes no number.
+    /// </summary>
+    public int Shape =>
+        this.shapeOf == null
+            ? RuntimeHelpers.GetHashCode(this)
+            : unchecked(this.shapeOf.Shape * 397 + this.shapePart);
 
     /// <summary>
     ///     The body of the loop whose turn makes the object. Null for an object
@@ -68,7 +90,7 @@ internal sealed class MadeObject(
     ///     objects has it when the walk saw only one of the two made.
     /// </summary>
     public static readonly MadeObject Unknown =
-        new(type: null, exact: false, frame: null, turn: null, isOfTurnsBefore: false);
+        new(type: null, exact: false, frame: null, turn: null, isOfTurnsBefore: false, shapeOf: null, shapePart: 0);
 
     /// <summary>
     ///     True when the code of the given frame, or of a callee of that code,
@@ -81,25 +103,52 @@ internal sealed class MadeObject(
     ///     type. It is of the turn of this object, or of the turns before as this
     ///     object is.
     /// </summary>
-    public MadeObject InAMember(ITypeSymbol declared) =>
+    public MadeObject InAMember(ITypeSymbol declared, ISymbol member) =>
         new(
             type: declared,
             exact: false,
             frame: this.frame,
             turn: this.Turn,
-            isOfTurnsBefore: this.IsOfTurnsBefore);
+            isOfTurnsBefore: this.IsOfTurnsBefore,
+            shapeOf: this,
+            shapePart: member.Name.GetHashCode());
 
     /// <summary>
-    ///     A new identity for the objects that the same code made in the turns
-    ///     before of its loop.
+    ///     An identity for the objects that the same code makes in the turns
+    ///     before of its loop, in each turn of each loop around it.
     /// </summary>
-    /// <param name="around">
-    ///     The body of a loop around that loop. The identity is then for the turns
-    ///     before in one turn of the loop around, and it is new in each such turn.
-    ///     Null for the turns before with no such limit.
-    /// </param>
-    public MadeObject OfTurnsBefore(SyntaxNode? around) =>
-        new(type: this.type, exact: this.IsNew, frame: this.frame, turn: around, isOfTurnsBefore: true);
+    public static MadeObject OfTurnsBefore(ITypeSymbol type, bool exact, LoopFrame frame) =>
+        new(type: type, exact: exact, frame: frame, turn: null, isOfTurnsBefore: true, shapeOf: null, shapePart: 0);
+
+    /// <summary>The object that the same code makes in this turn of its loop.</summary>
+    /// <param name="turn">The body of the loop.</param>
+    /// <param name="frame">The frame whose code makes the object. A second call of a callee has a new frame.</param>
+    public MadeObject OfThisTurn(SyntaxNode turn, LoopFrame frame) =>
+        new(
+            type: this.type,
+            exact: this.IsNew,
+            frame: frame,
+            turn: turn,
+            isOfTurnsBefore: false,
+            shapeOf: this,
+            shapePart: 1);
+
+    /// <summary>
+    ///     An identity for the objects that the same code made in the turns
+    ///     before of its loop. The turns are those in this turn of a loop around
+    ///     that loop, and the identity is new in each turn of the loop around.
+    /// </summary>
+    /// <param name="around">The body of the loop around.</param>
+    /// <param name="frame">The frame whose code made the objects.</param>
+    public MadeObject OfTurnsBeforeIn(SyntaxNode around, LoopFrame frame) =>
+        new(
+            type: this.type,
+            exact: this.IsNew,
+            frame: frame,
+            turn: around,
+            isOfTurnsBefore: true,
+            shapeOf: this,
+            shapePart: 2);
 
     /// <summary>
     ///     True when a value of the given type can be this object. The element of

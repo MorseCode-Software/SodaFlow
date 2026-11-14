@@ -27,9 +27,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
 
-    // The number of reads of one loop at most. A value that comes to its read after more turns
-    // than that has no report.
-    private const int MaxReadsOfALoop = 5;
+    // The most reads of one loop. The walk stops before that when a read leaves what a read before
+    // left. The number is only a guard for a loop whose reads have no such end.
+    private const int MaxReadsOfALoop = 32;
 
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
@@ -224,8 +224,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.evaluator.HoldsOneOf(local: element, collection: node.Expression);
         }
 
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Statement);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
@@ -252,8 +253,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.AssignState(target: node.Variable, state: elements, replaces: false, turn: null);
         }
 
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Statement);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
     }
 
     public override void VisitForStatement(ForStatementSyntax node)
@@ -270,6 +272,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Visit(initializer);
         }
 
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Condition);
         this.Visit(node.Statement);
 
@@ -281,20 +284,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.VisitTheSecondTurn(
             loop: node,
             body: node.Statement,
+            before: before,
             condition: node.Condition,
             incrementors: node.Incrementors);
     }
 
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         base.VisitWhileStatement(node);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, condition: node.Condition);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, condition: node.Condition);
     }
 
     public override void VisitDoStatement(DoStatementSyntax node)
     {
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         base.VisitDoStatement(node);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, after: node.Condition);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, after: node.Condition);
     }
 
     /// <summary>
@@ -304,24 +310,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     /// <param name="loop">The loop statement.</param>
     /// <param name="body">The body of the loop.</param>
+    /// <param name="before">
+    ///     The result of <see cref="LoopStateEvaluator.ShapeOfWhatALoopLeaves" />
+    ///     before the first read.
+    /// </param>
     /// <param name="condition">The condition that the loop reads before each turn, if it has one.</param>
     /// <param name="incrementors">The expressions that a <c>for</c> runs after each turn.</param>
     /// <param name="after">The condition that a <c>do</c> reads after each turn.</param>
     private void VisitTheSecondTurn(
         SyntaxNode loop,
         SyntaxNode body,
+        int before,
         SyntaxNode? condition = null,
         SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
         SyntaxNode? after = null)
     {
         this.evaluator.EndTurns(body);
 
-        int left = this.evaluator.ShapeOfWhatALoopLeaves(body);
+        // A read that leaves what a read before left gives the next read nothing new. That is
+        // true for the first read also. When it changes no location that is older than the turn,
+        // the second turn is the same as the first one.
+        HashSet<int> left = [before];
 
         // A value can come to its read only after two or more turns. The walk reads the loop again
-        // while a read gives a location a new state, to a limit. The locals of the body keep the
-        // state of the last read, because the result of a function can be a local of a loop.
-        for (int read = 2; read <= MaxReadsOfALoop; read++)
+        // while a read gives a location a new state. The locals of the body keep the state of the
+        // last read, because the result of a function can be a local of a loop.
+        for (int read = 2;
+             read <= MaxReadsOfALoop && left.Add(this.evaluator.ShapeOfWhatALoopLeaves(body));
+             read++)
         {
             this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
 
@@ -341,15 +357,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             this.Visit(after);
             this.evaluator.EndTurns(body);
-
-            int now = this.evaluator.ShapeOfWhatALoopLeaves(body);
-
-            if (now == left)
-            {
-                break;
-            }
-
-            left = now;
         }
 
         // After the loop, a local has also what it had before an assignment of a turn.
@@ -2045,6 +2052,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.evaluator.RunsForEachElement(lambda);
             }
 
+            int before = this.evaluator.ShapeOfWhatALoopLeaves(lambda.Body);
             this.Visit(lambda.Body);
 
             if (oneTime)
@@ -2054,7 +2062,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (lambda.Body is BlockSyntax)
             {
-                this.VisitTheSecondTurn(loop: lambda, body: lambda.Body);
+                this.VisitTheSecondTurn(loop: lambda, body: lambda.Body, before: before);
             }
             else
             {

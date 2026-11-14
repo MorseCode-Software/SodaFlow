@@ -404,7 +404,8 @@ internal sealed class LoopStateEvaluator
             Shapes(this.locals.Where(local => !IsDeclaredIn(local: local.Key, code: turn)))
             + Shapes(this.thisMembers) * 3
             + this.region.Objects.Shape * 5
-            + this.region.ShapeOfFields * 7);
+            + this.region.ShapeOfFields * 7
+            + this.Frame.TheOneCollectionOf.Count * 11);
 
     private static int Shapes(IEnumerable<KeyValuePair<ISymbol, LoopState>> states) =>
         states.Aggregate(

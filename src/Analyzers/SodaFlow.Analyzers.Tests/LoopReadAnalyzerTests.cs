@@ -1613,7 +1613,11 @@ internal sealed class LoopReadAnalyzerTests
             ["FirstOfASequenceThatAnOwnerReturns"] = ["SF1001"],
             ["ObjectThatItsOwnerReturns"] = ["SF1001"],
             ["ObjectThatItsOwnerReturnsAfterAPendingCell"] = ["SF1001"],
-            ["ElementOfTheVariableOfAForeachOverAListOfLists"] = ["SF1001"]
+            ["ElementOfTheVariableOfAForeachOverAListOfLists"] = ["SF1001"],
+            ["CellFromFiveTurnsBefore"] = ["SF1001"],
+            ["CellFromNineTurnsBefore"] = ["SF1001"],
+            ["TwoLocalsThatEachTurnGivesTheCellOfTheOther"] = ["SF1001"],
+            ["LoopThatLeavesNothingBeforeALoopThatDoes"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

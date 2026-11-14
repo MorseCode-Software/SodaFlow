@@ -10563,6 +10563,22 @@ public static class Shapes
     public static Cell<int> PlainThroughAnElementOfALocalThatAnAssignmentGaveTheList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> other; other = list; other[0].Share = Plain; return S.Hold(x.Share!.Sample()); });
 
+    // S2325. A pending cell goes through five locals, and the sixth turn samples it.
+    public static Cell<int> CellFromFiveTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null; Cell<int>? c3 = null; Cell<int>? c4 = null; for (int i = 0; i < 6; i++) { if (c4 != null) { Kept.Add(c4.Sample()); } c4 = c3; c3 = c2; c2 = c1; c1 = c0; c0 = l.Map(v => v); } return S.Hold(0); });
+
+    // S2326. The same through nine locals, and the tenth turn samples it.
+    public static Cell<int> CellFromNineTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null; Cell<int>? c3 = null; Cell<int>? c4 = null; Cell<int>? c5 = null; Cell<int>? c6 = null; Cell<int>? c7 = null; Cell<int>? c8 = null; for (int i = 0; i < 10; i++) { if (c8 != null) { Kept.Add(c8.Sample()); } c8 = c7; c7 = c6; c6 = c5; c5 = c4; c4 = c3; c3 = c2; c2 = c1; c1 = c0; c0 = l.Map(v => v); } return S.Hold(0); });
+
+    // S2327. Each turn gives two locals the cell of the other one. The reads have no end of their own, and the third turn leaves what the first one left.
+    public static Cell<int> TwoLocalsThatEachTurnGivesTheCellOfTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = l.Map(v => v); Cell<int> b = Plain; for (int i = 0; i < 3; i++) { Cell<int> t = a; a = b; b = t; } Kept.Add(b.Sample()); return S.Hold(0); });
+
+    // S2328. A loop changes no location that is older than its turn. A second loop after it samples a cell from its own turn before.
+    public static Cell<int> LoopThatLeavesNothingBeforeALoopThatDoes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Cell<int> own = Plain; Kept.Add(own.Sample()); } Cell<int>? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

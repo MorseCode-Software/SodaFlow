@@ -207,13 +207,15 @@ internal sealed class LoopState
                 shape = (shape * 397) ^ (this.Members?.Shape ?? 0);
 
                 // Sum of the platform throws when a sum is too large for its type. These sums must not.
-                shape = this.Objects.Aggregate(
-                    seed: shape,
-                    func: static (sum, made) => sum + RuntimeHelpers.GetHashCode(made) * 31);
+                // Each read of a loop adds the object of its turn to a location that is older than
+                // the turn. Those objects have one number, and the sum has each number one time.
+                shape = this.Objects.Select(static made => made.Shape)
+                    .Distinct()
+                    .Aggregate(seed: shape, func: static (sum, made) => sum + made * 31);
 
-                shape = this.Held.Aggregate(
-                    seed: shape,
-                    func: static (sum, made) => sum + RuntimeHelpers.GetHashCode(made) * 37);
+                shape = this.Held.Select(static made => made.Shape)
+                    .Distinct()
+                    .Aggregate(seed: shape, func: static (sum, made) => sum + made * 37);
 
                 shape = this.Functions.Aggregate(
                     seed: shape,
