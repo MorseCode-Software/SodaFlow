@@ -1409,7 +1409,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol)
                 when target is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
-                this.evaluator.SetMember(member: own, state: state, replaces: replaces);
+                this.evaluator.SetMember(member: own, state: state, replaces: replaces, from: from);
                 break;
             case { } member and (IFieldSymbol or IPropertySymbol) when !this.region.Symbols.IsSodaFlow(member):
                 this.evaluator.SetMemberOf(
@@ -1417,7 +1417,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     member: member,
                     state: state,
                     replaces: replaces,
-                    turn: turn);
+                    turn: turn,
+                    from: from);
 
                 break;
         }
@@ -2607,7 +2608,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
                 && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
             {
-                if (followed != null && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put))
+                // The array of a params parameter is a new array, and what the callee put into it
+                // does not come to an argument. A change through an element is a change to the
+                // object of the argument, which the store has.
+                if (followed != null
+                    && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put)
+                    && !(this.evaluator.IsOneOfAParamsArray(parameter: parameter, argument: arguments[i].Expression)
+                         && !this.evaluator.Eval(arguments[i].Expression).Objects.IsEmpty))
                 {
                     this.evaluator.Merge(target: arguments[i].Expression, state: put);
                     this.evaluator.GivesAnArgument(

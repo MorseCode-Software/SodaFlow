@@ -1779,7 +1779,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag57TwoObjectsInATurn"] = ["SF1001"],
             ["Ag57TheLoopRunsNoTurnForAName"] = ["SF1001"],
             ["Ag57TheReadInTheTurnIsBeforeTheWriteForAName"] = ["SF1001"],
-            ["Ag57AStatementBeforeTheWriteEndsTheTurn"] = ["SF1001"]
+            ["Ag57AStatementBeforeTheWriteEndsTheTurn"] = ["SF1001"],
+            ["Ag58AnAssignmentInABranchGivesTheMemberASecondList"] = ["SF1001"],
+            ["Ag58TheCodeWithNoBodyGetsTheObjectOfTheList"] = ["SF1001"],
+            ["Ag58AMethodOfTheObjectWritesAfterTheCodeWithNoBody"] = ["SF1001"],
+            ["Ag58AParamsArrayWithTwoObjects"] = ["SF1001"],
+            ["Ag58AParamsArrayWithAnElementThatTheWalkDidNotSee"] = ["SF1001"],
+            ["Ag58ACallBetweenTheWriteAndTheRead"] = ["SF1001"],
+            ["Ag58TheIndexGetsANewValueBetweenTheWriteAndTheRead"] = ["SF1001"],
+            ["Ag58TheReadIsThroughADifferentIndex"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

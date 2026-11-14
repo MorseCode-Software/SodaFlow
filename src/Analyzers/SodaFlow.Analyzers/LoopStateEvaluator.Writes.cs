@@ -17,7 +17,8 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the assignment always runs in its function.</param>
-    public void SetMember(ISymbol member, LoopState state, bool replaces = false)
+    /// <param name="from">The expression of the value, when the code has one.</param>
+    public void SetMember(ISymbol member, LoopState state, bool replaces = false, ExpressionSyntax? from = null)
     {
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
@@ -42,8 +43,137 @@ internal sealed partial class LoopStateEvaluator
                 ? existing.Join(state)
                 : state;
 
-        this.setOnThis[key] = only || (this.setOnThis.TryGetValue(key: key, value: out bool before) && before);
+        this.setOnThis[key] =
+            only
+                ? (true, from == null ? null : this.TheOneCollectionThatIs(from: from, state: state))
+                : (this.setOnThis.TryGetValue(key: key, value: out (bool Replaces, MadeObject? One) before)
+                   && before.Replaces, null);
     }
+
+    // Records the one collection that a member of an object is after a write to the member. A
+    // write that is not sure takes the record away, for each object that the owner can be.
+    private void NotesTheCollectionIn(
+        ExpressionSyntax? owner,
+        LoopState has,
+        ISymbol member,
+        LoopState state,
+        ExpressionSyntax? from,
+        bool sure)
+    {
+        if (this.quiet || owner == null)
+        {
+            return;
+        }
+
+        ISymbol key = member.OriginalDefinition;
+
+        MadeObject? one =
+            sure && this.function == null && this.call is null or { AlwaysRuns: true }
+                ? this.TheOneCollectionOf(owner)
+                : null;
+
+        foreach (MadeObject made in this.region.Objects.Now(has.Objects))
+        {
+            this.region.Objects.IsTheCollectionIn(owner: made, member: key, collection: null);
+        }
+
+        if (one != null)
+        {
+            this.region.Objects.IsTheCollectionIn(
+                owner: one,
+                member: key,
+                collection: from == null ? null : this.TheOneCollectionThatIs(from: from, state: state));
+        }
+    }
+
+    // Records a write through an element for WrittenThroughItsElement. Each other write to a
+    // member takes the record away.
+    private void NotesAWriteThroughAnElement(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces)
+    {
+        this.Frame.LastElementWrite = null;
+
+        if (replaces
+            && !this.quiet
+            && this.function == null
+            && state is { Members: null, Objects.IsEmpty: true }
+            && IsALocation(member)
+            && owner != null
+            && Unwrapped(owner) is ElementAccessExpressionSyntax element
+            && this.CollectionAndIndexOf(element) is var (collection, index)
+            && element.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
+            && FunctionOf(element) is { } code)
+        {
+            this.Frame.LastElementWrite =
+                new WriteThroughAnElement(
+                    collection: collection,
+                    index: index,
+                    member: member.OriginalDefinition,
+                    code: code,
+                    end: assignment.Span.End,
+                    state: state,
+                    writes: this.region.MemberWrites);
+        }
+    }
+
+    // The local of the collection and the index of an element access with one index. The index
+    // is a constant number or a local.
+    private (ISymbol Collection, object Index)? CollectionAndIndexOf(ElementAccessExpressionSyntax element)
+    {
+        if (element.ArgumentList.Arguments.Count != 1
+            || Unwrapped(element.Expression) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not { } collection
+            || !KeepsItsObject(collection))
+        {
+            return null;
+        }
+
+        ExpressionSyntax written = element.ArgumentList.Arguments[0].Expression;
+
+        object? index =
+            this.region.ModelFor(written).GetConstantValue(written) is { HasValue: true, Value: int number }
+                ? number
+                : written is IdentifierNameSyntax && this.region.SymbolOf(written) is ILocalSymbol or IParameterSymbol
+                    ? this.region.SymbolOf(written)
+                    : null;
+
+        return index == null ? null : (collection, index);
+    }
+
+    /// <summary>
+    ///     The state of a read of a member through an element, when the last
+    ///     write through that element gave the member its value. Null for each
+    ///     other read.
+    /// </summary>
+    /// <remarks>
+    ///     The element is one object for the write and the read when no code runs
+    ///     between the two. Thus, no call, no creation, and no assignment is
+    ///     between them, and no write to a member came after that write.
+    /// </remarks>
+    private LoopState? WrittenThroughItsElement(MemberAccessExpressionSyntax read) =>
+        !this.quiet
+        && this.function == null
+        && this.Frame.LastElementWrite is { } last
+        && last.Writes == this.region.MemberWrites
+        && Unwrapped(read.Expression) is ElementAccessExpressionSyntax element
+        && element.SpanStart >= last.End
+        && FunctionOf(element) == last.Code
+        && this.CollectionAndIndexOf(element) is var (collection, index)
+        && SymbolEqualityComparer.Default.Equals(x: collection, y: last.Collection)
+        && (index is ISymbol local
+            ? last.Index is ISymbol before && SymbolEqualityComparer.Default.Equals(x: local, y: before)
+            : index.Equals(last.Index))
+        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(read)?.OriginalDefinition, y: last.Member)
+        && !last.Code.DescendantNodes()
+            .Any(node =>
+                node.SpanStart >= last.End
+                && node.Span.End <= element.SpanStart
+                && (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or AssignmentExpressionSyntax
+                    || node.Kind() is SyntaxKind.PreIncrementExpression
+                        or SyntaxKind.PreDecrementExpression
+                        or SyntaxKind.PostIncrementExpression
+                        or SyntaxKind.PostDecrementExpression))
+            ? last.State.Join(this.TypeState(read))
+            : null;
 
     // True for the body of a loop statement that the code of this evaluator has. A lambda that a
     // callee runs for each element has a turn also, but the walk has no end of a loop for it.
@@ -147,7 +277,7 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode call,
         LoopState owner,
         ExpressionSyntax? written,
-        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets)
+        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets)
     {
         if (this.quiet || sets.IsEmpty)
         {
@@ -156,7 +286,7 @@ internal sealed partial class LoopStateEvaluator
 
         (bool always, SyntaxNode? turn) = this.WhereItRuns(call);
 
-        foreach ((ISymbol member, LoopState state, bool replaces) in sets)
+        foreach ((ISymbol member, LoopState state, bool replaces, MadeObject? one) in sets)
         {
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
@@ -168,7 +298,18 @@ internal sealed partial class LoopStateEvaluator
                     replaces: replaces && always,
                     turn: replaces ? turn : null);
 
+                // The callee knows the collection that it gave the member.
+                if (replaces && always && this.function == null && this.TheOneCollectionOf(written) is { } self)
+                {
+                    this.region.Objects.IsTheCollectionIn(owner: self, member: member, collection: one);
+                }
+
                 continue;
+            }
+
+            foreach (MadeObject made in this.region.Objects.Now(owner.Objects))
+            {
+                this.region.Objects.IsTheCollectionIn(owner: made, member: member, collection: null);
             }
 
             LoopState inOwner = this.InAnObject(owner: owner, state: state);
@@ -203,7 +344,13 @@ internal sealed partial class LoopStateEvaluator
     ///     The body of the loop whose each turn always runs the assignment. Null
     ///     when no loop does.
     /// </param>
-    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces, SyntaxNode? turn)
+    public void SetMemberOf(
+        ExpressionSyntax? owner,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn,
+        ExpressionSyntax? from = null)
     {
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
@@ -221,6 +368,8 @@ internal sealed partial class LoopStateEvaluator
         // that object, and each object of the store that the owner can be keeps what it has.
         bool isKnown = !this.CanBeUnseen(owner);
         this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
+        this.NotesTheCollectionIn(owner: owner, has: has, member: member, state: state, from: from, sure: replaces && isKnown);
+        this.NotesAWriteThroughAnElement(owner: owner, member: member, state: state, replaces: replaces);
 
         if (!replaces
             || this.quiet

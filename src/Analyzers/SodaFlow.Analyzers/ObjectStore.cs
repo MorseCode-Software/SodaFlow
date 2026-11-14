@@ -357,6 +357,44 @@ internal sealed class ObjectStore
     /// <summary>True for a collection that holds only objects that the walk saw go in.</summary>
     public bool HoldsOnlyWhatWentIn(MadeObject collection) => this.complete.Contains(collection);
 
+    // For a member of an object: the one collection that the member is.
+    private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> collectionIn = [];
+
+    /// <summary>
+    ///     Records the one collection that a member of an object is, from a write
+    ///     that is sure to give the member that collection. Null takes the record
+    ///     away, for a write that can give the member a different value.
+    /// </summary>
+    public void IsTheCollectionIn(MadeObject owner, ISymbol member, MadeObject? collection)
+    {
+        if (!this.collectionIn.TryGetValue(key: owner, value: out Dictionary<ISymbol, MadeObject>? members))
+        {
+            if (collection == null)
+            {
+                return;
+            }
+
+            members = new Dictionary<ISymbol, MadeObject>(SymbolEqualityComparer.Default);
+            this.collectionIn[owner] = members;
+        }
+
+        if (collection == null)
+        {
+            members.Remove(member);
+        }
+        else
+        {
+            members[member] = collection;
+        }
+    }
+
+    /// <summary>The one collection that a member of an object is. Null when the walk does not know it.</summary>
+    public MadeObject? TheCollectionIn(MadeObject owner, ISymbol member) =>
+        this.collectionIn.TryGetValue(key: owner, value: out Dictionary<ISymbol, MadeObject>? members)
+        && members.TryGetValue(key: member, value: out MadeObject? collection)
+            ? collection
+            : null;
+
     /// <summary>A number for what the store says about its objects, from <see cref="LoopState.Shape" />.</summary>
     public int Shape =>
         unchecked(

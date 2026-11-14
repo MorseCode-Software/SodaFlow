@@ -89,9 +89,10 @@ internal sealed partial class LoopStateEvaluator
     private readonly LoopRegion region;
     private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
-    // The members of the object that this code set. The value is true when a write that always
-    // runs gave the member its state. The code of a function in this code has the same record.
-    private readonly Dictionary<ISymbol, bool> setOnThis;
+    // The members of the object that this code set. The first part is true when a write that
+    // always runs gave the member its state. The second part is the one collection that the
+    // member then is. The code of a function in this code has the same record.
+    private readonly Dictionary<ISymbol, (bool Replaces, MadeObject? One)> setOnThis;
 
     public LoopStateEvaluator(LoopRegion region)
         : this(
@@ -103,7 +104,7 @@ internal sealed partial class LoopStateEvaluator
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            setOnThis: new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default),
+            setOnThis: new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(SymbolEqualityComparer.Default),
             quiet: false,
             function: null,
             call: null)
@@ -119,7 +120,7 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> locals,
         HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers,
-        Dictionary<ISymbol, bool> setOnThis,
+        Dictionary<ISymbol, (bool Replaces, MadeObject? One)> setOnThis,
         bool quiet,
         SyntaxNode? function,
         CallOfThisCode? call)
@@ -159,7 +160,7 @@ internal sealed partial class LoopStateEvaluator
                 thisMembers: new Dictionary<ISymbol, LoopState>(
                     dictionary: this.thisMembers,
                     comparer: SymbolEqualityComparer.Default),
-                setOnThis: new Dictionary<ISymbol, bool>(
+                setOnThis: new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(
                     dictionary: this.setOnThis,
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
@@ -1298,10 +1299,7 @@ internal sealed partial class LoopStateEvaluator
         // A new collection holds the objects that it got, and is not one of them. Members of a
         // value that no object of the store is are only here. Thus, the collection then holds an
         // object that the store does not know.
-        LoopState held = state.Holding(state.Objects).WithObjects(ImmutableArray<MadeObject>.Empty);
-
-        LoopState apart =
-            held is { IsContainer: true, HasMembersOfNoObject: true } ? held.HoldingAnUnknownObject : held;
+        LoopState apart = HoldingItsObjects(state);
 
         if (this.quiet)
         {
@@ -1353,6 +1351,25 @@ internal sealed partial class LoopStateEvaluator
 
         return apart.WithObjects(ImmutableArray.Create(made));
     }
+
+    // The state of a new collection that got the given state: it holds the objects, and is not
+    // one of them.
+    private static LoopState HoldingItsObjects(LoopState state)
+    {
+        LoopState held = state.Holding(state.Objects).WithObjects(ImmutableArray<MadeObject>.Empty);
+
+        return held is { IsContainer: true, HasMembersOfNoObject: true } ? held.HoldingAnUnknownObject : held;
+    }
+
+    /// <summary>
+    ///     True for an argument that goes into the array of a params parameter.
+    ///     An argument that is the array itself is the value of the parameter.
+    /// </summary>
+    public bool IsOneOfAParamsArray(IParameterSymbol parameter, ExpressionSyntax argument) =>
+        parameter.IsParams
+        && !SymbolEqualityComparer.Default.Equals(
+            x: this.region.ModelFor(argument).GetTypeInfo(argument).ConvertedType,
+            y: parameter.Type);
 
     // A new collection holds only objects that the walk saw go in when the expression gives it no
     // other value. That is an empty collection, an array, or a literal with no spread whose each
@@ -1523,7 +1540,14 @@ internal sealed partial class LoopStateEvaluator
         MadeObject? made =
             Unwrapped(collection) switch
             {
-                IdentifierNameSyntax name => this.TheOneCollectionOf(name),
+                IdentifierNameSyntax name => this.TheOneCollectionOf(name) ?? this.TheCollectionInAMemberOfThis(name),
+                MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own =>
+                    this.TheCollectionInAMemberOfThis(own),
+                // A member of a local that is one object, from the record of the store.
+                MemberAccessExpressionSyntax access
+                    when this.region.SymbolOf(access) is { } member and (IFieldSymbol or IPropertySymbol)
+                         && this.TheOneCollectionOf(access.Expression) is { } inALocal =>
+                    this.region.Objects.TheCollectionIn(owner: inALocal, member: member.OriginalDefinition),
                 // Such a collection holds what its state in the store says, and no other object.
                 ElementAccessExpressionSyntax element
                     when this.TheCompleteCollection(element.Expression) is { } owner
@@ -1921,6 +1945,7 @@ internal sealed partial class LoopStateEvaluator
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
             MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
+            MemberAccessExpressionSyntax read when this.WrittenThroughItsElement(read) is { } written => written,
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
@@ -2571,7 +2596,7 @@ internal sealed partial class LoopStateEvaluator
 
         // An object of code that cannot know the library is not an object of this compilation.
         // Thus, it contains the objects that have the members, and is not one of them.
-        return this.MadeHere(
+        LoopState made = this.MadeHere(
             place: creation,
             state: this.region.SymbolOf(creation) is IMethodSymbol constructor
                    && this.Classify(call: creation, method: constructor) == CalleeKind.Mover
@@ -2587,6 +2612,74 @@ internal sealed partial class LoopStateEvaluator
                 })
             : state,
             exact: true);
+
+        this.NotesTheCollectionsOf(creation: creation, made: made, initializer: initializer);
+
+        return made;
+    }
+
+    // Records the one collection of each member that the constructor or the initializer of a
+    // creation gave a collection.
+    private void NotesTheCollectionsOf(
+        ExpressionSyntax creation,
+        LoopState made,
+        InitializerExpressionSyntax? initializer)
+    {
+        if (this.quiet || TheOneNewObject(made) is not { } owner)
+        {
+            return;
+        }
+
+        if (this.Follow(creation) is { } constructed)
+        {
+            foreach ((ISymbol member, LoopState _, bool replaces, MadeObject? one) in constructed.Sets)
+            {
+                this.region.Objects.IsTheCollectionIn(owner: owner, member: member, collection: replaces ? one : null);
+            }
+        }
+
+        foreach (AssignmentExpressionSyntax assignment in
+                 initializer?.Expressions.OfType<AssignmentExpressionSyntax>() ?? [])
+        {
+            if (assignment.Left is IdentifierNameSyntax name
+                && this.region.SymbolOf(name) is { } member and (IPropertySymbol or IFieldSymbol))
+            {
+                this.region.Objects.IsTheCollectionIn(
+                    owner: owner,
+                    member: member.OriginalDefinition,
+                    collection: this.TheOneCollectionThatIs(from: assignment.Right, state: this.Eval(assignment.Right)));
+            }
+        }
+    }
+
+    // The one collection that the value of an expression is, as a local has it at its
+    // declaration. A name gives the record of its frame. Each other expression gives the one
+    // new object of its state, when no collection gave the value.
+    private MadeObject? TheOneCollectionThatIs(ExpressionSyntax from, LoopState state) =>
+        Unwrapped(from) is IdentifierNameSyntax
+            ? this.TheOneCollectionOf(from)
+            : this.CanBeUnseen(from)
+                ? null
+                : TheOneNewObject(state);
+
+    // The one collection in a member of the object that this code is in. The code set the member,
+    // or the store has the record for the object of the call.
+    private MadeObject? TheCollectionInAMemberOfThis(ExpressionSyntax written)
+    {
+        if (this.function != null
+            || this.region.SymbolOf(written) is not { IsStatic: false } member
+            || member is not (IFieldSymbol or IPropertySymbol))
+        {
+            return null;
+        }
+
+        ISymbol key = member.OriginalDefinition;
+
+        return this.setOnThis.TryGetValue(key: key, value: out (bool Replaces, MadeObject? One) set)
+            ? set.One
+            : this.call?.Self is { } self
+                ? this.region.Objects.TheCollectionIn(owner: self, member: key)
+                : null;
     }
 
     /// <summary>
@@ -3488,7 +3581,8 @@ internal sealed partial class LoopStateEvaluator
                 definer: null,
                 members: members,
                 function: null,
-                eachRun: null);
+                eachRun: null,
+                self: null);
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
@@ -3592,7 +3686,7 @@ internal sealed partial class LoopStateEvaluator
             }
 
             walker.Visit(value);
-            inner.SetMember(member: member, state: inner.Eval(value));
+            inner.SetMember(member: member, state: inner.Eval(value), replaces: true, from: value);
         }
     }
 
@@ -5320,6 +5414,8 @@ internal sealed partial class LoopStateEvaluator
                 return null;
         }
 
+        MadeObject? self = definer == null && owner != null ? this.TheOneCollectionOf(owner) : null;
+
         // A function of the walk, read by an evaluator that changes nothing: it gets a copy of
         // the locals of its code also.
         if (this.quiet && definer != null)
@@ -5341,7 +5437,8 @@ internal sealed partial class LoopStateEvaluator
                 definer: definer,
                 members: members,
                 function: function,
-                eachRun: manyTimes ? body : null);
+                eachRun: manyTimes ? body : null,
+                self: self);
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
@@ -5388,7 +5485,8 @@ internal sealed partial class LoopStateEvaluator
                         definer: definer,
                         members: members,
                         function: function,
-                        eachRun: body);
+                        eachRun: body,
+                        self: self);
 
                 if (started != null)
                 {
@@ -5495,9 +5593,17 @@ internal sealed partial class LoopStateEvaluator
         LoopStateEvaluator? definer,
         Dictionary<ISymbol, LoopState> members,
         SyntaxNode? function,
-        SyntaxNode? eachRun)
+        SyntaxNode? eachRun,
+        MadeObject? self)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
+
+        LoopFrame frame =
+            definer?.Frame
+            ?? new LoopFrame(
+                parent: this.Frame,
+                repeats: eachRun != null || !this.RunsOneTime(call),
+                isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax);
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
         HashSet<ISymbol> given = new(SymbolEqualityComparer.Default);
         HashSet<ISymbol> withAValue = new(SymbolEqualityComparer.Default);
@@ -5508,10 +5614,11 @@ internal sealed partial class LoopStateEvaluator
         {
             LoopState state = binding.State.From(binding.Parameter);
 
-            // A parameter is the object of its argument. A params parameter is an array of them.
-            // An argument that is no name of a local can make one new object, as a local does at
-            // its declaration.
-            if (!binding.Parameter.IsParams && KeepsItsObject(binding.Parameter))
+            // A parameter is the object of its argument. A params parameter is an array of them,
+            // when the call does not give the array itself. An argument that is no name of a
+            // local can make one new object, as a local does at its declaration.
+            if (!this.IsOneOfAParamsArray(parameter: binding.Parameter, argument: binding.Argument)
+                && KeepsItsObject(binding.Parameter))
             {
                 if (this.CanBeUnseen(binding.Argument))
                 {
@@ -5539,6 +5646,38 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        // The arguments for a params parameter are in a new array, which holds only them. The
+        // walk makes that object when the call runs one time, as it does for an array that the
+        // code writes.
+        if (definer == null && !this.quiet && !frame.Repeats)
+        {
+            foreach (IGrouping<ISymbol, Binding> group in bindings
+                         .Where(binding =>
+                             this.IsOneOfAParamsArray(parameter: binding.Parameter, argument: binding.Argument))
+                         .GroupBy<Binding, ISymbol>(
+                             keySelector: static binding => binding.Parameter,
+                             comparer: SymbolEqualityComparer.Default))
+            {
+                LoopState holding = HoldingItsObjects(parameters[group.Key].AsContainer);
+
+                MadeObject array =
+                    this.region.Objects.Make(
+                        frame: frame,
+                        type: ((IParameterSymbol)group.Key).Type,
+                        exact: true,
+                        state: holding);
+
+                if (group.All(binding =>
+                        this.IsKnownWhenItGoesIn(binding.Argument) && !this.CanBeUnseen(binding.Argument)))
+                {
+                    this.region.Objects.IsComplete(array);
+                }
+
+                parameters[group.Key] = holding.WithObjects(ImmutableArray.Create(array));
+                collections[group.Key] = array;
+            }
+        }
+
         (bool Always, SyntaxNode? Turn) where = this.WhereItRuns(call);
 
         LoopStateEvaluator inner = new(
@@ -5546,15 +5685,12 @@ internal sealed partial class LoopStateEvaluator
             bound: parameters.ToImmutable(),
             noValues: noValue.ToImmutable(),
             depth: this.depth + 1,
-            frame: definer?.Frame
-                   ?? new LoopFrame(
-                       parent: this.Frame,
-                       repeats: eachRun != null || !this.RunsOneTime(call),
-                       isOfAConstructor: call is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax),
+            frame: frame,
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
-            setOnThis: definer?.setOnThis ?? new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default),
+            setOnThis: definer?.setOnThis
+                       ?? new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(SymbolEqualityComparer.Default),
             quiet: this.quiet,
             function: function,
             // A callee with no body to read can run a function two or more times in one call. A
@@ -5572,7 +5708,8 @@ internal sealed partial class LoopStateEvaluator
                         : ImmutableArray<SyntaxNode>.Empty,
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
-                code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
+                code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
+                self: self));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
@@ -5689,13 +5826,17 @@ internal sealed partial class LoopStateEvaluator
         }
 
         // A callee on a different object got a copy of the members of that object. Each member
-        // that it set goes back to the object. A function reads the members of its own code.
-        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets =
-            lexical || receiver == null
-                ? ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty
+        // that it set goes back to the object. A function reads the members of its own code. A
+        // constructor gives the creation the collection of each member.
+        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets =
+            lexical || (receiver == null && !inner.Frame.IsOfAConstructor)
+                ? ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)>.Empty
                 : inner.setOnThis
                     .Select(set =>
-                        (set.Key, inner.thisMembers[set.Key].WithOrigins(Out).FromIfUnknown(inputs), set.Value))
+                        (set.Key,
+                            inner.thisMembers[set.Key].WithOrigins(Out).FromIfUnknown(inputs),
+                            set.Value.Replaces,
+                            set.Value.One))
                     .ToImmutableArray();
 
         return new Followed(
@@ -6438,7 +6579,8 @@ internal sealed partial class LoopStateEvaluator
         in ImmutableArray<SyntaxNode> loopsAroundTheTurn,
         in bool alwaysRuns,
         in SyntaxNode? alwaysTurn,
-        in object code)
+        in object code,
+        in MadeObject? self)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -6480,5 +6622,11 @@ internal sealed partial class LoopStateEvaluator
         ///     <see cref="ObjectStore.CodeOf" />.
         /// </summary>
         public object Code { get; } = code;
+
+        /// <summary>
+        ///     The object that the code of the call is in, when the owner in the
+        ///     call is a local that is one object. Null for each other call.
+        /// </summary>
+        public MadeObject? Self { get; } = self;
     }
 }

@@ -13,7 +13,7 @@ internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs,
-    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets,
+    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets,
     in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)> through)
 {
     /// <summary>
@@ -25,7 +25,7 @@ internal sealed class Followed(
             state: LoopState.None,
             findings: ImmutableArray<Finding>.Empty,
             outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty,
+            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)>.Empty,
             through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>.Empty);
 
     public LoopState State { get; } = state;
@@ -36,10 +36,11 @@ internal sealed class Followed(
 
     /// <summary>
     ///     Each member of its object that the callee set, with the state that the
-    ///     member has when the callee returns. The last part is true when a write
-    ///     that always runs in the callee gave the member that state.
+    ///     member has when the callee returns. The third part is true when a
+    ///     write that always runs in the callee gave the member that state. The
+    ///     last part is the one collection that the member then is.
     /// </summary>
-    public ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> Sets { get; } = sets;
+    public ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> Sets { get; } = sets;
 
     /// <summary>
     ///     Each member that the callee set through a parameter, with the state

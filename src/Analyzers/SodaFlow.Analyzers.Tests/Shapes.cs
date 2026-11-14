@@ -11499,6 +11499,74 @@ public static class Shapes
     public static Cell<int> Ag57AStatementBeforeTheWriteEndsTheTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { if (!Never) { continue; } c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
 
+    // S2559. AG58. The example of the item: a list in a member of an object, which the block filled.
+    public static Cell<int> Ag58AListInAMemberThatTheBlockFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ab72Box box = new([]); box.All.Add(y); box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2560. AG58. The constructor gets a list that has its object.
+    public static Cell<int> Ag58AListWithAnObjectGoesToAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ab72Box box = new(list); box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2561. AG58. An object initializer gives the member its list.
+    public static Cell<int> Ag58AnObjectInitializerGivesTheMemberItsList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58Open box = new() { All = [y] }; box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2562. AG58. An assignment that always runs gives the member its list.
+    public static Cell<int> Ag58AnAssignmentGivesTheMemberItsList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58Open box = new(); box.All = [y]; box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2563. AG58. An assignment in a branch gives the member a list that the walk did not see made.
+    public static Cell<int> Ag58AnAssignmentInABranchGivesTheMemberASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58Open box = new() { All = [y] }; if (!Never) { box.All = Ab72Unseen; } box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2564. AG58. Code with no body to read gets the object that has the list, and it puts an object first.
+    public static Cell<int> Ag58TheCodeWithNoBodyGetsTheObjectOfTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ab72Box box = new([]); box.All.Add(y); IAb72Keeper keeper = NewAb72Keeper(); keeper.KeepBox(box); keeper.Put(first); box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2565. AG58. A method of the object does the write through the first element of its list.
+    public static Cell<int> Ag58AMethodOfTheObjectWritesThroughTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58Rows rows = new(y); rows.MakeTheFirstPlain(); return S.Hold(y.Share!.Sample()); });
+
+    // S2566. AG58. The same, after code with no body got the list of the object and put an object first.
+    public static Cell<int> Ag58AMethodOfTheObjectWritesAfterTheCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58Rows rows = new(y); IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(rows.All); keeper.Put(first); rows.MakeTheFirstPlain(); return S.Hold(y.Share!.Sample()); });
+
+    // S2567. AG58. The example of the item: a method with a params parameter gets one object.
+    public static Cell<int> Ag58AParamsArrayWithOneObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58MakeTheFirstOfThesePlain(y); return S.Hold(y.Share!.Sample()); });
+
+    // S2568. AG58. The params array has two objects, and the write is to the first one.
+    public static Cell<int> Ag58AParamsArrayWithTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; Ag58MakeTheFirstOfThesePlain(first, y); return S.Hold(y.Share!.Sample()); });
+
+    // S2569. AG58. The one argument for the params parameter is an element that can be an object that the walk did not see.
+    public static Cell<int> Ag58AParamsArrayWithAnElementThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); Ag58MakeTheFirstOfThesePlain(list[0]); return S.Hold(y.Share!.Sample()); });
+
+    // S2570. AG58. The argument for the params parameter is an array, which is the array of the method.
+    public static Cell<int> Ag58AnArrayForAParamsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag58MakeTheFirstOfThesePlain(slots); return S.Hold(y.Share!.Sample()); });
+
+    // S2571. AG58. The example of the item: a read through the element right after a write through it.
+    public static Cell<int> Ag58AReadThroughTheElementAfterAWriteThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2572. AG58. The list has two objects and no positions, and the read is through the element of the write.
+    public static Cell<int> Ag58AReadThroughTheElementOfAListWithTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; if (!Never) { list.Add(y); list.Add(z); } list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2573. AG58. A call puts an object with a pending cell first, between the write and the read.
+    public static Cell<int> Ag58ACallBetweenTheWriteAndTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(first); } list[0].Share = Plain; list.Insert(0, y); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2574. AG58. The index is a local that gets a new value between the write and the read.
+    public static Cell<int> Ag58TheIndexGetsANewValueBetweenTheWriteAndTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(first); list.Add(y); } int i = 0; list[i].Share = Plain; i = 1; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2575. AG58. The read is through a different index from the write.
+    public static Cell<int> Ag58TheReadIsThroughADifferentIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(first); list.Add(y); } list[0].Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13947,6 +14015,27 @@ public static class Shapes
     }
 
     private static readonly SettableSlot[] Ag57Slots = [new(), new(), new()];
+
+    public sealed class Ag58Open
+    {
+        public List<SettableSlot> All { get; set; } = [];
+    }
+
+    public sealed class Ag58Rows
+    {
+        private readonly List<SettableSlot> all;
+
+        public Ag58Rows(SettableSlot slot)
+        {
+            this.all = [slot];
+        }
+
+        public List<SettableSlot> All => this.all;
+
+        public void MakeTheFirstPlain() => this.all[0].Share = Plain;
+    }
+
+    private static void Ag58MakeTheFirstOfThesePlain(params SettableSlot[] slots) => slots[0].Share = Plain;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

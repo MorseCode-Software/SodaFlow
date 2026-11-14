@@ -65,6 +65,7 @@
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
+        <Compile Include="WriteThroughAnElement.cs"/>
         <Compile Include="WritesThroughEach.cs"/>
     </ItemGroup>
 
