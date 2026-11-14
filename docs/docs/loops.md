@@ -305,8 +305,23 @@ copied at every assignment, so a change to the copy is not a change to the origi
 
 A later assignment replaces an earlier one only where it is sure to run: `slot.Share = pending;`
 followed by `slot.Share = plain;` leaves the plain value, through either name. An assignment under an
-`if`, in a loop, or in a helper that was handed the object adds to what the object already has,
-because the analyzer does not know that it runs.
+`if`, in a helper that was handed the object, or in a loop that the object was built before adds to
+what the object already has, because the analyzer does not know that it runs.
+
+The body of a `for`, `foreach`, `while`, or `do` builds a new object on every pass. The analyzer
+follows the object of the current pass apart from the ones built on earlier passes. Inside the body
+it is one object under every name that is new on each pass: a variable declared in the body, a list,
+a tuple, or an object built on the same pass, a property that its constructor sets, and a variable
+of a helper called from the body. A name that outlives the pass can still hold an object from an
+earlier pass: a variable declared outside the loop, a field, and a list or an object built before
+the loop. So can a member or an element of what a call hands back, because a call may hand back the
+same object every time, a member of the object a method was called on, and a variable that a lambda
+or a local function reads from the code around it, because the function may have been kept from an
+earlier pass. A change through such a name is added to the object of this pass and to the earlier
+ones, and a read through it sees both. An assignment at the top level of the body replaces the
+earlier value on the object of the current pass, as it does outside a loop, unless a `continue`,
+`break`, `return`, `throw`, `goto`, or `yield break` earlier in the body can skip it. After the loop
+every object it built is one of the earlier ones, with what it had when its pass ended.
 
 It knows which library methods run a function at once: a transaction, a loop block, and the `Fold`
 of a collection. Code outside the library that takes a function, such as `List<T>.ForEach` or
@@ -462,13 +477,14 @@ It does not see everything, and in a few places it guesses on the careful side:
   code that walks a value it was handed as `object` is not seen, and a serializer is read as it
   behaves without options: one told to write fields, or given a converter of its own, is not
   followed.
-- An object is one object under all its names only where the code makes it once. An object built in
-  a loop, in a lambda, a local function, or a query, or in a helper called from one of those, is
-  many objects at run time, and the analyzer follows each name of it on its own, as it does for an
-  object that came into the block from outside: a change through one name is not seen through a
-  second variable, though a collection still has what was put into it. Where a name can be one of
-  several objects, as an element of a list of several or a variable set on two paths, a change
-  through it is added to each of them, so a plain value set that way does not clear a pending one.
+- An object is one object under all its names only where the code makes it once, or once on each
+  pass of a loop. An object built in a lambda, a local function, or a query, or in a helper called
+  from one of those or from a loop, is many objects at run time, and the analyzer follows each name
+  of it on its own, as it does for an object that came into the block from outside: a change
+  through one name is not seen through a second variable, though a collection still has what was
+  put into it. Where a name can be one of several objects, as an element of a list of several, a
+  variable set on two paths, or a name that outlives a pass of a loop, a change through it is added
+  to each of them, so a plain value set that way does not clear a pending one.
 - For a few searches the object that gets the call depends on the data or the runtime, and the
   analyzer reads both. The lookups of an `ImmutableDictionary<TKey, TValue>` give the call to the
   key already held when it is the first one with its hash code, and to the key you pass when it is
