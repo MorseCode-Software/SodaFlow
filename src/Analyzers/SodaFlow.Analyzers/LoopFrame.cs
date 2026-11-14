@@ -115,6 +115,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     The last write to a member through a name in the code of this frame,
+    ///     when that write always runs. Null when the last write was not such a
+    ///     write.
+    /// </summary>
+    public WriteThroughAName? LastWrite { get; set; }
+
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
     private readonly List<Finding> unread = [];

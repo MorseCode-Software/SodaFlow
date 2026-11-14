@@ -61,6 +61,7 @@
         <Compile Include="QueryValue.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
+        <Compile Include="WriteThroughAName.cs"/>
     </ItemGroup>
 
 </Project>

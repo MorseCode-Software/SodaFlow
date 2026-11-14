@@ -10659,6 +10659,118 @@ public static class Shapes
     public static Cell<int> LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps() =>
         Cell.Loop<int>().WithoutCaptures(l => { IActionKeeper keeper = NewActionKeeper(); for (int i = 0; i < 2; i++) { keeper.Run(); SettableSlot x = new() { Share = Plain }; void Read() { Kept.Add(x.Share!.Sample()); } keeper.Keep(Read); x.Share = l.Map(v => v); } return S.Hold(0); });
 
+    // S2349. AG51. The first evidence of the item: a coalescing operator, then a pending cell and a plain one.
+    public static Cell<int> Ag51PlainAfterPendingThroughACoalescingOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? old = Kept.Count >= 0 ? null : Ag51Slots[0]; SettableSlot c = old ?? new SettableSlot(); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2350. AG51. The second evidence of the item: a plain cell through the first name.
+    public static Cell<int> Ag51PlainThroughTheFirstNameOfOneOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot c = Kept.Count >= 0 ? x : Ag51Slots[1]; x.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2351. AG51. A conditional expression with a new object, then a pending cell and a plain one.
+    public static Cell<int> Ag51PlainAfterPendingThroughAConditionalExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[2] : new SettableSlot(); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2352. AG51. The object that the walk did not see made is the value, with the two writes.
+    public static Cell<int> Ag51PlainAfterPendingThroughTheObjectWithNoState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = !Never ? Ag51Slots[3] : new SettableSlot(); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2353. AG51. Three writes through the name, and the last one is plain.
+    public static Cell<int> Ag51PlainAfterTwoPendingCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[4] : new SettableSlot(); c.Share = l.Map(v => v); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2354. AG51. The second write is in a branch that does not run.
+    public static Cell<int> Ag51SecondWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[5] : new SettableSlot(); c.Share = l.Map(v => v); if (Never) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2355. AG51. The local gets a new object between the two writes, and a second name has the first object.
+    public static Cell<int> Ag51NewValueBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[6] : new SettableSlot(); SettableSlot keep = c; c.Share = l.Map(v => v); c = new SettableSlot(); c.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2356. AG51. A write through a second name is between the two writes.
+    public static Cell<int> Ag51WriteThroughASecondNameBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new(); SettableSlot c = Never ? y : x; c.Share = l.Map(v => v); y.Share = l.Map(v => v); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2357. AG51. The value with no object has a pending cell from before, and it is the value.
+    public static Cell<int> Ag51TheObjectWithNoStateHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot u = Ag51Slots[7]; u.Share = l.Map(v => v); SettableSlot c = Never ? x : u; x.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2358. AG51. The last write through the name is a pending cell.
+    public static Cell<int> Ag51PendingAfterPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[8] : new SettableSlot(); c.Share = Plain; c.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2359. AG51. A lambda does the second write, and the branch that calls it does not run.
+    public static Cell<int> Ag51SecondWriteInALambdaThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[9] : new SettableSlot(); Action plain = () => { c.Share = Plain; }; c.Share = l.Map(v => v); if (Never) { plain(); } return S.Hold(c.Share!.Sample()); });
+
+    // S2360. AG51. A lambda gives the local a new object between the two writes.
+    public static Cell<int> Ag51ALambdaGivesANewObjectBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[0] : new SettableSlot(); SettableSlot keep = c; Action swap = () => { c = new SettableSlot(); }; c.Share = l.Map(v => v); swap(); c.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2361. AG51. An argument with ref gives the local a new object between the two writes.
+    public static Cell<int> Ag51ARefArgumentGivesANewObjectBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[1] : new SettableSlot(); SettableSlot keep = c; c.Share = l.Map(v => v); Ag51New(ref c); c.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2362. AG51. An argument with out gives the local a new object between the two writes.
+    public static Cell<int> Ag51AnOutArgumentGivesANewObjectBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[2] : new SettableSlot(); SettableSlot keep = c; c.Share = l.Map(v => v); Ag51Make(out c); c.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2363. AG51. A branch gives the local a new object between the two writes.
+    public static Cell<int> Ag51ABranchGivesANewObjectBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[3] : new SettableSlot(); SettableSlot keep = c; c.Share = l.Map(v => v); if (!Never) { c = new SettableSlot(); } c.Share = Plain; return S.Hold(keep.Share!.Sample()); });
+
+    // S2364. AG51. Two calls of a helper with one write: the parameter is a second object in the second call.
+    public static Cell<int> Ag51TwoCallsOfAHelperWithOneWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new(); SettableSlot one = Never ? x : y; SettableSlot two = Never ? y : x; Ag51Set(one, l.Map(v => v)); Ag51Set(two, Plain); return S.Hold(y.Share!.Sample()); });
+
+    // S2365. AG51. The variable of a foreach is a second object in the second turn.
+    public static Cell<int> Ag51TheVariableOfAForeachIsASecondObjectInTheSecondTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new(); SettableSlot b = new(); SettableSlot[] both = [a, b]; foreach (SettableSlot c in both) { c.Share = Plain; Kept.Add(a.Share!.Sample()); c.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2366. AG51. The pending cell came through a second name, and the plain write goes to the other object.
+    public static Cell<int> Ag51ThePendingCellCameThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot c = Never ? x : Ag51Slots[4]; c.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2367. AG51. The code samples the member between the two writes.
+    public static Cell<int> Ag51AReadBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[5] : new SettableSlot(); c.Share = l.Map(v => v); int n = c.Share!.Sample(); c.Share = Plain; Kept.Add(n); return S.Hold(0); });
+
+    // S2368. AG51. A statement that declares a local is between the two writes.
+    public static Cell<int> Ag51ALocalDeclaredBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[6] : new SettableSlot(); c.Share = l.Map(v => v); int n = Kept.Count; c.Share = Plain; Kept.Add(n); return S.Hold(c.Share!.Sample()); });
+
+    // S2369. AG51. The name is one of two objects of the block, and the code reads the one that got the writes.
+    public static Cell<int> Ag51OneOfTwoObjectsOfTheBlockAndTheOneThatGotTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new() { Share = Plain }; SettableSlot c = !Never ? x : y; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2370. AG51. The same, and the code reads the other object.
+    public static Cell<int> Ag51OneOfTwoObjectsOfTheBlockAndTheOtherOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new() { Share = Plain }; SettableSlot c = !Never ? x : y; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2371. AG51. The local gets its value from an assignment, and not from its declaration.
+    public static Cell<int> Ag51TheLocalGetsItsValueFromAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c; c = Never ? Ag51Slots[7] : new SettableSlot(); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2372. AG51. The same for a plain cell through the first name.
+    public static Cell<int> Ag51PlainThroughTheFirstNameAfterAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot c; c = Kept.Count >= 0 ? x : Ag51Slots[8]; x.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2373. AG51. A helper does the two writes through its parameter.
+    public static Cell<int> Ag51TheTwoWritesInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Never ? Ag51Slots[9] : new SettableSlot(); Ag51SetTwice(c, l.Map(v => v)); return S.Hold(c.Share!.Sample()); });
+
+    // S2374. AG51. A value with no object has a pending cell, and it is in a conditional expression in a second one.
+    public static Cell<int> Ag51AValueWithNoObjectInANestedConditionalExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot u = Ag51Slots[0]; u.Share = l.Map(v => v); SettableSlot x = new() { Share = Plain }; SettableSlot c = Never ? Ag51Slots[1] : (!Never ? u : x); return S.Hold(c.Share!.Sample()); });
+
+    // S2375. AG51. The same, and the conditional expression in the second one is in a local.
+    public static Cell<int> Ag51AValueWithNoObjectThroughTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot u = Ag51Slots[0]; u.Share = l.Map(v => v); SettableSlot x = new() { Share = Plain }; SettableSlot first = !Never ? u : x; SettableSlot c = Never ? Ag51Slots[1] : first; return S.Hold(c.Share!.Sample()); });
+
+    // S2376. AG51. A name that is no object of the store: the two writes replace.
+    public static Cell<int> Ag51NoObjectOfTheStoreAndTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag51Slots[5]; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12772,6 +12884,21 @@ public static class Shapes
         public SettableSlot Fresh() => new();
 
         public IEnumerable<SettableSlot> AllFresh() => [new SettableSlot()];
+    }
+
+    private static readonly SettableSlot[] Ag51Slots =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static void Ag51New(ref SettableSlot c) => c = new SettableSlot();
+
+    private static void Ag51Make(out SettableSlot c) => c = new SettableSlot();
+
+    private static void Ag51Set(SettableSlot p, Cell<int> v) => p.Share = v;
+
+    private static void Ag51SetTwice(SettableSlot p, Cell<int> first)
+    {
+        p.Share = first;
+        p.Share = Plain;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

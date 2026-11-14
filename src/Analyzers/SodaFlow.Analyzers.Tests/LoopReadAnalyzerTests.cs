@@ -1632,7 +1632,23 @@ internal sealed class LoopReadAnalyzerTests
             ["PlainThroughANewObjectFromAnOwnerThatKeepsAnObject"] = ["SF1001"],
             ["PlainThroughTheFirstOfNewObjectsFromAnOwnerThatKeepsAnObject"] = ["SF1001"],
             ["ResultOfTheSecondRunOfALocalFunction"] = ["SF1001"],
-            ["LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps"] = ["SF1001"]
+            ["LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps"] = ["SF1001"],
+            ["Ag51SecondWriteInABranch"] = ["SF1001"],
+            ["Ag51NewValueBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51WriteThroughASecondNameBetween"] = ["SF1001"],
+            ["Ag51TheObjectWithNoStateHasAPendingCell"] = ["SF1001"],
+            ["Ag51PendingAfterPlain"] = ["SF1001"],
+            ["Ag51SecondWriteInALambdaThatABranchCalls"] = ["SF1001"],
+            ["Ag51ALambdaGivesANewObjectBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51ARefArgumentGivesANewObjectBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51AnOutArgumentGivesANewObjectBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51ABranchGivesANewObjectBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51TwoCallsOfAHelperWithOneWrite"] = ["SF1001"],
+            ["Ag51TheVariableOfAForeachIsASecondObjectInTheSecondTurn"] = ["SF1001"],
+            ["Ag51ThePendingCellCameThroughASecondName"] = ["SF1001"],
+            ["Ag51AReadBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ag51AValueWithNoObjectInANestedConditionalExpression"] = ["SF1001"],
+            ["Ag51AValueWithNoObjectThroughTwoLocals"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

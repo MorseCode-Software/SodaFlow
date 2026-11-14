@@ -1293,7 +1293,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             || this.region.TypeOf(value) is not INamedTypeSymbol { IsTupleType: true } type
             || type.TupleElements.Length != parts.Count)
         {
-            this.AssignState(target: target, state: whole, replaces: replaces, turn: turn);
+            this.AssignState(target: target, state: whole, replaces: replaces, turn: turn, from: value);
 
             return;
         }
@@ -1326,7 +1326,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     The body of the loop whose each turn always runs the assignment. Null
     ///     when no loop does.
     /// </param>
-    private void AssignState(SyntaxNode target, LoopState state, bool replaces, SyntaxNode? turn)
+    /// <param name="from">The expression of the value, when the state is the state of that expression.</param>
+    private void AssignState(
+        SyntaxNode target,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn,
+        ExpressionSyntax? from = null)
     {
         switch (target)
         {
@@ -1365,7 +1371,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 if (replaces || IsNewInEachTurn(local: local, turn: turn))
                 {
-                    this.evaluator.Assign(local: local, state: state);
+                    this.evaluator.Assign(local: local, state: state, kept: from);
                 }
                 else if (turn != null)
                 {

@@ -61,6 +61,10 @@ internal sealed class LoopStateEvaluator
 
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
+    // The state that an expression had before the members of the store came in, for a value that
+    // can be an object that the store does not know. See Kept.
+    private readonly Dictionary<ExpressionSyntax, LoopState> beforeTheStore = [];
+
     // The lambda or the local function that this evaluator reads for a call of it. Null for each
     // other code.
     private readonly SyntaxNode? function;
@@ -239,7 +243,7 @@ internal sealed class LoopStateEvaluator
     /// <param name="from">The expression of the value, when the code has one.</param>
     public void Declare(ISymbol local, LoopState state, ExpressionSyntax? from = null)
     {
-        state = this.InALocal(local: local, state: state);
+        state = this.InALocal(local: local, state: this.ForAName(state: state, from: from));
 
         if (this.locals.TryGetValue(key: local, value: out LoopState? existing))
         {
@@ -253,6 +257,11 @@ internal sealed class LoopStateEvaluator
             this.locals[local] = state;
         }
     }
+
+    // The state that a name keeps for the value of an expression. A value that can be an object
+    // that the store does not know has the members of that object. See Kept.
+    private LoopState ForAName(LoopState state, ExpressionSyntax? from) =>
+        from != null && state.Objects.Contains(MadeObject.Unknown) ? this.Kept(from) : state;
 
     // A collection gets a copy of a change to one of its objects. The local keeps the copy, and it
     // is the same value as before.
@@ -305,9 +314,14 @@ internal sealed class LoopStateEvaluator
     /// <param name="local">The local or the parameter.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="from">The expression of the value, when the code has one.</param>
-    public void Assign(ISymbol local, LoopState state, ExpressionSyntax? from = null)
+    /// <param name="kept">
+    ///     The expression of the value, when the state is the state of that
+    ///     expression. The local then keeps the state that <see cref="ForAName" />
+    ///     gives.
+    /// </param>
+    public void Assign(ISymbol local, LoopState state, ExpressionSyntax? from = null, ExpressionSyntax? kept = null)
     {
-        state = this.InALocal(local: local, state: state);
+        state = this.InALocal(local: local, state: this.ForAName(state: state, from: kept));
         this.IsOneCollection(local: local, state: state, from: from);
         this.locals[local] = state;
         this.assigned.Add(local);
@@ -704,6 +718,144 @@ internal sealed class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
 
+        if (!replaces
+            || this.quiet
+            || this.function != null
+            || owner is not IdentifierNameSyntax
+            || this.region.SymbolOf(owner) is not { } name
+            || !KeepsItsObject(name)
+            || FunctionOf(owner) is not { } code)
+        {
+            this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
+            this.Frame.LastWrite = null;
+
+            return;
+        }
+
+        this.TakeBackTheWriteBefore(name: name, member: member, code: code, position: owner.SpanStart);
+
+        List<(MadeObject Object, LoopState Before)> before =
+        [
+            .. this.region.Objects.Now(has.Objects)
+                .Select(made => (Object: made, Before: this.region.Objects.StateOf(made)))
+                .Where(static one => one.Before != null)
+                .Select(static one => (one.Object, one.Before!))
+        ];
+
+        this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
+
+        this.Frame.LastWrite =
+            new WriteThroughAName(
+                name: name,
+                member: member.OriginalDefinition,
+                code: code,
+                position: owner.SpanStart,
+                objects:
+                [
+                    .. before.Select(one =>
+                        (one.Object, one.Before, After: this.region.Objects.StateOf(one.Object) ?? one.Before))
+                ]);
+    }
+
+    // True for a local or a parameter that is one object until code gives it a value. A name with
+    // ref is a second name of a location, and a write to that location gives the name a value.
+    private static bool KeepsItsObject(ISymbol name) =>
+        name is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None };
+
+    // The function that has a node in its code.
+    private static SyntaxNode? FunctionOf(SyntaxNode node) =>
+        node.Ancestors()
+            .FirstOrDefault(static around =>
+                around is AnonymousFunctionExpressionSyntax
+                    or LocalFunctionStatementSyntax
+                    or BaseMethodDeclarationSyntax
+                    or AccessorDeclarationSyntax);
+
+    /// <summary>
+    ///     Takes the last write through a name back, before a second write
+    ///     through that name to the same member.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The name is one object for the two writes, because no code gives it
+    ///         a value between them. Thus, that object has only the new state, and
+    ///         each other object that the name can be did not get the first write.
+    ///         Each object of the store gets the state from before the first write
+    ///         back, and the second write then adds its state.
+    ///     </para>
+    ///     <para>
+    ///         The two writes are at the first level of one function, in the order
+    ///         of the code. Thus, one call of the function runs them. No object
+    ///         changed between them: each has the state that the first write gave.
+    ///     </para>
+    /// </remarks>
+    private void TakeBackTheWriteBefore(ISymbol name, ISymbol member, SyntaxNode code, int position)
+    {
+        if (this.Frame.LastWrite is not { } last
+            || last.Code != code
+            || last.Position >= position
+            || !SymbolEqualityComparer.Default.Equals(x: last.Name, y: name)
+            || !SymbolEqualityComparer.Default.Equals(x: last.Member, y: member.OriginalDefinition)
+            || last.Objects.Any(one =>
+                !ReferenceEquals(objA: this.region.Objects.StateOf(one.Object), objB: one.After))
+            || this.GetsAValue(name: name, code: code, after: last.Position, before: position))
+        {
+            return;
+        }
+
+        foreach ((MadeObject found, LoopState before, _) in last.Objects)
+        {
+            this.region.Objects.Set(found: found, state: before);
+        }
+    }
+
+    // True when code of a function can give a name a value between two positions. That code is
+    // between the two, or it is in a function in that function, which can run between them.
+    private bool GetsAValue(ISymbol name, SyntaxNode code, int after, int before) =>
+        code.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Any(use =>
+                use.Identifier.ValueText == name.Name
+                && ((use.SpanStart > after && use.SpanStart < before) || FunctionOf(use) != code)
+                && GivesAValue(use)
+                && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: name));
+
+    // True for a use of a name that can give the name a value: the target of an assignment or of a
+    // deconstruction, an argument or an expression with ref, out, or in, and the operand of an
+    // operator that changes it.
+    private static bool GivesAValue(IdentifierNameSyntax use)
+    {
+        SyntaxNode target = use;
+
+        while (target.Parent is ArgumentSyntax { Parent: TupleExpressionSyntax tuple })
+        {
+            target = tuple;
+        }
+
+        return target.Parent switch
+        {
+            AssignmentExpressionSyntax assignment => assignment.Left == target,
+            ForEachVariableStatementSyntax each => each.Variable == target,
+            ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+            RefExpressionSyntax => true,
+            PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax =>
+                target.Parent.Kind() is SyntaxKind.PreIncrementExpression
+                    or SyntaxKind.PreDecrementExpression
+                    or SyntaxKind.PostIncrementExpression
+                    or SyntaxKind.PostDecrementExpression,
+            _ => false
+        };
+    }
+
+    // The write itself: what SetMemberOf records for each owner.
+    private void Write(
+        ExpressionSyntax? owner,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn,
+        LoopState has)
+    {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
         // The object of the store gets the state for the member, for each name of the object.
@@ -1039,15 +1191,19 @@ internal sealed class LoopStateEvaluator
 
         // The walk reads a node one time, and the value keeps the state from that read. A second
         // read of the same node does not see a change that came after the first.
-        LoopState state =
-            this.Refreshed(
+        LoopState own =
+            this.OnlyObjectsThatWentIn(
                 expression: expression,
-                state: this.OnlyObjectsThatWentIn(
+                state: this.OnlyObjectsOfItsType(
                     expression: expression,
-                    state: this.OnlyObjectsOfItsType(
-                        expression: expression,
-                        state: this.Now(
-                            this.Captured(expression: expression, state: this.EvalUncached(expression))))));
+                    state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
+
+        LoopState state = this.Refreshed(expression: expression, state: own);
+
+        if (!ReferenceEquals(objA: own, objB: state) && own.Objects.Contains(MadeObject.Unknown))
+        {
+            this.beforeTheStore[expression] = own;
+        }
 
         this.memo[expression] = state;
 
@@ -1229,6 +1385,32 @@ internal sealed class LoopStateEvaluator
                 state: refreshed);
 
         return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
+    }
+
+    /// <summary>
+    ///     The state of a value for a location that keeps a copy of it: a name, or
+    ///     a value that is one of two or more values.
+    /// </summary>
+    /// <remarks>
+    ///     A read of the location adds the members that the store has at that
+    ///     time. A copy of the members of the store in the location does not get a
+    ///     later change to an object of the store. Thus, a value that reads only
+    ///     the store gives no members, and a value that can be an object that the
+    ///     store does not know gives the members from before the store came in.
+    /// </remarks>
+    private LoopState Kept(ExpressionSyntax value)
+    {
+        ExpressionSyntax written = Unwrapped(value);
+        LoopState state = this.Eval(written);
+
+        if (!state.Objects.IsEmpty
+            && state.Objects.All(made => this.region.Objects.StateOf(made) != null)
+            && this.IsANameOfItsObjects(written))
+        {
+            return state.WithMembers(null);
+        }
+
+        return this.beforeTheStore.TryGetValue(key: written, value: out LoopState? own) ? own : state;
     }
 
     // True for an expression that is a name of the objects in its state. That is a local, a
@@ -6397,14 +6579,20 @@ internal sealed class LoopStateEvaluator
     {
         LoopState all = this.JoinAll(values);
 
-        return !all.Objects.IsEmpty
-               && values.Any(value =>
-                   this.Eval(value).Objects.IsEmpty
-                   && !this.IsNoValue(value)
-                   && this.region.TypeOf(value) is { } type
-                   && this.CanBeAnObject(type))
-            ? all.OrAnUnknownObject
-            : all;
+        if (all.Objects.IsEmpty
+            || !values.Any(value =>
+                this.Eval(value).Objects.IsEmpty
+                && !this.IsNoValue(value)
+                && this.region.TypeOf(value) is { } type
+                && this.CanBeAnObject(type)))
+        {
+            return all;
+        }
+
+        // The members are for the object that the store does not know. See Kept.
+        return all.WithMembers(
+                values.Aggregate(seed: LoopState.None, func: (kept, value) => kept.Join(this.Kept(value))).Members)
+            .OrAnUnknownObject;
     }
 
     private LoopState JoinAll(IEnumerable<ExpressionSyntax?> expressions) =>
