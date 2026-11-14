@@ -28,8 +28,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
-    // For each function that the walk asked about: the position of the first statement that can
-    // leave the function before its end.
+    // The key is a function that the walk asked about. The value is the position of the first
+    // statement that can end a call of the function before the last statement.
     private readonly Dictionary<SyntaxNode, int> firstExits = [];
 
     // The key is the body of a loop that the walk is in. The value has, for a local of the code
@@ -1021,8 +1021,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     turn = body;
 
                     return false;
-                // A call of the function that leaves at a statement before the assignment does
-                // not run it.
+                // A call of the function that ends at a statement before the assignment does not
+                // run the assignment.
                 case AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
@@ -1054,9 +1054,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return true;
     }
 
-    // The position of the first statement that can leave a function before its end: a return, a
-    // yield break, or a goto. A throw is not one of them, because the walk reads no code that runs
-    // after an exception.
+    // The position of the first statement that can end a call of a function before the last
+    // statement. It is a return, a yield break, or a goto. A throw is not one of them, because the
+    // walk reads no code that runs after an exception.
     private int FirstExitOf(SyntaxNode function)
     {
         if (!this.firstExits.TryGetValue(key: function, value: out int first))

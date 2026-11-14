@@ -9491,7 +9491,7 @@ public static class Shapes
     public static Cell<int> PlainThroughASecondLocalOfTheBlockThatEachTurnAssigns() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; SettableSlot? z = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; y = x; z = y; z.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
-    // S2057. Each turn gives a local of the block the object of the turn. After the loop, the local has the object of the last turn, and a plain cell through it is no change to the object of the first turn.
+    // S2057. Each turn gives a local of the block the object of the turn. After the loop, the local has the object of the last turn. A plain cell through it is no change to the object of the first turn.
     public static Cell<int> PlainThroughALocalOfTheBlockAfterTheLoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; List<SettableSlot> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; y = x; all.Add(x); } y!.Share = Plain; return S.Hold(all[0].Share!.Sample()); });
 
@@ -9607,7 +9607,7 @@ public static class Shapes
     public static Cell<int> FieldOfTwoObjectsThatTheWalkDoesNotKnow() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SharedHolderA.Item = x; SharedHolderB.Item!.Share = Plain; return S.Hold(x.Share!.Sample()); });
 
-    // S2086. A pending cell through the field of an object that the walk does not know is a change to the object of the store that the field got.
+    // S2086. The field of an object that the walk does not know got an object of the store. A pending cell through that field is a change to the object.
     public static Cell<int> PendingCellThroughAFieldOfAnObjectThatTheWalkDoesNotKnow() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SharedHolderC.Item = x; SharedHolderC.Item!.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
 
@@ -9631,7 +9631,7 @@ public static class Shapes
     public static Cell<int> TurnResultOfALambdaOfAHelperThatKeeps() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = FirstSlotKeeper(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot k = first(x); k.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
-    // S2092. A lambda makes an object with a pending cell, and gives it a plain cell under a condition that is false.
+    // S2092. A lambda makes an object with a pending cell. It gives the object a plain cell only when a condition is true, and the condition is false.
     public static Cell<int> PlainUnderAConditionInALambda() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action<bool> run = some => { SettableSlot x = new() { Share = l.Map(v => v) }; if (some) { x.Share = Plain; } Kept.Add(x.Share!.Sample()); }; run(false); return S.Hold(0); });
 
@@ -9651,11 +9651,11 @@ public static class Shapes
     public static Cell<int> PlainThroughTheMemberOfTheResultOfACall() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder h = HolderWith(x); h.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
-    // S2097. In a loop, a lambda of the block gets the object of the turn, and gives it a plain cell through a local of its own.
+    // S2097. In a loop, a lambda of the block gets the object of the turn. It gives the object a plain cell through a local of its own.
     public static Cell<int> PlainThroughALocalOfALambda() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action<SettableSlot> plain = given => { SettableSlot t = given; t.Share = Plain; }; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; plain(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
-    // S2098. The same, where the call of the lambda is under a condition that is false.
+    // S2098. The same, where the call of the lambda is in a branch that does not run.
     public static Cell<int> PlainThroughALambdaThatTheTurnDoesNotCall() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action<SettableSlot> plain = given => { given.Share = Plain; }; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i > 5) { plain(x); } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
@@ -9690,6 +9690,74 @@ public static class Shapes
     // S2106. A helper makes the object of each turn. A plain cell through the local of the turn replaces its pending cell, and the object of the turn before keeps its own.
     public static Cell<int> PlainThroughTheLocalOfTheTurnForAnObjectOfAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = SlotWithShare(l.Map(v => v)); x.Share = Plain; Kept.Add(x.Share!.Sample()); all.Add(x); } return S.Hold(all[0].Share!.Sample()); });
+
+    // S2107. The value of a coalescing assignment is the pending cell that its target had.
+    public static Cell<int> ValueOfACoalescingAssignmentWhoseTargetHadAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = l.Map(v => v); Cell<int> c = first ??= Plain; return S.Hold(c.Sample()); });
+
+    // S2108. The second turn of a for statement runs its incrementors after its body. The body of the second turn gives a local the pending cell that the incrementor samples.
+    public static Cell<int> IncrementorReadsWhatTheBodyOfTheSecondTurnGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; for (int i = 0; i < 2; i++, Kept.Add(b.Sample())) { b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2109. A for statement runs one turn. The incrementor samples the pending cell that the turn gave, and the second read of the body gives a plain cell.
+    public static Cell<int> IncrementorOfALoopOfOneTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> other = l.Map(v => v); Cell<int> c = Plain; for (int i = 0; i < 1; i++, Kept.Add(c.Sample())) { c = other; other = Plain; } return S.Hold(0); });
+
+    // S2110. A lambda that a transaction runs returns before the statement that gives the object a plain cell.
+    public static Cell<int> PlainAfterAReturnInALambdaOfATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Transaction.RunVoid(() => { if (!Never) { return; } x.Share = Plain; }); return S.Hold(x.Share!.Sample()); });
+
+    // S2111. A return in a lambda of a helper is no return of the helper. The helper gives its object a plain cell.
+    public static Cell<int> HelperWithAReturnInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot made = SlotWithAReturnInALambda(l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
+
+    // S2112. A helper goes to its last statement before the statement that gives its object a plain cell.
+    public static Cell<int> HelperThatGoesToItsEndBeforeItsPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot made = SlotThatCanGoToItsEnd(true, l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
+
+    // S2113. An iterator puts its object into a list, and ends before the statement that gives the object a plain cell.
+    public static Cell<int> IteratorThatEndsBeforeItsPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = []; foreach (int n in SlotsThatCanEnd(all, true, l.Map(v => v))) { Kept.Add(n); } return S.Hold(all[0].Share!.Sample()); });
+
+    // S2114. A local is one of a holder that the walk did not see made and a holder of the store. A plain cell through the member of the local is no change for the holder of the store.
+    public static Cell<int> UnsetMemberThroughOneOfAnObjectThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder old = SharedHolderD; old.Item = SlotForASecondObject; SlotHolder a = HolderWithItsOwnSlot(); a.Item!.Share = l.Map(v => v); SlotHolder h = Kept.Count >= 0 ? old : a; h.Item!.Share = Plain; return S.Hold(a.Item!.Share!.Sample()); });
+
+    // S2115. A lambda that a loop calls in an argument makes an object, and gives it a plain cell after a pending one.
+    public static Cell<int> PlainAfterPendingInALambdaOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> own = share => { SettableSlot x = new() { Share = share }; x.Share = Plain; return x.Share!.Sample(); }; for (int i = 0; i < 2; i++) { Kept.Add(own(l.Map(v => v))); } return S.Hold(0); });
+
+    // S2116. A helper that a loop calls calls a second helper, which makes an object with two names.
+    public static Cell<int> TwoNamesInAHelperOfAHelperOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Kept.Add(TwoNamesThroughAHelper(l.Map(v => v))); } return S.Hold(0); });
+
+    // S2117. A helper that a loop calls gets its object from a second helper, and gives it a plain cell after a pending one.
+    public static Cell<int> PlainAfterPendingForAnObjectOfAHelperOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Kept.Add(PlainThroughAHelperOfAHelper(l.Map(v => v))); } return S.Hold(0); });
+
+    // S2118. In a loop, a lambda calls a second lambda, which gives the object of the turn a plain cell.
+    public static Cell<int> PlainThroughALambdaOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action<SettableSlot> plain = given => { given.Share = Plain; }; Action<SettableSlot> through = given => { plain(given); }; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; through(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2119. A lambda in a local, which a list runs for each element, makes two objects in one turn.
+    public static Cell<int> TurnObjectsOfALambdaInALocalThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot? first = null; SettableSlot? second = null; Action<int> make = n => { SettableSlot made = new() { Share = l.Map(v => v) }; if (n == 1) { first = made; } else { second = made; } }; new List<int> { 1, 2 }.ForEach(make); first!.Share = Plain; Kept.Add(second!.Share!.Sample()); } return S.Hold(0); });
+
+    // S2120. A lambda that the code calls one time calls a local function, which makes an object with two names.
+    public static Cell<int> TwoNamesInALocalFunctionOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int Two(Cell<int> share) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = share; return x.Share!.Sample(); } Func<Cell<int>, int> outer = share => Two(share); return S.Hold(outer(l.Map(v => v))); });
+
+    // S2121. A lambda returns a function that reads a local of the lambda. The code calls the lambda two times, and runs the function of the first call.
+    public static Cell<int> FunctionOfTheFirstCallOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Func<int>> reader = c => { Cell<int> own = c; return () => own.Sample(); }; Func<int> first = reader(l.Map(v => v)); Func<int> second = reader(Plain); Kept.Add(second); return S.Hold(first()); });
+
+    // S2122. A local function calls itself with a plain cell, and then samples the local that has its own pending cell.
+    public static Cell<int> LocalOfALocalFunctionThatCallsItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int Down(int n, Cell<int> c) { Cell<int> mine = c; if (n > 0) { Kept.Add(Down(n - 1, Plain)); } return mine.Sample(); } return S.Hold(Down(1, l.Map(v => v))); });
+
+    // S2123. A lambda gives its parameter a plain cell after its read. The second call gets a pending cell.
+    public static Cell<int> ParameterOfALambdaThatTheCallBeforeAssigned() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> read = c => { int before = c.Sample(); c = Plain; return before + c.Sample(); }; Kept.Add(read(Plain)); return S.Hold(read(l.Map(v => v))); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -11521,6 +11589,64 @@ public static class Shapes
         y.Share = share;
 
         return x.Share!.Sample();
+    }
+
+    private static readonly SlotHolder SharedHolderD = new() { Item = new SettableSlot() };
+
+    private static int TwoNamesThroughAHelper(Cell<int> share) => TwoNamesInAHelper(share);
+
+    private static int PlainThroughAHelperOfAHelper(Cell<int> share)
+    {
+        SettableSlot x = SlotWithShare(share);
+        x.Share = Plain;
+
+        return x.Share!.Sample();
+    }
+
+    private static SettableSlot SlotWithAReturnInALambda(Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+
+        Func<int> zero =
+            () =>
+            {
+                return 0;
+            };
+
+        Kept.Add(zero);
+        made.Share = Plain;
+
+        return made;
+    }
+
+    private static SettableSlot SlotThatCanGoToItsEnd(bool early, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+
+        if (early)
+        {
+            goto done;
+        }
+
+        made.Share = Plain;
+
+        done:
+        return made;
+    }
+
+    private static IEnumerable<int> SlotsThatCanEnd(List<SettableSlot> into, bool early, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+        into.Add(made);
+
+        if (early)
+        {
+            yield break;
+        }
+
+        made.Share = Plain;
+
+        yield return 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

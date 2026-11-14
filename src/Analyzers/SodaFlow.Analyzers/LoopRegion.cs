@@ -44,8 +44,8 @@ internal sealed class LoopRegion(
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
-    // For each lambda and each local function that the walk read for a call: the locals and the
-    // parameters that a function in it reads or writes.
+    // The key is a lambda or a local function that the walk read for a call. The value has the
+    // locals and the parameters that a function in it reads or writes.
     private readonly Dictionary<SyntaxNode, ImmutableHashSet<ISymbol>?> captured = [];
 
     /// <summary>The one state of each object that the code of the region makes.</summary>
@@ -234,7 +234,7 @@ internal sealed class LoopRegion(
                 };
 
             found = flow is { Succeeded: true }
-                ? flow.Captured.ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default)
+                ? flow.Captured.ToImmutableHashSet(SymbolEqualityComparer.Default)
                 : null;
 
             this.captured[function] = found;

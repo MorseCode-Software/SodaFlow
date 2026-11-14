@@ -266,8 +266,8 @@ internal sealed class LoopStateEvaluator
     ///     </para>
     ///     <para>
     ///         An object of the turn in the new value is only that object, and not
-    ///         one of the turns before: no code of an older turn runs before the end
-    ///         of this one. At the end of the turn, the object becomes one of the
+    ///         one of the turns before. No code of an older turn runs before the end
+    ///         of this turn. At the end of the turn, the object becomes one of the
     ///         objects of the turns before, in each location that has it.
     ///     </para>
     /// </remarks>
@@ -402,12 +402,12 @@ internal sealed class LoopStateEvaluator
     private LoopState InAnOldLocation(LoopState state) =>
         this.InALocation(state: state, location: false, isOfItsTurn: static (_, _, isNew) => isNew);
 
-    // A local of a callee is new in each call, and so is a local of a lambda or a local function
-    // that the walk reads for a call. When each turn of a loop runs the call one time at most, the
-    // local is new in each turn of that loop.
+    // A local of a callee is new in each call. A local of a lambda or a local function that the
+    // walk reads for a call is new in each call also. When each turn of a loop runs the call one
+    // time at most, the local is new in each turn of that loop.
     private bool IsNewInEachTurnOf(ISymbol local, SyntaxNode turn) =>
         this.call?.Turn == turn
-        && (this.function == null ? !this.Frame.HasReturned : IsDeclaredIn(local: local, code: this.function));
+        && (this.function == null || IsDeclaredIn(local: local, code: this.function));
 
     // The identity of the code that this evaluator reads for its call. The block is its own.
     private object CodeOfThisCall => this.call?.Code ?? this.Frame;
@@ -419,7 +419,7 @@ internal sealed class LoopStateEvaluator
         TurnOf(call) ?? (this.RunsOneTimeInThisCode(call) ? this.call?.Turn : null);
 
     // True when an expression runs one time at most for each run of the code that this evaluator
-    // reads: a callee, or a lambda or a local function that the walk reads for a call.
+    // reads. That code is a callee, or a function that the walk reads for a call.
     private bool RunsOneTimeInThisCode(SyntaxNode place)
     {
         foreach (SyntaxNode ancestor in place.Ancestors())
@@ -4895,6 +4895,11 @@ internal sealed class LoopStateEvaluator
     ///     their origin.
     /// </param>
     /// <param name="target">The delegate, when the call is a call of a delegate.</param>
+    /// <param name="returnsAFunction">True when the callee returns a delegate.</param>
+    /// <param name="manyTimes">
+    ///     True when a callee with no body to read runs the function. It can run
+    ///     the function two or more times for one call.
+    /// </param>
     private Followed? Enter(
         SyntaxNode call,
         string name,
@@ -4953,11 +4958,11 @@ internal sealed class LoopStateEvaluator
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
-        bool starts = function != null && this.region.StartsACallOf(function);
+        SyntaxNode? started = function != null && this.region.StartsACallOf(function) ? function : null;
 
-        if (starts)
+        if (started != null)
         {
-            inner.ForgetTheLocalsOf(function!);
+            inner.ForgetTheLocalsOf(started);
         }
 
         List<Finding> found = [];
@@ -4975,9 +4980,9 @@ internal sealed class LoopStateEvaluator
         LoopState result =
             body is ExpressionSyntax expression ? inner.Eval(expression) : inner.JoinAll(ReturnExpressions(body));
 
-        if (starts)
+        if (started != null)
         {
-            this.region.EndsACallOf(function!);
+            this.region.EndsACallOf(started);
         }
 
         return this.Leave(
@@ -4994,8 +4999,8 @@ internal sealed class LoopStateEvaluator
     }
 
     // Takes away the state of each local and each parameter that the given function declares,
-    // before a call of that function. A local that a function in it reads keeps its state: that
-    // function can run after a later call, with the local of its own call.
+    // before a call of that function. A local that a function in it reads keeps its state. That
+    // function can run after the next call, with the local of its own call.
     private void ForgetTheLocalsOf(SyntaxNode function)
     {
         if (this.region.CapturedIn(function) is not { } captured)
@@ -5039,8 +5044,8 @@ internal sealed class LoopStateEvaluator
     }
 
     // True when the walk reads a callee that gets no state from the loop. It does that only for an
-    // object of the store and for a callee that returns a delegate, to the depth limit, and while
-    // the region has frames for such callees.
+    // object of the store and for a callee that returns a delegate. The depth limit applies, and
+    // the region must have frames for such callees.
     private bool ReadsForObjects(IEnumerable<Binding> bindings, bool returnsAFunction = false) =>
         (returnsAFunction || bindings.Any(static binding => !binding.State.Objects.IsEmpty))
         && this.depth < MaxInlineDepth

@@ -1492,7 +1492,20 @@ internal sealed class LoopReadAnalyzerTests
             ["TwoNamesInALambdaOfALoop"] = ["SF1004"],
             ["TwoNamesInALambda"] = ["SF1004"],
             ["TwoNamesInALocalFunction"] = ["SF1004"],
-            ["ObjectOfAHelperThatTheTurnBeforeKept"] = ["SF1001"]
+            ["ObjectOfAHelperThatTheTurnBeforeKept"] = ["SF1001"],
+            ["ValueOfACoalescingAssignmentWhoseTargetHadAPendingCell"] = ["SF1001"],
+            ["IncrementorReadsWhatTheBodyOfTheSecondTurnGave"] = ["SF1001"],
+            ["IncrementorOfALoopOfOneTurn"] = ["SF1001"],
+            ["PlainAfterAReturnInALambdaOfATransaction"] = ["SF1001"],
+            ["HelperThatGoesToItsEndBeforeItsPlainWrite"] = ["SF1001"],
+            ["IteratorThatEndsBeforeItsPlainWrite"] = ["SF1001"],
+            ["UnsetMemberThroughOneOfAnObjectThatTheWalkDoesNotKnow"] = ["SF1001"],
+            ["TwoNamesInAHelperOfAHelperOfALoop"] = ["SF1004"],
+            ["TurnObjectsOfALambdaInALocalThatAListRuns"] = ["SF1001"],
+            ["TwoNamesInALocalFunctionOfALambda"] = ["SF1004"],
+            ["FunctionOfTheFirstCallOfALambda"] = ["SF1001"],
+            ["LocalOfALocalFunctionThatCallsItself"] = ["SF1004", "SF1004"],
+            ["ParameterOfALambdaThatTheCallBeforeAssigned"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
