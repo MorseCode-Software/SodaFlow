@@ -10435,6 +10435,62 @@ public static class Shapes
     public static Cell<int> PlainThroughTheMemberOfAnElementOfTheListOfTheTurnBefore() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder>? before = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; all.Add(new SlotHolder { Item = x }); (before ?? all)[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); before = all; } return S.Hold(0); });
 
+    // S2293. A holder of an inner turn has the object of the outer turn, and a local of the outer body gets the holder. After the inner loop, a plain cell goes through the local and its member.
+    public static Cell<int> PlainThroughAHolderOfAnInnerTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; for (int j = 0; j < 2; j++) { SlotHolder h = new() { Item = x }; last = h; } last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2294. The same, where a list of the outer body has the holders.
+    public static Cell<int> PlainThroughAHolderInAListOfTheOuterBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; for (int j = 0; j < 2; j++) { all.Add(new SlotHolder { Item = x }); } all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2295. The same, where three loops are one in the other.
+    public static Cell<int> PlainThroughAHolderOfTheThirdLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; for (int j = 0; j < 2; j++) { for (int k = 0; k < 2; k++) { SlotHolder h = new() { Item = x }; last = h; } } last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2296. The same, where the holder is of the third loop, and a local of the second loop has it.
+    public static Cell<int> PlainThroughAHolderOfTheThirdLoopInALocalOfTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { for (int j = 0; j < 2; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; for (int k = 0; k < 2; k++) { SlotHolder h = new() { Item = x }; last = h; } last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); }  } return S.Hold(0); });
+
+    // S2297. The same, where the inner loop is a function that a list runs for each element.
+    public static Cell<int> PlainThroughAHolderOfAFunctionForEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; new List<int> { 1, 2 }.ForEach(n => { SlotHolder h = new() { Item = x }; last = h; }); last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2298. The same, where the inner loop is in a helper that the outer loop calls.
+    public static Cell<int> PlainThroughAHolderOfALoopInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder last = LastHolderOf(x); last.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2299. The same, where the inner loop is in a lambda that the outer loop calls.
+    public static Cell<int> PlainThroughAHolderOfALoopInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SlotHolder> lastOf = given => { SlotHolder? made = null; for (int j = 0; j < 2; j++) { made = new SlotHolder { Item = given }; } return made!; }; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder last = lastOf(x); last.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2300. A list of the block has the holders. Its first holder is of the first outer turn.
+    public static Cell<int> HolderOfAnInnerTurnInAListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int j = 0; j < 2; j++) { all.Add(new SlotHolder { Item = x }); } all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2301. A local of the block keeps the holder of the first outer turn.
+    public static Cell<int> HolderOfAnInnerTurnInALocalOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? last = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int j = 0; j < 2; j++) { if (last == null) { last = new SlotHolder { Item = x }; } } last!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2302. The object is of the inner turn. The plain cell goes to the object of the last inner turn, and the code samples the object of the first one.
+    public static Cell<int> ObjectOfTheInnerTurnInAHolder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SlotHolder? last = null; SettableSlot? first = null; for (int j = 0; j < 2; j++) { SettableSlot y = new() { Share = l.Map(v => v) }; SlotHolder h = new() { Item = y }; last = h; first ??= y; } last!.Item!.Share = Plain; Kept.Add(first!.Share!.Sample()); } return S.Hold(0); });
+
+    // S2303. A local of the block has the holder of the outer turn before, and the next outer turn samples its object.
+    public static Cell<int> HolderOfTheOuterTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? kept = null; for (int i = 0; i < 2; i++) { if (kept != null) { Kept.Add(kept.Item!.Share!.Sample()); } SettableSlot x = new() { Share = Plain }; SlotHolder? last = null; for (int j = 0; j < 2; j++) { last = new SlotHolder { Item = x }; } x.Share = l.Map(v => v); kept = last; } return S.Hold(0); });
+
+    // S2304. The holder of an inner turn before goes into a list of the block. The next outer turn gives the object of its first holder a plain cell.
+    public static Cell<int> HolderOfAnInnerTurnBeforeInAListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder? last = null; for (int j = 0; j < 2; j++) { if (last != null) { all.Add(last); } last = new SlotHolder { Item = x }; } all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2305. A helper with a loop puts its holders into a list of the block. The first holder is of the first outer turn.
+    public static Cell<int> HolderOfALoopInAHelperInAListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; PutHoldersOf(x, all); all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2306. Three loops. A local of the first loop keeps the holder of the first turn of the second loop, which has the object of that turn.
+    public static Cell<int> HolderOfTheThirdLoopInALocalOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SlotHolder? first = null; for (int j = 0; j < 2; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int k = 0; k < 2; k++) { SlotHolder h = new() { Item = x }; first ??= h; } first!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); }  } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12448,6 +12504,26 @@ public static class Shapes
     private sealed class HolderFiller : IHolderFiller
     {
         public void Fill(SlotListHolder holder) => holder.Items.Add(new SettableSlot());
+    }
+
+    private static SlotHolder LastHolderOf(SettableSlot slot)
+    {
+        SlotHolder? last = null;
+
+        for (int j = 0; j < 2; j++)
+        {
+            last = new SlotHolder { Item = slot };
+        }
+
+        return last!;
+    }
+
+    private static void PutHoldersOf(SettableSlot slot, List<SlotHolder> all)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            all.Add(new SlotHolder { Item = slot });
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

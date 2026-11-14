@@ -246,8 +246,9 @@ internal sealed class LoopState
     public MadeObject? TheOneNewObjectOf(ITypeSymbol? element)
     {
         ImmutableArray<MadeObject> ofThatType = this.Held.RemoveAll(made => !made.CanBe(element));
+        MadeObject? only = ofThatType.Length == 1 ? ofThatType[0] : null;
 
-        return ofThatType.Length == 1 && ofThatType[0] is { IsNew: true, IsOfTurnsBefore: false } only ? only : null;
+        return only is { IsNew: true, IsOfTurnsBefore: false } ? only : null;
     }
 
     /// <summary>

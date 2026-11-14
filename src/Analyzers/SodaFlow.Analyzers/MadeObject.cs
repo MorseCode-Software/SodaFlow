@@ -43,7 +43,9 @@ internal sealed class MadeObject(
 
     /// <summary>
     ///     The body of the loop whose turn makes the object. Null for an object
-    ///     that the code makes one time, and for the objects of the turns before.
+    ///     that the code makes one time. For the objects of the turns before of a
+    ///     loop, it is the body of the loop around that loop. Those turns are in
+    ///     one turn of the loop around. Null when no loop is around it.
     /// </summary>
     public SyntaxNode? Turn { get; } = turn;
 
@@ -87,9 +89,17 @@ internal sealed class MadeObject(
             turn: this.Turn,
             isOfTurnsBefore: this.IsOfTurnsBefore);
 
-    /// <summary>A new identity for the objects that the same code made in the turns before.</summary>
-    public MadeObject OfTurnsBefore() =>
-        new(type: this.type, exact: this.IsNew, frame: this.frame, turn: null, isOfTurnsBefore: true);
+    /// <summary>
+    ///     A new identity for the objects that the same code made in the turns
+    ///     before of its loop.
+    /// </summary>
+    /// <param name="around">
+    ///     The body of a loop around that loop. The identity is then for the turns
+    ///     before in one turn of the loop around, and it is new in each such turn.
+    ///     Null for the turns before with no such limit.
+    /// </param>
+    public MadeObject OfTurnsBefore(SyntaxNode? around) =>
+        new(type: this.type, exact: this.IsNew, frame: this.frame, turn: around, isOfTurnsBefore: true);
 
     /// <summary>
     ///     True when a value of the given type can be this object. The element of

@@ -286,8 +286,12 @@ internal sealed class LoopStateEvaluator
     }
 
     // The object of a value that is one new object of the store, and no object of a turn before.
-    private static MadeObject? TheOneNewObject(LoopState state) =>
-        state.Objects.Length == 1 && state.Objects[0] is { IsNew: true, IsOfTurnsBefore: false } only ? only : null;
+    private static MadeObject? TheOneNewObject(LoopState state)
+    {
+        MadeObject? only = state.Objects.Length == 1 ? state.Objects[0] : null;
+
+        return only is { IsNew: true, IsOfTurnsBefore: false } ? only : null;
+    }
 
     /// <summary>
     ///     Records an assignment that always runs. The new state replaces the
@@ -454,10 +458,16 @@ internal sealed class LoopStateEvaluator
         LoopState state,
         TLocation location,
         Func<SyntaxNode, MadeObject, TLocation, bool> isOfItsTurn) =>
-        state.WithAlso(made =>
-            made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
-                ? this.region.Objects.BeforeOf(made)
-                : null);
+        // The identity before can be of a turn of a loop around also. Thus, the step runs one
+        // time for each open loop.
+        Enumerable.Range(start: 0, count: this.region.Objects.OpenLoops)
+            .Aggregate(
+                seed: state,
+                func: (all, _) =>
+                    all.WithAlso(made =>
+                        made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
+                            ? this.region.Objects.BeforeOf(made)
+                            : null));
 
     // A local is new in each turn of the loop that declares it in its body. A local of a callee
     // that runs in the turn is new in each turn also.
@@ -483,6 +493,19 @@ internal sealed class LoopStateEvaluator
 
     // The identity of the code that this evaluator reads for its call. The block is its own.
     private object CodeOfThisCall => this.call?.Code ?? this.Frame;
+
+    // The bodies of the loops that an expression of this code is in, the nearest first.
+    private ImmutableArray<SyntaxNode> LoopsOf(SyntaxNode place)
+    {
+        if (this.TurnOf(place) is { } nearest)
+        {
+            return this.LoopsAround(nearest).Insert(index: 0, item: nearest);
+        }
+
+        return this.call is { Turn: { } ofTheCall } && this.RunsOneTimeInThisCode(place)
+            ? this.call.LoopsAroundTheTurn.Insert(index: 0, item: ofTheCall)
+            : ImmutableArray<SyntaxNode>.Empty;
+    }
 
     // The body of the loop whose each turn runs a call one time at most. The call can be in the
     // body of that loop. It can also run one time for each run of this code, where each turn of a
@@ -1233,7 +1256,8 @@ internal sealed class LoopStateEvaluator
                 turn: turn,
                 place: place,
                 code: this.CodeOfThisCall,
-                state: apart);
+                state: apart,
+                around: this.LoopsAround(turn));
 
         if (forTheCall)
         {
@@ -1426,6 +1450,32 @@ internal sealed class LoopStateEvaluator
             };
 
         return made != null && this.region.Objects.HoldsOnlyWhatWentIn(made) ? made : null;
+    }
+
+    // The bodies of the loops around a loop, the nearest first. The loops of this function come
+    // first. Then comes the loop that runs the call of this code one time in each turn, with the
+    // loops around that one.
+    private ImmutableArray<SyntaxNode> LoopsAround(SyntaxNode turn)
+    {
+        if (this.call != null && turn == this.call.Turn)
+        {
+            return this.call.LoopsAroundTheTurn;
+        }
+
+        ImmutableArray<SyntaxNode>.Builder around = ImmutableArray.CreateBuilder<SyntaxNode>();
+
+        for (SyntaxNode? owner = turn.Parent; owner != null && this.TurnOf(owner) is { } next; owner = next.Parent)
+        {
+            around.Add(next);
+        }
+
+        if (this.call is { Turn: { } ofTheCall })
+        {
+            around.Add(ofTheCall);
+            around.AddRange(this.call.LoopsAroundTheTurn);
+        }
+
+        return around.ToImmutable();
     }
 
     /// <summary>
@@ -5574,6 +5624,11 @@ internal sealed class LoopStateEvaluator
                              && (this.RunsOneTime(call)
                                  || (this.call is { RunsOneTime: true } && this.RunsOneTimeInThisCode(call))),
                 turn: eachRun ?? this.TurnOfACall(call),
+                loopsAroundTheTurn: eachRun != null
+                    ? this.LoopsOf(call)
+                    : this.TurnOfACall(call) is { } ofTheCall
+                        ? this.LoopsAround(ofTheCall)
+                        : ImmutableArray<SyntaxNode>.Empty,
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
@@ -6388,6 +6443,7 @@ internal sealed class LoopStateEvaluator
     private sealed class CallOfThisCode(
         in bool runsOneTime,
         in SyntaxNode? turn,
+        in ImmutableArray<SyntaxNode> loopsAroundTheTurn,
         in bool alwaysRuns,
         in SyntaxNode? alwaysTurn,
         in object code)
@@ -6400,6 +6456,12 @@ internal sealed class LoopStateEvaluator
         ///     most. Null when no loop does.
         /// </summary>
         public SyntaxNode? Turn { get; } = turn;
+
+        /// <summary>
+        ///     The bodies of the loops around the loop of <see cref="Turn" />,
+        ///     the nearest first.
+        /// </summary>
+        public ImmutableArray<SyntaxNode> LoopsAroundTheTurn { get; } = loopsAroundTheTurn;
 
         /// <summary>
         ///     True when each run of the block runs the call. The call is then

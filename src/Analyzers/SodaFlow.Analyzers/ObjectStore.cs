@@ -34,6 +34,13 @@ internal sealed class ObjectStore
     // The two have the same objects before them.
     private readonly Dictionary<(SyntaxNode Place, object Code), MadeObject> olderOf = [];
 
+    // For an expression in a loop that is in a second loop: the objects that it made in the turns
+    // before of its loop. The turns are those in this turn of the second loop. The key has the
+    // body of the second loop, and the entry is there while the walk is in a turn of that loop.
+    private readonly Dictionary<(SyntaxNode Place, object Code, SyntaxNode Around), MadeObject> inATurnAround = [];
+
+    private readonly Dictionary<MadeObject, (SyntaxNode Place, object Code, SyntaxNode Around)> keyInATurnAround = [];
+
     // An identity for the code that each call runs. The key is the identity of the code that has
     // the call, and the call.
     private readonly Dictionary<(object Parent, SyntaxNode Call), object> codes = [];
@@ -46,6 +53,13 @@ internal sealed class ObjectStore
 
     /// <summary>True while the walk is in a loop whose turn made an object.</summary>
     public bool HasATurn => this.open.Count > 0;
+
+    /// <summary>
+    ///     The number of loops that the walk is in, for each loop whose turn made
+    ///     an object. An object has one identity more than the loops that it is
+    ///     in. Thus, this is the most steps from an object to its last identity.
+    /// </summary>
+    public int OpenLoops => this.open.Count;
 
     /// <summary>
     ///     True when a turn of the first loop runs in one turn of the second loop.
@@ -97,6 +111,13 @@ internal sealed class ObjectStore
     /// <param name="place">The expression.</param>
     /// <param name="code">The identity of the code that has the expression, from <see cref="CodeOf" />.</param>
     /// <param name="state">The first state of the object.</param>
+    /// <param name="around">The bodies of the loops around the loop, the nearest first.</param>
+    /// <remarks>
+    ///     The object has one identity for each loop around its loop also. That
+    ///     identity is the objects of the turns before of its loop, in this turn
+    ///     of that loop around. Those objects are new in each turn of the loop
+    ///     around. Thus, a member of such an object is of this outer turn.
+    /// </remarks>
     public MadeObject MakeInATurn(
         LoopFrame frame,
         ITypeSymbol type,
@@ -104,19 +125,39 @@ internal sealed class ObjectStore
         SyntaxNode turn,
         SyntaxNode place,
         object code,
-        LoopState state)
+        LoopState state,
+        ImmutableArray<SyntaxNode> around)
     {
         MadeObject found = new(type: type, exact: exact, frame: frame, turn: turn, isOfTurnsBefore: false);
         this.states[found] = state;
-        this.InATurn(found: found, turn: turn);
 
         if (!this.olderOf.TryGetValue(key: (place, code), value: out MadeObject? older))
         {
-            older = found.OfTurnsBefore();
+            older = found.OfTurnsBefore(null);
             this.olderOf[(place, code)] = older;
             this.states[older] = LoopState.None;
         }
 
+        // The loop that is around each other loop gets its identity first. Thus, a loop comes
+        // after each loop around it in the list of the open loops.
+        for (int i = around.Length - 1; i >= 0; i--)
+        {
+            (SyntaxNode Place, object Code, SyntaxNode Around) key = (place, code, around[i]);
+
+            if (!this.inATurnAround.TryGetValue(key: key, value: out MadeObject? inThatTurn))
+            {
+                inThatTurn = found.OfTurnsBefore(around[i]);
+                this.inATurnAround[key] = inThatTurn;
+                this.keyInATurnAround[inThatTurn] = key;
+                this.states[inThatTurn] = LoopState.None;
+                this.before[inThatTurn] = older;
+                this.InATurn(found: inThatTurn, turn: around[i]);
+            }
+
+            older = inThatTurn;
+        }
+
+        this.InATurn(found: found, turn: turn);
         this.before[found] = older;
 
         return found;
@@ -195,6 +236,13 @@ internal sealed class ObjectStore
             if (this.ended.Contains(found))
             {
                 MadeObject older = this.before[found];
+
+                // The loop of that identity can have its end also.
+                while (this.ended.Contains(older))
+                {
+                    older = this.before[older];
+                }
+
                 now = now.Contains(older) ? now.Remove(found) : now.Replace(oldValue: found, newValue: older);
             }
         }
@@ -224,6 +272,15 @@ internal sealed class ObjectStore
             this.states[older] = this.states[older].Join(this.states[found]);
             this.states.Remove(found);
             this.ended.Add(found);
+
+            // The next turn of this loop gets a new identity for the turns before of a loop in it.
+            if (this.keyInATurnAround.TryGetValue(
+                    key: found,
+                    value: out (SyntaxNode Place, object Code, SyntaxNode Around) key))
+            {
+                this.inATurnAround.Remove(key);
+                this.keyInATurnAround.Remove(found);
+            }
         }
     }
 
