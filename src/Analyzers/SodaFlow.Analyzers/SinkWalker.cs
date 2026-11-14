@@ -886,6 +886,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.AssignState(target: node.Left, state: added, replaces: false, turn: null);
             }
 
+            // A coalescing assignment runs only when its target is null. Thus, the target keeps
+            // the state that it had, and gets the state of the value also.
+            if (node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
+            {
+                this.Assign(target: node.Left, value: node.Right, replaces: false, turn: null);
+            }
+
             this.CheckAccessor(node);
 
             return;

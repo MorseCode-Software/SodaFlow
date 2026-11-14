@@ -9499,6 +9499,30 @@ public static class Shapes
     public static Cell<int> PlainThroughALocalOfTheBlockThatOneTurnAssigns() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { y = x; } y!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
+    // S2059. A coalescing assignment gives a local a pending cell.
+    public static Cell<int> CoalescingAssignmentOfACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = null; first ??= l.Map(v => v); return S.Hold(first.Sample()); });
+
+    // S2060. A coalescing assignment gives a local an object with a pending cell.
+    public static Cell<int> CoalescingAssignmentOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; first ??= new SettableSlot { Share = l.Map(v => v) }; return S.Hold(first.Share!.Sample()); });
+
+    // S2061. The target of a coalescing assignment keeps the pending cell that it had.
+    public static Cell<int> CoalescingAssignmentKeepsWhatItsTargetHad() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = l.Map(v => v); first ??= Plain; return S.Hold(first.Sample()); });
+
+    // S2062. A coalescing assignment gives a member an object with a pending cell.
+    public static Cell<int> CoalescingAssignmentToAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder h = new(); h.Item ??= new SettableSlot { Share = l.Map(v => v) }; return S.Hold(h.Item!.Share!.Sample()); });
+
+    // S2063. A coalescing assignment gives a local a plain cell.
+    public static Cell<int> CoalescingAssignmentOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = null; first ??= Plain; return S.Hold(first.Sample()); });
+
+    // S2064. The value of a coalescing assignment is the pending cell that its target gets.
+    public static Cell<int> ValueOfACoalescingAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? first = null; Cell<int> c = first ??= l.Map(v => v); return S.Hold(c.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

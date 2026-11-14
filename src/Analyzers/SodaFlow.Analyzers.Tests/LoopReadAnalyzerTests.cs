@@ -1456,7 +1456,12 @@ internal sealed class LoopReadAnalyzerTests
             ["ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionExpression"] = ["SF1001"],
             ["ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionInitializer"] = ["SF1001"],
             ["PlainThroughALocalOfTheBlockAfterTheLoop"] = ["SF1001"],
-            ["PlainThroughALocalOfTheBlockThatOneTurnAssigns"] = ["SF1001"]
+            ["PlainThroughALocalOfTheBlockThatOneTurnAssigns"] = ["SF1001"],
+            ["CoalescingAssignmentOfACell"] = ["SF1001"],
+            ["CoalescingAssignmentOfAnObject"] = ["SF1001"],
+            ["CoalescingAssignmentKeepsWhatItsTargetHad"] = ["SF1001"],
+            ["CoalescingAssignmentToAMember"] = ["SF1001"],
+            ["ValueOfACoalescingAssignment"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

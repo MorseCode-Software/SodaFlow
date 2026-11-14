@@ -1245,6 +1245,10 @@ internal sealed class LoopStateEvaluator
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b =>
                 this.Eval(b.Left).Join(this.Eval(b.Right)),
             ConditionalExpressionSyntax c => this.Eval(c.WhenTrue).Join(this.Eval(c.WhenFalse)),
+            // The value of a coalescing assignment is the value that its target gets. It is the value
+            // that the target had, when that value is not null.
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceAssignmentExpression } a =>
+                this.Eval(a.Left).Join(this.Eval(a.Right)),
             // The value of a?.b is the value of .b, whose owner is a.
             ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
             SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
