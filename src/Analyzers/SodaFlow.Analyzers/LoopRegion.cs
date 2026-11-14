@@ -251,7 +251,8 @@ internal sealed class LoopRegion(
     {
         LoopStateEvaluator evaluator = new(this);
 
-        new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
+        evaluator.ReadBy(
+                new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic)))
             .Visit(this.Root);
 
         foreach (Finding unread in evaluator.Frame.TakeUnread())

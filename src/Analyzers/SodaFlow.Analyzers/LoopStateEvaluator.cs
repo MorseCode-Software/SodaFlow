@@ -73,9 +73,8 @@ internal sealed class LoopStateEvaluator
     // The objects that this code made for its call. Each of them is new in each call.
     private readonly HashSet<MadeObject> madeForTheCall = [];
 
-    // For each call that the walker read as a statement: the body of the loop whose each turn
-    // always runs the call. Null when no loop does.
-    private readonly Dictionary<SyntaxNode, SyntaxNode?> alwaysTurns = [];
+    // The walker that reads the code of this evaluator. It knows where a call always runs.
+    private SinkWalker? walker;
 
     // The queries that this code makes.
     private readonly Dictionary<SyntaxNode, QueryValue> queries = [];
@@ -151,7 +150,7 @@ internal sealed class LoopStateEvaluator
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
                 function: this.function,
-                call: this.call);
+                call: this.call) { walker = this.walker };
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -326,6 +325,7 @@ internal sealed class LoopStateEvaluator
 
         foreach (ISymbol local in this.locals.Keys.Where(local => IsDeclaredIn(local: local, code: turn)).ToArray())
         {
+            this.Frame.OfTheTurnBefore[local] = this.locals[local];
             this.locals.Remove(local);
         }
     }
@@ -448,17 +448,33 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     Records where a call that is a statement always runs. The walker gives
-    ///     this before the evaluator follows the call.
+    ///     Records the walker that reads the code of this evaluator. The evaluator
+    ///     asks it where a call always runs, at the time when it follows the call.
     /// </summary>
-    /// <param name="call">The call.</param>
-    /// <param name="inItsFunction">True when each run of the function of the call runs the call.</param>
-    /// <param name="turn">
-    ///     The body of the loop whose each turn always runs the call. Null when no
-    ///     loop of the function of the call does.
-    /// </param>
-    public void AlwaysRuns(SyntaxNode call, bool inItsFunction, SyntaxNode? turn) =>
-        this.alwaysTurns[call] = turn ?? (inItsFunction ? this.call?.AlwaysTurn : null);
+    /// <returns>The walker.</returns>
+    public SinkWalker ReadBy(SinkWalker reader)
+    {
+        this.walker = reader;
+
+        return reader;
+    }
+
+    // Where a call always runs. The first part is true when each run of the block runs the call.
+    // The second part is the body of the loop whose each turn always runs the call, or null when
+    // no loop does. A call that always runs in its function has what the call of that function has.
+    private (bool Always, SyntaxNode? Turn) WhereItRuns(SyntaxNode call)
+    {
+        (bool inItsFunction, SyntaxNode? turn) = this.walker?.WhereACallRuns(call) ?? (false, null);
+
+        return (inItsFunction && (this.call?.AlwaysRuns ?? true),
+            turn ?? (inItsFunction ? this.call?.AlwaysTurn : null));
+    }
+
+    // A write in a lambda or a local function always runs for the block only when the call of the
+    // function does. That is not a condition for an object that the function made for the call. A
+    // callee with a frame of its own replaces the state of only its own objects.
+    private bool AlwaysRunsFor(MadeObject made) =>
+        this.function == null || this.madeForTheCall.Contains(made) || this.call is { AlwaysRuns: true };
 
     // The body of the loop whose each turn always runs a change of this code to an object. The
     // change is a statement that always runs in its function, with no loop of that function
@@ -1086,9 +1102,10 @@ internal sealed class LoopStateEvaluator
 
         if (forTheCall && this.function != null && this.call is { RunsOneTime: true })
         {
-            return apart.WithObjects(
-                ImmutableArray.Create(
-                    this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
+            MadeObject one = this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart);
+            this.madeForTheCall.Add(one);
+
+            return apart.WithObjects(ImmutableArray.Create(one));
         }
 
         if ((TurnOf(place) ?? (forTheCall ? this.call?.Turn : null)) is not { } turn)
@@ -1249,7 +1266,7 @@ internal sealed class LoopStateEvaluator
                     && made.IsFrom(this.Frame)
                     && !made.IsOfTurnsBefore
                     && (made.Turn == null
-                        ? replaces
+                        ? replaces && this.AlwaysRunsFor(made)
                         : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null)));
 
                 this.region.Objects.Set(found: made, state: sure ? changed : old.Join(changed));
@@ -1368,9 +1385,8 @@ internal sealed class LoopStateEvaluator
             PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } s =>
                 this.Eval(s.Operand),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b => this.Eval(b.Left),
-            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b =>
-                this.Eval(b.Left).Join(this.Eval(b.Right)),
-            ConditionalExpressionSyntax c => this.Eval(c.WhenTrue).Join(this.Eval(c.WhenFalse)),
+            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b => this.OneOf([b.Left, b.Right]),
+            ConditionalExpressionSyntax c => this.OneOf([c.WhenTrue, c.WhenFalse]),
             // The value of an assignment is the value that its target gets. A coalescing assignment
             // gives the value that its target had, when that value is not null.
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } a => this.Eval(a.Right),
@@ -1378,7 +1394,7 @@ internal sealed class LoopStateEvaluator
                 this.Eval(a.Left).Join(this.Eval(a.Right)),
             // The value of a?.b is the value of .b, whose owner is a.
             ConditionalAccessExpressionSyntax c => this.Eval(c.WhenNotNull),
-            SwitchExpressionSyntax s => this.JoinAll(s.Arms.Select(static arm => arm.Expression)),
+            SwitchExpressionSyntax s => this.OneOf([.. s.Arms.Select(static arm => arm.Expression)]),
             // A copy is a new object.
             WithExpressionSyntax w => this.MadeHere(
                 place: w,
@@ -1835,6 +1851,13 @@ internal sealed class LoopStateEvaluator
                 if (this.locals.TryGetValue(key: symbol, value: out LoopState? localState))
                 {
                     named = named.Join(localState);
+                }
+                // A function reads a local of a loop body before the declaration of this turn. The
+                // function is then one of a turn before, and the local is the local of that turn.
+                else if (this.function != null
+                         && this.Frame.OfTheTurnBefore.TryGetValue(key: symbol, value: out LoopState? before))
+                {
+                    named = named.Join(before);
                 }
 
                 // A method of an object can read a parameter of the primary constructor of the
@@ -3134,7 +3157,7 @@ internal sealed class LoopStateEvaluator
                 manyTimes: false);
 
         List<Finding> found = [];
-        SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
+        SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
         SemanticModel model = this.region.ModelFor(type);
 
         if (declaration is TypeDeclarationSyntax)
@@ -4966,7 +4989,7 @@ internal sealed class LoopStateEvaluator
         }
 
         List<Finding> found = [];
-        SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
+        SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
         walker.Visit(body);
         found.AddRange(inner.Frame.TakeUnread());
 
@@ -5088,6 +5111,8 @@ internal sealed class LoopStateEvaluator
             }
         }
 
+        (bool Always, SyntaxNode? Turn) where = this.WhereItRuns(call);
+
         return new LoopStateEvaluator(
             region: this.region,
             bound: parameters.ToImmutable(),
@@ -5110,9 +5135,8 @@ internal sealed class LoopStateEvaluator
                              && (this.RunsOneTime(call)
                                  || (this.call is { RunsOneTime: true } && this.RunsOneTimeInThisCode(call))),
                 turn: manyTimes ? null : this.TurnOfACall(call),
-                alwaysTurn: !manyTimes && this.alwaysTurns.TryGetValue(key: call, value: out SyntaxNode? always)
-                    ? always
-                    : null,
+                alwaysRuns: !manyTimes && where.Always,
+                alwaysTurn: manyTimes ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call)));
     }
 
@@ -5713,7 +5737,7 @@ internal sealed class LoopStateEvaluator
                     thisMembers: this.thisMembers,
                     quiet: this.quiet,
                     function: this.function,
-                    call: this.call);
+                    call: this.call) { walker = this.walker };
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);
     }
@@ -5752,6 +5776,24 @@ internal sealed class LoopStateEvaluator
                     _ => null
                 })
             .OfType<ExpressionSyntax>();
+
+    // The state of a value that is one of the given expressions. The state of two values together
+    // cannot tell a null from a value with no state that the walk did not see made. The
+    // expressions can. One expression is an object of the store, and a second one can be an object
+    // with no state. The value can then be an object that the store does not know.
+    private LoopState OneOf(IReadOnlyList<ExpressionSyntax> values)
+    {
+        LoopState all = this.JoinAll(values);
+
+        return !all.Objects.IsEmpty
+               && values.Any(value =>
+                   this.Eval(value).Objects.IsEmpty
+                   && !this.IsNoValue(value)
+                   && this.region.TypeOf(value) is { } type
+                   && this.CanBeAnObject(type))
+            ? all.OrAnUnknownObject
+            : all;
+    }
 
     private LoopState JoinAll(IEnumerable<ExpressionSyntax?> expressions) =>
         expressions.Aggregate(seed: LoopState.None, func: (state, e) => state.Join(this.Eval(e)));
@@ -5898,9 +5940,15 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     /// <param name="runsOneTime">The value of <see cref="RunsOneTime" />.</param>
     /// <param name="turn">The value of <see cref="Turn" />.</param>
+    /// <param name="alwaysRuns">The value of <see cref="AlwaysRuns" />.</param>
     /// <param name="alwaysTurn">The value of <see cref="AlwaysTurn" />.</param>
     /// <param name="code">The value of <see cref="Code" />.</param>
-    private sealed class CallOfThisCode(in bool runsOneTime, in SyntaxNode? turn, in SyntaxNode? alwaysTurn, in object code)
+    private sealed class CallOfThisCode(
+        in bool runsOneTime,
+        in SyntaxNode? turn,
+        in bool alwaysRuns,
+        in SyntaxNode? alwaysTurn,
+        in object code)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -5910,6 +5958,13 @@ internal sealed class LoopStateEvaluator
         ///     most. Null when no loop does.
         /// </summary>
         public SyntaxNode? Turn { get; } = turn;
+
+        /// <summary>
+        ///     True when each run of the block runs the call. The call is then
+        ///     in no branch and in no loop, in its function and in each function
+        ///     that calls that function.
+        /// </summary>
+        public bool AlwaysRuns { get; } = alwaysRuns;
 
         /// <summary>
         ///     The body of the loop whose each turn always runs the call. Null

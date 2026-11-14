@@ -992,19 +992,86 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         turn = null;
 
-        if (assignment.Parent is not ExpressionStatementSyntax statement)
+        return assignment.Parent is ExpressionStatementSyntax statement
+               && this.AlwaysRunsAt(place: statement, turn: out turn);
+    }
+
+    /// <summary>
+    ///     Where a call always runs, for the evaluator that follows the call.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <returns>
+    ///     The first part is true when each run of the function of the call runs
+    ///     the call. The second part is the body of the loop whose each turn always
+    ///     runs the call, or null when no loop of that function does.
+    /// </returns>
+    public (bool InItsFunction, SyntaxNode? Turn) WhereACallRuns(SyntaxNode call)
+    {
+        if (WhereItAlwaysRuns(call) is not { } place)
         {
-            return false;
+            return (false, null);
         }
+
+        bool inItsFunction = this.AlwaysRunsAt(place: place, turn: out SyntaxNode? turn);
+
+        return (inItsFunction, turn);
+    }
+
+    // The statement that always evaluates an expression when the statement runs. For the
+    // expression that is the body of a lambda or of a local function, that expression or its
+    // clause. Null when an operator, a conditional expression, or a function between the two can
+    // skip the expression.
+    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression)
+    {
+        SyntaxNode child = expression;
+
+        for (SyntaxNode? parent = expression.Parent; parent != null; child = parent, parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case ExpressionStatementSyntax or LocalDeclarationStatementSyntax or ReturnStatementSyntax:
+                    return parent;
+                case IfStatementSyntax branch:
+                    return branch.Condition == child ? branch : null;
+                case ArrowExpressionClauseSyntax:
+                    return parent;
+                case AnonymousFunctionExpressionSyntax lambda:
+                    return lambda.ExpressionBody == child ? child : null;
+                case StatementSyntax or SwitchExpressionArmSyntax or QueryClauseSyntax or SelectOrGroupClauseSyntax:
+                    return null;
+                case ConditionalExpressionSyntax conditional when conditional.Condition != child:
+                    return null;
+                case BinaryExpressionSyntax
+                    {
+                        RawKind: (int)SyntaxKind.LogicalAndExpression
+                        or (int)SyntaxKind.LogicalOrExpression
+                        or (int)SyntaxKind.CoalesceExpression
+                    } binary when binary.Right == child:
+                    return null;
+                case AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceAssignmentExpression } assignment
+                    when assignment.Right == child:
+                    return null;
+                case ConditionalAccessExpressionSyntax access when access.WhenNotNull == child:
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
+    private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn)
+    {
+        turn = null;
 
         bool inALambda = false;
 
-        foreach (SyntaxNode ancestor in statement.Ancestors())
+        foreach (SyntaxNode ancestor in place.Ancestors())
         {
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (!this.once.Contains(lambda) || this.FirstExitOf(lambda) < statement.SpanStart)
+                    if (!this.once.Contains(lambda) || this.FirstExitOf(lambda) < place.SpanStart)
                     {
                         return false;
                     }
@@ -1017,7 +1084,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 case ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
                     when !inALambda
                          && LoopStateEvaluator.LoopBodyOf(ancestor) is { } body
-                         && this.FirstEndOfATurnOf(body) > statement.SpanStart:
+                         && this.FirstEndOfATurnOf(body) > place.SpanStart:
                     turn = body;
 
                     return false;
@@ -1027,7 +1094,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
-                    return this.FirstExitOf(ancestor) > statement.SpanStart;
+                    return this.FirstExitOf(ancestor) > place.SpanStart;
                 // A block, and a statement that always runs what is in it. Also the call that
                 // runs a lambda, and the statement that the call is in.
                 case BlockSyntax
@@ -1076,6 +1143,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         return first;
     }
+
+    private static bool HasAnIndexer(ITypeSymbol? type) =>
+        type != null
+        && type.AllInterfaces.Concat([type])
+            .Any(static one => one.GetMembers().OfType<IPropertySymbol>().Any(static property => property.IsIndexer));
 
     // The position of the first statement that can end a turn before the end of the body. A turn
     // that ends there does not run the statements after it.
@@ -1492,13 +1564,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        // The evaluator must know where a call always runs before it follows the call.
-        if (node.Parent is ExpressionStatementSyntax)
-        {
-            bool inItsFunction = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? alwaysTurn);
-            this.evaluator.AlwaysRuns(call: node, inItsFunction: inItsFunction, turn: alwaysTurn);
-        }
-
         this.Visit(node.Expression);
 
         SodaFlowSymbols symbols = this.region.Symbols;
@@ -1644,6 +1709,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
+
+                // A method with no body to read can keep an object that it gets. When its owner has
+                // an indexer, that indexer can give the object back. Thus, the owner holds it, as a
+                // collection holds the object of a put.
+                if (receiver != null && method.ReducedFrom == null && HasAnIndexer(this.region.TypeOf(receiver)))
+                {
+                    foreach (ArgumentSyntax argument in arguments)
+                    {
+                        this.evaluator.Gets(collection: receiver, value: argument.Expression);
+                    }
+                }
 
                 if (method.ReducedFrom != null && receiver != null)
                 {
@@ -2256,7 +2332,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SinkWalker walker =
             ReferenceEquals(objA: query.Definer, objB: this.evaluator) && ReferenceEquals(objA: to, objB: this.sink)
                 ? this
-                : new SinkWalker(region: this.region, evaluator: query.Definer, sink: to);
+                : query.Definer.ReadBy(new SinkWalker(region: this.region, evaluator: query.Definer, sink: to));
 
         QueryValue? outer = walker.running;
         walker.running = query;

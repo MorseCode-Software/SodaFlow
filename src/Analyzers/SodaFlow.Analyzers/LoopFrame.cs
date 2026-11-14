@@ -94,6 +94,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public Dictionary<ISymbol, bool> HasOneElement { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     For a local that the body of a loop declares: the state that it had at
+    ///     the end of the first read of the loop. A lambda or a local function of
+    ///     the turn before reads that local, and not the local of this turn.
+    /// </summary>
+    public Dictionary<ISymbol, LoopState> OfTheTurnBefore { get; } = new(SymbolEqualityComparer.Default);
+
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
     private readonly List<Finding> unread = [];

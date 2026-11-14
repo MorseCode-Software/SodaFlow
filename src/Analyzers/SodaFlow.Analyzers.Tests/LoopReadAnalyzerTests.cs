@@ -1505,7 +1505,19 @@ internal sealed class LoopReadAnalyzerTests
             ["TwoNamesInALocalFunctionOfALambda"] = ["SF1004"],
             ["FunctionOfTheFirstCallOfALambda"] = ["SF1001"],
             ["LocalOfALocalFunctionThatCallsItself"] = ["SF1004", "SF1004"],
-            ["ParameterOfALambdaThatTheCallBeforeAssigned"] = ["SF1004"]
+            ["ParameterOfALambdaThatTheCallBeforeAssigned"] = ["SF1004"],
+            ["PlainThroughALambdaThatABranchCalls"] = ["SF1001"],
+            ["PlainThroughALocalFunctionThatABranchCalls"] = ["SF1001"],
+            ["PlainThroughALambdaInAnArmThatDoesNotRun"] = ["SF1001"],
+            ["PlainThroughALambdaAfterAnOperatorThatStops"] = ["SF1001"],
+            ["PlainThroughALambdaAfterACoalescingOperator"] = ["SF1001"],
+            ["LocalThatIsOneOfAnObjectOfTheStoreAndAnObjectWithNoState"] = ["SF1001"],
+            ["LocalThatABranchGivesAnObjectWithNoState"] = ["SF1001"],
+            ["LocalFromACoalescingOperatorWithAnObjectWithNoState"] = ["SF1001"],
+            ["ElementOfAnObjectThatKeepsThroughAnInterface"] = ["SF1001"],
+            ["ElementOfAnObjectThatKeepsThroughAnInterfaceAndGetsAPendingCell"] = ["SF1001"],
+            ["LambdaOfTheTurnBeforeReadsALocalOfItsTurn"] = ["SF1001"],
+            ["LocalFunctionOfTheTurnBeforeReadsALocalOfItsTurn"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
