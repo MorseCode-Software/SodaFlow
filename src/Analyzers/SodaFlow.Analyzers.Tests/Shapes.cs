@@ -9943,6 +9943,54 @@ public static class Shapes
     public static Cell<int> FirstOrDefaultOfAQueryGivesItsArgument() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot fallback = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; return S.Hold(list.Where(s => s == null).FirstOrDefault(fallback).Share!.Sample()); });
 
+    // S2170. The first Add to an empty builder of an ImmutableHashSet compares nothing.
+    public static Cell<int> FirstAddToAnEmptyBuilderOfAnImmutableHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2171. The same for an empty HashSet.
+    public static Cell<int> FirstAddToAnEmptyHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2172. The same for an empty SortedSet.
+    public static Cell<int> FirstAddToAnEmptySortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2173. The same for the Empty of an ImmutableHashSet.
+    public static Cell<int> FirstAddToTheEmptyImmutableHashSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableHashSet<SameOwn>.Empty.Add(new(l.Map(v => v)))); return S.Hold(0); });
+
+    // S2174. The same for the first key of an empty Dictionary.
+    public static Cell<int> FirstKeyOfAnEmptyDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> made = new(); made.Add(new(l.Map(v => v)), 1); return S.Hold(0); });
+
+    // S2175. The same for a HashSet whose constructor gets only a capacity.
+    public static Cell<int> FirstAddToAHashSetWithACapacity() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<SameOwn> made = new(4); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2176. The first Add to an empty HashSet makes a hash code from its value.
+    public static Cell<int> FirstAddToAnEmptyHashSetMakesAHashCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<HashedOwn> made = new(); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2177. The second Add to a SortedSet compares its value with the first one.
+    public static Cell<int> SecondAddToASortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); made.Add(new(Plain)); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2178. A helper puts an object into the SortedSet before the first Add of the block.
+    public static Cell<int> FirstAddAfterAHelperGotTheSortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); PutOneRankedOwn(made); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2179. The first Add of the block is in a loop, and the second turn compares.
+    public static Cell<int> FirstAddToASortedSetInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); for (int i = 0; i < 2; i++) { made.Add(new(l.Map(v => v))); } return S.Hold(0); });
+
+    // S2180. The constructor of the SortedSet gets an object.
+    public static Cell<int> FirstAddToASortedSetFromASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(new[] { new RankedOwn(Plain) }); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2181. A lambda does the first Add of the text, and the block calls it after a second Add.
+    public static Cell<int> FirstAddInALambdaThatRunsAfterASecondAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); Action add = () => made.Add(new(l.Map(v => v))); made.Add(new(Plain)); add(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11863,6 +11911,15 @@ public static class Shapes
         }
 
         public void Put(SettableSlot slot) => this.slots.Add(slot);
+    }
+
+    private static void PutOneRankedOwn(SortedSet<RankedOwn> set) => set.Add(new RankedOwn(Plain));
+
+    public sealed class HashedOwn(Cell<int> share)
+    {
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -1649,6 +1649,74 @@ internal sealed class LoopStateEvaluator
                                        y: local)))
             : null;
 
+    // The methods of the platform that put one value into their collection, and that a run on an
+    // empty collection has a result for.
+    private static readonly ImmutableHashSet<string> PutsOfOneValue =
+        ImmutableHashSet.Create("Add", "TryAdd", "SetItem", "GetOrAdd", "AddOrUpdate", "Enqueue");
+
+    // True for a collection that has no element at this use of it. The expression makes an empty
+    // collection, or it is the first use of a local that such an expression made. No code before
+    // the first use can put an object into the collection. A use in a loop or in a function of the
+    // block can run after a second use.
+    private bool IsEmptyHere(ExpressionSyntax collection)
+    {
+        ExpressionSyntax written = Unwrapped(collection);
+
+        if (this.MakesAnEmptyCollection(written))
+        {
+            return true;
+        }
+
+        if (written is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+            || !this.MakesAnEmptyCollection(made)
+            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        {
+            return false;
+        }
+
+        IdentifierNameSyntax? first =
+            scope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .FirstOrDefault(use =>
+                    use.Identifier.ValueText == local.Name
+                    && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local));
+
+        return first == name
+               && !name.Ancestors()
+                   .TakeWhile(ancestor => ancestor != scope)
+                   .Any(static ancestor =>
+                       LoopBodyOf(ancestor) != null
+                       || ancestor is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax);
+    }
+
+    // True for an expression that makes a collection of the platform with no element. That is an
+    // empty collection expression, or the Empty of an immutable collection. It is also a
+    // constructor or a CreateBuilder that gets only comparers and numbers.
+    private bool MakesAnEmptyCollection(ExpressionSyntax made) =>
+        Unwrapped(made) switch
+        {
+            CollectionExpressionSyntax { Elements.Count: 0 } => true,
+            BaseObjectCreationExpressionSyntax { Initializer: null or { Expressions.Count: 0 } } creation =>
+                this.GetsOnlyComparersAndNumbers(creation),
+            InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" }
+            } call => this.GetsOnlyComparersAndNumbers(call),
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Empty" } access =>
+                this.region.SymbolOf(access) is IFieldSymbol { IsStatic: true, ContainingType: { } owner }
+                && SodaFlowSymbols.IsPlatform(owner),
+            _ => false
+        };
+
+    private bool GetsOnlyComparersAndNumbers(SyntaxNode call) =>
+        this.region.SymbolOf(call) is IMethodSymbol callee
+        && SodaFlowSymbols.IsPlatform(callee.ContainingType)
+        && callee.Parameters.All(static parameter =>
+            SodaFlowSymbols.IsComparer(parameter.Type) || parameter.Type.SpecialType == SpecialType.System_Int32);
+
     /// <summary>
     ///     True for a collection that has one element, as far as the code says.
     ///     The expression is a literal with one element, or a local that such a
@@ -3586,6 +3654,18 @@ internal sealed class LoopStateEvaluator
                         isReceiver: false)));
 
         PlatformCallbacks calls = PlatformCallers.Of(method);
+
+        // A put of one value into an empty collection compares nothing, because the collection has
+        // no element for the value. It can make a hash code from the value. A run on each runtime
+        // gave that for each method of the list.
+        if ((calls & ComparesTwo) != PlatformCallbacks.None
+            && receiver != null
+            && method.ReducedFrom == null
+            && PutsOfOneValue.Contains(definition.Name)
+            && this.IsEmptyHere(receiver))
+        {
+            calls &= ~ComparesTwo;
+        }
 
         // A tuple in a local of a type that says nothing, such as object. The call is the one of
         // the tuple, which calls the same member of each element.
