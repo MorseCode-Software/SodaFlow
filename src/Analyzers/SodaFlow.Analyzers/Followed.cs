@@ -13,8 +13,8 @@ internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs,
-    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets,
-    in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)> through)
+    in ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets,
+    in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> through)
 {
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
@@ -25,8 +25,8 @@ internal sealed class Followed(
             state: LoopState.None,
             findings: ImmutableArray<Finding>.Empty,
             outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)>.Empty,
-            through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>.Empty);
+            sets: ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)>.Empty,
+            through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Empty);
 
     public LoopState State { get; } = state;
 
@@ -36,16 +36,15 @@ internal sealed class Followed(
 
     /// <summary>
     ///     Each member of its object that the callee set, with the state that the
-    ///     member has when the callee returns. The third part is true when a
-    ///     write that always runs in the callee gave the member that state. The
-    ///     last part is the one collection that the member then is.
+    ///     member has when the callee returns. That state has each write of
+    ///     the callee in it. The last part is the one collection that the member
+    ///     then is, when a write that always runs gave it.
     /// </summary>
-    public ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> Sets { get; } = sets;
+    public ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> Sets { get; } = sets;
 
     /// <summary>
     ///     Each member that the callee set through a parameter, with the state
-    ///     that the member has when the callee returns. The last part is true when
-    ///     a write that always runs in the callee gave the member that state.
+    ///     that the member has when the callee returns.
     /// </summary>
-    public ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)> Through { get; } = through;
+    public ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> Through { get; } = through;
 }

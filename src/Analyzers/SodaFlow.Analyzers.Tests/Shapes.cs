@@ -11635,6 +11635,58 @@ public static class Shapes
     public static Cell<int> Ab74AStructElementAndTwoWritesThroughTheName() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = new SlotValue[1]; ref SlotValue r = ref values[0]; r.Share = l.Map(v => v); r.Share = Plain; return S.Hold(values[0].Share!.Sample()); });
 
+    // S2593. AB75. A method calls a second method of its object, and that one gives the pending cell.
+    public static Cell<int> Ab75AMethodCallsASecondMethodOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Nested x = new(); x.Give(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2594. AB75. The same, and a second call gives a plain cell.
+    public static Cell<int> Ab75TwoCallsThroughASecondMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Nested x = new(); x.Give(l.Map(v => v)); x.Give(Plain); return S.Hold(x.Share!.Sample()); });
+
+    // S2595. AB75. A lambda in the method gives the plain cell, and the branch that calls the lambda does not run.
+    public static Cell<int> Ab75ALambdaOfTheMethodGivesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Nested x = new(); x.GiveAndMaybePlain(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2596. AB75. The creation is in a branch that runs, and its constructor gives a pending cell and then a plain one.
+    public static Cell<int> Ab75ACreationInABranchWithTwoWritesInItsConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Made? x = null; if (!Never) { x = new Ab75Made(l.Map(v => v)); } return S.Hold(x!.Share!.Sample()); });
+
+    // S2597. AB75. A setter with a body, on an object that the walk did not see made.
+    public static Cell<int> Ab75ASetterOnAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = Ab75More[0]; x.Through = l.Map(v => v); return S.Hold(x.Through!.Sample()); });
+
+    // S2598. AB75. The object is one of two objects of two classes, and only the method of one class keeps the cell.
+    public static Cell<int> Ab75TheMethodOfOneOfTwoClasses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb75Giver x = Never ? new Ab75GivesPlain() : new Ab75GivesIt(); x.Give(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2599. AB75. The two calls of the method are in a turn of a loop, with a read in that turn.
+    public static Cell<int> Ab75TwoCallsInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); for (int i = 0; i < 2; i++) { x.Give(l.Map(v => v)); x.Give(Plain); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2600. AG57. A loop that runs no turn is in the turn after the write, with a read after that loop.
+    public static Cell<int> Ag57ALoopInTheTurnAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { c.Share = Plain; for (int j = 0; j < Kept.Count - Kept.Count; j++) { Kept.Add(j); } Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2601. AG58. An assignment gives the member an element that can be a list that the walk did not see.
+    public static Cell<int> Ag58AnAssignmentGivesTheMemberAListThatIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> inner = []; List<List<SettableSlot>> lists = [inner, Ag58Lists[0]]; int one = Kept.Count - Kept.Count + 1; Ag58Open box = new(); box.All = lists[one]; box.All.Add(y); box.All[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2602. AB74. The name gets a second location that the walk cannot read again, and the first location keeps its object.
+    public static Cell<int> Ab74TheSecondLocationIsNotOneThatTheWalkReadsAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = Plain }; SettableSlot[] others = [new SettableSlot { Share = Plain }]; ref SettableSlot r = ref a; r = ref others[Kept.Count - Kept.Count]; r.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S2603. AB74. A method with a parameter with ref gives the element a different object with an assignment, between its two writes.
+    public static Cell<int> Ab74AParameterWithRefAndAnAssignmentBetweenTheWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; SettableSlot keep = slots[0]; SettableSlot other = new SettableSlot { Share = Plain }; Ab74GiveThenPutThenPlain(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(keep.Share!.Sample()); });
+
+    // S2604. AB74. A method with a parameter with ref does two writes with no code between them.
+    public static Cell<int> Ab74AParameterWithRefAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot()]; Ab74GiveThenPlain(ref slots[0], l.Map(v => v)); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2605. AB74. A struct element: two writes through the name, and the read is through the name.
+    public static Cell<int> Ab74AStructElementAndAReadThroughTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = new SlotValue[1]; ref SlotValue r = ref values[0]; r.Share = l.Map(v => v); r.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14117,6 +14169,64 @@ public static class Shapes
     private static void Ab74ANewOneThenPlain(ref SettableSlot slot, SettableSlot[] all)
     {
         Ab70PutANewOne(all);
+        slot.Share = Plain;
+    }
+
+    private static readonly Ab75Slot[] Ab75More = [new()];
+
+    private static readonly List<SettableSlot>[] Ag58Lists = [[new SettableSlot()]];
+
+    public sealed class Ab75Nested
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Set(cell);
+
+        public void GiveAndMaybePlain(Cell<int> cell)
+        {
+            this.Share = cell;
+            Action plain = () => { this.Share = Plain; };
+
+            if (Never)
+            {
+                plain();
+            }
+        }
+
+        private void Set(Cell<int> cell) => this.Share = cell;
+    }
+
+    public interface IAb75Giver
+    {
+        Cell<int>? Share { get; }
+
+        void Give(Cell<int> cell);
+    }
+
+    public sealed class Ab75GivesIt : IAb75Giver
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Share = cell;
+    }
+
+    public sealed class Ab75GivesPlain : IAb75Giver
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Share = cell == null ? null : Plain;
+    }
+
+    private static void Ab74GiveThenPutThenPlain(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        slot.Share = cell;
+        all[0] = other;
+        slot.Share = Plain;
+    }
+
+    private static void Ab74GiveThenPlain(ref SettableSlot slot, Cell<int> cell)
+    {
+        slot.Share = cell;
         slot.Share = Plain;
     }
 

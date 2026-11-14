@@ -31,23 +31,20 @@ internal sealed partial class LoopStateEvaluator
             isOfItsTurn: static (_, made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
         // A write that always runs gives the member only the new state. A function can run no
-        // time, and so can a call that does not always run. A constructor makes a new object, thus
-        // each run of it starts with no state from a run before.
+        // time. A callee that has the members of the object of its caller, and not a copy of them,
+        // writes to that object, and its call can run no time also. A copy is for one call, and
+        // the caller says if that call runs: see GivesItsOwner.
         bool only =
             replaces
             && this.function == null
-            && (this.Frame.IsOfAConstructor || this.call is null or { AlwaysRuns: true });
+            && this.call is null or { HasItsOwnMembers: true } or { AlwaysRuns: true };
 
         this.thisMembers[key] =
             !only && this.thisMembers.TryGetValue(key: key, value: out LoopState? existing)
                 ? existing.Join(state)
                 : state;
 
-        this.setOnThis[key] =
-            only
-                ? (true, from == null ? null : this.TheOneCollectionThatIs(from: from, state: state))
-                : (this.setOnThis.TryGetValue(key: key, value: out (bool Replaces, MadeObject? One) before)
-                   && before.Replaces, null);
+        this.setOnThis[key] = only && from != null ? this.TheOneCollectionThatIs(from: from, state: state) : null;
     }
 
     // Records the one collection that a member of an object is after a write to the member. A
@@ -295,10 +292,9 @@ internal sealed partial class LoopStateEvaluator
             ? last.State.Join(this.TypeState(read))
             : null;
 
-    // True for the body of a loop statement that the code of this evaluator has. A lambda that a
-    // callee runs for each element has a turn also, but the walk has no end of a loop for it.
-    private bool IsALoopOfThisCode(SyntaxNode turn) =>
-        this.function == null && turn.Parent is { } loop && LoopBodyOf(loop) == turn;
+    // True for the body of a loop statement. A lambda that a callee runs for each element has a
+    // turn also, and this rule is only for a loop statement.
+    private static bool IsTheBodyOfALoop(SyntaxNode turn) => turn.Parent is { } loop && LoopBodyOf(loop) == turn;
 
     // Records the state that a member had before a loop, at the first write of a turn that
     // replaces it.
@@ -351,7 +347,9 @@ internal sealed partial class LoopStateEvaluator
     ///     Gives an argument each member that a callee set through its parameter.
     ///     For an object of the store, the callee changed the store, and this does
     ///     nothing. A value with no object keeps its members in the name of the
-    ///     caller, and the write of the callee is a write through that name.
+    ///     caller, and the write of the callee is a write through that name. The
+    ///     state of the callee started with the state of the argument, thus it
+    ///     replaces when the call always runs.
     /// </summary>
     /// <param name="argument">The expression of the argument.</param>
     /// <param name="parameter">The parameter that got it.</param>
@@ -370,16 +368,11 @@ internal sealed partial class LoopStateEvaluator
 
         (bool always, SyntaxNode? turn) = this.WhereItRuns(call);
 
-        foreach ((IParameterSymbol got, ISymbol member, LoopState state, bool replaces) in followed.Through)
+        foreach ((IParameterSymbol got, ISymbol member, LoopState state) in followed.Through)
         {
             if (SymbolEqualityComparer.Default.Equals(x: got, y: parameter))
             {
-                this.SetMemberOf(
-                    owner: argument,
-                    member: member,
-                    state: state,
-                    replaces: replaces && always,
-                    turn: replaces ? turn : null);
+                this.SetMemberOf(owner: argument, member: member, state: state, replaces: always, turn: turn);
             }
         }
     }
@@ -389,6 +382,12 @@ internal sealed partial class LoopStateEvaluator
     ///     copy of the members of the object, and the object is in the code of
     ///     the caller.
     /// </summary>
+    /// <remarks>
+    ///     The copy had the state of each member at the call, and the callee
+    ///     gave it each of its writes, each one as a write that replaces or as a
+    ///     write that adds. Thus, the state that comes back is the state of the
+    ///     member after the call, and it replaces when the call always runs.
+    /// </remarks>
     /// <param name="call">The call.</param>
     /// <param name="owner">The state of the object.</param>
     /// <param name="written">The expression of the object, when the call has one.</param>
@@ -397,7 +396,7 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode call,
         LoopState owner,
         ExpressionSyntax? written,
-        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets)
+        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets)
     {
         if (this.quiet || sets.IsEmpty)
         {
@@ -406,20 +405,15 @@ internal sealed partial class LoopStateEvaluator
 
         (bool always, SyntaxNode? turn) = this.WhereItRuns(call);
 
-        foreach ((ISymbol member, LoopState state, bool replaces, MadeObject? one) in sets)
+        foreach ((ISymbol member, LoopState state, MadeObject? one) in sets)
         {
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
             {
-                this.SetMemberOf(
-                    owner: written,
-                    member: member,
-                    state: state,
-                    replaces: replaces && always,
-                    turn: replaces ? turn : null);
+                this.SetMemberOf(owner: written, member: member, state: state, replaces: always, turn: turn);
 
                 // The callee knows the collection that it gave the member.
-                if (replaces && always && this.function == null && this.TheOneCollectionOf(written) is { } self)
+                if (always && this.function == null && this.TheOneCollectionOf(written) is { } self)
                 {
                     this.region.Objects.IsTheCollectionIn(owner: self, member: member, collection: one);
                 }
@@ -439,8 +433,9 @@ internal sealed partial class LoopStateEvaluator
             this.Change(
                 owner: owner,
                 change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
-                replaces: replaces && always,
-                turn: replaces ? turn : null);
+                replaces: always,
+                turn: turn,
+                member: member);
 
             // An owner that the store does not know keeps the state for the field.
             if (owner.Objects.IsEmpty || owner.Objects.Contains(MadeObject.Unknown))
@@ -969,7 +964,7 @@ internal sealed partial class LoopStateEvaluator
                     : turn != null && IsMadeInEachTurn(name: holder, turn: turn);
 
             // The same as for an object of the store: see Change.
-            bool inItsTurn = !only && !this.quiet && turn != null && this.IsALoopOfThisCode(turn);
+            bool inItsTurn = !only && !this.quiet && turn != null && IsTheBodyOfALoop(turn);
 
             if (inItsTurn)
             {
@@ -988,14 +983,13 @@ internal sealed partial class LoopStateEvaluator
             // A callee gives its caller what it set through a parameter. See GivesAnArgument.
             if (!this.quiet)
             {
-                if (!this.Frame.SetThrough.TryGetValue(key: holder, value: out Dictionary<ISymbol, bool>? sets))
+                if (!this.Frame.SetThrough.TryGetValue(key: holder, value: out HashSet<ISymbol>? sets))
                 {
-                    sets = new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default);
+                    sets = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
                     this.Frame.SetThrough[holder] = sets;
                 }
 
-                ISymbol key = member.OriginalDefinition;
-                sets[key] = only || (sets.TryGetValue(key: key, value: out bool before) && before);
+                sets.Add(member.OriginalDefinition);
             }
 
             return;

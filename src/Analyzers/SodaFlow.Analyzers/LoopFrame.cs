@@ -133,11 +133,10 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     } = [];
 
     /// <summary>
-    ///     For a local or a parameter of this code with no object of the store:
-    ///     each member that the code set through it. The value is true when a
-    ///     write that always runs gave the member its state.
+    ///     For a local or a parameter of this code: each member that the code
+    ///     set through it.
     /// </summary>
-    public Dictionary<ISymbol, Dictionary<ISymbol, bool>> SetThrough { get; } = new(SymbolEqualityComparer.Default);
+    public Dictionary<ISymbol, HashSet<ISymbol>> SetThrough { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
     ///     The locals of this code whose object can be one that the store does

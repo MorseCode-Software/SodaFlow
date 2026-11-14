@@ -89,10 +89,10 @@ internal sealed partial class LoopStateEvaluator
     private readonly LoopRegion region;
     private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
-    // The members of the object that this code set. The first part is true when a write that
-    // always runs gave the member its state. The second part is the one collection that the
-    // member then is. The code of a function in this code has the same record.
-    private readonly Dictionary<ISymbol, (bool Replaces, MadeObject? One)> setOnThis;
+    // The members of the object that this code set, each with the one collection that the member
+    // then is, when a write that always runs gave it. The code of a function in this code has the
+    // same record, and so has a callee that is a member of the same object.
+    private readonly Dictionary<ISymbol, MadeObject?> setOnThis;
 
     public LoopStateEvaluator(LoopRegion region)
         : this(
@@ -104,7 +104,7 @@ internal sealed partial class LoopStateEvaluator
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            setOnThis: new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(SymbolEqualityComparer.Default),
+            setOnThis: new Dictionary<ISymbol, MadeObject?>(SymbolEqualityComparer.Default),
             quiet: false,
             function: null,
             call: null)
@@ -120,7 +120,7 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> locals,
         HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers,
-        Dictionary<ISymbol, (bool Replaces, MadeObject? One)> setOnThis,
+        Dictionary<ISymbol, MadeObject?> setOnThis,
         bool quiet,
         SyntaxNode? function,
         CallOfThisCode? call)
@@ -160,7 +160,7 @@ internal sealed partial class LoopStateEvaluator
                 thisMembers: new Dictionary<ISymbol, LoopState>(
                     dictionary: this.thisMembers,
                     comparer: SymbolEqualityComparer.Default),
-                setOnThis: new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(
+                setOnThis: new Dictionary<ISymbol, MadeObject?>(
                     dictionary: this.setOnThis,
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
@@ -1766,7 +1766,7 @@ internal sealed partial class LoopStateEvaluator
                     && !made.IsOfTurnsBefore
                     && made.IsFrom(this.Frame)
                     && made.Turn != turn
-                    && this.IsALoopOfThisCode(turn);
+                    && IsTheBodyOfALoop(turn);
 
                 if (inItsTurn)
                 {
@@ -2652,9 +2652,9 @@ internal sealed partial class LoopStateEvaluator
 
         if (this.Follow(creation) is { } constructed)
         {
-            foreach ((ISymbol member, LoopState _, bool replaces, MadeObject? one) in constructed.Sets)
+            foreach ((ISymbol member, LoopState _, MadeObject? one) in constructed.Sets)
             {
-                this.region.Objects.IsTheCollectionIn(owner: owner, member: member, collection: replaces ? one : null);
+                this.region.Objects.IsTheCollectionIn(owner: owner, member: member, collection: one);
             }
         }
 
@@ -2695,8 +2695,8 @@ internal sealed partial class LoopStateEvaluator
 
         ISymbol key = member.OriginalDefinition;
 
-        return this.setOnThis.TryGetValue(key: key, value: out (bool Replaces, MadeObject? One) set)
-            ? set.One
+        return this.setOnThis.TryGetValue(key: key, value: out MadeObject? set)
+            ? set
             : this.call?.Self is { } self
                 ? this.region.Objects.TheCollectionIn(owner: self, member: key)
                 : null;
@@ -5710,7 +5710,9 @@ internal sealed partial class LoopStateEvaluator
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
             setOnThis: definer?.setOnThis
-                       ?? new Dictionary<ISymbol, (bool Replaces, MadeObject? One)>(SymbolEqualityComparer.Default),
+                       ?? (ReferenceEquals(objA: members, objB: this.thisMembers)
+                           ? this.setOnThis
+                           : new Dictionary<ISymbol, MadeObject?>(SymbolEqualityComparer.Default)),
             quiet: this.quiet,
             function: function,
             // A callee with no body to read can run a function two or more times in one call. A
@@ -5729,7 +5731,8 @@ internal sealed partial class LoopStateEvaluator
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
-                self: self));
+                self: self,
+                hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers)));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
@@ -5810,8 +5813,8 @@ internal sealed partial class LoopStateEvaluator
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
 
-        ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>.Builder through =
-            ImmutableArray.CreateBuilder<(IParameterSymbol Parameter, ISymbol Member, LoopState State, bool Replaces)>();
+        ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Builder through =
+            ImmutableArray.CreateBuilder<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>();
 
         // A parameter has a state here only when the callee gave it one. For a parameter that is
         // not ref or out, that is a value that the callee put into the object, as Add does. The
@@ -5825,38 +5828,26 @@ internal sealed partial class LoopStateEvaluator
             {
                 outs[binding.Parameter] = assigned.WithOrigins(Out).FromIfUnknown(inputs);
 
-                // The members that the callee set through the parameter. The next call of a
-                // function starts with no record.
-                if (binding.Parameter.RefKind == RefKind.None
-                    && assigned.Members is { } has
-                    && inner.Frame.SetThrough.TryGetValue(
-                        key: binding.Parameter,
-                        value: out Dictionary<ISymbol, bool>? members))
+                // The members that the callee set through the parameter.
+                if (assigned.Members is { } has
+                    && inner.Frame.SetThrough.TryGetValue(key: binding.Parameter, value: out HashSet<ISymbol>? members))
                 {
                     through.AddRange(
-                        members.Select(set =>
-                            (binding.Parameter,
-                                set.Key,
-                                has.StateOf(set.Key).WithOrigins(Out).FromIfUnknown(inputs),
-                                set.Value)));
+                        members.Select(member =>
+                            (binding.Parameter, member, has.StateOf(member).WithOrigins(Out).FromIfUnknown(inputs))));
                 }
             }
-
-            inner.Frame.SetThrough.Remove(binding.Parameter);
         }
 
         // A callee on a different object got a copy of the members of that object. Each member
         // that it set goes back to the object. A function reads the members of its own code. A
         // constructor gives the creation the collection of each member.
-        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)> sets =
+        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets =
             lexical || (receiver == null && !inner.Frame.IsOfAConstructor)
-                ? ImmutableArray<(ISymbol Member, LoopState State, bool Replaces, MadeObject? One)>.Empty
+                ? ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)>.Empty
                 : inner.setOnThis
                     .Select(set =>
-                        (set.Key,
-                            inner.thisMembers[set.Key].WithOrigins(Out).FromIfUnknown(inputs),
-                            set.Value.Replaces,
-                            set.Value.One))
+                        (set.Key, inner.thisMembers[set.Key].WithOrigins(Out).FromIfUnknown(inputs), set.Value))
                     .ToImmutableArray();
 
         return new Followed(
@@ -6600,7 +6591,8 @@ internal sealed partial class LoopStateEvaluator
         in bool alwaysRuns,
         in SyntaxNode? alwaysTurn,
         in object code,
-        in MadeObject? self)
+        in MadeObject? self,
+        in bool hasItsOwnMembers)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -6648,5 +6640,12 @@ internal sealed partial class LoopStateEvaluator
         ///     call is a local that is one object. Null for each other call.
         /// </summary>
         public MadeObject? Self { get; } = self;
+
+        /// <summary>
+        ///     True when the code of the call has a copy of the members of its
+        ///     object, or the members of a new object. False when it has the
+        ///     members of the object that the code of the caller is in.
+        /// </summary>
+        public bool HasItsOwnMembers { get; } = hasItsOwnMembers;
     }
 }
