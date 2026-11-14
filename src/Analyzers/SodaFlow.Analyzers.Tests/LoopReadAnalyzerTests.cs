@@ -1617,7 +1617,12 @@ internal sealed class LoopReadAnalyzerTests
             ["CellFromFiveTurnsBefore"] = ["SF1001"],
             ["CellFromNineTurnsBefore"] = ["SF1001"],
             ["TwoLocalsThatEachTurnGivesTheCellOfTheOther"] = ["SF1001"],
-            ["LoopThatLeavesNothingBeforeALoopThatDoes"] = ["SF1001"]
+            ["LoopThatLeavesNothingBeforeALoopThatDoes"] = ["SF1001"],
+            ["RunBeforeOfALocalFunctionThatAListRuns"] = ["SF1001"],
+            ["RunBeforeOfAnExpressionLambdaThatAListRuns"] = ["SF1001"],
+            ["RunBeforeOfALambdaInALocalThatAListRuns"] = ["SF1001"],
+            ["RunBeforeOfALocalFunctionThatAnExpressionLambdaCalls"] = ["SF1001"],
+            ["CellFromTwoRunsBeforeOfALocalFunction"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

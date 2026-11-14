@@ -10579,6 +10579,34 @@ public static class Shapes
     public static Cell<int> LoopThatLeavesNothingBeforeALoopThatDoes() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Cell<int> own = Plain; Kept.Add(own.Sample()); } Cell<int>? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } return S.Hold(0); });
 
+    // S2329. A list runs a local function for each element. The function samples the cell that the run before left in a local of the block, and then gives the local a pending cell.
+    public static Cell<int> RunBeforeOfALocalFunctionThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; void Each(int n) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); } new List<int> { 1, 2 }.ForEach(Each); return S.Hold(0); });
+
+    // S2330. The same, where the function is a lambda with an expression for its body.
+    public static Cell<int> RunBeforeOfAnExpressionLambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => Kept.Add((last ?? Plain).Sample() + ((last = l.Map(v => v)) == null ? 1 : 0))); return S.Hold(0); });
+
+    // S2331. The same, where a local has the lambda, and the list gets the local.
+    public static Cell<int> RunBeforeOfALambdaInALocalThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; Action<int> each = n => { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); }; new List<int> { 1, 2 }.ForEach(each); return S.Hold(0); });
+
+    // S2332. The same, where a lambda with an expression calls the local function, and a query runs the lambda.
+    public static Cell<int> RunBeforeOfALocalFunctionThatAnExpressionLambdaCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; int Step(int n) { if (last != null) { Kept.Add(last.Sample()); } last = l.Map(v => v); return n; } Kept.Add(new[] { 1, 2 }.Select(n => Step(n)).ToList()); return S.Hold(0); });
+
+    // S2333. The same, where the cell goes through two locals, and the third run samples it.
+    public static Cell<int> CellFromTwoRunsBeforeOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = null; Cell<int>? b = null; void Each(int n) { if (b != null) { Kept.Add(b.Sample()); } b = a; a = l.Map(v => v); } new List<int> { 1, 2, 3 }.ForEach(Each); return S.Hold(0); });
+
+    // S2334. The same, where each run leaves a plain cell.
+    public static Cell<int> RunBeforeOfALocalFunctionLeftAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; void Each(int n) { if (last != null) { Kept.Add(last.Sample()); } last = Plain; } new List<int> { 1, 2 }.ForEach(Each); return S.Hold(0); });
+
+    // S2335. The same, where the lambda with an expression leaves a plain cell.
+    public static Cell<int> RunBeforeOfAnExpressionLambdaLeftAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? last = null; new List<int> { 1, 2 }.ForEach(n => Kept.Add((last ?? Plain).Sample() + ((last = Plain) == null ? 1 : 0))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

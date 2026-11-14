@@ -29,7 +29,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // The most reads of one loop. The walk stops before that when a read leaves what a read before
     // left. The number is only a guard for a loop whose reads have no such end.
-    private const int MaxReadsOfALoop = 32;
+    internal const int MaxReadsOfALoop = 32;
 
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
@@ -2046,7 +2046,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             // The lambda is part of this code. The walk reads it where it is, with the same
             // evaluator. A callee that does not run it one time runs it for each element. A run for
-            // one element is a turn, and the walk reads a block again as it reads the body of a loop.
+            // one element is a turn, and the walk reads the lambda again as it reads the body of a
+            // loop.
             if (!oneTime)
             {
                 this.evaluator.RunsForEachElement(lambda);
@@ -2060,14 +2061,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 continue;
             }
 
-            if (lambda.Body is BlockSyntax)
-            {
-                this.VisitTheSecondTurn(loop: lambda, body: lambda.Body, before: before);
-            }
-            else
-            {
-                this.evaluator.EndTurns(lambda.Body);
-            }
+            this.VisitTheSecondTurn(loop: lambda, body: lambda.Body, before: before);
         }
     }
 

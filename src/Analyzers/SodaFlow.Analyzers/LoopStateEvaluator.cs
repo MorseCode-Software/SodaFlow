@@ -5550,6 +5550,7 @@ internal sealed class LoopStateEvaluator
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
+        int before = manyTimes ? inner.ShapeOfWhatALoopLeaves(body) : 0;
         walker.Visit(body);
         found.AddRange(inner.Frame.TakeUnread());
 
@@ -5563,15 +5564,47 @@ internal sealed class LoopStateEvaluator
         LoopState result =
             body is ExpressionSyntax expression ? inner.Eval(expression) : inner.JoinAll(ReturnExpressions(body));
 
-        if (started != null)
-        {
-            this.region.EndsACallOf(started);
-        }
-
-        // The objects of the run become the objects of the runs before.
+        // The objects of the run become the objects of the runs before. A run reads what the run
+        // before left. Thus, the walk reads the function again while a read gives a location a new
+        // state, as it reads the body of a loop. Each read has an evaluator of its own, which reads
+        // each expression again.
         if (manyTimes)
         {
             inner.EndTurns(body);
+            HashSet<int> left = [before];
+
+            for (int read = 2;
+                 read <= SinkWalker.MaxReadsOfALoop && left.Add(inner.ShapeOfWhatALoopLeaves(body));
+                 read++)
+            {
+                inner =
+                    this.Inner(
+                        call: call,
+                        bindings: bindings,
+                        definer: definer,
+                        members: members,
+                        function: function,
+                        eachRun: body);
+
+                if (started != null)
+                {
+                    inner.ForgetTheLocalsOf(started);
+                }
+
+                inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add)).Visit(body);
+                found.AddRange(inner.Frame.TakeUnread());
+
+                result =
+                    result.Join(
+                        body is ExpressionSyntax again ? inner.Eval(again) : inner.JoinAll(ReturnExpressions(body)));
+
+                inner.EndTurns(body);
+            }
+        }
+
+        if (started != null)
+        {
+            this.region.EndsACallOf(started);
         }
 
         return this.Leave(
