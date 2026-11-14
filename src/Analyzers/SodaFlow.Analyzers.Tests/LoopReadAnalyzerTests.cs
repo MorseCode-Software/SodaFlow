@@ -1466,7 +1466,11 @@ internal sealed class LoopReadAnalyzerTests
             ["ObjectInAVariableOfAFor"] = ["SF1001"],
             ["CellInTheSecondVariableOfAFor"] = ["SF1001"],
             ["ObjectInAVariableOfAForThatTheTurnBeforeChanged"] = ["SF1001"],
-            ["ConditionOfAForReadsBeforeTheBody"] = ["SF1001"]
+            ["ConditionOfAForReadsBeforeTheBody"] = ["SF1001"],
+            ["ChainOfAssignments"] = ["SF1001"],
+            ["ChainOfAssignmentsOfOneObject"] = ["SF1001"],
+            ["SampleOfTheValueOfAnAssignment"] = ["SF1001"],
+            ["AssignmentInTheInitializerOfALocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

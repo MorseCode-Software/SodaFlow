@@ -9551,6 +9551,26 @@ public static class Shapes
     public static Cell<int> ConditionOfAForReadsBeforeTheBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); for (int i = 0; i < 2 && c.Sample() >= 0; i++) { c = Plain; } return S.Hold(0); });
 
+    // S2072. A chain of two assignments gives two locals a pending cell, and the code samples the first local.
+    public static Cell<int> ChainOfAssignments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a; Cell<int>? b; a = b = l.Map(v => v); Kept.Add(b); return S.Hold(a.Sample()); });
+
+    // S2073. A chain of two assignments gives two locals one object. A pending cell through the second local is a change for the first one.
+    public static Cell<int> ChainOfAssignmentsOfOneObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a; SettableSlot b; a = b = new SettableSlot { Share = Plain }; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S2074. The code samples the value of an assignment.
+    public static Cell<int> SampleOfTheValueOfAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c; int n = (c = l.Map(v => v)).Sample(); Kept.Add(c); return S.Hold(n); });
+
+    // S2075. An assignment is the initializer of a local, and the code samples that local.
+    public static Cell<int> AssignmentInTheInitializerOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c; Cell<int> d = c = l.Map(v => v); Kept.Add(c); return S.Hold(d.Sample()); });
+
+    // S2076. A chain of two assignments gives two locals a plain cell.
+    public static Cell<int> ChainOfAssignmentsOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a; Cell<int>? b; a = b = Plain; Kept.Add(b); return S.Hold(a.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
