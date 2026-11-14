@@ -502,18 +502,18 @@ internal sealed class LoopReadAnalyzerTests
             ["ObjectSerializedByJsonConvert"] = ["SF1005"],
             ["TupleOfAQuerySerializedByJsonConvert"] = ["SF1001"],
             ["ObjectSerializedByXmlSerializer"] = ["SF1005"],
-            ["ComparerKeptBySortedSetThenTwoAdds"] = ["SF1005", "SF1005"],
-            ["ComparerKeptBySortedDictionary"] = ["SF1005", "SF1005"],
+            ["ComparerKeptBySortedSetThenTwoAdds"] = ["SF1005"],
+            ["ComparerKeptBySortedDictionary"] = ["SF1005"],
             ["EqualityKeptByDictionaryThenSet"] = ["SF1005"],
             ["ComparerAndItemsInTheConstructor"] = ["SF1005"],
             ["ComparerKeptThenACollectionInitializer"] = ["SF1005"],
             ["EqualityKeptThenAnInitializerWithAnIndex"] = ["SF1005"],
-            ["ComparerKeptByAPriorityQueue"] = ["SF1005", "SF1005"],
-            ["ComparerKeptByAPriorityQueueThenEnqueueDequeue"] = ["SF1005", "SF1005"],
+            ["ComparerKeptByAPriorityQueue"] = ["SF1005"],
+            ["ComparerKeptByAPriorityQueueThenEnqueueDequeue"] = ["SF1005"],
             ["ComparerKeptByAPriorityQueueThenEnqueueRange"] = ["SF1005"],
             ["ComparerAndItemsInTheConstructorOfAPriorityQueue"] = ["SF1005"],
             ["PrioritiesOfAPriorityQueueCompared"] = ["SF1004"],
-            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005", "SF1005"],
+            ["ComparerKeptBySortedSetOfObjects"] = ["SF1005"],
             ["ToStringOfAnObjectFilledByAHelper"] = ["SF1005"],
             ["SlotAfterACompareExchangeThatDoesNotExchange"] = ["SF1005"],
             ["SequenceOfTheCompilationSerialized"] = ["SF1005"],
@@ -1111,7 +1111,7 @@ internal sealed class LoopReadAnalyzerTests
             ["AddThroughISetOfAHashSet"] = ["SF1005"],
             ["AddThroughISetOfASortedSet"] = ["SF1004"],
             ["AddThroughIDictionaryOfADictionary"] = ["SF1005"],
-            ["IndexerThroughIDictionaryOfADictionary"] = ["SF1004", "SF1005"],
+            ["IndexerThroughIDictionaryOfADictionary"] = ["SF1005"],
             ["AddThroughICollectionOfAHashSet"] = ["SF1004", "SF1005"],
             ["ContainsThroughICollectionOfAList"] = ["SF1005"],
             ["IndexOfThroughIListOfAList"] = ["SF1005"],
@@ -1550,7 +1550,22 @@ internal sealed class LoopReadAnalyzerTests
             ["FirstAddToASortedSetOfThisCompilation"] = ["SF1005"],
             ["CellFromFourTurnsBefore"] = ["SF1001"],
             ["MemberFromTwoTurnsBefore"] = ["SF1001"],
-            ["ObjectsOfAnExpressionLambdaOfAQuery"] = ["SF1001"]
+            ["ObjectsOfAnExpressionLambdaOfAQuery"] = ["SF1001"],
+            ["PendingThroughFirstOfAListWhoseObjectHasNoMember"] = ["SF1001"],
+            ["SecondTryAddOfADictionaryWithAComparer"] = ["SF1005"],
+            ["SecondGetOrAddOfAConcurrentDictionaryWithAComparer"] = ["SF1005"],
+            ["PendingCellThroughThreeLocalsThatStartPlain"] = ["SF1001"],
+            ["MemberOfAnOutsideObjectThroughThreeLocals"] = ["SF1001"],
+            ["MemberOfAnObjectFromACellTwoTurnsBefore"] = ["SF1001"],
+            ["PlainThroughTheLastObjectOfAnExpressionLambdaThatAListRuns"] = ["SF1001"],
+            ["PlainThroughTheLastObjectOfALocalFunctionThatAListRuns"] = ["SF1001"],
+            ["FirstAddToAnEmptyHashSetWithAComparerThatMakesAHashCode"] = ["SF1005"],
+            ["SecondAddToAHashSetWithAComparer"] = ["SF1005"],
+            ["FirstAddWhoseArgumentPutsAnObjectFirst"] = ["SF1005"],
+            ["SecondKeyThroughTheIndexerOfASortedDictionary"] = ["SF1005"],
+            ["KeyThroughTheIndexerAfterTheValuePutsAKey"] = ["SF1005"],
+            ["SecondValueThroughTheIndexerOfABuilder"] = ["SF1005"],
+            ["FirstAddToAnEmptyHashSetWithAHashCodeOfTheInterface"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1737,7 +1752,8 @@ internal sealed class LoopReadAnalyzerTests
     ///     them. The shapes file declares each kind, thus it cannot show that the
     ///     search runs for a compilation that declares only a comparer. The
     ///     search has one gate for a call and one for an indexer, and the code has
-    ///     the two.
+    ///     the two. The first put into each empty collection calls nothing, thus
+    ///     each block has one report, for its second put.
     /// </summary>
     [Test]
     public async Task AKeptComparerIsReadInACompilationThatDeclaresNoOtherMember()
@@ -1787,7 +1803,12 @@ internal sealed class LoopReadAnalyzerTests
                     assemblyName: "OnlyAComparer"));
 
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
-            .IsEquivalentTo(["SF1005", "SF1005", "SF1005", "SF1005"]);
+            .IsEquivalentTo(["SF1005", "SF1005"]);
+
+        // The lines of the second Add and of the second assignment through the indexer.
+        await Assert.That(
+                diagnostics.Select(static diagnostic => diagnostic.Location.GetLineSpan().StartLinePosition.Line))
+            .IsEquivalentTo([12, 22]);
     }
 
     /// <summary>

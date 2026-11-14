@@ -1684,11 +1684,20 @@ internal sealed class LoopStateEvaluator
     private static readonly ImmutableHashSet<string> PutsOfOneValue =
         ImmutableHashSet.Create("Add", "TryAdd", "SetItem", "GetOrAdd", "AddOrUpdate", "Enqueue");
 
-    // True for a collection that has no element at this use of it. The expression makes an empty
-    // collection, or it is the first use of a local that such an expression made. No code before
-    // the first use can put an object into the collection. A use in a loop or in a function of the
-    // block can run after a second use.
-    private bool IsEmptyHere(ExpressionSyntax collection)
+    /// <summary>
+    ///     True for a collection that has no element when a put into it runs. The
+    ///     expression makes an empty collection, or it is the first use of a local
+    ///     that such an expression made.
+    /// </summary>
+    /// <remarks>
+    ///     No code before the first use can put an object into the collection. A
+    ///     use in a loop or in a function of the block can run after a second use.
+    ///     An argument of the put runs before the put. Thus, the put has no second
+    ///     use of the local.
+    /// </remarks>
+    /// <param name="collection">The expression for the collection.</param>
+    /// <param name="put">The call or the assignment that puts a value into the collection.</param>
+    public bool IsEmptyHere(ExpressionSyntax collection, SyntaxNode put)
     {
         ExpressionSyntax written = Unwrapped(collection);
 
@@ -1707,14 +1716,18 @@ internal sealed class LoopStateEvaluator
             return false;
         }
 
-        IdentifierNameSyntax? first =
-            scope.DescendantNodes()
+        IdentifierNameSyntax[] firstTwo =
+        [
+            .. scope.DescendantNodes()
                 .OfType<IdentifierNameSyntax>()
-                .FirstOrDefault(use =>
+                .Where(use =>
                     use.Identifier.ValueText == local.Name
-                    && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local));
+                    && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
+                .Take(2)
+        ];
 
-        return first == name
+        return firstTwo[0] == name
+               && (firstTwo.Length == 1 || !put.Span.Contains(firstTwo[1].Span))
                && !name.Ancestors()
                    .TakeWhile(ancestor => ancestor != scope)
                    .Any(static ancestor =>
@@ -1956,10 +1969,9 @@ internal sealed class LoopStateEvaluator
                 {
                     named = named.Join(localState);
                 }
-                // A function reads a local of a loop body before the declaration of this turn. The
-                // function is then one of a turn before, and the local is the local of that turn.
-                else if (this.function != null
-                         && this.Frame.OfTheTurnBefore.TryGetValue(key: symbol, value: out LoopState? before))
+                // Only a function can read a local of a loop body before the declaration of this turn.
+                // The function is then one of a turn before, and the local is the local of that turn.
+                else if (this.Frame.OfTheTurnBefore.TryGetValue(key: symbol, value: out LoopState? before))
                 {
                     named = named.Join(before);
                 }
@@ -3692,7 +3704,7 @@ internal sealed class LoopStateEvaluator
             && receiver != null
             && method.ReducedFrom == null
             && PutsOfOneValue.Contains(definition.Name)
-            && this.IsEmptyHere(receiver))
+            && this.IsEmptyHere(collection: receiver, put: invocation))
         {
             calls &= ~ComparesTwo;
         }
@@ -4169,7 +4181,7 @@ internal sealed class LoopStateEvaluator
         {
             all = Both(
                 first: all,
-                second: this.FollowKeptComparer(method: method, operands: operands, keeper: keeper));
+                second: this.FollowKeptComparer(method: method, calls: calls, operands: operands, keeper: keeper));
         }
 
         PlatformCallbacks callbacks =
@@ -4633,10 +4645,15 @@ internal sealed class LoopStateEvaluator
     ///     items and a comparer calls the comparer itself.
     /// </summary>
     /// <param name="method">The method of the platform.</param>
+    /// <param name="calls">
+    ///     The members that this call of the method calls. They are not those of
+    ///     the row when the call has no two values to compare.
+    /// </param>
     /// <param name="operands">The values that the method gets.</param>
     /// <param name="keeper">The collection that the code calls the method on. Null when there is none.</param>
     private Followed? FollowKeptComparer(
         IMethodSymbol method,
+        PlatformCallbacks calls,
         IReadOnlyCollection<Operand> operands,
         ExpressionSyntax? keeper)
     {
@@ -4647,6 +4664,9 @@ internal sealed class LoopStateEvaluator
         {
             return null;
         }
+
+        // A put into an empty collection calls only the member that makes a hash code.
+        bool comparesTwo = (calls & ComparesTwo) != PlatformCallbacks.None;
 
         // The collection has the state of the comparer that its constructor got.
         IEnumerable<ExpressionSyntax> holders =
@@ -4671,6 +4691,7 @@ internal sealed class LoopStateEvaluator
 
             all =
                 members.Implementations(SodaFlowSymbols.IsComparerInterface)
+                    .Where(member => comparesTwo || MakesAHashCode(member))
                     .Aggregate(
                         seed: all,
                         func: (found, member) =>
@@ -4685,6 +4706,10 @@ internal sealed class LoopStateEvaluator
 
         return all;
     }
+
+    private static bool MakesAHashCode(IMethodSymbol member) =>
+        member.Name == nameof(GetHashCode)
+        || member.ExplicitInterfaceImplementations.Any(static contract => contract.Name == nameof(GetHashCode));
 
     /// <summary>
     ///     The objects of this compilation in a value that a method of the

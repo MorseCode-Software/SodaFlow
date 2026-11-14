@@ -10115,6 +10115,134 @@ public static class Shapes
     public static Cell<int> ObjectsOfAnExpressionLambdaOfAQuery() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = new[] { 1, 2 }.Select(n => new SettableSlot { Share = l.Map(v => v) }).ToList(); made[0].Share = Plain; return S.Hold(made[1].Share!.Sample()); });
 
+    // S2213. A local is an object of the store or a string. A string is no object that a second name can have.
+    public static Cell<int> PlainThroughALocalThatCanBeAString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; object o = Never ? "none" : x; ((SettableSlot)o).Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2214. The object in a list has no member when it goes in. First gives the object, and the code gives it a pending cell.
+    public static Cell<int> PendingThroughFirstOfAListWhoseObjectHasNoMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> rows = [x]; rows.First().Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S2215. A list of object has an object of a second class that the walk did not see made. A cast of an element to the first class cannot give that object.
+    public static Cell<int> PlainThroughACastOfAnElementBesideAnObjectOfASecondClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<object> rows = []; rows.Add(NoSlotMakers[0]()); rows.Add(x); SettableSlot got = (SettableSlot)rows[1]; got.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2216. MaxBy gets a comparer object. The comparer is no value of the type of the result.
+    public static Cell<int> PlainThroughMaxByWithAComparerObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> rows = [x]; SettableSlot top = rows.MaxBy(row => 1, new ReadingComparer(Plain))!; top.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2217. The first TryAdd of an empty Dictionary makes a hash code with the comparer, and does not compare with it.
+    public static Cell<int> FirstTryAddOfAnEmptyDictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> made = new(new EqualsReads(l.Map(v => v))); Kept.Add(made.TryAdd(1, 1)); return S.Hold(0); });
+
+    // S2218. The second TryAdd of the same key compares with the comparer.
+    public static Cell<int> SecondTryAddOfADictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, int> made = new(new EqualsReads(l.Map(v => v))); Kept.Add(made.TryAdd(1, 1)); Kept.Add(made.TryAdd(1, 2)); return S.Hold(0); });
+
+    // S2219. The first GetOrAdd of an empty ConcurrentDictionary does not compare with the comparer.
+    public static Cell<int> FirstGetOrAddOfAnEmptyConcurrentDictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<int, int> made = new(new EqualsReads(l.Map(v => v))); Kept.Add(made.GetOrAdd(1, 1)); return S.Hold(0); });
+
+    // S2220. The second GetOrAdd of the same key compares with the comparer.
+    public static Cell<int> SecondGetOrAddOfAConcurrentDictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<int, int> made = new(new EqualsReads(l.Map(v => v))); Kept.Add(made.GetOrAdd(1, 1)); Kept.Add(made.GetOrAdd(1, 2)); return S.Hold(0); });
+
+    // S2221. The first AddOrUpdate of an empty ConcurrentDictionary does not compare with the comparer.
+    public static Cell<int> FirstAddOrUpdateOfAnEmptyConcurrentDictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ConcurrentDictionary<int, int> made = new(new EqualsReads(l.Map(v => v))); Kept.Add(made.AddOrUpdate(1, 1, (k, v) => v)); return S.Hold(0); });
+
+    // S2222. The first Add to a SortedSet from an empty collection expression compares nothing.
+    public static Cell<int> FirstAddToASortedSetFromAnEmptyCollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = []; made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
+    // S2223. Three locals start with a plain cell. A pending cell goes through them, and the fourth turn samples it.
+    public static Cell<int> PendingCellThroughThreeLocalsThatStartPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; Cell<int> c = Plain; for (int i = 0; i < 4; i++) { Kept.Add(c.Sample()); c = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2224. The same for objects that the walk did not see made. Only the member of a local changes on a turn.
+    public static Cell<int> MemberOfAnOutsideObjectThroughThreeLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = SlotsOfNoObject[0]; SettableSlot b = SlotsOfNoObject[1]; SettableSlot c = SlotsOfNoObject[2]; a.Share = Plain; b.Share = Plain; c.Share = Plain; for (int i = 0; i < 4; i++) { Kept.Add(c.Share!.Sample()); c = b; b = a; a = OutsideSlots[i]; a.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2225. A pending cell goes through two locals to the member of an object of the store. Only the store changes on the third turn.
+    public static Cell<int> MemberOfAnObjectFromACellTwoTurnsBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Cell<int> a = Plain; Cell<int> b = Plain; for (int i = 0; i < 4; i++) { Kept.Add(x.Share!.Sample()); x.Share = b; b = a; a = l.Map(v => v); } return S.Hold(0); });
+
+    // S2226. A lambda with an expression for its body makes an object on each run, and a local of the block gets the object. The local has only the last one. A plain cell through the local does not change the first one.
+    public static Cell<int> PlainThroughTheLastObjectOfAnExpressionLambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; List<SettableSlot> kept = []; new List<int> { 1, 2 }.ForEach(n => kept.Add(last = new SettableSlot { Share = l.Map(v => v) })); last!.Share = Plain; return S.Hold(kept[0].Share!.Sample()); });
+
+    // S2227. The same for a local function that the list gets as a method group.
+    public static Cell<int> PlainThroughTheLastObjectOfALocalFunctionThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; List<SettableSlot> kept = []; void Each(int n) { last = new SettableSlot { Share = l.Map(v => v) }; kept.Add(last); } new List<int> { 1, 2 }.ForEach(Each); last!.Share = Plain; return S.Hold(kept[0].Share!.Sample()); });
+
+    // S2228. The first Add to an empty SortedSet does not call the comparer that the set keeps.
+    public static Cell<int> FirstAddToAnEmptySortedSetWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> made = new(new ReadingComparer(l.Map(v => v))); made.Add(1); return S.Hold(0); });
+
+    // S2229. The first Enqueue of an empty PriorityQueue does not call the comparer that the queue keeps.
+    public static Cell<int> FirstEnqueueOfAnEmptyPriorityQueueWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PriorityQueue<int, int> made = new(new ReadingComparer(l.Map(v => v))); made.Enqueue(1, 1); return S.Hold(0); });
+
+    // S2230. The one element of an initializer of a SortedSet does not call the comparer.
+    public static Cell<int> OneElementOfAnInitializerOfASortedSetWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> made = new(new ReadingComparer(l.Map(v => v))) { 1 }; Kept.Add(made.Count); return S.Hold(0); });
+
+    // S2231. The first Add to an empty HashSet makes a hash code with the comparer that the set keeps.
+    public static Cell<int> FirstAddToAnEmptyHashSetWithAComparerThatMakesAHashCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> made = new(new ReadingEquality(l.Map(v => v))); made.Add(1); return S.Hold(0); });
+
+    // S2232. The first Add to an empty HashSet does not compare with the comparer that the set keeps.
+    public static Cell<int> FirstAddToAnEmptyHashSetWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> made = new(new EqualsReads(l.Map(v => v))); made.Add(1); return S.Hold(0); });
+
+    // S2233. The second Add of the same value compares with the comparer.
+    public static Cell<int> SecondAddToAHashSetWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> made = new(new EqualsReads(l.Map(v => v))); made.Add(1); made.Add(1); return S.Hold(0); });
+
+    // S2234. The argument of the first Add of the text puts an object into the set before the Add runs.
+    public static Cell<int> FirstAddWhoseArgumentPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); made.Add(PutOneAndMakeRankedOwn(made, l.Map(v => v))); return S.Hold(0); });
+
+    // S2235. The first key through the indexer of an empty SortedDictionary compares nothing.
+    public static Cell<int> FirstKeyThroughTheIndexerOfAnEmptySortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> made = new(); made[new(l.Map(v => v))] = 1; return S.Hold(0); });
+
+    // S2236. The same for an empty Dictionary.
+    public static Cell<int> FirstKeyThroughTheIndexerOfAnEmptyDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<SameOwn, int> made = new(); made[new SameOwn(l.Map(v => v))] = 1; return S.Hold(0); });
+
+    // S2237. The first key through the indexer of an empty SortedDictionary does not call the comparer that it keeps.
+    public static Cell<int> FirstKeyThroughTheIndexerOfAnEmptySortedDictionaryWithAComparer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<int, int> made = new(new ReadingComparer(l.Map(v => v))); made[1] = 1; return S.Hold(0); });
+
+    // S2238. The second key through the indexer compares with the first one.
+    public static Cell<int> SecondKeyThroughTheIndexerOfASortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> made = new(); made[new(Plain)] = 1; made[new(l.Map(v => v))] = 2; return S.Hold(0); });
+
+    // S2239. The value of the assignment puts a key into the dictionary before the indexer runs.
+    public static Cell<int> KeyThroughTheIndexerAfterTheValuePutsAKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<RankedOwn, int> made = new(); made[new(l.Map(v => v))] = PutOneRankedKey(made); return S.Hold(0); });
+
+    // S2240. The first value of the Empty of an ImmutableDictionary compares nothing.
+    public static Cell<int> FirstValueOfTheEmptyImmutableDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(ImmutableDictionary<int, SameOwn>.Empty.SetItem(1, new(l.Map(v => v)))); return S.Hold(0); });
+
+    // S2241. The first value through the indexer of an empty builder of an ImmutableDictionary compares nothing.
+    public static Cell<int> FirstValueThroughTheIndexerOfAnEmptyBuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<int, SameOwn>.Builder made = ImmutableDictionary.CreateBuilder<int, SameOwn>(); made[1] = new(l.Map(v => v)); return S.Hold(0); });
+
+    // S2242. The second value of one key through the indexer of a builder compares with the first one.
+    public static Cell<int> SecondValueThroughTheIndexerOfABuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<int, SameOwn>.Builder made = ImmutableDictionary.CreateBuilder<int, SameOwn>(); made[1] = new(l.Map(v => v)); made[1] = new(Plain); return S.Hold(0); });
+
+    // S2243. The comparer implements GetHashCode only for the interface, and the first Add calls it.
+    public static Cell<int> FirstAddToAnEmptyHashSetWithAHashCodeOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<int> made = new(new HashOfTheInterface(l.Map(v => v))); made.Add(1); return S.Hold(0); });
+
+    // S2244. A compound assignment through the indexer of an empty Hashtable reads nothing and compares nothing.
+    public static Cell<int> CompoundAssignmentThroughTheIndexerOfAnEmptyHashtable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Hashtable made = new(); made[new SameOwn(l.Map(v => v))] ??= 1; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12049,6 +12177,41 @@ public static class Shapes
     public sealed class SortedSetWithOne : SortedSet<RankedOwn>
     {
         public SortedSetWithOne() => this.Add(new RankedOwn(Plain));
+    }
+
+    private static readonly SettableSlot[] OutsideSlots = [new(), new(), new(), new()];
+
+    private static readonly Func<NoSlot>[] NoSlotMakers = [static () => new NoSlot()];
+
+    public sealed class NoSlot;
+
+    // Equals reads a cell, and GetHashCode does not.
+    public sealed class EqualsReads(Cell<int> offset) : IEqualityComparer<int>
+    {
+        public bool Equals(int x, int y) => x == y + offset.Sample() - offset.Sample();
+
+        public int GetHashCode(int value) => value;
+    }
+
+    private static RankedOwn PutOneAndMakeRankedOwn(SortedSet<RankedOwn> set, Cell<int> share)
+    {
+        set.Add(new RankedOwn(Plain));
+
+        return new RankedOwn(share);
+    }
+
+    private static int PutOneRankedKey(SortedDictionary<RankedOwn, int> all)
+    {
+        all[new RankedOwn(Plain)] = 0;
+
+        return 1;
+    }
+
+    public sealed class HashOfTheInterface(Cell<int> offset) : IEqualityComparer<int>
+    {
+        bool IEqualityComparer<int>.Equals(int x, int y) => x == y;
+
+        int IEqualityComparer<int>.GetHashCode(int value) => value + offset.Sample() - offset.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

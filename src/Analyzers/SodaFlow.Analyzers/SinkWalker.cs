@@ -862,7 +862,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (accessor.DeclaringSyntaxReferences.IsEmpty)
         {
-            // The indexer of a dictionary of the platform calls a member of the key.
+            // The indexer of a dictionary of the platform calls a member of the key. The first key
+            // of an empty dictionary has no second key to compare it with.
             if (node.Left is ElementAccessExpressionSyntax keyed)
             {
                 this.Report(
@@ -870,7 +871,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         member: accessor,
                         collection: keyed.Expression,
                         values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
-                        alone: false,
+                        alone: this.evaluator.IsEmptyHere(collection: keyed.Expression, put: node),
                         others: [keyed.Expression],
                         before: null));
             }
@@ -1052,11 +1053,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             switch (parent)
             {
-                case ExpressionStatementSyntax or LocalDeclarationStatementSyntax or ReturnStatementSyntax:
-                    return parent;
-                case IfStatementSyntax branch:
-                    return branch.Condition == child ? branch : null;
-                case ArrowExpressionClauseSyntax:
+                // An expression gets to an if statement with no statement between only from its
+                // condition.
+                case ExpressionStatementSyntax
+                    or LocalDeclarationStatementSyntax
+                    or ReturnStatementSyntax
+                    or IfStatementSyntax
+                    or ArrowExpressionClauseSyntax:
                     return parent;
                 case AnonymousFunctionExpressionSyntax lambda:
                     return lambda.ExpressionBody == child ? child : null;
