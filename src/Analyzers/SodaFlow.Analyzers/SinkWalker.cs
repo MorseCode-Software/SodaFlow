@@ -225,8 +225,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        this.evaluator.StartsEach(node);
         this.Visit(node.Statement);
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+
+        // The loop has a turn for each element when it always runs and no statement ends a turn
+        // or the loop before its end.
+        this.evaluator.EndsEach(
+            loop: node,
+            hasATurnForEachElement: this.FirstEndOfATurnOf(node.Statement) == int.MaxValue
+                                    && this.AlwaysRunsAt(place: node, turn: out SyntaxNode? around)
+                                    && around == null);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)

@@ -10919,6 +10919,58 @@ public static class Shapes
     public static Cell<int> Ag54AHelperGivesAPendingCellAfterThePlainOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOf(x); Ag54Set(x, l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
 
+    // S2414. AG54. The evidence of the item: a method with no body to read gets a new object before the change.
+    public static Cell<int> Ag54PlainThroughAnElementAfterCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); NewSlotMaker().Put(new SettableSlot()); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2415. AG54. The same, where the Add is in a branch, and the list has no positions.
+    public static Cell<int> Ag54PlainThroughAnElementOfAListWithNoPositionsAfterCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; if (!Never) { list.Add(x); } NewSlotMaker().Put(new SettableSlot()); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2416. AG54. The evidence of the item: the variable of a foreach gives each element a plain cell.
+    public static Cell<int> Ag54PlainThroughTheVariableOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); foreach (SettableSlot each in list) { each.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S2417. AG54. The same with two elements, and the code samples the second one.
+    public static Cell<int> Ag54PlainThroughTheVariableOfAForeachForTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { each.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S2418. AG54. The same for an array from a literal.
+    public static Cell<int> Ag54PlainThroughTheVariableOfAForeachOverAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; SettableSlot[] all = [x, z]; foreach (SettableSlot each in all) { each.Share = Plain; } return S.Hold(z.Share!.Sample()); });
+
+    // S2419. AG54. A break after the write ends the loop in its first turn.
+    public static Cell<int> Ag54ABreakAfterTheWriteInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { each.Share = Plain; break; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S2420. AG54. The write in the body of the foreach is in a branch that does not run.
+    public static Cell<int> Ag54TheWriteInAForeachIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); foreach (SettableSlot each in list) { if (Never) { each.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S2421. AG54. The foreach is in a branch that does not run.
+    public static Cell<int> Ag54TheForeachIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); if (Never) { foreach (SettableSlot each in list) { each.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S2422. AG54. The body samples the second element in the first turn, before its plain cell.
+    public static Cell<int> Ag54AReadOfALaterElementInTheBodyOfTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { each.Share = Plain; Kept.Add(list[1].Share!.Sample()); } return S.Hold(0); });
+
+    // S2423. AG54. The body gives the first element a pending cell in each turn, before the plain cell.
+    public static Cell<int> Ag54TheBodyOfTheForeachGivesAPendingCellAlso() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { list[0].Share = l.Map(v => v); each.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S2424. AG54. Remove takes the object out of the list before the foreach.
+    public static Cell<int> Ag54RemoveBeforeTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); list.Remove(x); foreach (SettableSlot each in list) { each.Share = Plain; } return S.Hold(x.Share!.Sample()); });
+
+    // S2425. AG54. The Add of the object is in a branch that does not run, before the foreach.
+    public static Cell<int> Ag54TheAddIsInABranchBeforeTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(z); if (Never) { list.Add(x); } foreach (SettableSlot each in list) { each.Share = Plain; } return S.Hold(x.Share!.Sample()); });
+
+    // S2426. AG54. A continue before the write skips the object.
+    public static Cell<int> Ag54AContinueBeforeTheWriteInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { if (each == x) { continue; } each.Share = Plain; } return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

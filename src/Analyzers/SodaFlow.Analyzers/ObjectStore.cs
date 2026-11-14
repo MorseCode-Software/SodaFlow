@@ -22,6 +22,9 @@ internal sealed class ObjectStore
 
     // The collections that hold only objects that the walk saw go in.
     private readonly HashSet<MadeObject> complete = [];
+
+    // The collections that only the code of one block can get to.
+    private readonly HashSet<MadeObject> apart = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
 
@@ -333,11 +336,18 @@ internal sealed class ObjectStore
     public void CanHoldMore(MadeObject collection) => this.complete.Remove(collection);
 
     /// <summary>
+    ///     Records that only the code of one block can get to a collection. No
+    ///     other code has a name for it, and no object holds it.
+    /// </summary>
+    public void IsApart(MadeObject collection) => this.apart.Add(collection);
+
+    /// <summary>
     ///     Records that each collection can hold an object that the walk did not
     ///     see go in. Code that the walk cannot read ran, and it can get to a
-    ///     collection through an object that it has.
+    ///     collection through an object that it has. It cannot get to a collection
+    ///     that is apart.
     /// </summary>
-    public void EachCanHoldMore() => this.complete.Clear();
+    public void EachCanHoldMore() => this.complete.IntersectWith(this.apart);
 
     /// <summary>True for a collection that holds only objects that the walk saw go in.</summary>
     public bool HoldsOnlyWhatWentIn(MadeObject collection) => this.complete.Contains(collection);

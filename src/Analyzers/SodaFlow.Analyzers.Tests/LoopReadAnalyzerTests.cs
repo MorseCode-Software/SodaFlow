@@ -1674,7 +1674,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag54TheParameterIsOneOfTwoObjects"] = ["SF1001"],
             ["Ag54ALambdaThatABranchCallsCallsTheHelper"] = ["SF1001"],
             ["Ag54TheSecondHelperIsInABranch"] = ["SF1001"],
-            ["Ag54AHelperGivesAPendingCellAfterThePlainOne"] = ["SF1001"]
+            ["Ag54AHelperGivesAPendingCellAfterThePlainOne"] = ["SF1001"],
+            ["Ag54ABreakAfterTheWriteInAForeach"] = ["SF1001"],
+            ["Ag54TheWriteInAForeachIsInABranch"] = ["SF1001"],
+            ["Ag54TheForeachIsInABranch"] = ["SF1001"],
+            ["Ag54AReadOfALaterElementInTheBodyOfTheForeach"] = ["SF1001"],
+            ["Ag54TheBodyOfTheForeachGivesAPendingCellAlso"] = ["SF1001"],
+            ["Ag54RemoveBeforeTheForeach"] = ["SF1001"],
+            ["Ag54TheAddIsInABranchBeforeTheForeach"] = ["SF1001"],
+            ["Ag54AContinueBeforeTheWriteInAForeach"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

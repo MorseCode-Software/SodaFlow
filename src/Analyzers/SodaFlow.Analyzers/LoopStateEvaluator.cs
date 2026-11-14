@@ -292,12 +292,42 @@ internal sealed class LoopStateEvaluator
         else if (TheOneNewObject(state) is { } only)
         {
             this.Frame.TheOneCollectionOf[local] = only;
+
+            if (this.IsTheOnlyNameOfItsObject(local))
+            {
+                this.region.Objects.IsApart(only);
+            }
         }
         else
         {
             this.Frame.TheOneCollectionOf.Remove(local);
         }
     }
+
+    // True for a local whose object no other code can get to. Each use of the local in its block is
+    // a read, or it is the owner in a call of a method of a list of the platform that keeps no
+    // name of the list. Any other use can give the object a second name. A function can go to
+    // code that the walk cannot read, thus no function uses the local.
+    private bool IsTheOnlyNameOfItsObject(ISymbol local) =>
+        local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is VariableDeclaratorSyntax declarator
+        && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+        && scope.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(use => use.Identifier.ValueText == local.Name
+                          && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
+            .All(use => FunctionOf(use) == FunctionOf(declarator) && (this.IsARead(use) || this.ChangesOnlyItsList(use)));
+
+    // The name is the owner in a call of a method of a list of the platform that puts a value in
+    // or takes one out, and gives the list to no code.
+    private bool ChangesOnlyItsList(IdentifierNameSyntax use) =>
+        use.Parent is MemberAccessExpressionSyntax
+        {
+            Name.Identifier.ValueText: "Add" or "Insert" or "Remove" or "RemoveAt" or "Clear",
+            Parent: InvocationExpressionSyntax call
+        } access
+        && access.Expression == use
+        && this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner }
+        && SodaFlowSymbols.IsPlatform(owner);
 
     // The object of a value that is one new object of the store, and no object of a turn before.
     private static MadeObject? TheOneNewObject(LoopState state)
@@ -729,6 +759,7 @@ internal sealed class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+        this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
 
         if (!replaces
             || this.quiet
@@ -773,6 +804,117 @@ internal sealed class LoopStateEvaluator
                     .. before.Select(one =>
                         (one.Object, one.Before, After: this.region.Objects.StateOf(one.Object) ?? one.Before))
                 ]);
+    }
+
+    /// <summary>
+    ///     Records the start of the walk of a foreach statement, after the walk
+    ///     of its collection. A write through an element takes the positions of
+    ///     the collection away, thus the elements are from this time.
+    /// </summary>
+    public void StartsEach(ForEachStatementSyntax loop)
+    {
+        if (!this.quiet && this.function == null && this.ElementsOf(loop.Expression) is { } elements)
+        {
+            this.Frame.WritesThroughEach[loop] =
+                new WritesThroughEach(
+                    elements: elements,
+                    start: this.region.MemberWrites,
+                    member: null,
+                    state: LoopState.None,
+                    same: true,
+                    visits: 0,
+                    last: 0);
+        }
+    }
+
+    // A write to a member through the variable of a foreach statement, which each turn of the
+    // statement always runs. EndsEach uses it.
+    private void NoteAWriteThroughEach(ExpressionSyntax? owner, ISymbol member, LoopState state, SyntaxNode? turn)
+    {
+        if (!this.quiet
+            && this.function == null
+            && turn != null
+            && owner is IdentifierNameSyntax
+            && this.region.SymbolOf(owner) is ILocalSymbol each
+            && each.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ForEachStatementSyntax loop
+            && loop.Statement == turn
+            && this.Frame.WritesThroughEach.TryGetValue(key: loop, value: out WritesThroughEach? noted))
+        {
+            this.Frame.WritesThroughEach[loop] =
+                noted.With(
+                    written: member.OriginalDefinition,
+                    value: state,
+                    isALocation: IsALocation(member),
+                    writes: this.region.MemberWrites);
+        }
+    }
+
+    /// <summary>
+    ///     Records the end of the walk of a foreach statement. When the statement
+    ///     gave each element of its collection a value for a member, each of those
+    ///     objects then has only that value.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A write in the body of a loop adds, because the walk does not know
+    ///         which turns ran. After a loop that has a turn for each element, each
+    ///         element has the value. The collection must keep its positions, thus
+    ///         the walk knows each of its elements. Each element must be one object
+    ///         that the code of this frame made.
+    ///     </para>
+    ///     <para>
+    ///         A second write to a member in the body can give an element that a
+    ///         turn before changed a different value. Thus, each write to a member
+    ///         in each read of the body is the write through the variable.
+    ///     </para>
+    /// </remarks>
+    /// <param name="loop">The statement.</param>
+    /// <param name="hasATurnForEachElement">
+    ///     True when the statement always runs in its function, and no statement
+    ///     ends a turn or the loop before its end.
+    /// </param>
+    public void EndsEach(ForEachStatementSyntax loop, bool hasATurnForEachElement)
+    {
+        if (!this.Frame.WritesThroughEach.TryGetValue(key: loop, value: out WritesThroughEach? noted))
+        {
+            return;
+        }
+
+        this.Frame.WritesThroughEach.Remove(loop);
+
+        if (!hasATurnForEachElement
+            || noted.Member is not { } member
+            || !noted.IsTheOnlyWrite(this.region.MemberWrites))
+        {
+            return;
+        }
+
+        List<MadeObject> objects = [];
+
+        foreach (ExpressionSyntax element in noted.Elements)
+        {
+            ImmutableArray<MadeObject> now = this.region.Objects.Now(this.Eval(element).Objects);
+
+            if (now.Length != 1
+                || now[0] is not { Turn: null, IsOfTurnsBefore: false } made
+                || !made.IsFrom(this.Frame)
+                || this.region.Objects.StateOf(made) == null)
+            {
+                return;
+            }
+
+            objects.Add(made);
+        }
+
+        foreach (MadeObject made in objects)
+        {
+            if (this.region.Objects.StateOf(made) is { } old)
+            {
+                this.region.Objects.Set(
+                    found: made,
+                    state: old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: noted.State)));
+            }
+        }
     }
 
     // True for a local or a parameter that is one object until code gives it a value. A name with

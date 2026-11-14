@@ -116,6 +116,12 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For each foreach statement that the walk is in, and whose collection
+    ///     keeps its positions: the writes to a member through its variable.
+    /// </summary>
+    public Dictionary<SyntaxNode, WritesThroughEach> WritesThroughEach { get; } = [];
+
+    /// <summary>
     ///     The last write to a member through a name in the code of this frame,
     ///     when that write always runs. Null when the last write was not such a
     ///     write.
