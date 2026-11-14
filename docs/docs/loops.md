@@ -536,6 +536,24 @@ It does not see everything, and in a few places it guesses on the careful side:
   clear a pending one there. A call to code without source ends this for every collection that the
   code could reach: one that was handed to something, stored somewhere, or used in a lambda. A list
   that is only read and filled through its own variable stays known.
+- A value set through an item replaces an earlier one only where the analyzer saw everything that
+  went into the collection. An item of any other collection may be an object the analyzer never
+  saw: one that code without source put there, or one that was already in a collection the block
+  was handed. So the value is added to each object the item could be, and a plain value set that
+  way does not clear a pending one. The same holds for a variable that was given such an item, for
+  a parameter the item was passed to, and for a member of it. An item at a known position is the
+  object written at that position. A collection reached through a member of an object, or built
+  for a `params` parameter, is read as one that could hold more, even where the block filled it.
+- What is set on a struct in a variable, or on an object that came into the block from outside, is
+  kept with that variable. There, as on an object the block built, a later value replaces an
+  earlier one only where the assignment is sure to run. One under an `if`, in a loop that the
+  variable was declared before, or in a lambda or a local function whose call might not run is
+  added.
+- A `ref` variable or parameter names a place, not one object. It starts with what the place holds
+  when the `ref` is taken, and a value set through it is added, because the place may hold another
+  object by then. The analyzer does not follow the place after that: a read through the `ref` name
+  still sees the object from when the `ref` was taken, and an assignment to the `ref` name is not
+  seen as an assignment to the place.
 - A list built with `Add` statements at the top level of its block keeps its positions, as a
   literal does, so `list[0]` is the first item added. An `Add` in a branch or a loop, or any other
   change to the list, ends that.
