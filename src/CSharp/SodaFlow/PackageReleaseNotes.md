@@ -8,6 +8,12 @@ of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not
 runs in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the
 analyzer does not see.
 
+Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
+holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage
+collection, with no message. A local that later code reads, a field, a return value, an argument, and a local that a
+lambda captures count as held. The rule does not see an object, a list, or a lambda that nothing holds. The lifetimes
+page describes it.
+
 Added: AsCell on a plain Cell<T>, AsBehavior on a plain Behavior<T>, and AsStream on a plain Stream<T>. Each returns
 its receiver. In a loop block they mark a value derived from the placeholder, at the argument where it leaves for code
 the analyzer cannot see into, as one that no callee reads before the loop closes.

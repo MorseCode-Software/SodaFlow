@@ -216,6 +216,8 @@ how to avoid it. From this release the `SodaFlow` package also carries a Roslyn 
 the common shapes at build time, in C# projects. Nothing has to be added: a project that references
 `SodaFlow` runs it, and `ExcludeAssets="analyzers"` on that reference removes it. F# is not
 covered, because a Roslyn analyzer runs in the C# compiler only; an F# project keeps the exception.
+The same analyzer also has a rule that is not about loops, `SF2001`, for a listener that nothing
+holds; [Listener lifetimes](lifetimes.md#the-mistake-that-does-fail-silently) describes it.
 
 The analyzer looks at the code that runs while a loop is open, which is the function you give a
 loop block, and follows the placeholder through the library's operators. That function can be a

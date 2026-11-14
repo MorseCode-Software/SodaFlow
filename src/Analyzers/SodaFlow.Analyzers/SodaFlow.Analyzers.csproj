@@ -48,6 +48,7 @@
         <Compile Include="Finding.cs"/>
         <Compile Include="Followed.cs"/>
         <Compile Include="FunctionValue.cs"/>
+        <Compile Include="ListenerAnalyzer.cs"/>
         <Compile Include="LoopFrame.cs"/>
         <Compile Include="LoopReadAnalyzer.cs"/>
         <Compile Include="LoopRegion.cs"/>

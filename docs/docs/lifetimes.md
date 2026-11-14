@@ -117,6 +117,22 @@ Use `Listen` only when something else owns the lifetime, and hold that reference
 exactly as long as you want the subscription to live. `ListenOnce` is the same method with a
 shorter lifetime: hold its listener until the firing arrives, or call `ListenOnceStrong`.
 
+In C#, the analyzer in the `SodaFlow` package reports this mistake as `SF2001`, a warning. It
+reports a call to `Listen` or `ListenOnce` whose result is dropped: a statement of the call alone,
+a discard, or a local that no later code reads. A local that later code reads, a field, a return
+value, an argument, an element of a collection, and a local that a lambda captures all count as
+held. The rule sees no further than that: where the listener goes into an object, a list, or a
+lambda that nothing holds, it stops at a collection all the same, and the rule does not report it.
+A test that drops a listener on purpose says so with a pragma and a reason:
+
+```csharp
+#pragma warning disable SF2001 // The test proves that a dropped listener stops.
+s.Listen(seen.Add);
+#pragma warning restore SF2001
+```
+
+F# has no analyzer in the build, so in F# this stays a matter of care.
+
 ## When the framework gives you no teardown hook
 
 Some UI frameworks discard a view without ever calling anything you can hook. A WPF

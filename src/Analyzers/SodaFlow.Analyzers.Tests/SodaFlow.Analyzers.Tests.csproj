@@ -38,6 +38,7 @@
         <Compile Include="AnalyzerHarness.cs"/>
         <Compile Include="EnumerableQueriesTests.cs"/>
         <Compile Include="LibraryAssembliesTests.cs"/>
+        <Compile Include="ListenerAnalyzerTests.cs"/>
         <Compile Include="LoopReadAnalyzerTests.cs"/>
         <Compile Include="LoopStateTests.cs"/>
         <Compile Include="OperatorTableTests.cs"/>
@@ -46,12 +47,13 @@
     </ItemGroup>
 
     <!--
-        The shapes are test data, not code of this project: the harness compiles the file at test
+        The shapes are test data, not code of this project: the harness compiles each file at test
         time, against the library assemblies this project references, and the analyzer reads it.
-        Compiling it here would hold a file that is meant to trip every rule to the build's own
-        warnings. It is a .cs file so that an editor reads it as C#.
+        Compiling them here would hold files that are meant to trip every rule to the build's own
+        warnings. Each is a .cs file so that an editor reads it as C#.
     -->
     <ItemGroup>
+        <None Include="ListenerShapes.cs" CopyToOutputDirectory="PreserveNewest"/>
         <None Include="Shapes.cs" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
