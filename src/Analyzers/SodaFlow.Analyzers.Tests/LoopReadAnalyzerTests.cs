@@ -1603,7 +1603,12 @@ internal sealed class LoopReadAnalyzerTests
             ["HolderOfTheOuterTurnBefore"] = ["SF1001"],
             ["HolderOfAnInnerTurnBeforeInAListOfTheBlock"] = ["SF1001"],
             ["HolderOfALoopInAHelperInAListOfTheBlock"] = ["SF1001"],
-            ["HolderOfTheThirdLoopInALocalOfTheFirst"] = ["SF1001"]
+            ["HolderOfTheThirdLoopInALocalOfTheFirst"] = ["SF1001"],
+            ["LambdaOfTheTurnOrOfTheTurnBefore"] = ["SF1001"],
+            ["LambdaOfTheTurnThatABranchReplaces"] = ["SF1001"],
+            ["LocalFunctionOfTheTurnBeforeThroughADelegate"] = ["SF1001"],
+            ["LambdaOfTheTurnBeforeCallsALocalFunctionOfItsTurn"] = ["SF1001"],
+            ["LambdaOfTheTurnThatARefArgumentReplaces"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

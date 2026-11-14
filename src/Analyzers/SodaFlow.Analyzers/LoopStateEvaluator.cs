@@ -494,6 +494,44 @@ internal sealed class LoopStateEvaluator
     // The identity of the code that this evaluator reads for its call. The block is its own.
     private object CodeOfThisCall => this.call?.Code ?? this.Frame;
 
+    // True when a call runs a function that this run of the code made. The call names a local
+    // function, or it names a local whose declaration has the lambda and that gets no second
+    // value. The code of the call must be of this run also: the block, or such a function.
+    private bool RunsAFunctionOfThisRun(SyntaxNode call, SyntaxNode function)
+    {
+        if ((this.function != null && this.call is not { RunsAFunctionOfThisRun: true })
+            || call is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        ExpressionSyntax callee = Unwrapped(invocation.Expression);
+
+        return this.region.SymbolOf(callee) switch
+        {
+            IMethodSymbol { MethodKind: MethodKind.LocalFunction } named =>
+                named.DeclaringSyntaxReferences.Any(declaration => declaration.GetSyntax() == function),
+            ILocalSymbol local =>
+                local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                && Unwrapped(made) == function
+                && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+                && !this.GetsASecondValue(local: local, scope: scope),
+            _ => false
+        };
+    }
+
+    // True when code of the scope can give a local a value after its declaration. That code is an
+    // assignment to the local, or an argument with ref or out.
+    private bool GetsASecondValue(ILocalSymbol local, SyntaxNode scope) =>
+        scope.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Any(use =>
+                use.Identifier.ValueText == local.Name
+                && (use.Parent is AssignmentExpressionSyntax assignment && assignment.Left == use
+                    || use.Parent is ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None })
+                && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local));
+
     // The bodies of the loops that an expression of this code is in, the nearest first.
     private ImmutableArray<SyntaxNode> LoopsOf(SyntaxNode place)
     {
@@ -1078,9 +1116,11 @@ internal sealed class LoopStateEvaluator
 
     // A location can keep a lambda or a local function from a turn before, and a call then runs
     // that function. A local that the function reads from the code around it is then the local of
-    // that turn. Thus, the value of such a local can be an object of the turns before also.
+    // that turn. Thus, the value of such a local can be an object of the turns before also. A
+    // function that this run of the code made reads the locals of this run.
     private LoopState Captured(SyntaxNode expression, LoopState state) =>
         this.function != null
+        && this.call is not { RunsAFunctionOfThisRun: true }
         && expression is IdentifierNameSyntax
         && this.region.SymbolOf(expression) is { } local and (ILocalSymbol or IParameterSymbol)
         && !IsDeclaredIn(local: local, code: this.function)
@@ -5624,6 +5664,7 @@ internal sealed class LoopStateEvaluator
                              && (this.RunsOneTime(call)
                                  || (this.call is { RunsOneTime: true } && this.RunsOneTimeInThisCode(call))),
                 turn: eachRun ?? this.TurnOfACall(call),
+                runsAFunctionOfThisRun: function != null && this.RunsAFunctionOfThisRun(call: call, function: function),
                 loopsAroundTheTurn: eachRun != null
                     ? this.LoopsOf(call)
                     : this.TurnOfACall(call) is { } ofTheCall
@@ -6443,6 +6484,7 @@ internal sealed class LoopStateEvaluator
     private sealed class CallOfThisCode(
         in bool runsOneTime,
         in SyntaxNode? turn,
+        in bool runsAFunctionOfThisRun,
         in ImmutableArray<SyntaxNode> loopsAroundTheTurn,
         in bool alwaysRuns,
         in SyntaxNode? alwaysTurn,
@@ -6456,6 +6498,13 @@ internal sealed class LoopStateEvaluator
         ///     most. Null when no loop does.
         /// </summary>
         public SyntaxNode? Turn { get; } = turn;
+
+        /// <summary>
+        ///     True when the call runs a lambda or a local function that this run
+        ///     of the code around the call made. The function then reads the
+        ///     locals of this run, and not those of a turn before.
+        /// </summary>
+        public bool RunsAFunctionOfThisRun { get; } = runsAFunctionOfThisRun;
 
         /// <summary>
         ///     The bodies of the loops around the loop of <see cref="Turn" />,

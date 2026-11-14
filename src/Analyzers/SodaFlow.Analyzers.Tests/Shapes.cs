@@ -10491,6 +10491,42 @@ public static class Shapes
     public static Cell<int> HolderOfTheThirdLoopInALocalOfTheFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SlotHolder? first = null; for (int j = 0; j < 2; j++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int k = 0; k < 2; k++) { SlotHolder h = new() { Item = x }; first ??= h; } first!.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); }  } return S.Hold(0); });
 
+    // S2307. A turn makes a lambda that samples a cell of a local of the turn, and calls it. The local gets a pending cell at the end of the turn.
+    public static Cell<int> LambdaOfTheTurnReadsALocalOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int> read = () => x.Share!.Sample(); Kept.Add(read()); x.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2308. The same, where the turn calls a local function of the body by its name.
+    public static Cell<int> LocalFunctionOfTheTurnReadsALocalOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; int Read() => x.Share!.Sample(); Kept.Add(Read()); x.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2309. The same, where a lambda of the turn calls a local function of the turn.
+    public static Cell<int> LambdaOfTheTurnCallsALocalFunctionOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; int Read() => x.Share!.Sample(); Func<int> call = () => Read(); Kept.Add(call()); x.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2310. The same, where the lambda has a block and a parameter.
+    public static Cell<int> BlockLambdaOfTheTurnReadsALocalOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int, int> read = n => { int now = x.Share!.Sample(); return now + n; }; Kept.Add(read(1)); x.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S2311. The local of the body gets the lambda of the turn before, when a local of the block has one.
+    public static Cell<int> LambdaOfTheTurnOrOfTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int> read = kept ?? (() => x.Share!.Sample()); Kept.Add(read()); x.Share = l.Map(v => v); kept = read; } return S.Hold(0); });
+
+    // S2312. The local of the body has the lambda of the turn, and an assignment in a branch gives it the lambda of the turn before.
+    public static Cell<int> LambdaOfTheTurnThatABranchReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int> read = () => x.Share!.Sample(); Func<int> mine = read; if (kept != null) { read = kept; } Kept.Add(read()); x.Share = l.Map(v => v); kept = mine; } return S.Hold(0); });
+
+    // S2313. A delegate for the local function of the turn before is in a local of the block, and the turn calls it.
+    public static Cell<int> LocalFunctionOfTheTurnBeforeThroughADelegate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; int Read() => x.Share!.Sample(); Func<int> now = kept ?? Read; Kept.Add(now()); x.Share = l.Map(v => v); kept = Read; } return S.Hold(0); });
+
+    // S2314. The lambda of the turn before calls the local function of its turn by its name.
+    public static Cell<int> LambdaOfTheTurnBeforeCallsALocalFunctionOfItsTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; int Read() => x.Share!.Sample(); Func<int> call = kept ?? (() => Read()); Kept.Add(call()); x.Share = l.Map(v => v); kept = call; } return S.Hold(0); });
+
+    // S2315. A method gets the lambda of the turn by a ref parameter, and gives the lambda of the turn before back.
+    public static Cell<int> LambdaOfTheTurnThatARefArgumentReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? kept = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; Func<int> read = () => x.Share!.Sample(); Func<int> mine = read; KeepOrGive(ref read, kept); Kept.Add(read()); x.Share = l.Map(v => v); kept = mine; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12523,6 +12559,14 @@ public static class Shapes
         for (int j = 0; j < 2; j++)
         {
             all.Add(new SlotHolder { Item = slot });
+        }
+    }
+
+    private static void KeepOrGive(ref Func<int> now, Func<int>? before)
+    {
+        if (before != null)
+        {
+            now = before;
         }
     }
 
