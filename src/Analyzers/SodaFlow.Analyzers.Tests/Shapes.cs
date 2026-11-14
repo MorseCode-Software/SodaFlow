@@ -11303,6 +11303,106 @@ public static class Shapes
     public static Cell<int> Ab70TwoParametersWithRefForOneLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ab70ANewListThenPlain(ref list, ref list); return S.Hold(y.Share!.Sample()); });
 
+    // S2510. AB75. A method gives a property of its object a pending cell.
+    public static Cell<int> Ab75AMethodGivesItsObjectAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Give(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2511. AB75. A method gives a field of its object a pending cell, and a second method reads the field.
+    public static Cell<int> Ab75AMethodGivesAFieldAPendingCellAndASecondMethodReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Keep(l.Map(v => v)); return S.Hold(x.SampleKept()); });
+
+    // S2512. AB75. The same, and a property with a getter gives the field.
+    public static Cell<int> Ab75AMethodGivesAFieldAPendingCellAndAGetterGivesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Keep(l.Map(v => v)); return S.Hold(x.Kept!.Sample()); });
+
+    // S2513. AB75. Two calls of the method that always run, and the last one gives a plain cell.
+    public static Cell<int> Ab75TwoCallsAndTheLastOneGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Give(l.Map(v => v)); x.Give(Plain); return S.Hold(x.Share!.Sample()); });
+
+    // S2514. AB75. The second call is in a branch that does not run.
+    public static Cell<int> Ab75TheSecondCallIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Give(l.Map(v => v)); if (Never) { x.Give(Plain); } return S.Hold(x.Share!.Sample()); });
+
+    // S2515. AB75. The second call is in a loop that runs no turn.
+    public static Cell<int> Ab75TheSecondCallIsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Give(l.Map(v => v)); for (int i = 0; i < Kept.Count - Kept.Count; i++) { x.Give(Plain); } return S.Hold(x.Share!.Sample()); });
+
+    // S2516. AB75. The second call gives the plain cell in a branch of the method that does not run.
+    public static Cell<int> Ab75TheSecondCallHasItsWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Give(l.Map(v => v)); x.GiveWhen(Plain, Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2517. AB75. A setter with a body gives a field a pending cell, and the getter gives the field.
+    public static Cell<int> Ab75ASetterWithABodyGivesAFieldAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Through = l.Map(v => v); return S.Hold(x.Through!.Sample()); });
+
+    // S2518. AB75. The setter gets a plain cell after the pending one.
+    public static Cell<int> Ab75ASetterWithABodyGetsAPlainCellAfterAPendingOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); x.Through = l.Map(v => v); x.Through = Plain; return S.Hold(x.Through!.Sample()); });
+
+    // S2519. AB75. The keeper is a new object of its class, and it gets the object that it puts first as an argument.
+    public static Cell<int> Ab75ANewKeeperPutsAnObjectOfTheBlockFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ab75SlotKeeper keeper = new(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2520. AB75. The same, and the keeper makes the object that it puts first.
+    public static Cell<int> Ab75ANewKeeperPutsANewObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ab75SlotKeeper keeper = new(); keeper.Keep(list); keeper.PutANewOne(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2521. AB75. The keeper has objects that have the cell in a member of a member.
+    public static Cell<int> Ab75ANewKeeperPutsAnOuterFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OuterSlot y = new(); y.Inner.Share = l.Map(v => v); List<OuterSlot> list = []; if (!Never) { list.Add(y); } Ab75OuterKeeper keeper = new(); keeper.KeepOuters(list); keeper.PutAnOuter(); list[0].Inner.Share = Plain; return S.Hold(y.Inner.Share!.Sample()); });
+
+    // S2522. AB75. The same, where the keeper is from a factory method, and the code calls it through an interface.
+    public static Cell<int> Ab75AKeeperFromAFactoryPutsAnOuterFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { OuterSlot y = new(); y.Inner.Share = l.Map(v => v); List<OuterSlot> list = []; if (!Never) { list.Add(y); } IAb75Keeper keeper = NewAb75Keeper(); keeper.KeepOuters(list); keeper.PutAnOuter(); list[0].Inner.Share = Plain; return S.Hold(y.Inner.Share!.Sample()); });
+
+    // S2523. AB75. The keeper gets the list in its constructor, and a method puts an object first.
+    public static Cell<int> Ab75AKeeperWithTheListFromItsConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ab75ListKeeper keeper = new(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2524. AB75. A method keeps a pending cell in a list of its object, and a second method reads the list.
+    public static Cell<int> Ab75AMethodPutsAPendingCellIntoAListOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Cells cells = new(); cells.Add(l.Map(v => v)); return S.Hold(cells.SampleFirst()); });
+
+    // S2525. AB75. A constructor gives a member a pending cell and then a plain one.
+    public static Cell<int> Ab75AConstructorGivesAPlainCellAfterAPendingOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Made x = new(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2526. AB75. A constructor gives a member a pending cell, and a plain one in a branch that does not run.
+    public static Cell<int> Ab75AConstructorGivesThePlainCellInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Made x = new(l.Map(v => v), Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2527. AB75. A constructor calls a method of its object in a branch that does not run, and the method gives the plain cell.
+    public static Cell<int> Ab75AConstructorCallsAMethodInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Calls x = new(l.Map(v => v), Never); return S.Hold(x.Share!.Sample()); });
+
+    // S2528. AB75. A constructor always calls a method of its object, and the method gives the plain cell.
+    public static Cell<int> Ab75AConstructorAlwaysCallsAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Calls x = new(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2529. AB75. A struct in a local, and a method of the struct gives it a pending cell.
+    public static Cell<int> Ab75AMethodOfAStructGivesAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Value x = default; x.Give(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2530. AB75. An object that the walk did not see made, and a method gives it a pending cell.
+    public static Cell<int> Ab75AMethodGivesAnObjectThatTheWalkDidNotSeeMadeAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = Ab75Unseen[0]; x.Give(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S2531. AB75. The same, and a second call that always runs gives a plain cell.
+    public static Cell<int> Ab75TwoCallsOnAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = Ab75Unseen[1]; x.Give(l.Map(v => v)); x.Give(Plain); return S.Hold(x.Share!.Sample()); });
+
+    // S2532. AB75. The owner of the call is an element of a list.
+    public static Cell<int> Ab75AMethodOnAnElementGivesAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ab75Slot> list = [new Ab75Slot()]; list[0].Give(l.Map(v => v)); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2533. AB75. Two objects of one class: one gets the pending cell, and the read is of the other one.
+    public static Cell<int> Ab75TwoObjectsOfOneClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); Ab75Slot z = new(); x.Give(l.Map(v => v)); z.Give(Plain); return S.Hold(z.Share!.Sample()); });
+
+    // S2534. AB75. A second name of the object reads what the method gave through the first name.
+    public static Cell<int> Ab75ASecondNameReadsWhatTheMethodGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab75Slot x = new(); Ab75Slot z = x; x.Give(l.Map(v => v)); return S.Hold(z.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13594,6 +13694,134 @@ public static class Shapes
     {
         second = [new SettableSlot()];
         first[0].Share = Plain;
+    }
+
+    private static readonly Ab75Slot[] Ab75Unseen = [new(), new()];
+
+    private static IAb75Keeper NewAb75Keeper() => new Ab75OuterKeeper();
+
+    public sealed class Ab75Slot
+    {
+        private Cell<int>? kept;
+        private Cell<int>? through;
+
+        public Cell<int>? Share { get; private set; }
+
+        public Cell<int>? Kept => this.kept;
+
+        public Cell<int>? Through
+        {
+            get => this.through;
+            set => this.through = value;
+        }
+
+        public void Give(Cell<int> cell) => this.Share = cell;
+
+        public void GiveWhen(Cell<int> cell, bool when)
+        {
+            if (when)
+            {
+                this.Share = cell;
+            }
+        }
+
+        public void Keep(Cell<int> cell) => this.kept = cell;
+
+        public int SampleKept() => this.kept!.Sample();
+    }
+
+    public struct Ab75Value
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Share = cell;
+    }
+
+    public sealed class Ab75Made
+    {
+        public Ab75Made(Cell<int> cell)
+        {
+            this.Share = cell;
+            this.Share = Plain;
+        }
+
+        public Ab75Made(Cell<int> cell, bool when)
+        {
+            this.Share = cell;
+
+            if (when)
+            {
+                this.Share = Plain;
+            }
+        }
+
+        public Cell<int>? Share { get; private set; }
+    }
+
+    public sealed class Ab75Calls
+    {
+        public Ab75Calls(Cell<int> cell, bool when)
+        {
+            this.Share = cell;
+
+            if (when)
+            {
+                this.MakePlain();
+            }
+        }
+
+        public Ab75Calls(Cell<int> cell)
+        {
+            this.Share = cell;
+            this.MakePlain();
+        }
+
+        public Cell<int>? Share { get; private set; }
+
+        private void MakePlain() => this.Share = Plain;
+    }
+
+    public interface IAb75Keeper
+    {
+        void KeepOuters(List<OuterSlot> all);
+
+        void PutAnOuter();
+    }
+
+    private sealed class Ab75OuterKeeper : IAb75Keeper
+    {
+        private List<OuterSlot> outers = [];
+
+        public void KeepOuters(List<OuterSlot> all) => this.outers = all;
+
+        public void PutAnOuter() => this.outers.Insert(0, new OuterSlot());
+    }
+
+    private sealed class Ab75SlotKeeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => this.kept.Insert(0, first);
+
+        public void PutANewOne() => this.kept.Insert(0, new SettableSlot());
+    }
+
+    private sealed class Ab75ListKeeper(List<SettableSlot> all)
+    {
+        private readonly List<SettableSlot> kept = all;
+
+        public void Put(SettableSlot first) => this.kept.Insert(0, first);
+    }
+
+    private sealed class Ab75Cells
+    {
+        private readonly List<Cell<int>> all = [];
+
+        public void Add(Cell<int> cell) => this.all.Add(cell);
+
+        public int SampleFirst() => this.all[0].Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

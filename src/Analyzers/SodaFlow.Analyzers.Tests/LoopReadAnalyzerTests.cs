@@ -1747,7 +1747,26 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab70ASecondNameOfAListWithRef"] = ["SF1001"],
             ["Ab70TheLocationOfAListGetsADifferentList"] = ["SF1001"],
             ["Ab70TheLocalGetsANewObjectBetweenTheWritesInATurn"] = ["SF1001"],
-            ["Ab70TwoParametersWithRefForOneLocal"] = ["SF1001"]
+            ["Ab70TwoParametersWithRefForOneLocal"] = ["SF1001"],
+            ["Ab75AMethodGivesItsObjectAPendingCell"] = ["SF1001"],
+            ["Ab75AMethodGivesAFieldAPendingCellAndASecondMethodReadsIt"] = ["SF1005"],
+            ["Ab75AMethodGivesAFieldAPendingCellAndAGetterGivesIt"] = ["SF1001"],
+            ["Ab75TheSecondCallIsInABranch"] = ["SF1001"],
+            ["Ab75TheSecondCallIsInALoop"] = ["SF1001"],
+            ["Ab75TheSecondCallHasItsWriteInABranch"] = ["SF1001"],
+            ["Ab75ASetterWithABodyGivesAFieldAPendingCell"] = ["SF1001"],
+            ["Ab75ANewKeeperPutsAnObjectOfTheBlockFirst"] = ["SF1001"],
+            ["Ab75ANewKeeperPutsANewObjectFirst"] = ["SF1001"],
+            ["Ab75ANewKeeperPutsAnOuterFirst"] = ["SF1001"],
+            ["Ab75AKeeperFromAFactoryPutsAnOuterFirst"] = ["SF1001"],
+            ["Ab75AKeeperWithTheListFromItsConstructor"] = ["SF1001"],
+            ["Ab75AMethodPutsAPendingCellIntoAListOfItsObject"] = ["SF1005"],
+            ["Ab75AConstructorGivesThePlainCellInABranch"] = ["SF1001"],
+            ["Ab75AConstructorCallsAMethodInABranch"] = ["SF1001"],
+            ["Ab75AMethodOfAStructGivesAPendingCell"] = ["SF1001"],
+            ["Ab75AMethodGivesAnObjectThatTheWalkDidNotSeeMadeAPendingCell"] = ["SF1001"],
+            ["Ab75AMethodOnAnElementGivesAPendingCell"] = ["SF1001"],
+            ["Ab75ASecondNameReadsWhatTheMethodGave"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

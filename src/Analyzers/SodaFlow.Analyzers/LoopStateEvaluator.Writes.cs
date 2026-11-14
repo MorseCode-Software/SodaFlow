@@ -14,7 +14,10 @@ internal sealed partial class LoopStateEvaluator
     ///     Records the state of a member of the object that the code is in, at
     ///     its initializer or assignment.
     /// </summary>
-    public void SetMember(ISymbol member, LoopState state)
+    /// <param name="member">The member.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="replaces">True when the assignment always runs in its function.</param>
+    public void SetMember(ISymbol member, LoopState state, bool replaces = false)
     {
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
@@ -26,8 +29,75 @@ internal sealed partial class LoopStateEvaluator
             location: this,
             isOfItsTurn: static (_, made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
+        // A write that always runs gives the member only the new state. A function can run no
+        // time, and so can a call that does not always run. A constructor makes a new object, thus
+        // each run of it starts with no state from a run before.
+        bool only =
+            replaces
+            && this.function == null
+            && (this.Frame.IsOfAConstructor || this.call is null or { AlwaysRuns: true });
+
         this.thisMembers[key] =
-            this.thisMembers.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+            !only && this.thisMembers.TryGetValue(key: key, value: out LoopState? existing)
+                ? existing.Join(state)
+                : state;
+
+        this.setOnThis[key] = only || (this.setOnThis.TryGetValue(key: key, value: out bool before) && before);
+    }
+
+    /// <summary>
+    ///     Gives an object each member that a callee set on it. The callee got a
+    ///     copy of the members of the object, and the object is in the code of
+    ///     the caller.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="owner">The state of the object.</param>
+    /// <param name="written">The expression of the object, when the call has one.</param>
+    /// <param name="sets">The members, from <see cref="Followed.Sets" />.</param>
+    private void GivesItsOwner(
+        SyntaxNode call,
+        LoopState owner,
+        ExpressionSyntax? written,
+        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets)
+    {
+        if (this.quiet || sets.IsEmpty)
+        {
+            return;
+        }
+
+        (bool always, SyntaxNode? turn) = this.WhereItRuns(call);
+
+        foreach ((ISymbol member, LoopState state, bool replaces) in sets)
+        {
+            // The write is a write to the member through the expression, as an assignment is.
+            if (written != null)
+            {
+                this.SetMemberOf(
+                    owner: written,
+                    member: member,
+                    state: state,
+                    replaces: replaces && always,
+                    turn: replaces ? turn : null);
+
+                continue;
+            }
+
+            LoopState inOwner = this.InAnObject(owner: owner, state: state);
+            this.region.AddAMemberWrite();
+            this.Frame.LastWrite = null;
+
+            this.Change(
+                owner: owner,
+                change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
+                replaces: replaces && always,
+                turn: replaces ? turn : null);
+
+            // An owner that the store does not know keeps the state for the field.
+            if (owner.Objects.IsEmpty || owner.Objects.Contains(MadeObject.Unknown))
+            {
+                this.SetField(field: member, state: inOwner);
+            }
+        }
     }
 
     /// <summary>

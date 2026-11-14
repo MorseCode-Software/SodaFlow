@@ -89,6 +89,10 @@ internal sealed partial class LoopStateEvaluator
     private readonly LoopRegion region;
     private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
+    // The members of the object that this code set. The value is true when a write that always
+    // runs gave the member its state. The code of a function in this code has the same record.
+    private readonly Dictionary<ISymbol, bool> setOnThis;
+
     public LoopStateEvaluator(LoopRegion region)
         : this(
             region: region,
@@ -99,6 +103,7 @@ internal sealed partial class LoopStateEvaluator
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            setOnThis: new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default),
             quiet: false,
             function: null,
             call: null)
@@ -114,6 +119,7 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> locals,
         HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers,
+        Dictionary<ISymbol, bool> setOnThis,
         bool quiet,
         SyntaxNode? function,
         CallOfThisCode? call)
@@ -128,6 +134,7 @@ internal sealed partial class LoopStateEvaluator
         this.locals = locals;
         this.assigned = assigned;
         this.thisMembers = thisMembers;
+        this.setOnThis = setOnThis;
         this.quiet = quiet;
     }
 
@@ -151,6 +158,9 @@ internal sealed partial class LoopStateEvaluator
                 assigned: new HashSet<ISymbol>(collection: this.assigned, comparer: SymbolEqualityComparer.Default),
                 thisMembers: new Dictionary<ISymbol, LoopState>(
                     dictionary: this.thisMembers,
+                    comparer: SymbolEqualityComparer.Default),
+                setOnThis: new Dictionary<ISymbol, bool>(
+                    dictionary: this.setOnThis,
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
                 function: this.function,
@@ -3118,7 +3128,8 @@ internal sealed partial class LoopStateEvaluator
             members: members,
             receiver: receiverState,
             target: null,
-            returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate);
+            returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate,
+            owner: receiverState == null ? null : receiver);
     }
 
     /// <summary>
@@ -3248,7 +3259,8 @@ internal sealed partial class LoopStateEvaluator
                 : new Followed(
                     state: first.State.Join(second.State),
                     findings: first.Findings.AddRange(second.Findings),
-                    outs: first.Outs.SetItems(second.Outs));
+                    outs: first.Outs.SetItems(second.Outs),
+                    sets: first.Sets.AddRange(second.Sets));
 
     private Followed? FollowFunctions(
         SyntaxNode call,
@@ -3430,7 +3442,8 @@ internal sealed partial class LoopStateEvaluator
                 return new Followed(
                     state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
                     findings: Followed.Nothing.Findings,
-                    outs: Followed.Nothing.Outs);
+                    outs: Followed.Nothing.Outs,
+                    sets: Followed.Nothing.Sets);
             case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
                 return null;
         }
@@ -4223,7 +4236,8 @@ internal sealed partial class LoopStateEvaluator
         return new Followed(
             state: elements,
             findings: all?.Findings ?? ImmutableArray<Finding>.Empty,
-            outs: Followed.Nothing.Outs);
+            outs: Followed.Nothing.Outs,
+            sets: Followed.Nothing.Sets);
     }
 
     /// <summary>
@@ -5191,7 +5205,8 @@ internal sealed partial class LoopStateEvaluator
                     seed: followed.State,
                     func: static (state, function) => state.Join(LoopState.OfFunction(function))),
             findings: followed.Findings,
-            outs: followed.Outs);
+            outs: followed.Outs,
+            sets: followed.Sets);
 
         Followed? Run(LoopState given) =>
             makers.Aggregate(
@@ -5248,7 +5263,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState? receiver,
         LoopState? target,
         bool returnsAFunction = false,
-        bool manyTimes = false)
+        bool manyTimes = false,
+        ExpressionSyntax? owner = null)
     {
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
@@ -5362,17 +5378,25 @@ internal sealed partial class LoopStateEvaluator
             this.region.EndsACallOf(started);
         }
 
-        return this.Leave(
-            call: call,
-            name: name,
-            bindings: bindings,
-            inner: inner,
-            lexical: definer != null,
-            receiver: receiver,
-            target: target,
-            result: result,
-            found: found,
-            leaving: leaving);
+        Followed after =
+            this.Leave(
+                call: call,
+                name: name,
+                bindings: bindings,
+                inner: inner,
+                lexical: definer != null,
+                receiver: receiver,
+                target: target,
+                result: result,
+                found: found,
+                leaving: leaving);
+
+        if (receiver != null)
+        {
+            this.GivesItsOwner(call: call, owner: receiver, written: owner, sets: after.Sets);
+        }
+
+        return after;
     }
 
     // Takes away the state of each local and each parameter that the given function declares,
@@ -5497,6 +5521,7 @@ internal sealed partial class LoopStateEvaluator
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
+            setOnThis: definer?.setOnThis ?? new Dictionary<ISymbol, bool>(SymbolEqualityComparer.Default),
             quiet: this.quiet,
             function: function,
             // A callee with no body to read can run a function two or more times in one call. A
@@ -5609,10 +5634,21 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        // A callee on a different object got a copy of the members of that object. Each member
+        // that it set goes back to the object. A function reads the members of its own code.
+        ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets =
+            lexical || receiver == null
+                ? ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty
+                : inner.setOnThis
+                    .Select(set =>
+                        (set.Key, inner.thisMembers[set.Key].WithOrigins(Out).FromIfUnknown(inputs), set.Value))
+                    .ToImmutableArray();
+
         return new Followed(
             state: result.WithOrigins(Out).FromIfUnknown(inputs),
             findings: findings,
-            outs: outs.ToImmutable());
+            outs: outs.ToImmutable(),
+            sets: sets);
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)
@@ -6125,6 +6161,7 @@ internal sealed partial class LoopStateEvaluator
                     locals: this.locals,
                     assigned: this.assigned,
                     thisMembers: this.thisMembers,
+                    setOnThis: this.setOnThis,
                     quiet: this.quiet,
                     function: this.function,
                     call: this.call) { walker = this.walker };

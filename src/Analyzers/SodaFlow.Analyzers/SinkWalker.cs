@@ -1407,7 +1407,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol)
                 when target is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
-                this.evaluator.SetMember(member: own, state: state);
+                this.evaluator.SetMember(member: own, state: state, replaces: replaces);
                 break;
             case { } member and (IFieldSymbol or IPropertySymbol) when !this.region.Symbols.IsSodaFlow(member):
                 this.evaluator.SetMemberOf(

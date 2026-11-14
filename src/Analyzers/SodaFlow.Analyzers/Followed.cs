@@ -12,7 +12,8 @@ namespace SodaFlow.Analyzers;
 internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
-    in ImmutableDictionary<ISymbol, LoopState> outs)
+    in ImmutableDictionary<ISymbol, LoopState> outs,
+    in ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> sets)
 {
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
@@ -22,11 +23,19 @@ internal sealed class Followed(
         new(
             state: LoopState.None,
             findings: ImmutableArray<Finding>.Empty,
-            outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default));
+            outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+            sets: ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)>.Empty);
 
     public LoopState State { get; } = state;
 
     public ImmutableArray<Finding> Findings { get; } = findings;
 
     public ImmutableDictionary<ISymbol, LoopState> Outs { get; } = outs;
+
+    /// <summary>
+    ///     Each member of its object that the callee set, with the state that the
+    ///     member has when the callee returns. The last part is true when a write
+    ///     that always runs in the callee gave the member that state.
+    /// </summary>
+    public ImmutableArray<(ISymbol Member, LoopState State, bool Replaces)> Sets { get; } = sets;
 }
