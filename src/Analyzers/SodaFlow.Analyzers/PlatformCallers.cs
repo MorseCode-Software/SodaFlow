@@ -596,7 +596,7 @@ internal static class PlatformCallers
     // The name of a type in the tables of the callbacks and of the receivers. A type in a type, as
     // the builder of an immutable collection is, has the name of that type before its own name. Each
     // other table has no row for such a type.
-    private static string NameOf(INamedTypeSymbol type) =>
+    private static string NameOf(ISymbol type) =>
         type.ContainingType is { } outer ? outer.Name + "." + type.Name : type.Name;
 
     // The name of a method in the tables. An explicit implementation of a member of an interface,

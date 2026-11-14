@@ -241,7 +241,7 @@ internal sealed class LoopStateEvaluator
 
     /// <summary>
     ///     Records an assignment that each turn of a loop always runs, to a local
-    ///     that is older than the turn. For the rest of the turn, the local has
+    ///     that is older than the turn. Until the end of the turn, the local has
     ///     only the new value.
     /// </summary>
     /// <remarks>
@@ -287,7 +287,7 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     A location that is older than the turn keeps what the first read gave
-    ///     it, and the second read finds a read of that value. Each object of the
+    ///     it. The second read finds a read of that value. Each object of the
     ///     first read is then one of the objects of the turns before. The evaluator
     ///     reads each expression of the loop again, because its state can be a
     ///     different one now. A local that the body declares is new in each turn,
@@ -299,14 +299,12 @@ internal sealed class LoopStateEvaluator
     {
         this.EndTurns(turn);
         Forget(found: this.memo, code: loop, node: static key => key);
-        Forget(found: this.functionResults, code: loop, node: static key => key);
         Forget(found: this.followed, code: loop, node: static key => key);
         Forget(found: this.implied, code: loop, node: static key => key.Node);
 
         foreach (ISymbol local in this.locals.Keys.Where(local => IsDeclaredIn(local: local, code: turn)).ToArray())
         {
             this.locals.Remove(local);
-            this.assigned.Remove(local);
         }
     }
 
@@ -472,7 +470,7 @@ internal sealed class LoopStateEvaluator
             // A collection that got the object of this local contains that object also.
             this.MergeIntoHolders(
                 local: holder,
-                state: this.AsACopyOfAChangeTo(changed: has, state: changed),
+                state: AsACopyOfAChangeTo(changed: has, state: changed),
                 level: 1);
 
             // A parameter starts with the state of its argument, which has the type of the object.
@@ -544,9 +542,14 @@ internal sealed class LoopStateEvaluator
         {
             LoopState put = this.Eval(value);
 
+            // A value with members that is no object of the store has those members only in the
+            // copy that the collection gets. Thus, the collection then holds an object that the
+            // store does not know.
             this.Change(
                 owner: this.Eval(written),
-                change: old => old.HoldingWhatCameWith(put),
+                change: old => put.IsOfNoObject
+                    ? old.HoldingWhatCameWith(put).HoldingAnUnknownObject
+                    : old.HoldingWhatCameWith(put),
                 replaces: false,
                 turn: null);
         }
@@ -616,18 +619,10 @@ internal sealed class LoopStateEvaluator
     ///     Adds a state to what a name holds, for a value that a call puts into
     ///     the object that the name is for. <c>list.Add(value)</c> is such a call.
     /// </summary>
-    public void Absorb(ExpressionSyntax target, LoopState state)
-    {
-        // The object contains the value. It is not the value.
-        LoopState put = state.AsContainer.WithNoObjects;
-
-        // A value with members that is no object of the store has those members only here. For a
-        // collection whose elements go into the object, that is a collection that holds no
-        // object. Thus, the object then holds an object that the store does not know.
-        bool ofNoObject = state.Members != null && (state.IsContainer ? !state.HoldsAnObject : state.Objects.IsEmpty);
-
-        this.Merge(target: target, state: ofNoObject ? put.HoldingAnUnknownObject : put);
-    }
+    public void Absorb(ExpressionSyntax target, LoopState state) =>
+        // The object contains the value. It is not the value. A put gives the object what it
+        // holds, and Gets records that.
+        this.Merge(target: target, state: state.AsContainer.WithNoObjects);
 
     /// <summary>
     ///     Adds a state to what a name holds, as it is. A callee that put a
@@ -669,7 +664,7 @@ internal sealed class LoopStateEvaluator
             {
                 this.MergeIntoHolders(
                     local: held,
-                    state: this.AsACopyOfAChangeTo(changed: owner, state: state),
+                    state: AsACopyOfAChangeTo(changed: owner, state: state),
                     level: level + 1);
             }
 
@@ -683,19 +678,20 @@ internal sealed class LoopStateEvaluator
                 this.Frame.Positions[local] = null;
             }
 
+            // A collection can contain an object that the walk did not see go in, and the element
+            // can be that object. The copy is then the only record of the change. Thus, the
+            // collection holds an object that the store does not know from this change on.
             target = collection;
-            state = this.AsACopyOfAChangeTo(changed: owner, state: state);
+            state = state.AsContainer.HoldingAnUnknownObject;
         }
     }
 
-    // A collection gets a copy of each change to a value that it contains. When the store has
-    // each object that the value can be, the store has the change also. For each other value, the
-    // copy is the only record of the change. Thus, the collection then holds an object that the
-    // store does not know, and an element of it keeps the copy.
-    private LoopState AsACopyOfAChangeTo(LoopState changed, LoopState state) =>
-        !changed.Objects.IsEmpty && changed.Objects.All(made => this.region.Objects.StateOf(made) != null)
-            ? state.AsContainer
-            : state.AsContainer.HoldingAnUnknownObject;
+    // A collection gets a copy of each change to the object of a local that it got. For a value
+    // that is an object of the store, the store has the change also. For a value with no object,
+    // the copy is the only record of the change. Thus, the collection then holds an object that
+    // the store does not know, and an element of it keeps the copy.
+    private static LoopState AsACopyOfAChangeTo(LoopState changed, LoopState state) =>
+        changed.Objects.IsEmpty ? state.AsContainer.HoldingAnUnknownObject : state.AsContainer;
 
     // Each collection that got the object of a local contains the change to that object.
     private void MergeIntoHolders(ISymbol local, LoopState state, int level)
@@ -878,10 +874,12 @@ internal sealed class LoopStateEvaluator
     /// <remarks>
     ///     A local, a parameter, a member, or an element gets the members of the
     ///     store when the store has each object that it can be. A collection holds
-    ///     an object that the store does not know for each value that it got with
-    ///     members and no object. Thus, an element of such a collection keeps what
-    ///     it has, as each value that can be such an object does. The result of a
-    ///     call is one of the values that it can be, and keeps what it has also.
+    ///     an object that the store does not know after it got a value with members
+    ///     and no object. It holds one after a change through one of its elements
+    ///     also, because the walk does not see each value that a collection gets.
+    ///     Thus, an element of such a collection keeps what it has, as each value
+    ///     that can be such an object does. The result of a call is one of the
+    ///     values that it can be, and keeps what it has also.
     /// </remarks>
     private LoopState Refreshed(ExpressionSyntax expression, LoopState state)
     {
@@ -952,7 +950,9 @@ internal sealed class LoopStateEvaluator
         // value that no object of the store is are only here. Thus, the collection then holds an
         // object that the store does not know.
         LoopState held = state.Holding(state.Objects).WithObjects(ImmutableArray<MadeObject>.Empty);
-        LoopState apart = held.IsContainer && held.HasMembersOfNoObject ? held.HoldingAnUnknownObject : held;
+
+        LoopState apart =
+            held is { IsContainer: true, HasMembersOfNoObject: true } ? held.HoldingAnUnknownObject : held;
 
         if (this.quiet)
         {

@@ -195,8 +195,11 @@ internal sealed class LoopState
     /// </summary>
     public bool HasMembersOfNoObject => this.Members != null && this.Held.IsEmpty;
 
-    /// <summary>True for a collection that holds an object.</summary>
-    public bool HoldsAnObject => !this.Held.IsEmpty;
+    /// <summary>
+    ///     True for a value with members that is no object of the store. Only a
+    ///     copy of this state has those members.
+    /// </summary>
+    public bool IsOfNoObject => this.Members != null && this.Objects.IsEmpty;
 
     /// <summary>
     ///     The same state, for a collection that got a value. It holds each object

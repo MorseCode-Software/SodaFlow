@@ -132,8 +132,8 @@ internal sealed class ObjectStore
     {
         if (!this.before.TryGetValue(key: found, value: out MadeObject? older))
         {
-            // Only the object in a member has none yet. The objects before it are in that member of
-            // the objects before its owner.
+            // Only the object in a member has none at this time. The objects before it are in that
+            // member of the objects before its owner.
             (MadeObject owner, ISymbol member, ITypeSymbol type) = this.memberOf[found];
             MadeObject ofOwner = this.BeforeOf(owner);
 

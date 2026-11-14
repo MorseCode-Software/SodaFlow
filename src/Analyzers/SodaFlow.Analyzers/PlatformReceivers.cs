@@ -74,11 +74,11 @@ internal enum PlatformReceiver
     ///     <para>
 ///         A builder of an immutable collection has the name of its collection
 ///         before the name <c>Builder</c>. A member of a builder that is not here
-///         has no row for a cause. The lookups and <c>Remove</c> of a builder
-///         with hash codes give the call to the object that the builder has
-///         when that object is the first one with its hash code, and to the
-///         object that the code gives when it is not. The set operations of a
-///         builder have no run for each kind of argument, and
+///         has no row for a cause. A builder with hash codes gives the call in
+///         its lookups and in <c>Remove</c> to one of the two objects. That is
+///         its own object when that object is the first one with its hash code.
+///         Otherwise, it is the object that the code gives. The set operations
+///         of a builder have no run for each type of argument, and
 ///         <c>SetEquals</c> changed on .NET 11.
 ///     </para>
 ///     <para>

@@ -465,7 +465,7 @@ internal sealed class PlatformReceiversTests
             [("ImmutableArray.Builder", "Remove")] = static (stored, given) =>
                 _ = ImmutableArray.Create(stored).ToBuilder().Remove(given),
             [("ImmutableArray.Builder", "RemoveRange")] = static (stored, given) =>
-                ImmutableArray.Create(stored).ToBuilder().RemoveRange(items: (IEnumerable<Probe>)ArrayOf(given)),
+                ImmutableArray.Create(stored).ToBuilder().RemoveRange(items: ArrayOf(given)),
             [("ImmutableArray.Builder", "Replace")] = static (stored, given) =>
                 Try(() => ImmutableArray.Create(stored).ToBuilder().Replace(oldValue: given, newValue: given)),
             [("OrderedDictionary", "Add")] = static (stored, given) =>

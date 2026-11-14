@@ -9071,9 +9071,9 @@ public static class Shapes
     public static Cell<int> ValueOfADictionaryReadsTheStateOfItsObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Dictionary<string, SettableSlot> map = new() { ["a"] = x }; x.Share = Plain; return S.Hold(map["a"].Share!.Sample()); });
 
-    // S1952. A plain cell through the element replaces the pending one for a read through the element.
-    public static Cell<int> ElementReadsWhatAWriteThroughItGave() =>
-        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+    // S1952. A pending cell through the element is a change to its object, and a read through the first name of the object finds it.
+    public static Cell<int> WriteThroughAnElementIsAChangeToItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list[0].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
 
     // S1953. In a loop, an element of a list of the turn reads the state that the object of the turn has now.
     public static Cell<int> TurnElementOfAListOfTheTurnReadsTheStateOfItsObject() =>
@@ -9111,15 +9111,15 @@ public static class Shapes
     public static Cell<int> ElementOfACopyOfAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> first = [x]; List<SettableSlot> copy = new(first); copy.Add(new SettableSlot { Share = Plain }); x.Share = l.Map(v => v); return S.Hold(copy[0].Share!.Sample()); });
 
-    // S1962. A collection expression got an object with no state yet. The object gets a pending cell and then a plain one.
+    // S1962. A collection expression got an object that had no state at that time. The object gets a pending cell and then a plain one.
     public static Cell<int> ElementThatHadNoStateWhenItsListGotIt() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> one = [x]; x.Share = l.Map(v => v); x.Share = Plain; return S.Hold(one[0].Share!.Sample()); });
 
-    // S1963. A collection expression got an object with no state yet, and the list got a second object. The first object then gets a pending cell.
+    // S1963. A collection expression got an object that had no state at that time, and the list got a second object. The first object then gets a pending cell.
     public static Cell<int> ElementWithNoStateBesideASecondObject() =>
-        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> list = [x]; list.Add(new SettableSlot { Share = Plain }); x.Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> list = [x]; list.Insert(0, new SettableSlot { Share = Plain }); x.Share = l.Map(v => v); return S.Hold(list[1].Share!.Sample()); });
 
-    // S1964. A list got the elements of a second list, one of them with no state yet. That element then gets a pending cell.
+    // S1964. A list got the elements of a second list, and one of them had no state at that time. That element then gets a pending cell.
     public static Cell<int> ElementWithNoStateThatAddRangePut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> first = [x]; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; list.AddRange(first); x.Share = l.Map(v => v); return S.Hold(list[1].Share!.Sample()); });
 
@@ -9191,11 +9191,11 @@ public static class Shapes
     public static Cell<int> BuilderOfAnImmutableArrayIndexOf() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<SameOwn>.Builder made = ImmutableArray.CreateBuilder<SameOwn>(); made.Add(new(l.Map(v => v))); Kept.Add(made.IndexOf(new SameOwn(Plain))); return S.Hold(0); });
 
-    // S1982. A builder of an ImmutableHashSet gives the call of Equals in Remove to the object that it has, when that object is the first one with its hash code. Remove has no row for its receiver.
+    // S1982. Remove of a builder of an ImmutableHashSet gives the call of Equals to the object that the builder has. That is so when the object is the first one with its hash code. Remove has no row for its receiver.
     public static Cell<int> BuilderOfAnImmutableHashSetRemoveOfTheObjectThatItHas() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableHashSet<SameOwn>.Builder made = ImmutableHashSet.Create(new SameOwn(l.Map(v => v))).ToBuilder(); Kept.Add(made.Remove(new SameOwn(Plain))); return S.Hold(0); });
 
-    // S1983. A builder of an ImmutableDictionary gives the call of Equals in ContainsKey to the key that it has, when that key is the first one with its hash code. ContainsKey has no row for its receiver.
+    // S1983. ContainsKey of a builder of an ImmutableDictionary gives the call of Equals to the key that the builder has. That is so when the key is the first one with its hash code. ContainsKey has no row for its receiver.
     public static Cell<int> BuilderOfAnImmutableDictionaryContainsKeyOfTheKeyThatItHas() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<SameOwn, int>.Builder made = ImmutableDictionary.CreateRange(new[] { new KeyValuePair<SameOwn, int>(new(l.Map(v => v)), 1) }).ToBuilder(); Kept.Add(made.ContainsKey(new SameOwn(Plain))); return S.Hold(0); });
 
@@ -9315,7 +9315,7 @@ public static class Shapes
     public static Cell<int> BuilderOfAnImmutableArraySort() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<RankedOwn>.Builder made = ImmutableArray.CreateBuilder<RankedOwn>(); made.Add(new(l.Map(v => v))); made.Add(new(l.Map(v => v))); made.Sort(); return S.Hold(0); });
 
-    // S2013. A builder of an ImmutableDictionary gives the call of Equals in Add to the key that the code gives, and the key that it has has the pending cell.
+    // S2013. Add of a builder of an ImmutableDictionary gives the call of Equals to the key that the code gives. The key that the builder has is the one with the pending cell.
     public static Cell<int> BuilderOfAnImmutableDictionaryThatHasAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<SameOwn, int>.Builder made = ImmutableDictionary.CreateRange(new[] { new KeyValuePair<SameOwn, int>(new(l.Map(v => v)), 1) }).ToBuilder(); made.Add(new SameOwn(Plain), 2); return S.Hold(0); });
 
@@ -9334,6 +9334,154 @@ public static class Shapes
     // S2017. The last turn ends at a break statement after the assignment, and the local keeps what that turn gave.
     public static Cell<int> TurnEndsAfterItsAssignment() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> last = Plain; for (int i = 0; i < 2; i++) { last = l.Map(v => v); if (i == 0) { break; } last = Plain; } return S.Hold(last.Sample()); });
+
+    // S2018. A local has an object that the walk did not see made, and that is no element of a collection. The object gets its pending cell after the list got it.
+    public static Cell<int> ElementFromAFieldThatGetsAPendingCellAfterTheListGotIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SharedSlot; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; list.Insert(0, old); old.Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2019. A list that the walk did not see made is in a list of lists, and then gets an object with a pending cell.
+    public static Cell<int> ElementOfAListThatTheWalkDidNotSeeMadeInAListOfLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> inner = SharedSlotLists[0]; inner.Clear(); List<List<SettableSlot>> outer = [new List<SettableSlot> { new SettableSlot { Share = Plain } }]; outer.Insert(0, inner); inner.Add(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(outer[0][0].Share!.Sample()); });
+
+    // S2020. An element that is no object of the store gets a pending cell through the indexer. The list then gets an object of the store.
+    public static Cell<int> ElementWithNoObjectThatGetsAPendingCellThroughTheIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; list.Add(SharedSlots[2]); list[0].Share = l.Map(v => v); list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2021. A list got an object of the store, and then an object with no state that the walk did not see made. The second object gets a pending cell through its index, and the first one gets a plain cell after that.
+    public static Cell<int> ElementWithNoStateBesideAnObjectOfTheStore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(SlotsWithNoState[0]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2022. A collection expression got an object of the store that had no state at that time. The object gets a pending cell through a second local.
+    public static Cell<int> ElementWithNoStateThatGetsAPendingCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); List<SettableSlot> one = [x]; SettableSlot y = x; y.Share = l.Map(v => v); return S.Hold(one[0].Share!.Sample()); });
+
+    // S2023. A collection expression has an object of the store and an object with no state that the walk did not see made. The index of the write and of the read is no constant.
+    public static Cell<int> ElementWithNoStateInACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; List<SettableSlot> list = [x, SlotsWithNoState[1]]; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2024. The same, for an array with no type in its creation.
+    public static Cell<int> ElementWithNoStateInAnArrayWithNoType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; SettableSlot[] list = new[] { x, SlotsWithNoState[2] }; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2025. The same, for an array with a type in its creation.
+    public static Cell<int> ElementWithNoStateInAnArrayOfAType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; SettableSlot[] list = new SettableSlot[] { x, SlotsWithNoState[3] }; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2026. The same, for a collection initializer.
+    public static Cell<int> ElementWithNoStateInACollectionInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; List<SettableSlot> list = new() { x, SlotsWithNoState[4] }; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2027. The same, for an initializer of a dictionary.
+    public static Cell<int> ElementWithNoStateInAnInitializerOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; Dictionary<int, SettableSlot> list = new() { [0] = x, [1] = SlotsWithNoState[5] }; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2028. The same, where an assignment to an index puts each object into an array.
+    public static Cell<int> ElementWithNoStateThatAnIndexAssignmentPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; SettableSlot[] list = new SettableSlot[2]; list[0] = x; list[1] = SlotsWithNoState[6]; list[i].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[i].Share!.Sample()); });
+
+    // S2029. A copy of a list that the walk did not see made, with an object that has a pending cell. The copy then gets an object of the store.
+    public static Cell<int> ElementOfACopyOfAListThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsWithNoState[7]; old.Share = l.Map(v => v); List<SettableSlot> source = ListsWithNoState[0]; source.Add(old); List<SettableSlot> list = new(source); list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2030. A null literal in a collection expression is no object. The object beside it reads the state that it has now.
+    public static Cell<int> ElementBesideNullInACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot?> list = [x, null]; x.Share = Plain; int i = Kept.Count >= 0 ? 0 : 1; return S.Hold(list[i]!.Share!.Sample()); });
+
+    // S2031. The same, where Add puts the null literal.
+    public static Cell<int> ElementBesideNullThatAddPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot?> list = []; list.Add(null); list.Add(x); x.Share = Plain; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2032. The same, for a default expression with a type.
+    public static Cell<int> ElementBesideADefaultValueThatAddPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot?> list = []; list.Add(default(SettableSlot)); list.Add(x); x.Share = Plain; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2033. A cell is no object for the store. The object beside it in a list of objects reads the state that it has now.
+    public static Cell<int> ElementBesideACellInAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<object> list = []; list.Add(Plain); list.Add(x); x.Share = Plain; return S.Hold(((SettableSlot)list[1]).Share!.Sample()); });
+
+    // S2034. The same, for a string in a local.
+    public static Cell<int> ElementBesideAStringInAListOfObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; string text = Kept.Count.ToString(); List<object> list = []; list.Add(text); list.Add(x); x.Share = Plain; return S.Hold(((SettableSlot)list[1]).Share!.Sample()); });
+
+    // S2035. A callee with no body to read runs a local function. The function returns what the turn before gave to a local of the block.
+    public static Cell<int> FunctionForACalleeReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; for (int i = 0; i < 2; i++) { Cell<int> Get(int n) => c; Kept.Add(new[] { 1 }.Select(Get).First().Sample()); c = l.Map(v => v); } return S.Hold(0); });
+
+    // S2036. The turn before made a holder with a member that the walk did not see set. The object in that member gets a pending cell through the holder. A local of the block has the member of the holder of this turn.
+    public static Cell<int> MemberOfTheHolderOfTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? kept = null; SettableSlot? outer = null; for (int i = 0; i < 2; i++) { if (kept != null) { kept.Item!.Share = l.Map(v => v); } SlotHolder h = HolderWithItsOwnSlot(); outer = h.Item; if (kept != null) { return S.Hold(kept.Item!.Share!.Sample()); } kept = h; } Kept.Add(outer!); return S.Hold(0); });
+
+    // S2037. A conversion operator of this compilation samples the cell that the turn before gave to a local of the block.
+    public static Cell<int> ConversionReadsWhatTheTurnBeforeGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; for (int i = 0; i < 2; i++) { TallyReading r = c; Kept.Add(r); c = l.Map(v => v); } return S.Hold(0); });
+
+    // S2038. The loop runs one turn, and that turn gives a local a pending cell. The second read of the body gives the local a plain cell.
+    public static Cell<int> LoopOfOneTurnWhoseSecondReadGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> other = l.Map(v => v); Cell<int> c = Plain; for (int i = 0; i < 1; i++) { c = other; other = Plain; } return S.Hold(c.Sample()); });
+
+    // S2039. An incrementor of a for statement samples the cell that the turn gave to a local of the block.
+    public static Cell<int> IncrementorReadsWhatTheTurnGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; for (int i = 0; i < 2; i++, Kept.Add(c.Sample())) { c = l.Map(v => v); } return S.Hold(0); });
+
+    // S2040. Each turn gives a local of the block the object of the turn. The next turn gives that object a pending cell through the local, before the assignment.
+    public static Cell<int> LocalOfTheBlockThatEachTurnAssignsAndTheNextTurnReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; for (int i = 0; i < 2; i++) { if (y != null) { y.Share = l.Map(v => v); return S.Hold(y.Share!.Sample()); } SettableSlot x = new() { Share = Plain }; y = x; y.Share = Plain; } return S.Hold(0); });
+
+    // S2041. Each turn gives a local of the block the object of the turn, and a list gets it from that local. The next turn gives the object a pending cell through the list.
+    public static Cell<int> LocalOfTheBlockThatEachTurnAssignsAndAListKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = null; List<SettableSlot> all = []; for (int i = 0; i < 2; i++) { if (y != null) { all[0].Share = l.Map(v => v); } SettableSlot x = new() { Share = Plain }; y = x; all.Add(y); y.Share = Plain; } return S.Hold(all[0].Share!.Sample()); });
+
+    // S2042. A collection expression got the result of a call with no body to read, which is an object of the store with no members. The list gets a second object, and the first object gets a pending cell.
+    public static Cell<int> ElementFromACallWithNoBodyInACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Activator.CreateInstance<SettableSlot>(); List<SettableSlot> one = [x]; one.Add(new SettableSlot { Share = Plain }); x.Share = l.Map(v => v); return S.Hold(one[0].Share!.Sample()); });
+
+    // S2043. A default literal is no object. The object beside it reads the state that it has now.
+    public static Cell<int> ElementBesideADefaultLiteralThatAddPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot?> list = []; list.Add(default); list.Add(x); x.Share = Plain; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2044. The same, for a null literal with a cast.
+    public static Cell<int> ElementBesideANullWithACastThatAddPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot?> list = []; list.Add((SettableSlot?)null); list.Add(x); x.Share = Plain; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2045. The turn before made a holder with a member that the walk did not see set. A local of the block has the object in that member. The object gets a pending cell through the local, and the code samples the cell through the holder.
+    public static Cell<int> MemberOfTheHolderOfTheTurnBeforeThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? kept = null; SettableSlot? outer = null; SettableSlot? spare = null; for (int i = 0; i < 2; i++) { if (outer != null) { outer.Share = l.Map(v => v); } SlotHolder h = HolderWithItsOwnSlot(); spare = h.Item; if (kept != null) { return S.Hold(kept.Item!.Share!.Sample()); } outer = h.Item; kept = h; } Kept.Add(spare!); return S.Hold(0); });
+
+    // S2046. A list got an object of the store from a local. After that, the local can be a second object, which the walk did not see made. A pending cell goes through the local, and then a plain cell through the first name.
+    public static Cell<int> LocalThatCanBeASecondObjectAfterTheListGotIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotForASecondObject; old.Share = Plain; SettableSlot x = new(); SettableSlot c = x; List<SettableSlot> list = [new SettableSlot { Share = Plain }]; list.Insert(0, c); if (Never) { c = old; } c.Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2047. A copy of a list that the walk did not see made gets an object of the store. The first element gets a pending cell through its index, and the object of the store gets a plain cell after that.
+    public static Cell<int> ElementOfTheResultOfACallOnAListThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = ListsWithOneSlot[0].ToList(); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2048. The same, where a constructor gets the list that the walk did not see made.
+    public static Cell<int> ElementOfAListFromAConstructorWithAListThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = new(ListsWithOneSlot[1]); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2049. The same, where a helper returns the list that the walk did not see made.
+    public static Cell<int> ElementOfAListThatAHelperReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = ListWithOneSlot(); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2050. The same, where a method with no body to read puts an object into the list.
+    public static Cell<int> ElementOfAListThatAMethodWithNoBodyFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; NewSlotFiller().Fill(list); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2051. The same, where the list is in a member that the walk did not see set.
+    public static Cell<int> ElementOfAListInAMemberThatTheWalkDidNotSeeSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SlotListHolder holder = HolderWithItsOwnList(); List<SettableSlot> list = holder.Items; list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2052. A list got an object with no state that the walk did not see made, and then an object of the store. The second one gets a plain cell after a pending one.
+    public static Cell<int> ElementBesideAnObjectWithNoState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(SlotsWithNoState[0]); list.Add(x); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2053. A collection expression has an object of the store and an object with a pending cell that the walk did not see made. The list then gets one more object.
+    public static Cell<int> ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsWithAPendingCell[0]; old.Share = l.Map(v => v); SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; List<SettableSlot> list = [x, old]; list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[i].Share!.Sample()); });
+
+    // S2054. The same, for a collection initializer.
+    public static Cell<int> ElementWithAPendingCellBesideAnObjectOfTheStoreInACollectionInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot old = SlotsWithAPendingCell[1]; old.Share = l.Map(v => v); SettableSlot x = new() { Share = Plain }; int i = Kept.Count >= 0 ? 1 : 0; List<SettableSlot> list = new() { x, old }; list.Add(new SettableSlot { Share = Plain }); return S.Hold(list[i].Share!.Sample()); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -11052,7 +11200,7 @@ public static class Shapes
 
     private static (Cell<int>? First, SettableSlot Second) PlainAnd(SettableSlot slot) => (Plain, slot);
 
-    private static readonly SettableSlot[] SharedSlots = [new()];
+    private static readonly SettableSlot[] SharedSlots = [new(), new(), new()];
 
     private static void SampleIfAny(Cell<int>? cell)
     {
@@ -11063,6 +11211,41 @@ public static class Shapes
     }
 
     private static readonly List<SettableSlot> SharedSlotList = [];
+
+    private static readonly SettableSlot SharedSlot = new();
+
+    private static readonly List<SettableSlot>[] SharedSlotLists = [[]];
+
+    private static readonly SettableSlot[] SlotsWithNoState = [new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly List<SettableSlot>[] ListsWithNoState = [[]];
+
+    private static readonly SettableSlot SlotForASecondObject = new();
+
+    private static readonly List<SettableSlot>[] ListsWithOneSlot = [[new()], [new()], [new()]];
+
+    private static List<SettableSlot> ListWithOneSlot() => ListsWithOneSlot[2];
+
+    private static ISlotFiller NewSlotFiller() => new SlotFiller();
+
+    private static SlotListHolder HolderWithItsOwnList() => new() { Items = [new SettableSlot()] };
+
+    public interface ISlotFiller
+    {
+        void Fill(List<SettableSlot> list);
+    }
+
+    private sealed class SlotFiller : ISlotFiller
+    {
+        public void Fill(List<SettableSlot> list) => list.Add(new SettableSlot());
+    }
+
+    public sealed class SlotListHolder
+    {
+        public List<SettableSlot> Items { get; set; } = [];
+    }
+
+    private static readonly SettableSlot[] SlotsWithAPendingCell = [new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

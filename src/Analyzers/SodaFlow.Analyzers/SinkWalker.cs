@@ -28,8 +28,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
-    // For the body of each loop that the walk is in: the state that a local of the code around the
-    // loop had before the first assignment of each read that each turn always runs.
+    // The key is the body of a loop that the walk is in. The value has, for a local of the code
+    // around the loop, the state before its first assignment of each read. Only an assignment that
+    // each turn always runs has an entry.
     private readonly Dictionary<SyntaxNode, Dictionary<ISymbol, LoopState>> hadBefore = [];
 
     // The locals of hadBefore that this read of the body gave a value.
@@ -240,13 +241,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitForStatement(ForStatementSyntax node)
     {
         base.VisitForStatement(node);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, node.Condition, node.Incrementors);
+
+        this.VisitTheSecondTurn(
+            loop: node,
+            body: node.Statement,
+            condition: node.Condition,
+            incrementors: node.Incrementors);
     }
 
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
         base.VisitWhileStatement(node);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, node.Condition);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, condition: node.Condition);
     }
 
     public override void VisitDoStatement(DoStatementSyntax node)
@@ -267,17 +273,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// <param name="after">The condition that a <c>do</c> reads after each turn.</param>
     private void VisitTheSecondTurn(
         SyntaxNode loop,
-        StatementSyntax body,
-        ExpressionSyntax? condition = null,
+        SyntaxNode body,
+        SyntaxNode? condition = null,
         SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
-        ExpressionSyntax? after = null)
+        SyntaxNode? after = null)
     {
         this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
 
         // The walk reads a lambda that a callee runs in the call one time. The second turn runs it
         // again.
         this.entered.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
-        this.once.RemoveWhere(lambda => LoopStateEvaluator.IsIn(node: lambda, code: loop));
         this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
 
         // A for runs its incrementors after the turn, and then its condition.
@@ -1206,8 +1211,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
-    // A local of the code around a loop has only the new value for the rest of the turn. After the
-    // loop, it can have the value from before the assignment also: the loop can run no turn, and a
+    // A local of the code around a loop has only the new value until the end of the turn. After the
+    // loop, it can have the value from before the assignment also. The loop can run no turn, and a
     // turn can end before the next assignment.
     private void AssignInATurn(ISymbol local, LoopState state, SyntaxNode turn)
     {
@@ -1220,7 +1225,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         LoopState before = this.evaluator.AssignInATurn(local: local, state: state);
 
         // A second assignment in the same turn replaces a value that no code after the loop can
-        // read: no statement between the two can end the turn.
+        // read. No statement between the two can end the turn.
         if (this.assignedInThisRead.Add((turn, local)))
         {
             had[local] = had.TryGetValue(key: local, value: out LoopState? earlier) ? earlier.Join(before) : before;
