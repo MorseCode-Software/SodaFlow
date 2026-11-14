@@ -9571,6 +9571,14 @@ public static class Shapes
     public static Cell<int> ChainOfAssignmentsOfAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a; Cell<int>? b; a = b = Plain; Kept.Add(b); return S.Hold(a.Sample()); });
 
+    // S2077. A helper returns its object before the statement that gives it a plain cell.
+    public static Cell<int> HelperThatReturnsBeforeItsPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot made = SlotThatCanReturnEarly(true, l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
+
+    // S2078. A helper gives its object a plain cell before a statement that can return.
+    public static Cell<int> HelperThatWritesBeforeItCanReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot made = SlotThatWritesAndCanReturnEarly(true, l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11334,6 +11342,33 @@ public static class Shapes
     }
 
     private static readonly SettableSlot[] SlotsWithAPendingCell = [new(), new()];
+
+    private static SettableSlot SlotThatCanReturnEarly(bool early, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+
+        if (early)
+        {
+            return made;
+        }
+
+        made.Share = Plain;
+
+        return made;
+    }
+
+    private static SettableSlot SlotThatWritesAndCanReturnEarly(bool early, Cell<int> share)
+    {
+        SettableSlot made = new() { Share = share };
+        made.Share = Plain;
+
+        if (early)
+        {
+            return made;
+        }
+
+        return made;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

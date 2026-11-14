@@ -28,6 +28,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
+    // For each function that the walk asked about: the position of the first statement that can
+    // leave the function before its end.
+    private readonly Dictionary<SyntaxNode, int> firstExits = [];
+
     // The key is the body of a loop that the walk is in. The value has, for a local of the code
     // around the loop, the state before its first assignment of each read. Only an assignment that
     // each turn always runs has an entry.
@@ -1000,7 +1004,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (!this.once.Contains(lambda))
+                    if (!this.once.Contains(lambda) || this.FirstExitOf(lambda) < statement.SpanStart)
                     {
                         return false;
                     }
@@ -1017,11 +1021,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     turn = body;
 
                     return false;
+                // A call of the function that leaves at a statement before the assignment does
+                // not run it.
                 case AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
-                    return true;
+                    return this.FirstExitOf(ancestor) > statement.SpanStart;
                 // A block, and a statement that always runs what is in it. Also the call that
                 // runs a lambda, and the statement that the call is in.
                 case BlockSyntax
@@ -1046,6 +1052,29 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return true;
+    }
+
+    // The position of the first statement that can leave a function before its end: a return, a
+    // yield break, or a goto. A throw is not one of them, because the walk reads no code that runs
+    // after an exception.
+    private int FirstExitOf(SyntaxNode function)
+    {
+        if (!this.firstExits.TryGetValue(key: function, value: out int first))
+        {
+            first =
+                function.DescendantNodes(node =>
+                        node == function
+                        || node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                    .FirstOrDefault(static node =>
+                        node is ReturnStatementSyntax or GotoStatementSyntax
+                        || node.IsKind(SyntaxKind.YieldBreakStatement))
+                    ?.SpanStart
+                ?? int.MaxValue;
+
+            this.firstExits[function] = first;
+        }
+
+        return first;
     }
 
     // The position of the first statement that can end a turn before the end of the body. A turn
