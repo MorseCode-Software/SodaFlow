@@ -8981,15 +8981,15 @@ public static class Shapes
 
     // S1929. A lambda that a query runs for each element makes two objects in one turn, and they have no one state.
     public static Cell<int> TurnObjectsOfALambdaThatAQueryRuns() =>
-        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = new[] { 1, 2 }.Select(n => new SettableSlot { Share = l.Map(v => v) }).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = new[] { 1, 2 }.Select(n => new SettableSlot { Share = l.Map(v => v) }).ToList(); SettableSlot a = rows[0]; SettableSlot b = rows[1]; a.Share = Plain; Kept.Add(b.Share!.Sample()); } return S.Hold(0); });
 
     // S1930. A local function that a query runs for each element makes two objects in one turn.
     public static Cell<int> TurnObjectsOfALocalFunctionThatAQueryRuns() =>
-        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot Make(int n) => new() { Share = l.Map(v => v) }; List<SettableSlot> rows = new[] { 1, 2 }.Select(Make).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot Make(int n) => new() { Share = l.Map(v => v) }; List<SettableSlot> rows = new[] { 1, 2 }.Select(Make).ToList(); SettableSlot a = rows[0]; SettableSlot b = rows[1]; a.Share = Plain; Kept.Add(b.Share!.Sample()); } return S.Hold(0); });
 
     // S1931. A query expression makes two objects in one turn.
     public static Cell<int> TurnObjectsOfAQueryExpression() =>
-        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = (from n in new[] { 1, 2 } select new SettableSlot { Share = l.Map(v => v) }).ToList(); rows[0].Share = Plain; Kept.Add(rows[1].Share!.Sample()); } return S.Hold(0); });
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { List<SettableSlot> rows = (from n in new[] { 1, 2 } select new SettableSlot { Share = l.Map(v => v) }).ToList(); SettableSlot a = rows[0]; SettableSlot b = rows[1]; a.Share = Plain; Kept.Add(b.Share!.Sample()); } return S.Hold(0); });
 
     // S1932. A local function of the body gives the plain cell, and only some turns call it.
     public static Cell<int> TurnPlainInALocalFunctionThatSomeTurnsCall() =>
@@ -8998,6 +8998,46 @@ public static class Shapes
     // S1933. A member of an object of the outer turn has the first object of the inner loop. Each inner turn gives that object a pending cell.
     public static Cell<int> TurnOlderObjectThroughAMemberOfAnObjectOfTheOuterTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; } outer.Item!.Share = l.Map(v => v); x.Share = Plain; } Kept.Add(outer.Item!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1934. A local of the block keeps the lambda of the first turn, which returns the object of that turn.
+    public static Cell<int> TurnLambdaOfTheFirstTurnGivesItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot>? getFirst = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { getFirst = () => x; } SettableSlot k = getFirst!(); k.Share = l.Map(v => v); x.Share = Plain; Kept.Add(k.Share!.Sample()); } return S.Hold(0); });
+
+    // S1935. A local of the block keeps the lambda of the first turn, which gives the object of that turn a pending cell.
+    public static Cell<int> TurnLambdaOfTheFirstTurnChangesItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; Action? change = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; change = () => { x.Share = l.Map(v => v); }; } change!(); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1936. A local function of the body returns the object of the turn, and the result is a name of that object.
+    public static Cell<int> TurnLocalFunctionOfTheBodyGivesItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot Same() => x; SettableSlot k = Same(); k.Share = l.Map(v => v); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1937. A lambda of the block returns its argument, which is the object of the turn and not an older one.
+    public static Cell<int> TurnLambdaOfTheBlockGivesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> same = given => given; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = same(x); y.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1938. A holder that the walk did not see made keeps the first object of the loop in its member.
+    public static Cell<int> TurnOlderObjectThroughAMemberOfAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder outer = SharedHolders[0]; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; } outer.Item!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(outer.Item!.Share!.Sample()); });
+
+    // S1939. A list that the walk did not see made keeps each tuple that it got, and its first tuple has an older object.
+    public static Cell<int> TurnOlderPartOfATupleInAListThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<(SettableSlot First, int Second)> pairs = SharedPairLists[0]; pairs.Add((x, i)); pairs[0].First.Share = l.Map(v => v); x.Share = Plain; Kept.Add(pairs[0].First.Share!.Sample()); } return S.Hold(0); });
+
+    // S1940. A field that a new object got counts for each object of its type. A plain cell through an object that the walk does not know is then not sure to be for the object of the turn.
+    public static Cell<int> TurnPlainThroughTheFieldOfAnObjectThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotPairs made = new() { Pairs = [] }; made.Pairs.Add((x, i)); SharedSlotPairs.Pairs[0].First.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1941. A local of the block keeps the local function of the first turn, which returns the object of that turn.
+    public static Cell<int> TurnLocalFunctionOfTheFirstTurnGivesItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot>? getFirst = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot Get() => x; if (i == 0) { getFirst = Get; } SettableSlot k = getFirst!(); k.Share = l.Map(v => v); x.Share = Plain; Kept.Add(k.Share!.Sample()); } return S.Hold(0); });
+
+    // S1942. A local of the block keeps the lambda that a method made in the first turn, which returns the argument of that call.
+    public static Cell<int> TurnLambdaOfACallOfTheFirstTurnGivesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot>? getFirst = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { getFirst = KeeperOf(x); } SettableSlot k = getFirst!(); k.Share = l.Map(v => v); x.Share = Plain; Kept.Add(k.Share!.Sample()); } return S.Hold(0); });
+
+    // S1943. The lambda of the first turn gives the object of that turn a pending cell in a lambda that a list runs.
+    public static Cell<int> TurnLambdaOfTheFirstTurnChangesItsObjectInALambdaOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; Action? change = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; change = () => { new List<int> { 1 }.ForEach(n => { x.Share = l.Map(v => v); }); }; } change!(); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -10700,6 +10740,19 @@ public static class Shapes
         {
         }
     }
+
+    private static readonly SlotHolder[] SharedHolders = [new()];
+
+    private static readonly List<(SettableSlot First, int Second)>[] SharedPairLists = [[]];
+
+    private static readonly SlotPairs SharedSlotPairs = new() { Pairs = [(new SettableSlot(), 0)] };
+
+    public sealed class SlotPairs
+    {
+        public List<(SettableSlot First, int Second)> Pairs { get; set; } = [];
+    }
+
+    private static Func<SettableSlot> KeeperOf(SettableSlot kept) => () => kept;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

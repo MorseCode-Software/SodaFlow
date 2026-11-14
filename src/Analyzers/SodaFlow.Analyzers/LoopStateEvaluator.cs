@@ -61,6 +61,10 @@ internal sealed class LoopStateEvaluator
 
     private readonly Dictionary<ExpressionSyntax, LoopState> memo = [];
 
+    // The lambda or the local function that this evaluator reads for a call of it. Null for each
+    // other code.
+    private readonly SyntaxNode? function;
+
     private readonly Dictionary<ExpressionSyntax, LoopState> functionResults = [];
 
     // The queries that this code makes.
@@ -82,7 +86,8 @@ internal sealed class LoopStateEvaluator
             locals: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-            quiet: false)
+            quiet: false,
+            function: null)
     {
     }
 
@@ -95,8 +100,10 @@ internal sealed class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> locals,
         HashSet<ISymbol> assigned,
         Dictionary<ISymbol, LoopState> thisMembers,
-        bool quiet)
+        bool quiet,
+        SyntaxNode? function)
     {
+        this.function = function;
         this.region = region;
         this.bound = bound;
         this.noValues = noValues;
@@ -129,7 +136,8 @@ internal sealed class LoopStateEvaluator
                 thisMembers: new Dictionary<ISymbol, LoopState>(
                     dictionary: this.thisMembers,
                     comparer: SymbolEqualityComparer.Default),
-                quiet: true);
+                quiet: true,
+                function: this.function);
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -232,14 +240,14 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True for a local that the body of the given loop declares. Such a local
-    ///     is new in each turn.
+    ///     True for a local that the given code declares. A local that the body of
+    ///     a loop declares is new in each turn.
     /// </summary>
     /// <param name="local">The local.</param>
-    /// <param name="turn">The body of the loop.</param>
-    public static bool IsDeclaredIn(ISymbol local, SyntaxNode turn) =>
+    /// <param name="code">The body of a loop, or a function.</param>
+    public static bool IsDeclaredIn(ISymbol local, SyntaxNode code) =>
         local.DeclaringSyntaxReferences.Any(reference =>
-            reference.SyntaxTree == turn.SyntaxTree && turn.Span.Contains(reference.Span));
+            reference.SyntaxTree == code.SyntaxTree && code.Span.Contains(reference.Span));
 
     /// <summary>The body of a loop statement. Null for a node that is not a loop statement.</summary>
     public static StatementSyntax? LoopBodyOf(SyntaxNode node) =>
@@ -303,16 +311,21 @@ internal sealed class LoopStateEvaluator
             state: state,
             location: (Code: this, Local: local),
             isOfItsTurn: static (made, location) =>
-                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, turn: made.Turn!));
+                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, code: made.Turn!));
+
+    // A location that is new in no turn.
+    private LoopState InAnOldLocation(LoopState state) =>
+        this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew);
 
     // True when the code of this frame runs in one turn of the loop that made the object. The
     // frame is then of a callee of the code that has the loop, and the call did not return. A
     // function that a callee made can run in a turn after that one, with the locals of the callee.
     private bool RunsInTheTurnOf(MadeObject made) => !made.IsFrom(this.Frame) && !this.Frame.HasReturned;
 
-    // A member or an element of an object is new in each turn of the loop that made the object,
-    // and of each loop around that one. That is true only for a value that is one object. The
-    // object must be a new one: the result of a call can be the same object in each turn.
+    // A member or an element of an object is new in each turn of the loop that made the object.
+    // It is new in each turn of each loop around that loop also. That is true only for a value
+    // that is one object. The object must be a new one: the result of a call can be the same
+    // object in each turn.
     private LoopState InAnObject(LoopState owner, LoopState state) =>
         this.InALocation(
             state: state,
@@ -450,14 +463,9 @@ internal sealed class LoopStateEvaluator
     {
         // The collection holds the object of the value. Only a put does that: a call that can
         // keep its argument, as Contains is for the analyzer, makes no second name.
-        if (collection is ExpressionSyntax written)
+        if (collection is ExpressionSyntax written && this.Eval(value).Objects is { IsEmpty: false } put)
         {
-            LoopState owner = this.Eval(written);
-
-            if (this.InAnObject(owner: owner, state: this.Eval(value)).Objects is { IsEmpty: false } put)
-            {
-                this.Change(owner: owner, change: old => old.Holding(put), replaces: false, turn: null);
-            }
+            this.Change(owner: this.Eval(written), change: old => old.Holding(put), replaces: false, turn: null);
         }
 
         if (Unwrapped(value) is IdentifierNameSyntax name
@@ -517,9 +525,7 @@ internal sealed class LoopStateEvaluator
         if (!this.quiet)
         {
             // The owner of the field is not known, thus it is new in no turn.
-            this.region.SetField(
-                field: field,
-                state: this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew));
+            this.region.SetField(field: field, state: this.InAnOldLocation(state));
         }
     }
 
@@ -673,7 +679,7 @@ internal sealed class LoopStateEvaluator
                 expression: expression,
                 state: this.OnlyObjectsOfItsType(
                     expression: expression,
-                    state: this.Now(this.EvalUncached(expression))));
+                    state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
 
         this.memo[expression] = state;
 
@@ -731,6 +737,17 @@ internal sealed class LoopStateEvaluator
             ?.WithObjects(ImmutableArray.Create(made))
             .FromIfUnknown(owner.Origin);
     }
+
+    // A location can keep a lambda or a local function from a turn before, and a call then runs
+    // that function. A local that the function reads from the code around it is then the local of
+    // that turn. Thus, the value of such a local can be an object of the turns before also.
+    private LoopState Captured(ExpressionSyntax expression, LoopState state) =>
+        this.function != null
+        && expression is IdentifierNameSyntax
+        && this.region.SymbolOf(expression) is { } local and (ILocalSymbol or IParameterSymbol)
+        && !IsDeclaredIn(local: local, code: this.function)
+            ? this.InAnOldLocation(state)
+            : state;
 
     // After the walk of a loop, the object of its turn is one of the objects of the turns before.
     private LoopState Now(LoopState state)
@@ -2856,7 +2873,8 @@ internal sealed class LoopStateEvaluator
         }
 
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
-        LoopStateEvaluator inner = this.Inner(call: call, bindings: bindings, definer: null, members: members);
+        LoopStateEvaluator inner =
+            this.Inner(call: call, bindings: bindings, definer: null, members: members, function: null);
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         SemanticModel model = this.region.ModelFor(type);
@@ -4656,8 +4674,17 @@ internal sealed class LoopStateEvaluator
             definer = definer.Quiet();
         }
 
+        // The body of a lambda or of a local function is a part of that function.
         LoopStateEvaluator inner =
-            this.Inner(call: call, bindings: bindings, definer: definer, members: members);
+            this.Inner(
+                call: call,
+                bindings: bindings,
+                definer: definer,
+                members: members,
+                function: definer == null
+                    ? null
+                    : body.FirstAncestorOrSelf<SyntaxNode>(static node =>
+                        node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax));
 
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
@@ -4727,7 +4754,8 @@ internal sealed class LoopStateEvaluator
         SyntaxNode call,
         IEnumerable<Binding> bindings,
         LoopStateEvaluator? definer,
-        Dictionary<ISymbol, LoopState> members)
+        Dictionary<ISymbol, LoopState> members,
+        SyntaxNode? function)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
         ImmutableHashSet<ISymbol>.Builder noValue = (definer?.noValues ?? NoParameters).ToBuilder();
@@ -4767,7 +4795,8 @@ internal sealed class LoopStateEvaluator
             locals: definer?.locals ?? new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             assigned: definer?.assigned ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default),
             thisMembers: definer?.thisMembers ?? members,
-            quiet: this.quiet);
+            quiet: this.quiet,
+            function: function);
     }
 
     /// <summary>
@@ -5365,7 +5394,8 @@ internal sealed class LoopStateEvaluator
                     locals: this.locals,
                     assigned: this.assigned,
                     thisMembers: this.thisMembers,
-                    quiet: this.quiet);
+                    quiet: this.quiet,
+                    function: this.function);
 
         return inner.EvalBody(expressionBody: lambda.ExpressionBody, block: lambda.Block);
     }

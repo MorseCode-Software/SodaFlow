@@ -1363,7 +1363,16 @@ internal sealed class LoopReadAnalyzerTests
             ["TurnObjectsOfALocalFunctionThatAQueryRuns"] = ["SF1001"],
             ["TurnObjectsOfAQueryExpression"] = ["SF1001"],
             ["TurnPlainInALocalFunctionThatSomeTurnsCall"] = ["SF1001"],
-            ["TurnOlderObjectThroughAMemberOfAnObjectOfTheOuterTurn"] = ["SF1001"]
+            ["TurnOlderObjectThroughAMemberOfAnObjectOfTheOuterTurn"] = ["SF1001"],
+            ["TurnLambdaOfTheFirstTurnGivesItsObject"] = ["SF1001"],
+            ["TurnLambdaOfTheFirstTurnChangesItsObject"] = ["SF1001"],
+            ["TurnLocalFunctionOfTheBodyGivesItsObject"] = ["SF1001"],
+            ["TurnOlderObjectThroughAMemberOfAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["TurnOlderPartOfATupleInAListThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["TurnPlainThroughTheFieldOfAnObjectThatTheWalkDoesNotKnow"] = ["SF1001"],
+            ["TurnLocalFunctionOfTheFirstTurnGivesItsObject"] = ["SF1001"],
+            ["TurnLambdaOfACallOfTheFirstTurnGivesItsArgument"] = ["SF1001"],
+            ["TurnLambdaOfTheFirstTurnChangesItsObjectInALambdaOfAList"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

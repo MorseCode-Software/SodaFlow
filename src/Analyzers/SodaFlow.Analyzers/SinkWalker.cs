@@ -1149,7 +1149,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // A local that the body of a loop declares is new in each turn. Thus, an assignment that each
     // turn always runs gives the local only the new value.
     private static bool IsNewInEachTurn(ISymbol local, SyntaxNode? turn) =>
-        turn != null && LoopStateEvaluator.IsDeclaredIn(local: local, turn: turn);
+        turn != null && LoopStateEvaluator.IsDeclaredIn(local: local, code: turn);
 
     public override void VisitCollectionExpression(CollectionExpressionSyntax node)
     {
