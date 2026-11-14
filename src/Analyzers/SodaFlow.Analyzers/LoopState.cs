@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -341,14 +342,34 @@ internal sealed class LoopState
             ? ImmutableArray.Create(MadeObject.Unknown)
             : NoObjects;
 
-    private static ImmutableArray<MadeObject> Union(
-        ImmutableArray<MadeObject> first,
-        ImmutableArray<MadeObject> second) =>
-        second.IsEmpty
-            ? first
-            : first.IsEmpty
-                ? second
-                : first.AddRange(second.Where(made => !first.Contains(made)));
+    // The objects of the first array, and then each object of the second one that the first one
+    // does not have. A block that makes many objects has long arrays here. A search of the first
+    // array for each object of the second one then takes the square of that number, thus a long
+    // array gets a set for the search.
+    private static ImmutableArray<MadeObject> Union(ImmutableArray<MadeObject> first, ImmutableArray<MadeObject> second)
+    {
+        if (second.IsEmpty || first == second)
+        {
+            return first;
+        }
+
+        if (first.IsEmpty)
+        {
+            return second;
+        }
+
+        if (first.Length < SearchWithASetFrom)
+        {
+            return first.AddRange(second.Where(made => !first.Contains(made)));
+        }
+
+        HashSet<MadeObject> has = [.. first];
+
+        return first.AddRange(second.Where(made => !has.Contains(made)));
+    }
+
+    // The length of an array of objects from which a set is faster than a search of the array.
+    private const int SearchWithASetFrom = 16;
 
     /// <summary>The state of a value that this expression holds.</summary>
     public LoopState Content => this.content ?? None;

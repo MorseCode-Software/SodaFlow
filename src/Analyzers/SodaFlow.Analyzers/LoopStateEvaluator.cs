@@ -293,7 +293,8 @@ internal sealed class LoopStateEvaluator
         {
             this.Frame.TheOneCollectionOf[local] = only;
 
-            if (this.IsTheOnlyNameOfItsObject(local))
+            // Only a collection with the mark needs the answer, which reads each use of the local.
+            if (this.region.Objects.HoldsOnlyWhatWentIn(only) && this.IsTheOnlyNameOfItsObject(local))
             {
                 this.region.Objects.IsApart(only);
             }

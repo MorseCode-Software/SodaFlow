@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -2289,6 +2292,224 @@ internal sealed class LoopReadAnalyzerTests
         // read gets the report for such code and no more.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["SF1004"]);
     }
+
+    /// <summary>
+    ///     An editor cancels the analysis of a file at each change to the file.
+    ///     The walk of one block must end at that time, and not at the end of the
+    ///     block.
+    /// </summary>
+    /// <remarks>
+    ///     The test gives the walk the action that gets each diagnostic. That
+    ///     action cancels the token at the first diagnostic. The block has a second
+    ///     read after that one. Thus, a walk that does not look at the token gives
+    ///     two diagnostics and throws nothing.
+    /// </remarks>
+    [Test]
+    public async Task TheWalkStopsWhenTheCompilerCancelsTheAnalysis()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Canceled
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> TwoReads() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Kept.Add(l.Sample());
+                        Kept.Add(l.Map(v => v).Sample());
+
+                        return S.Hold(0);
+                    });
+            }
+            """;
+
+        CSharpCompilation compilation =
+            AnalyzerHarness.Compile(source: source, libraries: ShapeLibraries, assemblyName: "OnlyCanceled");
+
+        SyntaxTree tree = compilation.SyntaxTrees.Single();
+
+        InvocationExpressionSyntax block =
+            (await tree.GetRootAsync())
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .First(static call =>
+                call.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "WithoutCaptures" });
+
+        // The control: no code cancels the token, and the walk reports the two reads.
+        List<Diagnostic> all = [];
+
+        LoopReadAnalyzer.AnalyzeLoopBlock(
+            invocation: block,
+            model: compilation.GetSemanticModel(tree),
+            symbols: new SodaFlowSymbols(compilation),
+            report: all.Add,
+            cancellation: CancellationToken.None);
+
+        await Assert.That(all.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["SF1001", "SF1001"]);
+
+        using CancellationTokenSource stop = new();
+        List<Diagnostic> beforeTheStop = [];
+        bool stopped = false;
+
+        try
+        {
+            LoopReadAnalyzer.AnalyzeLoopBlock(
+                invocation: block,
+                model: compilation.GetSemanticModel(tree),
+                symbols: new SodaFlowSymbols(compilation),
+                report: diagnostic =>
+                {
+                    beforeTheStop.Add(diagnostic);
+                    stop.Cancel();
+                },
+                cancellation: stop.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            stopped = true;
+        }
+
+        await Assert.That(stopped).IsTrue();
+        await Assert.That(beforeTheStop.Count).IsEqualTo(1);
+    }
+
+    /// <summary>
+    ///     A function that a callee runs for each element can be in a second one.
+    ///     The walk reads each of them again while a read leaves a new state. A
+    ///     read that does not end multiplies with each level.
+    /// </summary>
+    /// <remarks>
+    ///     Each level makes a list and gives a pending cell to a chain of three
+    ///     locals. The mark of the list of a turn stayed after the turn, and each
+    ///     read then left a different number. Four levels took 40 seconds, and
+    ///     the six levels here did not end. The token has a time that is much
+    ///     longer than the walk needs, and the walk stops when the time is over.
+    /// </remarks>
+    [Test]
+    public async Task AFunctionForEachElementInASecondOneEndsInAShortTime()
+    {
+        const int levels = 6;
+        StringBuilder body = new();
+
+        for (int level = 0; level < levels; level++)
+        {
+            body.AppendLine($"Cell<int>? a{level} = null; Cell<int>? b{level} = null; Cell<int>? c{level} = null;");
+            body.AppendLine($"new List<int> {{ 1, 2, 3, 4 }}.ForEach(e{level} =>");
+            body.AppendLine("{");
+            body.AppendLine($"if (c{level} != null) {{ Kept.Add(c{level}.Sample()); }}");
+            body.AppendLine($"c{level} = b{level}; b{level} = a{level}; a{level} = l.Map(v => v);");
+        }
+
+        for (int level = 0; level < levels; level++)
+        {
+            body.AppendLine("});");
+        }
+
+        using CancellationTokenSource limit = new(TimeSpan.FromSeconds(60));
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: OneBlock(body.ToString()),
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyNestedFunctions"),
+                cancellation: limit.Token);
+
+        // Each level samples the last local of its chain.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(Enumerable.Repeat(element: "SF1001", count: levels));
+    }
+
+    /// <summary>
+    ///     The time for one block must not grow much faster than the number of
+    ///     objects that the block makes.
+    /// </summary>
+    /// <remarks>
+    ///     The state of a list has each object that the list holds. The union of
+    ///     two such states looked for each object of one in the other. With four
+    ///     times the objects, the walk then took 76 times the time. The test
+    ///     permits 30 times: a walk whose time grows with the square takes 16
+    ///     times, and the walk now takes less than that.
+    /// </remarks>
+    [Test]
+    public async Task ABlockWithFourTimesTheObjectsDoesNotTakeManyTimesTheSquare()
+    {
+        // The first run has the time of the compiler for the code of the analyzer.
+        _ = await TimeOfABlockWith(objects: 100);
+
+        TimeSpan few = await TimeOfABlockWith(objects: 400);
+        TimeSpan many = await TimeOfABlockWith(objects: 1600);
+
+        await Assert.That(many.TotalMilliseconds).IsLessThan(few.TotalMilliseconds * 30);
+    }
+
+    // The time of the analyzer for one block that makes the given number of objects, puts each in a
+    // second object, and adds that to one list.
+    private static async Task<TimeSpan> TimeOfABlockWith(int objects)
+    {
+        StringBuilder body = new("List<Holder> all = [];");
+
+        for (int i = 0; i < objects; i++)
+        {
+            body.AppendLine($"Slot s{i} = new() {{ Share = {(i % 7 == 0 ? "l.Map(v => v)" : "Plain")} }};");
+            body.AppendLine($"all.Add(new Holder {{ Item = s{i} }});");
+        }
+
+        body.AppendLine("all[0].Item!.Share = Plain;");
+
+        CSharpCompilation compilation =
+            AnalyzerHarness.Compile(
+                source: OneBlock(body.ToString()),
+                libraries: ShapeLibraries,
+                assemblyName: "OnlyManyObjects");
+
+        // The compiler binds the block before the analyzer runs, as it does in a build.
+        _ = compilation.GetDiagnostics();
+        Stopwatch watch = Stopwatch.StartNew();
+        _ = await AnalyzerHarness.Analyze(analyzer: new LoopReadAnalyzer(), compilation: compilation);
+        watch.Stop();
+
+        return watch.Elapsed;
+    }
+
+    // A file with one loop block that has the given statements, and the types that the statements use.
+    private static string OneBlock(string statements) =>
+        $$"""
+          using System;
+          using System.Collections.Generic;
+          using SodaFlow;
+
+          public sealed class Slot
+          {
+              public Cell<int>? Share { get; set; }
+          }
+
+          public sealed class Holder
+          {
+              public Slot? Item { get; set; }
+          }
+
+          public static class Only
+          {
+              private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+              private static readonly Cell<int> Plain = Cell.Constant(3);
+              private static readonly List<object> Kept = [];
+
+              public static Cell<int> Run() =>
+                  Cell.Loop<int>().WithoutCaptures(l =>
+                  {
+                      {{statements}}
+
+                      return S.Hold(0);
+                  });
+          }
+          """;
 
     // An assertion on a collection names ten of its items and counts the others. The reason names
     // each mismatch, so that one run says all that changed.

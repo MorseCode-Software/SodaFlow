@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -69,11 +70,25 @@ internal static class AnalyzerHarness
     /// <param name="analyzer">The analyzer.</param>
     /// <param name="compilation">The compiled sample.</param>
     /// <returns>The diagnostics of the analyzer.</returns>
-    public static async Task<IReadOnlyList<Diagnostic>> Analyze(DiagnosticAnalyzer analyzer, Compilation compilation)
+    public static Task<IReadOnlyList<Diagnostic>> Analyze(DiagnosticAnalyzer analyzer, Compilation compilation) =>
+        Analyze(analyzer: analyzer, compilation: compilation, cancellation: CancellationToken.None);
+
+    /// <summary>
+    ///     Runs an analyzer over a compiled sample, with a token that can cancel
+    ///     the run.
+    /// </summary>
+    /// <param name="analyzer">The analyzer.</param>
+    /// <param name="compilation">The compiled sample.</param>
+    /// <param name="cancellation">The token. A run that it cancels throws.</param>
+    /// <returns>The diagnostics of the analyzer.</returns>
+    public static async Task<IReadOnlyList<Diagnostic>> Analyze(
+        DiagnosticAnalyzer analyzer,
+        Compilation compilation,
+        CancellationToken cancellation)
     {
         ImmutableArray<Diagnostic> found =
             await compilation.WithAnalyzers([analyzer])
-                .GetAnalyzerDiagnosticsAsync()
+                .GetAnalyzerDiagnosticsAsync(cancellation)
                 .ConfigureAwait(false);
 
         return [.. found.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start)];
