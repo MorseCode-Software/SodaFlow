@@ -382,6 +382,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.evaluator.Declare(local: local.Key, state: local.Value);
             }
         }
+
+        this.evaluator.GivesBackWhatATurnReplaced(body);
     }
 
     /// <summary>

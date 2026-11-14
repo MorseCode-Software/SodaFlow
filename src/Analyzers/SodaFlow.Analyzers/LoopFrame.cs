@@ -116,6 +116,16 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a loop of this code: each member that a write of its turn
+    ///     replaced, on an object or through a name that is older than the turn,
+    ///     with the state that the member had before the loop.
+    /// </summary>
+    public List<(SyntaxNode Turn, MadeObject? Made, ISymbol? Name, ISymbol Member, LoopState Before)> BeforeATurn
+    {
+        get;
+    } = [];
+
+    /// <summary>
     ///     For a local or a parameter of this code with no object of the store:
     ///     each member that the code set through it. The value is true when a
     ///     write that always runs gave the member its state.

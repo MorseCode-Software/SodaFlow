@@ -1687,7 +1687,13 @@ internal sealed partial class LoopStateEvaluator
     ///     The body of the loop whose each turn always runs the change. Null when
     ///     no loop does.
     /// </param>
-    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool replaces, SyntaxNode? turn)
+    /// <param name="member">The member that the change gives a state, when the change is a write to one member.</param>
+    private void Change(
+        LoopState owner,
+        Func<LoopState, LoopState> change,
+        bool replaces,
+        SyntaxNode? turn,
+        ISymbol? member = null)
     {
         if (this.quiet)
         {
@@ -1711,7 +1717,30 @@ internal sealed partial class LoopStateEvaluator
                             : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
                         : replaces && this.AlwaysRunsForItsCaller(made));
 
-                this.region.Objects.Set(found: made, state: sure ? changed : old.Join(changed));
+                // A write that each turn always runs, to an object that is older than the turn.
+                // Until the end of the turn, the member has only the new state. After the loop,
+                // it can have the state from before the loop also, because the loop can run no turn.
+                bool inItsTurn =
+                    !sure
+                    && member != null
+                    && turn != null
+                    && now.Length == 1
+                    && !made.IsOfTurnsBefore
+                    && made.IsFrom(this.Frame)
+                    && made.Turn != turn
+                    && this.IsALoopOfThisCode(turn);
+
+                if (inItsTurn)
+                {
+                    this.KeepsForAfterTheLoop(
+                        turn: turn!,
+                        made: made,
+                        name: null,
+                        member: member!,
+                        before: old.Members?.StateOf(member!) ?? LoopState.None);
+                }
+
+                this.region.Objects.Set(found: made, state: sure || inItsTurn ? changed : old.Join(changed));
             }
         }
     }

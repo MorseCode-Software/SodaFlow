@@ -45,6 +45,58 @@ internal sealed partial class LoopStateEvaluator
         this.setOnThis[key] = only || (this.setOnThis.TryGetValue(key: key, value: out bool before) && before);
     }
 
+    // True for the body of a loop statement that the code of this evaluator has. A lambda that a
+    // callee runs for each element has a turn also, but the walk has no end of a loop for it.
+    private bool IsALoopOfThisCode(SyntaxNode turn) =>
+        this.function == null && turn.Parent is { } loop && LoopBodyOf(loop) == turn;
+
+    // Records the state that a member had before a loop, at the first write of a turn that
+    // replaces it.
+    private void KeepsForAfterTheLoop(SyntaxNode turn, MadeObject? made, ISymbol? name, ISymbol member, LoopState before)
+    {
+        ISymbol key = member.OriginalDefinition;
+
+        if (!this.Frame.BeforeATurn.Any(kept =>
+                kept.Turn == turn
+                && ReferenceEquals(objA: kept.Made, objB: made)
+                && SymbolEqualityComparer.Default.Equals(x: kept.Name, y: name)
+                && SymbolEqualityComparer.Default.Equals(x: kept.Member, y: key)))
+        {
+            this.Frame.BeforeATurn.Add((turn, made, name, key, before));
+        }
+    }
+
+    /// <summary>
+    ///     Records the end of the walk of a loop statement. Each member that a
+    ///     write of its turn replaced can have the state from before the loop
+    ///     also, because the loop can run no turn.
+    /// </summary>
+    /// <param name="turn">The body of the loop.</param>
+    public void GivesBackWhatATurnReplaced(SyntaxNode turn)
+    {
+        foreach ((SyntaxNode _, MadeObject? made, ISymbol? name, ISymbol member, LoopState before)
+                 in this.Frame.BeforeATurn.Where(kept => kept.Turn == turn).ToArray())
+        {
+            if (made != null && this.region.Objects.StateOf(made) is { } inTheStore)
+            {
+                this.region.Objects.Set(found: made, state: WithAlso(state: inTheStore, member: member, also: before));
+            }
+            else if (name != null && this.locals.TryGetValue(key: name, value: out LoopState? inTheName))
+            {
+                this.locals[name] = WithAlso(state: inTheName, member: member, also: before);
+            }
+        }
+
+        this.Frame.BeforeATurn.RemoveAll(kept => kept.Turn == turn);
+    }
+
+    private static LoopState WithAlso(LoopState state, ISymbol member, LoopState also)
+    {
+        Construction members = state.Members ?? Construction.Empty;
+
+        return state.WithMembers(members.With(member: member, state: members.StateOf(member).Join(also)));
+    }
+
     /// <summary>
     ///     Gives an argument each member that a callee set through its parameter.
     ///     For an object of the store, the callee changed the store, and this does
@@ -594,7 +646,8 @@ internal sealed partial class LoopStateEvaluator
                 owner: has,
                 change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: state)),
                 replaces: replaces && isKnown,
-                turn: isKnown ? turn : null);
+                turn: isKnown ? turn : null,
+                member: member);
         }
 
         // The owner is an element of a collection. The collection then contains an object whose
@@ -632,9 +685,22 @@ internal sealed partial class LoopStateEvaluator
                     ? this.AlwaysRunsForAName(holder)
                     : turn != null && IsMadeInEachTurn(name: holder, turn: turn);
 
+            // The same as for an object of the store: see Change.
+            bool inItsTurn = !only && !this.quiet && turn != null && this.IsALoopOfThisCode(turn);
+
+            if (inItsTurn)
+            {
+                this.KeepsForAfterTheLoop(
+                    turn: turn!,
+                    made: null,
+                    name: holder,
+                    member: member,
+                    before: had.StateOf(member));
+            }
+
             this.locals[holder] =
                 known.WithMembers(
-                    had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
+                    had.With(member: member, state: only || inItsTurn ? state : had.StateOf(member).Join(state)));
 
             // A callee gives its caller what it set through a parameter. See GivesAnArgument.
             if (!this.quiet)

@@ -1771,7 +1771,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag56TheCallIsInALoop"] = ["SF1001"],
             ["Ag56AMethodGivesThePendingCell"] = ["SF1001"],
             ["Ag56AStructIsACopyForTheMethod"] = ["SF1001"],
-            ["Ag56TheMethodHasItsWriteInABranch"] = ["SF1001"]
+            ["Ag56TheMethodHasItsWriteInABranch"] = ["SF1001"],
+            ["Ag57TheReadInTheTurnIsBeforeTheWrite"] = ["SF1001"],
+            ["Ag57TheLoopRunsNoTurnForAnObject"] = ["SF1001"],
+            ["Ag57APendingWriteInEachTurnAndAReadAfterTheLoop"] = ["SF1001"],
+            ["Ag57TheInnerLoopRunsNoTurn"] = ["SF1001"],
+            ["Ag57TwoObjectsInATurn"] = ["SF1001"],
+            ["Ag57TheLoopRunsNoTurnForAName"] = ["SF1001"],
+            ["Ag57TheReadInTheTurnIsBeforeTheWriteForAName"] = ["SF1001"],
+            ["Ag57AStatementBeforeTheWriteEndsTheTurn"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -11435,6 +11435,70 @@ public static class Shapes
     public static Cell<int> Ag56TheMethodHasItsWriteInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag56Slots[6]; c.Share = l.Map(v => v); Ag56MakePlainWhen(c, Never); return S.Hold(c.Share!.Sample()); });
 
+    // S2543. AG57. The example of the item: an object from before the loop, two writes in the turn, and a read in it.
+    public static Cell<int> Ag57TwoWritesInATurnToAnObjectThatIsOlder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); for (int i = 0; i < 2; i++) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2544. AG57. The example of the item: the same for a name with no object of the store.
+    public static Cell<int> Ag57TwoWritesInATurnThroughANameThatIsOlder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag57Slots[0]; for (int i = 0; i < 2; i++) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2545. AG57. The object has a pending cell from before the loop, and each turn gives it a plain one before the read.
+    public static Cell<int> Ag57OnePlainWriteInATurnBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { c.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2546. AG57. The read in the turn is before the write, and the first turn reads the pending cell.
+    public static Cell<int> Ag57TheReadInTheTurnIsBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Kept.Add(c.Share!.Sample()); c.Share = Plain; } return S.Hold(0); });
+
+    // S2547. AG57. The loop runs no turn, and the read after it has the pending cell from before.
+    public static Cell<int> Ag57TheLoopRunsNoTurnForAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < Kept.Count - Kept.Count; i++) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2548. AG57. Each turn gives a pending cell, and the read is after the loop.
+    public static Cell<int> Ag57APendingWriteInEachTurnAndAReadAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = Plain }; for (int i = 0; i < 2; i++) { c.Share = l.Map(v => v); } return S.Hold(c.Share!.Sample()); });
+
+    // S2549. AG57. Each turn gives a pending cell and then a plain one, and the read is after the loop.
+    public static Cell<int> Ag57TwoWritesInEachTurnAndAReadAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = Plain }; for (int i = 0; i < 2; i++) { c.Share = l.Map(v => v); c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2550. AG57. The writes in the turn are through a second name of the object.
+    public static Cell<int> Ag57TwoWritesInATurnThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); SettableSlot d = c; for (int i = 0; i < 2; i++) { d.Share = l.Map(v => v); d.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2551. AG57. The two writes are in a turn of a loop in a loop, and the object is older than the two loops.
+    public static Cell<int> Ag57TwoWritesInATurnOfALoopInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); for (int i = 0; i < 2; i++) { for (int j = 0; j < 2; j++) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } } return S.Hold(0); });
+
+    // S2552. AG57. The object is of the turn of the loop around, and the two writes are in a turn of the loop in it.
+    public static Cell<int> Ag57TwoWritesInAnInnerTurnToAnObjectOfTheOuterTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot c = new(); for (int j = 0; j < 2; j++) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } } return S.Hold(0); });
+
+    // S2553. AG57. The loop in the loop runs no turn, and the read is after it in the turn of the loop around.
+    public static Cell<int> Ag57TheInnerLoopRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot c = new() { Share = l.Map(v => v) }; for (int j = 0; j < Kept.Count - Kept.Count; j++) { c.Share = Plain; } Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2554. AG57. A foreach statement has the two writes and the read in its turn.
+    public static Cell<int> Ag57TwoWritesInATurnOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); foreach (int n in new[] { 1, 2 }) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample() + n); } return S.Hold(0); });
+
+    // S2555. AG57. Two objects: one gets the pending cell in the turn, the other one the plain cell.
+    public static Cell<int> Ag57TwoObjectsInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); SettableSlot d = new(); for (int i = 0; i < 2; i++) { c.Share = l.Map(v => v); d.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2556. AG57. A name with no object of the store: the loop runs no turn, with a read after it.
+    public static Cell<int> Ag57TheLoopRunsNoTurnForAName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag57Slots[1]; c.Share = l.Map(v => v); for (int i = 0; i < Kept.Count - Kept.Count; i++) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2557. AG57. A name with no object of the store: the read in the turn is before the write.
+    public static Cell<int> Ag57TheReadInTheTurnIsBeforeTheWriteForAName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag57Slots[2]; c.Share = l.Map(v => v); for (int i = 0; i < 2; i++) { Kept.Add(c.Share!.Sample()); c.Share = Plain; } return S.Hold(0); });
+
+    // S2558. AG57. A statement that can end the turn is before the write, and it ends each turn.
+    public static Cell<int> Ag57AStatementBeforeTheWriteEndsTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { if (!Never) { continue; } c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13881,6 +13945,8 @@ public static class Shapes
             slot.Share = Plain;
         }
     }
+
+    private static readonly SettableSlot[] Ag57Slots = [new(), new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
