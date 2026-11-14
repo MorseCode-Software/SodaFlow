@@ -1403,6 +1403,8 @@ internal sealed class LoopStateEvaluator
             return known;
         }
 
+        this.region.StopWhenCanceled();
+
         // The evaluator can go in a cycle only through a reassignment, and none is the correct
         // answer for the first visit.
         this.memo[expression] = LoopState.None;

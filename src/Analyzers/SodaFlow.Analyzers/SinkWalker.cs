@@ -28,8 +28,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
 
     // The most reads of one loop. The walk stops before that when a read leaves what a read before
-    // left. The number is only a guard for a loop whose reads have no such end.
-    internal const int MaxReadsOfALoop = 32;
+    // left. A value that goes through a local in each turn needs one read for each of those locals.
+    // The number is only a guard for a defect of the analyzer: no code has that many locals in a
+    // chain.
+    internal const int MaxReadsOfALoop = 1000;
 
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
@@ -56,6 +58,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void Visit(SyntaxNode? node)
     {
+        this.region.StopWhenCanceled();
         base.Visit(node);
 
         if (node is not ExpressionSyntax expression)

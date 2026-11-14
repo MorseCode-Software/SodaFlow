@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -50,15 +52,32 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             }
 
             start.RegisterSyntaxNodeAction(
-                action: node => AnalyzeLoopBlock(context: node, symbols: symbols),
+                action: node => AnalyzeLoopBlock(
+                    invocation: (InvocationExpressionSyntax)node.Node,
+                    model: node.SemanticModel,
+                    symbols: symbols,
+                    report: node.ReportDiagnostic,
+                    cancellation: node.CancellationToken),
                 SyntaxKind.InvocationExpression);
         });
     }
 
-    private static void AnalyzeLoopBlock(SyntaxNodeAnalysisContext context, SodaFlowSymbols symbols)
+    /// <summary>
+    ///     Reads one invocation, and reports what the walk finds when it is a loop
+    ///     block.
+    /// </summary>
+    /// <param name="invocation">The invocation.</param>
+    /// <param name="model">The semantic model of the file of the invocation.</param>
+    /// <param name="symbols">The symbols of the library in the compilation.</param>
+    /// <param name="report">The action that gets each diagnostic, at the time that the walk finds it.</param>
+    /// <param name="cancellation">The token of the compiler. The walk throws when the token is canceled.</param>
+    internal static void AnalyzeLoopBlock(
+        InvocationExpressionSyntax invocation,
+        SemanticModel model,
+        SodaFlowSymbols symbols,
+        Action<Diagnostic> report,
+        CancellationToken cancellation)
     {
-        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-
         // The name of the method is in the syntax. This action runs for each invocation in the
         // compilation, thus it asks for the symbol only where the name is the name of a block.
         SimpleNameSyntax? name =
@@ -72,7 +91,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
         if (name == null
             || !SodaFlowSymbols.IsLoopBlockName(name.Identifier.ValueText)
-            || context.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
             || !symbols.IsLoopBlock(method))
         {
             return;
@@ -89,7 +108,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                     == TypeKind.Delegate)
                 .FirstOrDefault()
                 ?.Expression is not { } written
-            || BlockOf(written: written, model: context.SemanticModel) is not (var placeholder, var body))
+            || BlockOf(written: written, model: model) is not (var placeholder, var body))
         {
             return;
         }
@@ -109,12 +128,13 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
         LoopRegion region =
             new(
-                compilation: context.Compilation,
+                compilation: model.Compilation,
                 symbols: symbols,
                 placeholder: placeholder,
                 placeholderState: placeholderState,
                 root: body,
-                report: context.ReportDiagnostic);
+                report: report,
+                cancellation: cancellation);
 
         region.Analyze(closings: closings, checkLinks: checkLinks);
     }

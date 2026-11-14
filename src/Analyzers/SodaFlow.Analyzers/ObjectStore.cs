@@ -278,6 +278,11 @@ internal sealed class ObjectStore
             this.states.Remove(found);
             this.ended.Add(found);
 
+            // The next read makes the object of its turn again, with a mark of its own. A mark
+            // that stays gives each read a different number, and the reads of the loop do not end.
+            this.complete.Remove(found);
+            this.apart.Remove(found);
+
             // The next turn of this loop gets a new identity for the turns before of a loop in it.
             if (this.keyInATurnAround.TryGetValue(
                     key: found,

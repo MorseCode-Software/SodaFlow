@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -18,12 +19,14 @@ internal sealed class LoopRegion(
     in ISymbol placeholder,
     in LoopState placeholderState,
     in SyntaxNode root,
-    in Action<Diagnostic> report)
+    in Action<Diagnostic> report,
+    in CancellationToken cancellation)
 {
     // The walk reads at most this many callee bodies for one block. A block that needs more is
     // code that calls itself through many paths, and the limit is what ends the work.
     private const int MaxFrames = 512;
 
+    private readonly CancellationToken cancellation = cancellation;
     private readonly Compilation compilation = compilation;
 
     // The fields that the code sets while the loop is open, where the walk does not know the
@@ -197,6 +200,13 @@ internal sealed class LoopRegion(
     ///     read.
     /// </summary>
     public bool TryEnter() => ++this.frames <= MaxFrames;
+
+    /// <summary>
+    ///     Ends the analysis of the block when the compiler canceled it. An editor
+    ///     cancels an analysis at each change to the file. The compiler stops
+    ///     between two blocks, and only this call stops the walk of one block.
+    /// </summary>
+    public void StopWhenCanceled() => this.cancellation.ThrowIfCancellationRequested();
 
     /// <summary>
     ///     The number of writes to a member of an object that the walk read in
