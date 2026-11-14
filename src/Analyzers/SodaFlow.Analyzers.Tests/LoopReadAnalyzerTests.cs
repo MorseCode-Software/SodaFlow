@@ -1594,7 +1594,9 @@ internal sealed class LoopReadAnalyzerTests
             ["ElementOfALocalThatABranchGivesASecondList"] = ["SF1001"],
             ["ElementOfALocalThatGetsASecondList"] = ["SF1001"],
             ["ElementOfALocalThatATurnGivesASecondList"] = ["SF1001"],
-            ["ElementOfALocalInALambdaThatRunsAfterASecondList"] = ["SF1001"]
+            ["ElementOfALocalInALambdaThatRunsAfterASecondList"] = ["SF1001"],
+            ["PlainThroughTheMemberOfAnElementOfAListOfTheBlock"] = ["SF1001"],
+            ["PlainThroughTheMemberOfAnElementOfTheListOfTheTurnBefore"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -569,9 +569,14 @@ internal sealed class LoopStateEvaluator
     // that is one object. The object must be a new one: the result of a call can be the same
     // object in each turn.
     private LoopState InAnObject(LoopState owner, LoopState state) =>
+        this.InAnObjectOf(turn: TurnOfTheNewOne(owner), state: state);
+
+    // The same, for an object that the given loop makes in each turn. Null for an object that no
+    // turn makes.
+    private LoopState InAnObjectOf(SyntaxNode? turn, LoopState state) =>
         this.InALocation(
             state: state,
-            location: (Store: this.region.Objects, Turn: TurnOfTheNewOne(owner)),
+            location: (Store: this.region.Objects, Turn: turn),
             isOfItsTurn: static (turn, _, location) => location.Store.IsIn(turn: location.Turn, around: turn));
 
     // The turn of the one object of a value, when that object is a new one.
@@ -963,9 +968,12 @@ internal sealed class LoopStateEvaluator
         LoopState state =
             this.Refreshed(
                 expression: expression,
-                state: this.OnlyObjectsOfItsType(
+                state: this.OnlyObjectsThatWentIn(
                     expression: expression,
-                    state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
+                    state: this.OnlyObjectsOfItsType(
+                        expression: expression,
+                        state: this.Now(
+                            this.Captured(expression: expression, state: this.EvalUncached(expression))))));
 
         this.memo[expression] = state;
 
@@ -1064,6 +1072,16 @@ internal sealed class LoopStateEvaluator
         return now == state.Objects ? state : state.WithObjects(now);
     }
 
+    // An element of a collection that holds only objects that the walk saw go in is one of those
+    // objects. The local of such a collection can have an object that the store does not know,
+    // from a copy that the local keeps. The element is not that object.
+    private LoopState OnlyObjectsThatWentIn(ExpressionSyntax expression, LoopState state) =>
+        expression is ElementAccessExpressionSyntax element
+        && state.Objects.Contains(MadeObject.Unknown)
+        && this.TheCompleteCollection(element.Expression) != null
+            ? state.WithObjects(state.Objects.Remove(MadeObject.Unknown))
+            : state;
+
     // An object that a value of the type of the expression cannot be is not the value. The element
     // of a dictionary is a pair, and not the object that the pair holds.
     private LoopState OnlyObjectsOfItsType(ExpressionSyntax expression, LoopState state)
@@ -1127,8 +1145,12 @@ internal sealed class LoopStateEvaluator
                 all: known && this.IsANameOfItsObjects(Unwrapped(expression)));
 
         // The store has the parts of the object of this turn. A value that can be an older object
-        // can have the older parts also.
-        LoopState parts = this.InAnObject(owner: refreshed, state: refreshed);
+        // can have the older parts also. A local that is one collection is that object. Its state
+        // can have an object that the store does not know, from a copy that the local keeps.
+        LoopState parts =
+            this.InAnObjectOf(
+                turn: this.TheOneCollectionOf(expression) is { } only ? only.Turn : TurnOfTheNewOne(refreshed),
+                state: refreshed);
 
         return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
     }
@@ -1284,15 +1306,29 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     Records that a method of the platform got a collection as its owner,
-    ///     with the given values. The method can put each value into the
-    ///     collection, as <c>AddRange</c> puts the elements of a sequence there.
+    ///     Records that a method of the platform got its arguments, with a
+    ///     collection as its owner. The method can put each value into the
+    ///     collection. For a parameter that is a sequence, it can put each element
+    ///     there, as <c>AddRange</c> does. The walk saw each of those elements go
+    ///     in only when the sequence is a collection that holds only such objects.
     /// </summary>
-    public void CanGet(ExpressionSyntax collection, IEnumerable<ExpressionSyntax> values)
+    public void CanGet(ExpressionSyntax collection, IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
-        if (!values.All(this.IsKnownWhenItGoesIn))
+        for (int i = 0; i < arguments.Count; i++)
         {
-            this.CanHoldMore(collection);
+            ExpressionSyntax value = arguments[i].Expression;
+
+            bool known =
+                SodaFlowSymbols.IsSequence(ParameterFor(method: method, argument: arguments[i], position: i)?.Type)
+                    ? this.TheCompleteCollection(value) != null
+                    : this.IsKnownWhenItGoesIn(value);
+
+            if (!known)
+            {
+                this.CanHoldMore(collection);
+
+                return;
+            }
         }
     }
 
@@ -1363,15 +1399,24 @@ internal sealed class LoopStateEvaluator
     // the code around it is no such name.
     private bool HoldsOnlyWhatWentIn(ExpressionSyntax collection) => this.TheCompleteCollection(collection) != null;
 
+    // The object of a local of this code that is one collection and no other value. A function
+    // can run at a different time, thus a local that it reads from the code around it is no such
+    // name. Null also for an object of a turn that ended.
+    private MadeObject? TheOneCollectionOf(ExpressionSyntax expression) =>
+        this.function == null
+        && Unwrapped(expression) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is ILocalSymbol local
+        && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
+        && this.region.Objects.StateOf(one) != null
+            ? one
+            : null;
+
     private MadeObject? TheCompleteCollection(ExpressionSyntax collection)
     {
         MadeObject? made =
             Unwrapped(collection) switch
             {
-                IdentifierNameSyntax name
-                    when this.function == null
-                         && this.region.SymbolOf(name) is ILocalSymbol local
-                         && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one) => one,
+                IdentifierNameSyntax name => this.TheOneCollectionOf(name),
                 // Such a collection holds what its state in the store says, and no other object.
                 ElementAccessExpressionSyntax element
                     when this.TheCompleteCollection(element.Expression) is { } owner

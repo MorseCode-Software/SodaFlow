@@ -10415,6 +10415,26 @@ public static class Shapes
     public static Cell<int> ElementOfALocalInALambdaThatRunsAfterASecondList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = list; Action change = () => { c[0].Share = l.Map(v => v); }; c = UnseenLists[8]; change(); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
 
+    // S2288. A list of the body of a loop has a holder of the turn, and the holder has the object of the turn. A plain cell goes through the element and its member.
+    public static Cell<int> PlainThroughTheMemberOfAnElementOfAListOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; all.Add(new SlotHolder { Item = x }); all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2289. The same, where a local has the element.
+    public static Cell<int> PlainThroughTheMemberOfALocalForAnElementOfAListOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; all.Add(new SlotHolder { Item = x }); SlotHolder first = all[0]; first.Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2290. The same, where a local has the member.
+    public static Cell<int> PlainThroughALocalForTheMemberOfAnElementOfAListOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; all.Add(new SlotHolder { Item = x }); SettableSlot item = all[0].Item!; item.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2291. A list of the block has the holder of each turn. Its first holder has the object of the first turn, and the second turn samples its own object.
+    public static Cell<int> PlainThroughTheMemberOfAnElementOfAListOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> all = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; all.Add(new SlotHolder { Item = x }); all[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2292. A local of the block has the list of the turn before. The second turn gives the object of its first holder a plain cell.
+    public static Cell<int> PlainThroughTheMemberOfAnElementOfTheListOfTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder>? before = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; List<SlotHolder> all = []; all.Add(new SlotHolder { Item = x }); (before ?? all)[0].Item!.Share = Plain; Kept.Add(x.Share!.Sample()); before = all; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
