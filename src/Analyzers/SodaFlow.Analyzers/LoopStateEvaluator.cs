@@ -687,6 +687,7 @@ internal sealed class LoopStateEvaluator
     public void SetMember(ISymbol member, LoopState state)
     {
         ISymbol key = member.OriginalDefinition;
+        this.region.AddAMemberWrite();
 
         // The object can be older than a turn of a loop of this code. The receiver of a method can
         // be older than a turn of a loop of the caller also. A constructor makes a new object.
@@ -717,6 +718,7 @@ internal sealed class LoopStateEvaluator
     {
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
+        this.region.AddAMemberWrite();
 
         if (!replaces
             || this.quiet
@@ -724,6 +726,7 @@ internal sealed class LoopStateEvaluator
             || owner is not IdentifierNameSyntax
             || this.region.SymbolOf(owner) is not { } name
             || !KeepsItsObject(name)
+            || !IsALocation(member)
             || FunctionOf(owner) is not { } code)
         {
             this.Write(owner: owner, member: member, state: state, replaces: replaces, turn: turn, has: has);
@@ -750,6 +753,9 @@ internal sealed class LoopStateEvaluator
                 member: member.OriginalDefinition,
                 code: code,
                 position: owner.SpanStart,
+                state: state,
+                local: this.locals[name],
+                writes: this.region.MemberWrites,
                 objects:
                 [
                     .. before.Select(one =>
@@ -761,6 +767,56 @@ internal sealed class LoopStateEvaluator
     // ref is a second name of a location, and a write to that location gives the name a value.
     private static bool KeepsItsObject(ISymbol name) =>
         name is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None };
+
+    // True for a member that is a location and no code: a field, or a property whose accessors
+    // have no body. A read of it gives the value of the last write to it.
+    private static bool IsALocation(ISymbol member) =>
+        member is IFieldSymbol
+        || (member is IPropertySymbol property
+            && property.DeclaringSyntaxReferences.All(static declared =>
+                declared.GetSyntax() is ParameterSyntax
+                    or PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: null }
+                || (declared.GetSyntax() is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
+                    && list.Accessors.All(static accessor => accessor.Body == null && accessor.ExpressionBody == null))));
+
+    /// <summary>
+    ///     The state of a read of a member through a name, when the last write
+    ///     through that name gave the member its value. Null for each other read.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The name can be one of two or more objects, and the store has the
+    ///         write and the older state together for each of them. The name is
+    ///         one object, and that object has only what the write gave.
+    ///     </para>
+    ///     <para>
+    ///         That is true while no code changes the member or the name. Thus, no
+    ///         write to a member came after that write, no code gave the name a
+    ///         value, and no function uses the name. The value has no members and
+    ///         is no object, thus no later change is a change to it.
+    ///     </para>
+    /// </remarks>
+    private LoopState? WrittenThroughItsName(MemberAccessExpressionSyntax read) =>
+        !this.quiet
+        && this.function == null
+        && this.Frame.LastWrite is { State: { Members: null, Objects.IsEmpty: true } } last
+        && last.Writes == this.region.MemberWrites
+        && Unwrapped(read.Expression) is IdentifierNameSyntax owner
+        && owner.SpanStart > last.Position
+        && FunctionOf(owner) == last.Code
+        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(owner), y: last.Name)
+        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(read)?.OriginalDefinition, y: last.Member)
+        && this.locals.TryGetValue(key: last.Name, value: out LoopState? own)
+        && ReferenceEquals(objA: own, objB: last.Local)
+        && last.Objects.All(one => ReferenceEquals(objA: this.region.Objects.StateOf(one.Object), objB: one.After))
+        && !this.GetsAValue(
+            name: last.Name,
+            code: last.Code,
+            after: last.Position,
+            before: owner.SpanStart,
+            orAFunctionUsesIt: true)
+            ? last.State.Join(this.TypeState(read))
+            : null;
 
     // The function that has a node in its code.
     private static SyntaxNode? FunctionOf(SyntaxNode node) =>
@@ -798,7 +854,12 @@ internal sealed class LoopStateEvaluator
             || !SymbolEqualityComparer.Default.Equals(x: last.Member, y: member.OriginalDefinition)
             || last.Objects.Any(one =>
                 !ReferenceEquals(objA: this.region.Objects.StateOf(one.Object), objB: one.After))
-            || this.GetsAValue(name: name, code: code, after: last.Position, before: position))
+            || this.GetsAValue(
+                name: name,
+                code: code,
+                after: last.Position,
+                before: position,
+                orAFunctionUsesIt: false))
         {
             return;
         }
@@ -810,14 +871,17 @@ internal sealed class LoopStateEvaluator
     }
 
     // True when code of a function can give a name a value between two positions. That code is
-    // between the two, or it is in a function in that function, which can run between them.
-    private bool GetsAValue(ISymbol name, SyntaxNode code, int after, int before) =>
+    // between the two, or it is in a function in that function, which can run between them. A
+    // function that uses the name can change the object of the name also, and the last argument
+    // says if that use is such code.
+    private bool GetsAValue(ISymbol name, SyntaxNode code, int after, int before, bool orAFunctionUsesIt) =>
         code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Any(use =>
                 use.Identifier.ValueText == name.Name
-                && ((use.SpanStart > after && use.SpanStart < before) || FunctionOf(use) != code)
-                && GivesAValue(use)
+                && (FunctionOf(use) != code
+                    ? orAFunctionUsesIt || GivesAValue(use)
+                    : use.SpanStart > after && use.SpanStart < before && GivesAValue(use))
                 && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: name));
 
     // True for a use of a name that can give the name a value: the target of an assignment or of a
@@ -2038,6 +2102,7 @@ internal sealed class LoopStateEvaluator
                     Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
+            MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax

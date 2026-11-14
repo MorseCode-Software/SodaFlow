@@ -1648,7 +1648,16 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag51ThePendingCellCameThroughASecondName"] = ["SF1001"],
             ["Ag51AReadBetweenTheTwoWrites"] = ["SF1001"],
             ["Ag51AValueWithNoObjectInANestedConditionalExpression"] = ["SF1001"],
-            ["Ag51AValueWithNoObjectThroughTwoLocals"] = ["SF1001"]
+            ["Ag51AValueWithNoObjectThroughTwoLocals"] = ["SF1001"],
+            ["Ag53PendingAfterPlainThroughTheResult"] = ["SF1001"],
+            ["Ag53ALambdaWritesAPendingCellBetween"] = ["SF1001"],
+            ["Ag53ALambdaFromBeforeTheWriteThatAHelperRuns"] = ["SF1001"],
+            ["Ag53AHelperWritesAPendingCellBetween"] = ["SF1001"],
+            ["Ag53ASecondNameWritesAPendingCellBetween"] = ["SF1001"],
+            ["Ag53ABranchWritesAPendingCellBetween"] = ["SF1001"],
+            ["Ag53ALoopWritesAPendingCellBetween"] = ["SF1001"],
+            ["Ag53TheNameGetsANewValueBetween"] = ["SF1001"],
+            ["Ag53ALambdaGivesTheNameANewValueBetween"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

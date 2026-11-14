@@ -10771,6 +10771,54 @@ public static class Shapes
     public static Cell<int> Ag51NoObjectOfTheStoreAndTheTwoWrites() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag51Slots[5]; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
 
+    // S2377. AG53. The evidence of the item: a plain cell through the result of a method with no body to read.
+    public static Cell<int> Ag53PlainThroughTheResultAndARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; return S.Hold(fresh.Share!.Sample()); });
+
+    // S2378. AG53. A helper gives its parameter a plain cell and samples it.
+    public static Cell<int> Ag53PlainAndAReadInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); return S.Hold(Ag53PlainThenRead(fresh)); });
+
+    // S2379. AG53. A statement that declares a local is between the write and the read.
+    public static Cell<int> Ag53ALocalDeclaredBetweenTheWriteAndTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; int n = Kept.Count; Kept.Add(n); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2380. AG53. A pending cell through the name is after the plain one.
+    public static Cell<int> Ag53PendingAfterPlainThroughTheResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; fresh.Share = l.Map(v => v); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2381. AG53. A lambda gives the name a pending cell between the write and the read.
+    public static Cell<int> Ag53ALambdaWritesAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; Action pend = () => { fresh.Share = l.Map(v => v); }; pend(); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2382. AG53. The lambda is from before the write, and a helper runs it between the write and the read.
+    public static Cell<int> Ag53ALambdaFromBeforeTheWriteThatAHelperRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); Action pend = () => { fresh.Share = l.Map(v => v); }; fresh.Share = Plain; Ag53Run(pend); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2383. AG53. A helper gives the object a pending cell between the write and the read.
+    public static Cell<int> Ag53AHelperWritesAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; Ag51Set(fresh, l.Map(v => v)); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2384. AG53. A second name gives the object a pending cell between the write and the read.
+    public static Cell<int> Ag53ASecondNameWritesAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; SettableSlot d = fresh; d.Share = l.Map(v => v); return S.Hold(fresh.Share!.Sample()); });
+
+    // S2385. AG53. A branch gives the name a pending cell between the write and the read.
+    public static Cell<int> Ag53ABranchWritesAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; if (!Never) { fresh.Share = l.Map(v => v); } return S.Hold(fresh.Share!.Sample()); });
+
+    // S2386. AG53. A loop gives the name a pending cell between the write and the read.
+    public static Cell<int> Ag53ALoopWritesAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; for (int i = 0; i < 1; i++) { fresh.Share = l.Map(v => v); } return S.Hold(fresh.Share!.Sample()); });
+
+    // S2387. AG53. The name gets the object that the owner keeps between the write and the read.
+    public static Cell<int> Ag53TheNameGetsANewValueBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; fresh = x; return S.Hold(fresh.Share!.Sample()); });
+
+    // S2388. AG53. A lambda gives the name the object that the owner keeps between the write and the read.
+    public static Cell<int> Ag53ALambdaGivesTheNameANewValueBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); Action swap = () => { fresh = x; }; fresh.Share = Plain; swap(); return S.Hold(fresh.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12900,6 +12948,15 @@ public static class Shapes
         p.Share = first;
         p.Share = Plain;
     }
+
+    private static int Ag53PlainThenRead(SettableSlot p)
+    {
+        p.Share = Plain;
+
+        return p.Share!.Sample();
+    }
+
+    private static void Ag53Run(Action run) => run();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

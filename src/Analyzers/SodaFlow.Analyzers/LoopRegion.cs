@@ -199,6 +199,15 @@ internal sealed class LoopRegion(
     public bool TryEnter() => ++this.frames <= MaxFrames;
 
     /// <summary>
+    ///     The number of writes to a member of an object that the walk read in
+    ///     this region. A member can have a new value after each of them.
+    /// </summary>
+    public int MemberWrites { get; private set; }
+
+    /// <summary>Records a write to a member of an object.</summary>
+    public void AddAMemberWrite() => this.MemberWrites++;
+
+    /// <summary>
     ///     Counts one more callee body that the walk reads only because the callee
     ///     gets an object of the store. No state from the loop goes into such a
     ///     callee. These bodies have their own limit, thus they do not use the
