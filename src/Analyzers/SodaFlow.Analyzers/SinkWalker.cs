@@ -1180,11 +1180,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return first;
     }
 
-    private static bool HasAnIndexer(ITypeSymbol? type) =>
-        type != null
-        && type.AllInterfaces.Concat([type])
-            .Any(static one => one.GetMembers().OfType<IPropertySymbol>().Any(static property => property.IsIndexer));
-
     // The position of the first statement that can end a turn before the end of the body. A turn
     // that ends there does not run the statements after it.
     private int FirstEndOfATurnOf(StatementSyntax body)
@@ -1746,10 +1741,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 
-                // A method with no body to read can keep an object that it gets. When its owner has
-                // an indexer, that indexer can give the object back. Thus, the owner holds it, as a
-                // collection holds the object of a put.
-                if (receiver != null && method.ReducedFrom == null && HasAnIndexer(this.region.TypeOf(receiver)))
+                // A method with no body to read can keep an object that it gets. An indexer of its
+                // owner, or a foreach on the owner, can give the object back. Thus, the owner holds
+                // it, as a collection holds the object of a put.
+                if (receiver != null && method.ReducedFrom == null)
                 {
                     foreach (ArgumentSyntax argument in arguments)
                     {

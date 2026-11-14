@@ -2720,7 +2720,7 @@ internal sealed class LoopStateEvaluator
         ImmutableArray<MadeObject> given =
             this.Moved(invocation: invocation, method: method, withReceiver: false)
                 .Objects
-                .RemoveAll(made => returned.Objects.Contains(made) || !made.CanBe(method.ReturnType));
+                .RemoveAll(made => returned.Objects.Contains(made));
 
         return given.IsEmpty ? returned : returned.WithObjects(returned.Objects.AddRange(given));
     }

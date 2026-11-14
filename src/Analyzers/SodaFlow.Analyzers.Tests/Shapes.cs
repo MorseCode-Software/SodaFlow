@@ -10263,6 +10263,18 @@ public static class Shapes
     public static Cell<int> PlainThroughAggregateWithASeedOfASecondClass() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> rows = [x]; SettableSlot top = rows.Aggregate(new NoSlot(), (seed, row) => seed, seed => rows[0]); top.Share = Plain; return S.Hold(x.Share!.Sample()); });
 
+    // S2250. A method with no body to read gets an object with a pending cell. Its owner has no indexer, and a foreach over the owner gives the object back.
+    public static Cell<int> ObjectThatAnOwnerWithNoIndexerKeepsForAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotRow row = NewSlotRow(); row.Put(x); foreach (SettableSlot each in row) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S2251. The object gets a plain cell before the foreach.
+    public static Cell<int> ObjectThatAnOwnerWithNoIndexerKeepsAndAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotRow row = NewSlotRow(); row.Put(x); x.Share = Plain; foreach (SettableSlot each in row) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S2252. The object gets its pending cell after the owner got the object.
+    public static Cell<int> ObjectThatAnOwnerWithNoIndexerKeepsAndThenAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; ISlotRow row = NewSlotRow(); row.Put(x); x.Share = l.Map(v => v); foreach (SettableSlot each in row) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12232,6 +12244,24 @@ public static class Shapes
         bool IEqualityComparer<int>.Equals(int x, int y) => x == y;
 
         int IEqualityComparer<int>.GetHashCode(int value) => value + offset.Sample() - offset.Sample();
+    }
+
+    private static ISlotRow NewSlotRow() => new SlotRow();
+
+    public interface ISlotRow : IEnumerable<SettableSlot>
+    {
+        void Put(SettableSlot slot);
+    }
+
+    private sealed class SlotRow : ISlotRow
+    {
+        private readonly List<SettableSlot> slots = [];
+
+        public void Put(SettableSlot slot) => this.slots.Add(slot);
+
+        public IEnumerator<SettableSlot> GetEnumerator() => this.slots.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
