@@ -1694,7 +1694,23 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag51AHelperGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
             ["Ag51ALambdaGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
             ["Ag51AnElementGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
-            ["Ag53CodeWithNoBodyRunsALambdaThatUsesTheNameAfterTheWrite"] = ["SF1001"]
+            ["Ag53CodeWithNoBodyRunsALambdaThatUsesTheNameAfterTheWrite"] = ["SF1001"],
+            ["Ab71TheSecondWriteInABranch"] = ["SF1001"],
+            ["Ab71TheSecondWriteInALoop"] = ["SF1001"],
+            ["Ab71TheSecondWriteInALambdaThatABranchCalls"] = ["SF1001"],
+            ["Ab71TheSecondWriteInALocalFunctionThatABranchCalls"] = ["SF1001"],
+            ["Ab71TheSecondWriteInAMethodThatABranchCalls"] = ["SF1001"],
+            ["Ab71TheSecondWriteInABranchOfAMethod"] = ["SF1001"],
+            ["Ab71AStructAndTheSecondWriteInABranch"] = ["SF1001"],
+            ["Ab71TheSecondWriteInAWhile"] = ["SF1001"],
+            ["Ab71TheSecondWriteInASwitchSection"] = ["SF1001"],
+            ["Ab71TheSecondWriteThroughAParameterOfALambda"] = ["SF1001"],
+            ["Ab71ThePendingWriteInABranch"] = ["SF1001"],
+            ["Ab71TheSecondWriteInARightOperand"] = ["SF1001"],
+            ["Ab71AnElementWithNoNameAndTheSecondWriteInABranch"] = ["SF1001"],
+            ["Ab71ThePendingWriteInALambdaThatABranchCalls"] = ["SF1001"],
+            ["Ab71AStructAndTheSecondWriteInALoop"] = ["SF1001"],
+            ["Ab71TheSecondWriteInALambdaForEachElementOfNone"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -11015,6 +11015,114 @@ public static class Shapes
     public static Cell<int> Ag53CodeWithNoBodyRunsALambdaThatUsesTheNameAfterTheWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); IAg53Runner runner = NewAg53Runner(); runner.Keep(() => { fresh.Share = l.Map(v => v); }); fresh.Share = Plain; runner.Run(); return S.Hold(fresh.Share!.Sample()); });
 
+    // S2438. AB71. The evidence of the item: the second write is in a branch that does not run.
+    public static Cell<int> Ab71TheSecondWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[0]; c.Share = l.Map(v => v); if (Never) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2439. AB71. The evidence of the item: the second write is in a loop that runs no turn.
+    public static Cell<int> Ab71TheSecondWriteInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[1]; c.Share = l.Map(v => v); for (int i = 0; i < Kept.Count - Kept.Count; i++) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2440. AB71. The evidence of the item: a lambda that a branch calls does the second write.
+    public static Cell<int> Ab71TheSecondWriteInALambdaThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[2]; Action plain = () => { c.Share = Plain; }; c.Share = l.Map(v => v); if (Never) { plain(); } return S.Hold(c.Share!.Sample()); });
+
+    // S2441. AB71. A local function that a branch calls does the second write.
+    public static Cell<int> Ab71TheSecondWriteInALocalFunctionThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[3]; void MakePlain() { c.Share = Plain; } c.Share = l.Map(v => v); if (Never) { MakePlain(); } return S.Hold(c.Share!.Sample()); });
+
+    // S2442. AB71. A method that a branch calls does the second write.
+    public static Cell<int> Ab71TheSecondWriteInAMethodThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[4]; c.Share = l.Map(v => v); if (Never) { Ab71MakePlain(c); } return S.Hold(c.Share!.Sample()); });
+
+    // S2443. AB71. A method does the second write in a branch of its own.
+    public static Cell<int> Ab71TheSecondWriteInABranchOfAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[5]; c.Share = l.Map(v => v); Ab71MakePlainWhen(c, Never); return S.Hold(c.Share!.Sample()); });
+
+    // S2444. AB71. A struct in a local: the second write is in a branch that does not run.
+    public static Cell<int> Ab71AStructAndTheSecondWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = default; c.Share = l.Map(v => v); if (Never) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2445. AB71. The second write is in a while statement that runs no turn.
+    public static Cell<int> Ab71TheSecondWriteInAWhile() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[6]; c.Share = l.Map(v => v); while (Never) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2446. AB71. The second write is in a section of a switch statement that does not run.
+    public static Cell<int> Ab71TheSecondWriteInASwitchSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[7]; c.Share = l.Map(v => v); switch (Kept.Count) { case -1: c.Share = Plain; break; } return S.Hold(c.Share!.Sample()); });
+
+    // S2447. AB71. A lambda with a parameter does the second write, and a branch calls it.
+    public static Cell<int> Ab71TheSecondWriteThroughAParameterOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[8]; Action<SettableSlot> plain = slot => { slot.Share = Plain; }; c.Share = l.Map(v => v); if (Never) { plain(c); } return S.Hold(c.Share!.Sample()); });
+
+    // S2448. AB71. The pending cell is the write in a branch, after a plain one that always runs.
+    public static Cell<int> Ab71ThePendingWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[9]; c.Share = Plain; if (!Never) { c.Share = l.Map(v => v); } return S.Hold(c.Share!.Sample()); });
+
+    // S2449. AB71. The second write is the right operand of an operator that does not read it.
+    public static Cell<int> Ab71TheSecondWriteInARightOperand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[10]; c.Share = l.Map(v => v); Kept.Add(Never && (c.Share = Plain) != null); return S.Hold(c.Share!.Sample()); });
+
+    // S2450. AB71. The owner is an element with no name, and the second write is in a branch.
+    public static Cell<int> Ab71AnElementWithNoNameAndTheSecondWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab71Slots[11].Share = l.Map(v => v); if (Never) { Ab71Slots[11].Share = Plain; } return S.Hold(Ab71Slots[11].Share!.Sample()); });
+
+    // S2451. AB71. The two writes always run, and the last one is plain.
+    public static Cell<int> Ab71TwoWritesThatAlwaysRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[12]; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2452. AB71. The second write is in a block that always runs.
+    public static Cell<int> Ab71TheSecondWriteInABlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[13]; c.Share = l.Map(v => v); { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2453. AB71. A struct in a local, and the two writes always run.
+    public static Cell<int> Ab71AStructAndTwoWritesThatAlwaysRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = default; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2454. AB71. A lambda that the code always calls does the second write.
+    public static Cell<int> Ab71TheSecondWriteInALambdaThatAlwaysRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71Slots[15]; Action plain = () => { c.Share = Plain; }; c.Share = l.Map(v => v); plain(); return S.Hold(c.Share!.Sample()); });
+
+    // S2455. AB71. The body of a loop declares the name, and the two writes always run in the turn.
+    public static Cell<int> Ab71ANameOfATurnAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot c = Ab71More[0]; c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2456. AB71. The variable of a foreach statement is the name, and the two writes always run in the turn.
+    public static Cell<int> Ab71TheVariableOfAForeachAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (SettableSlot c in Ab71Pair) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); } return S.Hold(0); });
+
+    // S2457. AB71. A lambda declares the name, and a branch that runs calls the lambda.
+    public static Cell<int> Ab71ANameOfALambdaAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action run = () => { SettableSlot c = Ab71More[1]; c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); }; if (!Never) { run(); } return S.Hold(0); });
+
+    // S2458. AB71. A parameter of a lambda is the name, and a branch that runs calls the lambda.
+    public static Cell<int> Ab71AParameterOfALambdaAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action<SettableSlot> run = c => { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); }; if (!Never) { run(Ab71More[2]); } return S.Hold(0); });
+
+    // S2459. AB71. A local function that the code always calls does the second write.
+    public static Cell<int> Ab71TheSecondWriteInALocalFunctionThatAlwaysRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71More[3]; void MakePlain() { c.Share = Plain; } c.Share = l.Map(v => v); MakePlain(); return S.Hold(c.Share!.Sample()); });
+
+    // S2460. AB71. The pending cell is the write in a lambda that a branch calls, after a plain one.
+    public static Cell<int> Ab71ThePendingWriteInALambdaThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71More[4]; Action pend = () => { c.Share = l.Map(v => v); }; c.Share = Plain; if (!Never) { pend(); } return S.Hold(c.Share!.Sample()); });
+
+    // S2461. AB71. A struct in a local, and the second write is in a loop that runs no turn.
+    public static Cell<int> Ab71AStructAndTheSecondWriteInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = default; c.Share = l.Map(v => v); for (int i = 0; i < Kept.Count - Kept.Count; i++) { c.Share = Plain; } return S.Hold(c.Share!.Sample()); });
+
+    // S2462. AB71. A parameter of a lambda that a method of the platform runs for each element is the name.
+    public static Cell<int> Ab71AParameterOfALambdaForEachElementAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Array.ForEach(Ab71Trio, c => { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); }); return S.Hold(0); });
+
+    // S2463. AB71. A variable of a foreach statement with parts is the name.
+    public static Cell<int> Ab71AVariableOfAForeachWithPartsAndTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach ((SettableSlot c, int n) in Ab71Parts) { c.Share = l.Map(v => v); c.Share = Plain; Kept.Add(c.Share!.Sample()); Kept.Add(n); } return S.Hold(0); });
+
+    // S2464. AB71. A lambda that a method of the platform runs for each element does the second write, for no element.
+    public static Cell<int> Ab71TheSecondWriteInALambdaForEachElementOfNone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab71More[5]; c.Share = l.Map(v => v); Array.ForEach(Ab71None, _ => { c.Share = Plain; }); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -13206,6 +13314,29 @@ public static class Shapes
         public void Keep(Action change) => this.kept = change;
 
         public void Run() => this.kept();
+    }
+
+    private static readonly SettableSlot[] Ab71Slots =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly SettableSlot[] Ab71More = [new(), new(), new(), new(), new(), new()];
+
+    private static readonly SettableSlot[] Ab71None = [];
+
+    private static readonly SettableSlot[] Ab71Pair = [new(), new()];
+
+    private static readonly SettableSlot[] Ab71Trio = [new(), new(), new()];
+
+    private static readonly (SettableSlot, int)[] Ab71Parts = [(new SettableSlot(), 1), (new SettableSlot(), 2)];
+
+    private static void Ab71MakePlain(SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ab71MakePlainWhen(SettableSlot slot, bool when)
+    {
+        if (when)
+        {
+            slot.Share = Plain;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

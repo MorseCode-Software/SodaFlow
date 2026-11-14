@@ -360,6 +360,29 @@ internal sealed partial class LoopStateEvaluator
         };
     }
 
+    // True when a write that always runs in its function gives a name only the new state. The
+    // function is the code of this frame, or each call of it makes the name, or its call always
+    // runs.
+    private bool AlwaysRunsForAName(ISymbol name) =>
+        this.function == null
+        || IsDeclaredIn(local: name, code: this.function)
+        || this.call is { AlwaysRuns: true };
+
+    // True for a name that is new in each turn. The body of the loop declares such a name. The
+    // variable of the foreach statement is one also, and so is a parameter of the lambda that has
+    // the body.
+    private static bool IsMadeInEachTurn(ISymbol name, SyntaxNode turn) =>
+        IsDeclaredIn(local: name, code: turn)
+        || turn.Parent switch
+        {
+            AnonymousFunctionExpressionSyntax lambda =>
+                name is IParameterSymbol && IsDeclaredIn(local: name, code: lambda),
+            ForEachStatementSyntax each =>
+                name.DeclaringSyntaxReferences.Any(declared => declared.GetSyntax() == each),
+            ForEachVariableStatementSyntax parts => IsDeclaredIn(local: name, code: parts.Variable),
+            _ => false
+        };
+
     // The write itself: what SetMemberOf records for each owner.
     private void Write(
         ExpressionSyntax? owner,
@@ -407,8 +430,18 @@ internal sealed partial class LoopStateEvaluator
                         ? given
                         : LoopState.None;
 
+            // After a write that does not always run, the member can have the state that it had
+            // also. The name then has the two states together, as an object of the store has.
+            Construction had = known.Members ?? Construction.Empty;
+
+            bool only =
+                replaces
+                    ? this.AlwaysRunsForAName(holder)
+                    : turn != null && IsMadeInEachTurn(name: holder, turn: turn);
+
             this.locals[holder] =
-                known.WithMembers((known.Members ?? Construction.Empty).With(member: member, state: state));
+                known.WithMembers(
+                    had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
 
             return;
         }
