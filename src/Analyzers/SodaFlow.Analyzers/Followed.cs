@@ -35,16 +35,16 @@ internal sealed class Followed(
     public ImmutableDictionary<ISymbol, LoopState> Outs { get; } = outs;
 
     /// <summary>
-    ///     Each member of its object that the callee set, with the state that the
-    ///     member has when the callee returns. That state has each write of
-    ///     the callee in it. The last part is the one collection that the member
-    ///     then is, when a write that always runs gave it.
+    ///     Each member of its object that the callee set, with the state of the
+    ///     member at the return of the callee. Each write of the callee is in
+    ///     that state. The last part is the one collection that the member then
+    ///     is, when a write that always runs gave it.
     /// </summary>
     public ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> Sets { get; } = sets;
 
     /// <summary>
     ///     Each member that the callee set through a parameter, with the state
-    ///     that the member has when the callee returns.
+    ///     of the member at the return of the callee.
     /// </summary>
     public ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> Through { get; } = through;
 }

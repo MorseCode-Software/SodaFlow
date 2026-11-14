@@ -31,9 +31,9 @@ internal sealed partial class LoopStateEvaluator
             isOfItsTurn: static (_, made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
         // A write that always runs gives the member only the new state. A function can run no
-        // time. A callee that has the members of the object of its caller, and not a copy of them,
-        // writes to that object, and its call can run no time also. A copy is for one call, and
-        // the caller says if that call runs: see GivesItsOwner.
+        // time. A callee can have the members of the object of its caller, and not a copy of them.
+        // It then writes to that object, and its call can run no time also. A copy is for one
+        // call, and the caller says if that call runs: see GivesItsOwner.
         bool only =
             replaces
             && this.function == null
@@ -90,10 +90,10 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     The expression names the same location while no code gives a name in
-    ///     it a value: the local of the array, the local of the index, or the
-    ///     local of the object. An assignment to the local that is the location
-    ///     is a change to the location itself. A function can run at a different
-    ///     time, thus the code of a function gets no location.
+    ///     it a value. Such a name is the local of the array, of the index, or of
+    ///     the object. An assignment to the local that is the location is a
+    ///     change to the location itself. A function can run at a different time,
+    ///     thus the code of a function gets no location.
     /// </remarks>
     public ExpressionSyntax? TheLocationOf(ExpressionSyntax written)
     {
@@ -126,8 +126,8 @@ internal sealed partial class LoopStateEvaluator
             : location;
     }
 
-    // True for the expression of a location that TheLocationOf can give: a local, an element of
-    // an array in a local, or a field of an object in a local or of this object.
+    // True for the expression of a location that TheLocationOf can give. That is a local, an
+    // element of an array in a local, or a field of an object in a local or of this object.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {
@@ -186,7 +186,9 @@ internal sealed partial class LoopStateEvaluator
                 {
                     AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax target } =>
                         !SymbolEqualityComparer.Default.Equals(x: this.NameUnder(target.Expression), y: name),
-                    AssignmentExpressionSyntax or InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax => true,
+                    AssignmentExpressionSyntax
+                        or InvocationExpressionSyntax
+                        or BaseObjectCreationExpressionSyntax => true,
                     _ => node.Kind() is SyntaxKind.PreIncrementExpression
                         or SyntaxKind.PreDecrementExpression
                         or SyntaxKind.PostIncrementExpression
@@ -196,7 +198,7 @@ internal sealed partial class LoopStateEvaluator
 
     // Records a write through an element for WrittenThroughItsElement. Each other write to a
     // member takes the record away.
-    // The second argument is the owner as the code has it at the write: a name with ref there
+    // The second argument is the owner as the code has it at the write. A name with ref there
     // has its location as the first argument.
     private void NotesAWriteThroughAnElement(
         ExpressionSyntax? owner,
@@ -262,8 +264,8 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     The element is one object for the write and the read when no code runs
-    ///     between the two. Thus, no call, no creation, and no assignment is
-    ///     between them, and no write to a member came after that write.
+    ///     between the two. Thus, the code has no call, no creation, and no
+    ///     assignment between them. No write to a member came after that write.
     /// </remarks>
     private LoopState? WrittenThroughItsElement(MemberAccessExpressionSyntax read) =>
         !this.quiet
@@ -284,7 +286,9 @@ internal sealed partial class LoopStateEvaluator
             .Any(node =>
                 node.SpanStart >= last.End
                 && node.Span.End <= owner.SpanStart
-                && (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or AssignmentExpressionSyntax
+                && (node is InvocationExpressionSyntax
+                        or BaseObjectCreationExpressionSyntax
+                        or AssignmentExpressionSyntax
                     || node.Kind() is SyntaxKind.PreIncrementExpression
                         or SyntaxKind.PreDecrementExpression
                         or SyntaxKind.PostIncrementExpression
@@ -298,7 +302,12 @@ internal sealed partial class LoopStateEvaluator
 
     // Records the state that a member had before a loop, at the first write of a turn that
     // replaces it.
-    private void KeepsForAfterTheLoop(SyntaxNode turn, MadeObject? made, ISymbol? name, ISymbol member, LoopState before)
+    private void KeepsForAfterTheLoop(
+        SyntaxNode turn,
+        MadeObject? made,
+        ISymbol? name,
+        ISymbol member,
+        LoopState before)
     {
         ISymbol key = member.OriginalDefinition;
 
@@ -347,9 +356,9 @@ internal sealed partial class LoopStateEvaluator
     ///     Gives an argument each member that a callee set through its parameter.
     ///     For an object of the store, the callee changed the store, and this does
     ///     nothing. A value with no object keeps its members in the name of the
-    ///     caller, and the write of the callee is a write through that name. The
-    ///     state of the callee started with the state of the argument, thus it
-    ///     replaces when the call always runs.
+    ///     caller. Thus, the write of the callee is a write through that name.
+    ///     The state of the callee started with the state of the argument, thus
+    ///     it replaces when the call always runs.
     /// </summary>
     /// <param name="argument">The expression of the argument.</param>
     /// <param name="parameter">The parameter that got it.</param>
@@ -383,10 +392,10 @@ internal sealed partial class LoopStateEvaluator
     ///     the caller.
     /// </summary>
     /// <remarks>
-    ///     The copy had the state of each member at the call, and the callee
-    ///     gave it each of its writes, each one as a write that replaces or as a
-    ///     write that adds. Thus, the state that comes back is the state of the
-    ///     member after the call, and it replaces when the call always runs.
+    ///     The copy had the state of each member at the call. The callee gave
+    ///     it each of its writes, each one as a write that replaces or as a write
+    ///     that adds. Thus, the state that comes back is the state of the member
+    ///     after the call, and it replaces when the call always runs.
     /// </remarks>
     /// <param name="call">The call.</param>
     /// <param name="owner">The state of the object.</param>
@@ -432,7 +441,8 @@ internal sealed partial class LoopStateEvaluator
 
             this.Change(
                 owner: owner,
-                change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
+                change: old =>
+                    old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
                 replaces: always,
                 turn: turn,
                 member: member);
@@ -496,7 +506,13 @@ internal sealed partial class LoopStateEvaluator
         // that object, and each object of the store that the owner can be keeps what it has.
         bool isKnown = !this.CanBeUnseen(owner);
         this.NoteAWriteThroughEach(owner: owner, member: member, state: state, turn: turn);
-        this.NotesTheCollectionIn(owner: owner, has: has, member: member, state: state, from: from, sure: replaces && isKnown);
+        this.NotesTheCollectionIn(
+            owner: owner,
+            has: has,
+            member: member,
+            state: state,
+            from: from,
+            sure: replaces && isKnown);
         this.NotesAWriteThroughAnElement(owner: owner, at: written, member: member, state: state, replaces: replaces);
 
         if (!replaces

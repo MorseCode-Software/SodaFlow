@@ -89,9 +89,9 @@ internal sealed partial class LoopStateEvaluator
     private readonly LoopRegion region;
     private readonly Dictionary<ISymbol, LoopState> thisMembers;
 
-    // The members of the object that this code set, each with the one collection that the member
-    // then is, when a write that always runs gave it. The code of a function in this code has the
-    // same record, and so has a callee that is a member of the same object.
+    // The members of the object that this code set. The value is the one collection that the
+    // member then is, when a write that always runs gave it. The code of a function in this code
+    // has the same record, and so has a callee that is a member of the same object.
     private readonly Dictionary<ISymbol, MadeObject?> setOnThis;
 
     public LoopStateEvaluator(LoopRegion region)
@@ -2667,7 +2667,9 @@ internal sealed partial class LoopStateEvaluator
                 this.region.Objects.IsTheCollectionIn(
                     owner: owner,
                     member: member.OriginalDefinition,
-                    collection: this.TheOneCollectionThatIs(from: assignment.Right, state: this.Eval(assignment.Right)));
+                    collection: this.TheOneCollectionThatIs(
+                        from: assignment.Right,
+                        state: this.Eval(assignment.Right)));
             }
         }
     }
