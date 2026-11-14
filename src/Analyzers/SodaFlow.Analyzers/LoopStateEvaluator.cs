@@ -282,13 +282,13 @@ internal sealed class LoopStateEvaluator
     /// <param name="state">The state of the value.</param>
     /// <param name="location">The location, as the function needs it.</param>
     /// <param name="isOfItsTurn">
-    ///     True when the location is new in each turn of the loop of the given
-    ///     object.
+    ///     True when the location is new in each turn of the given loop, which is
+    ///     the loop of the given object.
     /// </param>
     private LoopState InALocation<TLocation>(
         LoopState state,
         TLocation location,
-        Func<MadeObject, TLocation, bool> isOfItsTurn) =>
+        Func<SyntaxNode, MadeObject, TLocation, bool> isOfItsTurn) =>
         this.quiet || !this.region.Objects.HasATurn
             ? state
             : this.WithTheObjectsBefore(state: state, location: location, isOfItsTurn: isOfItsTurn);
@@ -298,9 +298,9 @@ internal sealed class LoopStateEvaluator
     private LoopState WithTheObjectsBefore<TLocation>(
         LoopState state,
         TLocation location,
-        Func<MadeObject, TLocation, bool> isOfItsTurn) =>
+        Func<SyntaxNode, MadeObject, TLocation, bool> isOfItsTurn) =>
         state.WithAlso(made =>
-            made.Turn != null && !isOfItsTurn(arg1: made, arg2: location)
+            made.Turn is { } turn && !isOfItsTurn(arg1: turn, arg2: made, arg3: location)
                 ? this.region.Objects.BeforeOf(made)
                 : null);
 
@@ -310,12 +310,12 @@ internal sealed class LoopStateEvaluator
         this.InALocation(
             state: state,
             location: (Code: this, Local: local),
-            isOfItsTurn: static (made, location) =>
-                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, code: made.Turn!));
+            isOfItsTurn: static (turn, made, location) =>
+                location.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: location.Local, code: turn));
 
     // A location that is new in no turn.
     private LoopState InAnOldLocation(LoopState state) =>
-        this.InALocation(state: state, location: false, isOfItsTurn: static (_, isNew) => isNew);
+        this.InALocation(state: state, location: false, isOfItsTurn: static (_, _, isNew) => isNew);
 
     // True when the code of this frame runs in one turn of the loop that made the object. The
     // frame is then of a callee of the code that has the loop, and the call did not return. A
@@ -329,10 +329,21 @@ internal sealed class LoopStateEvaluator
     private LoopState InAnObject(LoopState owner, LoopState state) =>
         this.InALocation(
             state: state,
-            location: (
-                Store: this.region.Objects,
-                Turn: owner.Objects.Length == 1 && owner.Objects[0].IsNew ? owner.Objects[0].Turn : null),
-            isOfItsTurn: static (made, location) => location.Store.IsIn(turn: location.Turn, around: made.Turn!));
+            location: (Store: this.region.Objects, Turn: TurnOfTheNewOne(owner)),
+            isOfItsTurn: static (turn, _, location) => location.Store.IsIn(turn: location.Turn, around: turn));
+
+    // The turn of the one object of a value, when that object is a new one.
+    private static SyntaxNode? TurnOfTheNewOne(LoopState value)
+    {
+        if (value.Objects.Length != 1)
+        {
+            return null;
+        }
+
+        MadeObject one = value.Objects[0];
+
+        return one.IsNew ? one.Turn : null;
+    }
 
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
@@ -347,7 +358,7 @@ internal sealed class LoopStateEvaluator
         state = this.InALocation(
             state: state,
             location: this,
-            isOfItsTurn: static (made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
+            isOfItsTurn: static (_, made, code) => code.Frame.IsOfAConstructor && code.RunsInTheTurnOf(made));
 
         this.thisMembers[key] =
             this.thisMembers.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
@@ -741,7 +752,7 @@ internal sealed class LoopStateEvaluator
     // A location can keep a lambda or a local function from a turn before, and a call then runs
     // that function. A local that the function reads from the code around it is then the local of
     // that turn. Thus, the value of such a local can be an object of the turns before also.
-    private LoopState Captured(ExpressionSyntax expression, LoopState state) =>
+    private LoopState Captured(SyntaxNode expression, LoopState state) =>
         this.function != null
         && expression is IdentifierNameSyntax
         && this.region.SymbolOf(expression) is { } local and (ILocalSymbol or IParameterSymbol)
@@ -2873,8 +2884,10 @@ internal sealed class LoopStateEvaluator
         }
 
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
+
         LoopStateEvaluator inner =
             this.Inner(call: call, bindings: bindings, definer: null, members: members, function: null);
+
         List<Finding> found = [];
         SinkWalker walker = new(region: this.region, evaluator: inner, sink: found.Add);
         SemanticModel model = this.region.ModelFor(type);

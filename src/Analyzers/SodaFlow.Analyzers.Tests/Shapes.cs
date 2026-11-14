@@ -8703,7 +8703,7 @@ public static class Shapes
     public static Cell<int> TurnChangeThroughAnElementOfAListOfTheTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<SettableSlot> one = [x]; one[0].Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
 
-    // S1860. A member of an object that the turn makes has the object of that turn, and a change through the local is a change for the member.
+    // S1860. A member of an object that the turn makes has the object of that turn. A change through the local is a change for the member.
     public static Cell<int> TurnChangeThroughALocalThatAnObjectOfTheTurnHas() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SlotHolder holder = new() { Item = x }; x.Share = l.Map(v => v); list.Add(holder); } return S.Hold(list[0].Item!.Share!.Sample()); });
 
@@ -8755,7 +8755,7 @@ public static class Shapes
     public static Cell<int> TurnObjectOfTheInitializerOfAForWhenNoTurnRuns() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? keep = null; int n = 0; SettableSlot? x; for (x = new SettableSlot { Share = l.Map(v => v) }, keep = x; n > 0; n--) { x.Share = Plain; } return S.Hold(keep!.Share!.Sample()); });
 
-    // S1873. A plain cell under a condition is not for each object.
+    // S1873. A plain cell that only some turns give is not for each object.
     public static Cell<int> TurnPlainUnderAConditionAfterPending() =>
         Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i > 5) { x.Share = Plain; } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
 
@@ -9038,6 +9038,22 @@ public static class Shapes
     // S1943. The lambda of the first turn gives the object of that turn a pending cell in a lambda that a list runs.
     public static Cell<int> TurnLambdaOfTheFirstTurnChangesItsObjectInALambdaOfAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; Action? change = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; change = () => { new List<int> { 1 }.ForEach(n => { x.Share = l.Map(v => v); }); }; } change!(); x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1944. An assignment in the body gives a local of the block a new object. Here, no turn runs, and the local keeps its first object.
+    public static Cell<int> TurnAssignmentToALocalOfTheBlockWhenNoTurnRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot keep = new() { Share = l.Map(v => v) }; int n = 0; for (int i = 0; i < n; i++) { keep = new SettableSlot { Share = Plain }; } return S.Hold(keep.Share!.Sample()); });
+
+    // S1945. A deconstruction of the tuple from a call, where the tuple has an object also, gives the plain cell in each turn.
+    public static Cell<int> TurnPlainFromATupleOfACallThatHasAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; (y.Share, SettableSlot z) = PlainAnd(x); Kept.Add(z); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1946. A lambda that a list runs for each element makes two objects in one turn. A plain cell for the first one is not for the second one.
+    public static Cell<int> TurnObjectsOfALambdaThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot? first = null; SettableSlot? second = null; new List<int> { 1, 2 }.ForEach(n => { SettableSlot made = new() { Share = l.Map(v => v) }; if (n == 1) { first = made; } else { second = made; } }); first!.Share = Plain; Kept.Add(second!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1947. A local function that a list runs for each element makes two objects in one turn.
+    public static Cell<int> TurnObjectsOfALocalFunctionThatAListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot? first = null; SettableSlot? second = null; void Make(int n) { SettableSlot made = new() { Share = l.Map(v => v) }; if (n == 1) { first = made; } else { second = made; } } new List<int> { 1, 2 }.ForEach(Make); first!.Share = Plain; Kept.Add(second!.Share!.Sample()); } return S.Hold(0); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -10753,6 +10769,8 @@ public static class Shapes
     }
 
     private static Func<SettableSlot> KeeperOf(SettableSlot kept) => () => kept;
+
+    private static (Cell<int>? First, SettableSlot Second) PlainAnd(SettableSlot slot) => (Plain, slot);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

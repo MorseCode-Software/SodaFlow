@@ -978,7 +978,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // A break statement is for the loop or the switch statement nearest to it, and a continue
     // statement is for the loop nearest to it. Each other jump ends the turn of each loop that it
     // is in.
-    private static bool EndsATurnOf(StatementSyntax body, SyntaxNode node) =>
+    private static bool EndsATurnOf(SyntaxNode body, SyntaxNode node) =>
         node switch
         {
             ReturnStatementSyntax or ThrowStatementSyntax or ThrowExpressionSyntax or GotoStatementSyntax => true,

@@ -38,7 +38,6 @@ internal sealed class MadeObject(
     in SyntaxNode? turn,
     in bool isOfTurnsBefore)
 {
-    private readonly bool exact = exact;
     private readonly LoopFrame? frame = frame;
     private readonly ITypeSymbol? type = type;
 
@@ -49,11 +48,12 @@ internal sealed class MadeObject(
     public SyntaxNode? Turn { get; } = turn;
 
     /// <summary>
-    ///     True for the object of a creation, which is a new object. The result of
-    ///     a call can be an object that is older than the call, and a member can
-    ///     have such an object.
+    ///     True for the object of a creation. It is a new object, and it has the
+    ///     type of the creation. The result of a call can be an object that is
+    ///     older than the call, and a member can have such an object. Each of the
+    ///     two can have a type that derives from the type that the code names.
     /// </summary>
-    public bool IsNew => this.exact;
+    public bool IsNew { get; } = exact;
 
     /// <summary>
     ///     True for the objects that a loop made in the turns before this one.
@@ -89,7 +89,7 @@ internal sealed class MadeObject(
 
     /// <summary>A new identity for the objects that the same code made in the turns before.</summary>
     public MadeObject OfTurnsBefore() =>
-        new(type: this.type, exact: this.exact, frame: this.frame, turn: null, isOfTurnsBefore: true);
+        new(type: this.type, exact: this.IsNew, frame: this.frame, turn: null, isOfTurnsBefore: true);
 
     /// <summary>
     ///     True when a value of the given type can be this object. The element of
@@ -107,7 +107,7 @@ internal sealed class MadeObject(
             return false;
         }
 
-        if (!this.exact)
+        if (!this.IsNew)
         {
             return true;
         }

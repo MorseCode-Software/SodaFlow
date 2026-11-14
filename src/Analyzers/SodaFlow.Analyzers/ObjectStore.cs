@@ -82,18 +82,18 @@ internal sealed class ObjectStore
     {
         MadeObject found = new(type: type, exact: exact, frame: frame, turn: turn, isOfTurnsBefore: false);
         this.states[found] = state;
-        this.InATurn(found);
+        this.InATurn(found: found, turn: turn);
 
         return found;
     }
 
-    private void InATurn(MadeObject found)
+    private void InATurn(MadeObject found, SyntaxNode turn)
     {
-        if (!this.turns.TryGetValue(key: found.Turn!, value: out List<MadeObject>? made))
+        if (!this.turns.TryGetValue(key: turn, value: out List<MadeObject>? made))
         {
             made = [];
-            this.turns[found.Turn!] = made;
-            this.open.Add(found.Turn!);
+            this.turns[turn] = made;
+            this.open.Add(turn);
         }
 
         made.Add(found);
@@ -208,9 +208,9 @@ internal sealed class ObjectStore
         this.states[found] = state;
 
         // A member of the object of a turn is of that turn also.
-        if (found.Turn != null)
+        if (found.Turn is { } turn)
         {
-            this.InATurn(found);
+            this.InATurn(found: found, turn: turn);
         }
 
         return found;
