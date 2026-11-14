@@ -1570,7 +1570,8 @@ internal sealed class LoopReadAnalyzerTests
             ["MemberOfAnObjectInAMemberFromACellTwoTurnsBefore"] = ["SF1001"],
             ["PlainThroughTheFirstElementInAFunctionThatAQueryRunsAgain"] = ["SF1001"],
             ["ObjectThatAnOwnerWithNoIndexerKeepsForAForeach"] = ["SF1001"],
-            ["ObjectThatAnOwnerWithNoIndexerKeepsAndThenAPendingCell"] = ["SF1001"]
+            ["ObjectThatAnOwnerWithNoIndexerKeepsAndThenAPendingCell"] = ["SF1001"],
+            ["ThirdAddToASortedSet"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

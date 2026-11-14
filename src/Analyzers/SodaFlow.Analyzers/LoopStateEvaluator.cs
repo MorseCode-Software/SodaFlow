@@ -340,9 +340,9 @@ internal sealed class LoopStateEvaluator
     public int ShapeOfWhatALoopLeaves(SyntaxNode turn) =>
         unchecked(
             Shapes(this.locals.Where(local => !IsDeclaredIn(local: local.Key, code: turn)))
-            + (Shapes(this.thisMembers) * 3)
-            + (this.region.Objects.Shape * 5)
-            + (this.region.ShapeOfFields * 7));
+            + Shapes(this.thisMembers) * 3
+            + this.region.Objects.Shape * 5
+            + this.region.ShapeOfFields * 7);
 
     private static int Shapes(IEnumerable<KeyValuePair<ISymbol, LoopState>> states) =>
         states.Aggregate(
@@ -435,7 +435,7 @@ internal sealed class LoopStateEvaluator
     // body of that loop. It can also run one time for each run of this code, where each turn of a
     // loop runs this code one time at most.
     private SyntaxNode? TurnOfACall(SyntaxNode call) =>
-        TurnOf(call) ?? (this.RunsOneTimeInThisCode(call) ? this.call?.Turn : null);
+        this.TurnOf(call) ?? (this.RunsOneTimeInThisCode(call) ? this.call?.Turn : null);
 
     // True when an expression runs one time at most for each run of the code that this evaluator
     // reads. That code is a callee, or a function that the walk reads for a call.
@@ -1133,7 +1133,7 @@ internal sealed class LoopStateEvaluator
             return apart.WithObjects(ImmutableArray.Create(one));
         }
 
-        if ((TurnOf(place) ?? (forTheCall ? this.call?.Turn : null)) is not { } turn)
+        if ((this.TurnOf(place) ?? (forTheCall ? this.call?.Turn : null)) is not { } turn)
         {
             return apart;
         }

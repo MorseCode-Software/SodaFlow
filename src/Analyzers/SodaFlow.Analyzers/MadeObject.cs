@@ -136,24 +136,19 @@ internal sealed class MadeObject(
             return true;
         }
 
-        switch (named.TypeKind)
+        return named.TypeKind switch
         {
             // An array is no value of a class.
-            case TypeKind.Array:
-                return false;
+            TypeKind.Array => false,
             // Two classes have one object only when one of them derives from the other.
-            case TypeKind.Class:
-                return DerivesFrom(type: named, other: written) || DerivesFrom(type: written, other: named);
+            TypeKind.Class => DerivesFrom(type: named, other: written) || DerivesFrom(type: written, other: named),
             // A class that no type derives from has the interface, or its object does not.
-            case TypeKind.Interface:
-                return !written.IsSealed
-                       || written.AllInterfaces.Any(contract =>
-                           SymbolEqualityComparer.Default.Equals(
-                               x: contract.OriginalDefinition,
-                               y: named.OriginalDefinition));
-            default:
-                return true;
-        }
+            TypeKind.Interface =>
+                !written.IsSealed
+                || written.AllInterfaces.Any(contract =>
+                    SymbolEqualityComparer.Default.Equals(x: contract.OriginalDefinition, y: named.OriginalDefinition)),
+            _ => true
+        };
     }
 
     private static bool DerivesFrom(ITypeSymbol type, ITypeSymbol other)

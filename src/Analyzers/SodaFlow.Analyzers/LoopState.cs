@@ -205,23 +205,21 @@ internal sealed class LoopState
 
                 shape = (shape * 397) ^ (this.content?.Shape ?? 0);
                 shape = (shape * 397) ^ (this.Members?.Shape ?? 0);
-                // A sum of the platform throws when it is too large for its type. These sums must not.
-                foreach (MadeObject made in this.Objects)
-                {
-                    shape += RuntimeHelpers.GetHashCode(made) * 31;
-                }
 
-                foreach (MadeObject made in this.Held)
-                {
-                    shape += RuntimeHelpers.GetHashCode(made) * 37;
-                }
+                // Sum of the platform throws when a sum is too large for its type. These sums must not.
+                shape = this.Objects.Aggregate(
+                    seed: shape,
+                    func: static (sum, made) => sum + RuntimeHelpers.GetHashCode(made) * 31);
 
-                foreach (FunctionValue function in this.Functions)
-                {
-                    shape += function.Declaration.SpanStart * 41;
-                }
+                shape = this.Held.Aggregate(
+                    seed: shape,
+                    func: static (sum, made) => sum + RuntimeHelpers.GetHashCode(made) * 37);
 
-                return shape + (this.Queries.Length * 43);
+                shape = this.Functions.Aggregate(
+                    seed: shape,
+                    func: static (sum, function) => sum + function.Declaration.SpanStart * 41);
+
+                return shape + this.Queries.Length * 43;
             }
         }
     }

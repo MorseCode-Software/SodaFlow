@@ -26,6 +26,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
+
     // The number of reads of one loop at most. A value that comes to its read after more turns
     // than that has no report.
     private const int MaxReadsOfALoop = 5;
@@ -1065,25 +1066,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     return lambda.ExpressionBody == child ? child : null;
                 case StatementSyntax or SwitchExpressionArmSyntax or QueryClauseSyntax or SelectOrGroupClauseSyntax:
                     return null;
-                case ConditionalExpressionSyntax conditional when conditional.Condition != child:
-                    return null;
-                case BinaryExpressionSyntax
-                    {
-                        RawKind: (int)SyntaxKind.LogicalAndExpression
-                        or (int)SyntaxKind.LogicalOrExpression
-                        or (int)SyntaxKind.CoalesceExpression
-                    } binary when binary.Right == child:
-                    return null;
-                case AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceAssignmentExpression } assignment
-                    when assignment.Right == child:
-                    return null;
-                case ConditionalAccessExpressionSyntax access when access.WhenNotNull == child:
-                    return null;
+            }
+
+            if (CanSkip(parent: parent, child: child))
+            {
+                return null;
             }
         }
 
         return null;
     }
+
+    // True when an expression can skip one of its parts: an arm of a conditional expression, the
+    // right side of an operator that stops at its left side, and the part after a conditional access.
+    private static bool CanSkip(SyntaxNode parent, SyntaxNode child) =>
+        parent switch
+        {
+            ConditionalExpressionSyntax conditional => conditional.Condition != child,
+            BinaryExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.LogicalAndExpression
+                or (int)SyntaxKind.LogicalOrExpression
+                or (int)SyntaxKind.CoalesceExpression
+            } binary => binary.Right == child,
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceAssignmentExpression } assignment =>
+                assignment.Right == child,
+            ConditionalAccessExpressionSyntax access => access.WhenNotNull == child,
+            _ => false
+        };
 
     // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
     private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn)

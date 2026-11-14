@@ -10275,6 +10275,10 @@ public static class Shapes
     public static Cell<int> ObjectThatAnOwnerWithNoIndexerKeepsAndThenAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; ISlotRow row = NewSlotRow(); row.Put(x); x.Share = l.Map(v => v); foreach (SettableSlot each in row) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
 
+    // S2253. The third Add to a SortedSet compares its value with the object that the set has.
+    public static Cell<int> ThirdAddToASortedSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); made.Add(new(Plain)); made.Add(new(Plain)); made.Add(new(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
