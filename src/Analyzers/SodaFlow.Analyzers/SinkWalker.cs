@@ -135,7 +135,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
+                this.evaluator.Declare(
+                    local: local,
+                    state: this.evaluator.Eval(declarator.Initializer.Value),
+                    from: declarator.Initializer.Value);
+
                 this.evaluator.HoldsValueOf(local: local, value: declarator.Initializer.Value, replaces: true);
                 this.evaluator.GetsElementsOf(collection: declarator, literal: declarator.Initializer.Value);
             }
@@ -1681,8 +1685,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
                 this.RunThroughFunctions(call: node, method: method, given: moved);
 
+                // The callee can put a value that it gets into its owner, and into a collection
+                // that it gets as an argument.
+                this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
+
                 if (receiver != null && method.ReducedFrom == null)
                 {
+                    this.evaluator.CanGet(
+                        collection: receiver,
+                        values: arguments.Select(static argument => argument.Expression));
+
                     this.evaluator.Absorb(
                         target: receiver,
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
@@ -1748,6 +1760,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     oneTime: false);
 
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+                this.evaluator.RanCodeWithNoBody();
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
 

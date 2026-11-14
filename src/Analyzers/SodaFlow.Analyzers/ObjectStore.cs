@@ -20,6 +20,9 @@ namespace SodaFlow.Analyzers;
 internal sealed class ObjectStore
 {
     private readonly Dictionary<MadeObject, MadeObject> before = [];
+
+    // The collections that hold only objects that the walk saw go in.
+    private readonly HashSet<MadeObject> complete = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
 
@@ -259,6 +262,26 @@ internal sealed class ObjectStore
 
         return found;
     }
+
+    /// <summary>
+    ///     Records that a collection holds only objects that the walk saw go in.
+    ///     The walk saw the collection made empty, or made from values that the
+    ///     store knows.
+    /// </summary>
+    public void IsComplete(MadeObject collection) => this.complete.Add(collection);
+
+    /// <summary>Records that a collection can hold an object that the walk did not see go in.</summary>
+    public void CanHoldMore(MadeObject collection) => this.complete.Remove(collection);
+
+    /// <summary>
+    ///     Records that each collection can hold an object that the walk did not
+    ///     see go in. Code that the walk cannot read ran, and it can get to a
+    ///     collection through an object that it has.
+    /// </summary>
+    public void EachCanHoldMore() => this.complete.Clear();
+
+    /// <summary>True for a collection that holds only objects that the walk saw go in.</summary>
+    public bool HoldsOnlyWhatWentIn(MadeObject collection) => this.complete.Contains(collection);
 
     /// <summary>A number for what the store says about its objects, from <see cref="LoopState.Shape" />.</summary>
     public int Shape =>

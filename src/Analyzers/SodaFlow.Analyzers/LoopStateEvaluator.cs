@@ -234,7 +234,29 @@ internal sealed class LoopStateEvaluator
     ///     Records the state of a local at its declaration, or at an assignment
     ///     that does not always run. The local then has the two states together.
     /// </summary>
-    public void Declare(ISymbol local, LoopState state)
+    /// <param name="local">The local.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="from">The expression of the value, when the code has one.</param>
+    public void Declare(ISymbol local, LoopState state, ExpressionSyntax? from = null)
+    {
+        state = this.InALocal(local: local, state: state);
+
+        if (this.locals.TryGetValue(key: local, value: out LoopState? existing))
+        {
+            // The local can be the value that it had also.
+            this.Frame.TheOneCollectionOf.Remove(local);
+            this.locals[local] = existing.Join(state);
+        }
+        else
+        {
+            this.IsOneCollection(local: local, state: state, from: from);
+            this.locals[local] = state;
+        }
+    }
+
+    // A collection gets a copy of a change to one of its objects. The local keeps the copy, and it
+    // is the same value as before.
+    private void KeepACopy(ISymbol local, LoopState state)
     {
         state = this.InALocal(local: local, state: state);
 
@@ -242,13 +264,43 @@ internal sealed class LoopStateEvaluator
             this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
     }
 
+    // Records the collection of a local that has one value. The value is one new object of the
+    // store, or it is a second local that is one collection.
+    private void IsOneCollection(ISymbol local, LoopState state, ExpressionSyntax? from)
+    {
+        if (from != null
+            && Unwrapped(from) is IdentifierNameSyntax name
+            && this.region.SymbolOf(name) is ILocalSymbol other
+            && this.Frame.TheOneCollectionOf.TryGetValue(key: other, value: out MadeObject? same))
+        {
+            this.Frame.TheOneCollectionOf[local] = same;
+        }
+        else if (TheOneNewObject(state) is { } only)
+        {
+            this.Frame.TheOneCollectionOf[local] = only;
+        }
+        else
+        {
+            this.Frame.TheOneCollectionOf.Remove(local);
+        }
+    }
+
+    // The object of a value that is one new object of the store, and no object of a turn before.
+    private static MadeObject? TheOneNewObject(LoopState state) =>
+        state.Objects.Length == 1 && state.Objects[0] is { IsNew: true, IsOfTurnsBefore: false } only ? only : null;
+
     /// <summary>
     ///     Records an assignment that always runs. The new state replaces the
     ///     state that the local or the parameter had.
     /// </summary>
-    public void Assign(ISymbol local, LoopState state)
+    /// <param name="local">The local or the parameter.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="from">The expression of the value, when the code has one.</param>
+    public void Assign(ISymbol local, LoopState state, ExpressionSyntax? from = null)
     {
-        this.locals[local] = this.InALocal(local: local, state: state);
+        state = this.InALocal(local: local, state: state);
+        this.IsOneCollection(local: local, state: state, from: from);
+        this.locals[local] = state;
         this.assigned.Add(local);
     }
 
@@ -276,6 +328,7 @@ internal sealed class LoopStateEvaluator
     public LoopState AssignInATurn(ISymbol local, LoopState state)
     {
         LoopState had = this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing : LoopState.None;
+        this.Frame.TheOneCollectionOf.Remove(local);
         this.locals[local] = state;
 
         return had;
@@ -670,6 +723,12 @@ internal sealed class LoopStateEvaluator
         {
             LoopState put = this.Eval(value);
 
+            // A value that the store does not know comes in.
+            if (!this.IsKnownWhenItGoesIn(value))
+            {
+                this.CanHoldMore(written);
+            }
+
             // A value with members that is no object of the store has those members only in the
             // copy that the collection gets. Thus, the collection then holds an object that the
             // store does not know.
@@ -808,9 +867,14 @@ internal sealed class LoopStateEvaluator
 
             // A collection can contain an object that the walk did not see go in, and the element
             // can be that object. The copy is then the only record of the change. Thus, the
-            // collection holds an object that the store does not know from this change on.
+            // collection holds an object that the store does not know from this change on. A
+            // collection that holds only objects that the walk saw go in has no such object.
+            state =
+                this.HoldsOnlyWhatWentIn(collection)
+                    ? state.AsContainer
+                    : state.AsContainer.HoldingAnUnknownObject;
+
             target = collection;
-            state = state.AsContainer.HoldingAnUnknownObject;
         }
     }
 
@@ -841,7 +905,7 @@ internal sealed class LoopStateEvaluator
             {
                 // A literal in a declaration. The local has no expression there.
                 this.Frame.Positions[declared] = null;
-                this.Declare(local: declared, state: state);
+                this.KeepACopy(local: declared, state: state);
                 this.MergeIntoHolders(local: declared, state: state.AsContainer, level: level + 1);
             }
         }
@@ -852,7 +916,7 @@ internal sealed class LoopStateEvaluator
         switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
-                this.Declare(local: local, state: state);
+                this.KeepACopy(local: local, state: state);
                 break;
             case { IsStatic: false } member and (IFieldSymbol or IPropertySymbol)
                 when target is IdentifierNameSyntax
@@ -1116,9 +1180,10 @@ internal sealed class LoopStateEvaluator
 
         if (this.RunsOneTime(place))
         {
-            return apart.WithObjects(
-                ImmutableArray.Create(
-                    this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
+            MadeObject once = this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart);
+            this.MarkIfComplete(made: once, place: place, exact: exact);
+
+            return apart.WithObjects(ImmutableArray.Create(once));
         }
 
         // An expression of a callee, or of a function that the walk reads for a call, that runs
@@ -1153,7 +1218,169 @@ internal sealed class LoopStateEvaluator
             this.madeForTheCall.Add(made);
         }
 
+        this.MarkIfComplete(made: made, place: place, exact: exact);
+
         return apart.WithObjects(ImmutableArray.Create(made));
+    }
+
+    // A new collection holds only objects that the walk saw go in when the expression gives it no
+    // other value. That is an empty collection, an array, or a literal with no spread whose each
+    // element the store knows.
+    private void MarkIfComplete(MadeObject made, ExpressionSyntax place, bool exact)
+    {
+        if (!exact)
+        {
+            return;
+        }
+
+        IEnumerable<ExpressionSyntax>? elements =
+            Unwrapped(place) switch
+            {
+                CollectionExpressionSyntax written
+                    when written.Elements.All(static element => element is ExpressionElementSyntax) =>
+                    written.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression),
+                ArrayCreationExpressionSyntax array => array.Initializer?.Expressions ?? [],
+                ImplicitArrayCreationExpressionSyntax implied => implied.Initializer.Expressions,
+                BaseObjectCreationExpressionSyntax creation when this.GetsOnlyComparersAndNumbers(creation) =>
+                    (creation.Initializer?.Expressions ?? [])
+                    .Select(static element => element is AssignmentExpressionSyntax indexed ? indexed.Right : element),
+                InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" }
+                } call when this.GetsOnlyComparersAndNumbers(call) => [],
+                _ => null
+            };
+
+        if (elements != null && elements.All(this.IsKnownWhenItGoesIn))
+        {
+            this.region.Objects.IsComplete(made);
+        }
+    }
+
+    // True for a value that puts no object that the store does not know into a collection. The
+    // value is an object of the store and no other one, or it is no object.
+    private bool IsKnownWhenItGoesIn(ExpressionSyntax value)
+    {
+        if (this.IsNoValue(value) || this.region.TypeOf(value) is not { } type || !this.CanBeAnObject(type))
+        {
+            return true;
+        }
+
+        ImmutableArray<MadeObject> objects = this.Eval(value).Objects;
+
+        return !objects.IsEmpty && !objects.Contains(MadeObject.Unknown);
+    }
+
+    /// <summary>
+    ///     Records a call of code that the walk cannot read. That code can put an
+    ///     object into each collection that it can get to.
+    /// </summary>
+    public void RanCodeWithNoBody()
+    {
+        if (!this.quiet)
+        {
+            this.region.Objects.EachCanHoldMore();
+        }
+    }
+
+    /// <summary>
+    ///     Records that a method of the platform got a collection as its owner,
+    ///     with the given values. The method can put each value into the
+    ///     collection, as <c>AddRange</c> puts the elements of a sequence there.
+    /// </summary>
+    public void CanGet(ExpressionSyntax collection, IEnumerable<ExpressionSyntax> values)
+    {
+        if (!values.All(this.IsKnownWhenItGoesIn))
+        {
+            this.CanHoldMore(collection);
+        }
+    }
+
+    /// <summary>
+    ///     Records that a method of the platform got its arguments. The method
+    ///     can put a value into a collection that it gets, as <c>CopyTo</c> does to
+    ///     an array. The parameter must have a type that the method can change.
+    /// </summary>
+    /// <param name="method">The method.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="receiver">The owner of the call. For an extension method, it is the first argument.</param>
+    public void CanChangeItsArguments(
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ExpressionSyntax? receiver)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (receiver != null
+            && method.ReducedFrom != null
+            && definition.Parameters.Length > 0
+            && CanChangeAValueOf(definition.Parameters[0]))
+        {
+            this.CanHoldMore(receiver);
+        }
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (ParameterFor(method: method, argument: arguments[i], position: i) is { } parameter
+                && CanChangeAValueOf(parameter))
+            {
+                this.CanHoldMore(arguments[i].Expression);
+            }
+        }
+    }
+
+    // A callee cannot put a value into an argument that it knows only as a sequence to read, as
+    // object, or as a type parameter.
+    private static bool CanChangeAValueOf(IParameterSymbol parameter) =>
+        parameter.RefKind is RefKind.Ref or RefKind.Out
+        || parameter.Type is IArrayTypeSymbol
+            or INamedTypeSymbol
+            {
+                SpecialType: not SpecialType.System_Object,
+                OriginalDefinition.SpecialType: not (SpecialType.System_Collections_IEnumerable
+                or SpecialType.System_Collections_Generic_IEnumerable_T
+                or SpecialType.System_Collections_Generic_IReadOnlyCollection_T
+                or SpecialType.System_Collections_Generic_IReadOnlyList_T)
+            };
+
+    // Records that a collection can hold an object that the walk did not see go in.
+    private void CanHoldMore(ExpressionSyntax collection)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        foreach (MadeObject made in this.Eval(collection).Objects)
+        {
+            this.region.Objects.CanHoldMore(made);
+        }
+    }
+
+    // True for an expression that is one collection, and that collection holds only objects that
+    // the walk saw go in. The expression is a local of this code that has one value, or one element
+    // of such a collection. A function can run at a different time, thus a local that it reads from
+    // the code around it is no such name.
+    private bool HoldsOnlyWhatWentIn(ExpressionSyntax collection) => this.TheCompleteCollection(collection) != null;
+
+    private MadeObject? TheCompleteCollection(ExpressionSyntax collection)
+    {
+        MadeObject? made =
+            Unwrapped(collection) switch
+            {
+                IdentifierNameSyntax name
+                    when this.function == null
+                         && this.region.SymbolOf(name) is ILocalSymbol local
+                         && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one) => one,
+                // Such a collection holds what its state in the store says, and no other object.
+                ElementAccessExpressionSyntax element
+                    when this.TheCompleteCollection(element.Expression) is { } owner
+                         && this.region.Objects.StateOf(owner)?.TheOneNewObjectOf(this.region.TypeOf(element))
+                             is { } only => only,
+                _ => null
+            };
+
+        return made != null && this.region.Objects.HoldsOnlyWhatWentIn(made) ? made : null;
     }
 
     /// <summary>
@@ -5707,7 +5934,10 @@ internal sealed class LoopStateEvaluator
         {
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                this.Declare(local: local, state: this.Eval(declarator.Initializer?.Value));
+                this.Declare(
+                    local: local,
+                    state: this.Eval(declarator.Initializer?.Value),
+                    from: declarator.Initializer?.Value);
             }
         }
 

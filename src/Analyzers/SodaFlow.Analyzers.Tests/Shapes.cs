@@ -10279,6 +10279,142 @@ public static class Shapes
     public static Cell<int> ThirdAddToASortedSet() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedSet<RankedOwn> made = new(); made.Add(new(Plain)); made.Add(new(Plain)); made.Add(new(l.Map(v => v))); return S.Hold(0); });
 
+    // S2254. A list got its one object from Add. A plain cell through the element replaces the pending cell.
+    public static Cell<int> PlainThroughAnElementOfAListOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2255. The same, where a collection expression has the object.
+    public static Cell<int> PlainThroughAnElementOfACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [x]; list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2256. The same, where an array has the object.
+    public static Cell<int> PlainThroughAnElementOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot[] list = new[] { x }; list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2257. The same, where an array with a length gets the object through an index.
+    public static Cell<int> PlainThroughAnElementOfAnArrayWithALength() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot[] list = new SettableSlot[1]; list[0] = x; list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2258. The same, where a dictionary has the object.
+    public static Cell<int> PlainThroughAValueOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Dictionary<int, SettableSlot> list = new(); list[1] = x; list[1].Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2259. The same, where a local has the element.
+    public static Cell<int> PlainThroughALocalForTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); SettableSlot e = list[0]; e.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2260. The same, where the read is through the first name of the object.
+    public static Cell<int> PlainThroughAnElementAndAReadThroughTheFirstName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list[0].Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S2261. The same, where a second local is a name of the list.
+    public static Cell<int> PlainThroughAnElementOfASecondNameOfTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> other = list; other[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2262. The same, where the list is in a list.
+    public static Cell<int> PlainThroughAnElementOfAListInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> inner = [x]; List<List<SettableSlot>> list = [inner]; list[0][0].Share = Plain; return S.Hold(list[0][0].Share!.Sample()); });
+
+    // S2263. The same, where the list is in a list that got it from Add.
+    public static Cell<int> PlainThroughAnElementOfAListThatAListGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> inner = [x]; List<List<SettableSlot>> list = []; list.Add(inner); list[0][0].Share = Plain; return S.Hold(list[0][0].Share!.Sample()); });
+
+    // S2264. The same, where the code reads the first element with a query method before the change.
+    public static Cell<int> PlainThroughAnElementAfterAQueryMethodOnTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); Kept.Add(list.Count(slot => slot != null)); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2265. A pending cell through an element, with no plain cell after it.
+    public static Cell<int> PendingThroughAnElementOfAListOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list[0].Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
+
+    // S2266. A list has two objects, and the plain cell goes to only one of them.
+    public static Cell<int> PlainThroughOneOfTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(y); list[0].Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2267. AddRange puts the object of a list that the walk did not see made into the list.
+    public static Cell<int> AddRangeFromAListThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.AddRange(UnseenLists[0]); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2268. The same, where InsertRange puts it there.
+    public static Cell<int> InsertRangeFromAListThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.InsertRange(0, UnseenLists[1]); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2269. The same, where a second name of the list gets an object that the walk did not see made.
+    public static Cell<int> AddThroughASecondNameOfTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; List<SettableSlot> other = list; list.Add(x); other.Add(UnseenSlots[0]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2270. The same, where a lambda puts the object.
+    public static Cell<int> AddOfAnObjectThatTheWalkDidNotSeeInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; Action fill = () => list.Add(UnseenSlots[1]); list.Add(x); fill(); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2271. The same, where a spread in the collection expression gives the object.
+    public static Cell<int> SpreadOfAListThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = [.. UnseenLists[2], x]; list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2272. The same, where a helper with a body puts the object.
+    public static Cell<int> AHelperWithABodyPutsAnObjectThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); PutInto(list, UnseenSlots[2]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2273. The same, where a method with no body to read gets an object that has the list.
+    public static Cell<int> AMethodWithNoBodyGetsTheHolderOfTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); SlotListHolder holder = new() { Items = list }; NewHolderFiller().Fill(holder); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2274. The same, where Insert puts the object.
+    public static Cell<int> InsertOfAnObjectThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Insert(0, UnseenSlots[3]); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2275. The same, where an assignment to an index of an array puts the object.
+    public static Cell<int> IndexAssignmentOfAnObjectThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SettableSlot[] list = new SettableSlot[2]; list[0] = x; list[1] = UnseenSlots[4]; list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2276. The same, where the object that the walk did not see made goes in first.
+    public static Cell<int> TheObjectThatTheWalkDidNotSeeGoesInFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(UnseenSlots[5]); list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2277. The same, where an element of the collection expression is the result of a call.
+    public static Cell<int> AnElementOfTheCollectionExpressionFromACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = [UnseenSlot(6), x]; list[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S2278. The same, where the list is in a field, and a helper puts the object through the field.
+    public static Cell<int> AHelperPutsAnObjectThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); FieldForAList = list; PutThroughTheField(UnseenSlots[7]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2279. The same, where the next turn of a loop puts the object, after the change of the turn before.
+    public static Cell<int> ALaterTurnPutsAnObjectThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); for (int i = 0; i < 2; i++) { list[i].Share = l.Map(v => v); x.Share = Plain; list.Add(UnseenSlots[8]); } return S.Hold(list[1].Share!.Sample()); });
+
+    // S2280. The same, where a member of an object has the list, and the object goes in through the member.
+    public static Cell<int> AddThroughAMemberThatHasTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); SlotListHolder holder = new() { Items = list }; holder.Items.Add(UnseenSlots[9]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2281. The same, where CopyTo of a list that the walk did not see made puts its object into the array.
+    public static Cell<int> CopyToFromAListThatTheWalkDidNotSee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; SettableSlot[] list = new SettableSlot[2]; list[0] = x; UnseenLists[3].CopyTo(list, 1); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2282. The same, where the value of the put is the object of the store or one that the walk did not see made.
+    public static Cell<int> AddOfAValueThatIsOneOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(Never ? x : UnseenSlots[10]); list[1].Share = l.Map(v => v); x.Share = Plain; return S.Hold(list[1].Share!.Sample()); });
+
+    // S2283. A local is the list of the block or a list that the walk did not see made.
+    public static Cell<int> ElementOfALocalThatIsOneOfTwoLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = Never ? list : UnseenLists[4]; c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
+    // S2284. The same, where an assignment in a branch gives the local the second list.
+    public static Cell<int> ElementOfALocalThatABranchGivesASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = list; if (!Never) { c = UnseenLists[5]; } c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
+    // S2285. The same, where an assignment that always runs gives the local the second list.
+    public static Cell<int> ElementOfALocalThatGetsASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = list; c = UnseenLists[6]; c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
+    // S2286. The same, where a turn of a loop gives the local the second list.
+    public static Cell<int> ElementOfALocalThatATurnGivesASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = list; for (int i = 0; i < 1; i++) { c = UnseenLists[7]; } c[0].Share = l.Map(v => v); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
+    // S2287. The same, where a lambda changes the element, and the block calls it after the local got the second list.
+    public static Cell<int> ElementOfALocalInALambdaThatRunsAfterASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); List<SettableSlot> c = list; Action change = () => { c[0].Share = l.Map(v => v); }; c = UnseenLists[8]; change(); x.Share = Plain; return S.Hold(c[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -12266,6 +12402,32 @@ public static class Shapes
         public IEnumerator<SettableSlot> GetEnumerator() => this.slots.GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    private static readonly SettableSlot[] UnseenSlots =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly List<SettableSlot>[] UnseenLists =
+        [[new()], [new()], [new()], [new()], [new()], [new()], [new()], [new()], [new()]];
+
+    private static List<SettableSlot>? FieldForAList;
+
+    private static SettableSlot UnseenSlot(int index) => UnseenSlots[index];
+
+    private static void PutInto(List<SettableSlot> list, SettableSlot slot) => list.Add(slot);
+
+    private static void PutThroughTheField(SettableSlot slot) => FieldForAList!.Add(slot);
+
+    private static IHolderFiller NewHolderFiller() => new HolderFiller();
+
+    public interface IHolderFiller
+    {
+        void Fill(SlotListHolder holder);
+    }
+
+    private sealed class HolderFiller : IHolderFiller
+    {
+        public void Fill(SlotListHolder holder) => holder.Items.Add(new SettableSlot());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

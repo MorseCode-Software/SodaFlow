@@ -108,6 +108,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public Dictionary<ISymbol, LoopState> OfTheTurnBefore { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     For a local that is one collection and no other value: that
+    ///     collection. The local got it from an assignment that always runs, and
+    ///     no assignment after that gave the local a second value.
+    /// </summary>
+    public Dictionary<ISymbol, MadeObject> TheOneCollectionOf { get; } = new(SymbolEqualityComparer.Default);
+
     public void Wait(QueryValue query) => this.waiting.Add(query);
 
     private readonly List<Finding> unread = [];

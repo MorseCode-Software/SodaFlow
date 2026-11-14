@@ -1571,7 +1571,30 @@ internal sealed class LoopReadAnalyzerTests
             ["PlainThroughTheFirstElementInAFunctionThatAQueryRunsAgain"] = ["SF1001"],
             ["ObjectThatAnOwnerWithNoIndexerKeepsForAForeach"] = ["SF1001"],
             ["ObjectThatAnOwnerWithNoIndexerKeepsAndThenAPendingCell"] = ["SF1001"],
-            ["ThirdAddToASortedSet"] = ["SF1005"]
+            ["ThirdAddToASortedSet"] = ["SF1005"],
+            ["PendingThroughAnElementOfAListOfOne"] = ["SF1001"],
+            ["PlainThroughOneOfTwoElements"] = ["SF1001"],
+            ["AddRangeFromAListThatTheWalkDidNotSee"] = ["SF1001"],
+            ["InsertRangeFromAListThatTheWalkDidNotSee"] = ["SF1001"],
+            ["AddThroughASecondNameOfTheList"] = ["SF1001"],
+            ["AddOfAnObjectThatTheWalkDidNotSeeInALambda"] = ["SF1001"],
+            ["SpreadOfAListThatTheWalkDidNotSee"] = ["SF1001"],
+            ["AHelperWithABodyPutsAnObjectThatTheWalkDidNotSee"] = ["SF1001"],
+            ["AMethodWithNoBodyGetsTheHolderOfTheList"] = ["SF1001"],
+            ["InsertOfAnObjectThatTheWalkDidNotSee"] = ["SF1001"],
+            ["IndexAssignmentOfAnObjectThatTheWalkDidNotSee"] = ["SF1001"],
+            ["TheObjectThatTheWalkDidNotSeeGoesInFirst"] = ["SF1001"],
+            ["AnElementOfTheCollectionExpressionFromACall"] = ["SF1001"],
+            ["AHelperPutsAnObjectThroughAField"] = ["SF1001"],
+            ["ALaterTurnPutsAnObjectThatTheWalkDidNotSee"] = ["SF1001"],
+            ["AddThroughAMemberThatHasTheList"] = ["SF1001"],
+            ["CopyToFromAListThatTheWalkDidNotSee"] = ["SF1001"],
+            ["AddOfAValueThatIsOneOfTwo"] = ["SF1001"],
+            ["ElementOfALocalThatIsOneOfTwoLists"] = ["SF1001"],
+            ["ElementOfALocalThatABranchGivesASecondList"] = ["SF1001"],
+            ["ElementOfALocalThatGetsASecondList"] = ["SF1001"],
+            ["ElementOfALocalThatATurnGivesASecondList"] = ["SF1001"],
+            ["ElementOfALocalInALambdaThatRunsAfterASecondList"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

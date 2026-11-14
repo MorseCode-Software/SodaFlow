@@ -237,6 +237,20 @@ internal sealed class LoopState
     public bool IsOfNoObject => this.Members != null && this.Objects.IsEmpty;
 
     /// <summary>
+    ///     The one object that a collection holds, of those that an element of
+    ///     the given type can be. Null when it holds two or more. Null also when
+    ///     the one is no new object of the store, or is an object of a turn
+    ///     before. A collection holds the objects of a collection that went in
+    ///     also, and those are not its elements.
+    /// </summary>
+    public MadeObject? TheOneNewObjectOf(ITypeSymbol? element)
+    {
+        ImmutableArray<MadeObject> ofThatType = this.Held.RemoveAll(made => !made.CanBe(element));
+
+        return ofThatType.Length == 1 && ofThatType[0] is { IsNew: true, IsOfTurnsBefore: false } only ? only : null;
+    }
+
+    /// <summary>
     ///     The same state, for a collection that got a value. It holds each object
     ///     that the value can be. When the value is a collection whose elements
     ///     went in, it holds what that collection holds.
