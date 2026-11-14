@@ -8687,6 +8687,242 @@ public static class Shapes
     public static Cell<int> ImmutableDictionaryThatGotNullForItsValueComparer() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableDictionary<string, AlikeOwn> map = ImmutableDictionary.Create<string, AlikeOwn>(StringComparer.Ordinal, null).Add("a", new AlikeOwn(l.Map(v => v))); Kept.Add(map.Add("a", new AlikeOwn(Plain))); return S.Hold(0); });
 
+    // S1856. A local of the block keeps the first object of a loop, and only that object gets a pending cell.
+    public static Cell<int> TurnFirstObjectKeptInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { first = x; x.Share = l.Map(v => v); } else { x.Share = Plain; } } return S.Hold(first!.Share!.Sample()); });
+
+    // S1857. Each object of a loop starts with a pending cell, and only the second one gets a plain cell.
+    public static Cell<int> TurnPlainForTheSecondObjectOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i > 0) { x.Share = Plain; } list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1858. A second local of the body of a loop is a name of the object of that turn.
+    public static Cell<int> TurnChangeThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1859. An element of a list that the turn makes is a name of the object of that turn.
+    public static Cell<int> TurnChangeThroughAnElementOfAListOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; List<SettableSlot> one = [x]; one[0].Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1860. A member of an object that the turn makes has the object of that turn, and a change through the local is a change for the member.
+    public static Cell<int> TurnChangeThroughALocalThatAnObjectOfTheTurnHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SlotHolder holder = new() { Item = x }; x.Share = l.Map(v => v); list.Add(holder); } return S.Hold(list[0].Item!.Share!.Sample()); });
+
+    // S1861. A tuple that the turn makes has the object of that turn.
+    public static Cell<int> TurnChangeThroughALocalThatATupleHas() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<(SettableSlot First, int Second)> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; (SettableSlot First, int Second) pair = (x, i); x.Share = l.Map(v => v); list.Add(pair); } return S.Hold(list[0].First.Share!.Sample()); });
+
+    // S1862. A change through a second local after the list of the block got the object.
+    public static Cell<int> TurnChangeAfterTheListGotTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; list.Add(x); SettableSlot y = x; y.Share = l.Map(v => v); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1863. The second local in the body of a foreach.
+    public static Cell<int> TurnForeachChangeThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; foreach (int i in new[] { 0, 1 }) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1864. The second local in the body of a while.
+    public static Cell<int> TurnWhileChangeThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; int i = 0; while (i < 2) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); list.Add(x); i++; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1865. The second local in the body of a do.
+    public static Cell<int> TurnDoChangeThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; int i = 0; do { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y.Share = l.Map(v => v); list.Add(x); i++; } while (i < 2); return S.Hold(list[0].Share!.Sample()); });
+
+    // S1866. A local of the block has the object of a turn before, which gets a pending cell. The plain cell that comes after is for the object of this turn only.
+    public static Cell<int> TurnOlderObjectGetsAPendingCellThroughALocalOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? keep = null; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; keep ??= x; keep.Share = l.Map(v => v); x.Share = Plain; list.Add(x); } return S.Hold(keep!.Share!.Sample()); });
+
+    // S1867. An element of the list of the block is the object of a turn before, which gets a pending cell.
+    public static Cell<int> TurnOlderElementGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; list.Add(x); list[0].Share = l.Map(v => v); x.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1868. After the loop, a local has one of its objects, and a plain cell for that one is not for the others.
+    public static Cell<int> TurnWriteAfterTheLoopThroughOneOfTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? a = null; SettableSlot? b = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { a = x; } else { b = x; } } b!.Share = Plain; return S.Hold(a!.Share!.Sample()); });
+
+    // S1869. An inner loop makes the objects. After it, the outer turn gives a plain cell to one of them.
+    public static Cell<int> TurnWriteInTheOuterTurnAfterTheInnerLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SettableSlot? a = null; SettableSlot? b = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { a = x; } else { b = x; } } b!.Share = Plain; Kept.Add(a!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1870. A member of an object of the block keeps the first object of the loop.
+    public static Cell<int> TurnObjectInAMemberOfAnObjectOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; x.Share = l.Map(v => v); } else { x.Share = Plain; } } return S.Hold(outer.Item!.Share!.Sample()); });
+
+    // S1871. A member of an object of the outer turn keeps the first object of the inner loop.
+    public static Cell<int> TurnObjectInAMemberOfAnObjectOfTheOuterTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { SlotHolder outer = new(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { outer.Item = x; x.Share = l.Map(v => v); } else { x.Share = Plain; } } Kept.Add(outer.Item!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1872. The creation in the initializer of a for runs one time, and its object is not an object of a turn. Here, no turn runs, and the plain cell of the body is for no object.
+    public static Cell<int> TurnObjectOfTheInitializerOfAForWhenNoTurnRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? keep = null; int n = 0; SettableSlot? x; for (x = new SettableSlot { Share = l.Map(v => v) }, keep = x; n > 0; n--) { x.Share = Plain; } return S.Hold(keep!.Share!.Sample()); });
+
+    // S1873. A plain cell under a condition is not for each object.
+    public static Cell<int> TurnPlainUnderAConditionAfterPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i > 5) { x.Share = Plain; } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1874. An inner loop that can run no turn gives the plain cell.
+    public static Cell<int> TurnWriteInAnInnerLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { first = x; } for (int j = 0; j < i; j++) { x.Share = Plain; } } return S.Hold(first!.Share!.Sample()); });
+
+    // S1875. A continue statement comes before the plain cell, thus the first object keeps its pending cell.
+    public static Cell<int> TurnContinueBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { first = x; } if (i == 0) { continue; } x.Share = Plain; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1876. A break statement comes before the plain cell, thus the last object keeps its pending cell.
+    public static Cell<int> TurnBreakBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; last = x; if (i == 1) { break; } x.Share = Plain; } return S.Hold(last!.Share!.Sample()); });
+
+    // S1877. A throw statement comes before the plain cell, and the code around the loop catches the exception.
+    public static Cell<int> TurnThrowBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; try { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; last = x; if (i == 1) { throw new InvalidOperationException(); } x.Share = Plain; } } catch (InvalidOperationException) { } return S.Hold(last!.Share!.Sample()); });
+
+    // S1878. The result of a call in a loop is the object of that turn, and a second local is a name of it.
+    public static Cell<int> TurnResultOfACallChangedThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = MakeASlotWith(Plain); SettableSlot y = x; y.Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1879. A member of the result of a call in a loop has the object that the turn gave to the call.
+    public static Cell<int> TurnMemberOfTheResultOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; for (int i = 0; i < 2; i++) { SlotHolder holder = HolderWith(new SettableSlot { Share = Plain }); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); } return S.Hold(list[0].Item!.Share!.Sample()); });
+
+    // S1880. A plain cell through a second local takes the pending cell of the object of the turn away.
+    public static Cell<int> TurnPlainAfterPendingThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; y.Share = Plain; list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1881. A turn makes two objects, and only the second one gets a pending cell.
+    public static Cell<int> TurnTwoObjectsOfOneTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot other = new() { Share = Plain }; other.Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1882. A local of the body gets a new object, and is then not a name of the first one.
+    public static Cell<int> TurnALocalOfTheTurnThatGetsANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; y = new() { Share = Plain }; y.Share = l.Map(v => v); list.Add(x); } return S.Hold(list[0].Share!.Sample()); });
+
+    // S1883. A member of an object of the same turn reads the state that the object of the turn has now.
+    public static Cell<int> TurnObjectInAMemberOfAnObjectOfTheSameTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder holder = new() { Item = x }; x.Share = Plain; Kept.Add(holder.Item!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1884. A plain cell through the same local, in the body of a do.
+    public static Cell<int> TurnDoPlainAfterPendingThroughTheSameLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; do { SettableSlot x = new() { Share = l.Map(v => v) }; x.Share = Plain; Kept.Add(x.Share!.Sample()); i++; } while (i < 2); return S.Hold(0); });
+
+    // S1885. A plain cell in a lock statement at the first level of the body runs in each turn.
+    public static Cell<int> TurnPlainInALockAfterPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; lock (Kept) { y.Share = Plain; } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1886. The result of a call in a loop gets a plain cell through a second local.
+    public static Cell<int> TurnResultOfACallPlainThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = MakeASlotWith(l.Map(v => v)); SettableSlot y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S1887. A return statement in the loop of a method comes before the plain cell.
+    public static Cell<int> TurnReturnBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot got = LastSlotOfALoopThatReturns(l.Map(v => v)); return S.Hold(got.Share!.Sample()); });
+
+    // S1888. A goto statement comes before the plain cell.
+    public static Cell<int> TurnGotoBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { first = x; goto skip; } x.Share = Plain; skip: ; } return S.Hold(first!.Share!.Sample()); });
+
+    // S1889. A throw expression comes before the plain cell, and the code around the loop catches the exception.
+    public static Cell<int> TurnThrowExpressionBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; try { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; last = x; int k = i == 1 ? throw new InvalidOperationException() : 0; Kept.Add(k); x.Share = Plain; } } catch (InvalidOperationException) { } return S.Hold(last!.Share!.Sample()); });
+
+    // S1890. A lambda that the turn runs one time returns before its plain cell.
+    public static Cell<int> TurnWriteInALambdaThatReturnsEarly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (i == 0) { first = x; } Transaction.RunVoid(() => { if (i == 0) { return; } x.Share = Plain; }); } return S.Hold(first!.Share!.Sample()); });
+
+    // S1891. A break statement of a switch statement does not end the turn.
+    public static Cell<int> TurnBreakOfASwitchBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; switch (i) { case 0: break; default: break; } y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1892. A continue statement and a break statement of an inner loop do not end the turn of the outer one.
+    public static Cell<int> TurnJumpsOfAnInnerLoopBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; for (int j = 0; j < 3; j++) { if (j == 0) { continue; } break; } y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1893. A continue statement after the plain cell does not stop that write.
+    public static Cell<int> TurnContinueAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; y.Share = Plain; Kept.Add(x.Share!.Sample()); if (i == 0) { continue; } Kept.Add(i); } return S.Hold(0); });
+
+    // S1894. A member that the turn did not set is one object for each name of its owner. A local of the block has the owner after a for.
+    public static Cell<int> TurnMemberThatTheTurnDidNotSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? keep = null; for (int i = 0; i < 2; i++) { SlotHolder holder = HolderWithItsOwnSlot(); keep = holder; SettableSlot y = holder.Item!; y.Share = l.Map(v => v);  } return S.Hold(keep!.Item!.Share!.Sample()); });
+
+    // S1895. The same, after a foreach.
+    public static Cell<int> TurnForeachMemberThatTheTurnDidNotSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? keep = null; foreach (int i in new[] { 0, 1 }) { SlotHolder holder = HolderWithItsOwnSlot(); keep = holder; SettableSlot y = holder.Item!; y.Share = l.Map(v => v); } return S.Hold(keep!.Item!.Share!.Sample()); });
+
+    // S1896. The same, after a foreach that deconstructs its element.
+    public static Cell<int> TurnForeachOfPartsMemberThatTheTurnDidNotSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? keep = null; foreach ((int i, int j) in new[] { (0, 0), (1, 1) }) { SlotHolder holder = HolderWithItsOwnSlot(); keep = holder; SettableSlot y = holder.Item!; y.Share = l.Map(v => v); } return S.Hold(keep!.Item!.Share!.Sample()); });
+
+    // S1897. The same, after a while.
+    public static Cell<int> TurnWhileMemberThatTheTurnDidNotSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? keep = null; int i = 0; while (i < 2) { SlotHolder holder = HolderWithItsOwnSlot(); keep = holder; SettableSlot y = holder.Item!; y.Share = l.Map(v => v); i++; } return S.Hold(keep!.Item!.Share!.Sample()); });
+
+    // S1898. The same, after a do.
+    public static Cell<int> TurnDoMemberThatTheTurnDidNotSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder? keep = null; int i = 0; do { SlotHolder holder = HolderWithItsOwnSlot(); keep = holder; SettableSlot y = holder.Item!; y.Share = l.Map(v => v); i++; } while (i < 2); return S.Hold(keep!.Item!.Share!.Sample()); });
+
+    // S1899. A member of the object that a method is in keeps the first object of the loop of that method.
+    public static Cell<int> TurnObjectInAMemberOfThisObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new SlotKeeper().FirstShareOfTwo(l.Map(v => v)).Sample()); });
+
+    // S1900. A member of a static object keeps the first object of the loop.
+    public static Cell<int> TurnObjectInAMemberOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; if (i == 0) { SharedHolder.Item = x; } SharedHolder.Item!.Share = l.Map(v => v); x.Share = Plain; } return S.Hold(SharedHolder.Item!.Share!.Sample()); });
+
+    // S1901. The result of a call can be the same object in each turn, and its member keeps the first object of the loop.
+    public static Cell<int> TurnObjectInAMemberOfTheResultOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SlotHolder h = TheHolderOfEachCall(); if (i == 0) { h.Item = x; } h.Item!.Share = l.Map(v => v); x.Share = Plain; Kept.Add(h.Item!.Share!.Sample()); } return S.Hold(0); });
+
+    // S1902. A function from a call that returned keeps the first object of the loop in a local of that call.
+    public static Cell<int> TurnLocalOfACallThatReturnedKeepsTheFirstObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot, SettableSlot> first = FirstSlotKeeper(); for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot k = first(x); k.Share = l.Map(v => v); x.Share = Plain; Kept.Add(k.Share!.Sample()); } return S.Hold(0); });
+
+    // S1903. A list of the outer turn gets each object of the inner loop.
+    public static Cell<int> TurnInnerObjectInAListOfTheOuterTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int j = 0; j < 1; j++) { List<SettableSlot> row = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; row.Add(x); if (i == 0) { x.Share = l.Map(v => v); } } Kept.Add(row[0].Share!.Sample()); } return S.Hold(0); });
+
+    // S1904. The initializer of a for makes one object for all the turns, and a local of the body is a name of it.
+    public static Cell<int> TurnObjectOfTheInitializerOfAForChangedThroughALocalOfTheBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? keep = null; int n = 0; SettableSlot? x; for (x = new SettableSlot { Share = Plain }, keep = x; n < 2; n++) { SettableSlot y = x; y.Share = l.Map(v => v); } return S.Hold(keep!.Share!.Sample()); });
+
+    // S1905. A member that a constructor sets has the object of the turn, and the constructor runs in that turn.
+    public static Cell<int> TurnObjectInAMemberThatAConstructorSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotOwner owner = new(x); SettableSlot y = owner.Item; y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1906. A local of a callee has the object of the turn, and the callee runs in that turn.
+    public static Cell<int> TurnObjectThroughALocalOfACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = SameSlotThroughALocal(x); y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1907. A list got the first object of a local of the body. The local then gets a new object, and a change to it is not a change for the list.
+    public static Cell<int> TurnALocalThatAListGotAndThatGetsANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> other = []; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = Plain }; SettableSlot y = x; other.Add(y); y = new() { Share = Plain }; y.Share = l.Map(v => v); Kept.Add(y); } return S.Hold(other[0].Share!.Sample()); });
+
+    // S1908. A deconstruction of a tuple expression gives the plain cell in each turn.
+    public static Cell<int> TurnPlainFromATupleExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; (y.Share, int k) = (Plain, i); Kept.Add(k); Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1909. A deconstruction of the tuple from a call gives the plain cell in each turn.
+    public static Cell<int> TurnPlainFromATupleOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; (y.Share, int k) = PlainAndZero(); Kept.Add(k); Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1910. A deconstruction that calls a Deconstruct method gives the plain cell in each turn.
+    public static Cell<int> TurnPlainFromADeconstructMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; (y.Share, int k) = new PlainParts(); Kept.Add(k); Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1911. A yield break statement in the loop of an iterator comes before the plain cell.
+    public static Cell<int> TurnYieldBreakBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? got = null; foreach (SettableSlot s in SlotsUntilABreak(l.Map(v => v))) { got = s; } return S.Hold(got!.Share!.Sample()); });
+
+    // S1912. A return statement of a lambda in the body does not end the turn.
+    public static Cell<int> TurnReturnOfALambdaBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; Func<int> one = () => { return 1; }; Kept.Add(one()); y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1913. A return statement of a local function in the body does not end the turn.
+    public static Cell<int> TurnReturnOfALocalFunctionBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = x; int One() { return 1; } Kept.Add(One()); y.Share = Plain; Kept.Add(x.Share!.Sample());  } return S.Hold(0); });
+
+    // S1914. A yield return statement does not end the turn. Here, the code reads each object after the last turn.
+    public static Cell<int> TurnYieldReturnBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = []; foreach (SettableSlot s in SlotsThatGetAPlainCell(l.Map(v => v))) { all.Add(s); } return S.Hold(all[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -10215,6 +10451,126 @@ public static class Shapes
             {
                 this.Add(new SamePeer(Plain));
             }
+        }
+    }
+
+    private static SlotHolder HolderWith(SettableSlot item) => new() { Item = item };
+
+    private static readonly SlotHolder SharedHolder = new();
+
+    private static readonly SlotHolder HolderOfEachCall = new();
+
+    private static SlotHolder TheHolderOfEachCall() => HolderOfEachCall;
+
+    private static SlotHolder HolderWithItsOwnSlot() => new() { Item = new SettableSlot { Share = Plain } };
+
+    private static SettableSlot SameSlotThroughALocal(SettableSlot given)
+    {
+        SettableSlot kept = given;
+
+        return kept;
+    }
+
+    private static (Cell<int>? First, int Second) PlainAndZero() => (Plain, 0);
+
+    private static SettableSlot LastSlotOfALoopThatReturns(Cell<int> share)
+    {
+        SettableSlot? last = null;
+
+        for (int i = 0; i < 2; i++)
+        {
+            SettableSlot x = new() { Share = share };
+            last = x;
+
+            if (i == 1)
+            {
+                return last;
+            }
+
+            x.Share = Plain;
+        }
+
+        return last!;
+    }
+
+    private static Func<SettableSlot, SettableSlot> FirstSlotKeeper()
+    {
+        SettableSlot? kept = null;
+
+        return given =>
+        {
+            if (kept == null)
+            {
+                kept = given;
+            }
+
+            return kept;
+        };
+    }
+
+    public sealed class SlotOwner(SettableSlot item)
+    {
+        public SettableSlot Item { get; } = item;
+    }
+
+    public sealed class PlainParts
+    {
+        public void Deconstruct(out Cell<int>? first, out int second)
+        {
+            first = Plain;
+            second = 0;
+        }
+    }
+
+    public sealed class SlotKeeper
+    {
+        private SettableSlot? first;
+
+        public Cell<int> FirstShareOfTwo(Cell<int> pending)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                SettableSlot x = new() { Share = Plain };
+
+                if (i == 0)
+                {
+                    this.first = x;
+                }
+
+                this.first!.Share = pending;
+                x.Share = Plain;
+            }
+
+            return this.first!.Share!;
+        }
+    }
+
+    private static IEnumerable<SettableSlot> SlotsUntilABreak(Cell<int> share)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            SettableSlot x = new() { Share = share };
+
+            yield return x;
+
+            if (i == 0)
+            {
+                yield break;
+            }
+
+            x.Share = Plain;
+        }
+    }
+
+    private static IEnumerable<SettableSlot> SlotsThatGetAPlainCell(Cell<int> share)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            SettableSlot x = new() { Share = share };
+
+            yield return x;
+
+            x.Share = Plain;
         }
     }
 

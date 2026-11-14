@@ -10,9 +10,17 @@ namespace SodaFlow.Analyzers;
 ///     also.
 /// </summary>
 /// <remarks>
-///     The object is an identity. Each name of it has it in its state, and
-///     <see cref="ObjectStore" /> has the one state of the object. Thus, a
-///     change through one name is a change for each name.
+///     <para>
+///         The object is an identity. Each name of it has it in its state, and
+///         <see cref="ObjectStore" /> has the one state of the object. Thus, a
+///         change through one name is a change for each name.
+///     </para>
+///     <para>
+///         The body of a loop makes a new object in each turn. The walk reads
+///         the body one time, and that pass is one turn. The object of the pass
+///         is the object of this turn. A second identity is each object that
+///         the same code made in the turns before.
+///     </para>
 /// </remarks>
 /// <param name="type">The type of the object. Null for <see cref="Unknown" />.</param>
 /// <param name="exact">
@@ -21,17 +29,44 @@ namespace SodaFlow.Analyzers;
 ///     and the object can have a type that derives from it.
 /// </param>
 /// <param name="frame">The frame whose code made the object. Null for <see cref="Unknown" />.</param>
-internal sealed class MadeObject(in ITypeSymbol? type, in bool exact, in LoopFrame? frame)
+/// <param name="turn">The value of <see cref="Turn" />.</param>
+/// <param name="isOfTurnsBefore">The value of <see cref="IsOfTurnsBefore" />.</param>
+internal sealed class MadeObject(
+    in ITypeSymbol? type,
+    in bool exact,
+    in LoopFrame? frame,
+    in SyntaxNode? turn,
+    in bool isOfTurnsBefore)
 {
     private readonly bool exact = exact;
     private readonly LoopFrame? frame = frame;
     private readonly ITypeSymbol? type = type;
 
     /// <summary>
+    ///     The body of the loop whose turn makes the object. Null for an object
+    ///     that the code makes one time, and for the objects of the turns before.
+    /// </summary>
+    public SyntaxNode? Turn { get; } = turn;
+
+    /// <summary>
+    ///     True for the object of a creation, which is a new object. The result of
+    ///     a call can be an object that is older than the call, and a member can
+    ///     have such an object.
+    /// </summary>
+    public bool IsNew => this.exact;
+
+    /// <summary>
+    ///     True for the objects that a loop made in the turns before this one.
+    ///     The identity is then two or more objects, and a write to it only adds.
+    /// </summary>
+    public bool IsOfTurnsBefore { get; } = isOfTurnsBefore;
+
+    /// <summary>
     ///     An object that the store does not know. A value that is one of two
     ///     objects has it when the walk saw only one of the two made.
     /// </summary>
-    public static readonly MadeObject Unknown = new(type: null, exact: false, frame: null);
+    public static readonly MadeObject Unknown =
+        new(type: null, exact: false, frame: null, turn: null, isOfTurnsBefore: false);
 
     /// <summary>
     ///     True when the code of the given frame, or of a callee of that code,
@@ -40,7 +75,19 @@ internal sealed class MadeObject(in ITypeSymbol? type, in bool exact, in LoopFra
     public bool IsFrom(LoopFrame code) => this.frame?.IsWithin(code) == true;
 
     /// <summary>The object in a member of this object, where the member has the given type.</summary>
-    public MadeObject InAMember(ITypeSymbol declared) => new(type: declared, exact: false, frame: this.frame);
+    /// <param name="declared">The type of the member.</param>
+    /// <param name="afterItsTurn">True when the walk left the loop that made this object.</param>
+    public MadeObject InAMember(ITypeSymbol declared, bool afterItsTurn) =>
+        new(
+            type: declared,
+            exact: false,
+            frame: this.frame,
+            turn: afterItsTurn ? null : this.Turn,
+            isOfTurnsBefore: this.IsOfTurnsBefore || afterItsTurn);
+
+    /// <summary>A new identity for the objects that the same code made in the turns before.</summary>
+    public MadeObject OfTurnsBefore() =>
+        new(type: this.type, exact: this.exact, frame: this.frame, turn: null, isOfTurnsBefore: true);
 
     /// <summary>
     ///     True when a value of the given type can be this object. The element of

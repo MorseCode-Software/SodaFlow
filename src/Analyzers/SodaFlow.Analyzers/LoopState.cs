@@ -514,6 +514,43 @@ internal sealed class LoopState
                 objects: this.Objects,
                 held: this.Held);
 
+    /// <summary>
+    ///     The same state, for a value that can be a second object where it can be
+    ///     an object of the store. Each part of the state changes the same way.
+    /// </summary>
+    /// <param name="second">Gives the second object. Null for an object that has none.</param>
+    public LoopState WithAlso(Func<MadeObject, MadeObject?> second) =>
+        this.IsNone && this.Objects.IsEmpty && this.Held.IsEmpty
+            ? this
+            : new LoopState(
+                pending: this.Pending,
+                linked: this.Linked,
+                members: this.Members?.Select(state => state.WithAlso(second)),
+                content: this.content?.WithAlso(second),
+                origin: this.Origin,
+                functions: this.Functions,
+                queries: this.Queries,
+                isContainer: this.IsContainer,
+                objects: WithAlso(objects: this.Objects, second: second),
+                held: WithAlso(objects: this.Held, second: second));
+
+    private static ImmutableArray<MadeObject> WithAlso(
+        ImmutableArray<MadeObject> objects,
+        Func<MadeObject, MadeObject?> second)
+    {
+        ImmutableArray<MadeObject> all = objects;
+
+        foreach (MadeObject made in objects)
+        {
+            if (second(made) is { } also && !all.Contains(also))
+            {
+                all = all.Add(also);
+            }
+        }
+
+        return all;
+    }
+
     /// <summary>The same state, with the one origin for each of its parts.</summary>
     public LoopState From(ISymbol origin) => this.WithOrigins(_ => origin);
 

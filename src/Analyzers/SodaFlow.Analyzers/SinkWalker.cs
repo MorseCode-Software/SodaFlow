@@ -26,6 +26,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
+    private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
     // The lambdas that the walk read where they are, and that their callee runs one time.
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
@@ -198,6 +199,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Statement);
+        this.evaluator.EndTurns(node.Statement);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
@@ -218,12 +220,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 value: node.Expression,
                 owner: elements,
                 method: method,
-                replaces: false))
+                replaces: false,
+                turn: null))
         {
-            this.AssignState(target: node.Variable, state: elements, replaces: false);
+            this.AssignState(target: node.Variable, state: elements, replaces: false, turn: null);
         }
 
         this.Visit(node.Statement);
+        this.evaluator.EndTurns(node.Statement);
+    }
+
+    public override void VisitForStatement(ForStatementSyntax node)
+    {
+        base.VisitForStatement(node);
+        this.evaluator.EndTurns(node.Statement);
+    }
+
+    public override void VisitWhileStatement(WhileStatementSyntax node)
+    {
+        base.VisitWhileStatement(node);
+        this.evaluator.EndTurns(node.Statement);
+    }
+
+    public override void VisitDoStatement(DoStatementSyntax node)
+    {
+        base.VisitDoStatement(node);
+        this.evaluator.EndTurns(node.Statement);
     }
 
     /// <summary>
@@ -664,7 +686,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ExpressionSyntax value,
         LoopState owner,
         IMethodSymbol? method,
-        bool replaces)
+        bool replaces,
+        SyntaxNode? turn)
     {
         if (method == null || PartsOf(target) is not { } parts)
         {
@@ -691,7 +714,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (parts[i] is ExpressionSyntax expression)
             {
-                this.AssignState(target: expression, state: part, replaces: replaces);
+                this.AssignState(target: expression, state: part, replaces: replaces, turn: turn);
             }
             else
             {
@@ -799,7 +822,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (node.IsKind(SyntaxKind.AddAssignmentExpression)
                 && this.evaluator.Eval(node.Right) is { Functions.IsEmpty: false } added)
             {
-                this.AssignState(target: node.Left, state: added, replaces: false);
+                this.AssignState(target: node.Left, state: added, replaces: false, turn: null);
             }
 
             this.CheckAccessor(node);
@@ -828,7 +851,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Right);
         this.CheckAccessor(node);
 
-        bool replaces = this.AlwaysRuns(node);
+        bool replaces = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? turn);
         LoopState right = this.evaluator.Eval(node.Right);
 
         // A deconstruction of a value that is not a tuple calls a Deconstruct method.
@@ -845,9 +868,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 value: node.Right,
                 owner: right,
                 method: deconstruct,
-                replaces: replaces))
+                replaces: replaces,
+                turn: turn))
         {
-            this.Assign(target: node.Left, value: node.Right, replaces: replaces);
+            this.Assign(target: node.Left, value: node.Right, replaces: replaces, turn: turn);
         }
     }
 
@@ -862,12 +886,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     what is around the call. A query runs it one time for each element, which
     ///     can be no time, thus an assignment in it does not always run.
     /// </remarks>
-    private bool AlwaysRuns(SyntaxNode assignment)
+    /// <param name="assignment">The assignment.</param>
+    /// <param name="turn">
+    ///     For an assignment in a loop: the body of that loop, when the assignment
+    ///     is a statement at its first level and no statement before it can end
+    ///     the turn. Each turn of the loop then runs the assignment. Null for each
+    ///     other assignment.
+    /// </param>
+    private bool AlwaysRuns(SyntaxNode assignment, out SyntaxNode? turn)
     {
+        turn = null;
+
         if (assignment.Parent is not ExpressionStatementSyntax statement)
         {
             return false;
         }
+
+        bool inALambda = false;
 
         foreach (SyntaxNode ancestor in statement.Ancestors())
         {
@@ -879,7 +914,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         return false;
                     }
 
+                    inALambda = true;
+
                     continue;
+                // The walk does not look for a statement that can end the lambda before the
+                // assignment. Thus, an assignment in a lambda is of no turn.
+                case ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
+                    when !inALambda
+                         && LoopStateEvaluator.LoopBodyOf(ancestor) is { } body
+                         && this.FirstEndOfATurnOf(body) > statement.SpanStart:
+                    turn = body;
+
+                    return false;
                 case AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
@@ -911,11 +957,47 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return true;
     }
 
+    // The position of the first statement that can end a turn before the end of the body. A turn
+    // that ends there does not run the statements after it.
+    private int FirstEndOfATurnOf(StatementSyntax body)
+    {
+        if (!this.firstEnds.TryGetValue(key: body, value: out int first))
+        {
+            first =
+                body.DescendantNodesAndSelf(static node =>
+                        node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                    .FirstOrDefault(node => EndsATurnOf(body: body, node: node))
+                    ?.SpanStart
+                ?? int.MaxValue;
+
+            this.firstEnds[body] = first;
+        }
+
+        return first;
+    }
+
+    // A break statement is for the loop or the switch statement nearest to it, and a continue
+    // statement is for the loop nearest to it. Each other jump leaves each loop that it is in.
+    private static bool EndsATurnOf(StatementSyntax body, SyntaxNode node) =>
+        node switch
+        {
+            ReturnStatementSyntax or ThrowStatementSyntax or ThrowExpressionSyntax or GotoStatementSyntax => true,
+            YieldStatementSyntax yield => yield.IsKind(SyntaxKind.YieldBreakStatement),
+            ContinueStatementSyntax =>
+                node.Ancestors().Select(LoopStateEvaluator.LoopBodyOf).First(static found => found != null) == body,
+            BreakStatementSyntax =>
+                node.Ancestors()
+                    .First(static around =>
+                        around is SwitchStatementSyntax || LoopStateEvaluator.LoopBodyOf(around) != null)
+                == body.Parent,
+            _ => false
+        };
+
     /// <summary>
     ///     Gives a target the state of a value. A deconstruction of a tuple
     ///     expression gives each part of the tuple to its own target.
     /// </summary>
-    private void Assign(SyntaxNode target, ExpressionSyntax value, bool replaces)
+    private void Assign(SyntaxNode target, ExpressionSyntax value, bool replaces, SyntaxNode? turn)
     {
         if (target is TupleExpressionSyntax targets
             && value is TupleExpressionSyntax values
@@ -926,7 +1008,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.Assign(
                     target: targets.Arguments[i].Expression,
                     value: values.Arguments[i].Expression,
-                    replaces: replaces);
+                    replaces: replaces,
+                    turn: turn);
             }
 
             return;
@@ -937,7 +1020,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (target is IdentifierNameSyntax
             && this.region.SymbolOf(target) is { } named and (ILocalSymbol or IParameterSymbol))
         {
-            this.evaluator.HoldsValueOf(local: named, value: value, replaces: replaces);
+            this.evaluator.HoldsValueOf(
+                local: named,
+                value: value,
+                replaces: replaces || IsNewInEachTurn(local: named, turn: turn));
         }
 
         // An element that gets a value puts it into the collection. Each other target that gets
@@ -961,7 +1047,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             || this.region.TypeOf(value) is not INamedTypeSymbol { IsTupleType: true } type
             || type.TupleElements.Length != parts.Count)
         {
-            this.AssignState(target: target, state: whole, replaces: replaces);
+            this.AssignState(target: target, state: whole, replaces: replaces, turn: turn);
 
             return;
         }
@@ -975,7 +1061,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (parts[i] is ExpressionSyntax expression)
             {
-                this.AssignState(target: expression, state: element, replaces: replaces);
+                this.AssignState(target: expression, state: element, replaces: replaces, turn: turn);
             }
             else
             {
@@ -990,7 +1076,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     True when the assignment always runs. Then, a local has the new state
     ///     only. Otherwise, it has the new state and the state before it together.
     /// </param>
-    private void AssignState(SyntaxNode target, LoopState state, bool replaces)
+    /// <param name="turn">The body of the loop whose each turn always runs the assignment. Null when no loop does.</param>
+    private void AssignState(SyntaxNode target, LoopState state, bool replaces, SyntaxNode? turn)
     {
         switch (target)
         {
@@ -1002,7 +1089,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case TupleExpressionSyntax parts:
                 foreach (ArgumentSyntax part in parts.Arguments)
                 {
-                    this.AssignState(target: part.Expression, state: state, replaces: replaces);
+                    this.AssignState(target: part.Expression, state: state, replaces: replaces, turn: turn);
                 }
 
                 return;
@@ -1027,7 +1114,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
-                if (replaces)
+                if (replaces || IsNewInEachTurn(local: local, turn: turn))
                 {
                     this.evaluator.Assign(local: local, state: state);
                 }
@@ -1049,11 +1136,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
                     member: member,
                     state: state,
-                    replaces: replaces);
+                    replaces: replaces,
+                    turn: turn);
 
                 break;
         }
     }
+
+    // A local that the body of a loop declares is new in each turn. Thus, an assignment that each
+    // turn always runs gives the local only the new value.
+    private static bool IsNewInEachTurn(ISymbol local, SyntaxNode? turn) =>
+        turn != null && LoopStateEvaluator.IsDeclaredIn(local: local, turn: turn);
 
     public override void VisitCollectionExpression(CollectionExpressionSyntax node)
     {
@@ -1363,7 +1456,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.AssignState(
                         target: exchange.Location,
                         state: always ? put : this.evaluator.Eval(exchange.Location).Join(put),
-                        replaces: always);
+                        replaces: always,
+                        turn: null);
                 }
                 else
                 {
@@ -2190,7 +2284,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         ? assigned
                         : LoopState.None;
 
-            this.AssignState(target: arguments[i].Expression, state: state, replaces: false);
+            this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
         }
     }
 

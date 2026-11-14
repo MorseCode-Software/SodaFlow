@@ -213,9 +213,13 @@ internal sealed class LoopStateEvaluator
     ///     Records the state of a local at its declaration, or at an assignment
     ///     that does not always run. The local then has the two states together.
     /// </summary>
-    public void Declare(ISymbol local, LoopState state) =>
+    public void Declare(ISymbol local, LoopState state)
+    {
+        state = this.InALocal(local: local, state: state);
+
         this.locals[local] =
             this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
+    }
 
     /// <summary>
     ///     Records an assignment that always runs. The new state replaces the
@@ -223,9 +227,95 @@ internal sealed class LoopStateEvaluator
     /// </summary>
     public void Assign(ISymbol local, LoopState state)
     {
-        this.locals[local] = state;
+        this.locals[local] = this.InALocal(local: local, state: state);
         this.assigned.Add(local);
     }
+
+    /// <summary>True for a local that the body of the given loop declares. Such a local is new in each turn.</summary>
+    /// <param name="local">The local.</param>
+    /// <param name="turn">The body of the loop.</param>
+    public static bool IsDeclaredIn(ISymbol local, SyntaxNode turn) =>
+        local.DeclaringSyntaxReferences.Any(reference =>
+            reference.SyntaxTree == turn.SyntaxTree && turn.Span.Contains(reference.Span));
+
+    /// <summary>The body of a loop statement. Null for a node that is not a loop statement.</summary>
+    public static StatementSyntax? LoopBodyOf(SyntaxNode node) =>
+        node switch
+        {
+            ForStatementSyntax loop => loop.Statement,
+            CommonForEachStatementSyntax loop => loop.Statement,
+            WhileStatementSyntax loop => loop.Statement,
+            DoStatementSyntax loop => loop.Statement,
+            _ => null
+        };
+
+    /// <summary>
+    ///     Records that the walk left a loop. Each object of its turn is then one
+    ///     of the objects of the turns before.
+    /// </summary>
+    /// <param name="turn">The body of the loop.</param>
+    public void EndTurns(SyntaxNode turn)
+    {
+        if (!this.quiet)
+        {
+            this.region.Objects.EndTurns(turn);
+        }
+    }
+
+    /// <summary>
+    ///     The state of a value in a place that can be older than a turn. Such a
+    ///     place can have the object of a turn before. Thus, where the value is
+    ///     the object of a turn, it can be one of the objects of the turns before
+    ///     also.
+    /// </summary>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="place">The place, as the function needs it.</param>
+    /// <param name="isOfItsTurn">True when the place is new in each turn of the loop of the given object.</param>
+    private LoopState InAPlace<TPlace>(LoopState state, TPlace place, Func<MadeObject, TPlace, bool> isOfItsTurn) =>
+        this.quiet || !this.region.Objects.HasATurn
+            ? state
+            : this.WithTheObjectsBefore(state: state, place: place, isOfItsTurn: isOfItsTurn);
+
+    // Apart from InAPlace, which most calls leave at its first line: only this one makes a closure.
+    private LoopState WithTheObjectsBefore<TPlace>(
+        LoopState state,
+        TPlace place,
+        Func<MadeObject, TPlace, bool> isOfItsTurn) =>
+        state.WithAlso(made =>
+            this.region.Objects.IsOfATurnNow(made) && !isOfItsTurn(arg1: made, arg2: place)
+                ? this.region.Objects.BeforeOf(made)
+                : null);
+
+    // A local is new in each turn of the loop that declares it in its body. A local of a callee
+    // that runs in the turn is new in each turn also.
+    private LoopState InALocal(ISymbol local, LoopState state) =>
+        this.InAPlace(
+            state: state,
+            place: (Code: this, Local: local),
+            isOfItsTurn: static (made, place) =>
+                place.Code.RunsInTheTurnOf(made) || IsDeclaredIn(local: place.Local, turn: made.Turn!));
+
+    // True when the code of this frame runs in one turn of the loop that made the object. The
+    // frame is then of a callee of the code that has the loop, and the call did not return. A
+    // function that a callee made can run in a turn after that one, with the locals of the callee.
+    private bool RunsInTheTurnOf(MadeObject made) => !made.IsFrom(this.Frame) && !this.Frame.HasReturned;
+
+    // A member or an element of the one object of a value is new in each turn of the loop that
+    // made that object, while the walk is in that loop. The object must be a new one: the result
+    // of a call can be the same object in each turn.
+    private LoopState InAnObject(LoopState owner, LoopState state) =>
+        this.InAPlace(
+            state: state,
+            place: owner.Objects.Length == 1
+                   && owner.Objects[0].IsNew
+                   && this.region.Objects.IsOfATurnNow(owner.Objects[0])
+                ? owner.Objects[0].Turn
+                : null,
+            isOfItsTurn: static (made, turn) => made.Turn == turn);
+
+    // A field of an object that the walk does not know, and the result of a call, are of no turn.
+    private LoopState InAnOldPlace(LoopState state) =>
+        this.InAPlace(state: state, place: false, isOfItsTurn: static (_, place) => place);
 
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
@@ -234,6 +324,12 @@ internal sealed class LoopStateEvaluator
     public void SetMember(ISymbol member, LoopState state)
     {
         ISymbol key = member.OriginalDefinition;
+
+        // The object can be older than a turn of a loop of this code.
+        state = this.InAPlace(
+            state: state,
+            place: this,
+            isOfItsTurn: static (made, code) => code.RunsInTheTurnOf(made));
 
         this.thisMembers[key] =
             this.thisMembers.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
@@ -249,17 +345,22 @@ internal sealed class LoopStateEvaluator
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the assignment always runs in its function.</param>
-    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces)
+    /// <param name="turn">The body of the loop whose each turn always runs the assignment. Null when no loop does.</param>
+    public void SetMemberOf(ExpressionSyntax? owner, ISymbol member, LoopState state, bool replaces, SyntaxNode? turn)
     {
+        LoopState has = this.Eval(owner);
+        state = this.InAnObject(owner: has, state: state);
+
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
         // The object of the store gets the state for the member, for each name of the object.
         if (owner != null)
         {
             this.Change(
-                owner: this.Eval(owner),
+                owner: has,
                 change: old => old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: state)),
-                replaces: replaces);
+                replaces: replaces,
+                turn: turn);
         }
 
         // The owner is an element of a collection. The collection then contains an object whose
@@ -341,9 +442,14 @@ internal sealed class LoopStateEvaluator
     {
         // The collection holds the object of the value. Only a put does that: a call that can
         // keep its argument, as Contains is for the analyzer, makes no second name.
-        if (collection is ExpressionSyntax written && this.Eval(value).Objects is { IsEmpty: false } put)
+        if (collection is ExpressionSyntax written)
         {
-            this.Change(owner: this.Eval(written), change: old => old.Holding(put), replaces: false);
+            LoopState owner = this.Eval(written);
+
+            if (this.InAnObject(owner: owner, state: this.Eval(value)).Objects is { IsEmpty: false } put)
+            {
+                this.Change(owner: owner, change: old => old.Holding(put), replaces: false, turn: null);
+            }
         }
 
         if (Unwrapped(value) is IdentifierNameSyntax name
@@ -402,7 +508,8 @@ internal sealed class LoopStateEvaluator
     {
         if (!this.quiet)
         {
-            this.region.SetField(field: field, state: state);
+            // The owner of the field is not known, thus it is of no turn.
+            this.region.SetField(field: field, state: this.InAnOldPlace(state));
         }
     }
 
@@ -441,8 +548,10 @@ internal sealed class LoopStateEvaluator
         {
             // Parentheses, a cast, and the operator that says not null do not hide the name.
             target = Unwrapped(target);
+            LoopState owner = this.Eval(target);
+            state = this.InAnObject(owner: owner, state: state);
             LoopState added = state;
-            this.Change(owner: this.Eval(target), change: old => old.Join(added), replaces: false);
+            this.Change(owner: owner, change: old => old.Join(added), replaces: false, turn: null);
 
             ExpressionSyntax? collection = this.CollectionOf(target);
 
@@ -552,7 +661,7 @@ internal sealed class LoopStateEvaluator
         LoopState state =
             this.Refreshed(
                 expression: expression,
-                state: this.OnlyObjectsOfItsType(expression: expression, state: this.EvalUncached(expression)));
+                state: this.OnlyObjectsOfItsType(expression: expression, state: this.Now(this.EvalUncached(expression))));
 
         this.memo[expression] = state;
 
@@ -609,6 +718,14 @@ internal sealed class LoopStateEvaluator
         return this.region.Objects.StateOf(made)
             ?.WithObjects(ImmutableArray.Create(made))
             .FromIfUnknown(owner.Origin);
+    }
+
+    // After the walk leaves a loop, the object of its turn is one of the objects of the turns before.
+    private LoopState Now(LoopState state)
+    {
+        ImmutableArray<MadeObject> now = this.region.Objects.Now(state.Objects);
+
+        return now == state.Objects ? state : state.WithObjects(now);
     }
 
     // An object that a value of the type of the expression cannot be is not the value. The element
@@ -674,9 +791,10 @@ internal sealed class LoopStateEvaluator
     /// <remarks>
     ///     A struct is a copy at each assignment, thus a second name of it is not
     ///     the same object. It holds the objects of its parts in its members. An
-    ///     evaluator that reads code which does not run now makes no object. Code
-    ///     that can run two or more times makes two or more objects. The store has
-    ///     none of them, and each name then has its own state.
+    ///     evaluator that reads code which does not run now makes no object. The
+    ///     body of a loop makes the object of this turn. Other code that can run
+    ///     two or more times makes two or more objects. The store has none of
+    ///     them, and each name then has its own state.
     /// </remarks>
     /// <param name="place">The expression that makes the object.</param>
     /// <param name="state">The state of the object.</param>
@@ -693,11 +811,62 @@ internal sealed class LoopStateEvaluator
         // A new collection holds the objects that it got, and is not one of them.
         LoopState apart = state.WithObjects(ImmutableArray<MadeObject>.Empty);
 
-        return this.quiet || !this.RunsOneTime(place)
-            ? apart
-            : apart.WithObjects(
+        if (this.quiet)
+        {
+            return apart;
+        }
+
+        if (this.RunsOneTime(place))
+        {
+            return apart.WithObjects(
                 ImmutableArray.Create(
                     this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart)));
+        }
+
+        if (TurnOf(place) is not { } turn)
+        {
+            return apart;
+        }
+
+        // The result of a call can be an object that is older than the turn. A creation is new,
+        // and each object that it gets is then of its turn or of a turn around it.
+        LoopState first = exact ? apart : this.InAnOldPlace(apart);
+
+        return first.WithObjects(
+            ImmutableArray.Create(
+                this.region.Objects.MakeInATurn(
+                    frame: this.Frame,
+                    type: type,
+                    exact: exact,
+                    turn: turn,
+                    state: first)));
+    }
+
+    /// <summary>
+    ///     The body of the nearest loop around an expression. Null for an
+    ///     expression in no loop of its function.
+    /// </summary>
+    /// <remarks>
+    ///     An expression in a part of the loop that is not the body gets the body
+    ///     also. No name of its object is new in each turn. Thus, each such name
+    ///     can have an older object, and a write through it only adds.
+    /// </remarks>
+    private static SyntaxNode? TurnOf(SyntaxNode place)
+    {
+        foreach (SyntaxNode ancestor in place.Ancestors())
+        {
+            if (LoopBodyOf(ancestor) is { } body)
+            {
+                return body;
+            }
+
+            if (ancestor is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or QueryExpressionSyntax)
+            {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -768,33 +937,45 @@ internal sealed class LoopStateEvaluator
     ///     that object. Each other change adds the new state.
     /// </summary>
     /// <remarks>
-    ///     The change is sure when three things are true. The value is one object.
-    ///     The change always runs in its function. The code of this frame, or of a
-    ///     callee of it, made the object. A caller can call a callee in a branch.
-    ///     Thus, a change that a callee makes to an object of its caller only
-    ///     adds.
+    ///     <para>
+    ///         The change is sure when three things are true. The value is one
+    ///         object. The change always runs in its function. The code of this
+    ///         frame, or of a callee of it, made the object. A caller can call a
+    ///         callee in a branch. Thus, a change that a callee makes to an object
+    ///         of its caller only adds.
+    ///     </para>
+    ///     <para>
+    ///         For the object of a turn, the change must always run in each turn
+    ///         of the loop that made the object. The objects of the turns before
+    ///         are two or more objects, and a change to them only adds.
+    ///     </para>
     /// </remarks>
     /// <param name="owner">The state of the value.</param>
     /// <param name="change">The new state of an object, from its state now.</param>
     /// <param name="replaces">True when the change always runs in its function.</param>
-    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool replaces)
+    /// <param name="turn">The body of the loop whose each turn always runs the change. Null when no loop does.</param>
+    private void Change(LoopState owner, Func<LoopState, LoopState> change, bool replaces, SyntaxNode? turn)
     {
         if (this.quiet)
         {
             return;
         }
 
-        foreach (MadeObject made in owner.Objects)
+        ImmutableArray<MadeObject> now = this.region.Objects.Now(owner.Objects);
+
+        foreach (MadeObject made in now)
         {
             if (this.region.Objects.StateOf(made) is { } old)
             {
                 LoopState changed = change(old);
 
-                this.region.Objects.Set(
-                    found: made,
-                    state: replaces && owner.Objects.Length == 1 && made.IsFrom(this.Frame)
-                        ? changed
-                        : old.Join(changed));
+                bool sure =
+                    now.Length == 1
+                    && made.IsFrom(this.Frame)
+                    && !made.IsOfTurnsBefore
+                    && (made.Turn == null ? replaces : made.Turn == turn);
+
+                this.region.Objects.Set(found: made, state: sure ? changed : old.Join(changed));
             }
         }
     }
