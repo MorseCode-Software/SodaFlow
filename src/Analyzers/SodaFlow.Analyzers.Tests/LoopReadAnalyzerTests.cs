@@ -1471,7 +1471,12 @@ internal sealed class LoopReadAnalyzerTests
             ["ChainOfAssignmentsOfOneObject"] = ["SF1001"],
             ["SampleOfTheValueOfAnAssignment"] = ["SF1001"],
             ["AssignmentInTheInitializerOfALocal"] = ["SF1001"],
-            ["HelperThatReturnsBeforeItsPlainWrite"] = ["SF1001"]
+            ["HelperThatReturnsBeforeItsPlainWrite"] = ["SF1001"],
+            ["UnsetMemberThroughAnElement"] = ["SF1001"],
+            ["UnsetMemberThroughAnElementInTheTurn"] = ["SF1001"],
+            ["UnsetMemberThroughOneOfTwoObjects"] = ["SF1001"],
+            ["WriteThroughTheUnsetMemberOfOneOfTwoObjects"] = ["SF1001"],
+            ["UnsetMemberThroughTheVariableOfAForeach"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

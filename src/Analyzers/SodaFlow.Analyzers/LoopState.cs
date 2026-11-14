@@ -215,6 +215,13 @@ internal sealed class LoopState
     /// </summary>
     public LoopState HoldingAnUnknownObject => this.Holding(ImmutableArray.Create(MadeObject.Unknown));
 
+    /// <summary>
+    ///     The same state, for a value that can be an object that the store does
+    ///     not know also.
+    /// </summary>
+    public LoopState OrAnUnknownObject =>
+        this.Objects.Contains(MadeObject.Unknown) ? this : this.WithObjects(this.Objects.Add(MadeObject.Unknown));
+
     /// <summary>The same state, for a collection that also holds the given objects.</summary>
     public LoopState Holding(ImmutableArray<MadeObject> more) =>
         new(
@@ -351,6 +358,14 @@ internal sealed class LoopState
     ///     element can be one of the objects that have the members.
     /// </summary>
     public LoopState AsElement => this.IsContainer ? this.WithContainer(false) : this;
+
+    /// <summary>
+    ///     The state of one element of this collection. A collection with no
+    ///     members has no mark of a container, and its element is one of the
+    ///     objects that it holds also.
+    /// </summary>
+    public LoopState AsOneOfItsElements =>
+        this.IsContainer || this.Held.IsEmpty ? this.AsElement : this.WithContainer(false);
 
     /// <summary>The state of a delegate that is one known function.</summary>
     public static LoopState OfFunction(FunctionValue function) =>

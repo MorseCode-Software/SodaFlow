@@ -9579,6 +9579,30 @@ public static class Shapes
     public static Cell<int> HelperThatWritesBeforeItCanReturn() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot made = SlotThatWritesAndCanReturnEarly(true, l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
 
+    // S2079. A holder with a member that the walk did not see set is in a list. The object in that member gets a pending cell through a local, and the code reads it through an element.
+    public static Cell<int> UnsetMemberThroughAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; SlotHolder holder = HolderWithItsOwnSlot(); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); return S.Hold(list[0].Item!.Share!.Sample()); });
+
+    // S2080. The same in the body of a loop, with a read through the element of the turn.
+    public static Cell<int> UnsetMemberThroughAnElementInTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; for (int i = 0; i < 2; i++) { SlotHolder holder = HolderWithItsOwnSlot(); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); Kept.Add(list[i].Item!.Share!.Sample()); } return S.Hold(0); });
+
+    // S2081. The same, where a plain cell through the local comes after the pending one.
+    public static Cell<int> UnsetMemberThroughAnElementThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; SlotHolder holder = HolderWithItsOwnSlot(); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); y.Share = Plain; return S.Hold(list[0].Item!.Share!.Sample()); });
+
+    // S2082. A local is one of two holders, each with a member that the walk did not see set. The object in the member of the first holder gets a pending cell.
+    public static Cell<int> UnsetMemberThroughOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder a = HolderWithItsOwnSlot(); SlotHolder b = HolderWithItsOwnSlot(); SlotHolder h = Kept.Count >= 0 ? a : b; SettableSlot y = a.Item!; y.Share = l.Map(v => v); return S.Hold(h.Item!.Share!.Sample()); });
+
+    // S2083. A local is one of two holders. A pending cell through the member of the local is a change for the first holder.
+    public static Cell<int> WriteThroughTheUnsetMemberOfOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder a = HolderWithItsOwnSlot(); SlotHolder b = HolderWithItsOwnSlot(); SlotHolder h = Kept.Count >= 0 ? a : b; h.Item!.Share = l.Map(v => v); return S.Hold(a.Item!.Share!.Sample()); });
+
+    // S2084. A foreach gives each holder of a list, and the object in the member of a holder has a pending cell.
+    public static Cell<int> UnsetMemberThroughTheVariableOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotHolder> list = []; SlotHolder holder = HolderWithItsOwnSlot(); list.Add(holder); SettableSlot y = holder.Item!; y.Share = l.Map(v => v); foreach (SlotHolder each in list) { Kept.Add(each.Item!.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -11379,8 +11403,12 @@ public static class Shapes
 file static class Helpers
 {
     public static T Fresh<T>(this List<T> all)
-        where T : new() =>
-        all.Count < 0 ? all[0] : new T();
+        where T : new()
+    {
+        all.TrimExcess();
+
+        return new T();
+    }
 
     public static int Count(this List<Shapes.Marked> all)
     {

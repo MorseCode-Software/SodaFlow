@@ -789,11 +789,12 @@ internal sealed class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The object in a member of one object of the store. Each read of the
+    ///     The object in a member of an object of the store. Each read of the
     ///     member, through each name of the owner, is that one object. That is
-    ///     true also when the walk did not read the constructor of the owner. Null
-    ///     for a member whose state has an object of the store, and for a member
-    ///     that is not one of this compilation.
+    ///     true also when the walk did not read the constructor of the owner. A
+    ///     value that is one of two owners has the object in the member of each.
+    ///     Null for a member whose state has an object of the store, and for a
+    ///     member that is not one of this compilation.
     /// </summary>
     /// <remarks>
     ///     A member of the platform, such as <c>Values</c> of a dictionary, keeps
@@ -802,7 +803,7 @@ internal sealed class LoopStateEvaluator
     /// </remarks>
     private LoopState? InMember(LoopState owner, ISymbol member, ExpressionSyntax expression)
     {
-        if (owner.Objects.Length != 1
+        if (owner.Objects.IsEmpty
             || member.DeclaringSyntaxReferences.IsEmpty
             || this.region.TypeOf(expression) is not { } type
             || !this.CanBeAnObject(type))
@@ -818,26 +819,46 @@ internal sealed class LoopStateEvaluator
             return null;
         }
 
-        MadeObject? made = this.region.Objects.InMember(owner: owner.Objects[0], member: member);
+        LoopState? all = null;
 
-        if (made == null)
+        foreach (MadeObject one in owner.Objects)
         {
-            if (this.quiet)
+            // An owner that the store does not know has a member that the store does not know.
+            if (ReferenceEquals(objA: one, objB: MadeObject.Unknown))
+            {
+                all = (all ?? LoopState.None).OrAnUnknownObject;
+
+                continue;
+            }
+
+            MadeObject? made = this.region.Objects.InMember(owner: one, member: member);
+
+            if (made == null)
+            {
+                if (this.quiet)
+                {
+                    return null;
+                }
+
+                made =
+                    this.region.Objects.MakeInMember(
+                        owner: one,
+                        member: member,
+                        type: type,
+                        state: inOwner.Join(this.TypeState(expression)));
+            }
+
+            if (this.region.Objects.StateOf(made) is not { } inThisOwner)
             {
                 return null;
             }
 
-            made =
-                this.region.Objects.MakeInMember(
-                    owner: owner.Objects[0],
-                    member: member,
-                    type: type,
-                    state: inOwner.Join(this.TypeState(expression)));
+            LoopState ofThisOwner = inThisOwner.WithObjects(ImmutableArray.Create(made));
+
+            all = all == null ? ofThisOwner : all.Join(ofThisOwner);
         }
 
-        return this.region.Objects.StateOf(made)
-            ?.WithObjects(ImmutableArray.Create(made))
-            .FromIfUnknown(owner.Origin);
+        return all?.FromIfUnknown(owner.Origin);
     }
 
     // A location can keep a lambda or a local function from a turn before, and a call then runs
@@ -1385,7 +1406,7 @@ internal sealed class LoopStateEvaluator
 
         return SodaFlowSymbols.IsSequence(type) && collection.Members is { } members && !members.CanBe(type)
             ? collection
-            : collection.AsElement;
+            : collection.AsOneOfItsElements;
     }
 
     /// <summary>
