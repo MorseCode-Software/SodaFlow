@@ -6,8 +6,8 @@ namespace SodaFlow.Analyzers;
 /// <summary>
 ///     A write to a member of an object through a local or a parameter, as in
 ///     <c>row.Share = value</c>, that always runs in its function. The next
-///     write through the same name to the same member can replace it, and a
-///     read through the same name can read what it gave.
+///     write through the same name to the same member can replace it. A read
+///     through the same name can read what it gave.
 /// </summary>
 /// <remarks>
 ///     The name can be one of two or more objects of the store, and the write

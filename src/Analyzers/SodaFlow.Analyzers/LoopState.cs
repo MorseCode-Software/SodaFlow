@@ -344,7 +344,7 @@ internal sealed class LoopState
 
     // The objects of the first array, and then each object of the second one that the first one
     // does not have. A block that makes many objects has long arrays here. A search of the first
-    // array for each object of the second one then takes the square of that number, thus a long
+    // array for each object of the second one then takes the square of that number. Thus, a long
     // array gets a set for the search.
     private static ImmutableArray<MadeObject> Union(ImmutableArray<MadeObject> first, ImmutableArray<MadeObject> second)
     {

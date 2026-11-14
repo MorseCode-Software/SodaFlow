@@ -1691,7 +1691,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag55TwoLocalsThatChangePlacesInEachTurn"] = ["SF1001"],
             ["Ag55ThreeLocalsThatChangePlacesInEachTurn"] = ["SF1001"],
             ["Ao4ALoopThatMakesAListInEachTurn"] = ["SF1001"],
-            ["Ao4AFunctionForEachElementInASecondOne"] = ["SF1001"]
+            ["Ao4AFunctionForEachElementInASecondOne"] = ["SF1001"],
+            ["Ag51AHelperGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
+            ["Ag51ALambdaGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
+            ["Ag51AnElementGivesTheOtherObjectAPendingCellBetween"] = ["SF1001"],
+            ["Ag53CodeWithNoBodyRunsALambdaThatUsesTheNameAfterTheWrite"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2362,11 +2366,7 @@ internal sealed class LoopReadAnalyzerTests
                 invocation: block,
                 model: compilation.GetSemanticModel(tree),
                 symbols: new SodaFlowSymbols(compilation),
-                report: diagnostic =>
-                {
-                    beforeTheStop.Add(diagnostic);
-                    stop.Cancel();
-                },
+                report: KeepsAndCancels(found: beforeTheStop, stop: stop),
                 cancellation: stop.Token);
         }
         catch (OperationCanceledException)
@@ -2377,6 +2377,14 @@ internal sealed class LoopReadAnalyzerTests
         await Assert.That(stopped).IsTrue();
         await Assert.That(beforeTheStop.Count).IsEqualTo(1);
     }
+
+    // An action for the walk that keeps each diagnostic and cancels the token at each one.
+    private static Action<Diagnostic> KeepsAndCancels(ICollection<Diagnostic> found, CancellationTokenSource stop) =>
+        diagnostic =>
+        {
+            found.Add(diagnostic);
+            stop.Cancel();
+        };
 
     /// <summary>
     ///     A function that a callee runs for each element can be in a second one.
@@ -2427,15 +2435,15 @@ internal sealed class LoopReadAnalyzerTests
     }
 
     /// <summary>
-    ///     The time for one block must not grow much faster than the number of
-    ///     objects that the block makes.
+    ///     The time for one block must not increase much faster than the number
+    ///     of objects that the block makes.
     /// </summary>
     /// <remarks>
     ///     The state of a list has each object that the list holds. The union of
     ///     two such states looked for each object of one in the other. With four
     ///     times the objects, the walk then took 76 times the time. The test
-    ///     permits 30 times: a walk whose time grows with the square takes 16
-    ///     times, and the walk now takes less than that.
+    ///     permits 30 times: a walk whose time increases with the square takes
+    ///     16 times, and the walk now takes less than that.
     /// </remarks>
     [Test]
     public async Task ABlockWithFourTimesTheObjectsDoesNotTakeManyTimesTheSquare()
@@ -2449,8 +2457,8 @@ internal sealed class LoopReadAnalyzerTests
         await Assert.That(many.TotalMilliseconds).IsLessThan(few.TotalMilliseconds * 30);
     }
 
-    // The time of the analyzer for one block that makes the given number of objects, puts each in a
-    // second object, and adds that to one list.
+    // The time of the analyzer for one block. The block makes the given number of objects, puts each
+    // in a second object, and adds that to one list. Then, a loop changes an element of the list.
     private static async Task<TimeSpan> TimeOfABlockWith(int objects)
     {
         StringBuilder body = new("List<Holder> all = [];");
@@ -2461,7 +2469,14 @@ internal sealed class LoopReadAnalyzerTests
             body.AppendLine($"all.Add(new Holder {{ Item = s{i} }});");
         }
 
-        body.AppendLine("all[0].Item!.Share = Plain;");
+        // A loop reads its body again while a read leaves a new state, and each read changes an
+        // element of the list.
+        body.AppendLine("Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null;");
+        body.AppendLine("for (int i = 0; i < 4; i++)");
+        body.AppendLine("{");
+        body.AppendLine("if (c2 != null) { Kept.Add(c2.Sample()); }");
+        body.AppendLine("c2 = c1; c1 = c0; c0 = l.Map(v => v); all[i].Item!.Share = c0;");
+        body.AppendLine("}");
 
         CSharpCompilation compilation =
             AnalyzerHarness.Compile(

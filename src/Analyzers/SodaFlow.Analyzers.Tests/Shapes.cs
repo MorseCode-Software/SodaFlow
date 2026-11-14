@@ -10659,11 +10659,11 @@ public static class Shapes
     public static Cell<int> LocalFunctionOfTheTurnBeforeThatCodeWithNoBodyKeeps() =>
         Cell.Loop<int>().WithoutCaptures(l => { IActionKeeper keeper = NewActionKeeper(); for (int i = 0; i < 2; i++) { keeper.Run(); SettableSlot x = new() { Share = Plain }; void Read() { Kept.Add(x.Share!.Sample()); } keeper.Keep(Read); x.Share = l.Map(v => v); } return S.Hold(0); });
 
-    // S2349. AG51. The first evidence of the item: a coalescing operator, then a pending cell and a plain one.
+    // S2349. AG51. The first example of the item: a coalescing operator, then a pending cell and a plain one.
     public static Cell<int> Ag51PlainAfterPendingThroughACoalescingOperator() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? old = Kept.Count >= 0 ? null : Ag51Slots[0]; SettableSlot c = old ?? new SettableSlot(); c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
 
-    // S2350. AG51. The second evidence of the item: a plain cell through the first name.
+    // S2350. AG51. The second example of the item: a plain cell through the first name.
     public static Cell<int> Ag51PlainThroughTheFirstNameOfOneOfTwo() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot c = Kept.Count >= 0 ? x : Ag51Slots[1]; x.Share = Plain; return S.Hold(c.Share!.Sample()); });
 
@@ -10771,7 +10771,7 @@ public static class Shapes
     public static Cell<int> Ag51NoObjectOfTheStoreAndTheTwoWrites() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag51Slots[5]; c.Share = l.Map(v => v); c.Share = Plain; return S.Hold(c.Share!.Sample()); });
 
-    // S2377. AG53. The evidence of the item: a plain cell through the result of a method with no body to read.
+    // S2377. AG53. The example of the item: a plain cell through the result of a method with no body to read.
     public static Cell<int> Ag53PlainThroughTheResultAndARead() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); fresh.Share = Plain; return S.Hold(fresh.Share!.Sample()); });
 
@@ -10819,7 +10819,7 @@ public static class Shapes
     public static Cell<int> Ag53ALambdaGivesTheNameANewValueBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); Action swap = () => { fresh = x; }; fresh.Share = Plain; swap(); return S.Hold(fresh.Share!.Sample()); });
 
-    // S2389. AG54. The evidence of the item: two objects from Add, and a plain cell through the first one.
+    // S2389. AG54. The example of the item: two objects from Add, and a plain cell through the first one.
     public static Cell<int> Ag54PlainThroughTheFirstOfTwoFromAdd() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(x); list.Add(y); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
 
@@ -10875,7 +10875,7 @@ public static class Shapes
     public static Cell<int> Ag54AnAddInALoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = Plain }; List<SettableSlot> list = []; list.Add(y); for (int i = 0; i < 2; i++) { list.Add(i == 0 ? y : x); } list.Add(y); return S.Hold(list[2].Share!.Sample()); });
 
-    // S2403. AG54. The evidence of the item: a helper gives the first element of its parameter a plain cell.
+    // S2403. AG54. The example of the item: a helper gives the first element of its parameter a plain cell.
     public static Cell<int> Ag54AHelperGivesTheFirstElementAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); Ag54PlainFirst(list); return S.Hold(list[0].Share!.Sample()); });
 
@@ -10919,7 +10919,7 @@ public static class Shapes
     public static Cell<int> Ag54AHelperGivesAPendingCellAfterThePlainOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ag54PlainOf(x); Ag54Set(x, l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
 
-    // S2414. AG54. The evidence of the item: a method with no body to read gets a new object before the change.
+    // S2414. AG54. The example of the item: a method with no body to read gets a new object before the change.
     public static Cell<int> Ag54PlainThroughAnElementAfterCodeWithNoBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); NewSlotMaker().Put(new SettableSlot()); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
 
@@ -10927,7 +10927,7 @@ public static class Shapes
     public static Cell<int> Ag54PlainThroughAnElementOfAListWithNoPositionsAfterCodeWithNoBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; if (!Never) { list.Add(x); } NewSlotMaker().Put(new SettableSlot()); list[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
 
-    // S2416. AG54. The evidence of the item: the variable of a foreach gives each element a plain cell.
+    // S2416. AG54. The example of the item: the variable of a foreach gives each element a plain cell.
     public static Cell<int> Ag54PlainThroughTheVariableOfAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); foreach (SettableSlot each in list) { each.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
 
@@ -10971,7 +10971,7 @@ public static class Shapes
     public static Cell<int> Ag54AContinueBeforeTheWriteInAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot z = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(x); list.Add(z); foreach (SettableSlot each in list) { if (each == x) { continue; } each.Share = Plain; } return S.Hold(x.Share!.Sample()); });
 
-    // S2427. AG55. The evidence of the item: a pending cell goes through 33 locals, and the 34th turn samples it.
+    // S2427. AG55. The example of the item: a pending cell goes through 33 locals, and the 34th turn samples it.
     public static Cell<int> Ag55APendingCellThrough33Locals() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null; Cell<int>? c3 = null; Cell<int>? c4 = null; Cell<int>? c5 = null; Cell<int>? c6 = null; Cell<int>? c7 = null; Cell<int>? c8 = null; Cell<int>? c9 = null; Cell<int>? c10 = null; Cell<int>? c11 = null; Cell<int>? c12 = null; Cell<int>? c13 = null; Cell<int>? c14 = null; Cell<int>? c15 = null; Cell<int>? c16 = null; Cell<int>? c17 = null; Cell<int>? c18 = null; Cell<int>? c19 = null; Cell<int>? c20 = null; Cell<int>? c21 = null; Cell<int>? c22 = null; Cell<int>? c23 = null; Cell<int>? c24 = null; Cell<int>? c25 = null; Cell<int>? c26 = null; Cell<int>? c27 = null; Cell<int>? c28 = null; Cell<int>? c29 = null; Cell<int>? c30 = null; Cell<int>? c31 = null; Cell<int>? c32 = null; for (int i = 0; i < 34; i++) { if (c32 != null) { Kept.Add(c32.Sample()); } c32 = c31; c31 = c30; c30 = c29; c29 = c28; c28 = c27; c27 = c26; c26 = c25; c25 = c24; c24 = c23; c23 = c22; c22 = c21; c21 = c20; c20 = c19; c19 = c18; c18 = c17; c17 = c16; c16 = c15; c15 = c14; c14 = c13; c13 = c12; c12 = c11; c11 = c10; c10 = c9; c9 = c8; c8 = c7; c7 = c6; c6 = c5; c5 = c4; c4 = c3; c3 = c2; c2 = c1; c1 = c0; c0 = l.Map(v => v); } return S.Hold(0); });
 
@@ -10979,15 +10979,15 @@ public static class Shapes
     public static Cell<int> Ag55APendingCellThrough100Locals() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c0 = null; Cell<int>? c1 = null; Cell<int>? c2 = null; Cell<int>? c3 = null; Cell<int>? c4 = null; Cell<int>? c5 = null; Cell<int>? c6 = null; Cell<int>? c7 = null; Cell<int>? c8 = null; Cell<int>? c9 = null; Cell<int>? c10 = null; Cell<int>? c11 = null; Cell<int>? c12 = null; Cell<int>? c13 = null; Cell<int>? c14 = null; Cell<int>? c15 = null; Cell<int>? c16 = null; Cell<int>? c17 = null; Cell<int>? c18 = null; Cell<int>? c19 = null; Cell<int>? c20 = null; Cell<int>? c21 = null; Cell<int>? c22 = null; Cell<int>? c23 = null; Cell<int>? c24 = null; Cell<int>? c25 = null; Cell<int>? c26 = null; Cell<int>? c27 = null; Cell<int>? c28 = null; Cell<int>? c29 = null; Cell<int>? c30 = null; Cell<int>? c31 = null; Cell<int>? c32 = null; Cell<int>? c33 = null; Cell<int>? c34 = null; Cell<int>? c35 = null; Cell<int>? c36 = null; Cell<int>? c37 = null; Cell<int>? c38 = null; Cell<int>? c39 = null; Cell<int>? c40 = null; Cell<int>? c41 = null; Cell<int>? c42 = null; Cell<int>? c43 = null; Cell<int>? c44 = null; Cell<int>? c45 = null; Cell<int>? c46 = null; Cell<int>? c47 = null; Cell<int>? c48 = null; Cell<int>? c49 = null; Cell<int>? c50 = null; Cell<int>? c51 = null; Cell<int>? c52 = null; Cell<int>? c53 = null; Cell<int>? c54 = null; Cell<int>? c55 = null; Cell<int>? c56 = null; Cell<int>? c57 = null; Cell<int>? c58 = null; Cell<int>? c59 = null; Cell<int>? c60 = null; Cell<int>? c61 = null; Cell<int>? c62 = null; Cell<int>? c63 = null; Cell<int>? c64 = null; Cell<int>? c65 = null; Cell<int>? c66 = null; Cell<int>? c67 = null; Cell<int>? c68 = null; Cell<int>? c69 = null; Cell<int>? c70 = null; Cell<int>? c71 = null; Cell<int>? c72 = null; Cell<int>? c73 = null; Cell<int>? c74 = null; Cell<int>? c75 = null; Cell<int>? c76 = null; Cell<int>? c77 = null; Cell<int>? c78 = null; Cell<int>? c79 = null; Cell<int>? c80 = null; Cell<int>? c81 = null; Cell<int>? c82 = null; Cell<int>? c83 = null; Cell<int>? c84 = null; Cell<int>? c85 = null; Cell<int>? c86 = null; Cell<int>? c87 = null; Cell<int>? c88 = null; Cell<int>? c89 = null; Cell<int>? c90 = null; Cell<int>? c91 = null; Cell<int>? c92 = null; Cell<int>? c93 = null; Cell<int>? c94 = null; Cell<int>? c95 = null; Cell<int>? c96 = null; Cell<int>? c97 = null; Cell<int>? c98 = null; Cell<int>? c99 = null; for (int i = 0; i < 101; i++) { if (c99 != null) { Kept.Add(c99.Sample()); } c99 = c98; c98 = c97; c97 = c96; c96 = c95; c95 = c94; c94 = c93; c93 = c92; c92 = c91; c91 = c90; c90 = c89; c89 = c88; c88 = c87; c87 = c86; c86 = c85; c85 = c84; c84 = c83; c83 = c82; c82 = c81; c81 = c80; c80 = c79; c79 = c78; c78 = c77; c77 = c76; c76 = c75; c75 = c74; c74 = c73; c73 = c72; c72 = c71; c71 = c70; c70 = c69; c69 = c68; c68 = c67; c67 = c66; c66 = c65; c65 = c64; c64 = c63; c63 = c62; c62 = c61; c61 = c60; c60 = c59; c59 = c58; c58 = c57; c57 = c56; c56 = c55; c55 = c54; c54 = c53; c53 = c52; c52 = c51; c51 = c50; c50 = c49; c49 = c48; c48 = c47; c47 = c46; c46 = c45; c45 = c44; c44 = c43; c43 = c42; c42 = c41; c41 = c40; c40 = c39; c39 = c38; c38 = c37; c37 = c36; c36 = c35; c35 = c34; c34 = c33; c33 = c32; c32 = c31; c31 = c30; c30 = c29; c29 = c28; c28 = c27; c27 = c26; c26 = c25; c25 = c24; c24 = c23; c23 = c22; c22 = c21; c21 = c20; c20 = c19; c19 = c18; c18 = c17; c17 = c16; c16 = c15; c15 = c14; c14 = c13; c13 = c12; c12 = c11; c11 = c10; c10 = c9; c9 = c8; c8 = c7; c7 = c6; c6 = c5; c5 = c4; c4 = c3; c3 = c2; c2 = c1; c1 = c0; c0 = l.Map(v => v); } return S.Hold(0); });
 
-    // S2429. AG55. The reads go in a circle: each turn gives two locals the value of the other one.
+    // S2429. AG55. The reads come to the first state again: each turn gives two locals the value of the other one.
     public static Cell<int> Ag55TwoLocalsThatChangePlacesInEachTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = l.Map(v => v); Cell<int> b = Plain; for (int i = 0; i < 3; i++) { Kept.Add(b.Sample()); (a, b) = (b, a); } return S.Hold(0); });
 
-    // S2430. AG55. The same circle with three locals.
+    // S2430. AG55. The same with three locals.
     public static Cell<int> Ag55ThreeLocalsThatChangePlacesInEachTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = l.Map(v => v); Cell<int> b = Plain; Cell<int> c = Plain; for (int i = 0; i < 4; i++) { Kept.Add(c.Sample()); (a, b, c) = (c, a, b); } return S.Hold(0); });
 
-    // S2431. AG55. The circle has no pending cell at the read: the two locals that change places are plain.
+    // S2431. AG55. The same with two plain locals, thus no read has a pending cell.
     public static Cell<int> Ag55TwoPlainLocalsThatChangePlacesInEachTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Cell.Constant(4); for (int i = 0; i < 3; i++) { Kept.Add(b.Sample()); (a, b) = (b, a); } return S.Hold(0); });
 
@@ -10998,6 +10998,22 @@ public static class Shapes
     // S2433. AO4. The same in a function for each element, in a second one.
     public static Cell<int> Ao4AFunctionForEachElementInASecondOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c0 = null; Cell<int>? c1 = null; new List<int> { 1, 2, 3 }.ForEach(e => { new List<int> { 1, 2, 3 }.ForEach(f => { if (c1 != null) { Kept.Add(c1.Sample()); } c1 = c0; c0 = l.Map(v => v); }); }); return S.Hold(0); });
+
+    // S2434. AG51. A helper gives the other object a pending cell between the two writes.
+    public static Cell<int> Ag51AHelperGivesTheOtherObjectAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new(); SettableSlot c = Never ? y : x; c.Share = l.Map(v => v); Ag51Set(y, l.Map(v => v)); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2435. AG51. A lambda gives the other object a pending cell between the two writes.
+    public static Cell<int> Ag51ALambdaGivesTheOtherObjectAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new(); SettableSlot c = Never ? y : x; Action pend = () => { y.Share = l.Map(v => v); }; c.Share = l.Map(v => v); pend(); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2436. AG51. An element of a list gives the other object a pending cell between the two writes.
+    public static Cell<int> Ag51AnElementGivesTheOtherObjectAPendingCellBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); SettableSlot y = new(); SettableSlot c = Never ? y : x; List<SettableSlot> list = [y]; c.Share = l.Map(v => v); list[0].Share = l.Map(v => v); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2437. AG53. Code with no body to read keeps a lambda that gives the name a pending cell, and runs it after the write.
+    public static Cell<int> Ag53CodeWithNoBodyRunsALambdaThatUsesTheNameAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ISlotMaker maker = NewSlotMaker(); maker.Put(x); SettableSlot fresh = maker.Fresh(); IAg53Runner runner = NewAg53Runner(); runner.Keep(() => { fresh.Share = l.Map(v => v); }); fresh.Share = Plain; runner.Run(); return S.Hold(fresh.Share!.Sample()); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -13172,6 +13188,24 @@ public static class Shapes
         }
 
         slot.Share = Plain;
+    }
+
+    private static IAg53Runner NewAg53Runner() => new Ag53Runner();
+
+    public interface IAg53Runner
+    {
+        void Keep(Action change);
+
+        void Run();
+    }
+
+    private sealed class Ag53Runner : IAg53Runner
+    {
+        private Action kept = static () => { };
+
+        public void Keep(Action change) => this.kept = change;
+
+        public void Run() => this.kept();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

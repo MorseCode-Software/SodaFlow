@@ -53,6 +53,8 @@
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
+        <Compile Include="LoopStateEvaluator.Positions.cs"/>
+        <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
         <Compile Include="ObjectStore.cs"/>
         <Compile Include="OperatorTable.cs"/>

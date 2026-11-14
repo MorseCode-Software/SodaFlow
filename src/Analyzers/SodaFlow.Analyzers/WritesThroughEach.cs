@@ -29,19 +29,16 @@ internal sealed class WritesThroughEach(
     in int visits,
     in int last)
 {
-    public IReadOnlyList<ExpressionSyntax> Elements { get; } = elements;
+    private readonly int last = last;
+    private readonly bool same = same;
+    private readonly int start = start;
+    private readonly int visits = visits;
 
-    public int Start { get; } = start;
+    public IReadOnlyList<ExpressionSyntax> Elements { get; } = elements;
 
     public ISymbol? Member { get; } = member;
 
     public LoopState State { get; } = state;
-
-    public bool Same { get; } = same;
-
-    public int Visits { get; } = visits;
-
-    public int Last { get; } = last;
 
     /// <summary>The same record after one more write through the variable.</summary>
     /// <param name="written">The member.</param>
@@ -51,13 +48,13 @@ internal sealed class WritesThroughEach(
     public WritesThroughEach With(ISymbol written, LoopState value, bool isALocation, int writes) =>
         new(
             elements: this.Elements,
-            start: this.Start,
+            start: this.start,
             member: written,
             state: this.State.Join(value),
-            same: this.Same
+            same: this.same
                   && isALocation
                   && (this.Member == null || SymbolEqualityComparer.Default.Equals(x: this.Member, y: written)),
-            visits: this.Visits + 1,
+            visits: this.visits + 1,
             last: writes);
 
     /// <summary>
@@ -66,5 +63,5 @@ internal sealed class WritesThroughEach(
     /// </summary>
     /// <param name="writes">The number of writes to a member in the region now.</param>
     public bool IsTheOnlyWrite(int writes) =>
-        this.Same && this.Visits > 0 && this.Last == this.Start + this.Visits && this.Last == writes;
+        this.same && this.visits > 0 && this.last == this.start + this.visits && this.last == writes;
 }
