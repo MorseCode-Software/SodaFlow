@@ -11817,6 +11817,98 @@ public static class Shapes
     public static Cell<int> Ag59AMethodThatTheClassOfTheObjectDoesNotReplace() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag59Base b = NewAg59Plain(); b.GiveOpen(l.Map(v => v)); return S.Hold(b.Share!.Sample()); });
 
+    // S2636. AG60. The example of the item: a helper that each turn always calls gives the object of the turn a plain cell.
+    public static Cell<int> Ag60AHelperGivesTheObjectOfTheTurnAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2637. AG60. The call of the helper is in a branch that does not run.
+    public static Cell<int> Ag60TheCallOfTheHelperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; if (Never) { Ag60MakePlain(x); } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2638. AG60. The write of the helper is in a branch that does not run.
+    public static Cell<int> Ag60TheWriteOfTheHelperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlainWhen(x, Never); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2639. AG60. A first helper gives the object of the turn a pending cell, and a second one gives it a plain cell.
+    public static Cell<int> Ag60TwoHelpersInATurnAndThePlainOneIsLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new(); Ag60Give(x, l.Map(v => v)); Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2640. AG60. The same, and the helper that gives the pending cell is the last one.
+    public static Cell<int> Ag60TwoHelpersInATurnAndThePendingOneIsLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new(); Ag60MakePlain(x); Ag60Give(x, l.Map(v => v)); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2641. AG60. The read is before the call of the helper.
+    public static Cell<int> Ag60TheReadIsBeforeTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Kept.Add(x.Share!.Sample()); Ag60MakePlain(x); } return S.Hold(0); });
+
+    // S2642. AG60. The helper calls a second helper, which gives the plain cell.
+    public static Cell<int> Ag60AHelperCallsASecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlainThroughASecond(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2643. AG60. The helper is an extension method.
+    public static Cell<int> Ag60AnExtensionMethodGivesTheObjectOfTheTurnAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; x.Ag60MakePlainByExtension(); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2644. AG60. The helper gets a holder of the turn, and gives the object in its member a plain cell.
+    public static Cell<int> Ag60AHelperGivesTheObjectInAMemberOfAHolderOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; SlotHolder h = new() { Item = x }; Ag60MakeTheItemPlain(h); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2645. AG60. The helper gives a plain cell through its parameter, and then a pending cell through a second name of the object.
+    public static Cell<int> Ag60AHelperWritesThroughASecondNameInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60PlainThenPendingThroughASecondName(x, l.Map(v => v)); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2646. AG60. The next turn reads the object of the turn before, which the helper gave a plain cell.
+    public static Cell<int> Ag60TheNextTurnReadsTheObjectOfTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { if (last != null) { Kept.Add(last.Share!.Sample()); } SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlain(x); last = x; } return S.Hold(0); });
+
+    // S2647. AG60. An inner loop calls the helper for the object of a turn of the loop around it, and reads in its turn.
+    public static Cell<int> Ag60AHelperInAnInnerLoopForTheObjectOfTheLoopAroundIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int j = 0; j < 2; j++) { Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); } } return S.Hold(0); });
+
+    // S2648. AG60. A helper that each turn always calls gives an object that is older than the loop a plain cell, and the turn reads it.
+    public static Cell<int> Ag60AHelperGivesAnOlderObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2649. AG60. The loop runs no turn, and the read is after the loop.
+    public static Cell<int> Ag60TheLoopOfTheHelperRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < Kept.Count - Kept.Count; i++) { Ag60MakePlain(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S2650. AG60. The read in the turn is before the call of the helper.
+    public static Cell<int> Ag60TheReadOfAnOlderObjectIsBeforeTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Kept.Add(x.Share!.Sample()); Ag60MakePlain(x); } return S.Hold(0); });
+
+    // S2651. AG60. A first helper gives the older object a pending cell in each turn, and a second one gives it a plain cell.
+    public static Cell<int> Ag60TwoHelpersForAnOlderObjectAndThePlainOneIsLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60Give(x, l.Map(v => v)); Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2652. AG60. The same, and the helper that gives the pending cell is the last one.
+    public static Cell<int> Ag60TwoHelpersForAnOlderObjectAndThePendingOneIsLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60MakePlain(x); Ag60Give(x, l.Map(v => v)); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2653. AG60. The helper calls a second helper, which gives the older object the plain cell.
+    public static Cell<int> Ag60ASecondHelperGivesAnOlderObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60MakePlainThroughASecond(x); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2654. AG60. The write of the helper to the older object is in a branch that does not run.
+    public static Cell<int> Ag60TheWriteToAnOlderObjectIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60MakePlainWhen(x, Never); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2655. AG60. The call of the helper for the older object is in a branch that does not run.
+    public static Cell<int> Ag60TheCallForAnOlderObjectIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { if (Never) { Ag60MakePlain(x); } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2656. AG60. The helper gives the older object a plain cell through its parameter, and then a pending cell through a second name.
+    public static Cell<int> Ag60AHelperWritesToAnOlderObjectThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { Ag60PlainThenPendingThroughASecondName(x, l.Map(v => v)); Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2657. AG60. A while statement has the call of the helper for the older object.
+    public static Cell<int> Ag60AHelperInAWhileStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; int n = 0; while (n < 2) { Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); n++; } return S.Hold(0); });
+
+    // S2658. AG60. A foreach statement has the call of the helper for the older object.
+    public static Cell<int> Ag60AHelperInAForeachStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; foreach (int n in Ag60Numbers) { Ag60MakePlain(x); Kept.Add(x.Share!.Sample()); Kept.Add(n); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14349,6 +14441,31 @@ public static class Shapes
         public override void Give(Cell<int> cell) => this.Share = cell;
     }
 
+    private static readonly int[] Ag60Numbers = [1, 2];
+
+    private static void Ag60MakePlain(SettableSlot slot) => slot.Share = Plain;
+
+    private static void Ag60MakePlainWhen(SettableSlot slot, bool when)
+    {
+        if (when)
+        {
+            slot.Share = Plain;
+        }
+    }
+
+    private static void Ag60Give(SettableSlot slot, Cell<int> cell) => slot.Share = cell;
+
+    private static void Ag60MakePlainThroughASecond(SettableSlot slot) => Ag60MakePlain(slot);
+
+    private static void Ag60MakeTheItemPlain(SlotHolder holder) => holder.Item!.Share = Plain;
+
+    private static void Ag60PlainThenPendingThroughASecondName(SettableSlot slot, Cell<int> cell)
+    {
+        slot.Share = Plain;
+        SettableSlot second = slot;
+        second.Share = cell;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -14357,6 +14474,8 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static void Ag60MakePlainByExtension(this Shapes.SettableSlot slot) => slot.Share = Cell.Constant(4);
+
     public static T Fresh<T>(this List<T> all)
         where T : new()
     {

@@ -679,6 +679,16 @@ internal sealed partial class LoopStateEvaluator
             turn ?? (inItsFunction ? this.call?.AlwaysTurn : null));
     }
 
+    // The frame of the code that has the loop of the second part of WhereItRuns. A loop of this
+    // code is in this frame. A call that always runs in its function has what the call of that
+    // function has.
+    private LoopFrame? FrameOfTheTurnOf(SyntaxNode call)
+    {
+        (bool inItsFunction, SyntaxNode? turn) = this.walker?.WhereACallRuns(call) ?? (false, null);
+
+        return turn != null ? this.Frame : inItsFunction ? this.call?.FrameOfTheAlwaysTurn : null;
+    }
+
     // A write in a lambda or a local function always runs for the block only when the call of the
     // function does. That is not a condition for an object that the function made for the call. A
     // callee with a frame of its own replaces the state of only its own objects.
@@ -694,6 +704,23 @@ internal sealed partial class LoopStateEvaluator
         && this.function == null
         && !this.Frame.Repeats
         && this.call is { AlwaysRuns: true, RunsOneTime: true };
+
+    // A write in a callee to the object of a turn of a loop of a caller. The write always runs in
+    // the callee, and each turn of the loop that made the object always runs the call. Thus, the
+    // object of the turn has only the new state after the call.
+    private bool AlwaysRunsInTheTurnOf(MadeObject made) =>
+        made.Turn != null && this.function == null && this.call?.AlwaysTurn == made.Turn;
+
+    // A write in a callee to an object that is older than a loop of a caller. The write always runs
+    // in the callee, and each turn of that loop always runs the call. The result is the body of
+    // the loop, with the frame of the code that has the loop.
+    private (SyntaxNode Turn, LoopFrame Frame)? TurnOfACallerFor(MadeObject made) =>
+        this.function == null
+        && this.call is { AlwaysTurn: { } turn, FrameOfTheAlwaysTurn: { } frame }
+        && made.Turn != turn
+        && IsTheBodyOfALoop(turn)
+            ? (turn, frame)
+            : null;
 
     // The body of the loop whose each turn always runs a change of this code to an object. The
     // change is a statement that always runs in its function, with no loop of that function
@@ -1551,31 +1578,33 @@ internal sealed partial class LoopStateEvaluator
                         ? made.Turn == null
                             ? replaces && this.AlwaysRunsFor(made)
                             : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
-                        : replaces && this.AlwaysRunsForItsCaller(made));
+                        : replaces
+                          && (this.AlwaysRunsForItsCaller(made) || this.AlwaysRunsInTheTurnOf(made)));
 
                 // A write that each turn always runs, to an object that is older than the turn.
                 // Until the end of the turn, the member has only the new state. After the loop,
                 // it can have the state from before the loop also, because the loop can run no turn.
-                (SyntaxNode Turn, ISymbol Member)? inItsTurn =
-                    !sure
-                    && member != null
-                    && turn != null
-                    && now.Length == 1
-                    && !made.IsOfTurnsBefore
-                    && made.IsFrom(this.Frame)
-                    && made.Turn != turn
-                    && IsTheBodyOfALoop(turn)
-                        ? (turn, member)
-                        : null;
+                // The loop is in this code, or in the code of a caller for a write of a callee.
+                (SyntaxNode Turn, LoopFrame Frame)? inItsTurn =
+                    sure || member == null || now.Length != 1 || made.IsOfTurnsBefore
+                        ? null
+                        : made.IsFrom(this.Frame)
+                            ? turn != null && made.Turn != turn && IsTheBodyOfALoop(turn)
+                                ? (turn, this.Frame)
+                                : null
+                            : replaces
+                                ? this.TurnOfACallerFor(made)
+                                : null;
 
-                if (inItsTurn is (var itsTurn, var written))
+                if (inItsTurn is (var itsTurn, var itsFrame) && member != null)
                 {
-                    this.KeepsForAfterTheLoop(
+                    KeepsForAfterTheLoop(
+                        frame: itsFrame,
                         turn: itsTurn,
                         made: made,
                         name: null,
-                        member: written,
-                        before: old.Members?.StateOf(written) ?? LoopState.None);
+                        member: member,
+                        before: old.Members?.StateOf(member) ?? LoopState.None);
                 }
 
                 this.region.Objects.Set(found: made, state: sure || inItsTurn != null ? changed : old.Join(changed));
@@ -5528,6 +5557,7 @@ internal sealed partial class LoopStateEvaluator
                         : ImmutableArray<SyntaxNode>.Empty,
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
+                frameOfTheAlwaysTurn: eachRun != null ? null : this.FrameOfTheTurnOf(call),
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
@@ -6381,6 +6411,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="turn">The value of <see cref="Turn" />.</param>
     /// <param name="alwaysRuns">The value of <see cref="AlwaysRuns" />.</param>
     /// <param name="alwaysTurn">The value of <see cref="AlwaysTurn" />.</param>
+    /// <param name="frameOfTheAlwaysTurn">The value of <see cref="FrameOfTheAlwaysTurn" />.</param>
     /// <param name="code">The value of <see cref="Code" />.</param>
     private sealed class CallOfThisCode(
         in bool runsOneTime,
@@ -6389,6 +6420,7 @@ internal sealed partial class LoopStateEvaluator
         in ImmutableArray<SyntaxNode> loopsAroundTheTurn,
         in bool alwaysRuns,
         in SyntaxNode? alwaysTurn,
+        in LoopFrame? frameOfTheAlwaysTurn,
         in object code,
         in MadeObject? self,
         in bool hasItsOwnMembers,
@@ -6428,6 +6460,12 @@ internal sealed partial class LoopStateEvaluator
         ///     when no loop does.
         /// </summary>
         public SyntaxNode? AlwaysTurn { get; } = alwaysTurn;
+
+        /// <summary>
+        ///     The frame of the code that has the loop of <see cref="AlwaysTurn" />.
+        ///     That code is the caller, or a caller of the caller.
+        /// </summary>
+        public LoopFrame? FrameOfTheAlwaysTurn { get; } = frameOfTheAlwaysTurn;
 
         /// <summary>
         ///     An identity for the code of the call, from

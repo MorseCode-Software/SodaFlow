@@ -1818,7 +1818,18 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag59AMethodOfTheInterfaceSamplesWhatASecondOneGot"] = ["SF1005"],
             ["Ag59ThePropertyOfTheInterfaceAfterAPendingCell"] = ["SF1001"],
             ["Ag59AnAbstractMethodOfAnObjectFromAFactory"] = ["SF1001"],
-            ["Ag59AMethodThatTheClassOfTheObjectDoesNotReplace"] = ["SF1001"]
+            ["Ag59AMethodThatTheClassOfTheObjectDoesNotReplace"] = ["SF1001"],
+            ["Ag60TheCallOfTheHelperIsInABranch"] = ["SF1001"],
+            ["Ag60TheWriteOfTheHelperIsInABranch"] = ["SF1001"],
+            ["Ag60TwoHelpersInATurnAndThePendingOneIsLast"] = ["SF1001"],
+            ["Ag60TheReadIsBeforeTheHelper"] = ["SF1001"],
+            ["Ag60AHelperWritesThroughASecondNameInATurn"] = ["SF1001"],
+            ["Ag60TheLoopOfTheHelperRunsNoTurn"] = ["SF1001"],
+            ["Ag60TheReadOfAnOlderObjectIsBeforeTheHelper"] = ["SF1001"],
+            ["Ag60TwoHelpersForAnOlderObjectAndThePendingOneIsLast"] = ["SF1001"],
+            ["Ag60TheWriteToAnOlderObjectIsInABranch"] = ["SF1001"],
+            ["Ag60TheCallForAnOlderObjectIsInABranch"] = ["SF1001"],
+            ["Ag60AHelperWritesToAnOlderObjectThroughASecondName"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -298,8 +298,9 @@ internal sealed partial class LoopStateEvaluator
     private static bool IsTheBodyOfALoop(SyntaxNode turn) => turn.Parent is { } loop && LoopBodyOf(loop) == turn;
 
     // Records the state that a member had before a loop, at the first write of a turn that
-    // replaces it.
-    private void KeepsForAfterTheLoop(
+    // replaces it. The frame is that of the code that has the loop.
+    private static void KeepsForAfterTheLoop(
+        LoopFrame frame,
         SyntaxNode turn,
         MadeObject? made,
         ISymbol? name,
@@ -308,13 +309,13 @@ internal sealed partial class LoopStateEvaluator
     {
         ISymbol key = member.OriginalDefinition;
 
-        if (!this.Frame.BeforeATurn.Any(kept =>
+        if (!frame.BeforeATurn.Any(kept =>
                 kept.Turn == turn
                 && ReferenceEquals(objA: kept.Made, objB: made)
                 && SymbolEqualityComparer.Default.Equals(x: kept.Name, y: name)
                 && SymbolEqualityComparer.Default.Equals(x: kept.Member, y: key)))
         {
-            this.Frame.BeforeATurn.Add((turn, made, name, key, before));
+            frame.BeforeATurn.Add((turn, made, name, key, before));
         }
     }
 
@@ -984,7 +985,8 @@ internal sealed partial class LoopStateEvaluator
 
             if (itsTurn != null)
             {
-                this.KeepsForAfterTheLoop(
+                KeepsForAfterTheLoop(
+                    frame: this.Frame,
                     turn: itsTurn,
                     made: null,
                     name: holder,
