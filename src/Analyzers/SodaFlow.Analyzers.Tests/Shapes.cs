@@ -13293,6 +13293,26 @@ public static class Shapes
     public static Cell<int> Ab93NestedInitializerWithAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Rack rack = new() { Holder = { Source = Plain } }; Kept.Add(rack); return S.Hold(0); });
 
+    // S3005. A foreach calls Dispose of an enumerator of this file, which samples a pending member.
+    public static Cell<int> R2CsForeachDisposesTheEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int total = 0; foreach (int x in new R2Steps(l.Map(v => v))) { total += x; } return S.Hold(total); });
+
+    // S3006. A tuple equality calls the equality operator of each element, and that operator samples a pending member.
+    public static Cell<int> R2CsTupleEqualityCallsTheOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3007. A foreach over a collection whose enumerator disposes nothing pending reads nothing.
+    public static Cell<int> Ab94ForeachEnumeratorWithAPlainDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int total = 0; foreach (int x in new R2Steps(Plain)) { total += x; } Kept.Add(l.Map(v => v)); return S.Hold(total); });
+
+    // S3008. A tuple inequality calls the inequality operator of each element, which calls the equality operator, which samples a pending member.
+    public static Cell<int> Ab94TupleInequalityCallsTheOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool other = (a, 1) != (b, 1); return S.Hold(other ? 1 : 0); });
+
+    // S3009. A tuple equality of plain elements reads nothing pending.
+    public static Cell<int> Ab94TupleEqualityOfPlainElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(Plain); R2Same b = new(Plain); bool same = (a, 1) == (b, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

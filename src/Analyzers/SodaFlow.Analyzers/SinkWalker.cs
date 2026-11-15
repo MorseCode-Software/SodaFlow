@@ -298,7 +298,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             LoopStateEvaluator.ElementOf(
                     collection: this.evaluator.Eval(node.Expression),
                     type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
-                .Join(this.Enumerate(node));
+                .Join(this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState));
 
         // The conversion of each element to the type of the variable has no node of its own.
         if (this.region.Symbols.DeclaresConversions
@@ -331,6 +331,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             hasATurnForEachElement: this.FirstEndOfATurnOf(node.Statement) == int.MaxValue
                                     && this.AlwaysRunsAt(place: node, turn: out SyntaxNode? around)
                                     && around == null);
+
+        this.DisposeTheEnumerator(node: node, enumerator: enumeratorState);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
@@ -338,7 +340,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
 
-        LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
+        LoopState elements =
+            this.evaluator.Eval(node.Expression)
+                .AsElement
+                .Join(this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState));
 
         IMethodSymbol? method =
             this.region.Symbols.DeclaresDeconstruct || elements.Members is { HasParts: true }
@@ -360,6 +365,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Statement);
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+        this.DisposeTheEnumerator(node: node, enumerator: enumeratorState);
     }
 
     public override void VisitForStatement(ForStatementSyntax node)
@@ -484,8 +490,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     enumerator of this compilation. The result is the state of what
     ///     <c>Current</c> returns.
     /// </summary>
-    private LoopState Enumerate(CommonForEachStatementSyntax node)
+    /// <param name="node">The foreach statement.</param>
+    /// <param name="enumeratorState">
+    ///     The state of the enumerator, when it is an object of this
+    ///     compilation. Null for each other enumerator.
+    /// </param>
+    private LoopState Enumerate(CommonForEachStatementSyntax node, out LoopState? enumeratorState)
     {
+        enumeratorState = null;
+
         if (!this.region.Symbols.DeclaresEnumerators
             || this.region.ModelFor(node).GetForEachStatementInfo(node) is not { GetEnumeratorMethod: { } start } calls)
         {
@@ -520,6 +533,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return enumerator.State;
         }
 
+        enumeratorState = enumerator.State;
+
         if (calls.MoveNextMethod is { } next)
         {
             this.Report(
@@ -545,6 +560,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Report(current);
 
         return current?.State ?? LoopState.None;
+    }
+
+    // A foreach calls Dispose on an enumerator that has it, when the loop ends.
+    private void DisposeTheEnumerator(CommonForEachStatementSyntax node, LoopState? enumerator)
+    {
+        if (enumerator == null
+            || !this.region.Symbols.DeclaresDispose
+            || this.region.ModelFor(node).GetForEachStatementInfo(node).DisposeMethod is not { } dispose)
+        {
+            return;
+        }
+
+        this.Report(
+            this.evaluator.FollowImplied(call: node.Expression, member: dispose, owner: enumerator, arguments: []));
     }
 
     public override void VisitIsPatternExpression(IsPatternExpressionSyntax node)

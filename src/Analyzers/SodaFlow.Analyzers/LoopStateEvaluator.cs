@@ -4213,6 +4213,11 @@ internal sealed partial class LoopStateEvaluator
                         MethodKind: MethodKind.BuiltinOperator,
                         ContainingType.SpecialType: SpecialType.System_String
                     } => Both(first: this.FollowToString(binary.Left), second: this.FollowToString(binary.Right)),
+                    // A tuple equality has no symbol. It compares each pair of elements.
+                    null when this.region.Symbols.DeclaresOperators
+                              && (binary.IsKind(SyntaxKind.EqualsExpression)
+                                  || binary.IsKind(SyntaxKind.NotEqualsExpression)) =>
+                        this.FollowTupleEquality(binary),
                     _ => null
                 },
             PrefixUnaryExpressionSyntax prefix when this.region.Symbols.DeclaresOperators =>
@@ -4233,6 +4238,68 @@ internal sealed partial class LoopStateEvaluator
                     operands: [compound.Left, compound.Right]),
             _ => null
         };
+
+    /// <summary>
+    ///     The operators that a tuple equality calls, one for each pair of
+    ///     elements. No node or symbol names them. Thus, the evaluator asks the
+    ///     compiler which operator a comparison of the two elements binds to.
+    /// </summary>
+    /// <remarks>
+    ///     Only a tuple expression has elements that the evaluator can read. A
+    ///     comparison with a tuple in a variable is not followed.
+    /// </remarks>
+    private Followed? FollowTupleEquality(BinaryExpressionSyntax comparison) =>
+        Unwrapped(comparison.Left) is TupleExpressionSyntax left
+        && Unwrapped(comparison.Right) is TupleExpressionSyntax right
+            ? this.FollowElementEquality(comparison: comparison, left: left, right: right)
+            : null;
+
+    private Followed? FollowElementEquality(
+        BinaryExpressionSyntax comparison,
+        ExpressionSyntax left,
+        ExpressionSyntax right)
+    {
+        if (Unwrapped(left) is TupleExpressionSyntax lefts && Unwrapped(right) is TupleExpressionSyntax rights)
+        {
+            return lefts.Arguments.Count != rights.Arguments.Count
+                ? null
+                : lefts.Arguments
+                    .Zip(second: rights.Arguments, resultSelector: static (one, other) => (one, other))
+                    .Aggregate(
+                        seed: (Followed?)null,
+                        func: (all, pair) =>
+                            Both(
+                                first: all,
+                                second: this.FollowElementEquality(
+                                    comparison: comparison,
+                                    left: pair.one.Expression,
+                                    right: pair.other.Expression)));
+        }
+
+        // Only an operator of this compilation has a body to read, and it takes a type of this
+        // compilation. The question to the compiler is for such a pair only.
+        if (this.region.TypeOf(left) is not { DeclaringSyntaxReferences.IsEmpty: false }
+            && this.region.TypeOf(right) is not { DeclaringSyntaxReferences.IsEmpty: false })
+        {
+            return null;
+        }
+
+        ExpressionSyntax compared =
+            SyntaxFactory.BinaryExpression(
+                kind: comparison.Kind(),
+                left: left.WithoutTrivia(),
+                right: right.WithoutTrivia());
+
+        return this.region.ModelFor(comparison)
+                .GetSpeculativeSymbolInfo(
+                    position: comparison.SpanStart,
+                    expression: compared,
+                    bindingOption: SpeculativeBindingOption.BindAsExpression)
+                .Symbol
+            is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation
+            ? this.FollowOperator(call: left, operation: operation, operands: [left, right])
+            : null;
+    }
 
     /// <summary>
     ///     The conversion that the compiler adds to an expression, when an
