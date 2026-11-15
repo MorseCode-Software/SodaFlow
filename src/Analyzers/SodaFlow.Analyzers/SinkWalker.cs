@@ -2328,16 +2328,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             string operatorName = LoopStateEvaluator.OperatorName(method);
 
             // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
-            // members count on a library receiver too, and not only on a library method. A fold of
-            // a collection reads the collection at construction. Execute and Dispose of a bindable
-            // action read the enablement cell, as CanExecute does. The Execute of a library method
-            // reads nothing in the call.
-            if ((SodaFlowSymbols.ReadMembers.Contains(operatorName)
-                 && (kind == CalleeKind.Library || symbols.IsCarrierType(this.region.TypeOf(receiver))))
+            // members count on a callee with no body to read, and not only on a library method. The
+            // receiver can be of any type, as ICommand is, and its state tells if it holds a
+            // pending value. A fold of a collection reads the collection at construction. Execute
+            // and Dispose of a bindable action read the enablement cell, as CanExecute does. The
+            // Execute of a library method reads nothing in the call.
+            if ((SodaFlowSymbols.ReadMembers.Contains(operatorName) && kind != CalleeKind.Body)
                 || (kind == CalleeKind.Library && OperatorTable.ReadsReceiverAtConstruction(operatorName))
-                || (operatorName == "Execute"
-                    && kind != CalleeKind.Library
-                    && symbols.IsCarrierType(this.region.TypeOf(receiver)))
+                || (operatorName == "Execute" && kind is CalleeKind.Mover or CalleeKind.Unknown)
                 || (operatorName == "Dispose"
                     && kind != CalleeKind.Body
                     && symbols.IsBindableAction(this.region.TypeOf(receiver))))

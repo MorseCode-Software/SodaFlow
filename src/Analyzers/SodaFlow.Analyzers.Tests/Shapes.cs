@@ -13353,6 +13353,18 @@ public static class Shapes
     public static Cell<int> Ab101DisposeOfAOneWayOverAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(l.Map(v => v)); b.Dispose(); return S.Hold(0); });
 
+    // S3020. CanExecute of a bindable action through the ICommand interface reads the pending enablement cell.
+    public static Cell<int> R2ApiCanExecuteThroughICommand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); return S.Hold(c.CanExecute(null) ? 1 : 0); });
+
+    // S3021. Execute of a bindable action through the ICommand interface reads the pending enablement cell, as CanExecute through it does.
+    public static Cell<int> Ab102ExecuteThroughICommand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); c.Execute(null); return S.Hold(0); });
+
+    // S3022. CanExecute through the ICommand interface of an action whose enablement is not pending reads nothing of the loop.
+    public static Cell<int> Ab102CanExecuteThroughICommandOfAPlainEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => v > 0)); return S.Hold(c.CanExecute(null) ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
