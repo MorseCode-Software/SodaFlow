@@ -240,6 +240,30 @@ internal sealed partial class LoopStateEvaluator
         && all[index].Objects.IsEmpty;
 
     /// <summary>
+    ///     What a <c>CompareExchange</c> does to an element at a constant index
+    ///     of a collection that keeps its positions. True when the call puts the
+    ///     value, as an <c>Exchange</c> does. False when the call changes nothing.
+    ///     Null when the walk does not know.
+    /// </summary>
+    /// <remarks>
+    ///     The call compares the comparand and the element by identity. Two
+    ///     objects of two creations are two objects. A different identity of the
+    ///     store can be the same object, as the result of a call can be. An
+    ///     identity of the turns before is more than one object.
+    /// </remarks>
+    /// <param name="location">The location of the call.</param>
+    /// <param name="comparand">The comparand of the call.</param>
+    public bool? ExchangesAt(ExpressionSyntax location, ExpressionSyntax comparand) =>
+        Unwrapped(location) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.StorePositionsOf(element.Expression) is (_, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && this.TheOneObjectIn(all[index]) is { IsNew: true, IsOfTurnsBefore: false } there
+        && this.TheOneObjectOf(comparand) is { IsNew: true, IsOfTurnsBefore: false } compared
+            ? there == compared
+            : null;
+
+    /// <summary>
     ///     The positions of a collection before a call of a method of the
     ///     platform on it. A method that changes no position keeps them also when
     ///     its call is not sure to run.

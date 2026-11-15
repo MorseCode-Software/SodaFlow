@@ -1995,7 +1995,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab97FieldKeywordOnlyInTheSetter"] = ["SF1001"],
             ["R2CsExtensionBlockMethod"] = ["SF1004"],
             ["Ab98ExtensionBlockMethodReadsItsParameter"] = ["SF1004"],
-            ["Ab98ExtensionBlockProperty"] = ["SF1004"]
+            ["Ab98ExtensionBlockProperty"] = ["SF1004"],
+            ["Ag64ACompareExchangeTakesThePendingObjectAway"] = ["SF1001"],
+            ["Ag64TheComparandCanBeEitherObject"] = ["SF1001"],
+            ["Ag64TheCompareExchangeIsInABranch"] = ["SF1001"],
+            ["Ag64TheComparandIsTheResultOfACall"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

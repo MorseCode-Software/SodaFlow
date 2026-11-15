@@ -2832,10 +2832,11 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The location of an exchange and the value that the callee puts
-    ///     there, or null when the call is not an exchange.
+    ///     The location of an exchange, the value that the callee puts there,
+    ///     and the comparand of a <c>CompareExchange</c>. Null when the call is
+    ///     not an exchange.
     /// </summary>
-    public static (ExpressionSyntax Location, ExpressionSyntax Value)? ExchangeOf(
+    public static (ExpressionSyntax Location, ExpressionSyntax Value, ExpressionSyntax? Comparand)? ExchangeOf(
         InvocationExpressionSyntax invocation,
         IMethodSymbol definition)
     {
@@ -2847,6 +2848,7 @@ internal sealed partial class LoopStateEvaluator
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
         ExpressionSyntax? location = null;
         ExpressionSyntax? value = null;
+        ExpressionSyntax? comparand = null;
 
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -2858,10 +2860,13 @@ internal sealed partial class LoopStateEvaluator
                 case 1:
                     value = arguments[i].Expression;
                     break;
+                case 2:
+                    comparand = arguments[i].Expression;
+                    break;
             }
         }
 
-        return location != null && value != null ? (location, value) : null;
+        return location != null && value != null ? (location, value, comparand) : null;
     }
 
     /// <summary>

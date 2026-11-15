@@ -13069,6 +13069,30 @@ public static class Shapes
     public static Cell<int> Ab98ExtensionBlockProperty() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).Ab98Now; return S.Hold(x); });
 
+    // S2949. AB81 probe. CompareExchange with a different object to compare with leaves the element as it was.
+    public static Cell<int> Ab81ProbeACompareExchangeThatLeavesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.CompareExchange(ref slots[0], first, first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2950. AG64. CompareExchange with the object of the element as the comparand puts the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ag64ACompareExchangePutsThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2951. AG64. CompareExchange with the object of the element as the comparand takes the object with the pending cell away.
+    public static Cell<int> Ag64ACompareExchangeTakesThePendingObjectAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2952. AG64. The comparand can be one of two objects, and it is the object of the element.
+    public static Cell<int> Ag64TheComparandCanBeEitherObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, Kept.Count >= 0 ? y : first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2953. AG64. A CompareExchange that puts the object with the pending cell is in a branch that does not run.
+    public static Cell<int> Ag64TheCompareExchangeIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); if (Kept.Count < 0) { Interlocked.CompareExchange(ref slots[0], y, first); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2954. AG64. The comparand is the result of a call, which can be the object of the element.
+    public static Cell<int> Ag64TheComparandIsTheResultOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, Ag64Same(y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16323,6 +16347,8 @@ public static class Shapes
 
         public int Ab98Now => c.Sample();
     }
+
+    private static SettableSlot Ag64Same(SettableSlot slot) => slot;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

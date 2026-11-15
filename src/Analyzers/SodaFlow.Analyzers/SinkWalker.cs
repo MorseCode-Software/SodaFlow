@@ -1962,27 +1962,40 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     // Exchange always puts the value there. CompareExchange can leave the old one.
                     // After a call that is not sure to run, the location can have that one also.
-                    bool puts = method.Name == "Exchange";
-                    (bool always, SyntaxNode? itsTurn) = puts ? this.WhereACallRuns(node) : (false, null);
+                    bool? exchanges =
+                        exchange.Comparand is { } comparand
+                            ? this.evaluator.ExchangesAt(location: exchange.Location, comparand: comparand)
+                            : true;
 
-                    LoopState state = puts ? put : this.evaluator.Eval(exchange.Location).Join(put);
-                    SyntaxNode target = this.TargetThroughARef(written: exchange.Location, state: state, gets: true);
-
-                    // An element with a constant index has the value at its position after a put
-                    // that is sure to run.
-                    (MadeObject Made, ImmutableArray<LoopState> All)? positions =
-                        target is ElementAccessExpressionSyntax indexed
-                            ? this.evaluator.PositionsBefore(
-                                collection: indexed.Expression,
-                                replaces: always,
-                                turn: itsTurn)
-                            : null;
-
-                    this.AssignState(target: target, state: state, replaces: always, turn: itsTurn);
-
-                    if (target is ElementAccessExpressionSyntax assigned)
+                    // A CompareExchange whose comparand is not the object in the element changes nothing.
+                    if (exchanges != false)
                     {
-                        this.evaluator.HasThePositionAfter(before: positions, element: assigned, value: exchange.Value);
+                        bool puts = exchanges == true;
+                        (bool always, SyntaxNode? itsTurn) = puts ? this.WhereACallRuns(node) : (false, null);
+
+                        LoopState state = puts ? put : this.evaluator.Eval(exchange.Location).Join(put);
+                        SyntaxNode target =
+                            this.TargetThroughARef(written: exchange.Location, state: state, gets: true);
+
+                        // An element with a constant index has the value at its position after a put
+                        // that is sure to run.
+                        (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                            target is ElementAccessExpressionSyntax indexed
+                                ? this.evaluator.PositionsBefore(
+                                    collection: indexed.Expression,
+                                    replaces: always,
+                                    turn: itsTurn)
+                                : null;
+
+                        this.AssignState(target: target, state: state, replaces: always, turn: itsTurn);
+
+                        if (target is ElementAccessExpressionSyntax assigned)
+                        {
+                            this.evaluator.HasThePositionAfter(
+                                before: positions,
+                                element: assigned,
+                                value: exchange.Value);
+                        }
                     }
                 }
                 else
