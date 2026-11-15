@@ -6,6 +6,10 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
+using Locations =
+    System.Collections.Immutable.ImmutableDictionary<
+        Microsoft.CodeAnalysis.ISymbol,
+        (SodaFlow.Analyzers.LoopStateEvaluator Reader, Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Location)>;
 
 namespace SodaFlow.Analyzers;
 
@@ -34,10 +38,9 @@ internal sealed partial class LoopStateEvaluator
     private static readonly ImmutableDictionary<ISymbol, ITypeSymbol> NoTypeArguments =
         ImmutableDictionary.Create<ISymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
-    private static readonly ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)>
-        NoLocations =
-            ImmutableDictionary.Create<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)>(
-                SymbolEqualityComparer.Default);
+    private static readonly Locations NoLocations =
+        ImmutableDictionary.Create<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)>(
+            SymbolEqualityComparer.Default);
 
     private static readonly ImmutableHashSet<ISymbol> NoParameters =
         ImmutableHashSet<ISymbol>.Empty.WithComparer(SymbolEqualityComparer.Default);
@@ -3320,44 +3323,35 @@ internal sealed partial class LoopStateEvaluator
             ? actual
             : null;
 
-    // The location of each parameter with ref of a callee, for a call in this code. The argument is
-    // a location that this code can read again, or a parameter with ref of this code that has such
-    // a location. A lambda or a local function can run at a different time. Thus, its code gets no
-    // location, and the code that it calls gets none.
-    private ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> LocationsFor(
-        IEnumerable<Binding> bindings,
-        LoopStateEvaluator? definer)
+    // The location of a parameter with ref of a callee, for a call in this code, with the
+    // locations of the parameters before it. The argument is a location that this code can read
+    // again, or a parameter with ref of this code that has such a location. A lambda or a local
+    // function can run at a different time. Thus, its code gets no location, and the code that it
+    // calls gets none.
+    private Locations WithTheLocationFor(Locations all, Binding binding, LoopStateEvaluator? definer)
     {
-        ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> all = NoLocations;
-
-        if (definer != null || this.function != null || this.quiet)
+        if (definer != null || this.function != null || this.quiet || binding.Parameter.RefKind != RefKind.Ref)
         {
             return all;
         }
 
-        foreach (Binding binding in bindings.Where(static binding => binding.Parameter.RefKind == RefKind.Ref))
+        if (Unwrapped(binding.Argument) is IdentifierNameSyntax given
+            && this.region.SymbolOf(given) is IParameterSymbol { RefKind: RefKind.Ref } outer)
         {
-            if (Unwrapped(binding.Argument) is IdentifierNameSyntax given
-                && this.region.SymbolOf(given) is IParameterSymbol { RefKind: RefKind.Ref } outer)
-            {
-                // The callee gets the location that the parameter of this code has, while this
-                // code gave that parameter no value.
-                if (this.call != null
-                    && !this.assigned.Contains(outer)
-                    && this.call.Locations.TryGetValue(
-                        key: outer,
-                        value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) known))
-                {
-                    all = all.SetItem(key: binding.Parameter, value: known);
-                }
-            }
-            else if (this.IsALocationThatTheWalkCanReadAgain(binding.Argument))
-            {
-                all = all.SetItem(key: binding.Parameter, value: (this, binding.Argument));
-            }
+            // The callee gets the location that the parameter of this code has, while this code
+            // gave that parameter no value.
+            return this.call != null
+                   && !this.assigned.Contains(outer)
+                   && this.call.Locations.TryGetValue(
+                       key: outer,
+                       value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) known)
+                ? all.SetItem(key: binding.Parameter, value: known)
+                : all;
         }
 
-        return all;
+        return this.IsALocationThatTheWalkCanReadAgain(binding.Argument)
+            ? all.SetItem(key: binding.Parameter, value: (this, binding.Argument))
+            : all;
     }
 
     /// <summary>
@@ -5586,10 +5580,12 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, MadeObject> collections = new(SymbolEqualityComparer.Default);
         HashSet<ISymbol> unseen = new(SymbolEqualityComparer.Default);
         List<Binding> ofParamsArrays = [];
+        Locations locations = NoLocations;
 
         foreach (Binding binding in bindings)
         {
             LoopState state = binding.State.From(binding.Parameter);
+            locations = this.WithTheLocationFor(all: locations, binding: binding, definer: definer);
 
             // A parameter is the object of its argument. A params parameter is an array of them,
             // when the call does not give the array itself. An argument that is no name of a
@@ -5692,7 +5688,7 @@ internal sealed partial class LoopStateEvaluator
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
                 typeArguments: this.TypeArgumentsOf(call: call, definer: definer),
-                locations: this.LocationsFor(bindings: bindings, definer: definer)));
+                locations: locations));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
@@ -6556,7 +6552,7 @@ internal sealed partial class LoopStateEvaluator
         in MadeObject? self,
         in bool hasItsOwnMembers,
         in ImmutableDictionary<ISymbol, ITypeSymbol> typeArguments,
-        in ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> locations)
+        in Locations locations)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -6629,9 +6625,6 @@ internal sealed partial class LoopStateEvaluator
         ///     its location. The second part is the evaluator of the code that has
         ///     that expression. That code is the caller, or a caller of the caller.
         /// </summary>
-        public ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> Locations
-        {
-            get;
-        } = locations;
+        public Locations Locations { get; } = locations;
     }
 }

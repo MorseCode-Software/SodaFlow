@@ -149,7 +149,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.
-    public LoopState EvalAgain(ExpressionSyntax expression)
+    private LoopState EvalAgain(ExpressionSyntax expression)
     {
         foreach (ExpressionSyntax part in expression.DescendantNodesAndSelf().OfType<ExpressionSyntax>())
         {
