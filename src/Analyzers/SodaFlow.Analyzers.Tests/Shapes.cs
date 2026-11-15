@@ -12813,6 +12813,94 @@ public static class Shapes
     public static Cell<int> Ab79AnArgumentWithNoConstantIndex() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenTenth; Ab76PutThenGive(ref slots[Kept.Count - Kept.Count], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
 
+    // S2885. AB82. A second assignment through a local with ref and no constant gives the object with the pending cell.
+    public static Cell<int> Ab82ASecondAssignmentThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = new SettableSlot { Share = Plain }; r = y; return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2886. AB82. A method gets a local with ref and no constant, and gives it no value.
+    public static Cell<int> Ab82AMethodThatGivesALocalWithRefAndNoConstantNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab76Count(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2887. AB82. A local with no ref that has an element gets a different object, and the array does not.
+    public static Cell<int> Ab82ALocalWithNoRefGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); SettableSlot e = slots[Kept.Count - Kept.Count]; e = first; Kept.Add(e); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2888. AG63. Remove of an object of a loop, where the first element is an object of a different turn of that loop.
+    public static Cell<int> Ag63ARemoveOfAnObjectOfADifferentTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] made = new SettableSlot[2]; for (int i = 0; i < 2; i++) { made[i] = new SettableSlot { Share = Plain }; } List<SettableSlot> list = [made[0], y]; list.Remove(made[1]); list[1].Share = Plain; list[0].Share = l.Map(v => v); return S.Hold(made[0].Share!.Sample()); });
+
+    // S2889. AG63. Remove of an object, where the first element can be that object or a different one.
+    public static Cell<int> Ag63ARemoveWhereTheFirstElementCanBeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot either = Never ? first : y; List<SettableSlot> list = [either, first]; list.Remove(first); list[0].Share = l.Map(v => v); return S.Hold(y.Share!.Sample()); });
+
+    // S2890. AG63. A coalescing assignment to an element of a list of cells, where the element has a pending cell.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementThatIsACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>?> cells = [l.Map(v => v), Plain]; cells[0] ??= Plain; return S.Hold(cells[0]!.Sample()); });
+
+    // S2891. AG61. A property with an initializer and a getter that gives a different object.
+    public static Cell<int> Ag61APropertyWithAGetterThatGivesADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61WithAGetter; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2892. AG61. A constructor of an object names a static field with readonly of its class, and cannot give it a value.
+    public static Cell<int> Ag61AConstructorOfAnObjectNamesAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Reader.Kept.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2893. AG61. The owner of the field is an object of the block or one that the walk did not see made.
+    public static Cell<int> Ag61AFieldOfAnOwnerThatCanBeAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Owner owner = Never ? Ag61Owners[0] : new Ag61Owner(); owner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2894. AB78. A write through the first name after the second name, and then the first name gets a different value.
+    public static Cell<int> Ab78TheSecondNameKeepsAWriteThroughTheFirstName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); c = Ab78Unseen[1]; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2895. AB78. The first name gets a different value, and then a pending cell. The second name keeps the first value.
+    public static Cell<int> Ab78TheSecondNameKeepsTheFirstValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c = Ab78Unseen[1]; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2896. AB78. The second name gets a different value and a plain cell, and the pending cell goes through the first name.
+    public static Cell<int> Ab78AReadThroughTheSecondNameAfterItGotADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q = Ab78Unseen[1]; q.Share = Plain; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2897. AB78. A local gets the value of the first name in a branch, and then a pending cell.
+    public static Cell<int> Ab78ASecondNameFromAnAssignmentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; if (!Never) { q = c; } q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2898. AB78. A local can get the value of the first name in a branch that does not run, and then a plain cell.
+    public static Cell<int> Ab78APlainCellThroughANameThatCanBeTheSecondOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab78Unseen[1]; if (Never) { q = c; } q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2899. AB78. A local gets the value of the first name at the end of a turn, and a pending cell in the next turn.
+    public static Cell<int> Ab78AWriteThroughTheSecondNameInTheNextTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; for (int i = 0; i < 2; i++) { q.Share = l.Map(v => v); q = c; } return S.Hold(c.Share!.Sample()); });
+
+    // S2900. AB78. A write through the first name, then a method gives the first name a different value through out.
+    public static Cell<int> Ab78AWriteThroughTheFirstNameAndThenAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); Ab78Other(out c); c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2901. AB78. A lambda in a local reads through the second name.
+    public static Cell<int> Ab78ALambdaReadsThroughTheSecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Func<int> read = () => q.Share!.Sample(); c.Share = l.Map(v => v); Kept.Add(read()); return S.Hold(0); });
+
+    // S2902. AB78. The first name is a local with ref, and its element gets a different object after the second local.
+    public static Cell<int> Ab78ASecondNameOfALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot[] slots = Ab78UnseenSecond; ref SettableSlot r = ref slots[0]; r.Share = Plain; SettableSlot q = r; slots[0] = y; return S.Hold(q.Share!.Sample()); });
+
+    // S2903. AB79. The argument has no location that the walk can read, and the method gives a property the object.
+    public static Cell<int> Ab79APutIntoAPropertyIsNoPutIntoALocation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenEleventh; SlotHolder holder = new(); Ab79PutInAPropertyThenGive(ref slots[Kept.Count - Kept.Count], holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2904. AB80. Code with no body keeps a pending cell and gives it back. With no reference to the library it is a package, which gets no SF1003, and the walk follows the cell to the read.
+    public static Cell<int> Ab80ACellThatAPackageKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(l.Map(v => v)); return S.Hold(bag[0].Sample()); });
+
+    // S2905. AB79. The method gives an element with an index that is no constant the object. Then it gives a plain cell through its parameter, which is a different element.
+    public static Cell<int> Ab79APlainCellThroughAParameterThatCanBeTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = Ab79UnseenPair; Ab79PutLastThenGive(ref slots[0], slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2906. AB81. An Exchange in a branch that does not run, and the read is through the element.
+    public static Cell<int> Ab81AnExchangeInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); if (Never) { Kept.Add(Interlocked.Exchange(ref slots[0], first)); } return S.Hold(slots[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15750,6 +15838,35 @@ public static class Shapes
     private static readonly SettableSlot[] Ab79UnseenNinth = [new()];
 
     private static readonly SettableSlot[] Ab79UnseenTenth = [new()];
+
+    private static IAg59Keeper Ag61WithAGetter { get => Never ? field : Ag61Open; } = new Ag61Harmless();
+
+    private static readonly Ag61Owner[] Ag61Owners = [new()];
+
+    private sealed class Ag61Reader
+    {
+        public static readonly IAg59Keeper Kept = new Ag59Keeper();
+
+        public Ag61Reader() => Shapes.Kept.Add(Kept);
+    }
+
+    private static readonly SettableSlot[] Ab78UnseenSecond = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenEleventh = [new()];
+
+    private static void Ab79PutInAPropertyThenGive(ref SettableSlot slot, SlotHolder holder, SettableSlot other, Cell<int> cell)
+    {
+        holder.Item = other;
+        slot.Share = cell;
+    }
+
+    private static readonly SettableSlot[] Ab79UnseenPair = [new(), new()];
+
+    private static void Ab79PutLastThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[all.Length - 1] = other;
+        slot.Share = cell;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

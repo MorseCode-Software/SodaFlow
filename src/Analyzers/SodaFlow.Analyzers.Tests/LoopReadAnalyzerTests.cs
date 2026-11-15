@@ -1956,7 +1956,21 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab79APutIntoAnElementWithNoConstantIndex"] = ["SF1001"],
             ["Ab79AReadThroughTheParameterAfterAPut"] = ["SF1004"],
             ["Ab79AFieldOfAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
-            ["Ab79AnArgumentWithNoConstantIndex"] = ["SF1001"]
+            ["Ab79AnArgumentWithNoConstantIndex"] = ["SF1001"],
+            ["Ab82ASecondAssignmentThroughALocalWithRef"] = ["SF1001"],
+            ["Ag63ARemoveOfAnObjectOfADifferentTurn"] = ["SF1001"],
+            ["Ag63ARemoveWhereTheFirstElementCanBeTwoObjects"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentToAnElementThatIsACell"] = ["SF1001"],
+            ["Ag61APropertyWithAGetterThatGivesADifferentObject"] = ["SF1001"],
+            ["Ab78TheSecondNameKeepsAWriteThroughTheFirstName"] = ["SF1001"],
+            ["Ab78ASecondNameFromAnAssignmentInABranch"] = ["SF1001"],
+            ["Ab78APlainCellThroughANameThatCanBeTheSecondOne"] = ["SF1001"],
+            ["Ab78AWriteThroughTheSecondNameInTheNextTurn"] = ["SF1001"],
+            ["Ab78AWriteThroughTheFirstNameAndThenAnOutArgument"] = ["SF1001"],
+            ["Ab78ALambdaReadsThroughTheSecondName"] = ["SF1001"],
+            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1003"],
+            ["Ab79APlainCellThroughAParameterThatCanBeTheObject"] = ["SF1001"],
+            ["Ab81AnExchangeInABranchThatDoesNotRun"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1968,6 +1982,14 @@ internal sealed class LoopReadAnalyzerTests
             ["MethodBlockCloses"] = "BlockThatClosesWithItself",
             ["MethodBlockSnapshots"] = "BlockThatSnapshots",
             ["ListSortWithAnOptionalComparerOfTheMethodOfTheBlock"] = "SortInABlock"
+        };
+
+    // The rules of a shape for the helper assembly with no reference to the library. Only a shape
+    // whose rules are different from the first table is here. See the test for a package.
+    private static readonly Dictionary<string, string[]> ExpectedForAPackage =
+        new()
+        {
+            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"]
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
@@ -2033,20 +2055,21 @@ internal sealed class LoopReadAnalyzerTests
 
     [Test]
     public async Task EachShapeReportsTheExpectedRules() =>
-        await EachShapeReportsTheExpectedRulesWith(await CompileNoBody());
+        await EachShapeReportsTheExpectedRulesWith(noBody: await CompileNoBody(), isAPackage: false);
 
     /// <summary>
     ///     Runs the shapes with a helper assembly that has no reference to the
     ///     library. The analyzer then knows that the code of that assembly cannot
     ///     sample a cell. That code can keep each value that it gets, and can
-    ///     put an object into each collection that it can get to. Thus, each
-    ///     shape has the same rules as with the reference.
+    ///     put an object into each collection that it can get to. Thus, a shape
+    ///     has the same rules as with the reference.
     /// </summary>
     /// <remarks>
     ///     A pending value that goes to code which can know the library gets
-    ///     SF1003, and the same value to this assembly gets none. No shape gives
-    ///     the helper assembly such a value. A shape that does it needs a list of
-    ///     its own here.
+    ///     SF1003, and the walk does not follow it. The same value to this
+    ///     assembly gets no SF1003, and the walk follows it to a read. A shape
+    ///     with such a value has its rules for this assembly in
+    ///     <see cref="ExpectedForAPackage" />.
     /// </remarks>
     [Test]
     public async Task EachShapeReportsTheSameRulesForAPackageThatCannotKnowTheLibrary()
@@ -2061,7 +2084,7 @@ internal sealed class LoopReadAnalyzerTests
             .IsEmpty()
             .Because("this helper assembly has no reference to the library");
 
-        await EachShapeReportsTheExpectedRulesWith(package);
+        await EachShapeReportsTheExpectedRulesWith(noBody: package, isAPackage: true);
     }
 
     // The name of each assembly of the library that an image references.
@@ -2084,7 +2107,7 @@ internal sealed class LoopReadAnalyzerTests
             : throw new InvalidOperationException("The image is not an assembly.");
     }
 
-    private static async Task EachShapeReportsTheExpectedRulesWith(byte[] noBody)
+    private static async Task EachShapeReportsTheExpectedRulesWith(byte[] noBody, bool isAPackage)
     {
         string source = await ReadShapes();
 
@@ -2138,7 +2161,12 @@ internal sealed class LoopReadAnalyzerTests
                     string expected =
                         string.Join(
                             separator: " ",
-                            value: Expected.TryGetValue(key: shape, value: out string[]? rules) ? rules : []);
+                            value: isAPackage
+                                   && ExpectedForAPackage.TryGetValue(key: shape, value: out string[]? forAPackage)
+                                ? forAPackage
+                                : Expected.TryGetValue(key: shape, value: out string[]? rules)
+                                    ? rules
+                                    : []);
 
                     string found =
                         string.Join(
@@ -2154,7 +2182,9 @@ internal sealed class LoopReadAnalyzerTests
 
         await NoMismatches(mismatches);
 
-        await Assert.That(Expected.Keys.Except(shapes)).IsEmpty().Because("every expectation names a shape");
+        await Assert.That(Expected.Keys.Concat(ExpectedForAPackage.Keys).Except(shapes))
+            .IsEmpty()
+            .Because("every expectation names a shape");
     }
 
     /// <summary>
@@ -2197,7 +2227,14 @@ internal sealed class LoopReadAnalyzerTests
             string reportedIn =
                 BlockMethods.TryGetValue(key: shape.Name, value: out string? blockMethod) ? blockMethod : shape.Name;
 
-            string[] rules = Expected.TryGetValue(key: reportedIn, value: out string[]? listed) ? listed : [];
+            // The rules for a package have a rule for the read, where the usual rules have only
+            // SF1003. The shape does the same at run time for each of the two.
+            string[] rules =
+                ExpectedForAPackage.TryGetValue(key: reportedIn, value: out string[]? forAPackage)
+                    ? forAPackage
+                    : Expected.TryGetValue(key: reportedIn, value: out string[]? listed)
+                        ? listed
+                        : [];
 
             IReadOnlyList<Outcome> permitted =
                 rules.Length == 0
