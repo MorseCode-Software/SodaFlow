@@ -1282,6 +1282,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        // Parentheses around a target do not change the target.
+        while (target is ParenthesizedExpressionSyntax around)
+        {
+            target = around.Expression;
+        }
+
         // An assignment to a name with ref, with no ref for the value, is an assignment to the
         // location of the name.
         if (value is not RefExpressionSyntax
@@ -1304,8 +1310,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // An element that gets a value puts it into the collection. Each other target that gets
         // a literal has the elements of that literal.
+        // An assignment that is sure to run gives the collection the value at that position.
+        (MadeObject Made, ImmutableArray<LoopState> All)? positions = null;
+
         if (target is ElementAccessExpressionSyntax indexed)
         {
+            positions = this.evaluator.PositionsBefore(collection: indexed.Expression, replaces: replaces, turn: turn);
             this.evaluator.Gets(collection: indexed.Expression, value: value);
         }
         else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)
@@ -1324,6 +1334,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             || type.TupleElements.Length != parts.Count)
         {
             this.AssignState(target: target, state: whole, replaces: replaces, turn: turn, from: value);
+
+            if (target is ElementAccessExpressionSyntax assigned)
+            {
+                this.evaluator.HasThePositionAfter(before: positions, element: assigned, value: value);
+            }
 
             return;
         }
@@ -1379,8 +1394,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 return;
             // A value put into a collection is in the collection. A setter with no body to read
-            // keeps each index also, as the indexer of a dictionary keeps its key.
+            // keeps each index also, as the indexer of a dictionary keeps its key. The walk has
+            // no position for the value here: an assignment with a value expression gives one
+            // after this.
             case ElementAccessExpressionSyntax element:
+                this.evaluator.ForgetsThePositionsOf(element.Expression);
                 this.evaluator.Absorb(target: element.Expression, state: state);
 
                 if (this.region.SymbolOf(element) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
@@ -1736,6 +1754,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
+                    // A call that is sure to run can give the collection new positions.
+                    (bool always, SyntaxNode? itsTurn) = this.WhereACallRuns(node);
+
+                    (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                        this.evaluator.PositionsBeforeACall(
+                            collection: receiver,
+                            method: method,
+                            replaces: always,
+                            turn: itsTurn);
+
                     this.evaluator.CanGet(collection: receiver, method: method, arguments: arguments);
 
                     this.evaluator.Absorb(
@@ -1754,6 +1782,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                             this.evaluator.Gets(collection: receiver, value: argument.Expression);
                         }
                     }
+
+                    this.evaluator.MovesPositions(
+                        before: positions,
+                        collection: receiver,
+                        method: method,
+                        arguments: arguments);
                 }
 
                 if (LoopStateEvaluator.ExchangeOf(
@@ -2625,7 +2659,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     && !(this.evaluator.IsOneOfAParamsArray(parameter: parameter, argument: arguments[i].Expression)
                          && !this.evaluator.Eval(arguments[i].Expression).Objects.IsEmpty))
                 {
-                    this.evaluator.Merge(target: arguments[i].Expression, state: put);
+                    this.evaluator.MergesWhatACalleePut(target: arguments[i].Expression, state: put);
 
                     this.evaluator.GivesAnArgument(
                         argument: arguments[i].Expression,
@@ -2643,15 +2677,60 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         ? assigned
                         : LoopState.None;
 
-            this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
-
-            // An element that gets a value has it in its collection, as an assignment to the
-            // element does. A callee with a body that gave its parameter no value gives nothing.
-            if (arguments[i].Expression is ElementAccessExpressionSyntax element
-                && (followed == null || followed.Outs.ContainsKey(parameter)))
+            // A callee with a body that gave its parameter no value gives an element nothing.
+            if (arguments[i].Expression is not ElementAccessExpressionSyntax element)
             {
+                this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
+            }
+            else if (followed == null || followed.Outs.ContainsKey(parameter))
+            {
+                this.AssignState(target: element, state: state, replaces: false, turn: null);
+
+                // The element has the value in its collection, as after an assignment to it.
                 this.evaluator.GetsAState(collection: element.Expression, put: state);
             }
+        }
+    }
+
+    // The operator ++ or -- gives its operand a new value, and the walk has no state for that
+    // value at the operand. A ref to an element is a second name of that element, and an
+    // assignment to the name is an assignment to the element.
+    public override void VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+    {
+        base.VisitPrefixUnaryExpression(node);
+
+        if (node.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
+        {
+            this.ForgetsThePositionsAround(node.Operand);
+        }
+    }
+
+    public override void VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+    {
+        base.VisitPostfixUnaryExpression(node);
+
+        if (node.Kind() is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression)
+        {
+            this.ForgetsThePositionsAround(node.Operand);
+        }
+    }
+
+    public override void VisitRefExpression(RefExpressionSyntax node)
+    {
+        base.VisitRefExpression(node);
+        this.ForgetsThePositionsAround(node.Expression);
+    }
+
+    private void ForgetsThePositionsAround(ExpressionSyntax element)
+    {
+        while (element is ParenthesizedExpressionSyntax around)
+        {
+            element = around.Expression;
+        }
+
+        if (element is ElementAccessExpressionSyntax written)
+        {
+            this.evaluator.ForgetsThePositionsOf(written.Expression);
         }
     }
 

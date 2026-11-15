@@ -494,8 +494,10 @@ internal sealed partial class LoopStateEvaluator
         // no assignment to the name. Thus, a write through such a name is sure for no object. A
         // parameter whose location the walk reads in the code of the caller has the object that
         // the location has at this write.
+        bool isReadInTheCaller = owner != null && this.IsReadInTheCaller(owner);
+
         if (owner != null
-            && !this.IsReadInTheCaller(owner)
+            && !isReadInTheCaller
             && this.NameUnder(owner) is { } aliased
             && !KeepsItsObject(aliased)
             && this.ALocationCanGetAValueBefore(name: aliased, use: owner))
@@ -536,7 +538,8 @@ internal sealed partial class LoopStateEvaluator
                 replaces: replaces,
                 turn: turn,
                 has: has,
-                isKnown: isKnown);
+                isKnown: isKnown,
+                isReadInTheCaller: isReadInTheCaller);
 
             this.Frame.LastWrite = null;
 
@@ -562,7 +565,8 @@ internal sealed partial class LoopStateEvaluator
             replaces: replaces,
             turn: turn,
             has: has,
-            isKnown: isKnown);
+            isKnown: isKnown,
+            isReadInTheCaller: false);
 
         this.Frame.LastWrite =
             new WriteThroughAName(
@@ -587,11 +591,20 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public void StartsEach(ForEachStatementSyntax loop)
     {
-        if (!this.quiet && this.function == null && this.ElementsOf(loop.Expression) is { } elements)
+        if (this.quiet || this.function != null)
+        {
+            return;
+        }
+
+        IReadOnlyList<ExpressionSyntax>? elements = this.ElementsOf(loop.Expression);
+        IReadOnlyList<LoopState>? values = elements == null ? this.StorePositionsOf(loop.Expression)?.All : null;
+
+        if (elements != null || values != null)
         {
             this.Frame.WritesThroughEach[loop] =
                 new WritesThroughEach(
-                    elements: elements,
+                    elements: elements ?? [],
+                    values: values,
                     start: this.region.MemberWrites,
                     member: null,
                     state: LoopState.None,
@@ -665,7 +678,8 @@ internal sealed partial class LoopStateEvaluator
 
         List<(MadeObject Object, LoopState State)> objects = [];
 
-        foreach (MadeObject? made in noted.Elements.Select(this.TheOneObjectOf))
+        foreach (MadeObject? made in noted.Values?.Select(this.TheOneObjectIn)
+                                     ?? noted.Elements.Select(this.TheOneObjectOf))
         {
             if (made is not { Turn: null, IsOfTurnsBefore: false }
                 || !made.IsFrom(this.Frame)
@@ -687,9 +701,12 @@ internal sealed partial class LoopStateEvaluator
 
     // The object of the store that the value of an expression is now, when it is one object and no
     // other value.
-    private MadeObject? TheOneObjectOf(ExpressionSyntax expression)
+    private MadeObject? TheOneObjectOf(ExpressionSyntax expression) => this.TheOneObjectIn(this.Eval(expression));
+
+    // The same for a value that the walk has the state of.
+    private MadeObject? TheOneObjectIn(LoopState value)
     {
-        ImmutableArray<MadeObject> now = this.region.Objects.Now(this.Eval(expression).Objects);
+        ImmutableArray<MadeObject> now = this.region.Objects.Now(value.Objects);
 
         return now.Length == 1 ? now[0] : null;
     }
@@ -925,7 +942,8 @@ internal sealed partial class LoopStateEvaluator
         };
 
     // The write itself: what SetMemberOf records for each owner. The store does not know each
-    // object that the owner can be when the last argument is false.
+    // object that the owner can be when isKnown is false. The last argument is true for a
+    // parameter that reads its location in the code of the caller.
     private void Write(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -933,7 +951,8 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn,
         LoopState has,
-        bool isKnown)
+        bool isKnown,
+        bool isReadInTheCaller)
     {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
@@ -959,6 +978,14 @@ internal sealed partial class LoopStateEvaluator
             && this.region.SymbolOf(owner) is { } holder
                 and (ILocalSymbol or IParameterSymbol))
         {
+            // Such a parameter is only objects of the store at this write. A state of its own for
+            // the member is a state of the object that it got at first. The callee gives that state
+            // back to the location.
+            if (isReadInTheCaller)
+            {
+                return;
+            }
+
             // A collection that got the object of this local contains that object also.
             this.MergeIntoHolders(
                 local: holder,

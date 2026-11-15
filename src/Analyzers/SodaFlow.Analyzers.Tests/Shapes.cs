@@ -12085,6 +12085,374 @@ public static class Shapes
     public static Cell<int> Ag59AMethodReturnsAnUnseenObjectWithAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag59UnseenForTheSame[0]; c.Share = l.Map(v => v); SettableSlot d = Ag59Same(c); return S.Hold(d.Share!.Sample()); });
 
+    // S2703. AG62. The example of the item: the block puts an object first with Insert, and a foreach statement gives each element a plain cell.
+    public static Cell<int> Ag62AForeachAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); foreach (SettableSlot e in list) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2704. AG62. After the Insert, the object of the literal is the second element, and a plain cell through that element replaces.
+    public static Cell<int> Ag62TheSecondElementAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2705. AG62. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag62TheFirstElementAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2706. AG62. The Insert is in a branch that runs.
+    public static Cell<int> Ag62AnInsertInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; if (!Never) { list.Insert(0, first); } list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2707. AG62. Reverse of the list changes the positions, after an Insert.
+    public static Cell<int> Ag62AReverseAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list.Reverse(); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2708. AG62. RemoveAt takes the first element away, after an Insert.
+    public static Cell<int> Ag62ARemoveAtAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot third = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list.Insert(0, third); list.RemoveAt(0); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2709. AG62. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag62TheFirstElementAfterARemoveAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot third = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list.Insert(0, third); list.RemoveAt(0); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2710. AG62. An assignment gives the second element a different object, and a plain cell through that element replaces in the different object.
+    public static Cell<int> Ag62AnAssignmentToAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot other = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [first, y]; list[1] = other; list[1].Share = Plain; return S.Hold(other.Share!.Sample()); });
+
+    // S2711. AG62. The same, and the read is of the object that the element had.
+    public static Cell<int> Ag62TheObjectThatAnElementHadBeforeAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot other = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list[1] = other; list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2712. AG62. The assignment to the element is in a branch that runs.
+    public static Cell<int> Ag62AnAssignmentToAnElementInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot other = new() { Share = Plain }; List<SettableSlot> list = [first, y]; if (!Never) { list[1] = other; } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2713. AG62. A lambda that the block calls puts an object first.
+    public static Cell<int> Ag62ALambdaPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Action put = () => list.Insert(0, first); put(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2714. AG62. Add puts an object last after an Insert, and a plain cell through the last element replaces.
+    public static Cell<int> Ag62AnAddAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot last = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [y]; list.Insert(0, first); list.Add(last); list[2].Share = Plain; list[1].Share = Plain; return S.Hold(y.Share!.Sample() + last.Share!.Sample()); });
+
+    // S2715. AG62. A keeper that the block makes puts an object first, and a foreach statement gives each element a plain cell.
+    public static Cell<int> Ag62AForeachAfterAKeeperPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag59Keeper keeper = new(); keeper.Keep(list); keeper.Put(first); foreach (SettableSlot e in list) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2716. AG62. The same, where the keeper puts the object last.
+    public static Cell<int> Ag62AForeachAfterAKeeperPutAnObjectLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag59PutsLast keeper = new(); keeper.Keep(list); keeper.Put(first); foreach (SettableSlot e in list) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2717. AG62. A keeper from a factory method gets the list and puts nothing in.
+    public static Cell<int> Ag62AForeachAfterAKeeperGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; IAg59Keeper keeper = NewAg59Keeper(); keeper.Keep(list); foreach (SettableSlot e in list) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2718. AG62. A keeper from a factory method puts an object last.
+    public static Cell<int> Ag62AForeachAfterAKeeperFromAFactoryPutAnObjectLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; IAg59Keeper keeper = NewAg59PutsLast(); keeper.Keep(list); keeper.Put(first); foreach (SettableSlot e in list) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2719. AG62. The keeper puts an object first, and a plain cell through the second element replaces.
+    public static Cell<int> Ag62TheSecondElementAfterAKeeperPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag59Keeper keeper = new(); keeper.Keep(list); keeper.Put(first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2720. AG62. The call of the keeper that puts an object first is in a branch that runs.
+    public static Cell<int> Ag62TheKeeperPutsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag59Keeper keeper = new(); keeper.Keep(list); if (!Never) { keeper.Put(first); } list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2721. AG62. The put of the keeper is in a branch of its method, and that branch runs.
+    public static Cell<int> Ag62ThePutOfTheKeeperIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag62Keeper keeper = new(); keeper.Keep(list); keeper.PutWhen(first, !Never); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2722. AG62. Each turn of a loop calls the keeper, which puts an object first.
+    public static Cell<int> Ag62TheKeeperPutsInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag59Keeper keeper = new(); keeper.Keep(list); for (int i = 0; i < 2; i++) { keeper.Put(first); } list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2723. AG62. The keeper turns the list around.
+    public static Cell<int> Ag62TheKeeperTurnsTheListAround() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; Ag62Keeper keeper = new(); keeper.Keep(list); keeper.TurnAround(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2724. AG62. A method gives the element a different object through a second name of the array, and then a pending cell through its parameter with ref. The object that the element had keeps its plain cell.
+    public static Cell<int> Ag62TheFirstObjectKeepsItsPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76PutThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(first.Share!.Sample()); });
+
+    // S2725. AG62. The same with a plain cell, and the different object had a pending cell.
+    public static Cell<int> Ag62APlainCellThroughAParameterAfterItsLocationGotAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab76PutThenGive(ref slots[0], slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2726. AG62. The read after the call is through the element, and the object that the element had has a pending cell.
+    public static Cell<int> Ag62TheElementAfterTheCallHasThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76PutThenGive(ref slots[0], slots, other, Plain); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2727. AG62. The method samples through its parameter, after the element got an object with a plain cell.
+    public static Cell<int> Ag62AReadThroughAParameterOfAnObjectWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; int got = Ab76PutThenRead(ref slots[0], slots, other); return S.Hold(got);  });
+
+    // S2728. AG62. A second method gets the parameter with ref, and gives a plain cell after the element got a different object.
+    public static Cell<int> Ag62ASecondMethodGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab76ThroughASecond(ref slots[0], slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2729. AG62. A method gives the element of an array a different object, with no parameter with ref. A plain cell through the element after the call replaces in the different object.
+    public static Cell<int> Ag62AMethodGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ag62Put(slots, other); slots[0].Share = Plain; return S.Hold(other.Share!.Sample()); });
+
+    // S2730. AG62. The same, and the read is of the object that the element had.
+    public static Cell<int> Ag62TheObjectThatTheElementHadBeforeAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ag62Put(slots, other); slots[0].Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S2731. AG62. A method gives its parameter with ref a new object, and a plain cell through the element after the call goes to that object.
+    public static Cell<int> Ag62AMethodGivesItsParameterANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ag62New(ref slots[0]); slots[0].Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S2732. AG62. A deconstruction gives each of two elements the value of the other one.
+    public static Cell<int> Ag62TwoElementsChangePlaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; Ag62CountAll(list); (list[0], list[1]) = (list[1], list[0]); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2733. AG62. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag62TheSecondElementAfterTwoElementsChangedPlaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; Ag62CountAll(list); (list[0], list[1]) = (list[1], list[0]); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2734. AG62. Clear takes each element away, and Add then puts an object in.
+    public static Cell<int> Ag62AnAddAfterAClear() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list.Clear(); list.Add(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2735. AG62. Remove takes the object with the pending cell away.
+    public static Cell<int> Ag62ARemoveOfTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list.Remove(y); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2736. AG62. A second local has the list, and an Insert through it puts an object first.
+    public static Cell<int> Ag62AnInsertThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; List<SettableSlot> same = list; same.Insert(0, first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2737. AG62. The same, and the plain cell goes through the second element of the first local.
+    public static Cell<int> Ag62TheSecondElementAfterAnInsertThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; List<SettableSlot> same = list; same.Insert(0, first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2738. AG62. A member of an object has the list, and an Insert through that member puts an object first.
+    public static Cell<int> Ag62AnInsertThroughAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ab72Box box = new(list); box.All.Insert(0, first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2739. AG62. A method turns the list of its parameter around.
+    public static Cell<int> Ag62AMethodTurnsTheListAround() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; Ag62TurnAround(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2740. AG62. Code with no body to read gets a list from a literal, and puts an object in the position of its first element.
+    public static Cell<int> Ag62TheCodeWithNoBodyPutsAnObjectInThePositionOfTheFirstOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; IAb72Keeper keeper = NewAb72Keeper(); keeper.Keep(list); keeper.Swap(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2741. AG62. Reverse of the class Array turns an array around.
+    public static Cell<int> Ag62ReverseOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, first]; Ag62Count(slots); Array.Reverse(slots); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2742. AG62. Reverse of a span of the array turns the array around.
+    public static Cell<int> Ag62ReverseOfASpanOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, first]; Ag62Count(slots); slots.AsSpan().Reverse(); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2743. AG62. A local with ref for an element gets a different object.
+    public static Cell<int> Ag62ALocalWithRefGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; r = first; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2744. AG62. Each turn of a loop puts an object first with Insert.
+    public static Cell<int> Ag62AnInsertInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; for (int i = 0; i < 2; i++) { list.Insert(0, first); } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2745. AG62. The index of the assignment to an element is a local.
+    public static Cell<int> Ag62AnAssignmentWithAnIndexInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; SettableSlot other = new() { Share = Plain }; int at = Kept.Count - Kept.Count; list[at] = other; list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2746. AG62. The index of the Insert is a local.
+    public static Cell<int> Ag62AnInsertWithAnIndexInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; int at = Kept.Count - Kept.Count; list.Insert(at, first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2747. AG62. A local function puts an object first, and the block calls it after the first write.
+    public static Cell<int> Ag62ALocalFunctionPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; void Put() { list.Insert(0, first); } Put(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2748. AG62. An assignment with a coalescing operator to an element that has an object.
+    public static Cell<int> Ag62ACoalescingAssignmentToAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [y, null]; list[1] ??= first; list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2749. AG62. An array of a struct: a pending cell and then a plain cell through its element.
+    public static Cell<int> Ag62AStructInAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = [new SlotValue()]; Ag62CountValues(values); values[0].Share = l.Map(v => v); values[0].Share = Plain; return S.Hold(values[0].Share!.Sample()); });
+
+    // S2750. AG62. The same, and the pending cell is the last one.
+    public static Cell<int> Ag62AStructInAnArrayGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] values = [new SlotValue()]; Ag62CountValues(values); values[0].Share = Plain; values[0].Share = l.Map(v => v); return S.Hold(values[0].Share!.Sample()); });
+
+    // S2751. AG62. RemoveAt takes the first element away, and the plain cell goes through the new first one.
+    public static Cell<int> Ag62TheNewFirstElementAfterARemoveAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.RemoveAt(0); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2752. AG62. A foreach statement after a method gave the element of an array a different object.
+    public static Cell<int> Ag62AForeachAfterAMethodGaveTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Put(slots, y); foreach (SettableSlot e in slots) { e.Share = Plain; } return S.Hold(y.Share!.Sample()); });
+
+    // S2753. AG62. A search in the list changes no position.
+    public static Cell<int> Ag62ASearchAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(list.Contains(y)); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2754. AG62. Each turn of a loop samples through the first element, and then turns the list around.
+    public static Cell<int> Ag62TheSecondTurnReadsAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; Ag62CountAll(list); for (int i = 0; i < 2; i++) { Kept.Add(list[0].Share!.Sample()); list.Reverse(); } return S.Hold(0); });
+
+    // S2755. AG62. The search is in a branch that runs.
+    public static Cell<int> Ag62ASearchInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); if (!Never) { Kept.Add(list.IndexOf(y)); } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2756. AG62. A copy of the list to an array changes no position.
+    public static Cell<int> Ag62ACopyAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(list.ToArray().Length); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2757. AG62. An assignment to the element of a copy changes no position of the list.
+    public static Cell<int> Ag62AnAssignmentToAnElementOfACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; SettableSlot[] copy = list.ToArray(); copy[0] = y; list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2758. AG62. A view of the list that code cannot write through changes no position.
+    public static Cell<int> Ag62AViewAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(list.AsReadOnly().Count); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2759. AG62. Insert with its arguments by name, in the order of the item and then the index.
+    public static Cell<int> Ag62AnInsertWithNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(item: first, index: 0); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2760. AG62. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag62TheSecondElementAfterAnInsertWithNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(item: first, index: 0); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2761. AG62. A search for the last position of an object changes no position.
+    public static Cell<int> Ag62ASearchFromTheEndAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(list.LastIndexOf(y)); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2762. AG62. Last of a list after an Insert gives the object of the literal.
+    public static Cell<int> Ag62LastAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list.Last().Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2763. AG62. The same, where the Insert put the object with the pending cell first.
+    public static Cell<int> Ag62LastAfterAnInsertOfTheObjectWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first]; list.Insert(0, y); list.Last().Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2764. AG62. The local has the type of an interface of the list, and Insert puts an object first.
+    public static Cell<int> Ag62AnInsertThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; IList<SettableSlot> list = new List<SettableSlot> { y }; list.Insert(0, first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2765. AG62. The same with Add, and the plain cell goes through the second element.
+    public static Cell<int> Ag62AnAddThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; IList<SettableSlot> list = new List<SettableSlot> { first }; list.Add(y); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2766. AG62. The same with Add and RemoveAt, and the plain cell goes through the new first element.
+    public static Cell<int> Ag62ARemoveAtThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; IList<SettableSlot> list = new List<SettableSlot> { y }; list.Add(first); list.RemoveAt(0); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2767. AG62. A branch that does not run has an index after the last element, and an index that is negative.
+    public static Cell<int> Ag62AnIndexThatTheListDoesNotHave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); if (Never) { list[5].Share = Plain; list[-1].Share = Plain; } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2768. AG62. First of a list after an Insert gives the object that the Insert put there.
+    public static Cell<int> Ag62FirstAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first]; list.Insert(0, y); list.First().Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2769. AG62. A lambda that the block keeps and does not call turns the list around.
+    public static Cell<int> Ag62ALambdaThatDoesNotRunTurnsTheListAround() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Action later = () => list.Reverse(); Kept.Add(later); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2770. AG62. A lambda that the block keeps and does not call gives the second element a different object.
+    public static Cell<int> Ag62ALambdaThatDoesNotRunGivesAnElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Action later = () => list[1] = first; Kept.Add(later); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2771. AG62. A lambda that the block keeps and does not call puts an object first.
+    public static Cell<int> Ag62ALambdaThatDoesNotRunPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Action later = () => list.Insert(0, first); Kept.Add(later); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2772. AG62. The function of a query, which runs after the block, turns the list around.
+    public static Cell<int> Ag62TheFunctionOfAQueryTurnsTheListAround() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(S.Map(v => { list.Reverse(); return v; })); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2773. AG62. The function of a map of a cell, which the block does not read, turns the list around.
+    public static Cell<int> Ag62TheFunctionOfAMapTurnsTheListAround() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(Plain.Map(v => { list.Reverse(); return v; })); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2774. AG62. The function of a map of a cell, which the block does not read, gives the second element a different object.
+    public static Cell<int> Ag62TheFunctionOfAMapGivesAnElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); Kept.Add(Plain.Map(v => { list[1] = first; return v; })); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2775. AG62. Each turn of a loop makes a list, puts an object first with Insert, and gives the second element a plain cell.
+    public static Cell<int> Ag62AnInsertInTheTurnThatMadeTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list[1].Share = Plain; Kept.Add(y.Share!.Sample()); } return S.Hold(0); });
+
+    // S2776. AG62. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag62TheFirstElementInTheTurnThatMadeTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Insert(0, first); list[0].Share = Plain; Kept.Add(y.Share!.Sample()); } return S.Hold(0); });
+
+    // S2777. AG62. A method with the name First that has no body to read gives the last array of a list of arrays.
+    public static Cell<int> Ag62AMethodWithTheNameFirstThatIsNotOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] a = [first]; SettableSlot[] b = [y]; List<SettableSlot[]> rows = [b, a]; rows.First()[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2778. AG62. The code makes a list with no element, and a second local puts two objects in with Add.
+    public static Cell<int> Ag62AListWithNoElementGetsTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = new(); List<SettableSlot> same = list; same.Add(first); same.Add(y); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2779. AG62. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag62TheFirstElementOfAListThatHadNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = new(); List<SettableSlot> same = list; same.Add(first); same.Add(y); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2780. AG62. A list of cells: a second local reads the plain cell by its position.
+    public static Cell<int> Ag62ASecondNameOfAListOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; List<Cell<int>> same = list; return S.Hold(same[1].Sample()); });
+
+    // S2781. AG62. A list of cells: Insert puts a plain cell first, and the read is of the first element.
+    public static Cell<int> Ag62AnInsertInAListOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v)]; list.Insert(0, Plain); return S.Hold(list[0].Sample()); });
+
+    // S2782. AG62. The same, and the read is of the second element.
+    public static Cell<int> Ag62TheSecondElementOfAListOfCellsAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v)]; list.Insert(0, Plain); return S.Hold(list[1].Sample()); });
+
+    // S2783. AG62. An increment of an element in parentheses puts the result of the operator in the element.
+    public static Cell<int> Ag62AnIncrementOfAnElementInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; (steps[0])++; return S.Hold(steps[0].Now.Sample()); });
+
+    // S2784. AG62. The same with the operator -- before the element.
+    public static Cell<int> Ag62ADecrementOfAnElementInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Stepped[] steps = [new Stepped(Plain, l.Map(v => v)), new Stepped(l.Map(v => v), Plain)]; --(steps[0]); return S.Hold(steps[0].Now.Sample()); });
+
+    // S2785. AG62. The operator that says an element is not null changes no position.
+    public static Cell<int> Ag62AnElementThatTheCodeSaysIsNotNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [y]; list.Insert(0, first); list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2786. AG62. An operator before an element that is no increment changes no position.
+    public static Cell<int> Ag62AnOperatorBeforeAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag62Flag y = new() { Share = l.Map(v => v) }; Ag62Flag first = new() { Share = Plain }; List<Ag62Flag> list = [y]; list.Insert(0, first); Kept.Add(!list[1]); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2787. AG62. Insert puts an object after the last element.
+    public static Cell<int> Ag62AnInsertAfterTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first]; list.Insert(1, y); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2788. AG62. A method gives the first element the object of the second one, through a parameter with out.
+    public static Cell<int> Ag62AMethodGivesAnElementTheObjectOfTheSecondOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, first]; Ag62GiveSecond(slots, out slots[0]); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2789. AG62. A deconstruction of a pair in a local gives each of two elements the object of the other one.
+    public static Cell<int> Ag62ADeconstructionOfAPairIntoTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, first]; Ag62Count(slots); (SettableSlot, SettableSlot) pair = (first, y); (slots[0], slots[1]) = pair; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2790. AG62. Insert of a list that code cannot change gives a new list, and the first one keeps its elements.
+    public static Cell<int> Ag62AnInsertOfAListThatCodeCannotChange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; ImmutableList<SettableSlot> list = [first, y]; Kept.Add(list.Insert(0, y)); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2791. AG62. A read through a member of an object that has the list, by a position. A plain cell went through the same position of the local before.
+    public static Cell<int> Ag62AReadThroughAMemberByAPosition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; Ab72Box box = new(list); list[0].Share = Plain; return S.Hold(box.All[0].Share!.Sample()); });
+
+    // S2792. AG62. The same, and the read is of the second position, which has the pending cell.
+    public static Cell<int> Ag62AReadThroughAMemberOfTheSecondPosition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; Ab72Box box = new(list); list[0].Share = Plain; return S.Hold(box.All[1].Share!.Sample()); });
+
+    // S2793. AG62. A method reads the first position of the list of its parameter, after a plain cell through that position.
+    public static Cell<int> Ag62AMethodReadsAPositionOfItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list[0].Share = Plain; return S.Hold(Ag62ReadFirst(list)); });
+
+    // S2794. AG62. The same, and the plain cell went through the second position.
+    public static Cell<int> Ag62AMethodReadsThePositionWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list[1].Share = Plain; return S.Hold(Ag62ReadFirst(list)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14787,6 +15155,46 @@ public static class Shapes
     private class Ag59OpenDerived : Ag59Base
     {
         public override void Give(Cell<int> cell) => this.Share = cell;
+    }
+
+    private static void Ag62Put(SettableSlot[] all, SettableSlot other) => all[0] = other;
+
+    private static void Ag62New(ref SettableSlot slot) => slot = new SettableSlot();
+
+    private sealed class Ag62Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void PutWhen(SettableSlot first, bool when)
+        {
+            if (when)
+            {
+                this.kept.Insert(0, first);
+            }
+        }
+
+        public void TurnAround() => this.kept.Reverse();
+    }
+
+    private static void Ag62Count(SettableSlot[] all) => Kept.Add(all.Length);
+
+    private static void Ag62CountAll(List<SettableSlot> all) => Kept.Add(all.Count);
+
+    private static void Ag62CountValues(SlotValue[] all) => Kept.Add(all.Length);
+
+    private static void Ag62TurnAround(List<SettableSlot> all) => all.Reverse();
+
+    private static int Ag62ReadFirst(List<SettableSlot> all) => all[0].Share!.Sample();
+
+    private static void Ag62GiveSecond(SettableSlot[] all, out SettableSlot slot) => slot = all[1];
+
+    private sealed class Ag62Flag
+    {
+        public Cell<int>? Share { get; set; }
+
+        public static bool operator !(Ag62Flag flag) => flag.Share == null;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

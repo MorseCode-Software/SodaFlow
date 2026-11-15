@@ -57,9 +57,17 @@ internal sealed partial class LoopStateEvaluator
                 _ => null
             };
 
-        if (elements != null && elements.All(this.IsKnownWhenItGoesIn))
+        if (elements == null || !elements.All(this.IsKnownWhenItGoesIn))
         {
-            this.region.Objects.IsComplete(made);
+            return;
+        }
+
+        this.region.Objects.IsComplete(made);
+
+        // A literal whose object has its elements in the order of the code gives the positions.
+        if (this.LiteralElements(made: Unwrapped(place), type: this.region.TypeOf(place)) is { } ordered)
+        {
+            this.region.Objects.HasPositions(collection: made, values: ordered.Select(this.Eval).ToImmutableArray());
         }
     }
 

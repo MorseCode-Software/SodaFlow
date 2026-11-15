@@ -697,6 +697,17 @@ internal sealed partial class LoopStateEvaluator
         return turn != null ? this.Frame : inItsFunction ? this.call?.FrameOfTheAlwaysTurn : null;
     }
 
+    // True when a change of this code to one object is sure to be the last state of that object.
+    // The change always runs in its function when the second argument is true. The third argument
+    // is the body of the loop whose each turn always runs the change. See Change.
+    private bool IsSureFor(MadeObject made, bool replaces, SyntaxNode? turn) =>
+        !made.IsOfTurnsBefore
+        && (made.IsFrom(this.Frame)
+            ? made.Turn == null
+                ? replaces && this.AlwaysRunsFor(made)
+                : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
+            : replaces && this.AlwaysRunsForItsCaller(made));
+
     // A write in a lambda or a local function always runs for the block only when the call of the
     // function does. That is not a condition for an object that the function made for the call. A
     // callee with a frame of its own replaces the state of only its own objects.
@@ -954,6 +965,11 @@ internal sealed partial class LoopStateEvaluator
         // The element is then not the one that the literal made. Thus, the collection does not
         // keep its positions. The collection can be an element also, and the walk goes up to
         // each owner. The number of owners has an end, because a local can name its own owner.
+        // The flag is true when the value that changed last is only objects of the store. The
+        // store then has the change for each of them, and a collection that holds them keeps its
+        // positions.
+        bool isInTheStore = false;
+
         for (; level < MaxOwners; level++)
         {
             // Parentheses, a cast, and the operator that says not null do not hide the name.
@@ -961,7 +977,19 @@ internal sealed partial class LoopStateEvaluator
             LoopState owner = this.Eval(target);
             state = this.InAnObject(owner: owner, state: state);
             LoopState added = state;
+
+            (MadeObject Made, ImmutableArray<LoopState> All)? kept =
+                isInTheStore ? this.StorePositionsOf(target) : null;
+
             this.Change(owner: owner, change: old => old.Join(added), replaces: false, turn: null);
+
+            if (kept is (var made, var all))
+            {
+                this.region.Objects.HasPositions(collection: made, values: all);
+            }
+
+            // The owners of this value get the change next.
+            isInTheStore = !owner.Objects.IsEmpty && !owner.Objects.Contains(MadeObject.Unknown);
 
             ExpressionSyntax? collection = this.CollectionOf(target);
 
@@ -1602,14 +1630,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 LoopState changed = change(old);
 
-                bool sure =
-                    now.Length == 1
-                    && !made.IsOfTurnsBefore
-                    && (made.IsFrom(this.Frame)
-                        ? made.Turn == null
-                            ? replaces && this.AlwaysRunsFor(made)
-                            : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
-                        : replaces && this.AlwaysRunsForItsCaller(made));
+                bool sure = now.Length == 1 && this.IsSureFor(made: made, replaces: replaces, turn: turn);
 
                 // A write that each turn always runs, to an object that is older than the turn.
                 // Until the end of the turn, the member has only the new state. After the loop,
@@ -1805,6 +1826,8 @@ internal sealed partial class LoopStateEvaluator
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e when this.PositionOf(e) is { } position =>
                 this.Eval(position).Join(this.TypeState(expression)),
+            ElementAccessExpressionSyntax e when this.AtAStorePosition(e) is { } known =>
+                known.Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
                 : ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
@@ -2241,11 +2264,22 @@ internal sealed partial class LoopStateEvaluator
             {
                 ArgumentList.Arguments.Count: 0,
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "First" or "Last" } ends
-            }
-            && this.ElementsOf(ends.Expression) is { Count: > 0 } all)
+            })
         {
-            return this.Eval(method.Name == "First" ? all[0] : all[all.Count - 1])
-                .Join(this.TypeState(invocation));
+            if (this.ElementsOf(ends.Expression) is { Count: > 0 } all)
+            {
+                return this.Eval(method.Name == "First" ? all[0] : all[all.Count - 1])
+                    .Join(this.TypeState(invocation));
+            }
+
+            // The same for a First or a Last of the platform, from the positions of the store.
+            if (method.ReducedFrom is { ContainingType: { } queries }
+                && SodaFlowSymbols.IsLinqEnumerable(queries)
+                && this.StorePositionsOf(ends.Expression) is (_, { Length: > 0 } values))
+            {
+                return (method.Name == "First" ? values[0] : values[values.Length - 1])
+                    .Join(this.TypeState(invocation));
+            }
         }
 
         // Code that is not the library. A body in this compilation gives the state. Code that

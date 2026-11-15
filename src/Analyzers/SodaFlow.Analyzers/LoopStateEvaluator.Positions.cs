@@ -21,6 +21,203 @@ internal sealed partial class LoopStateEvaluator
             ? all[index]
             : null;
 
+    // The positions that the store has for the one collection that an expression is. The code of
+    // the block gives the positions of a local whose each use is a read: see ElementsOf. The
+    // store has the positions of each other list and array that it knows. Each name of the
+    // collection reads them: a second local, a parameter of a callee, and a member of an object.
+    private (MadeObject Made, ImmutableArray<LoopState> All)? StorePositionsOf(ExpressionSyntax collection) =>
+        this.TheCompleteCollection(collection) is { } made && this.region.Objects.PositionsOf(made) is { } all
+            ? (made, all)
+            : null;
+
+    // The value of the element that a read by a constant index gives, from the positions of the
+    // store. The value came into this code as its collection did, as each other element.
+    private LoopState? AtAStorePosition(ElementAccessExpressionSyntax access)
+    {
+        if (access.ArgumentList.Arguments.Count != 1
+            || this.StorePositionsOf(access.Expression) is not (_, var all)
+            || this.ConstantIndexOf(access.ArgumentList.Arguments[0]) is not { } index
+            || index >= all.Length)
+        {
+            return null;
+        }
+
+        return this.Eval(access.Expression).Origin is { } origin ? all[index].From(origin) : all[index];
+    }
+
+    // The number that an argument has in the code, when it is a constant that is not negative.
+    private int? ConstantIndexOf(ArgumentSyntax argument) =>
+        this.region.ModelFor(argument).GetConstantValue(argument.Expression) is { Value: int index and >= 0 }
+            ? index
+            : null;
+
+    /// <summary>
+    ///     The positions of a collection before a put that the walk reads now.
+    ///     Null when the store has none, or when the put is not sure to run. The
+    ///     put then gives the collection the new positions.
+    /// </summary>
+    /// <param name="collection">The expression of the collection.</param>
+    /// <param name="replaces">True when the put always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the put.</param>
+    public (MadeObject Made, ImmutableArray<LoopState> All)? PositionsBefore(
+        ExpressionSyntax collection,
+        bool replaces,
+        SyntaxNode? turn) =>
+        !this.quiet
+        && this.StorePositionsOf(collection) is (var made, var all)
+        && this.IsSureFor(made: made, replaces: replaces, turn: turn)
+            ? (made, all)
+            : null;
+
+    /// <summary>
+    ///     Records that an assignment gave an element of a collection a value. An
+    ///     assignment that is sure to run, to a constant index, gives that
+    ///     position the value.
+    /// </summary>
+    /// <param name="before">The result of <see cref="PositionsBefore" /> for the assignment.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="value">The expression of the value.</param>
+    public void HasThePositionAfter(
+        (MadeObject Made, ImmutableArray<LoopState> All)? before,
+        ElementAccessExpressionSyntax element,
+        ExpressionSyntax value)
+    {
+        if (before is (var made, var all)
+            && element.ArgumentList.Arguments.Count == 1
+            && this.ConstantIndexOf(element.ArgumentList.Arguments[0]) is { } index
+            && index < all.Length)
+        {
+            this.region.Objects.HasPositions(
+                collection: made,
+                values: all.SetItem(index: index, item: this.Eval(value)));
+        }
+    }
+
+    /// <summary>
+    ///     Records what a call of a method of the platform on a collection does
+    ///     to its positions. <c>Add</c>, <c>Insert</c>, and <c>RemoveAt</c> of a
+    ///     list give the new positions. A search or a copy changes nothing. Each
+    ///     other method can change the order, and takes the positions away.
+    /// </summary>
+    /// <param name="before">The result of <see cref="PositionsBeforeACall" /> for the call.</param>
+    /// <param name="collection">The owner of the call.</param>
+    /// <param name="method">The method.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public void MovesPositions(
+        (MadeObject Made, ImmutableArray<LoopState> All)? before,
+        ExpressionSyntax collection,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        // The walk gives the collection a new state for the call, and the positions stay.
+        if (KeepsEachPosition(method))
+        {
+            if (before is (var same, var positions))
+            {
+                this.region.Objects.HasPositions(collection: same, values: positions);
+            }
+
+            return;
+        }
+
+        this.ForgetsThePositionsOf(collection);
+
+        // The object with the positions is a list. The code can name it by an interface.
+        if (before is not (var made, var all)
+            || method.ContainingType is not { Name: "List" or "IList" or "ICollection" } owner
+            || !SodaFlowSymbols.IsPlatform(owner))
+        {
+            return;
+        }
+
+        ImmutableArray<LoopState>? after =
+            method.Name switch
+            {
+                "Add" when For("item") is { } item => all.Add(this.Eval(item.Expression)),
+                "Insert" when For("index") is { } at
+                              && this.ConstantIndexOf(at) is { } index
+                              && index <= all.Length
+                              && For("item") is { } item =>
+                    all.Insert(index: index, item: this.Eval(item.Expression)),
+                "RemoveAt" when For("index") is { } at
+                                && this.ConstantIndexOf(at) is { } index
+                                && index < all.Length =>
+                    all.RemoveAt(index),
+                _ => null
+            };
+
+        if (after is { } known)
+        {
+            this.region.Objects.HasPositions(collection: made, values: known);
+        }
+
+        return;
+
+        // The argument for the parameter with a name. An argument can have its name in the code.
+        ArgumentSyntax? For(string name) =>
+            arguments
+                .Where((argument, position) =>
+                    SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)?.Name == name)
+                .FirstOrDefault();
+    }
+
+    /// <summary>
+    ///     The positions of a collection before a call of a method of the
+    ///     platform on it. A method that changes no position keeps them also when
+    ///     its call is not sure to run.
+    /// </summary>
+    /// <param name="collection">The owner of the call.</param>
+    /// <param name="method">The method.</param>
+    /// <param name="replaces">True when the call always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the call.</param>
+    public (MadeObject Made, ImmutableArray<LoopState> All)? PositionsBeforeACall(
+        ExpressionSyntax collection,
+        IMethodSymbol method,
+        bool replaces,
+        SyntaxNode? turn) =>
+        KeepsEachPosition(method)
+            ? this.StorePositionsOf(collection)
+            : this.PositionsBefore(collection: collection, replaces: replaces, turn: turn);
+
+    // A method of a list or an array that reads the collection and changes no element.
+    private static bool KeepsEachPosition(ISymbol method) =>
+        method.Name is "Contains" or "IndexOf" or "LastIndexOf" or "ToArray" or "AsReadOnly";
+
+    /// <summary>
+    ///     Records that the walk does not know the positions of each collection
+    ///     that an expression can be. The code changed an element, or the order
+    ///     of the elements, and the walk does not follow that change to a position.
+    /// </summary>
+    public void ForgetsThePositionsOf(ExpressionSyntax collection)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        foreach (MadeObject made in this.Eval(collection).Objects)
+        {
+            this.region.Objects.HasNoPositions(made);
+        }
+    }
+
+    /// <summary>
+    ///     Adds to what a name holds the state that a callee gives back for its
+    ///     parameter. The callee had the same object, and the store has each
+    ///     change of the callee. Thus, the positions of the collection stay as
+    ///     the callee left them.
+    /// </summary>
+    public void MergesWhatACalleePut(ExpressionSyntax target, LoopState state)
+    {
+        (MadeObject Made, ImmutableArray<LoopState> All)? kept = this.StorePositionsOf(target);
+        this.Merge(target: target, state: state);
+
+        if (kept is (var made, var all))
+        {
+            this.region.Objects.HasPositions(collection: made, values: all);
+        }
+    }
+
     /// <summary>
     ///     The expression of each element of the collection in a local, in
     ///     order, when the collection keeps its positions. Null for each other

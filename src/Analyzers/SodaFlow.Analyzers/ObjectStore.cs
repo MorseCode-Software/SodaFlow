@@ -25,6 +25,10 @@ internal sealed class ObjectStore
 
     // The collections that only the code of one block can get to.
     private readonly HashSet<MadeObject> apart = [];
+
+    // The value at each position of a list or an array, in order, for each one whose positions the
+    // walk knows. Each record has the state that the collection had at that time.
+    private readonly Dictionary<MadeObject, (ImmutableArray<LoopState> Values, LoopState At)> positions = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
 
@@ -357,6 +361,39 @@ internal sealed class ObjectStore
     /// <summary>True for a collection that holds only objects that the walk saw go in.</summary>
     public bool HoldsOnlyWhatWentIn(MadeObject collection) => this.complete.Contains(collection);
 
+    /// <summary>
+    ///     The value at each position of a list or an array, in order. Null for a
+    ///     collection whose positions the walk does not know.
+    /// </summary>
+    /// <remarks>
+    ///     The walk knows the positions from the creation of the collection. A
+    ///     put that is sure to run, through each name of the collection, gives
+    ///     the new positions. The record is good while the collection has the
+    ///     state that it had at the record. Thus, each change to the collection
+    ///     that gives no new record takes the positions away. A change of the
+    ///     order gives the collection no new state, and the walk takes the record
+    ///     away for it. Only a collection that holds only what the walk saw go in
+    ///     has positions, and the code that reads them asks for that.
+    /// </remarks>
+    public ImmutableArray<LoopState>? PositionsOf(MadeObject collection) =>
+        this.positions.TryGetValue(key: collection, value: out (ImmutableArray<LoopState> Values, LoopState At) known)
+        && this.states.TryGetValue(key: collection, value: out LoopState? now)
+        && ReferenceEquals(objA: now, objB: known.At)
+            ? known.Values
+            : null;
+
+    /// <summary>Records the value at each position of a collection, for the state that it has now.</summary>
+    public void HasPositions(MadeObject collection, ImmutableArray<LoopState> values)
+    {
+        if (this.states.TryGetValue(key: collection, value: out LoopState? now))
+        {
+            this.positions[collection] = (values, now);
+        }
+    }
+
+    /// <summary>Records that the walk does not know the positions of a collection.</summary>
+    public void HasNoPositions(MadeObject collection) => this.positions.Remove(collection);
+
     // For a member of an object: the one collection that the member is.
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> collectionIn = [];
 
@@ -402,7 +439,10 @@ internal sealed class ObjectStore
                 seed: 0,
                 func: static (sum, one) => unchecked(
                     sum + ShapeNumber.Of(location: one.Key.Shape, state: one.Value.Shape)))
-            + this.complete.Aggregate(seed: 0, func: static (sum, made) => unchecked(sum + made.Shape * 43)));
+            + this.complete.Aggregate(seed: 0, func: static (sum, made) => unchecked(sum + made.Shape * 43))
+            + this.positions.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(sum + one.Key.Shape * 47 + one.Value.Values.Length)));
 
     /// <summary>The state of an object. Null for an object that is not in the store.</summary>
     public LoopState? StateOf(MadeObject found) =>

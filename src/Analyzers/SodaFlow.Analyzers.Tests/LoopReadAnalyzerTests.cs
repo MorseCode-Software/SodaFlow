@@ -1855,7 +1855,52 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag59AKeeperBehindATypeParameterPutsAnObjectFirst"] = ["SF1001"],
             ["Ag59AnOpenClassThroughATypeParameter"] = ["SF1001"],
             ["Ag59ASealedCollectionOfThePlatformFromAMethod"] = ["SF1001"],
-            ["Ag59AMethodReturnsAnUnseenObjectWithAPendingCell"] = ["SF1001"]
+            ["Ag59AMethodReturnsAnUnseenObjectWithAPendingCell"] = ["SF1001"],
+            ["Ag62TheFirstElementAfterAnInsert"] = ["SF1001"],
+            ["Ag62AnInsertInABranch"] = ["SF1001"],
+            ["Ag62AReverseAfterAnInsert"] = ["SF1001"],
+            ["Ag62TheFirstElementAfterARemoveAt"] = ["SF1001"],
+            ["Ag62TheObjectThatAnElementHadBeforeAnAssignment"] = ["SF1001"],
+            ["Ag62AnAssignmentToAnElementInABranch"] = ["SF1001"],
+            ["Ag62ALambdaPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag62TheKeeperPutsInABranch"] = ["SF1001"],
+            ["Ag62ThePutOfTheKeeperIsInABranch"] = ["SF1001"],
+            ["Ag62TheKeeperPutsInEachTurn"] = ["SF1001"],
+            ["Ag62TheKeeperTurnsTheListAround"] = ["SF1001"],
+            ["Ag62TheObjectThatTheElementHadBeforeAMethod"] = ["SF1001"],
+            ["Ag62AMethodGivesItsParameterANewObject"] = ["SF1001"],
+            ["Ag62TwoElementsChangePlaces"] = ["SF1001"],
+            ["Ag62AnAddAfterAClear"] = ["SF1001"],
+            ["Ag62ARemoveOfTheFirstElement"] = ["SF1001"],
+            ["Ag62AnInsertThroughASecondLocal"] = ["SF1001"],
+            ["Ag62AnInsertThroughAMember"] = ["SF1001"],
+            ["Ag62AMethodTurnsTheListAround"] = ["SF1001"],
+            ["Ag62TheCodeWithNoBodyPutsAnObjectInThePositionOfTheFirstOne"] = ["SF1001"],
+            ["Ag62ReverseOfAnArray"] = ["SF1001"],
+            ["Ag62ReverseOfASpanOfAnArray"] = ["SF1001"],
+            ["Ag62ALocalWithRefGivesTheElementAnObject"] = ["SF1001"],
+            ["Ag62AnInsertInEachTurn"] = ["SF1001"],
+            ["Ag62AnAssignmentWithAnIndexInALocal"] = ["SF1001"],
+            ["Ag62AnInsertWithAnIndexInALocal"] = ["SF1001"],
+            ["Ag62ALocalFunctionPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag62ACoalescingAssignmentToAnElement"] = ["SF1001"],
+            ["Ag62AStructInAnArrayGetsAPendingCell"] = ["SF1001"],
+            ["Ag62TheSecondTurnReadsAfterAReverse"] = ["SF1001"],
+            ["Ag62AnAssignmentToAnElementOfACopy"] = ["SF1001"],
+            ["Ag62AnInsertWithNames"] = ["SF1001"],
+            ["Ag62LastAfterAnInsertOfTheObjectWithThePendingCell"] = ["SF1001"],
+            ["Ag62ARemoveAtThroughAnInterface"] = ["SF1001"],
+            ["Ag62TheFirstElementInTheTurnThatMadeTheList"] = ["SF1001"],
+            ["Ag62AMethodWithTheNameFirstThatIsNotOfThePlatform"] = ["SF1001"],
+            ["Ag62TheFirstElementOfAListThatHadNoElement"] = ["SF1001"],
+            ["Ag62TheSecondElementOfAListOfCellsAfterAnInsert"] = ["SF1001"],
+            ["Ag62AnIncrementOfAnElementInParentheses"] = ["SF1001"],
+            ["Ag62ADecrementOfAnElementInParentheses"] = ["SF1001"],
+            ["Ag62AMethodGivesAnElementTheObjectOfTheSecondOne"] = ["SF1001"],
+            ["Ag62ADeconstructionOfAPairIntoTwoElements"] = ["SF1001"],
+            ["Ag62AnInsertOfAListThatCodeCannotChange"] = ["SF1001"],
+            ["Ag62AReadThroughAMemberOfTheSecondPosition"] = ["SF1001"],
+            ["Ag62AMethodReadsThePositionWithThePendingCell"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2335,6 +2380,70 @@ internal sealed class LoopReadAnalyzerTests
 
         // The two reads by an index have the state of all the elements, and one of those is
         // pending. The third method reads the looped cell itself.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
+    }
+
+    /// <summary>
+    ///     A put with an index that the list has no position for gives no
+    ///     position. The analyzer then reads the list as one state. At run time,
+    ///     each of these puts throws an exception that is not the one of a loop,
+    ///     thus the shapes file cannot have them.
+    /// </summary>
+    [Test]
+    public async Task APutOutsideAListGivesNoPosition()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> AnInsertAfterTheLastPosition() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [l.Map(v => v)];
+                        List<Cell<int>> same = cs;
+                        same.Insert(3, Plain);
+
+                        return S.Hold(cs[0].Sample());
+                    });
+
+                public static Cell<int> ARemoveAtAfterTheLastPosition() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [l.Map(v => v)];
+                        List<Cell<int>> same = cs;
+                        same.RemoveAt(3);
+
+                        return S.Hold(cs[0].Sample());
+                    });
+
+                public static Cell<int> AnAssignmentAfterTheLastPosition() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [l.Map(v => v)];
+                        List<Cell<int>> same = cs;
+                        same[3] = Plain;
+
+                        return S.Hold(cs[0].Sample());
+                    });
+            }
+            """;
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: "OnlyAList"));
+
+        // Each list has the pending cell, and each read is of it.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
     }

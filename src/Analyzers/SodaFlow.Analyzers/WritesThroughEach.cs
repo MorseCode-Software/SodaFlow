@@ -14,6 +14,11 @@ namespace SodaFlow.Analyzers;
 ///     and that write is through the variable.
 /// </remarks>
 /// <param name="elements">The expression of each element of the collection, at the start of the statement.</param>
+/// <param name="values">
+///     The value of each element at the start of the statement, when the walk
+///     has the positions from the store and not from the code. Null when
+///     <paramref name="elements" /> has the elements.
+/// </param>
 /// <param name="start">The number of writes to a member in the region, at the start of the statement.</param>
 /// <param name="member">The member of the last write. Null before the first write.</param>
 /// <param name="state">The state of the value of each write, together.</param>
@@ -22,6 +27,7 @@ namespace SodaFlow.Analyzers;
 /// <param name="last">The number of writes to a member in the region, after the last write through the variable.</param>
 internal sealed class WritesThroughEach(
     in IReadOnlyList<ExpressionSyntax> elements,
+    in IReadOnlyList<LoopState>? values,
     in int start,
     in ISymbol? member,
     in LoopState state,
@@ -36,6 +42,8 @@ internal sealed class WritesThroughEach(
 
     public IReadOnlyList<ExpressionSyntax> Elements { get; } = elements;
 
+    public IReadOnlyList<LoopState>? Values { get; } = values;
+
     public ISymbol? Member { get; } = member;
 
     public LoopState State { get; } = state;
@@ -48,6 +56,7 @@ internal sealed class WritesThroughEach(
     public WritesThroughEach With(ISymbol written, LoopState value, bool isALocation, int writes) =>
         new(
             elements: this.Elements,
+            values: this.Values,
             start: this.start,
             member: written,
             state: this.State.Join(value),

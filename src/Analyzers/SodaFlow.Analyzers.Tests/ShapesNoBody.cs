@@ -49,6 +49,13 @@ public static class NoBody
         (List<T>)holder.GetType().GetProperty(property)!.GetValue(holder)!;
 }
 
+// A method with the name of a query of the platform, for a list of arrays only. It gives the last
+// array, and the analyzer has no body to learn that from.
+public static class NoBodyQueries
+{
+    public static T[] First<T>(this List<T[]> all) => all[all.Count - 1];
+}
+
 public interface IFiller<T>
 {
     void Fill(List<T> list);
