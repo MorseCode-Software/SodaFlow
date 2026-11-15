@@ -243,7 +243,8 @@ internal sealed partial class LoopStateEvaluator
         property.OriginalDefinition.GetMethod is { } getter && IsIterator(getter);
 
     private static bool IsIterator(IMethodSymbol definition) =>
-        SodaFlowSymbols.IsEnumerated(definition.ReturnType)
+        (SodaFlowSymbols.IsEnumerated(definition.ReturnType)
+         || (definition.IsAsync && SodaFlowSymbols.IsAsyncEnumerated(definition.ReturnType)))
         && BodyOf(definition) is BlockSyntax block
         && block.DescendantNodes(
                 descendIntoChildren: static node =>

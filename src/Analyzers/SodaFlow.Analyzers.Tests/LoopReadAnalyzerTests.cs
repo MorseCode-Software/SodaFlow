@@ -1973,7 +1973,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab81AnExchangeInABranchThatDoesNotRun"] = ["SF1001"],
             ["R2CsReadInAFinallyBlock"] = ["SF1001"],
             ["Ab82ProbeTheElementGetsAnObjectAfterTheRef"] = ["SF1001"],
-            ["Ag63ProbeAnAddAfterAClear"] = ["SF1001"]
+            ["Ag63ProbeAnAddAfterAClear"] = ["SF1001"],
+            ["R2CsAsyncHelperReadsBeforeAnAwait"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterACompletedTask"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterFromResult"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterAValueTask"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterABranchWithAnAwait"] = ["SF1004"],
+            ["Ab87AsyncLambdaReadsAfterACompletedTask"] = ["SF1001"],
+            ["Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

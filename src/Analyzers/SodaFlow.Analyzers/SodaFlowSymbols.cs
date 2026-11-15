@@ -394,6 +394,40 @@ internal sealed class SodaFlowSymbols
     public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
 
     /// <summary>
+    ///     True for the type that an async iterator returns:
+    ///     <c>IAsyncEnumerable</c> or <c>IAsyncEnumerator</c> of the platform.
+    /// </summary>
+    public static bool IsAsyncEnumerated(ITypeSymbol type) =>
+        type is INamedTypeSymbol
+        {
+            TypeKind: TypeKind.Interface, Name: "IAsyncEnumerable" or "IAsyncEnumerator"
+        } named
+        && IsCollections(named.ContainingNamespace);
+
+    /// <summary>
+    ///     True for a member of the platform that gives a task that is complete.
+    ///     Such a member is <c>CompletedTask</c> or <c>FromResult</c> of
+    ///     <c>Task</c> or of <c>ValueTask</c>, or a constructor of
+    ///     <c>ValueTask</c> that gets a value.
+    /// </summary>
+    public static bool MakesACompleteTask(ISymbol? member) =>
+        member switch
+        {
+            IPropertySymbol { Name: "CompletedTask" } or IMethodSymbol { Name: "FromResult" } =>
+                IsTask(member.ContainingType),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } constructor =>
+                constructor.ContainingType.Name == "ValueTask"
+                && IsTask(constructor.ContainingType)
+                && constructor.OriginalDefinition.Parameters.All(static parameter =>
+                    parameter.Type is ITypeParameterSymbol),
+            _ => false
+        };
+
+    private static bool IsTask(INamedTypeSymbol? type) =>
+        type is { Name: "Task" or "ValueTask" }
+        && type.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
+
+    /// <summary>
     ///     True for <c>Exchange</c> and <c>CompareExchange</c> of
     ///     <c>Interlocked</c>. The result is the value that the location had, and
     ///     not one of the values that the callee got.

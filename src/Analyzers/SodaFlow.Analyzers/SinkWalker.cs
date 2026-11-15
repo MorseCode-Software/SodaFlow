@@ -56,9 +56,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The query whose code the walk reads now, when something enumerates that query.
     private QueryValue? running;
 
+    // The position after each await that can stop the call, with the block around it. The
+    // statements of the block after that position run only when the task completes.
+    private readonly List<(BlockSyntax Block, int From)> later = [];
+
     public override void Visit(SyntaxNode? node)
     {
         this.region.StopWhenCanceled();
+
+        if (node != null && this.later.Count > 0 && this.RunsLater(node))
+        {
+            return;
+        }
+
         base.Visit(node);
 
         if (node is not ExpressionSyntax expression)
@@ -188,6 +198,69 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         base.VisitInterpolation(node);
         this.Report(this.evaluator.FollowToString(node.Expression));
+    }
+
+    // An async function runs in the call until it awaits a task that is not complete. The rest
+    // runs when the task completes, which is after the call. The walk knows only a task of the
+    // platform that is complete before the await. A local function or a stored lambda has a walker
+    // of its own. Thus, the positions of this walker do not apply to its code.
+    public override void VisitAwaitExpression(AwaitExpressionSyntax node)
+    {
+        base.VisitAwaitExpression(node);
+
+        ExpressionSyntax task =
+            node.Expression is InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } configured
+            }
+                ? configured.Expression
+                : node.Expression;
+
+        if (!SodaFlowSymbols.MakesACompleteTask(this.region.SymbolOf(task)) && LaterPartOf(node) is { } block)
+        {
+            this.later.Add((block, node.Span.End));
+        }
+    }
+
+    // The largest block that always runs the statement of the await to its end. Null when a
+    // statement, a branch, or a function between the two can skip the await. A goto to a label
+    // after the await can skip it also.
+    private static BlockSyntax? LaterPartOf(AwaitExpressionSyntax node)
+    {
+        if (WhereItAlwaysRuns(node) is not StatementSyntax statement)
+        {
+            return null;
+        }
+
+        BlockSyntax? block = null;
+
+        // The statement of each of these runs the statement in it to its end.
+        for (SyntaxNode? place = statement.Parent;
+             place is BlockSyntax
+                 or UsingStatementSyntax
+                 or LockStatementSyntax
+                 or CheckedStatementSyntax
+                 or UnsafeStatementSyntax
+                 or FixedStatementSyntax;
+             place = place.Parent)
+        {
+            block = place as BlockSyntax ?? block;
+        }
+
+        return block?.DescendantNodes().OfType<LabeledStatementSyntax>().Any() == false ? block : null;
+    }
+
+    private bool RunsLater(SyntaxNode node)
+    {
+        foreach ((BlockSyntax block, int from) in this.later)
+        {
+            if (node.SpanStart >= from && block.Span.Contains(node.Span))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // A local function runs when the code calls it, and the evaluator follows it then.

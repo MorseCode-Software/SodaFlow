@@ -12921,6 +12921,58 @@ public static class Shapes
     public static Cell<int> Ab78ProbeTwoLocalsForTwoElements() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
 
+    // S2912. An async helper samples its parameter only after an await of a task that never completes.
+    public static Cell<int> R2CsAsyncHelperReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2ReadAfterAWait(l).Wait(0); return S.Hold(0); });
+
+    // S2913. An async lambda that the block calls samples the placeholder only after an await of a task that never completes.
+    public static Cell<int> R2CsAsyncLambdaReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await R2NeverDone.Task; Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S2914. An async iterator runs nothing when the block calls it, and the block only keeps the result.
+    public static Cell<int> R2CsAsyncIteratorOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R2AsyncReads(l)); return S.Hold(0); });
+
+    // S2915. An async helper samples its parameter before its first await, which runs in the call.
+    public static Cell<int> R2CsAsyncHelperReadsBeforeAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2ReadBeforeAWait(l).Wait(0); return S.Hold(0); });
+
+    // S2916. AB87 control. An async helper samples its parameter after an await of a task that is already complete, which runs in the call.
+    public static Cell<int> Ab87AsyncHelperReadsAfterACompletedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterADoneTask(l).Wait(0); return S.Hold(0); });
+
+    // S2917. AB87 control. An async helper samples its parameter after an await of Task.FromResult.
+    public static Cell<int> Ab87AsyncHelperReadsAfterFromResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterFromResult(l).Wait(0); return S.Hold(0); });
+
+    // S2918. AB87 control. An async helper samples its parameter after an await of a ValueTask of a value.
+    public static Cell<int> Ab87AsyncHelperReadsAfterAValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterAValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S2919. AB87 control. The await of a task that never completes is in a branch that does not run. Thus, the read after the branch runs in the call.
+    public static Cell<int> Ab87AsyncHelperReadsAfterABranchWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterABranch(l).Wait(0); return S.Hold(0); });
+
+    // S2920. AB87. The read is in the branch after the await of a task that never completes.
+    public static Cell<int> Ab87AsyncHelperReadsInTheBranchAfterTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadInTheBranch(l).Wait(0); return S.Hold(0); });
+
+    // S2921. AB87. The await of a task that never completes is in the block of a using statement. Thus, the read after the statement runs later.
+    public static Cell<int> Ab87AsyncHelperReadsAfterAUsingWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterAUsing(l).Wait(0); return S.Hold(0); });
+
+    // S2922. AB87 control. An async lambda samples the placeholder after an await of a task that is already complete.
+    public static Cell<int> Ab87AsyncLambdaReadsAfterACompletedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await Task.CompletedTask; Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S2923. AB87. An async local function samples the placeholder only after an await of a task that never completes.
+    public static Cell<int> Ab87AsyncLocalFunctionReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Run() { await R2NeverDone.Task.ConfigureAwait(false); Kept.Add(l.Sample()); } Run().Wait(0); return S.Hold(0); });
+
+    // S2924. AB87 control. An await of an already complete task with ConfigureAwait runs the read in the call.
+    public static Cell<int> Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Run() { await Task.CompletedTask.ConfigureAwait(false); Kept.Add(l.Sample()); } Run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16078,6 +16130,53 @@ public static class Shapes
     }
 
     private static readonly ISlotLine Ab80Line = NewSlotLine();
+
+    private static async Task Ab87ReadAfterADoneTask(Cell<int> c)
+    {
+        await Task.CompletedTask;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab87ReadAfterFromResult(Cell<int> c)
+    {
+        int n = await Task.FromResult(1);
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ab87ReadAfterAValueTask(Cell<int> c)
+    {
+        int n = await new ValueTask<int>(1);
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ab87ReadAfterABranch(Cell<int> c)
+    {
+        if (Kept.Count < 0)
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab87ReadInTheBranch(Cell<int> c)
+    {
+        if (Kept.Count >= 0)
+        {
+            await R2NeverDone.Task;
+            Kept.Add(c.Sample());
+        }
+    }
+
+    private static async Task Ab87ReadAfterAUsing(Cell<int> c)
+    {
+        using (new MemoryStream())
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
