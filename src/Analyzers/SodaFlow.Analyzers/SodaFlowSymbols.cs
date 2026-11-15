@@ -103,6 +103,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresCompare;
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
+    private readonly Lazy<bool> declaresSlice;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
@@ -131,6 +132,7 @@ internal sealed class SodaFlowSymbols
         this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
+        this.declaresSlice = Declares(compilation: compilation, name: "Slice");
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
@@ -241,6 +243,12 @@ internal sealed class SodaFlowSymbols
     ///     record reads its properties.
     /// </summary>
     public bool DeclaresRecords => this.declaresRecords.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a <c>Slice</c> method. A range calls
+    ///     it.
+    /// </summary>
+    public bool DeclaresSlice => this.declaresSlice.Value;
 
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;
@@ -706,6 +714,13 @@ internal sealed class SodaFlowSymbols
 
     private static bool IsSystem(INamespaceSymbol? space) =>
         space is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
+
+    /// <summary>
+    ///     True for <c>Index</c> or <c>Range</c> of the platform. An index or a
+    ///     range of such a type can call more than one member of a collection.
+    /// </summary>
+    public static bool IsIndexOrRange(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { Name: "Index" or "Range" } named && IsSystem(named.ContainingNamespace);
 
     /// <summary>
     ///     True for a type of the platform that only holds the values that its

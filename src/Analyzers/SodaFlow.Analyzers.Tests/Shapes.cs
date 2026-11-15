@@ -13241,6 +13241,30 @@ public static class Shapes
     public static Cell<int> Ab91WithOnARecordWithNoCopyConstructor() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Shown a = new(l.Map(v => v)); R2Shown b = a with { }; Kept.Add(b); return S.Hold(0); });
 
+    // S2992. An index from the end reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> R2CsIndexFromTheEndReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); int x = r[^1]; return S.Hold(x); });
+
+    // S2993. A range calls the Slice method of the type, which samples a pending member.
+    public static Cell<int> R2CsRangeCallsSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); R2Sliced part = r[0..1]; Kept.Add(part); return S.Hold(0); });
+
+    // S2994. A list pattern calls the indexer of the type, which samples a pending member.
+    public static Cell<int> R2CsListPatternCallsTheIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); bool big = r is [> 0]; return S.Hold(big ? 1 : 0); });
+
+    // S2995. An index from the start calls only the indexer, which reads no pending member.
+    public static Cell<int> Ab92IndexFromTheStartReadsNoCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); int x = r[0]; return S.Hold(x); });
+
+    // S2996. A list pattern reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> Ab92ListPatternReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); bool one = r is [_]; return S.Hold(one ? 1 : 0); });
+
+    // S2997. An index from the end after a null test reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> Ab92ConditionalIndexFromTheEndReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted? r = new(l.Map(v => v)); int? x = r?[^1]; return S.Hold(x ?? 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

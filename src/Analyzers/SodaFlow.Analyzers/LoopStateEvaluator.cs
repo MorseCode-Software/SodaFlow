@@ -4107,10 +4107,12 @@ internal sealed partial class LoopStateEvaluator
     public Followed? FollowExpression(ExpressionSyntax expression) =>
         expression switch
         {
-            ElementAccessExpressionSyntax access when this.region.Symbols.DeclaresIndexers =>
+            ElementAccessExpressionSyntax access
+                when this.region.Symbols.DeclaresIndexers || this.region.Symbols.DeclaresSlice =>
                 this.FollowIndexer(access: access, owner: access.Expression, indexes: access.ArgumentList),
             ElementBindingExpressionSyntax binding
-                when this.region.Symbols.DeclaresIndexers && ConditionalReceiver(binding) is { } owner =>
+                when (this.region.Symbols.DeclaresIndexers || this.region.Symbols.DeclaresSlice)
+                     && ConditionalReceiver(binding) is { } owner =>
                 this.FollowIndexer(access: binding, owner: owner, indexes: binding.ArgumentList),
             BinaryExpressionSyntax binary
                 when this.region.Symbols.DeclaresOperators || this.region.Symbols.DeclaresToString =>
@@ -5465,14 +5467,64 @@ internal sealed partial class LoopStateEvaluator
             ]);
     }
 
-    private Followed? FollowIndexer(SyntaxNode access, ExpressionSyntax owner, BaseArgumentListSyntax indexes) =>
-        this.region.SymbolOf(access) is IPropertySymbol { GetMethod: { } getter }
-            ? this.FollowImplied(
-                call: access,
-                member: getter,
-                owner: this.Self(owner),
-                arguments: [.. indexes.Arguments.Select(index => (index.Expression, this.Eval(index.Expression)))])
+    /// <summary>
+    ///     The members that a list pattern calls on a type of this compilation:
+    ///     <c>Count</c> or <c>Length</c>, and the indexer. No node names them, thus
+    ///     the evaluator asks for the operation of the pattern.
+    /// </summary>
+    /// <param name="pattern">The list pattern.</param>
+    /// <param name="owner">The state of the value that the pattern is for.</param>
+    public Followed? FollowListPattern(ListPatternSyntax pattern, LoopState owner) =>
+        this.region.Symbols.DeclaresIndexers
+        && this.region.ModelFor(pattern).GetOperation(pattern)
+            is IListPatternOperation
+            {
+                IndexerSymbol: IPropertySymbol { GetMethod: { DeclaringSyntaxReferences.IsEmpty: false } getter }
+            } list
+            ? Both(
+                first: list.LengthSymbol is IPropertySymbol { GetMethod: { } count }
+                    ? this.FollowImplied(call: pattern, member: count, owner: owner, arguments: [])
+                    : null,
+                second: this.FollowImplied(call: pattern, member: getter, owner: owner, arguments: []))
             : null;
+
+    // A range binds to a Slice method. An index from the end or a range on a type of this
+    // compilation also reads Count or Length first. The operation of the access names that
+    // property, and the evaluator asks for it only then.
+    private Followed? FollowIndexer(SyntaxNode access, ExpressionSyntax owner, BaseArgumentListSyntax indexes)
+    {
+        IMethodSymbol? member =
+            this.region.SymbolOf(access) switch
+            {
+                IPropertySymbol { GetMethod: { } getter } => getter,
+                IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false } slice => slice,
+                _ => null
+            };
+
+        if (member == null)
+        {
+            return null;
+        }
+
+        LoopState self = this.Self(owner);
+
+        Followed? length =
+            !member.DeclaringSyntaxReferences.IsEmpty
+            && indexes.Arguments.Count == 1
+            && SodaFlowSymbols.IsIndexOrRange(this.region.TypeOf(indexes.Arguments[0].Expression))
+            && this.region.ModelFor(access).GetOperation(access)
+                is IImplicitIndexerReferenceOperation { LengthSymbol: IPropertySymbol { GetMethod: { } count } }
+                ? this.FollowImplied(call: access, member: count, owner: self, arguments: [])
+                : null;
+
+        return Both(
+            first: length,
+            second: this.FollowImplied(
+                call: access,
+                member: member,
+                owner: self,
+                arguments: [.. indexes.Arguments.Select(index => (index.Expression, this.Eval(index.Expression)))]));
+    }
 
     private Followed? FollowOperator(SyntaxNode call, ISymbol? operation, IEnumerable<ExpressionSyntax> operands) =>
         operation is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } method

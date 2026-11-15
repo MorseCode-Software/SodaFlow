@@ -2025,7 +2025,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab90UserMinusOperatorOneTime"] = ["SF1004"],
             ["Ab90TruthOfAValueInParentheses"] = ["SF1004"],
             ["R2CsRecordToStringReadsAGetter"] = ["SF1005"],
-            ["R2CsWithCallsACopyConstructor"] = ["SF1004"]
+            ["R2CsWithCallsACopyConstructor"] = ["SF1004"],
+            ["R2CsIndexFromTheEndReadsCount"] = ["SF1005"],
+            ["R2CsRangeCallsSlice"] = ["SF1005"],
+            ["R2CsListPatternCallsTheIndexer"] = ["SF1005"],
+            ["Ab92ListPatternReadsCount"] = ["SF1005"],
+            ["Ab92ConditionalIndexFromTheEndReadsCount"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

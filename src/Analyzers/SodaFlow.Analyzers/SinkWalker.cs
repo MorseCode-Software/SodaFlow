@@ -638,6 +638,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     continue;
                 case ListPatternSyntax list:
+                    this.Report(this.evaluator.FollowListPattern(pattern: list, owner: state));
                     this.DeclareDesignation(designation: list.Designation, state: state);
 
                     // A slice is a part of the list. Each other pattern is for one element.
