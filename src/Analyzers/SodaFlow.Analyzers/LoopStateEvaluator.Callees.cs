@@ -585,6 +585,11 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        if (!lexical && inner.Frame.PutsThroughParameters.Count > 0)
+        {
+            this.GetsThePutsOf(callee: inner.Frame, argumentOf: byParameter);
+        }
+
         // A callee on a different object got a copy of the members of that object. Each member
         // that it set goes back to the object. A function reads the members of its own code. A
         // constructor gives the creation the collection of each member.

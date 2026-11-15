@@ -442,16 +442,55 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="field">The field, or null for an element.</param>
     /// <param name="element">The element, or null for a field.</param>
     /// <param name="state">The state of the value.</param>
-    public void PutsIntoALocation(ISymbol? field, ElementAccessExpressionSyntax? element, LoopState state)
+    /// <param name="owner">The expression of the object of a field.</param>
+    public void PutsIntoALocation(
+        ISymbol? field,
+        ElementAccessExpressionSyntax? element,
+        LoopState state,
+        ExpressionSyntax? owner = null) =>
+        this.PutsIntoALocation(
+            field: field?.OriginalDefinition,
+            index: element is { ArgumentList.Arguments: { Count: 1 } indexes } ? indexes[0] : null,
+            state: state,
+            owner: element?.Expression ?? owner);
+
+    // The same for a put of this code or of a callee. The caller can have the object of a
+    // parameter. Thus, the frame keeps each put into an element or a field of that object for the
+    // caller: see Leave.
+    private void PutsIntoALocation(ISymbol? field, ArgumentSyntax? index, LoopState state, ExpressionSyntax? owner)
     {
-        if (!this.quiet
-            && !state.Objects.IsEmpty
-            && this.bound.Keys.Any(static name => name is IParameterSymbol { RefKind: not RefKind.None }))
+        if (this.quiet || state.Objects.IsEmpty || this.bound.Count == 0)
         {
-            this.Frame.PutsIntoLocations.Add(
-                (field?.OriginalDefinition,
-                    element is { ArgumentList.Arguments: { Count: 1 } indexes } ? indexes[0] : null,
-                    state));
+            return;
+        }
+
+        if (this.bound.Keys.Any(static name => name is IParameterSymbol { RefKind: not RefKind.None }))
+        {
+            this.Frame.PutsIntoLocations.Add((field, index, state));
+        }
+
+        if (owner != null && this.NameUnder(owner) is IParameterSymbol parameter && this.bound.ContainsKey(parameter))
+        {
+            this.Frame.PutsThroughParameters.Add((field, index, state, parameter));
+        }
+    }
+
+    /// <summary>
+    ///     Gives this code each put of a callee into an element or into a field
+    ///     of the object of a parameter. The argument for that parameter has the
+    ///     same object, thus the put is a put of this code through the argument.
+    /// </summary>
+    /// <param name="callee">The frame of the callee, at the end of its walk.</param>
+    /// <param name="argumentOf">The argument for each parameter of the callee.</param>
+    private void GetsThePutsOf(LoopFrame callee, IReadOnlyDictionary<ISymbol, Binding> argumentOf)
+    {
+        foreach ((ISymbol? field, ArgumentSyntax? index, LoopState value, ISymbol parameter)
+                 in callee.PutsThroughParameters)
+        {
+            if (argumentOf.TryGetValue(key: parameter, value: out Binding binding))
+            {
+                this.PutsIntoALocation(field: field, index: index, state: value, owner: binding.Argument);
+            }
         }
     }
 
@@ -1009,7 +1048,7 @@ internal sealed partial class LoopStateEvaluator
         // A field is a location that a parameter with ref can be a name of.
         if (member is IFieldSymbol)
         {
-            this.PutsIntoALocation(field: member, element: null, state: state);
+            this.PutsIntoALocation(field: member, element: null, state: state, owner: owner);
         }
 
         // A name with ref is its location, and code can give that location a different object with

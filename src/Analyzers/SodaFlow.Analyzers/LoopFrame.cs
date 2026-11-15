@@ -67,6 +67,17 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value)> PutsIntoLocations { get; } = [];
 
     /// <summary>
+    ///     Each value that the code of this frame put into a location of the
+    ///     object of a parameter, in order. The location is an element or a
+    ///     field. The last part is the parameter. The caller gets each of them at
+    ///     the end of the walk.
+    /// </summary>
+    public List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value, ISymbol Parameter)> PutsThroughParameters
+    {
+        get;
+    } = [];
+
+    /// <summary>
     ///     For a parameter with ref or out that this code gave a value: the
     ///     number of entries that <see cref="PutsIntoLocations" /> had at that
     ///     assignment.

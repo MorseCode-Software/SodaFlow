@@ -13558,6 +13558,26 @@ public static class Shapes
     public static Cell<int> Ab84ALambdaGivesADifferentElementAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot d = Ab78Unseen[1]; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(d); return S.Hold(c.Share!.Sample()); });
 
+    // S3071. AB79 probe. A method that the method calls gives the element the object.
+    public static Cell<int> Ab79ProbeACalleeOfTheMethodPutsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenEighth; Ab79PutThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3072. AB85. A method two calls down gives the element the object.
+    public static Cell<int> Ab85AMethodTwoCallsDownPutsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenFirst; Ab85PutThroughTwoMethodsThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3073. AB85. A method that the method calls gives a different element the object.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenSecond; Ab85PutSecondThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3074. AB85. A method that the method calls puts the object into a copy of the array.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenThird; Ab85PutIntoACopyThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3075. AB85. A method that the method calls gives the field the object.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; Ab79Holder holder = Ab85Holders[0]; Ab85PutInAFieldThroughAMethodThenGive(ref holder.Item, holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16864,6 +16884,50 @@ public static class Shapes
     private static SettableSlot Ab83Field = Ab83Unseen[1];
 
     public delegate void Ab84Maker(out SettableSlot slot);
+
+    private static readonly SettableSlot[] Ab85UnseenFirst = [new()];
+
+    private static readonly SettableSlot[] Ab85UnseenSecond = [new(), new()];
+
+    private static readonly SettableSlot[] Ab85UnseenThird = [new()];
+
+    private static readonly Ab79Holder[] Ab85Holders = [new()];
+
+    private static void Ab85PutTwoDown(SettableSlot[] all, SettableSlot other) => Ab79Put(all, other);
+
+    private static void Ab85PutThroughTwoMethodsThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutTwoDown(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutSecond(SettableSlot[] all, SettableSlot other) => all[1] = other;
+
+    private static void Ab85PutSecondThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutSecond(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutIntoACopy(SettableSlot[] all, SettableSlot other)
+    {
+        SettableSlot[] copy = [.. all];
+        copy[0] = other;
+    }
+
+    private static void Ab85PutIntoACopyThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutIntoACopy(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutInTheField(Ab79Holder holder, SettableSlot other) => holder.Item = other;
+
+    private static void Ab85PutInAFieldThroughAMethodThenGive(ref SettableSlot slot, Ab79Holder holder, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutInTheField(holder, other);
+        slot.Share = cell;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
