@@ -50,6 +50,14 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public HashSet<ISymbol> WasOneOfTwoNames { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local that got a value with no object of the store from a
+    ///     location: the expression of that location. The walk can read the
+    ///     location again. Two locals with the same location are two names of
+    ///     one value.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> ReadFrom { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     Each value that the code of this frame put into an element or into a
     ///     field, in order. The first part is the field, or null for an element.
     ///     The second part is the index of an element that has one index. Only

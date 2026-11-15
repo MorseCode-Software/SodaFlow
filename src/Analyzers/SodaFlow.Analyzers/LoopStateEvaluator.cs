@@ -266,7 +266,9 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="from">The expression of the value, when the code has one.</param>
     public void Declare(ISymbol local, LoopState state, ExpressionSyntax? from = null)
     {
-        state = this.InALocal(local: local, state: this.ForAName(state: state, from: from));
+        state = this.InALocal(
+            local: local,
+            state: this.WithTheOtherNames(local: local, from: from, state: this.ForAName(state: state, from: from)));
 
         if (this.locals.TryGetValue(key: local, value: out LoopState? existing))
         {
@@ -375,7 +377,9 @@ internal sealed partial class LoopStateEvaluator
     /// </param>
     public void Assign(ISymbol local, LoopState state, ExpressionSyntax? from = null, ExpressionSyntax? kept = null)
     {
-        state = this.InALocal(local: local, state: this.ForAName(state: state, from: kept));
+        state = this.InALocal(
+            local: local,
+            state: this.WithTheOtherNames(local: local, from: kept, state: this.ForAName(state: state, from: kept)));
 
         // A function can run two or more times, and at a different time. Thus, an assignment in a
         // function makes a local no one collection.
@@ -825,6 +829,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         this.NotesASecondName(local: local, value: value, replaces: replaces);
+        this.NotesANameOfALocation(local: local, value: value, replaces: replaces);
 
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.

@@ -13490,6 +13490,38 @@ public static class Shapes
     public static Cell<int> Ag70AsyncItemValueOfAPendingCellSampled() =>
         Cell.Loop<int>().WithoutCaptures(l => { AsyncItem<Cell<int>> item = new(value: l.Map(v => v), status: AsyncItemStatus.Queued); return S.Hold(item.Value.Sample()); });
 
+    // S3054. AB78 probe. A second read of the element is a name of the same value.
+    public static Cell<int> Ab78ProbeASecondReadOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[0]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3055. AB78 probe. The pending cell goes through the expression of the element.
+    public static Cell<int> Ab78ProbeAWriteThroughTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Ab78Unseen[0].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3056. AB83. A write through the second read of the element replaces the state of the first read.
+    public static Cell<int> Ab83AWriteThroughTheSecondReadReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab83Unseen[0]; q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S3057. AB83. A write through the first read of the element goes to the second read.
+    public static Cell<int> Ab83AWriteThroughTheFirstReadGoesToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; SettableSlot q = Ab83Unseen[0]; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S3058. AB83. The second read of the element has the state that the first read got before it.
+    public static Cell<int> Ab83TheSecondReadHasTheStateOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab83Unseen[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S3059. AB83. The element gets a new object between the two reads, thus the two reads are two values.
+    public static Cell<int> Ab83AnElementWithANewObjectIsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; Ab83Unseen[0] = new SettableSlot(); SettableSlot q = Ab83Unseen[0]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3060. AB83. A second read of a field is a name of the same value.
+    public static Cell<int> Ab83ASecondReadOfAFieldIsTheSameValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Field; c.Share = Plain; SettableSlot q = Ab83Field; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3061. AB83. The field gets a new object between the two reads, thus the two reads are two values.
+    public static Cell<int> Ab83AFieldWithANewObjectIsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Field; c.Share = Plain; Ab83Field = new SettableSlot(); SettableSlot q = Ab83Field; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16790,6 +16822,10 @@ public static class Shapes
     {
         public R2Rack Rack { get; } = new();
     }
+
+    private static readonly SettableSlot[] Ab83Unseen = [new(), new()];
+
+    private static SettableSlot Ab83Field = Ab83Unseen[1];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

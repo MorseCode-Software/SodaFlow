@@ -2072,7 +2072,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag69SortByADescendingOrderThatReads"] = ["SF1001"],
             ["Ag69SortByADescendingIdentityOrderThatReads"] = ["SF1001"],
             ["Ag70MapAsyncItemsOfALinkedSourceAsTheClose"] = ["SF1002"],
-            ["Ag70AsyncItemValueOfAPendingCellSampled"] = ["SF1001"]
+            ["Ag70AsyncItemValueOfAPendingCellSampled"] = ["SF1001"],
+            ["Ab78ProbeASecondReadOfTheElement"] = ["SF1001"],
+            ["Ab78ProbeAWriteThroughTheElement"] = ["SF1001"],
+            ["Ab83AWriteThroughTheFirstReadGoesToTheSecond"] = ["SF1001"],
+            ["Ab83TheSecondReadHasTheStateOfTheFirst"] = ["SF1001"],
+            ["Ab83ASecondReadOfAFieldIsTheSameValue"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
