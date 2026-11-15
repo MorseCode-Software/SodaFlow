@@ -1807,7 +1807,18 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag58AnAssignmentGivesTheMemberAListThatIsAnElement"] = ["SF1001"],
             ["Ab74AParameterWithRefAndAnAssignmentBetweenTheWrites"] = ["SF1001"],
             ["Ab77PlainThroughAMemberOfOneOfAnUnseenHolderAndAHolderOfTheBlock"] = ["SF1001"],
-            ["Ab77PlainThroughAMemberAfterAnAssignmentInABranch"] = ["SF1001"]
+            ["Ab77PlainThroughAMemberAfterAnAssignmentInABranch"] = ["SF1001"],
+            ["Ag59AKeeperFromAFactoryPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag59AFactoryWithABlockAndAnObjectFirst"] = ["SF1001"],
+            ["Ag59AKeeperFromAMethodWithATypeParameterPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag59TheSecondOfTwoClassesPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag59AKeeperFromAFactoryPutsAnObjectFirstInEachTurn"] = ["SF1001"],
+            ["Ag59AnObjectWithABodyOrAnObjectOfCodeWithNoBody"] = ["SF1001"],
+            ["Ag59AFactoryGivesAnObjectWithABodyOrAnObjectOfCodeWithNoBody"] = ["SF1001"],
+            ["Ag59AMethodOfTheInterfaceSamplesWhatASecondOneGot"] = ["SF1005"],
+            ["Ag59ThePropertyOfTheInterfaceAfterAPendingCell"] = ["SF1001"],
+            ["Ag59AnAbstractMethodOfAnObjectFromAFactory"] = ["SF1001"],
+            ["Ag59AMethodThatTheClassOfTheObjectDoesNotReplace"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

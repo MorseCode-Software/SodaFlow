@@ -11713,6 +11713,110 @@ public static class Shapes
     public static Cell<int> Ab77PlainThroughAMemberOfTheHolderOfTheBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotHolder old = SharedHolderD; old.Item = SlotForASecondObject; SlotHolder a = new() { Item = new SettableSlot() }; a.Item!.Share = l.Map(v => v); SlotHolder h = a; h.Item!.Share = Plain; return S.Hold(a.Item!.Share!.Sample()); });
 
+    // S2610. AG59. The example of the item: a factory method makes a keeper behind an interface. The keeper keeps the list and puts nothing in.
+    public static Cell<int> Ag59AKeeperFromAFactoryPutsNothingIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59Keeper(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2611. AG59. A local has a method group for the factory method, and a call of the local makes the keeper.
+    public static Cell<int> Ag59AKeeperFromAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Func<IAg59Keeper> make = NewAg59Keeper; IAg59Keeper keeper = make(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2612. AG59. A conversion with a body makes the keeper, and its class is not sealed.
+    public static Cell<int> Ag59AKeeperFromAConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag59OpenKeeper made = (Ag59OpenKeeper)3; IAg59Keeper keeper = made; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2613. AG59. The same keeper puts an object first, and the plain cell goes to that object.
+    public static Cell<int> Ag59AKeeperFromAFactoryPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2614. AG59. The factory method has a block, and a local has the keeper.
+    public static Cell<int> Ag59AFactoryWithABlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59KeeperInABlock(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2615. AG59. The same, and the keeper puts an object first.
+    public static Cell<int> Ag59AFactoryWithABlockAndAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59KeeperInABlock(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2616. AG59. The factory method returns the class, and a local of the type of the interface has the keeper.
+    public static Cell<int> Ag59AFactoryThatReturnsTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59KeeperOfItsClass(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2617. AG59. The factory method calls a second factory method.
+    public static Cell<int> Ag59AFactoryThatCallsASecondFactory() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59KeeperFromASecondFactory(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2618. AG59. The factory method gets a number, and gives it to the constructor.
+    public static Cell<int> Ag59AFactoryWithANumber() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59KeeperWithANumber(3); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2619. AG59. A property with a getter makes the keeper.
+    public static Cell<int> Ag59AKeeperFromAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59NewKeeper; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2620. AG59. A method with a type parameter makes the keeper.
+    public static Cell<int> Ag59AKeeperFromAMethodWithATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59Make<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2621. AG59. The same, and the keeper puts an object first.
+    public static Cell<int> Ag59AKeeperFromAMethodWithATypeParameterPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59Make<Ag59Keeper>(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2622. AG59. The factory method makes one of two classes, and each of them puts nothing in.
+    public static Cell<int> Ag59OneOfTwoClassesThatPutNothingIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59OneOfTwo(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2623. AG59. The factory method makes one of two classes. The class of the run puts an object first, and the other class puts it last.
+    public static Cell<int> Ag59TheSecondOfTwoClassesPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59TheOtherOfTwo(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2624. AG59. Each turn of a loop gets a keeper from the factory method.
+    public static Cell<int> Ag59AKeeperFromAFactoryInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59Keeper(); keeper.Keep(list); list[0].Share = Plain; Kept.Add(y.Share!.Sample()); } return S.Hold(0); });
+
+    // S2625. AG59. The same, and the keeper puts an object first in each turn.
+    public static Cell<int> Ag59AKeeperFromAFactoryPutsAnObjectFirstInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = NewAg59Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; Kept.Add(y.Share!.Sample()); } return S.Hold(0); });
+
+    // S2626. AG59. A class with a body has an interface of code with no body. Its object is from a factory method, and its method puts nothing in.
+    public static Cell<int> Ag59AClassWithABodyBehindAnInterfaceWithNoSource() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = NewAg59Harmless(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2627. AG59. The keeper is the object of that class, or an object of code with no body, which puts an object first.
+    public static Cell<int> Ag59AnObjectWithABodyOrAnObjectOfCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = Never ? NewAg59Harmless() : NewAb72Keeper(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2628. AG59. The same, where a factory method gives one of the two.
+    public static Cell<int> Ag59AFactoryGivesAnObjectWithABodyOrAnObjectOfCodeWithNoBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAb72Keeper keeper = Ag59HarmlessOrNoBody(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2629. AG59. An object from a factory method gets a pending cell through its interface, and a method of the interface samples it.
+    public static Cell<int> Ag59AMethodOfTheInterfaceSamplesWhatASecondOneGot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg59Giver g = NewAg59Giver(); g.Give(l.Map(v => v)); return S.Hold(g.Read()); });
+
+    // S2630. AG59. The same, and the block samples the property of the interface.
+    public static Cell<int> Ag59ThePropertyOfTheInterfaceAfterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg59Giver g = NewAg59Giver(); g.Give(l.Map(v => v)); return S.Hold(g.Share!.Sample()); });
+
+    // S2631. AG59. The class of the object keeps a plain cell, and not the cell that it gets.
+    public static Cell<int> Ag59AClassThatKeepsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg59Giver g = NewAg59GivesPlain(); g.Give(l.Map(v => v)); return S.Hold(g.Read()); });
+
+    // S2632. AG59. The object gets a pending cell, and no code reads it.
+    public static Cell<int> Ag59AnObjectGetsAPendingCellThatNoCodeReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg59Giver g = NewAg59Giver(); g.Give(l.Map(v => v)); return S.Hold(0); });
+
+    // S2633. AG59. The factory method returns an abstract class, and the method of the class of the object gives the pending cell.
+    public static Cell<int> Ag59AnAbstractMethodOfAnObjectFromAFactory() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag59Base b = NewAg59Derived(); b.Give(l.Map(v => v)); return S.Hold(b.Share!.Sample()); });
+
+    // S2634. AG59. The class of the object replaces a method of its base, and its method keeps a plain cell.
+    public static Cell<int> Ag59AMethodThatTheClassOfTheObjectReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag59Base b = NewAg59Derived(); b.GiveOpen(l.Map(v => v)); return S.Hold(b.Share!.Sample()); });
+
+    // S2635. AG59. The class of the object does not replace the method of its base, which gives the pending cell.
+    public static Cell<int> Ag59AMethodThatTheClassOfTheObjectDoesNotReplace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag59Base b = NewAg59Plain(); b.GiveOpen(l.Map(v => v)); return S.Hold(b.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14098,6 +14202,151 @@ public static class Shapes
             Action plain = () => { this.Share = Plain; };
             plain();
         }
+    }
+
+    private static IAg59Keeper NewAg59Keeper() => new Ag59Keeper();
+
+    private static IAg59Keeper NewAg59KeeperInABlock()
+    {
+        Ag59Keeper made = new();
+
+        return made;
+    }
+
+    private static Ag59Keeper NewAg59KeeperOfItsClass() => new();
+
+    private static IAg59Keeper NewAg59KeeperFromASecondFactory() => NewAg59Keeper();
+
+    private static IAg59Keeper NewAg59KeeperWithANumber(int size) => new Ag59Keeper(size);
+
+    private static IAg59Keeper Ag59NewKeeper => new Ag59Keeper();
+
+    private static IAg59Keeper NewAg59PutsLast() => new Ag59PutsLast();
+
+    private static T Ag59Make<T>()
+        where T : new() =>
+        new T();
+
+    private static IAg59Keeper Ag59OneOfTwo() => Never ? new Ag59Keeper() : new Ag59PutsLast();
+
+    private static IAg59Keeper Ag59TheOtherOfTwo() => Never ? new Ag59PutsLast() : new Ag59Keeper();
+
+    private static IAb72Keeper NewAg59Harmless() => new Ag59Harmless();
+
+    private static IAb72Keeper Ag59HarmlessOrNoBody() => Never ? new Ag59Harmless() : NewAb72Keeper();
+
+    private static IAg59Giver NewAg59Giver() => new Ag59Giver();
+
+    private static IAg59Giver NewAg59GivesPlain() => new Ag59GivesPlain();
+
+    private static Ag59Base NewAg59Derived() => new Ag59Derived();
+
+    private static Ag59Base NewAg59Plain() => new Ag59KeepsTheBase();
+
+    public interface IAg59Keeper
+    {
+        void Keep(List<SettableSlot> all);
+
+        void Put(SettableSlot first);
+    }
+
+    private sealed class Ag59Keeper : IAg59Keeper
+    {
+        private List<SettableSlot> kept;
+
+        public Ag59Keeper()
+            : this(0)
+        {
+        }
+
+        public Ag59Keeper(int size) => this.kept = new List<SettableSlot>(size);
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => this.kept.Insert(0, first);
+    }
+
+    private class Ag59OpenKeeper : IAg59Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public static explicit operator Ag59OpenKeeper(int size) => new() { kept = new List<SettableSlot>(size) };
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => this.kept.Insert(0, first);
+    }
+
+    private sealed class Ag59PutsLast : IAg59Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => this.kept.Add(first);
+    }
+
+    private sealed class Ag59Harmless : IAb72Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void KeepBox(Ab72Box box) => this.kept = box.All;
+
+        public void Put(SettableSlot first) => Kept.Add(this.kept.Count);
+
+        public void Swap(SettableSlot first) => Kept.Add(this.kept.Count);
+
+        public List<SettableSlot> Made() => [];
+    }
+
+    public interface IAg59Giver
+    {
+        Cell<int>? Share { get; }
+
+        void Give(Cell<int> cell);
+
+        int Read();
+    }
+
+    private sealed class Ag59Giver : IAg59Giver
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Share = cell;
+
+        public int Read() => this.Share!.Sample();
+    }
+
+    private sealed class Ag59GivesPlain : IAg59Giver
+    {
+        public Cell<int>? Share { get; private set; }
+
+        public void Give(Cell<int> cell) => this.Share = cell == null ? null : Plain;
+
+        public int Read() => this.Share!.Sample();
+    }
+
+    public abstract class Ag59Base
+    {
+        public Cell<int>? Share { get; protected set; }
+
+        public abstract void Give(Cell<int> cell);
+
+        public virtual void GiveOpen(Cell<int> cell) => this.Share = cell;
+    }
+
+    private sealed class Ag59Derived : Ag59Base
+    {
+        public override void Give(Cell<int> cell) => this.Share = cell;
+
+        public override void GiveOpen(Cell<int> cell) => this.Share = cell == null ? null : Plain;
+    }
+
+    private sealed class Ag59KeepsTheBase : Ag59Base
+    {
+        public override void Give(Cell<int> cell) => this.Share = cell;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -31,6 +31,9 @@ internal sealed partial class LoopStateEvaluator
     private static readonly ImmutableDictionary<ISymbol, LoopState> NoSymbols =
         ImmutableDictionary<ISymbol, LoopState>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
+    private static readonly ImmutableDictionary<ISymbol, ITypeSymbol> NoTypeArguments =
+        ImmutableDictionary.Create<ISymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
     private static readonly ImmutableHashSet<ISymbol> NoParameters =
         ImmutableHashSet<ISymbol>.Empty.WithComparer(SymbolEqualityComparer.Default);
 
@@ -1304,8 +1307,10 @@ internal sealed partial class LoopStateEvaluator
     private LoopState MadeHere(ExpressionSyntax place, LoopState state, bool exact)
     {
         TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
+        ITypeSymbol? written = info.Type ?? info.ConvertedType;
 
-        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
+        // The creation of a type parameter makes an object of the class that the call gave.
+        if ((this.TypeArgumentFor(written) ?? written) is not { IsReferenceType: true } type)
         {
             return state.WithNoObjects;
         }
@@ -3008,6 +3013,7 @@ internal sealed partial class LoopStateEvaluator
             receiver: receiverState,
             target: null,
             returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate,
+            returnsAnObject: this.CanBeAnObject(method.ReturnType),
             owner: receiverState == null ? null : receiver);
     }
 
@@ -3238,6 +3244,7 @@ internal sealed partial class LoopStateEvaluator
                     members: TaggedMembers(owner),
                     receiver: owner,
                     target: null,
+                    returnsAnObject: this.CanBeAnObject(method.ReturnType),
                     manyTimes: each != null);
             }
             default:
@@ -3246,13 +3253,55 @@ internal sealed partial class LoopStateEvaluator
     }
 
     private Followed? FollowCreation(SyntaxNode creation, BaseArgumentListSyntax? arguments) =>
-        this.region.SymbolOf(creation) is IMethodSymbol constructor
+        (this.region.SymbolOf(creation) as IMethodSymbol ?? this.ConstructorOfATypeArgument(creation))
+        is { } constructor
         && !this.region.Symbols.IsSodaFlow(constructor)
             ? this.FollowConstructor(
                 call: creation,
                 constructor: constructor,
                 arguments: arguments?.Arguments ?? default)
             : null;
+
+    // The constructor that the creation of a type parameter runs, when the call of this code says
+    // which class the type parameter is. Such a creation has no arguments.
+    private IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
+        creation is ExpressionSyntax made
+        && this.TypeArgumentFor(this.region.TypeOf(made)) is INamedTypeSymbol { TypeKind: TypeKind.Class } actual
+            ? actual.InstanceConstructors.FirstOrDefault(static constructor => constructor.Parameters.IsEmpty)
+            : null;
+
+    // The type that the call of this code gave a type parameter of its method. Null for each other
+    // type.
+    private ITypeSymbol? TypeArgumentFor(ITypeSymbol? type) =>
+        type is ITypeParameterSymbol parameter
+        && this.call != null
+        && this.call.TypeArguments.TryGetValue(key: parameter, value: out ITypeSymbol? actual)
+            ? actual
+            : null;
+
+    // The type that a call gives each type parameter of its method. A type parameter of this code
+    // in the call has the type that the call of this code gave it. A lambda or a local function
+    // has the type parameters of the code that it is in also.
+    private ImmutableDictionary<ISymbol, ITypeSymbol> TypeArgumentsOf(SyntaxNode call, LoopStateEvaluator? definer)
+    {
+        ImmutableDictionary<ISymbol, ITypeSymbol> all = definer?.call?.TypeArguments ?? NoTypeArguments;
+
+        if (this.region.SymbolOf(call) is not IMethodSymbol { TypeArguments.IsEmpty: false } method)
+        {
+            return all;
+        }
+
+        ImmutableArray<ITypeParameterSymbol> parameters =
+            (method.ReducedFrom ?? method).OriginalDefinition.TypeParameters;
+
+        for (int i = 0; i < parameters.Length && i < method.TypeArguments.Length; i++)
+        {
+            ITypeSymbol given = method.TypeArguments[i];
+            all = all.SetItem(key: parameters[i], value: this.TypeArgumentFor(given) ?? given);
+        }
+
+        return all;
+    }
 
     /// <summary>
     ///     The constructor that a constructor calls first: the constructor of the
@@ -3499,7 +3548,8 @@ internal sealed partial class LoopStateEvaluator
                             definer: null,
                             members: members,
                             receiver: receiver,
-                            target: null));
+                            target: null,
+                            returnsAnObject: this.CanBeAnObject(property.Type)));
                 });
     }
 
@@ -3594,7 +3644,8 @@ internal sealed partial class LoopStateEvaluator
                         definer: null,
                         members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
                         receiver: null,
-                        target: null)
+                        target: null,
+                        returnsAnObject: this.CanBeAnObject(definition.ReturnType))
                     : this.Enter(
                         call: call,
                         name: ImpliedNameOf(definition),
@@ -3603,7 +3654,8 @@ internal sealed partial class LoopStateEvaluator
                         definer: null,
                         members: owner == null ? this.thisMembers : TaggedMembers(owner),
                         receiver: owner,
-                        target: null);
+                        target: null,
+                        returnsAnObject: this.CanBeAnObject(definition.ReturnType));
         }
 
         return result;
@@ -5133,6 +5185,7 @@ internal sealed partial class LoopStateEvaluator
     /// </param>
     /// <param name="target">The delegate, when the call is a call of a delegate.</param>
     /// <param name="returnsAFunction">True when the callee returns a delegate.</param>
+    /// <param name="returnsAnObject">True when the result of the callee can be an object of the store.</param>
     /// <param name="manyTimes">
     ///     True when a callee with no body to read runs the function. It can run
     ///     the function two or more times for one call.
@@ -5148,6 +5201,7 @@ internal sealed partial class LoopStateEvaluator
         LoopState? receiver,
         LoopState? target,
         bool returnsAFunction = false,
+        bool returnsAnObject = false,
         bool manyTimes = false,
         ExpressionSyntax? owner = null)
     {
@@ -5155,7 +5209,9 @@ internal sealed partial class LoopStateEvaluator
         // function can read the locals of the code that it is in, thus the walk always reads it.
         // A callee that gets an object of the store can give the object a second name. A callee
         // that returns a delegate can return a lambda, which the caller then runs with values from
-        // the loop. The walk reads such callees while ReadsForObjects permits.
+        // the loop. A callee that returns an object can make it. The class of that creation says
+        // which method a call through an interface runs. The walk reads such callees while
+        // ReadsForObjects permits.
         bool noState =
             definer == null
             && members.Count == 0
@@ -5164,7 +5220,9 @@ internal sealed partial class LoopStateEvaluator
 
         switch (noState)
         {
-            case true when !this.ReadsForObjects(bindings: bindings, returnsAFunction: returnsAFunction):
+            case true when !this.ReadsForObjects(
+                bindings: bindings,
+                returnsAFunction: returnsAFunction || returnsAnObject):
                 return Followed.Nothing;
             case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
                 this.DoesNotRead(call: call, name: name, members: members);
@@ -5334,8 +5392,8 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when the walk reads a callee that gets no state from the loop. It does that only for an
-    // object of the store and for a callee that returns a delegate. The depth limit applies, and
-    // the region must have frames for such callees.
+    // object of the store and for a callee that returns a delegate or an object. The depth limit
+    // applies, and the region must have frames for such callees.
     private bool ReadsForObjects(IEnumerable<Binding> bindings, bool returnsAFunction = false) =>
         (returnsAFunction || bindings.Any(static binding => !binding.State.Objects.IsEmpty))
         && this.depth < MaxInlineDepth
@@ -5472,7 +5530,8 @@ internal sealed partial class LoopStateEvaluator
                 alwaysTurn: eachRun != null ? null : where.Turn,
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
                 self: self,
-                hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers)));
+                hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
+                typeArguments: this.TypeArgumentsOf(call: call, definer: definer)));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
@@ -6332,7 +6391,8 @@ internal sealed partial class LoopStateEvaluator
         in SyntaxNode? alwaysTurn,
         in object code,
         in MadeObject? self,
-        in bool hasItsOwnMembers)
+        in bool hasItsOwnMembers,
+        in ImmutableDictionary<ISymbol, ITypeSymbol> typeArguments)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -6387,5 +6447,11 @@ internal sealed partial class LoopStateEvaluator
         ///     members of the object that the code of the caller is in.
         /// </summary>
         public bool HasItsOwnMembers { get; } = hasItsOwnMembers;
+
+        /// <summary>
+        ///     The type that the call gives each type parameter of its method.
+        ///     The code of the call can make an object of such a type.
+        /// </summary>
+        public ImmutableDictionary<ISymbol, ITypeSymbol> TypeArguments { get; } = typeArguments;
     }
 }
