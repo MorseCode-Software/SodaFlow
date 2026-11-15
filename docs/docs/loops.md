@@ -494,11 +494,11 @@ and the analyzer reads it at `ToString`, `Save`, or `WriteTo`.
 It does not see everything, and in a few places it guesses on the careful side:
 
 - A collection has the state of everything put into it. A list that holds one pending cell and one
-  plain one reports a read of either, unless it is a literal that the block only reads through a
-  constant index, `Count` or `Length`, `First()` or `Last()`, or a `foreach`. An index held in a
-  variable, a call that could change the collection, or a second name for it puts the collection
-  back to one state for all its elements, and so does a set or any other type that does not keep the
-  order you wrote. A pair that comes out of a dictionary has the state of its key and its value
+  plain one reports a read of either, unless the analyzer knows its positions and the read is
+  through a constant index, `First()`, or `Last()`. The item on positions below says when it knows
+  them. An index held in a variable, or a change that the analyzer cannot place, puts the
+  collection back to one state for all its elements, and so does a set or any other type that does
+  not keep the order you wrote. A pair that comes out of a dictionary has the state of its key and its value
   together, and so does a tuple whose elements are read by index through `ITuple`. The analyzer
   tells a collection from one of its items by the type of the expression, and where that type is
   `object` or a type parameter, by how the value was made. A collection taken out of a collection of
@@ -543,7 +543,9 @@ It does not see everything, and in a few places it guesses on the careful side:
   collection was built in, or a variable declared as a copy of that one. A read through any other
   name of the collection, as a property, a parameter, or a variable that a lambda reads from the
   code around it, sees everything that any item was given, so a plain value set later does not
-  clear a pending one there. A call to code without source ends this for every collection that the
+  clear a pending one there. A read through a constant index is the exception: where the analyzer
+  knows the positions, it reads the object at that position through a second variable, a field, or
+  a parameter as well. A call to code without source ends this for every collection that the
   code could reach: one that was handed to something, stored somewhere, or used in a lambda. A list
   that is only read and filled through its own variable stays known.
 - A value set through an item replaces an earlier one only where the analyzer saw everything that
@@ -580,10 +582,18 @@ It does not see everything, and in a few places it guesses on the careful side:
   the method assigns its parameter and other code then changes the place.
 - An element that a method assigns through a `ref` or an `out` argument is in its array or list
   afterwards, next to what was there: the analyzer does not know that the old item is gone.
-- A list built with `Add` statements at the top level of its block keeps its positions, as a
-  literal does, so `list[0]` is the first item added. An `Add` in a branch or a loop, or any other
-  change to the list, ends that. So does an `Insert`, an element assigned by a method that was
-  handed the list or the array, and a helper or an object of yours that keeps the list.
+- A list or an array keeps its positions for as long as the analyzer can say which item is where,
+  so `list[0]` is one object and not any of them. The positions belong to the collection and not to
+  a name: they hold through a second variable, a field, a parameter, and a helper or an object of
+  yours that keeps the list. They start at a literal, an initializer, or a list created empty. An
+  assignment to a constant index, an `Add`, and an `Insert` or a `RemoveAt` with a constant index
+  move them, where the statement is sure to run, and they do so through `IList<T>` and
+  `ICollection<T>` as well. `Contains`, `IndexOf`, `LastIndexOf`, `ToArray`, and `AsReadOnly` do
+  not change them. Any other change to the collection ends them, and it is back to one state for
+  all its items: a change in a branch, a change in a loop that did not build the list in the same
+  pass, an index that is not a constant, `Sort`, `Reverse`, `Clear`, `Remove` of an item, `??=` on
+  an element, an increment of one, a `ref` to one, and an element that a method assigns through a
+  `ref` or an `out` argument. A change inside a lambda that is kept and not called ends nothing.
 - A helper replaces what it sets on an object of its caller only where the statement always runs
   in the helper and the call always runs: in the block, or in every pass of a loop. In a loop it
   replaces as an assignment in the loop does. For the object that the pass built, the new value is
