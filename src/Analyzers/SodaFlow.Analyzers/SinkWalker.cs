@@ -86,45 +86,51 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Report(this.evaluator.FollowPlatformIndexer(keyed));
         }
 
-        if (ConvertsHere(expression))
+        // The compiler says where it adds a conversion or a test for true. The walk keeps no list
+        // of such places, because a list missed places. The walk asks only in a compilation that
+        // declares such an operator, and not where the compiler never adds one.
+        if ((!this.region.Symbols.DeclaresConversions && !this.region.Symbols.DeclaresTruth)
+            || NeverConverts(expression))
+        {
+            return;
+        }
+
+        // The compiler gives the conversion of an expression in parentheses to the parentheses
+        // also, and the walk asks there. It gives the test for true only to the expression in them.
+        if (expression.Parent is not ParenthesizedExpressionSyntax)
         {
             this.Report(this.evaluator.FollowConversion(expression));
         }
 
-        if (IsCondition(expression))
-        {
-            this.Report(this.evaluator.FollowTruth(expression));
-        }
+        this.Report(this.evaluator.FollowTruth(expression));
     }
 
-    private static bool IsCondition(SyntaxNode expression) =>
+    // The compiler adds no conversion to the owner of a member, to a member name, to an assignment
+    // target, or to a type name. This list is only for speed. A place that it does not have gets a
+    // question with no result.
+    private static bool NeverConverts(SyntaxNode expression) =>
         expression.Parent switch
         {
-            ConditionalExpressionSyntax choice => choice.Condition == expression,
-            IfStatementSyntax choice => choice.Condition == expression,
-            WhileStatementSyntax loop => loop.Condition == expression,
-            DoStatementSyntax loop => loop.Condition == expression,
-            ForStatementSyntax loop => loop.Condition == expression,
-            _ => false
-        };
-
-    // The places where the compiler can add a conversion to an expression. The owner of a member
-    // and the name of a type are not such places.
-    private static bool ConvertsHere(SyntaxNode expression) =>
-        expression.Parent switch
-        {
-            ArgumentSyntax
-                or EqualsValueClauseSyntax
-                or ReturnStatementSyntax
-                or ArrowExpressionClauseSyntax
-                or InterpolationSyntax
-                or BinaryExpressionSyntax
-                or ConditionalExpressionSyntax
-                or IfStatementSyntax
-                or WhileStatementSyntax
-                or ExpressionElementSyntax
-                or InitializerExpressionSyntax => true,
-            AssignmentExpressionSyntax assignment => assignment.Right == expression,
+            MemberAccessExpressionSyntax
+                or MemberBindingExpressionSyntax
+                or ConditionalAccessExpressionSyntax
+                or QualifiedNameSyntax
+                or AliasQualifiedNameSyntax
+                or TypeArgumentListSyntax
+                or VariableDeclarationSyntax
+                or ObjectCreationExpressionSyntax
+                or TypeOfExpressionSyntax
+                or DefaultExpressionSyntax
+                or DeclarationExpressionSyntax
+                or ArrayTypeSyntax
+                or NullableTypeSyntax => true,
+            InvocationExpressionSyntax call => call.Expression == expression,
+            ElementAccessExpressionSyntax access => access.Expression == expression,
+            AssignmentExpressionSyntax assignment => assignment.Left == expression,
+            CastExpressionSyntax cast => cast.Type == expression,
+            BinaryExpressionSyntax test =>
+                test.Right == expression
+                && (test.IsKind(SyntaxKind.IsExpression) || test.IsKind(SyntaxKind.AsExpression)),
             _ => false
         };
 
@@ -293,6 +299,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     collection: this.evaluator.Eval(node.Expression),
                     type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
                 .Join(this.Enumerate(node));
+
+        // The conversion of each element to the type of the variable has no node of its own.
+        if (this.region.Symbols.DeclaresConversions
+            && this.region.ModelFor(node).GetForEachStatementInfo(node).ElementConversion
+                is { IsUserDefined: true, MethodSymbol: { } conversion })
+        {
+            this.Report(
+                this.evaluator.FollowImplied(
+                    call: node.Expression,
+                    member: conversion,
+                    owner: null,
+                    arguments: [(node.Expression, elements)]));
+        }
 
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {

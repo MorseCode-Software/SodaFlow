@@ -93,6 +93,7 @@ internal sealed class SodaFlowSymbols
         new(SymbolEqualityComparer.Default);
 
     private readonly Lazy<bool> declaresAdd;
+    private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
     private readonly Lazy<bool> declaresDispose;
     private readonly Lazy<bool> declaresEnumerators;
@@ -119,6 +120,12 @@ internal sealed class SodaFlowSymbols
                 .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
 
         this.declaresAdd = Declares(compilation: compilation, name: "Add");
+
+        this.declaresConversions =
+            new Lazy<bool>(() =>
+                Declares(compilation: compilation, name: "op_Implicit").Value
+                || Declares(compilation: compilation, name: "op_Explicit").Value);
+
         this.declaresDeconstruct = Declares(compilation: compilation, name: "Deconstruct");
         this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
@@ -189,6 +196,12 @@ internal sealed class SodaFlowSymbols
     ///     binding.
     /// </remarks>
     public bool DeclaresAdd => this.declaresAdd.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a conversion operator. The walk
+    ///     asks the compiler for the conversion of each expression only then.
+    /// </summary>
+    public bool DeclaresConversions => this.declaresConversions.Value;
 
     /// <summary>True when the compilation declares a <c>Deconstruct</c> method.</summary>
     public bool DeclaresDeconstruct => this.declaresDeconstruct.Value;

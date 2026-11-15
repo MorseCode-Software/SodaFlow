@@ -13165,6 +13165,66 @@ public static class Shapes
     public static Cell<int> R2CsNameofOfAGetterThatSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Gauge g = new(l.Map(v => v)); string name = nameof(g.Now); return S.Hold(name.Length); });
 
+    // S2973. A switch statement converts its value to long with the implicit conversion of the type, which samples a pending member.
+    public static Cell<int> R2CsConversionOfASwitchStatementValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x; switch (t) { case 1: x = 1; break; default: x = 2; break; } return S.Hold(x); });
+
+    // S2974. An arm of a switch expression converts its result to long with the implicit conversion of the type.
+    public static Cell<int> R2CsConversionInASwitchExpressionArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = !Never switch { true => t, false => 0L }; return S.Hold((int)x); });
+
+    // S2975. A when clause of a switch expression arm calls the true operator of the type.
+    public static Cell<int> R2CsTruthOperatorInAWhenClause() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = Kept.Count switch { _ when t => 1, _ => 0 }; return S.Hold(x); });
+
+    // S2976. A foreach with a long variable converts each element with the implicit conversion of the type.
+    public static Cell<int> R2CsConversionOfEachElementOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; long total = 0; foreach (long x in all) { total += x; } return S.Hold((int)total); });
+
+    // S2977. A lambda whose result type is long converts its expression body with the implicit conversion, and the block calls it.
+    public static Cell<int> R2CsConversionOfALambdaResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Func<long> read = () => t; return S.Hold((int)read()); });
+
+    // S2978. The operand of the not operator goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> R2CsConversionOfTheOperandOfNot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); bool off = !f; return S.Hold(off ? 0 : 1); });
+
+    // S2979. The condition of a do statement goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> Ab90ConversionOfADoCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); int n = 0; do { n++; } while (f); return S.Hold(n); });
+
+    // S2980. The condition of a for statement goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> Ab90ConversionOfAForCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); int n = 0; for (; f; ) { n++; break; } return S.Hold(n); });
+
+    // S2981. An iterator converts the value of its yield return with the implicit conversion of the type, and the block enumerates it.
+    public static Cell<int> Ab90ConversionOfAYieldReturnValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long total = 0; foreach (long x in Each()) { total += x; } return S.Hold((int)total); IEnumerable<long> Each() { yield return t; } });
+
+    // S2982. A when clause of a switch statement calls the true operator of the type.
+    public static Cell<int> Ab90TruthOperatorInAWhenClauseOfASwitchStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x; switch (Kept.Count) { case int when t: x = 1; break; default: x = 0; break; } return S.Hold(x); });
+
+    // S2983. A value in parentheses goes through the implicit conversion one time, and the walk reports it one time.
+    public static Cell<int> Ab90ConversionOfAValueInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = (t); return S.Hold((int)x); });
+
+    // S2984. A cast calls the conversion one time, and the walk reports it one time.
+    public static Cell<int> Ab90CastCallsTheConversionOneTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = (long)t; return S.Hold((int)x); });
+
+    // S2985. A user minus operator reads a pending member, and the walk reports it one time.
+    public static Cell<int> Ab90UserMinusOperatorOneTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = -t; return S.Hold(x); });
+
+    // S2986. A foreach with a variable of the element type converts nothing.
+    public static Cell<int> Ab90ForeachWithNoConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; int n = 0; foreach (Tally x in all) { n++; } return S.Hold(n); });
+
+    // S2987. A condition in parentheses calls the true operator one time, and the walk reports it one time.
+    public static Cell<int> Ab90TruthOfAValueInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = (t) ? 1 : 0; return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

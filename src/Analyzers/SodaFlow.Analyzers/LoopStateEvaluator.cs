@@ -4081,7 +4081,7 @@ internal sealed partial class LoopStateEvaluator
     ///     operator of this compilation makes it.
     /// </summary>
     public Followed? FollowConversion(ExpressionSyntax expression) =>
-        this.region.Symbols.DeclaresOperators && this.region.ConversionOf(expression) is { } conversion
+        this.region.Symbols.DeclaresConversions && this.region.ConversionOf(expression) is { } conversion
             ? this.FollowOperator(call: expression, operation: conversion, operands: [expression])
             : null;
 
@@ -4091,10 +4091,18 @@ internal sealed partial class LoopStateEvaluator
     ///     evaluator asks for the operation of the condition. It asks only in a
     ///     compilation that declares such an operator.
     /// </summary>
+    /// <remarks>
+    ///     The walk asks for each expression. Thus, the operation must be a test
+    ///     for true or false, and not a different operator of the expression.
+    /// </remarks>
     public Followed? FollowTruth(ExpressionSyntax condition) =>
         this.region.Symbols.DeclaresTruth
         && this.region.ModelFor(condition).GetOperation(condition)?.Parent
-            is IUnaryOperation { OperatorMethod: { } truth }
+            is IUnaryOperation
+            {
+                OperatorKind: UnaryOperatorKind.True or UnaryOperatorKind.False,
+                OperatorMethod: { } truth
+            }
             ? this.FollowOperator(call: condition, operation: truth, operands: [condition])
             : null;
 

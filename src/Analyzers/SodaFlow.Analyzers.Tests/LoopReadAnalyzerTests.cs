@@ -2009,7 +2009,21 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag66TheLocalOfTheElementGetsNull"] = ["SF1001"],
             ["Ag68ADeconstructionIntoALocalWithRef"] = ["SF1001"],
             ["Ag68ASecondLocalWithRef"] = ["SF1001"],
-            ["Ag68TheArrayLocalGetsADifferentArray"] = ["SF1001"]
+            ["Ag68TheArrayLocalGetsADifferentArray"] = ["SF1001"],
+            ["R2CsConversionOfASwitchStatementValue"] = ["SF1004"],
+            ["R2CsConversionInASwitchExpressionArm"] = ["SF1004"],
+            ["R2CsTruthOperatorInAWhenClause"] = ["SF1004"],
+            ["R2CsConversionOfEachElementOfAForeach"] = ["SF1004"],
+            ["R2CsConversionOfALambdaResult"] = ["SF1004"],
+            ["R2CsConversionOfTheOperandOfNot"] = ["SF1004"],
+            ["Ab90ConversionOfADoCondition"] = ["SF1004"],
+            ["Ab90ConversionOfAForCondition"] = ["SF1004"],
+            ["Ab90ConversionOfAYieldReturnValue"] = ["SF1004"],
+            ["Ab90TruthOperatorInAWhenClauseOfASwitchStatement"] = ["SF1004"],
+            ["Ab90ConversionOfAValueInParentheses"] = ["SF1004"],
+            ["Ab90CastCallsTheConversionOneTime"] = ["SF1004"],
+            ["Ab90UserMinusOperatorOneTime"] = ["SF1004"],
+            ["Ab90TruthOfAValueInParentheses"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
