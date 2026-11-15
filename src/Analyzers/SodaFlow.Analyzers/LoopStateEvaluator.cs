@@ -3550,6 +3550,12 @@ internal sealed partial class LoopStateEvaluator
                 : all;
         }
 
+        // A local with ref gives the callee its location.
+        if (this.TheLocationOf(binding.Argument) is { } location)
+        {
+            return all.SetItem(key: binding.Parameter, value: (this, location));
+        }
+
         return this.IsALocationThatTheWalkCanReadAgain(binding.Argument)
             ? all.SetItem(key: binding.Parameter, value: (this, binding.Argument))
             : all;

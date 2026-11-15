@@ -13137,6 +13137,30 @@ public static class Shapes
     public static Cell<int> Ag66TheLocalOfTheElementGetsNull() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = new() { Share = l.Map(v => v) }; SettableSlot pending = y; SettableSlot first = new() { Share = Plain }; if (Kept.Count >= 0) { y = null; } List<SettableSlot?> list = [y, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(pending.Share!.Sample()); });
 
+    // S2966. AB82 probe. A method gives the object with the pending cell to a local with ref, and the plain cell goes through the element.
+    public static Cell<int> Ab82ProbeAPlainCellAfterAMethodGaveThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82Give(ref r, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2967. AG68 probe. A method gets a local with ref for an element at a constant index. It puts a different object there, and then a plain cell through its parameter.
+    public static Cell<int> Ag68ProbeAMethodReadsTheLocationOfALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; ref SettableSlot r = ref slots[0]; Ab76PutThenGive(ref r, slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2968. AG68. A local with ref for an element gives the element the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ag68AnAssignmentThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; r = y; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2969. AG68. A deconstruction gives a local with ref for an element the plain object.
+    public static Cell<int> Ag68ADeconstructionIntoALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; (r, int n) = (first, 1); Kept.Add(n); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2970. AG68. A second local with ref for the first one gives the element the plain object.
+    public static Cell<int> Ag68ASecondLocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; ref SettableSlot s = ref r; s = first; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2971. AG68. The local of the array gets a different array after the local with ref. The assignment through the local with ref goes to the first array.
+    public static Cell<int> Ag68TheArrayLocalGetsADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); SettableSlot[] kept = slots; ref SettableSlot r = ref slots[0]; slots = [first]; r = first; kept[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

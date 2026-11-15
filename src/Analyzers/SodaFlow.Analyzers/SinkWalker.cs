@@ -1550,6 +1550,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         switch (assigned)
         {
+            // A deconstruction into a local with ref, or a delegate that it gets with +=, gives the
+            // location a value. Assign sends the value of each other assignment there before this.
+            case ILocalSymbol { RefKind: not RefKind.None }
+                when from is not RefExpressionSyntax
+                     && target is ExpressionSyntax name
+                     && this.evaluator.TheLocationOf(name) is { } location:
+                this.AssignState(target: location, state: state, replaces: replaces, turn: turn);
+
+                break;
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 if (replaces || IsNewInEachTurn(local: local, turn: turn))
                 {
@@ -2951,11 +2960,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitRefExpression(RefExpressionSyntax node)
     {
         base.VisitRefExpression(node);
-        this.ForgetsThePositionsAround(node.Expression);
+
+        if (!this.evaluator.KeepsThePositionsAt(node))
+        {
+            this.ForgetsThePositionsAround(node.Expression);
+        }
     }
 
     private void ForgetsThePositionsAround(ExpressionSyntax element)
     {
+        // A local with ref is a second name of its location.
+        if (this.evaluator.TheLocationOf(element) is { } location)
+        {
+            element = location;
+        }
+
         while (element is ParenthesizedExpressionSyntax around)
         {
             element = around.Expression;

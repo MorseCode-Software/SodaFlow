@@ -420,6 +420,35 @@ internal sealed partial class LoopStateEvaluator
         this.Absorb(target: collection, state: state);
     }
 
+    /// <summary>
+    ///     True for a <c>ref</c> to an element in the declaration of a local with
+    ///     ref. The walk must read that location at each use of the local. Each
+    ///     assignment to the local is then an assignment to the element, and the
+    ///     positions of the collection stay.
+    /// </summary>
+    /// <remarks>
+    ///     A ref local is no name in a function of its code. A name in the location
+    ///     that gets a value after the declaration makes a different location.
+    ///     Then, an assignment to the local goes to the collection, which is not
+    ///     sure to be the collection of the location.
+    /// </remarks>
+    public bool KeepsThePositionsAt(RefExpressionSyntax reference) =>
+        this.function == null
+        && reference.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+        && Unwrapped(reference.Expression) is ElementAccessExpressionSyntax location
+        && this.IsALocationThatTheWalkCanReadAgain(location)
+        && FunctionOf(declarator) is { } code
+        && !location.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Any(part =>
+                this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
+                && this.GetsAValue(
+                    name: symbol,
+                    code: code,
+                    after: reference.Span.End,
+                    before: int.MaxValue,
+                    orAFunctionUsesIt: false));
+
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
