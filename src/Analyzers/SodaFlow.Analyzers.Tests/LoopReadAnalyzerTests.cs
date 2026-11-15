@@ -2000,18 +2000,91 @@ internal sealed class LoopReadAnalyzerTests
     private static Task<string> ReadShapes() =>
         File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "Shapes.cs"));
 
+    // The line of ShapesNoBody.cs that makes its assembly reference the library.
+    private const string ReferenceToTheLibrary = "KnowsTheLibrary = typeof(Cell<>);";
+
     // The assembly that the shapes call as code with no body to read. The analyzer gets its bytes
     // and no source.
-    private static async Task<byte[]> CompileNoBody() =>
-        AnalyzerHarness.Emit(
+    private static Task<byte[]> CompileNoBody() => CompileNoBody(knowsTheLibrary: true);
+
+    // The same assembly. With false, no code of it names a type of the library. Thus, the
+    // assembly has no reference to the library.
+    private static async Task<byte[]> CompileNoBody(bool knowsTheLibrary)
+    {
+        string source =
+            await File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "ShapesNoBody.cs"));
+
+        if (!source.Contains(value: ReferenceToTheLibrary, comparisonType: StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("ShapesNoBody.cs does not have the line that names the library.");
+        }
+
+        return AnalyzerHarness.Emit(
             AnalyzerHarness.Compile(
-                source: await File.ReadAllTextAsync(
-                    Path.Combine(path1: AppContext.BaseDirectory, path2: "ShapesNoBody.cs")),
+                source: knowsTheLibrary
+                    ? source
+                    : source.Replace(
+                        oldValue: ReferenceToTheLibrary,
+                        newValue: "KnowsTheLibrary = typeof(List<>);",
+                        comparisonType: StringComparison.Ordinal),
                 libraries: ShapeLibraries,
                 assemblyName: "SodaFlow.Analyzers.ShapesNoBody"));
+    }
 
     [Test]
-    public async Task EachShapeReportsTheExpectedRules()
+    public async Task EachShapeReportsTheExpectedRules() =>
+        await EachShapeReportsTheExpectedRulesWith(await CompileNoBody());
+
+    /// <summary>
+    ///     Runs the shapes with a helper assembly that has no reference to the
+    ///     library. The analyzer then knows that the code of that assembly cannot
+    ///     sample a cell. That code can keep each value that it gets, and can
+    ///     put an object into each collection that it can get to. Thus, each
+    ///     shape has the same rules as with the reference.
+    /// </summary>
+    /// <remarks>
+    ///     A pending value that goes to code which can know the library gets
+    ///     SF1003, and the same value to this assembly gets none. No shape gives
+    ///     the helper assembly such a value. A shape that does it needs a list of
+    ///     its own here.
+    /// </remarks>
+    [Test]
+    public async Task EachShapeReportsTheSameRulesForAPackageThatCannotKnowTheLibrary()
+    {
+        byte[] package = await CompileNoBody(knowsTheLibrary: false);
+
+        await Assert.That(LibraryReferencesOf(await CompileNoBody()))
+            .IsNotEmpty()
+            .Because("the helper assembly of the other tests has a reference to the library");
+
+        await Assert.That(LibraryReferencesOf(package))
+            .IsEmpty()
+            .Because("this helper assembly has no reference to the library");
+
+        await EachShapeReportsTheExpectedRulesWith(package);
+    }
+
+    // The name of each assembly of the library that an image references.
+    private static IReadOnlyList<string> LibraryReferencesOf(IEnumerable<byte> image)
+    {
+        PortableExecutableReference reference = MetadataReference.CreateFromImage(image);
+
+        ISymbol? read =
+            CSharpCompilation.Create(assemblyName: "Reader", references: [reference])
+                .GetAssemblyOrModuleSymbol(reference);
+
+        return read is IAssemblySymbol assembly
+            ?
+            [
+                .. assembly.Modules
+                    .SelectMany(static module => module.ReferencedAssemblies)
+                    .Select(static identity => identity.Name)
+                    .Where(static name => name.StartsWith(value: "SodaFlow", comparisonType: StringComparison.Ordinal))
+            ]
+            : throw new InvalidOperationException("The image is not an assembly.");
+    }
+
+    private static async Task EachShapeReportsTheExpectedRulesWith(byte[] noBody)
     {
         string source = await ReadShapes();
 
@@ -2022,7 +2095,7 @@ internal sealed class LoopReadAnalyzerTests
                     source: source,
                     libraries: ShapeLibraries,
                     assemblyName: ShapesAssembly,
-                    images: [await CompileNoBody()]));
+                    images: [noBody]));
 
         SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
         SyntaxNode root = await tree.GetRootAsync();

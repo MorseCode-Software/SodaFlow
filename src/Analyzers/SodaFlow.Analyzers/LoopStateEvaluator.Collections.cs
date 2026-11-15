@@ -125,6 +125,18 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     True when an owner and each argument of a call are objects that the
+    ///     store knows. The owner then holds each argument as an object, and it
+    ///     needs no copy of the state of an argument.
+    /// </summary>
+    public bool HoldsEachAsAnObject(ExpressionSyntax owner, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        IsOnlyKnownObjects(this.Eval(owner))
+        && arguments.All(argument => IsOnlyKnownObjects(this.Eval(argument.Expression)));
+
+    private static bool IsOnlyKnownObjects(LoopState state) =>
+        !state.Objects.IsEmpty && !state.Objects.Contains(MadeObject.Unknown);
+
+    /// <summary>
     ///     Records that a method of the platform got its arguments. The method
     ///     can put a value into a collection that it gets, as <c>CopyTo</c> does to
     ///     an array. The parameter must have a type that the method can change.

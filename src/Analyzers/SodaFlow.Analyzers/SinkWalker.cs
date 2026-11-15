@@ -1756,6 +1756,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // the call gave it. It can put an argument into its receiver, as Add does to a list.
             case CalleeKind.Mover:
             {
+                // The table of the platform says what each of its methods keeps. A package has no
+                // such table. Its code can put an object into each collection that it can get to,
+                // and can keep a function for a time after the call.
+                bool isOfAPackage = LoopStateEvaluator.IsOfAPackage(method);
+
+                if (isOfAPackage)
+                {
+                    this.evaluator.RanCodeWithNoBody();
+                }
+
                 // The callee gives one of the values to a lambda or to an out parameter, and not
                 // the collection that contains them.
                 LoopState moved =
@@ -1789,16 +1799,24 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     this.evaluator.CanGet(collection: receiver, method: method, arguments: arguments);
 
-                    this.evaluator.Absorb(
-                        target: receiver,
-                        state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+                    // The owner of a method of a package holds each object that it gets. The
+                    // store has the state of that object at each read. A copy of that state keeps
+                    // a cell that the object had at the call.
+                    if (!isOfAPackage || !this.evaluator.HoldsEachAsAnObject(owner: receiver, arguments: arguments))
+                    {
+                        this.evaluator.Absorb(
+                            target: receiver,
+                            state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+                    }
 
                     // A search reads its argument, and the collection does not get it. An object
                     // of this compilation that is not a sequence is not a collection. It can call
-                    // a method of object, as Equals is, and that method keeps nothing.
-                    if (!SodaFlowSymbols.IsASearch(method)
-                        && this.region.TypeOf(receiver) is { } owner
-                        && (SodaFlowSymbols.IsSequence(owner) || SodaFlowSymbols.IsPlatform(owner)))
+                    // a method of object, as Equals is, and that method keeps nothing. The owner
+                    // of a method of a package can keep each argument.
+                    if (isOfAPackage
+                        || (!SodaFlowSymbols.IsASearch(method)
+                            && this.region.TypeOf(receiver) is { } owner
+                            && (SodaFlowSymbols.IsSequence(owner) || SodaFlowSymbols.IsPlatform(owner))))
                     {
                         foreach (ArgumentSyntax argument in arguments)
                         {

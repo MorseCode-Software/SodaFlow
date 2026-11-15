@@ -2702,6 +2702,15 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     True for a method that is not of the platform. For a callee with no
+    ///     body in an assembly that cannot know the library, the method is then
+    ///     one of a package. The analyzer has a table of what a method of the
+    ///     platform keeps, and no such table for a package.
+    /// </summary>
+    public static bool IsOfAPackage(IMethodSymbol method) =>
+        !SodaFlowSymbols.IsPlatform((method.ReducedFrom ?? method).OriginalDefinition);
+
+    /// <summary>
     ///     The state of the values that a call gives to code that cannot know the
     ///     library. They are the receiver and each argument that is not a function
     ///     for the callee to run. That code can keep them, give them back, or give
