@@ -95,9 +95,10 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     Records what a call of a method of the platform on a collection does
-    ///     to its positions. <c>Add</c>, <c>Insert</c>, and <c>RemoveAt</c> of a
-    ///     list give the new positions. A search or a copy changes nothing. Each
-    ///     other method can change the order, and takes the positions away.
+    ///     to its positions. <c>Add</c>, <c>Insert</c>, <c>RemoveAt</c>,
+    ///     <c>Remove</c>, and <c>Reverse</c> of a list give the new positions. A
+    ///     search or a copy changes nothing. Each other method can change the
+    ///     order, and takes the positions away.
     /// </summary>
     /// <param name="before">The result of <see cref="PositionsBeforeACall" /> for the call.</param>
     /// <param name="collection">The owner of the call.</param>
@@ -143,6 +144,10 @@ internal sealed partial class LoopStateEvaluator
                                 && this.ConstantIndexOf(at) is { } index
                                 && index < all.Length =>
                     all.RemoveAt(index),
+                "Remove" when For("item") is { } item =>
+                    this.AfterARemove(all: all, item: item.Expression, list: owner),
+                "Reverse" when arguments.Count == 0 =>
+                    ImmutableArray.CreateRange(all.Reverse()),
                 _ => null
             };
 
@@ -160,6 +165,79 @@ internal sealed partial class LoopStateEvaluator
                     SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)?.Name == name)
                 .FirstOrDefault();
     }
+
+    // The positions after a call of Remove with an object. Remove takes the first element that is
+    // equal to that object away. Null when the walk does not know which element that is. An
+    // identity of the turns before is more than one object, and tells nothing here.
+    private ImmutableArray<LoopState>? AfterARemove(
+        ImmutableArray<LoopState> all,
+        ExpressionSyntax item,
+        INamedTypeSymbol list)
+    {
+        if (list.TypeArguments.Length != 1
+            || !IsEqualOnlyToItself(list.TypeArguments[0])
+            || this.TheOneObjectOf(item) is not { IsOfTurnsBefore: false } taken)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < all.Length; i++)
+        {
+            ImmutableArray<MadeObject> here = this.region.Objects.Now(all[i].Objects);
+
+            // The first element that can be the object. A collection that keeps its positions
+            // holds no object that the store does not know.
+            if (here.Contains(taken))
+            {
+                return here.Length == 1 ? all.RemoveAt(i) : null;
+            }
+        }
+
+        // The list does not have the object, and Remove changes nothing.
+        return all;
+    }
+
+    // True for a class whose object is equal to itself and to no other object. The class has
+    // the sealed modifier, it is not IEquatable, and it has no Equals of its own. A record has
+    // one.
+    private static bool IsEqualOnlyToItself(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsSealed: true } sealedClass
+            || sealedClass.AllInterfaces.Any(static contract => contract.Name == "IEquatable"))
+        {
+            return false;
+        }
+
+        for (INamedTypeSymbol? part = sealedClass;
+             part is { SpecialType: not SpecialType.System_Object };
+             part = part.BaseType)
+        {
+            if (part.GetMembers("Equals").Any(static member => member.IsOverride))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     True for an element at a constant index of a collection that keeps its
+    ///     positions, where that position has no object. A coalescing assignment
+    ///     to such an element always gives it the value.
+    /// </summary>
+    /// <remarks>
+    ///     Such a collection holds only values that the walk knew when they went
+    ///     in. Thus, a position with no object of the store has null.
+    /// </remarks>
+    public bool HasNoObjectAt(ExpressionSyntax target) =>
+        Unwrapped(target) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.region.TypeOf(element) is { } type
+        && this.CanBeAnObject(type)
+        && this.StorePositionsOf(element.Expression) is (_, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && all[index].Objects.IsEmpty;
 
     /// <summary>
     ///     The positions of a collection before a call of a method of the

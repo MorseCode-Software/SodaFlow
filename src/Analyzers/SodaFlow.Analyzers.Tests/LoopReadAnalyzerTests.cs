@@ -1915,7 +1915,22 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab82AMethodGivesANewObjectToALocalWithRefAndNoConstant"] = ["SF1001"],
             ["Ab82AMethodGivesTheObjectWithThePendingCellToALocalWithRef"] = ["SF1001"],
             ["Ab82AMethodGivesTheObjectWithThePendingCellAndNoConstant"] = ["SF1001"],
-            ["Ab82AnExchangeThroughALocalWithRef"] = ["SF1001"]
+            ["Ab82AnExchangeThroughALocalWithRef"] = ["SF1001"],
+            ["Ag63ARemoveOfTheObjectWithThePendingCell"] = ["SF1001"],
+            ["Ag63TheSecondElementAfterARemoveOfAnObjectThatTheListHasTwoTimes"] = ["SF1001"],
+            ["Ag63TheFirstElementAfterARemoveOfAnObjectThatTheListDoesNotHave"] = ["SF1001"],
+            ["Ag63ARemoveInABranch"] = ["SF1001"],
+            ["Ag63ARemoveForAClassWithItsOwnEquals"] = ["SF1001"],
+            ["Ag63ARemoveForAClassWhoseBaseClassHasItsOwnEquals"] = ["SF1001"],
+            ["Ag63ARemoveForAClassThatIsEquatable"] = ["SF1001"],
+            ["Ag63ARemoveForAListOfABaseClass"] = ["SF1001"],
+            ["Ag63TheFirstElementAfterACoalescingAssignmentToTheSecond"] = ["SF1001"],
+            ["Ag63AReadThroughAnElementAfterACoalescingAssignment"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentOfThePendingObjectToAnElementWithAnObject"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentInABranch"] = ["SF1001"],
+            ["Ag63TheSecondElementAfterAReverse"] = ["SF1001"],
+            ["Ag63AReverseOfAPart"] = ["SF1001"],
+            ["Ag63AReverseInABranch"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

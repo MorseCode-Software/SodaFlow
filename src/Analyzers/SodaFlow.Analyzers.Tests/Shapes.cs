@@ -12533,6 +12533,102 @@ public static class Shapes
     public static Cell<int> Ab82APlainCellThroughALocalWithRefAndNoConstant() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r.Share = Plain; return S.Hold(y.Share!.Sample()); });
 
+    // S2815. AG63. Remove takes the plain object away, and the plain cell goes through the new first element.
+    public static Cell<int> Ag63TheNewFirstElementAfterARemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2816. AG63. Remove takes the object with the pending cell away, and the plain cell goes through the first element.
+    public static Cell<int> Ag63ARemoveOfTheObjectWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list.Remove(y); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2817. AG63. Remove of an object that the list has two times takes the first one away.
+    public static Cell<int> Ag63ARemoveOfAnObjectThatTheListHasTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2818. AG63. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag63TheSecondElementAfterARemoveOfAnObjectThatTheListHasTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Remove(first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2819. AG63. Remove of an object that the list does not have.
+    public static Cell<int> Ag63ARemoveOfAnObjectThatTheListDoesNotHave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(new SettableSlot()); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2820. AG63. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag63TheFirstElementAfterARemoveOfAnObjectThatTheListDoesNotHave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(new SettableSlot()); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2821. AG63. Remove through a second name of the list, which has the type of an interface.
+    public static Cell<int> Ag63ARemoveThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; ICollection<SettableSlot> all = list; all.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2822. AG63. A Remove in a branch.
+    public static Cell<int> Ag63ARemoveInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; if (!Never) { list.Remove(y); } list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2823. AG63. Remove for a class with its own Equals takes the first element that is equal away.
+    public static Cell<int> Ag63ARemoveForAClassWithItsOwnEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63EqualSlot y = new() { Share = l.Map(v => v) }; Ag63EqualSlot first = new() { Share = Plain }; List<Ag63EqualSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2824. AG63. The same for a class whose base class has its own Equals.
+    public static Cell<int> Ag63ARemoveForAClassWhoseBaseClassHasItsOwnEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63DerivedSlot y = new() { Share = l.Map(v => v) }; Ag63DerivedSlot first = new() { Share = Plain }; List<Ag63DerivedSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2825. AG63. The same for a class that is IEquatable.
+    public static Cell<int> Ag63ARemoveForAClassThatIsEquatable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63EquatableSlot y = new() { Share = l.Map(v => v) }; Ag63EquatableSlot first = new() { Share = Plain }; List<Ag63EquatableSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2826. AG63. The same for a list of a base class that is not sealed, with an object of a class that has its own Equals.
+    public static Cell<int> Ag63ARemoveForAListOfABaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63OpenSlot y = new Ag63OpenEqualSlot { Share = l.Map(v => v) }; Ag63OpenSlot first = new() { Share = Plain }; List<Ag63OpenSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2827. AG63. A coalescing assignment gives the object with the pending cell to an element with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementWithNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2828. AG63. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag63TheFirstElementAfterACoalescingAssignmentToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2829. AG63. The same, and the read is through the element.
+    public static Cell<int> Ag63AReadThroughAnElementAfterACoalescingAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2830. AG63. A coalescing assignment of the object with the pending cell to an element that has an object.
+    public static Cell<int> Ag63ACoalescingAssignmentOfThePendingObjectToAnElementWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, first]; list[0] ??= y; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2831. AG63. A coalescing assignment to an element of an array with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot?[] slots = [null, first]; Ag63CountAll(slots); slots[0] ??= y; slots[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2832. AG63. A coalescing assignment to an element that got no object in an assignment.
+    public static Cell<int> Ag63ACoalescingAssignmentAfterAnAssignmentOfNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, first]; list[1] = null; list[1] ??= y; list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2833. AG63. A coalescing assignment in a branch, to an element with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; if (!Never) { list[1] ??= y; } list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2834. AG63. Reverse gives the positions in the opposite order.
+    public static Cell<int> Ag63TheFirstElementAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Reverse(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2835. AG63. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag63TheSecondElementAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Reverse(); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2836. AG63. Reverse of a part of the list.
+    public static Cell<int> Ag63AReverseOfAPart() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Reverse(0, 2); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2837. AG63. A Reverse in a branch.
+    public static Cell<int> Ag63AReverseInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; if (!Never) { list.Reverse(); } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2838. AG63. A method reverses the list that it gets.
+    public static Cell<int> Ag63AMethodReversesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; Ag62TurnAround(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15284,6 +15380,48 @@ public static class Shapes
     private static void Ab82New(ref SettableSlot slot) => slot = new SettableSlot();
 
     private static void Ab82Give(ref SettableSlot slot, SettableSlot given) => slot = given;
+
+    private static void Ag63CountAll(SettableSlot?[] all) => Kept.Add(all.Length);
+
+    public sealed class Ag63EqualSlot
+    {
+        public Cell<int>? Share { get; set; }
+
+        public override bool Equals(object? obj) => obj is Ag63EqualSlot;
+
+        public override int GetHashCode() => 0;
+    }
+
+    public class Ag63EqualBase
+    {
+        public override bool Equals(object? obj) => obj is Ag63EqualBase;
+
+        public override int GetHashCode() => 0;
+    }
+
+    public sealed class Ag63DerivedSlot : Ag63EqualBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag63EquatableSlot : IEquatable<Ag63EquatableSlot>
+    {
+        public Cell<int>? Share { get; set; }
+
+        public bool Equals(Ag63EquatableSlot? other) => other != null;
+    }
+
+    public class Ag63OpenSlot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag63OpenEqualSlot : Ag63OpenSlot
+    {
+        public override bool Equals(object? obj) => obj is Ag63OpenSlot;
+
+        public override int GetHashCode() => 0;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
