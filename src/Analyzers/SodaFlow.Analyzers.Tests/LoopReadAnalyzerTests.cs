@@ -1849,6 +1849,16 @@ internal sealed class LoopReadAnalyzerTests
     private static Task<string> ReadShapes() =>
         File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "Shapes.cs"));
 
+    // The assembly that the shapes call as code with no body to read. The analyzer gets its bytes
+    // and no source.
+    private static async Task<byte[]> CompileNoBody() =>
+        AnalyzerHarness.Emit(
+            AnalyzerHarness.Compile(
+                source: await File.ReadAllTextAsync(
+                    Path.Combine(path1: AppContext.BaseDirectory, path2: "ShapesNoBody.cs")),
+                libraries: ShapeLibraries,
+                assemblyName: "SodaFlow.Analyzers.ShapesNoBody"));
+
     [Test]
     public async Task EachShapeReportsTheExpectedRules()
     {
@@ -1860,7 +1870,8 @@ internal sealed class LoopReadAnalyzerTests
                 compilation: AnalyzerHarness.Compile(
                     source: source,
                     libraries: ShapeLibraries,
-                    assemblyName: ShapesAssembly));
+                    assemblyName: ShapesAssembly,
+                    images: [await CompileNoBody()]));
 
         SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
         SyntaxNode root = await tree.GetRootAsync();
@@ -1937,12 +1948,16 @@ internal sealed class LoopReadAnalyzerTests
     [Test]
     public async Task EachShapeDoesAtRunTimeWhatItsRulesSay()
     {
+        byte[] noBody = await CompileNoBody();
+
         Assembly assembly =
             AnalyzerHarness.Load(
-                AnalyzerHarness.Compile(
+                compilation: AnalyzerHarness.Compile(
                     source: await ReadShapes(),
                     libraries: ShapeLibraries,
-                    assemblyName: ShapesAssembly));
+                    assemblyName: ShapesAssembly,
+                    images: [noBody]),
+                images: [noBody]);
 
         Type shapes =
             assembly.GetType("SodaFlow.Analyzers.Shapes.Shapes")

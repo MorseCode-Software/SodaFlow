@@ -16,13 +16,23 @@ using System.Xml.Linq;
 using System.Xml.Serialization;
 using SodaFlow;
 using SodaFlow.Collections;
+using SodaFlow.Analyzers.ShapesNoBody;
 using SodaFlow.Functional;
+using IAb72Keeper = SodaFlow.Analyzers.ShapesNoBody.IKeeper<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot, SodaFlow.Analyzers.Shapes.Shapes.Ab72Box>;
+using IAg53Runner = SodaFlow.Analyzers.ShapesNoBody.IRunner;
+using IHolderFiller = SodaFlow.Analyzers.ShapesNoBody.IHolderFiller<SodaFlow.Analyzers.Shapes.Shapes.SlotListHolder>;
+using ISlotBag = SodaFlow.Analyzers.ShapesNoBody.IBag<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using ISlotFiller = SodaFlow.Analyzers.ShapesNoBody.IFiller<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using ISlotLine = SodaFlow.Analyzers.ShapesNoBody.ILine<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using ISlotMaker = SodaFlow.Analyzers.ShapesNoBody.IMaker<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using ISlotRow = SodaFlow.Analyzers.ShapesNoBody.IRow<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 
 namespace SodaFlow.Analyzers.Shapes;
 
 // Each method is one shape, and LoopReadAnalyzerTests gives the rules expected in each. The
 // comment on a shape says what the shape is. This file is test data: the harness compiles it and
-// the analyzer reads it, and the project does not compile it.
+// the analyzer reads it, and the project does not compile it. A helper that a shape names as code
+// with no body to read is in ShapesNoBody.cs, which the analyzer gets no source for.
 public static class Shapes
 {
     private static readonly StreamSink<int> S = Stream.CreateSink<int>();
@@ -13434,19 +13444,9 @@ public static class Shapes
 
     private static List<SettableSlot> ListWithOneSlot() => ListsWithOneSlot[2];
 
-    private static ISlotFiller NewSlotFiller() => new SlotFiller();
+    private static ISlotFiller NewSlotFiller() => NoBody.Filler<SettableSlot>();
 
     private static SlotListHolder HolderWithItsOwnList() => new() { Items = [new SettableSlot()] };
-
-    public interface ISlotFiller
-    {
-        void Fill(List<SettableSlot> list);
-    }
-
-    private sealed class SlotFiller : ISlotFiller
-    {
-        public void Fill(List<SettableSlot> list) => list.Add(new SettableSlot());
-    }
 
     public sealed class SlotListHolder
     {
@@ -13583,35 +13583,7 @@ public static class Shapes
 
     private static readonly SettableSlot[] SlotsOfNoObject = [new(), new(), new()];
 
-    private static ISlotBag NewSlotBag() => new SlotBag();
-
-    public interface ISlotBag
-    {
-        SettableSlot this[int index] { get; set; }
-
-        void Put(SettableSlot slot);
-    }
-
-    private sealed class SlotBag : ISlotBag
-    {
-        private readonly List<SettableSlot> slots = [];
-
-        public SettableSlot this[int index]
-        {
-            get => this.slots[index];
-            set
-            {
-                while (this.slots.Count <= index)
-                {
-                    this.slots.Add(value);
-                }
-
-                this.slots[index] = value;
-            }
-        }
-
-        public void Put(SettableSlot slot) => this.slots.Add(slot);
-    }
+    private static ISlotBag NewSlotBag() => NoBody.Bag<SettableSlot>();
 
     private static void PutOneRankedOwn(SortedSet<RankedOwn> set) => set.Add(new RankedOwn(Plain));
 
@@ -13662,23 +13634,7 @@ public static class Shapes
         int IEqualityComparer<int>.GetHashCode(int value) => value + offset.Sample() - offset.Sample();
     }
 
-    private static ISlotRow NewSlotRow() => new SlotRow();
-
-    public interface ISlotRow : IEnumerable<SettableSlot>
-    {
-        void Put(SettableSlot slot);
-    }
-
-    private sealed class SlotRow : ISlotRow
-    {
-        private readonly List<SettableSlot> slots = [];
-
-        public void Put(SettableSlot slot) => this.slots.Add(slot);
-
-        public IEnumerator<SettableSlot> GetEnumerator() => this.slots.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
-    }
+    private static ISlotRow NewSlotRow() => NoBody.Row<SettableSlot>();
 
     private static readonly SettableSlot[] UnseenSlots =
         [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
@@ -13694,17 +13650,7 @@ public static class Shapes
 
     private static void PutThroughTheField(SettableSlot slot) => FieldForAList!.Add(slot);
 
-    private static IHolderFiller NewHolderFiller() => new HolderFiller();
-
-    public interface IHolderFiller
-    {
-        void Fill(SlotListHolder holder);
-    }
-
-    private sealed class HolderFiller : IHolderFiller
-    {
-        public void Fill(SlotListHolder holder) => holder.Items.Add(new SettableSlot());
-    }
+    private static IHolderFiller NewHolderFiller() => NoBody.HolderFiller<SlotListHolder, SettableSlot>(list: nameof(SlotListHolder.Items));
 
     private static SlotHolder LastHolderOf(SettableSlot slot)
     {
@@ -13734,31 +13680,7 @@ public static class Shapes
         }
     }
 
-    private static ISlotLine NewSlotLine() => new SlotLine();
-
-    public interface ISlotLine
-    {
-        void Put(SettableSlot slot);
-
-        IEnumerable<SettableSlot> All();
-
-        SettableSlot Last();
-
-        int Count();
-    }
-
-    private sealed class SlotLine : ISlotLine
-    {
-        private readonly List<SettableSlot> slots = [];
-
-        public void Put(SettableSlot slot) => this.slots.Add(slot);
-
-        public IEnumerable<SettableSlot> All() => this.slots;
-
-        public SettableSlot Last() => this.slots[this.slots.Count - 1];
-
-        public int Count() => this.slots.Count;
-    }
+    private static ISlotLine NewSlotLine() => NoBody.Line<SettableSlot>();
 
     private static readonly List<List<SettableSlot>> UnseenListsOfLists = [[new()]];
 
@@ -13766,45 +13688,9 @@ public static class Shapes
 
     private static SlotHolder HolderFor(SettableSlot slot) => new() { Item = slot };
 
-    private static IActionKeeper NewActionKeeper() => new ActionKeeper();
+    private static IActionKeeper NewActionKeeper() => NoBody.ActionKeeper();
 
-    public interface IActionKeeper
-    {
-        void Keep(Action action);
-
-        void Run();
-    }
-
-    private sealed class ActionKeeper : IActionKeeper
-    {
-        private readonly List<Action> actions = [];
-
-        public void Keep(Action action) => this.actions.Add(action);
-
-        public void Run() => this.actions.ForEach(static action => action());
-    }
-
-    private static ISlotMaker NewSlotMaker() => new SlotMaker();
-
-    public interface ISlotMaker
-    {
-        void Put(SettableSlot slot);
-
-        SettableSlot Fresh();
-
-        IEnumerable<SettableSlot> AllFresh();
-    }
-
-    private sealed class SlotMaker : ISlotMaker
-    {
-        private readonly List<SettableSlot> slots = [];
-
-        public void Put(SettableSlot slot) => this.slots.Add(slot);
-
-        public SettableSlot Fresh() => new();
-
-        public IEnumerable<SettableSlot> AllFresh() => [new SettableSlot()];
-    }
+    private static ISlotMaker NewSlotMaker() => NoBody.Maker<SettableSlot>();
 
     private static readonly SettableSlot[] Ag51Slots =
         [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
@@ -13866,23 +13752,7 @@ public static class Shapes
         slot.Share = Plain;
     }
 
-    private static IAg53Runner NewAg53Runner() => new Ag53Runner();
-
-    public interface IAg53Runner
-    {
-        void Keep(Action change);
-
-        void Run();
-    }
-
-    private sealed class Ag53Runner : IAg53Runner
-    {
-        private Action kept = static () => { };
-
-        public void Keep(Action change) => this.kept = change;
-
-        public void Run() => this.kept();
-    }
+    private static IAg53Runner NewAg53Runner() => NoBody.Runner();
 
     private static readonly SettableSlot[] Ab71Slots =
         [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
@@ -13927,7 +13797,7 @@ public static class Shapes
         all[0].Share = Plain;
     }
 
-    private static IAb72Keeper NewAb72Keeper() => new Ab72Keeper();
+    private static IAb72Keeper NewAb72Keeper() => NoBody.Keeper<SettableSlot, Ab72Box>(list: nameof(Ab72Box.All));
 
     public sealed class OuterSlot
     {
@@ -13937,34 +13807,6 @@ public static class Shapes
     public sealed class Ab72Box(List<SettableSlot> all)
     {
         public List<SettableSlot> All { get; } = all;
-    }
-
-    public interface IAb72Keeper
-    {
-        void Keep(List<SettableSlot> all);
-
-        void KeepBox(Ab72Box box);
-
-        void Put(SettableSlot first);
-
-        void Swap(SettableSlot first);
-
-        List<SettableSlot> Made();
-    }
-
-    private sealed class Ab72Keeper : IAb72Keeper
-    {
-        private List<SettableSlot> kept = [];
-
-        public void Keep(List<SettableSlot> all) => this.kept = all;
-
-        public void KeepBox(Ab72Box box) => this.kept = box.All;
-
-        public void Put(SettableSlot first) => this.kept.Insert(0, first);
-
-        public void Swap(SettableSlot first) => this.kept[0] = first;
-
-        public List<SettableSlot> Made() => [new SettableSlot()];
     }
 
     private static readonly SettableSlot[] Ab70Slots = [new()];

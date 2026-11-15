@@ -50,9 +50,14 @@
         time, against the library assemblies this project references, and the analyzer reads it.
         Compiling it here would hold a file that is meant to trip every rule to the build's own
         warnings. It is a .cs file so that an editor reads it as C#.
+
+        ShapesNoBody.cs has the helpers that a shape calls as code with no body to read. The harness
+        compiles it to an assembly of its own, which the shapes reference. Thus, the analyzer gets
+        no source for it.
     -->
     <ItemGroup>
         <None Include="Shapes.cs" CopyToOutputDirectory="PreserveNewest"/>
+        <None Include="ShapesNoBody.cs" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <!--
