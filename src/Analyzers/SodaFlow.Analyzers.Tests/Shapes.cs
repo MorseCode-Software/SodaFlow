@@ -12049,6 +12049,42 @@ public static class Shapes
     public static Cell<int> Ag60TheObjectOfTheLastTurnAfterTheLoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlain(x); last = x; } return S.Hold(last!.Share!.Sample()); });
 
+    // S2694. AG59. A method with a type parameter returns the interface, and makes the keeper with the type parameter.
+    public static Cell<int> Ag59AMethodWithATypeParameterReturnsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeBehind<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2695. AG59. The same, and the keeper puts an object first.
+    public static Cell<int> Ag59AKeeperBehindATypeParameterPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeBehind<Ag59Keeper>(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2696. AG59. A lambda in such a method makes the keeper.
+    public static Cell<int> Ag59ALambdaInAMethodThatReturnsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeBehindInALambda<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2697. AG59. Such a method gives its type parameter to a second one, which makes the keeper.
+    public static Cell<int> Ag59ATypeParameterGoesToASecondMethodThatReturnsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeBehindThroughASecond<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2698. AG59. An extension method with a type parameter returns the interface.
+    public static Cell<int> Ag59AnExtensionMethodThatReturnsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = first.Ag59MakeBehindBeside<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2699. AG59. A method that returns the interface gets its keeper from a method whose result has the type parameter. That type is a sealed class for this call, and says the class of the keeper.
+    public static Cell<int> Ag59ASealedClassThroughATypeParameterSaysTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeBehindWithTheClass<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2700. AG59. The type parameter is a class that is not sealed. The method that makes the object has the type parameter as the type of its result.
+    public static Cell<int> Ag59AnOpenClassThroughATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag59Base b = Ag59MakeBase<Ag59OpenDerived>(); b.Give(l.Map(v => v)); return S.Hold(b.Share!.Sample()); });
+
+    // S2701. AG59. A method with no state returns a sealed collection of the platform, which then gets an object with a pending cell.
+    public static Cell<int> Ag59ASealedCollectionOfThePlatformFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; ImmutableList<SettableSlot> all = Ag59NoSlots().Add(x); return S.Hold(all[0].Share!.Sample()); });
+
+    // S2702. AG59. A method returns its argument, which is an object that the walk did not see made and has a pending cell through its name.
+    public static Cell<int> Ag59AMethodReturnsAnUnseenObjectWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag59UnseenForTheSame[0]; c.Share = l.Map(v => v); SettableSlot d = Ag59Same(c); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14718,6 +14754,41 @@ public static class Shapes
         ((SettableSlot)slot).Share = cell;
     }
 
+    private static readonly SettableSlot[] Ag59UnseenForTheSame = [new()];
+
+    private static IAg59Keeper Ag59MakeBehind<T>()
+        where T : IAg59Keeper, new() =>
+        new T();
+
+    private static IAg59Keeper Ag59MakeBehindInALambda<T>()
+        where T : IAg59Keeper, new()
+    {
+        Func<IAg59Keeper> make = static () => new T();
+
+        return make();
+    }
+
+    private static IAg59Keeper Ag59MakeBehindThroughASecond<T>()
+        where T : IAg59Keeper, new() =>
+        Ag59MakeBehind<T>();
+
+    private static IAg59Keeper Ag59MakeBehindWithTheClass<T>()
+        where T : IAg59Keeper, new() =>
+        Ag59Make<T>();
+
+    private static Ag59Base Ag59MakeBase<T>()
+        where T : Ag59Base, new() =>
+        Ag59Make<T>();
+
+    private static ImmutableList<SettableSlot> Ag59NoSlots() => ImmutableList<SettableSlot>.Empty;
+
+    private static SettableSlot Ag59Same(SettableSlot slot) => slot;
+
+    private class Ag59OpenDerived : Ag59Base
+    {
+        public override void Give(Cell<int> cell) => this.Share = cell;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -14726,6 +14797,14 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static Shapes.IAg59Keeper Ag59MakeBehindBeside<T>(this Shapes.SettableSlot slot)
+        where T : Shapes.IAg59Keeper, new()
+    {
+        slot.Share ??= Cell.Constant(6);
+
+        return new T();
+    }
+
     public static T Ag59MakeBeside<T>(this Shapes.SettableSlot slot)
         where T : new()
     {

@@ -34,7 +34,10 @@ internal sealed partial class LoopStateEvaluator
     /// </param>
     /// <param name="target">The delegate, when the call is a call of a delegate.</param>
     /// <param name="returnsAFunction">True when the callee returns a delegate.</param>
-    /// <param name="returnsAnObject">True when the result of the callee can be an object of the store.</param>
+    /// <param name="returnsAnObject">
+    ///     True when the result of the callee can be an object, and the type of
+    ///     the result does not say the class of that object.
+    /// </param>
     /// <param name="manyTimes">
     ///     True when a callee with no body to read runs the function. It can run
     ///     the function two or more times for one call.
@@ -59,8 +62,8 @@ internal sealed partial class LoopStateEvaluator
         // A callee that gets an object of the store can give the object a second name. A callee
         // that returns a delegate can return a lambda, which the caller then runs with values from
         // the loop. A callee that returns an object can make it. The class of that creation says
-        // which method a call through an interface runs. The walk reads such callees while
-        // ReadsForObjects permits.
+        // which method a call through an interface runs, when the type of the result does not.
+        // The walk reads such callees while ReadsForObjects permits.
         bool noState =
             definer == null
             && members.Count == 0

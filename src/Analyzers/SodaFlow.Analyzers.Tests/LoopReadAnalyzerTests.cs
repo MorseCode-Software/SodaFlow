@@ -1851,7 +1851,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab76AParameterWithInGetsACopy"] = ["SF1001"],
             ["Ab76ALocalFunctionWithAParameterWithRef"] = ["SF1001"],
             ["Ab76ALambdaWithAParameterWithRef"] = ["SF1001"],
-            ["Ab76TheCallIsInALambda"] = ["SF1001"]
+            ["Ab76TheCallIsInALambda"] = ["SF1001"],
+            ["Ag59AKeeperBehindATypeParameterPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag59AnOpenClassThroughATypeParameter"] = ["SF1001"],
+            ["Ag59ASealedCollectionOfThePlatformFromAMethod"] = ["SF1001"],
+            ["Ag59AMethodReturnsAnUnseenObjectWithAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -1513,10 +1513,41 @@ internal sealed partial class LoopStateEvaluator
     ///     see made. Only the names from this call have it, and each of them is a
     ///     name of that one object.
     /// </remarks>
-    private LoopState ReturnedHere(ExpressionSyntax call, LoopState result) =>
-        result.Objects.IsEmpty && this.region.TypeOf(call) is { } type && this.CanBeAnObject(type)
-            ? this.MadeHere(place: call, state: result, exact: false)
-            : result;
+    private LoopState ReturnedHere(ExpressionSyntax call, LoopState result)
+    {
+        if (!result.Objects.IsEmpty || this.region.TypeOf(call) is not { } written)
+        {
+            return result;
+        }
+
+        // A type parameter of this code is the type that the call of this code gave it.
+        ITypeSymbol type = this.TypeArgumentFor(written) ?? written;
+
+        if (!this.CanBeAnObject(type))
+        {
+            return result;
+        }
+
+        // A sealed class of this compilation is the class of each of its objects. Thus, the result
+        // has that class also when the walk did not read the callee.
+        LoopState known =
+            result.Members == null
+            && type is INamedTypeSymbol
+            {
+                TypeKind: TypeKind.Class, IsSealed: true, DeclaringSyntaxReferences.IsEmpty: false
+            } itsClass
+                ? result.WithMembers(Construction.Of(itsClass))
+                : result;
+
+        return this.MadeHere(place: call, state: known, exact: false);
+    }
+
+    // True for a type that does not say the class of its object: an interface, or a class that is
+    // not sealed. Only the creation says the class of such a result, thus the walk reads the
+    // callee for it. That read has a cost, and a callee with each other type of result gets none.
+    private bool DoesNotSayItsClass(ITypeSymbol type) =>
+        this.CanBeAnObject(type)
+        && type is { TypeKind: TypeKind.Interface } or INamedTypeSymbol { TypeKind: TypeKind.Class, IsSealed: false };
 
     // True for a type whose values the store keeps as objects. A string and a value of the library
     // do not change, and a delegate has its functions.
@@ -3049,7 +3080,7 @@ internal sealed partial class LoopStateEvaluator
             receiver: receiverState,
             target: null,
             returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate,
-            returnsAnObject: this.CanBeAnObject(this.TypeArgumentFor(method.ReturnType) ?? method.ReturnType),
+            returnsAnObject: this.DoesNotSayItsClass(this.TypeArgumentFor(method.ReturnType) ?? method.ReturnType),
             owner: receiverState == null ? null : receiver);
     }
 
@@ -3280,7 +3311,7 @@ internal sealed partial class LoopStateEvaluator
                     members: TaggedMembers(owner),
                     receiver: owner,
                     target: null,
-                    returnsAnObject: this.CanBeAnObject(method.ReturnType),
+                    returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
                     manyTimes: each != null);
             }
             default:
@@ -3690,7 +3721,7 @@ internal sealed partial class LoopStateEvaluator
                             members: members,
                             receiver: receiver,
                             target: null,
-                            returnsAnObject: this.CanBeAnObject(property.Type)));
+                            returnsAnObject: this.DoesNotSayItsClass(property.Type)));
                 });
     }
 
@@ -3786,7 +3817,7 @@ internal sealed partial class LoopStateEvaluator
                         members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
                         receiver: null,
                         target: null,
-                        returnsAnObject: this.CanBeAnObject(definition.ReturnType))
+                        returnsAnObject: this.DoesNotSayItsClass(definition.ReturnType))
                     : this.Enter(
                         call: call,
                         name: ImpliedNameOf(definition),
@@ -3796,7 +3827,7 @@ internal sealed partial class LoopStateEvaluator
                         members: owner == null ? this.thisMembers : TaggedMembers(owner),
                         receiver: owner,
                         target: null,
-                        returnsAnObject: this.CanBeAnObject(definition.ReturnType));
+                        returnsAnObject: this.DoesNotSayItsClass(definition.ReturnType));
         }
 
         return result;
