@@ -13121,6 +13121,22 @@ public static class Shapes
     public static Cell<int> Ag65TwoParametersAreTheSameElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveBoth(ref slots[0], ref slots[0], first, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
 
+    // S2962. AG63 probe. A coalescing assignment to an element that has an object gives it nothing.
+    public static Cell<int> Ag63ProbeACoalescingAssignmentToAnElementWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [y, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2963. AG66. An assignment gives the element the object with the pending cell, and a coalescing assignment to the element gives it nothing.
+    public static Cell<int> Ag66ACoalescingAssignmentAfterAnAssignmentToTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [null, first]; list[0] = y; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2964. AG66. The element can be null, because a conditional expression gave its value.
+    public static Cell<int> Ag66TheElementCanBeNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot? maybe = Kept.Count < 0 ? y : null; List<SettableSlot?> list = [maybe, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2965. AG66. A creation gave the local of the element its value, and a branch gave the local null before the list.
+    public static Cell<int> Ag66TheLocalOfTheElementGetsNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = new() { Share = l.Map(v => v) }; SettableSlot pending = y; SettableSlot first = new() { Share = Plain }; if (Kept.Count >= 0) { y = null; } List<SettableSlot?> list = [y, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(pending.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

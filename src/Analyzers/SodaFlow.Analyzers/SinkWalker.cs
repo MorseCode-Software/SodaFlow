@@ -1039,8 +1039,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             // A coalescing assignment runs only when its target is null. Thus, the target keeps
             // the state that it had, and gets the state of the value also. An element at a
-            // position that has no object always gets the value.
-            if (node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
+            // position that has no object always gets the value. An element at a position that
+            // has an object for sure gets nothing, and the positions stay.
+            if (node.IsKind(SyntaxKind.CoalesceAssignmentExpression) && !this.evaluator.HasAnObjectAt(node.Left))
             {
                 SyntaxNode? itsTurn = null;
 

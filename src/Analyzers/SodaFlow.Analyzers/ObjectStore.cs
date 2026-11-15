@@ -420,8 +420,41 @@ internal sealed class ObjectStore
         this.positions.Remove(collection);
     }
 
+    // For a collection: its positions at a record, and the expression that gave each position its
+    // value. The record is good while the collection has those positions.
+    private readonly Dictionary<MadeObject, (ImmutableArray<LoopState> Values, ImmutableArray<SyntaxNode?> Given)>
+        givenBy = [];
+
     /// <summary>
-    ///     The number of calls of <see cref="HasPositions" /> and
+    ///     Records the value at each position of a collection, and the expression
+    ///     that gave each value. Null is for a value that no expression of the
+    ///     code gave.
+    /// </summary>
+    public void HasPositions(
+        MadeObject collection,
+        ImmutableArray<LoopState> values,
+        ImmutableArray<SyntaxNode?> givenBy)
+    {
+        this.HasPositions(collection: collection, values: values);
+        this.givenBy[collection] = (values, givenBy);
+    }
+
+    /// <summary>
+    ///     The expression that gave each position of a collection its value, for
+    ///     the positions that the collection has now. Null for each value that
+    ///     the walk has no expression for.
+    /// </summary>
+    public ImmutableArray<SyntaxNode?> GivenBy(MadeObject collection, ImmutableArray<LoopState> values) =>
+        this.givenBy.TryGetValue(
+            key: collection,
+            value: out (ImmutableArray<LoopState> Values, ImmutableArray<SyntaxNode?> Given) known)
+        && known.Values == values
+            ? known.Given
+            : values.Select(static _ => (SyntaxNode?)null).ToImmutableArray();
+
+    /// <summary>
+    ///     The number of calls of
+    ///     <see cref="HasPositions(MadeObject, ImmutableArray{LoopState})" /> and
     ///     <see cref="HasNoPositions" />. When the number is the same at two
     ///     times, no code between the two changed a position.
     /// </summary>

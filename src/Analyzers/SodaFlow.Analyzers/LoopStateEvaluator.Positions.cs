@@ -89,7 +89,8 @@ internal sealed partial class LoopStateEvaluator
         {
             this.region.Objects.HasPositions(
                 collection: made,
-                values: all.SetItem(index: index, item: this.Eval(value)));
+                values: all.SetItem(index: index, item: this.Eval(value)),
+                givenBy: this.region.Objects.GivenBy(collection: made, values: all).SetItem(index: index, item: value));
         }
     }
 
@@ -259,6 +260,52 @@ internal sealed partial class LoopStateEvaluator
         && this.ConstantIndexOf(indexes[0]) is { } index
         && index < all.Length
         && all[index].Objects.IsEmpty;
+
+    /// <summary>
+    ///     True for an element at a constant index of a collection that keeps its
+    ///     positions, where that position has an object for sure. A coalescing
+    ///     assignment to such an element changes nothing.
+    /// </summary>
+    /// <remarks>
+    ///     A state does not say that its value is not null. Thus, the walk reads
+    ///     the expression that gave the position its value.
+    /// </remarks>
+    public bool HasAnObjectAt(ExpressionSyntax target) =>
+        Unwrapped(target) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.StorePositionsOf(element.Expression) is (var made, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && this.region.Objects.GivenBy(collection: made, values: all)[index] is ExpressionSyntax given
+        && this.IsAnObjectForSure(given);
+
+    // True for a creation of an object of a class, and for a local that only such a creation gave
+    // a value. A local can get null from code after the creation. A creation of a struct with a
+    // nullable type gives null.
+    private bool IsAnObjectForSure(ExpressionSyntax value) =>
+        Unwrapped(value) switch
+        {
+            IdentifierNameSyntax name =>
+                this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
+                && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                && IsACreation(made)
+                && this.region.TypeOf(made) is { IsReferenceType: true }
+                && FunctionOf(declarator) is { } code
+                && !this.GetsAValue(
+                    name: local,
+                    code: code,
+                    after: declarator.Span.End,
+                    before: int.MaxValue,
+                    orAFunctionUsesIt: false),
+            var other => IsACreation(other) && this.region.TypeOf(other) is { IsReferenceType: true }
+        };
+
+    private static bool IsACreation(ExpressionSyntax value) =>
+        Unwrapped(value)
+            is BaseObjectCreationExpressionSyntax
+            or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax
+            or AnonymousObjectCreationExpressionSyntax;
 
     /// <summary>
     ///     What a <c>CompareExchange</c> does to an element at a constant index

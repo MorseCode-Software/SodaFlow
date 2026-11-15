@@ -67,7 +67,10 @@ internal sealed partial class LoopStateEvaluator
         // A literal whose object has its elements in the order of the code gives the positions.
         if (this.LiteralElements(made: Unwrapped(place), type: this.region.TypeOf(place)) is { } ordered)
         {
-            this.region.Objects.HasPositions(collection: made, values: ordered.Select(this.Eval).ToImmutableArray());
+            this.region.Objects.HasPositions(
+                collection: made,
+                values: ordered.Select(this.Eval).ToImmutableArray(),
+                givenBy: ordered.Select(static element => (SyntaxNode?)element).ToImmutableArray());
         }
     }
 
