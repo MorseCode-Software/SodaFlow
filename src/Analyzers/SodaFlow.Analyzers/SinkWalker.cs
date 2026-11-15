@@ -2097,7 +2097,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     given: LoopState.None,
                     oneTime: OperatorTable.RunsFunctionOneTime(method));
 
-                this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+                if (!OperatorTable.EnumeratesAfterTheClose(method))
+                {
+                    this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+                }
+                else
+                {
+                    // The walk reads a query one time. A query that the code made before the call
+                    // can have a second enumeration in the block. Thus, the walk reads it here.
+                    foreach (ArgumentSyntax argument in arguments.Where(static argument =>
+                                 !IsMadeAtTheCall(argument.Expression)))
+                    {
+                        this.RunQueries(argument.Expression);
+                    }
+                }
 
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
@@ -2830,6 +2843,26 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.Report(getter);
                 this.Serialize(written: written, state: getter.State, serializer: serializer, depth: depth + 1);
             }
+        }
+    }
+
+    /// <summary>
+    ///     True for a sequence that the code makes at the call. No other code
+    ///     can enumerate it.
+    /// </summary>
+    public static bool IsMadeAtTheCall(ExpressionSyntax written) =>
+        written is InvocationExpressionSyntax or QueryExpressionSyntax;
+
+    /// <summary>
+    ///     Reads what the queries of a sequence run, for each query that the
+    ///     code of this walker makes.
+    /// </summary>
+    public void RunQueriesMadeHere(ExpressionSyntax written)
+    {
+        foreach (QueryValue query in this.evaluator.Eval(written).Queries
+                     .Where(query => ReferenceEquals(objA: query.Definer, objB: this.evaluator)))
+        {
+            this.Run(query: query, to: this.sink);
         }
     }
 

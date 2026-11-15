@@ -2055,7 +2055,8 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab104EnablementOfAnActionWithALinkedEnablementAsTheClose"] = ["SF1002"],
             ["Ab104EnablementOfAnActionWithAPendingEnablementRead"] = ["SF1001"],
             ["R2ApiCollectionFromALinkedCellAsTheClose"] = ["SF1006"],
-            ["Ab105CollectionWithALinkedEditStreamAsTheClose"] = ["SF1002"]
+            ["Ab105CollectionWithALinkedEditStreamAsTheClose"] = ["SF1002"],
+            ["Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

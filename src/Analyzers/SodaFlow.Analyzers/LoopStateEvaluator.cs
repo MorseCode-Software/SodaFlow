@@ -2557,6 +2557,15 @@ internal sealed partial class LoopStateEvaluator
                     message: "An operator rule has no case.")
             };
 
+        // A collection enumerates the sequence of its initial items at the first read of it. A
+        // read in that sequence makes the collection pending.
+        if (!state.Pending
+            && OperatorTable.EnumeratesAfterTheClose(method)
+            && this.SequenceReadsPending(invocation: invocation, method: method))
+        {
+            state = state.WithPending(true);
+        }
+
         // The function of a map, a lift, or a view computes the value of the result at the first
         // read of it. A function that reads a pending value makes that value pending. A view that
         // sorts by the order in a cell runs the function of that order.
@@ -6027,6 +6036,34 @@ internal sealed partial class LoopStateEvaluator
                         is { } followed
                     && followed.Findings.Any(static finding => !finding.Escape));
         }
+    }
+
+    /// <summary>
+    ///     True when a sequence that the code makes at the call reads a pending
+    ///     value when something enumerates it. A quiet evaluator reads the sequence.
+    ///     Thus, the queries of this code stay for the enumeration that the walk
+    ///     reads.
+    /// </summary>
+    private bool SequenceReadsPending(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        List<Finding> found = [];
+        LoopStateEvaluator quiet = this.Quiet();
+        SinkWalker? walker = null;
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            if (SinkWalker.IsMadeAtTheCall(written)
+                && SodaFlowSymbols.IsSequence(ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
+            {
+                walker ??= quiet.ReadBy(new SinkWalker(region: this.region, evaluator: quiet, sink: found.Add));
+                walker.RunQueriesMadeHere(written);
+            }
+        }
+
+        return found.Any(static finding => !finding.Escape);
     }
 
     /// <summary>

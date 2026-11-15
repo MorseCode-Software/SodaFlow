@@ -13397,6 +13397,18 @@ public static class Shapes
     public static Cell<int> Ab105CollectionWithALinkedEditStreamAsTheClose() =>
         Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: Plain.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), l.Updates().Map(v => CollectionEdit<int, ItemId, int>.Add(new Item<ItemId, int>(identity: new ItemId(v), state: v)))).KeysCell.Map(keys => keys.Count));
 
+    // S3031. A collection keeps the sequence of its initial items in a constant cell and enumerates it at the end of the transaction. Thus, a query in it that samples the placeholder runs after the close.
+    public static Cell<int> R2ApiCollectionFromADeferredQueryThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: Enumerable.Range(1, 1).Select(i => new Item<ItemId, int>(identity: new ItemId(i), state: l.Sample())), Stream.Never<CollectionEdit<int, ItemId, int>>()); return S.Snapshot(items.KeysCell, (a, keys) => a + keys.Count).Hold(0); });
+
+    // S3032. A sample of the keys of a collection from a deferred query enumerates the query in the block, and the query samples the placeholder.
+    public static Cell<int> Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: Enumerable.Range(1, 1).Select(i => new Item<ItemId, int>(identity: new ItemId(i), state: l.Sample())), Stream.Never<CollectionEdit<int, ItemId, int>>()); int count = items.KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3033. A collection from a list keeps the list, and a sample of its keys in the block reads the list, which has no pending value.
+    public static Cell<int> Ab106CollectionFromAListSampledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: new List<Item<ItemId, int>> { new Item<ItemId, int>(identity: new ItemId(1), state: 1) }, Stream.Never<CollectionEdit<int, ItemId, int>>()); int count = items.KeysCell.Sample().Count; return S.Hold(count + 0 * l.SampleLazy().GetHashCode()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

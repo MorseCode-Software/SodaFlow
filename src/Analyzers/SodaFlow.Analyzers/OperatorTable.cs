@@ -287,6 +287,15 @@ internal static class OperatorTable
     /// </summary>
     public static bool ReadsReceiverAtConstruction(string name) => name is "Fold" or "FoldByIdentity";
 
+    /// <summary>
+    ///     True for a library method that does not enumerate a sequence that it
+    ///     gets in the call. A reactive collection keeps the sequence of its
+    ///     initial items in a constant cell. It enumerates the sequence in a lazy
+    ///     sample, which the transaction forces after the close.
+    /// </summary>
+    public static bool EnumeratesAfterTheClose(IMethodSymbol method) =>
+        method.Name == "Create" && method.ContainingType.Name == "ReactiveCollection";
+
     /// <summary>The names of the methods that run a function in the call.</summary>
     public static ImmutableHashSet<string> FunctionsInTheCall { get; } = RunsInTheCall.Keys.ToImmutableHashSet();
 
