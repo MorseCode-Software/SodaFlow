@@ -1987,7 +1987,9 @@ internal sealed class LoopReadAnalyzerTests
             ["R2CsEventRaisedInTheBlock"] = ["SF1001"],
             ["R2CsDelegatesCombinedWithPlus"] = ["SF1001"],
             ["Ab95AMethodRaisesAnEventOfItsObject"] = ["SF1001"],
-            ["Ab95DelegatesCombinedAndInvoked"] = ["SF1001"]
+            ["Ab95DelegatesCombinedAndInvoked"] = ["SF1001"],
+            ["R2CsAssignmentThroughARefReturn"] = ["SF1001"],
+            ["Ab96AssignmentThroughARefParameterReturned"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

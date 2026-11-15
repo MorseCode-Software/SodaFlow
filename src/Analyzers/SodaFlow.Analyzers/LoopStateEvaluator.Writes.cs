@@ -335,6 +335,56 @@ internal sealed partial class LoopStateEvaluator
         };
 
     /// <summary>
+    ///     The locations that a call of a method that returns a ref can give,
+    ///     in the code of the caller. Each is the argument for a parameter that
+    ///     the method returns, or an element of that argument. The walk does not
+    ///     know the position of such an element. Empty for each other location.
+    /// </summary>
+    /// <param name="call">The call that is the target of an assignment.</param>
+    public IReadOnlyList<(ExpressionSyntax Argument, bool IsAnElement)> LocationsOfARefReturn(
+        InvocationExpressionSyntax call)
+    {
+        if (this.region.SymbolOf(call) is not IMethodSymbol { ReturnsByRef: true } method
+            || BodyOf((method.ReducedFrom ?? method).OriginalDefinition) is not { } body)
+        {
+            return [];
+        }
+
+        IReadOnlyList<Binding> bindings =
+            this.Bind(
+                definition: (method.ReducedFrom ?? method).OriginalDefinition,
+                arguments: call.ArgumentList.Arguments,
+                extensionReceiver: method.ReducedFrom != null
+                    ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
+                    : null);
+
+        List<(ExpressionSyntax Argument, bool IsAnElement)> locations = [];
+
+        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        {
+            (ExpressionSyntax name, bool isAnElement) =
+                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                    ? (Unwrapped(element.Expression), true)
+                    : (Unwrapped(returned), false);
+
+            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not IParameterSymbol parameter)
+            {
+                continue;
+            }
+
+            foreach (Binding binding in bindings)
+            {
+                if (SymbolEqualityComparer.Default.Equals(x: binding.Parameter, y: parameter))
+                {
+                    locations.Add((binding.Argument, isAnElement));
+                }
+            }
+        }
+
+        return locations;
+    }
+
+    /// <summary>
     ///     The collection of the element that a name with ref is for. It is for
     ///     a name whose location the walk cannot read again: see
     ///     <see cref="TheLocationOf" />. A value that goes to such a name goes into

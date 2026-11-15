@@ -13013,6 +13013,22 @@ public static class Shapes
     public static Cell<int> Ab95DelegatesCombinedThatDoNotRead() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l); Action both = first + second; both(); return S.Hold(0); });
 
+    // S2935. An assignment to the result of a method that returns a ref puts a pending cell into the array, and the block samples the element.
+    public static Cell<int> R2CsAssignmentThroughARefReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2SlotOf(cells) = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S2936. AB96 control. An assignment through a method that returns a ref puts a plain cell into the array.
+    public static Cell<int> Ab96APlainCellThroughARefReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2SlotOf(cells) = Plain; return S.Hold(cells[0].Sample()); });
+
+    // S2937. AB96. A method returns its parameter with ref, and an assignment to the result gives the local a pending cell.
+    public static Cell<int> Ab96AssignmentThroughARefParameterReturned() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Ab96Same(ref x) = l.Map(v => v); return S.Hold(x.Sample()); });
+
+    // S2938. AB96 control. A pending cell goes through the ref of the first array, and the block samples the second array.
+    public static Cell<int> Ab96APendingCellIntoTheOtherArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int>[] others = [Plain]; R2SlotOf(cells) = l.Map(v => v); return S.Hold(others[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16251,6 +16267,8 @@ public static class Shapes
 
         public void Ring() => this.Rang?.Invoke();
     }
+
+    private static ref Cell<int> Ab96Same(ref Cell<int> c) => ref c;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

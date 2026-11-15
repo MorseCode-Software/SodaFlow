@@ -1385,6 +1385,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        // An assignment to the result of a method that returns a ref is an assignment to the
+        // location that the method returns.
+        if (target is InvocationExpressionSyntax call)
+        {
+            foreach ((ExpressionSyntax location, bool isAnElement) in this.evaluator.LocationsOfARefReturn(call))
+            {
+                if (isAnElement)
+                {
+                    this.evaluator.ForgetsThePositionsOf(location);
+                    this.evaluator.GetsThroughARef(
+                        collection: location,
+                        state: this.evaluator.Eval(value),
+                        value: value);
+                }
+                else
+                {
+                    this.AssignState(
+                        target: location,
+                        state: this.evaluator.Eval(value),
+                        replaces: false,
+                        turn: null,
+                        from: value);
+                }
+            }
+        }
+
         LoopState whole = this.evaluator.Eval(value);
 
         if (target is IdentifierNameSyntax
