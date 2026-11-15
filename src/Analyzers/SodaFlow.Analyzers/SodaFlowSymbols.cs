@@ -70,6 +70,7 @@ internal sealed class SodaFlowSymbols
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
     // call of a method with no body to read.
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesASequence = new(SymbolEqualityComparer.Default);
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> takesAFunction = new(SymbolEqualityComparer.Default);
 
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
@@ -345,15 +346,17 @@ internal sealed class SodaFlowSymbols
         type is { TypeKind: TypeKind.Interface, Name: "IEnumerator" } && IsCollections(type.ContainingNamespace);
 
     /// <summary>
-    ///     The type of the elements of a sequence: an array, or a type that is
-    ///     <c>IEnumerable</c> of some type. Null for each other type, and for a
-    ///     string.
+    ///     The type of the elements of a sequence: an array, a span, or a type
+    ///     that is <c>IEnumerable</c> of some type. Null for each other type, and
+    ///     for a string.
     /// </summary>
     public static ITypeSymbol? ElementTypeOf(ITypeSymbol? type) =>
         type switch
         {
             IArrayTypeSymbol array => array.ElementType,
             INamedTypeSymbol { SpecialType: SpecialType.System_String } => null,
+            INamedTypeSymbol { Name: "Span" or "ReadOnlySpan", TypeArguments.Length: 1 } span
+                when IsSystem(span.ContainingNamespace) => span.TypeArguments[0],
             INamedTypeSymbol named =>
                 named.AllInterfaces
                     .Insert(index: 0, item: named)
@@ -380,7 +383,7 @@ internal sealed class SodaFlowSymbols
         };
 
     /// <summary>True for a type that is an <c>IEnumerator</c> of the platform.</summary>
-    private static bool IsEnumerator(ITypeSymbol? type) =>
+    public static bool IsEnumerator(ITypeSymbol? type) =>
         type is INamedTypeSymbol named
         && (IsEnumeratorInterface(named) || named.AllInterfaces.Any(IsEnumeratorInterface));
 
@@ -413,6 +416,37 @@ internal sealed class SodaFlowSymbols
             is ("JsonSerializer", "System.Text.Json")
             or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
             or ("XmlSerializer", "System.Xml.Serialization");
+
+    /// <summary>
+    ///     True for a member of LINQ to XML that puts content into a node in the
+    ///     call. That is a constructor of <c>XElement</c> or of <c>XDocument</c>,
+    ///     and each method that adds or replaces content. The member has its
+    ///     content as <c>object</c>, and enumerates each sequence in it.
+    ///     <c>XStreamingElement</c> is not here, because it keeps its content.
+    /// </summary>
+    public static bool TakesXmlContent(IMethodSymbol definition) =>
+        definition.ContainingType is { Name: "XElement" or "XDocument" or "XContainer" or "XNode" } owner
+        && IsLinqToXml(owner)
+        && (definition.MethodKind == MethodKind.Constructor
+            || definition.Name
+                is "Add"
+                or "AddFirst"
+                or "AddAfterSelf"
+                or "AddBeforeSelf"
+                or "ReplaceWith"
+                or "ReplaceNodes"
+                or "ReplaceAll"
+                or "ReplaceAttributes");
+
+    /// <summary>
+    ///     True for a method of <c>XStreamingElement</c> that writes the element.
+    ///     The element enumerates the content that it kept at that time.
+    /// </summary>
+    public static bool WritesXmlContent(IMethodSymbol definition) =>
+        definition is { Name: "ToString" or "Save" or "WriteTo", ContainingType: { Name: "XStreamingElement" } owner }
+        && IsLinqToXml(owner);
+
+    private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
 
     /// <summary>
     ///     True for a serializer that writes the public fields of an object, and
@@ -452,6 +486,16 @@ internal sealed class SodaFlowSymbols
         member.ContainingType is { } owner
         && (owner.ContainingNamespace?.ToDisplayString() == "System.Reflection"
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
+
+    /// <summary>
+    ///     True for a method that has a parameter whose type is a delegate. Most
+    ///     methods have none, and the answer for a method is the same at each call.
+    /// </summary>
+    public bool TakesAFunction(IMethodSymbol definition) =>
+        this.takesAFunction.GetOrAdd(
+            key: definition,
+            valueFactory: static method =>
+                method.Parameters.Any(static parameter => parameter.Type.TypeKind == TypeKind.Delegate));
 
     /// <summary>
     ///     True for a method that has a parameter whose values a callee
@@ -500,8 +544,47 @@ internal sealed class SodaFlowSymbols
                    || PackagesWithNoGraph.Contains(definition.ContainingAssembly?.Name ?? string.Empty));
     }
 
-    private static bool IsLinqEnumerable(ISymbol? type) =>
+    /// <summary>
+    ///     True for a type whose object has the elements of a collection
+    ///     expression in the order of the code. The types are an array,
+    ///     <c>List</c>, <c>ArrayList</c>, and each interface that the compiler
+    ///     gives a list or an array for. A set or a sorted collection has a
+    ///     different order.
+    /// </summary>
+    public static bool KeepsTheOrder(ITypeSymbol? type) =>
+        type is IArrayTypeSymbol
+        || (type is INamedTypeSymbol
+            {
+                Name: "List" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection" or "IList" or "ICollection"
+            } named
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        || (type is INamedTypeSymbol { Name: "ArrayList" } untyped
+            && untyped.ContainingNamespace?.ToDisplayString() == "System.Collections");
+
+    /// <summary>
+    ///     True for a method of a collection of the platform that looks for the
+    ///     value that it gets, and does not keep that value. The name says it.
+    ///     Each other method can keep its argument, as <c>Add</c> does.
+    /// </summary>
+    public static bool IsASearch(IMethodSymbol method) =>
+        method.Name
+            is "Contains"
+            or "ContainsKey"
+            or "ContainsValue"
+            or "IndexOf"
+            or "LastIndexOf"
+            or "Remove"
+            or "TryGetValue";
+
+    public static bool IsLinqEnumerable(ISymbol? type) =>
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
+
+    /// <summary>
+    ///     True for <c>IGrouping</c>, the element of a lookup. It has a key and
+    ///     the values for that key.
+    /// </summary>
+    public static bool IsGrouping(ISymbol? type) =>
+        type is { Name: "IGrouping" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
     /// <summary>
     ///     True for a symbol of the platform: one in the <c>System</c> namespace,
@@ -521,6 +604,31 @@ internal sealed class SodaFlowSymbols
 
     private static bool IsSystem(INamespaceSymbol? space) =>
         space is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
+
+    /// <summary>
+    ///     True for a type of the platform that only holds the values that its
+    ///     constructor gets: <c>KeyValuePair</c>, <c>Tuple</c>, and
+    ///     <c>DictionaryEntry</c>. Each value is in the property that has the name
+    ///     of the parameter. Thus, the evaluator can keep a state for each part.
+    /// </summary>
+    public static bool HoldsParts(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { Name: "KeyValuePair" or "Tuple" or "DictionaryEntry" } named
+        && (named.Name, named.ContainingNamespace?.ToDisplayString())
+            is ("KeyValuePair", "System.Collections.Generic")
+            or ("Tuple", "System")
+            or ("DictionaryEntry", "System.Collections");
+
+    /// <summary>
+    ///     The property of a type from <see cref="HoldsParts" /> that holds the
+    ///     value of a parameter. The parameter is one of the constructor, of
+    ///     <c>Create</c>, or an <c>out</c> parameter of <c>Deconstruct</c>. The
+    ///     names are the same, but for the case of the first letter.
+    /// </summary>
+    public static IPropertySymbol? PartFor(ITypeSymbol holder, IParameterSymbol parameter) =>
+        holder.OriginalDefinition.GetMembers()
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(property =>
+                string.Equals(a: property.Name, b: parameter.Name, comparisonType: StringComparison.OrdinalIgnoreCase));
 
     private static bool IsCollections(ISymbol? space) =>
         space?.ToDisplayString() is "System.Collections.Generic" or "System.Collections";

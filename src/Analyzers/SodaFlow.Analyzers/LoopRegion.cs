@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -15,12 +18,15 @@ internal sealed class LoopRegion(
     in SodaFlowSymbols symbols,
     in ISymbol placeholder,
     in LoopState placeholderState,
-    in Action<Diagnostic> report)
+    in SyntaxNode root,
+    in Action<Diagnostic> report,
+    in CancellationToken cancellation)
 {
     // The walk reads at most this many callee bodies for one block. A block that needs more is
     // code that calls itself through many paths, and the limit is what ends the work.
     private const int MaxFrames = 512;
 
+    private readonly CancellationToken cancellation = cancellation;
     private readonly Compilation compilation = compilation;
 
     // The fields that the code sets while the loop is open, where the walk does not know the
@@ -37,6 +43,20 @@ internal sealed class LoopRegion(
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
     private int frames;
+    private int objectFrames;
+
+    // The lambdas and the local functions that the walk reads for a call now.
+    private readonly HashSet<SyntaxNode> activeFunctions = [];
+
+    // The key is a lambda or a local function that the walk read for a call. The value has the
+    // locals and the parameters that a function in it reads or writes.
+    private readonly Dictionary<SyntaxNode, ImmutableHashSet<ISymbol>?> captured = [];
+
+    /// <summary>The one state of each object that the code of the region makes.</summary>
+    public ObjectStore Objects { get; } = new();
+
+    /// <summary>The body of the block.</summary>
+    public SyntaxNode Root { get; } = root;
 
     /// <summary>The assemblies of the library, as this compilation sees them.</summary>
     public SodaFlowSymbols Symbols { get; } = symbols;
@@ -52,6 +72,13 @@ internal sealed class LoopRegion(
 
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
+    public int ShapeOfFields =>
+        this.fields.Aggregate(
+            seed: 0,
+            func: static (sum, one) => unchecked(
+                sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)));
 
     /// <summary>
     ///     The state of a field that the code set while the loop is open. The
@@ -121,12 +148,35 @@ internal sealed class LoopRegion(
         return method;
     }
 
-    /// <summary>The type of an expression.</summary>
+    /// <summary>
+    ///     True when the compiler converts the first type to the second one with
+    ///     no cast. No operator converts an interface. Thus, each value of a first
+    ///     type that is an interface is then a value of the second type.
+    /// </summary>
+    public bool Converts(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to).IsImplicit;
+
+    /// <summary>
+    ///     The type of an expression. A collection expression has no type of its
+    ///     own, and has the type that the compiler converts it to. A conditional
+    ///     or a switch expression whose results are such expressions is the same.
+    /// </summary>
     public ITypeSymbol? TypeOf(ExpressionSyntax expression)
     {
         if (!this.typeOf.TryGetValue(key: expression, value: out ITypeSymbol? type))
         {
-            type = this.ModelFor(expression).GetTypeInfo(expression).Type;
+            TypeInfo info = this.ModelFor(expression).GetTypeInfo(expression);
+
+            type =
+                info.Type == null
+                && expression
+                    is CollectionExpressionSyntax
+                    or ConditionalExpressionSyntax
+                    or SwitchExpressionSyntax
+                    or ParenthesizedExpressionSyntax
+                    ? info.ConvertedType
+                    : info.Type;
+
             this.typeOf[expression] = type;
         }
 
@@ -153,15 +203,89 @@ internal sealed class LoopRegion(
     public bool TryEnter() => ++this.frames <= MaxFrames;
 
     /// <summary>
+    ///     Ends the analysis of the block when the compiler canceled it. An editor
+    ///     cancels an analysis at each change to the file. The compiler stops
+    ///     between two blocks, and only this call stops the walk of one block.
+    /// </summary>
+    public void StopWhenCanceled() => this.cancellation.ThrowIfCancellationRequested();
+
+    /// <summary>
+    ///     The number of writes to a member of an object that the walk read in
+    ///     this region. A member can have a new value after each of them.
+    /// </summary>
+    public int MemberWrites { get; private set; }
+
+    /// <summary>Records a write to a member of an object.</summary>
+    public void AddAMemberWrite() => this.MemberWrites++;
+
+    /// <summary>
+    ///     Counts one more callee body that the walk reads only because the callee
+    ///     gets an object of the store. No state from the loop goes into such a
+    ///     callee. These bodies have their own limit, thus they do not use the
+    ///     frames that a pending value needs.
+    /// </summary>
+    public bool TryEnterForObjects() => ++this.objectFrames <= MaxFrames;
+
+    /// <summary>
+    ///     Records the start of the read of a lambda or a local function for a
+    ///     call. False when the walk is in a read of that function now, which is
+    ///     a call of the function in its own code.
+    /// </summary>
+    public bool StartsACallOf(SyntaxNode function) => this.activeFunctions.Add(function);
+
+    /// <summary>Records the end of the read that <see cref="StartsACallOf" /> started.</summary>
+    public void EndsACallOf(SyntaxNode function) => this.activeFunctions.Remove(function);
+
+    /// <summary>
+    ///     The locals and the parameters that a function in the given function
+    ///     reads or writes. Null when the compiler cannot tell.
+    /// </summary>
+    public ImmutableHashSet<ISymbol>? CapturedIn(SyntaxNode function)
+    {
+        if (!this.captured.TryGetValue(key: function, value: out ImmutableHashSet<ISymbol>? found))
+        {
+            SyntaxNode? body =
+                function switch
+                {
+                    AnonymousFunctionExpressionSyntax lambda => lambda.Body,
+                    LocalFunctionStatementSyntax local => local.Body ?? (SyntaxNode?)local.ExpressionBody?.Expression,
+                    _ => null
+                };
+
+            DataFlowAnalysis? flow =
+                body switch
+                {
+                    StatementSyntax statement => this.ModelFor(function).AnalyzeDataFlow(statement),
+                    ExpressionSyntax expression => this.ModelFor(function).AnalyzeDataFlow(expression),
+                    _ => null
+                };
+
+            found = flow is { Succeeded: true }
+                ? flow.Captured.ToImmutableHashSet(SymbolEqualityComparer.Default)
+                : null;
+
+            this.captured[function] = found;
+        }
+
+        return found;
+    }
+
+    /// <summary>
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(SyntaxNode root, IEnumerable<ExpressionSyntax> closings, bool checkLinks)
+    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool checkLinks)
     {
         LoopStateEvaluator evaluator = new(this);
 
-        new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic))
-            .Visit(root);
+        evaluator.ReadBy(
+                new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic)))
+            .Visit(this.Root);
+
+        foreach (Finding unread in evaluator.Frame.TakeUnread())
+        {
+            this.Report(unread.Diagnostic);
+        }
 
         if (!checkLinks)
         {

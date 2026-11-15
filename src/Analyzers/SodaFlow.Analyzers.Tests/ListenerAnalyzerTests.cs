@@ -186,7 +186,9 @@ internal sealed class ListenerAnalyzerTests
             AnalyzerHarness.Compile(source: source, libraries: ShapeLibraries, assemblyName: ShapesAssembly);
 
         Type shapes =
-            AnalyzerHarness.Load(compilation.WithOptions(compilation.Options.WithOptimizationLevel(OptimizationLevel.Release)))
+            AnalyzerHarness.Load(
+                    compilation: compilation.WithOptions(compilation.Options.WithOptimizationLevel(OptimizationLevel.Release)),
+                    images: [])
                 .GetType(ShapesType)
             ?? throw new InvalidOperationException("The shapes file has no class ListenerShapes.");
 

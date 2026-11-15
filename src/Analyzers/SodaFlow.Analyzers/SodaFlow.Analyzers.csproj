@@ -53,12 +53,23 @@
         <Compile Include="LoopReadAnalyzer.cs"/>
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
+        <Compile Include="LoopStateEvaluator.Callees.cs"/>
+        <Compile Include="LoopStateEvaluator.Collections.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
+        <Compile Include="LoopStateEvaluator.Positions.cs"/>
+        <Compile Include="LoopStateEvaluator.Writes.cs"/>
+        <Compile Include="MadeObject.cs"/>
+        <Compile Include="ObjectStore.cs"/>
         <Compile Include="OperatorTable.cs"/>
         <Compile Include="PlatformCallers.cs"/>
+        <Compile Include="PlatformReceivers.cs"/>
         <Compile Include="QueryValue.cs"/>
+        <Compile Include="ShapeNumber.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
+        <Compile Include="WriteThroughAName.cs"/>
+        <Compile Include="WriteThroughAnElement.cs"/>
+        <Compile Include="WritesThroughEach.cs"/>
     </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace SodaFlow.Analyzers;
 
@@ -26,14 +27,38 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
 
+    // The most reads of one loop. The walk stops before that when a read leaves what a read before
+    // left. A value that goes through a local in each turn needs one read for each of those locals.
+    // The number is only a guard for a defect of the analyzer: no code has that many locals in a
+    // chain.
+    internal const int MaxReadsOfALoop = 1000;
+
+    private readonly Dictionary<StatementSyntax, int> firstEnds = [];
+
+    // The key is a function that the walk asked about. The value is the position of the first
+    // statement that can end a call of the function before the last statement.
+    private readonly Dictionary<SyntaxNode, int> firstExits = [];
+
+    // The key is the body of a loop that the walk is in. The value has, for a local of the code
+    // around the loop, the state before its first assignment of each read. Only an assignment that
+    // each turn always runs has an entry.
+    private readonly Dictionary<SyntaxNode, Dictionary<ISymbol, LoopState>> hadBefore = [];
+
+    // The locals of hadBefore that this read of the body gave a value.
+    private readonly HashSet<(SyntaxNode Turn, ISymbol Local)> assignedInThisRead = [];
+
     // The lambdas that the walk read where they are, and that their callee runs one time.
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
     private readonly LoopStateEvaluator evaluator = evaluator;
     private readonly LoopRegion region = region;
     private readonly Action<Finding> sink = sink;
 
+    // The query whose code the walk reads now, when something enumerates that query.
+    private QueryValue? running;
+
     public override void Visit(SyntaxNode? node)
     {
+        this.region.StopWhenCanceled();
         base.Visit(node);
 
         if (node is not ExpressionSyntax expression)
@@ -93,11 +118,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             _ => false
         };
 
-    public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
-    {
-        SemanticModel model = this.region.ModelFor(node);
+    public override void VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node) =>
+        this.DeclareEach(declaration: node.Declaration, disposes: node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword));
 
-        foreach (VariableDeclaratorSyntax declarator in node.Declaration.Variables)
+    // Gives each variable of a declaration the state of its initializer. A local declaration
+    // statement and the declaration of a for statement are such declarations.
+    private void DeclareEach(VariableDeclarationSyntax declaration, bool disposes)
+    {
+        SemanticModel model = this.region.ModelFor(declaration);
+
+        foreach (VariableDeclaratorSyntax declarator in declaration.Variables)
         {
             if (declarator.Initializer == null)
             {
@@ -108,11 +138,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                this.evaluator.Declare(local: local, state: this.evaluator.Eval(declarator.Initializer.Value));
+                this.evaluator.Declare(
+                    local: local,
+                    state: this.evaluator.Eval(declarator.Initializer.Value),
+                    from: declarator.Initializer.Value);
+
+                this.evaluator.HoldsValueOf(local: local, value: declarator.Initializer.Value, replaces: true);
+                this.evaluator.GetsElementsOf(collection: declarator, literal: declarator.Initializer.Value);
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
-            if (node.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            if (disposes)
             {
                 this.Report(this.evaluator.FollowDispose(declarator.Initializer.Value));
             }
@@ -188,9 +224,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
         {
             this.evaluator.Declare(local: element, state: elements);
+            this.evaluator.HoldsOneOf(local: element, collection: node.Expression);
         }
 
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        this.evaluator.StartsEach(node);
         this.Visit(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+
+        // The loop has a turn for each element when it always runs and no statement ends a turn
+        // or the loop before its end.
+        this.evaluator.EndsEach(
+            loop: node,
+            hasATurnForEachElement: this.FirstEndOfATurnOf(node.Statement) == int.MaxValue
+                                    && this.AlwaysRunsAt(place: node, turn: out SyntaxNode? around)
+                                    && around == null);
     }
 
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
@@ -201,7 +249,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         LoopState elements = this.evaluator.Eval(node.Expression).AsElement.Join(this.Enumerate(node));
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct
+            this.region.Symbols.DeclaresDeconstruct || elements.Members is { HasParts: true }
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
                 : null;
 
@@ -211,12 +259,131 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 value: node.Expression,
                 owner: elements,
                 method: method,
-                replaces: false))
+                replaces: false,
+                turn: null))
         {
-            this.AssignState(target: node.Variable, state: elements, replaces: false);
+            this.AssignState(target: node.Variable, state: elements, replaces: false, turn: null);
         }
 
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Statement);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+    }
+
+    public override void VisitForStatement(ForStatementSyntax node)
+    {
+        // The parts of a for statement, in the order in which the code runs them. The
+        // incrementors run after the body.
+        if (node.Declaration is { } declaration)
+        {
+            this.DeclareEach(declaration: declaration, disposes: false);
+        }
+
+        foreach (ExpressionSyntax initializer in node.Initializers)
+        {
+            this.Visit(initializer);
+        }
+
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        this.Visit(node.Condition);
+        this.Visit(node.Statement);
+
+        foreach (ExpressionSyntax incrementor in node.Incrementors)
+        {
+            this.Visit(incrementor);
+        }
+
+        this.VisitTheSecondTurn(
+            loop: node,
+            body: node.Statement,
+            before: before,
+            condition: node.Condition,
+            incrementors: node.Incrementors);
+    }
+
+    public override void VisitWhileStatement(WhileStatementSyntax node)
+    {
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        base.VisitWhileStatement(node);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, condition: node.Condition);
+    }
+
+    public override void VisitDoStatement(DoStatementSyntax node)
+    {
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        base.VisitDoStatement(node);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, after: node.Condition);
+    }
+
+    /// <summary>
+    ///     Reads a turn of a loop a second time, after the first read of the loop.
+    ///     The second turn of the loop reads what the first turn gave to each
+    ///     location that is older than the turn.
+    /// </summary>
+    /// <param name="loop">The loop statement.</param>
+    /// <param name="body">The body of the loop.</param>
+    /// <param name="before">
+    ///     The result of <see cref="LoopStateEvaluator.ShapeOfWhatALoopLeaves" />
+    ///     before the first read.
+    /// </param>
+    /// <param name="condition">The condition that the loop reads before each turn, if it has one.</param>
+    /// <param name="incrementors">The expressions that a <c>for</c> runs after each turn.</param>
+    /// <param name="after">The condition that a <c>do</c> reads after each turn.</param>
+    private void VisitTheSecondTurn(
+        SyntaxNode loop,
+        SyntaxNode body,
+        int before,
+        SyntaxNode? condition = null,
+        SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
+        SyntaxNode? after = null)
+    {
+        this.evaluator.EndTurns(body);
+
+        // A read that leaves what a read before left gives the next read nothing new. That is
+        // true for the first read also. When it changes no location that is older than the turn,
+        // the second turn is the same as the first one.
+        HashSet<int> left = [before];
+
+        // A value can come to its read only after two or more turns. The walk reads the loop again
+        // while a read gives a location a new state. The locals of the body keep the state of the
+        // last read, because the result of a function can be a local of a loop.
+        for (int read = 2;
+             read <= MaxReadsOfALoop && left.Add(this.evaluator.ShapeOfWhatALoopLeaves(body));
+             read++)
+        {
+            this.evaluator.StartTheSecondTurn(loop: loop, turn: body);
+
+            // The walk reads a lambda that a callee runs in the call one time. The next turn runs
+            // it again.
+            this.entered.RemoveWhere(lambda => lambda != loop && LoopStateEvaluator.IsIn(node: lambda, code: loop));
+            this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
+
+            this.Visit(condition);
+            this.Visit(body);
+
+            // A for runs its incrementors after the body, and a do reads its condition there.
+            foreach (ExpressionSyntax incrementor in incrementors)
+            {
+                this.Visit(incrementor);
+            }
+
+            this.Visit(after);
+            this.evaluator.EndTurns(body);
+        }
+
+        // After the loop, a local has also what it had before an assignment of a turn.
+        if (this.hadBefore.TryGetValue(key: body, value: out Dictionary<ISymbol, LoopState>? had))
+        {
+            this.hadBefore.Remove(body);
+            this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
+
+            foreach (KeyValuePair<ISymbol, LoopState> local in had)
+            {
+                this.evaluator.Declare(local: local.Key, state: local.Value);
+            }
+        }
+
+        this.evaluator.GivesBackWhatATurnReplaced(body);
     }
 
     /// <summary>
@@ -345,7 +512,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     return;
                 case VarPatternSyntax variable:
-                    this.DeclareDesignation(designation: variable.Designation, state: state);
+                    this.DeclareVar(pattern: variable, state: state);
 
                     return;
                 case RecursivePatternSyntax recursive:
@@ -400,6 +567,63 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    private void DeclareVar(VarPatternSyntax pattern, LoopState state)
+    {
+        if (pattern.Designation is ParenthesizedVariableDesignationSyntax several)
+        {
+            this.DeclareParts(several: several, value: MatchedValueOf(pattern), state: state);
+        }
+        else
+        {
+            this.DeclareDesignation(designation: pattern.Designation, state: state);
+        }
+    }
+
+    /// <summary>
+    ///     The variables of a var pattern with parts, as in
+    ///     <c>var (key, value)</c>. For a value that is not a tuple, the pattern
+    ///     calls a <c>Deconstruct</c> method, as a positional pattern does. Each
+    ///     variable then has the state of the <c>out</c> parameter for it. A pair
+    ///     of the platform that has a state for each of its parts gives each
+    ///     variable its part. Otherwise, each variable has the state of the value.
+    /// </summary>
+    private void DeclareParts(ParenthesizedVariableDesignationSyntax several, ExpressionSyntax? value, LoopState state)
+    {
+        IMethodSymbol? deconstruct =
+            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
+                ? (this.region.ModelFor(several).GetOperation(several) as IRecursivePatternOperation)?.DeconstructSymbol
+                as IMethodSymbol
+                : null;
+
+        IReadOnlyList<LoopState>? states =
+            deconstruct == null ? null : PartsOfAPair(pair: state, deconstruct: deconstruct);
+
+        if (states == null
+            && deconstruct != null
+            && value != null
+            && this.evaluator.FollowDeconstruct(call: several, method: deconstruct, value: value, owner: state)
+                is { } followed)
+        {
+            this.Report(followed);
+            states = OutStates(method: deconstruct, followed: followed);
+        }
+
+        for (int i = 0; i < several.Variables.Count; i++)
+        {
+            LoopState part = states == null ? state : i < states.Count ? states[i] : LoopState.None;
+
+            // A part with parts of its own is one more Deconstruct, of the value of that part.
+            if (several.Variables[i] is ParenthesizedVariableDesignationSyntax inner)
+            {
+                this.DeclareParts(several: inner, value: value, state: part);
+            }
+            else
+            {
+                this.DeclareDesignation(designation: several.Variables[i], state: part);
+            }
+        }
+    }
+
     /// <summary>
     ///     The state of the member that a part of a property pattern names, on a
     ///     value with the given state. The pattern reads the member as a member
@@ -433,6 +657,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             else if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
                      && this.evaluator.FollowPatternMember(name: name, owner: owner) is { } getter)
             {
+                // The getter of an iterator runs nothing at the pattern. The walk reports what it
+                // found where something enumerates the result.
+                if (LoopStateEvaluator.IsIteratorProperty(property))
+                {
+                    return this.evaluator.Waiting(read: name, state: getter.State);
+                }
+
                 this.Report(getter);
 
                 return getter.State;
@@ -444,9 +675,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return owner;
         }
 
+        // A pair that the evaluator saw made has a state for each of its parts.
+        if (SodaFlowSymbols.HoldsParts(member.ContainingType) && owner.Members.Has(member))
+        {
+            return owner.Members.StateOf(member).FromIfUnknown(owner.Origin);
+        }
+
         if (owner.Members.CanOwn(member))
         {
-            return owner.Members.StateOf(owner.Members.Resolve(member)).FromIfUnknown(owner.Origin);
+            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
         }
 
         // The members are those of an object that the owner contains, as a pair of the platform
@@ -476,30 +713,73 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct
+            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
                 ? this.region.ModelFor(clause).GetSymbolInfo(clause).Symbol as IMethodSymbol
                 : null;
 
-        Followed? followed =
-            method != null && MatchedValueOf(clause) is { } value
-                ? this.evaluator.FollowDeconstruct(call: clause, method: method, value: value, owner: state)
-                : null;
+        IReadOnlyList<LoopState>? states = method == null ? null : PartsOfAPair(pair: state, deconstruct: method);
 
-        this.Report(followed);
-
-        ImmutableArray<IParameterSymbol> outs =
-            followed == null || method == null ? ImmutableArray<IParameterSymbol>.Empty : OutsOf(method);
+        if (states == null
+            && method != null
+            && MatchedValueOf(clause) is { } value
+            && this.evaluator.FollowDeconstruct(call: clause, method: method, value: value, owner: state)
+                is { } followed)
+        {
+            this.Report(followed);
+            states = OutStates(method: method, followed: followed);
+        }
 
         for (int i = 0; i < clause.Subpatterns.Count; i++)
         {
             this.DeclarePattern(
                 pattern: clause.Subpatterns[i].Pattern,
-                state: followed == null
+                state: states == null
                     ? state
-                    : i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? part)
-                        ? part
+                    : i < states.Count
+                        ? states[i]
                         : LoopState.None);
         }
+    }
+
+    // The state that a followed Deconstruct method gives to each out parameter, in order.
+    private static IReadOnlyList<LoopState> OutStates(IMethodSymbol method, Followed followed) =>
+    [
+        .. OutsOf(method)
+            .Select(parameter =>
+                followed.Outs.TryGetValue(key: parameter, value: out LoopState? given) ? given : LoopState.None)
+    ];
+
+    /// <summary>
+    ///     The state that <c>Deconstruct</c> of the platform gives to each
+    ///     target, for a pair that has a state for each of its parts. Each
+    ///     <c>out</c> parameter has the name of its property. Null for each other
+    ///     value.
+    /// </summary>
+    private static IReadOnlyList<LoopState>? PartsOfAPair(LoopState pair, IMethodSymbol deconstruct)
+    {
+        // An extension method gets the pair as its first argument, as the one for Tuple does.
+        IMethodSymbol definition = (deconstruct.ReducedFrom ?? deconstruct).OriginalDefinition;
+        ITypeSymbol holder = definition.IsStatic ? definition.Parameters[0].Type : definition.ContainingType;
+
+        // A Deconstruct of this compilation can give each parameter a different value.
+        if (pair.Members is not { } members || !SodaFlowSymbols.HoldsParts(holder))
+        {
+            return null;
+        }
+
+        List<LoopState> states = [];
+
+        foreach (IParameterSymbol parameter in OutsOf(deconstruct))
+        {
+            if (SodaFlowSymbols.PartFor(holder: holder, parameter: parameter) is not { } part || !members.Has(part))
+            {
+                return null;
+            }
+
+            states.Add(members.StateOf(part).FromIfUnknown(pair.Origin));
+        }
+
+        return states;
     }
 
     // The expression that a pattern is for: the left side of an is, or the value of a switch.
@@ -544,30 +824,35 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ExpressionSyntax value,
         LoopState owner,
         IMethodSymbol? method,
-        bool replaces)
+        bool replaces,
+        SyntaxNode? turn)
     {
-        if (method == null
-            || PartsOf(target) is not { } parts
-            || this.evaluator.FollowDeconstruct(call: call, method: method, value: value, owner: owner)
-                is not { } followed)
+        if (method == null || PartsOf(target) is not { } parts)
         {
             return false;
         }
 
-        this.Report(followed);
+        IReadOnlyList<LoopState>? states = PartsOfAPair(pair: owner, deconstruct: method);
 
-        ImmutableArray<IParameterSymbol> outs = OutsOf(method);
+        if (states == null)
+        {
+            if (this.evaluator.FollowDeconstruct(call: call, method: method, value: value, owner: owner)
+                is not { } followed)
+            {
+                return false;
+            }
+
+            this.Report(followed);
+            states = OutStates(method: method, followed: followed);
+        }
 
         for (int i = 0; i < parts.Count; i++)
         {
-            LoopState part =
-                i < outs.Length && followed.Outs.TryGetValue(key: outs[i], value: out LoopState? given)
-                    ? given
-                    : LoopState.None;
+            LoopState part = i < states.Count ? states[i] : LoopState.None;
 
             if (parts[i] is ExpressionSyntax expression)
             {
-                this.AssignState(target: expression, state: part, replaces: replaces);
+                this.AssignState(target: expression, state: part, replaces: replaces, turn: turn);
             }
             else
             {
@@ -603,14 +888,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (accessor.DeclaringSyntaxReferences.IsEmpty)
         {
-            // The indexer of a dictionary of the platform calls a member of the key.
+            // The indexer of a dictionary of the platform calls a member of the key. The first key
+            // of an empty dictionary has no second key to compare it with.
             if (node.Left is ElementAccessExpressionSyntax keyed)
             {
                 this.Report(
                     this.evaluator.FollowPlatformMember(
                         member: accessor,
                         collection: keyed.Expression,
-                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                        alone: this.evaluator.IsEmptyHere(collection: keyed.Expression, put: node),
+                        others: [keyed.Expression],
+                        before: null));
             }
 
             return;
@@ -672,7 +961,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (node.IsKind(SyntaxKind.AddAssignmentExpression)
                 && this.evaluator.Eval(node.Right) is { Functions.IsEmpty: false } added)
             {
-                this.AssignState(target: node.Left, state: added, replaces: false);
+                this.AssignState(target: node.Left, state: added, replaces: false, turn: null);
+            }
+
+            // A coalescing assignment runs only when its target is null. Thus, the target keeps
+            // the state that it had, and gets the state of the value also.
+            if (node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
+            {
+                this.Assign(target: node.Left, value: node.Right, replaces: false, turn: null);
             }
 
             this.CheckAccessor(node);
@@ -701,11 +997,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Right);
         this.CheckAccessor(node);
 
-        bool replaces = this.AlwaysRuns(node);
+        bool replaces = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? turn);
+        LoopState right = this.evaluator.Eval(node.Right);
 
         // A deconstruction of a value that is not a tuple calls a Deconstruct method.
         IMethodSymbol? deconstruct =
-            this.region.Symbols.DeclaresDeconstruct
+            (this.region.Symbols.DeclaresDeconstruct || right.Members is { HasParts: true })
             && node.Right is not TupleExpressionSyntax
             && PartsOf(node.Left) != null
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
@@ -715,11 +1012,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 call: node,
                 target: node.Left,
                 value: node.Right,
-                owner: this.evaluator.Eval(node.Right),
+                owner: right,
                 method: deconstruct,
-                replaces: replaces))
+                replaces: replaces,
+                turn: turn))
         {
-            this.Assign(target: node.Left, value: node.Right, replaces: replaces);
+            this.Assign(target: node.Left, value: node.Right, replaces: replaces, turn: turn);
         }
     }
 
@@ -734,29 +1032,148 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     what is around the call. A query runs it one time for each element, which
     ///     can be no time, thus an assignment in it does not always run.
     /// </remarks>
-    private bool AlwaysRuns(SyntaxNode assignment)
+    /// <param name="assignment">The assignment.</param>
+    /// <param name="turn">
+    ///     The body of a loop whose each turn runs the assignment. The assignment
+    ///     is then a statement at the first level of that body, and no statement
+    ///     before it can end the turn. Null for each other assignment.
+    /// </param>
+    private bool AlwaysRuns(SyntaxNode assignment, out SyntaxNode? turn)
     {
-        if (assignment.Parent is not ExpressionStatementSyntax statement)
+        turn = null;
+
+        return assignment.Parent switch
         {
-            return false;
+            ExpressionStatementSyntax statement => this.AlwaysRunsAt(place: statement, turn: out turn),
+            // The expression that is the body of a function is the one statement of that function.
+            ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
+            AnonymousFunctionExpressionSyntax lambda when lambda.ExpressionBody == assignment =>
+                this.AlwaysRunsAt(place: assignment, turn: out turn),
+            _ => false
+        };
+    }
+
+    /// <summary>
+    ///     Where a call always runs, for the evaluator that follows the call.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <returns>
+    ///     The first part is true when each run of the function of the call runs
+    ///     the call. The second part is the body of the loop whose each turn always
+    ///     runs the call, or null when no loop of that function does.
+    /// </returns>
+    public (bool InItsFunction, SyntaxNode? Turn) WhereACallRuns(SyntaxNode call)
+    {
+        if (WhereItAlwaysRuns(call) is not { } place)
+        {
+            return (false, null);
         }
 
-        foreach (SyntaxNode ancestor in statement.Ancestors())
+        bool inItsFunction = this.AlwaysRunsAt(place: place, turn: out SyntaxNode? turn);
+
+        return (inItsFunction, turn);
+    }
+
+    // The statement that always evaluates an expression when the statement runs. For the
+    // expression that is the body of a lambda or of a local function, that expression or its
+    // clause. Null when an operator, a conditional expression, or a function between the two can
+    // skip the expression.
+    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression)
+    {
+        SyntaxNode child = expression;
+
+        for (SyntaxNode? parent = expression.Parent; parent != null; child = parent, parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                // An expression gets to an if statement with no statement between only from its
+                // condition.
+                case ExpressionStatementSyntax
+                    or LocalDeclarationStatementSyntax
+                    or ReturnStatementSyntax
+                    or IfStatementSyntax
+                    or ArrowExpressionClauseSyntax:
+                    return parent;
+                case AnonymousFunctionExpressionSyntax lambda:
+                    return lambda.ExpressionBody == child ? child : null;
+                case StatementSyntax or SwitchExpressionArmSyntax or QueryClauseSyntax or SelectOrGroupClauseSyntax:
+                    return null;
+            }
+
+            if (CanSkip(parent: parent, child: child))
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    // True when an expression can skip one of its parts. Such a part is an arm of a conditional
+    // expression, or the part after a conditional access. The right side of an operator that stops
+    // at its left side is one also.
+    private static bool CanSkip(SyntaxNode parent, SyntaxNode child) =>
+        parent switch
+        {
+            ConditionalExpressionSyntax conditional => conditional.Condition != child,
+            BinaryExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.LogicalAndExpression
+                or (int)SyntaxKind.LogicalOrExpression
+                or (int)SyntaxKind.CoalesceExpression
+            } binary => binary.Right == child,
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceAssignmentExpression } assignment =>
+                assignment.Right == child,
+            ConditionalAccessExpressionSyntax access => access.WhenNotNull == child,
+            _ => false
+        };
+
+    // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
+    private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn)
+    {
+        turn = null;
+
+        bool inALambda = false;
+
+        foreach (SyntaxNode ancestor in place.Ancestors())
         {
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (!this.once.Contains(lambda))
+                    if (this.FirstExitOf(lambda) < place.SpanStart)
                     {
                         return false;
                     }
 
+                    // A callee runs the lambda one time for each element. Each run always runs the
+                    // statement, and a run is a turn.
+                    if (!this.once.Contains(lambda))
+                    {
+                        turn = inALambda ? null : lambda.Body;
+
+                        return false;
+                    }
+
+                    inALambda = true;
+
                     continue;
+                // The walk does not look for a statement that can end the lambda before the
+                // assignment. Thus, an assignment in a lambda is of no turn.
+                case ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
+                    when !inALambda
+                         && LoopStateEvaluator.LoopBodyOf(ancestor) is { } body
+                         && this.FirstEndOfATurnOf(body) > place.SpanStart:
+                    turn = body;
+
+                    return false;
+                // A call of the function that ends at a statement before the assignment does not
+                // run the assignment.
                 case AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
-                    return true;
+                    // A return statement is no statement before itself.
+                    return this.FirstExitOf(ancestor) >= place.SpanStart;
                 // A block, and a statement that always runs what is in it. Also the call that
                 // runs a lambda, and the statement that the call is in.
                 case BlockSyntax
@@ -783,11 +1200,71 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return true;
     }
 
+    // The position of the first statement that can end a call of a function before the last
+    // statement. It is a return, a yield break, or a goto. A throw is not one of them, because the
+    // walk reads no code that runs after an exception.
+    private int FirstExitOf(SyntaxNode function)
+    {
+        if (!this.firstExits.TryGetValue(key: function, value: out int first))
+        {
+            first =
+                function.DescendantNodes(node =>
+                        node == function
+                        || node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                    .FirstOrDefault(static node =>
+                        node is ReturnStatementSyntax or GotoStatementSyntax
+                        || node.IsKind(SyntaxKind.YieldBreakStatement))
+                    ?.SpanStart
+                ?? int.MaxValue;
+
+            this.firstExits[function] = first;
+        }
+
+        return first;
+    }
+
+    // The position of the first statement that can end a turn before the end of the body. A turn
+    // that ends there does not run the statements after it.
+    private int FirstEndOfATurnOf(StatementSyntax body)
+    {
+        if (!this.firstEnds.TryGetValue(key: body, value: out int first))
+        {
+            first =
+                body.DescendantNodesAndSelf(static node =>
+                        node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                    .FirstOrDefault(node => EndsATurnOf(body: body, node: node))
+                    ?.SpanStart
+                ?? int.MaxValue;
+
+            this.firstEnds[body] = first;
+        }
+
+        return first;
+    }
+
+    // A break statement is for the loop or the switch statement nearest to it, and a continue
+    // statement is for the loop nearest to it. Each other jump ends the turn of each loop that it
+    // is in.
+    private static bool EndsATurnOf(SyntaxNode body, SyntaxNode node) =>
+        node switch
+        {
+            ReturnStatementSyntax or ThrowStatementSyntax or ThrowExpressionSyntax or GotoStatementSyntax => true,
+            YieldStatementSyntax yield => yield.IsKind(SyntaxKind.YieldBreakStatement),
+            ContinueStatementSyntax =>
+                node.Ancestors().Select(LoopStateEvaluator.LoopBodyOf).First(static found => found != null) == body,
+            BreakStatementSyntax =>
+                node.Ancestors()
+                    .First(static around =>
+                        around is SwitchStatementSyntax || LoopStateEvaluator.LoopBodyOf(around) != null)
+                == body.Parent,
+            _ => false
+        };
+
     /// <summary>
     ///     Gives a target the state of a value. A deconstruction of a tuple
     ///     expression gives each part of the tuple to its own target.
     /// </summary>
-    private void Assign(SyntaxNode target, ExpressionSyntax value, bool replaces)
+    private void Assign(SyntaxNode target, ExpressionSyntax value, bool replaces, SyntaxNode? turn)
     {
         if (target is TupleExpressionSyntax targets
             && value is TupleExpressionSyntax values
@@ -798,13 +1275,53 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.Assign(
                     target: targets.Arguments[i].Expression,
                     value: values.Arguments[i].Expression,
-                    replaces: replaces);
+                    replaces: replaces,
+                    turn: turn);
             }
 
             return;
         }
 
+        // Parentheses around a target do not change the target.
+        while (target is ParenthesizedExpressionSyntax around)
+        {
+            target = around.Expression;
+        }
+
+        // An assignment to a name with ref, with no ref for the value, is an assignment to the
+        // location of the name.
+        if (value is not RefExpressionSyntax
+            && target is IdentifierNameSyntax aliased
+            && this.evaluator.TheLocationOf(aliased) is { } location)
+        {
+            target = location;
+        }
+
         LoopState whole = this.evaluator.Eval(value);
+
+        if (target is IdentifierNameSyntax
+            && this.region.SymbolOf(target) is { } named and (ILocalSymbol or IParameterSymbol))
+        {
+            this.evaluator.HoldsValueOf(
+                local: named,
+                value: value,
+                replaces: replaces || IsNewInEachTurn(local: named, turn: turn));
+        }
+
+        // An element that gets a value puts it into the collection. Each other target that gets
+        // a literal has the elements of that literal.
+        // An assignment that is sure to run gives the collection the value at that position.
+        (MadeObject Made, ImmutableArray<LoopState> All)? positions = null;
+
+        if (target is ElementAccessExpressionSyntax indexed)
+        {
+            positions = this.evaluator.PositionsBefore(collection: indexed.Expression, replaces: replaces, turn: turn);
+            this.evaluator.Gets(collection: indexed.Expression, value: value);
+        }
+        else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)
+        {
+            this.evaluator.GetsElementsOf(collection: written, literal: value);
+        }
 
         // A deconstruction of a value that is not a tuple expression. Each target gets the state
         // of its element, when the evaluator knows the elements. Otherwise, each gets the state of
@@ -816,7 +1333,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             || this.region.TypeOf(value) is not INamedTypeSymbol { IsTupleType: true } type
             || type.TupleElements.Length != parts.Count)
         {
-            this.AssignState(target: target, state: whole, replaces: replaces);
+            this.AssignState(target: target, state: whole, replaces: replaces, turn: turn, from: value);
+
+            if (target is ElementAccessExpressionSyntax assigned)
+            {
+                this.evaluator.HasThePositionAfter(before: positions, element: assigned, value: value);
+            }
 
             return;
         }
@@ -830,7 +1352,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             if (parts[i] is ExpressionSyntax expression)
             {
-                this.AssignState(target: expression, state: element, replaces: replaces);
+                this.AssignState(target: expression, state: element, replaces: replaces, turn: turn);
             }
             else
             {
@@ -845,7 +1367,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     True when the assignment always runs. Then, a local has the new state
     ///     only. Otherwise, it has the new state and the state before it together.
     /// </param>
-    private void AssignState(SyntaxNode target, LoopState state, bool replaces)
+    /// <param name="turn">
+    ///     The body of the loop whose each turn always runs the assignment. Null
+    ///     when no loop does.
+    /// </param>
+    /// <param name="from">The expression of the value, when the state is the state of that expression.</param>
+    private void AssignState(
+        SyntaxNode target,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn,
+        ExpressionSyntax? from = null)
     {
         switch (target)
         {
@@ -857,13 +1389,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case TupleExpressionSyntax parts:
                 foreach (ArgumentSyntax part in parts.Arguments)
                 {
-                    this.AssignState(target: part.Expression, state: state, replaces: replaces);
+                    this.AssignState(target: part.Expression, state: state, replaces: replaces, turn: turn);
                 }
 
                 return;
-            // A value put into a collection is in the collection.
+            // A value put into a collection is in the collection. A setter with no body to read
+            // keeps each index also, as the indexer of a dictionary keeps its key. The walk has
+            // no position for the value here: an assignment with a value expression gives one
+            // after this.
             case ElementAccessExpressionSyntax element:
+                this.evaluator.ForgetsThePositionsOf(element.Expression);
                 this.evaluator.Absorb(target: element.Expression, state: state);
+
+                if (this.region.SymbolOf(element) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
+                {
+                    foreach (ArgumentSyntax index in element.ArgumentList.Arguments)
+                    {
+                        this.evaluator.Absorb(
+                            target: element.Expression,
+                            state: this.evaluator.Eval(index.Expression));
+                    }
+                }
 
                 return;
         }
@@ -871,9 +1417,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         switch (this.region.SymbolOf(target))
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
-                if (replaces)
+                if (replaces || IsNewInEachTurn(local: local, turn: turn))
                 {
-                    this.evaluator.Assign(local: local, state: state);
+                    this.evaluator.Assign(local: local, state: state, from: from, kept: from);
+                }
+                else if (turn != null)
+                {
+                    this.AssignInATurn(local: local, state: state, turn: turn);
                 }
                 else
                 {
@@ -886,17 +1436,46 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol)
                 when target is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
-                this.evaluator.SetMember(member: own, state: state);
+                this.evaluator.SetMember(member: own, state: state, replaces: replaces, from: from);
                 break;
             case { } member and (IFieldSymbol or IPropertySymbol) when !this.region.Symbols.IsSodaFlow(member):
                 this.evaluator.SetMemberOf(
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
                     member: member,
-                    state: state);
+                    state: state,
+                    replaces: replaces,
+                    turn: turn,
+                    from: from);
 
                 break;
         }
     }
+
+    // A local of the code around a loop has only the new value until the end of the turn. After the
+    // loop, it can have the value from before the assignment also. The loop can run no turn, and a
+    // turn can end before the next assignment.
+    private void AssignInATurn(ISymbol local, LoopState state, SyntaxNode turn)
+    {
+        if (!this.hadBefore.TryGetValue(key: turn, value: out Dictionary<ISymbol, LoopState>? had))
+        {
+            had = new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+            this.hadBefore[turn] = had;
+        }
+
+        LoopState before = this.evaluator.AssignInATurn(local: local, state: state);
+
+        // A second assignment in the same turn replaces a value that no code after the loop can
+        // read. No statement between the two can end the turn.
+        if (this.assignedInThisRead.Add((turn, local)))
+        {
+            had[local] = had.TryGetValue(key: local, value: out LoopState? earlier) ? earlier.Join(before) : before;
+        }
+    }
+
+    // A local that the body of a loop declares is new in each turn. Thus, an assignment that each
+    // turn always runs gives the local only the new value.
+    private static bool IsNewInEachTurn(ISymbol local, SyntaxNode? turn) =>
+        turn != null && LoopStateEvaluator.IsDeclaredIn(local: local, code: turn);
 
     public override void VisitCollectionExpression(CollectionExpressionSyntax node)
     {
@@ -920,12 +1499,61 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.Report(
-            this.evaluator.FollowPlatformMember(
-                member: add,
-                collection: node,
-                values: node.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression)));
+        ExpressionSyntax[] spreads =
+            [.. node.Elements.OfType<SpreadElementSyntax>().Select(static spread => spread.Expression)];
+
+        List<ExpressionSyntax[]> before = [];
+
+        // Each element is one Add, and the set has the elements before it.
+        foreach (ExpressionElementSyntax element in node.Elements.OfType<ExpressionElementSyntax>())
+        {
+            this.Report(
+                this.evaluator.FollowPlatformMember(
+                    member: add,
+                    collection: node,
+                    values: [element.Expression],
+                    alone: before.Count == 0 && spreads.Length == 0,
+                    others: spreads,
+                    before: [.. before]));
+
+            before.Add([element.Expression]);
+        }
     }
+
+    // The values of each element that an initializer gives before one of its elements. An element
+    // with braces gives its values to one Add, and an element with an index gives its indexes.
+    private static IEnumerable<IEnumerable<ExpressionSyntax>> Before(
+        SyntaxNode initializer,
+        ExpressionSyntax expression) =>
+        ((InitializerExpressionSyntax)initializer).Expressions
+        .TakeWhile(earlier => earlier != expression)
+        .Select(static earlier =>
+            earlier switch
+            {
+                InitializerExpressionSyntax several => several.Expressions,
+                AssignmentExpressionSyntax { Left: ImplicitElementAccessSyntax keyed } =>
+                    keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                _ => [earlier]
+            });
+
+    // True for the first element of an initializer of a collection that is empty before it.
+    private bool IsTheFirstElement(SyntaxNode initializer, ExpressionSyntax expression, SyntaxNode made) =>
+        initializer is InitializerExpressionSyntax { Expressions.Count: > 0 } all
+        && all.Expressions[0] == expression
+        && this.IsNew(made);
+
+    // True for a collection that is empty before its initializer. A constructor with no argument
+    // makes such a collection. So does a constructor of the platform whose parameters are only
+    // comparers and numbers, as a capacity is. A constructor that gets a sequence can put objects
+    // into the collection.
+    private bool IsNew(SyntaxNode made) =>
+        made
+            is ObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
+            or ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 0 }
+        || (this.region.SymbolOf(made) is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+            && SodaFlowSymbols.IsPlatform(constructor.ContainingType)
+            && constructor.Parameters.All(static parameter =>
+                SodaFlowSymbols.IsComparer(parameter.Type) || parameter.Type.SpecialType == SpecialType.System_Int32));
 
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
@@ -972,7 +1600,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.FollowPlatformMember(
                         member: indexer,
                         collection: made,
-                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression)));
+                        values: keyed.ArgumentList.Arguments.Select(static index => index.Expression),
+                        alone: this.IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                        others: this.IsNew(made) ? [] : [made],
+                        before: Before(initializer: initializer, expression: expression)));
             }
 
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
@@ -1009,7 +1640,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // An Add of the platform can call a member of the element, as the Add of a set does.
         if (add.DeclaringSyntaxReferences.IsEmpty)
         {
-            this.Report(this.evaluator.FollowPlatformMember(member: add, collection: made, values: values));
+            this.Report(
+                this.evaluator.FollowPlatformMember(
+                    member: add,
+                    collection: made,
+                    values: values,
+                    alone: this.IsTheFirstElement(initializer: initializer, expression: expression, made: made),
+                    others: this.IsNew(made) ? [] : [made],
+                    before: Before(initializer: initializer, expression: expression)));
 
             return;
         }
@@ -1104,15 +1742,52 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     arguments: arguments,
                     runs: Runs,
                     given: moved,
-                    oneTime: false);
+                    oneTime: false,
+                    source: receiver);
 
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
+                this.RunThroughFunctions(call: node, method: method, given: moved);
+
+                // The callee can put a value that it gets into its owner, and into a collection
+                // that it gets as an argument.
+                this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
 
                 if (receiver != null && method.ReducedFrom == null)
                 {
+                    // A call that is sure to run can give the collection new positions.
+                    (bool always, SyntaxNode? itsTurn) = this.WhereACallRuns(node);
+
+                    (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                        this.evaluator.PositionsBeforeACall(
+                            collection: receiver,
+                            method: method,
+                            replaces: always,
+                            turn: itsTurn);
+
+                    this.evaluator.CanGet(collection: receiver, method: method, arguments: arguments);
+
                     this.evaluator.Absorb(
                         target: receiver,
                         state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+
+                    // A search reads its argument, and the collection does not get it. An object
+                    // of this compilation that is not a sequence is not a collection. It can call
+                    // a method of object, as Equals is, and that method keeps nothing.
+                    if (!SodaFlowSymbols.IsASearch(method)
+                        && this.region.TypeOf(receiver) is { } owner
+                        && (SodaFlowSymbols.IsSequence(owner) || SodaFlowSymbols.IsPlatform(owner)))
+                    {
+                        foreach (ArgumentSyntax argument in arguments)
+                        {
+                            this.evaluator.Gets(collection: receiver, value: argument.Expression);
+                        }
+                    }
+
+                    this.evaluator.MovesPositions(
+                        before: positions,
+                        collection: receiver,
+                        method: method,
+                        arguments: arguments);
                 }
 
                 if (LoopStateEvaluator.ExchangeOf(
@@ -1132,7 +1807,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.AssignState(
                         target: exchange.Location,
                         state: always ? put : this.evaluator.Eval(exchange.Location).Join(put),
-                        replaces: always);
+                        replaces: always,
+                        turn: null);
                 }
                 else
                 {
@@ -1142,6 +1818,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         followed: null,
                         moved: moved,
                         receiver: null);
+
+                    this.LinkOuts(arguments: arguments, owner: receiver);
                 }
 
                 // The callee can call a member of an object that it gets, as a sort calls CompareTo.
@@ -1152,6 +1830,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // The analyzer cannot see a pending value that goes to this callee.
             case CalleeKind.Unknown:
             {
+                // The callee can keep a function that it gets, and run it after the call. Thus, the
+                // walk reads such a function with no collection that holds only what went in.
+                this.evaluator.RanCodeWithNoBody();
+
                 this.VisitArguments(
                     arguments: arguments,
                     runs: Runs,
@@ -1161,6 +1843,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.RunGiven(method: method, receiver: receiver, arguments: arguments);
 
                 IMethodSymbol called = method.ReducedFrom ?? method;
+
+                // A method with no body to read can keep an object that it gets. An indexer of its
+                // owner, or a foreach on the owner, can give the object back. Thus, the owner holds
+                // it, as a collection holds the object of a put.
+                if (receiver != null && method.ReducedFrom == null)
+                {
+                    foreach (ArgumentSyntax argument in arguments)
+                    {
+                        this.evaluator.Gets(collection: receiver, value: argument.Expression);
+                    }
+                }
 
                 if (method.ReducedFrom != null && receiver != null)
                 {
@@ -1204,6 +1897,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 kind: kind,
                 method: method,
                 parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
+    }
+
+    // A method of the platform gives an out variable one of the values that its owner has, as
+    // TryGetValue does.
+    private void LinkOuts(SeparatedSyntaxList<ArgumentSyntax> arguments, ExpressionSyntax? owner)
+    {
+        if (owner == null)
+        {
+            return;
+        }
+
+        foreach (ArgumentSyntax argument in
+                 arguments.Where(static argument => argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)))
+        {
+            ISymbol? variable =
+                argument.Expression switch
+                {
+                    DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax single } =>
+                        this.region.ModelFor(single).GetDeclaredSymbol(single),
+                    IdentifierNameSyntax name => this.region.SymbolOf(name),
+                    _ => null
+                };
+
+            if (variable is ILocalSymbol or IParameterSymbol)
+            {
+                this.evaluator.HoldsOneOf(local: variable, collection: owner);
+            }
+        }
     }
 
     public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node) =>
@@ -1252,6 +1973,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // constructor of a list does.
             if (kind != CalleeKind.Body)
             {
+                if (SodaFlowSymbols.TakesXmlContent(constructor.OriginalDefinition))
+                {
+                    this.RunContent(arguments.Arguments);
+                }
+
                 for (int i = 0; i < arguments.Arguments.Count; i++)
                 {
                     ArgumentSyntax argument = arguments.Arguments[i];
@@ -1332,12 +2058,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     enumerates it. The walk read each other argument where the code made the
     ///     query.
     /// </param>
+    /// <param name="source">
+    ///     The collection whose values the callee gives to a lambda. A parameter
+    ///     of the lambda is then a second name for one of those values. Null when
+    ///     the callee gives no such value.
+    /// </param>
     private void VisitArguments(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         Func<ArgumentSyntax, int, bool> runs,
         LoopState given,
         bool oneTime,
-        bool onlyLambdas = false)
+        bool onlyLambdas = false,
+        ExpressionSyntax? source = null)
     {
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -1363,22 +2095,146 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.once.Add(lambda);
             }
 
-            if (!given.IsNone)
+            if (!given.IsNone || source != null)
             {
                 SemanticModel model = this.region.ModelFor(lambda);
 
                 foreach (ParameterSyntax parameter in LoopStateEvaluator.ParametersOf(lambda))
                 {
-                    if (model.GetDeclaredSymbol(parameter) is { } declared)
+                    if (model.GetDeclaredSymbol(parameter) is not { } declared)
+                    {
+                        continue;
+                    }
+
+                    if (!given.IsNone)
                     {
                         this.evaluator.Declare(local: declared, state: given);
+                    }
+
+                    // The callee gives the function the values that its owner has.
+                    if (source != null)
+                    {
+                        this.evaluator.HoldsOneOf(local: declared, collection: source);
                     }
                 }
             }
 
             // The lambda is part of this code. The walk reads it where it is, with the same
-            // evaluator.
+            // evaluator. A callee that does not run it one time runs it for each element. A run for
+            // one element is a turn, and the walk reads the lambda again as it reads the body of a
+            // loop.
+            if (!oneTime)
+            {
+                this.evaluator.RunsForEachElement(lambda);
+            }
+
+            int before = this.evaluator.ShapeOfWhatALoopLeaves(lambda.Body);
             this.Visit(lambda.Body);
+
+            if (oneTime)
+            {
+                continue;
+            }
+
+            this.VisitTheSecondTurn(loop: lambda, body: lambda.Body, before: before);
+        }
+    }
+
+    /// <summary>
+    ///     Reads what a callee with no body to read enumerates through a function
+    ///     that it runs in the call.
+    /// </summary>
+    /// <remarks>
+    ///     A callee that knows the result of the function as a sequence enumerates
+    ///     that result, as <c>SelectMany</c> does. <c>Select</c> knows the result
+    ///     as a type parameter, and keeps it. A function with no code to read can
+    ///     enumerate each sequence that it gets, as <c>Enumerable.Count</c> given
+    ///     by its name does. It can also give back what it got.
+    /// </remarks>
+    /// <param name="call">The call.</param>
+    /// <param name="method">The callee.</param>
+    /// <param name="given">The state of the values that the callee can give to a function.</param>
+    private void RunThroughFunctions(InvocationExpressionSyntax call, IMethodSymbol method, LoopState given)
+    {
+        // A delegate has the types of its own parameters, and a method has those of its definition.
+        IMethodSymbol callee =
+            method.MethodKind == MethodKind.DelegateInvoke ? method : (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (!this.region.Symbols.TakesAFunction(callee))
+        {
+            return;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            IParameterSymbol? parameter =
+                LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i);
+
+            // The delegate of the definition has the types that the callee itself knows.
+            if (parameter?.Type is not INamedTypeSymbol { DelegateInvokeMethod: { } known }
+                || !LoopStateEvaluator.RunsFunction(kind: CalleeKind.Mover, method: method, parameter: parameter))
+            {
+                continue;
+            }
+
+            bool enumeratesResult = SodaFlowSymbols.IsEnumerated(known.ReturnType);
+
+            if (written is AnonymousFunctionExpressionSyntax lambda)
+            {
+                if (enumeratesResult)
+                {
+                    foreach (ExpressionSyntax result in LoopStateEvaluator.ResultsOf(lambda))
+                    {
+                        this.RunQueries(result);
+                    }
+                }
+
+                continue;
+            }
+
+            // The delegate of the call has the types of the values that the function gets.
+            if (this.region.ModelFor(written).GetTypeInfo(written).ConvertedType
+                is not INamedTypeSymbol { DelegateInvokeMethod: { } invoked })
+            {
+                continue;
+            }
+
+            if (!this.evaluator.Eval(written).Functions.IsEmpty)
+            {
+                if (enumeratesResult)
+                {
+                    this.Run(state: this.evaluator.ResultOfFunction(written), enumerated: invoked.ReturnType);
+                }
+
+                continue;
+            }
+
+            // A method by its name has the types that the method itself knows. Each other delegate
+            // has only its own types.
+            IMethodSymbol? named = this.region.SymbolOf(written) as IMethodSymbol;
+
+            ImmutableArray<IParameterSymbol> knows =
+                named == null ? invoked.Parameters : (named.ReducedFrom ?? named).OriginalDefinition.Parameters;
+
+            // The receiver in the name of an extension method is the argument of its first parameter.
+            int receivers = named?.ReducedFrom == null ? 0 : 1;
+
+            for (int position = 0; position < invoked.Parameters.Length; position++)
+            {
+                if (SodaFlowSymbols.IsEnumerated(knows[position + receivers].Type))
+                {
+                    this.Run(state: given, enumerated: invoked.Parameters[position].Type);
+                }
+            }
+
+            if (enumeratesResult)
+            {
+                this.Run(state: given, enumerated: invoked.ReturnType);
+            }
         }
     }
 
@@ -1418,6 +2274,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        if (SodaFlowSymbols.TakesXmlContent(callee))
+        {
+            this.RunContent(arguments);
+
+            return;
+        }
+
+        // The element kept its content, and enumerates it now.
+        if (receiver != null && SodaFlowSymbols.WritesXmlContent(callee))
+        {
+            this.Run(state: this.evaluator.Eval(receiver), enumerated: null);
+
+            return;
+        }
+
         if (!starts && !this.region.Symbols.TakesASequence(callee))
         {
             return;
@@ -1437,10 +2308,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         for (int i = 0; i < arguments.Count; i++)
         {
             if (SodaFlowSymbols.IsEnumerated(
-                    LoopStateEvaluator.ParameterFor(method: method, argument: arguments[i], position: i)?.Type))
+                    this.evaluator.KnownTypeFor(method: method, argument: arguments[i], position: i)))
             {
                 this.RunQueries(arguments[i].Expression);
             }
+        }
+    }
+
+    // A member of LINQ to XML enumerates each sequence in the content that it gets. That includes
+    // a sequence in an array or in a second sequence, and a sequence of this compilation.
+    private void RunContent(SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        foreach (ArgumentSyntax argument in arguments)
+        {
+            this.Report(this.evaluator.FollowEnumeration(argument.Expression));
+            this.Run(state: this.evaluator.Eval(argument.Expression), enumerated: null);
         }
     }
 
@@ -1463,7 +2345,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.Run(state);
+        this.Run(state: state, enumerated: null);
 
         // An object in an object in an object: the depth has an end, as a followed call has.
         if (state.Members is not { } members || depth > 3)
@@ -1499,15 +2381,71 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     Reads what each query in the value of an expression runs. The caller
     ///     is code that enumerates that value.
     /// </summary>
-    private void RunQueries(ExpressionSyntax written) => this.Run(this.evaluator.Eval(written));
-
-    private void Run(LoopState state)
+    private void RunQueries(ExpressionSyntax written)
     {
-        foreach (QueryValue query in state.Queries)
+        LoopState state = this.evaluator.Eval(written);
+
+        // Most values are not a query and contain none.
+        if (!state.Queries.IsEmpty)
+        {
+            this.Run(state: state, enumerated: this.region.TypeOf(written));
+        }
+    }
+
+    /// <summary>
+    ///     Reads what the queries of a state run, for code that enumerates a value
+    ///     with that state.
+    /// </summary>
+    /// <remarks>
+    ///     A state has each query that the value is or contains, with no level.
+    ///     The code enumerates the value itself. Thus, the walk reads only a query
+    ///     that can be that value. A query in the value waits for the code that
+    ///     enumerates it.
+    /// </remarks>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="enumerated">
+    ///     The type of the value as the code enumerates it. Null for code that
+    ///     enumerates each sequence in the value, as a serializer does.
+    /// </param>
+    private void Run(LoopState state, ITypeSymbol? enumerated)
+    {
+        foreach (QueryValue query in state.Queries.Where(query => this.CanBe(query: query, enumerated: enumerated)))
         {
             this.Run(query: query, to: this.sink);
         }
     }
+
+    // A query is an object of one type: the type of the expression that makes it, which is an
+    // interface. It can be the enumerated value when the compiler converts that type to the
+    // enumerated type with no cast. The name of a property in a pattern has no type.
+    private bool CanBe(QueryValue query, ITypeSymbol? enumerated)
+    {
+        if (enumerated == null || SaysLittle(enumerated))
+        {
+            return true;
+        }
+
+        ITypeSymbol? own = query.Call is ExpressionSyntax made ? this.region.TypeOf(made) : null;
+
+        return own == null || SaysLittle(own) || this.region.Converts(from: own, to: enumerated);
+    }
+
+    // A type that does not tell a sequence from one of its elements. The IEnumerable that is not
+    // generic and an enumerator do not have the type of the element. A type parameter can be a
+    // sequence.
+    private static bool SaysLittle(ITypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Collections_IEnumerable
+        || SodaFlowSymbols.IsEnumerator(type)
+        || HasTypeParameter(type);
+
+    private static bool HasTypeParameter(ITypeSymbol type) =>
+        type switch
+        {
+            ITypeParameterSymbol => true,
+            IArrayTypeSymbol array => HasTypeParameter(array.ElementType),
+            INamedTypeSymbol named => named.TypeArguments.Any(HasTypeParameter),
+            _ => false
+        };
 
     /// <summary>
     ///     Reads what one query runs, one time. The code of the query is part of
@@ -1517,11 +2455,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </summary>
     private void Run(QueryValue query, Action<Finding> to)
     {
+        this.running?.Enumerates(query);
+
         if (query.TakeHeld() is { } held)
         {
             foreach (Finding finding in held)
             {
                 to(finding);
+            }
+
+            // The findings that a query keeps are those of its own code. A source keeps its own.
+            foreach (QueryValue source in query.Sources)
+            {
+                this.Run(query: source, to: to);
             }
 
             return;
@@ -1535,27 +2481,38 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SinkWalker walker =
             ReferenceEquals(objA: query.Definer, objB: this.evaluator) && ReferenceEquals(objA: to, objB: this.sink)
                 ? this
-                : new SinkWalker(region: this.region, evaluator: query.Definer, sink: to);
+                : query.Definer.ReadBy(new SinkWalker(region: this.region, evaluator: query.Definer, sink: to));
 
+        QueryValue? outer = walker.running;
+        walker.running = query;
         walker.RunHere(query.Call);
+        walker.running = outer;
     }
 
     private void RunHere(SyntaxNode call)
     {
         switch (call)
         {
-            // Each part but the first source runs when something enumerates the query.
+            // The walk read the first source where the code made the query. The query enumerates
+            // that source, and each other part runs, when something enumerates the query.
             case QueryExpressionSyntax query:
+                this.RunQueries(query.FromClause.Expression);
                 this.Visit(query.Body);
 
                 return;
             case InvocationExpressionSyntax node when this.region.SymbolOf(node) is IMethodSymbol method:
             {
                 SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
+                bool isOfThePlatform = this.evaluator.Classify(call: node, method: method) == CalleeKind.Mover;
 
-                // A query method of the platform: its functions, the members that it calls on an
-                // object, and the enumeration of its source.
-                if (this.evaluator.Classify(call: node, method: method) == CalleeKind.Mover)
+                LoopState given =
+                    isOfThePlatform
+                        ? this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement
+                        : LoopState.None;
+
+                // A query method of the platform: its functions, the sequences that it gets, and
+                // the members that it calls on an object.
+                if (isOfThePlatform)
                 {
                     this.VisitArguments(
                         arguments: arguments,
@@ -1567,15 +2524,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                                     method: method,
                                     argument: argument,
                                     position: position)),
-                        given: this.evaluator.Moved(invocation: node, method: method, withReceiver: true).AsElement,
+                        given: given,
                         oneTime: false,
-                        onlyLambdas: true);
+                        onlyLambdas: true,
+                        source: LoopStateEvaluator.ReceiverOf(
+                            symbols: this.region.Symbols,
+                            invocation: node,
+                            method: method));
+
+                    // The state of the query has the queries of its sources, but a source can
+                    // have a different type. The query enumerates each source.
+                    this.RunGiven(
+                        method: method,
+                        receiver: LoopStateEvaluator.ReceiverOf(
+                            symbols: this.region.Symbols,
+                            invocation: node,
+                            method: method),
+                        arguments: arguments);
 
                     this.Report(this.evaluator.FollowPlatformCall(invocation: node, method: method));
                 }
 
                 // For an iterator, the body. For a query, a function that is not a lambda.
                 this.Report(this.evaluator.Follow(node));
+
+                if (isOfThePlatform)
+                {
+                    this.RunThroughFunctions(call: node, method: method, given: given);
+                }
 
                 return;
             }
@@ -1661,6 +2637,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && followed.Outs.TryGetValue(key: definition.Parameters[0], value: out LoopState? intoReceiver))
         {
             this.evaluator.Merge(target: receiver, state: intoReceiver);
+            this.evaluator.GivesAnArgument(argument: receiver, parameter: definition.Parameters[0], followed: followed);
         }
 
         for (int i = 0; i < arguments.Count; i++)
@@ -1674,9 +2651,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (!arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
                 && !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
             {
-                if (followed != null && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put))
+                // The array of a params parameter is a new array, and what the callee put into it
+                // does not come to an argument. A change through an element is a change to the
+                // object of the argument, which the store has.
+                if (followed != null
+                    && followed.Outs.TryGetValue(key: parameter, value: out LoopState? put)
+                    && !(this.evaluator.IsOneOfAParamsArray(parameter: parameter, argument: arguments[i].Expression)
+                         && !this.evaluator.Eval(arguments[i].Expression).Objects.IsEmpty))
                 {
-                    this.evaluator.Merge(target: arguments[i].Expression, state: put);
+                    this.evaluator.MergesWhatACalleePut(target: arguments[i].Expression, state: put);
+
+                    this.evaluator.GivesAnArgument(
+                        argument: arguments[i].Expression,
+                        parameter: parameter,
+                        followed: followed);
                 }
 
                 continue;
@@ -1689,7 +2677,60 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         ? assigned
                         : LoopState.None;
 
-            this.AssignState(target: arguments[i].Expression, state: state, replaces: false);
+            // A callee with a body that gave its parameter no value gives an element nothing.
+            if (arguments[i].Expression is not ElementAccessExpressionSyntax element)
+            {
+                this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
+            }
+            else if (followed == null || followed.Outs.ContainsKey(parameter))
+            {
+                this.AssignState(target: element, state: state, replaces: false, turn: null);
+
+                // The element has the value in its collection, as after an assignment to it.
+                this.evaluator.GetsAState(collection: element.Expression, put: state);
+            }
+        }
+    }
+
+    // The operator ++ or -- gives its operand a new value, and the walk has no state for that
+    // value at the operand. A ref to an element is a second name of that element, and an
+    // assignment to the name is an assignment to the element.
+    public override void VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+    {
+        base.VisitPrefixUnaryExpression(node);
+
+        if (node.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression)
+        {
+            this.ForgetsThePositionsAround(node.Operand);
+        }
+    }
+
+    public override void VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+    {
+        base.VisitPostfixUnaryExpression(node);
+
+        if (node.Kind() is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression)
+        {
+            this.ForgetsThePositionsAround(node.Operand);
+        }
+    }
+
+    public override void VisitRefExpression(RefExpressionSyntax node)
+    {
+        base.VisitRefExpression(node);
+        this.ForgetsThePositionsAround(node.Expression);
+    }
+
+    private void ForgetsThePositionsAround(ExpressionSyntax element)
+    {
+        while (element is ParenthesizedExpressionSyntax around)
+        {
+            element = around.Expression;
+        }
+
+        if (element is ElementAccessExpressionSyntax written)
+        {
+            this.evaluator.ForgetsThePositionsOf(written.Expression);
         }
     }
 
