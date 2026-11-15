@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -65,6 +66,14 @@ internal sealed class SodaFlowSymbols
     /// </summary>
     public static readonly ImmutableHashSet<string> ReadMembers =
         ImmutableHashSet.Create("Sample", "Value", "CanExecute");
+
+    /// <summary>
+    ///     The kind of the <c>field</c> keyword of C# 14 as an expression. The
+    ///     analyzer builds with a Roslyn that does not have this kind, but a host
+    ///     that can parse the keyword has it. Otherwise, the value is -1.
+    /// </summary>
+    public static readonly int FieldKeywordKind =
+        Enum.TryParse(value: "FieldExpression", result: out SyntaxKind kind) ? (int)kind : -1;
 
     // The node actions of one compilation run at the same time, and each asks this question.
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
@@ -422,6 +431,18 @@ internal sealed class SodaFlowSymbols
                     parameter.Type is ITypeParameterSymbol),
             _ => false
         };
+
+    /// <summary>
+    ///     The property of the backing field that the <c>field</c> keyword names.
+    ///     The walk keeps the state of an automatic property on the property, thus
+    ///     the keyword is a name of the property. Null for each other expression.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="symbol">The symbol of the expression.</param>
+    public static IPropertySymbol? PropertyOfTheFieldKeyword(SyntaxNode expression, ISymbol? symbol) =>
+        expression.RawKind == FieldKeywordKind && symbol is IFieldSymbol { AssociatedSymbol: IPropertySymbol property }
+            ? property
+            : null;
 
     /// <summary>
     ///     True for an event of this compilation with no accessors in its

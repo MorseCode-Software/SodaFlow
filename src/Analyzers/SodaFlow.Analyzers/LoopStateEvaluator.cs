@@ -1865,6 +1865,7 @@ internal sealed partial class LoopStateEvaluator
                 or GenericNameSyntax => this.WithItsInitializer(
                     expression: expression,
                     state: this.EvalName(expression)),
+            _ when expression.RawKind == SodaFlowSymbols.FieldKeywordKind => this.EvalFieldKeyword(expression),
             // An operator of this compilation gives what it returns.
             _ => this.FollowExpression(expression) is { } result
                 ? result.State.Join(this.TypeState(expression))
@@ -2256,6 +2257,23 @@ internal sealed partial class LoopStateEvaluator
             default:
                 return this.TypeState(expression);
         }
+    }
+
+    // The field keyword of C# 14 in an accessor of a property. It has the state of the property of
+    // this object, as a name of an automatic property in a constructor has.
+    private LoopState EvalFieldKeyword(ExpressionSyntax expression)
+    {
+        if (SodaFlowSymbols.PropertyOfTheFieldKeyword(expression: expression, symbol: this.region.SymbolOf(expression))
+            is not { } property)
+        {
+            return this.TypeState(expression);
+        }
+
+        return (this.thisMembers.TryGetValue(key: property.OriginalDefinition, value: out LoopState? own)
+                ? own
+                : LoopState.None)
+            .Join(this.region.HasFields ? this.region.FieldState(property) : LoopState.None)
+            .Join(this.TypeState(expression));
     }
 
     /// <summary>

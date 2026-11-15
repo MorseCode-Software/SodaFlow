@@ -1536,7 +1536,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 return;
         }
 
-        switch (this.region.SymbolOf(target))
+        ISymbol? assigned = this.region.SymbolOf(target);
+
+        // The field keyword of C# 14 is a name of its property, as EvalFieldKeyword reads it.
+        bool isTheFieldKeyword = target.RawKind == SodaFlowSymbols.FieldKeywordKind;
+
+        if (isTheFieldKeyword
+            && SodaFlowSymbols.PropertyOfTheFieldKeyword(expression: target, symbol: assigned) is { } property)
+        {
+            assigned = property;
+        }
+
+        switch (assigned)
         {
             case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
                 if (replaces || IsNewInEachTurn(local: local, turn: turn))
@@ -1556,7 +1567,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
             case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol or IEventSymbol)
-                when target is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                when (target is IdentifierNameSyntax
+                          or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                      || isTheFieldKeyword)
                      && HasAValue(own):
                 this.evaluator.SetMember(member: own, state: state, replaces: replaces, from: from);
                 break;

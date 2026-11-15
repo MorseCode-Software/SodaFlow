@@ -13029,6 +13029,26 @@ public static class Shapes
     public static Cell<int> Ab96APendingCellIntoTheOtherArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int>[] others = [Plain]; R2SlotOf(cells) = l.Map(v => v); return S.Hold(others[0].Sample()); });
 
+    // S2939. A property whose accessors use the field keyword gets a pending cell, and the block samples the property.
+    public static Cell<int> R2CsFieldKeywordProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new() { Share = l.Map(v => v) }; return S.Hold(r.Share!.Sample()); });
+
+    // S2940. AB97 control. A property whose accessors use the field keyword gets a plain cell, and the block samples the property.
+    public static Cell<int> Ab97FieldKeywordPropertyWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new() { Share = Plain }; return S.Hold(r.Share!.Sample()); });
+
+    // S2941. AB97. An assignment after the creation gives a property with the field keyword a pending cell.
+    public static Cell<int> Ab97FieldKeywordPropertySetAfterTheCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new(); r.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S2942. AB97. Only the setter of the property uses the field keyword, and the getter is automatic.
+    public static Cell<int> Ab97FieldKeywordOnlyInTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab97HalfRow r = new() { Share = l.Map(v => v) }; return S.Hold(r.Share!.Sample()); });
+
+    // S2943. AB97 control. Only the setter of the property uses the field keyword, and the property gets a plain cell.
+    public static Cell<int> Ab97FieldKeywordOnlyInTheSetterWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab97HalfRow r = new() { Share = Plain }; return S.Hold(r.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16269,6 +16289,11 @@ public static class Shapes
     }
 
     private static ref Cell<int> Ab96Same(ref Cell<int> c) => ref c;
+
+    public sealed class Ab97HalfRow
+    {
+        public Cell<int>? Share { get; set => field = value; }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
