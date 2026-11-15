@@ -423,6 +423,15 @@ internal sealed class SodaFlowSymbols
             _ => false
         };
 
+    /// <summary>
+    ///     True for an event of this compilation with no accessors in its
+    ///     declaration. Such an event keeps its handlers in a field of its own.
+    ///     The code of its type can call it as a delegate.
+    /// </summary>
+    public static bool IsFieldLikeEvent(ISymbol? symbol) =>
+        symbol is IEventSymbol { DeclaringSyntaxReferences.Length: 1 } happening
+        && happening.DeclaringSyntaxReferences[0].GetSyntax() is VariableDeclaratorSyntax;
+
     private static bool IsTask(INamedTypeSymbol? type) =>
         type is { Name: "Task" or "ValueTask" }
         && type.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";

@@ -1529,12 +1529,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 break;
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
-            case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol)
-                when target is IdentifierNameSyntax
-                    or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }:
+            case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol or IEventSymbol)
+                when target is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                     && HasAValue(own):
                 this.evaluator.SetMember(member: own, state: state, replaces: replaces, from: from);
                 break;
-            case { } member and (IFieldSymbol or IPropertySymbol) when !this.region.Symbols.IsSodaFlow(member):
+            case { } member and (IFieldSymbol or IPropertySymbol or IEventSymbol)
+                when !this.region.Symbols.IsSodaFlow(member) && HasAValue(member):
                 this.evaluator.SetMemberOf(
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
                     member: member,
@@ -1546,6 +1547,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 break;
         }
     }
+
+    // An event keeps its handlers as a field keeps its value, when its declaration has no
+    // accessors. The add accessor of each other event keeps them, and CheckAccessor reads it.
+    private static bool HasAValue(ISymbol member) =>
+        member is not IEventSymbol || SodaFlowSymbols.IsFieldLikeEvent(member);
 
     // A local of the code around a loop has only the new value until the end of the turn. After the
     // loop, it can have the value from before the assignment also. The loop can run no turn, and a

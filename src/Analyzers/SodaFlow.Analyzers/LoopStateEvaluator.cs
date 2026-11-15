@@ -1786,6 +1786,10 @@ internal sealed partial class LoopStateEvaluator
                 : this.Eval(c.Expression),
             CheckedExpressionSyntax c => this.Eval(c.Expression),
             AwaitExpressionSyntax a => this.Eval(a.Expression),
+            // The plus of two delegates makes a delegate that runs the functions of each.
+            BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression } b
+                when this.region.TypeOf(b) is { TypeKind: TypeKind.Delegate } =>
+                this.Eval(b.Left).Join(this.Eval(b.Right)),
             PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } s =>
                 this.Eval(s.Operand),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b => this.Eval(b.Left),
@@ -2105,6 +2109,8 @@ internal sealed partial class LoopStateEvaluator
             }
             case IMethodSymbol group:
                 return this.EvalMethodGroup(expression: expression, group: group);
+            // An event that keeps its handlers in a field has them as a field has its value.
+            case IEventSymbol when SodaFlowSymbols.IsFieldLikeEvent(symbol):
             case IPropertySymbol or IFieldSymbol:
             {
                 if (symbol is IPropertySymbol property)
@@ -2217,7 +2223,13 @@ internal sealed partial class LoopStateEvaluator
                     // behind a bindable, one element of a tuple from a loop block, or the values of
                     // a dictionary. A member that is not a sequence is one of the values that the
                     // owner contains, as the value of a pair is.
-                    ITypeSymbol memberType = symbol is IPropertySymbol p ? p.Type : ((IFieldSymbol)symbol).Type;
+                    ITypeSymbol memberType =
+                        symbol switch
+                        {
+                            IPropertySymbol p => p.Type,
+                            IEventSymbol e => e.Type,
+                            _ => ((IFieldSymbol)symbol).Type
+                        };
 
                     // SyncRoot of a collection is an object to lock, and not a value in it.
                     if (symbol.ContainingType.IsTupleType

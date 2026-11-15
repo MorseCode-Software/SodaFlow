@@ -12989,6 +12989,30 @@ public static class Shapes
     public static Cell<int> Ab89StaticVirtualOfTheInterface() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab89ReadThroughVirtual<Ab89UsesTheDefault>(l)));
 
+    // S2929. The block adds a handler that samples to an event, then raises the event.
+    public static Cell<int> R2CsEventRaisedInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rang += () => Kept.Add(l.Sample()); R2Rang?.Invoke(); return S.Hold(0); });
+
+    // S2930. The plus operator combines two delegates, and the call of the result runs the lambda that samples.
+    public static Cell<int> R2CsDelegatesCombinedWithPlus() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action both = first + second; both(); return S.Hold(0); });
+
+    // S2931. AB95. A method of the object raises its event, which has a handler from the block that samples.
+    public static Cell<int> Ab95AMethodRaisesAnEventOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l.Sample()); b.Ring(); return S.Hold(0); });
+
+    // S2932. AB95 control. The handler of the event does not sample.
+    public static Cell<int> Ab95AnEventWithAHandlerThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l); b.Ring(); return S.Hold(0); });
+
+    // S2933. AB95. The plus operator combines a delegate with a lambda that samples, and Invoke runs the result.
+    public static Cell<int> Ab95DelegatesCombinedAndInvoked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action both = first + (() => Kept.Add(l.Sample())); both.Invoke(); return S.Hold(0); });
+
+    // S2934. AB95 control. The plus operator combines two delegates that do not sample.
+    public static Cell<int> Ab95DelegatesCombinedThatDoNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l); Action both = first + second; both(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16220,6 +16244,13 @@ public static class Shapes
     public sealed class Ab89UsesTheDefault : IAb89VirtualReads;
 
     private static int Ab89ReadThroughVirtual<T>(Cell<int> c) where T : IAb89VirtualReads => T.ReadOf(c);
+
+    public sealed class Ab95Bell
+    {
+        public event Action? Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
