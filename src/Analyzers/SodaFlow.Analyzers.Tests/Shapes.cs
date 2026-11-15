@@ -13377,6 +13377,18 @@ public static class Shapes
     public static Cell<int> Ab103SnapshotLatestOfAPlainCellAsTheClose() =>
         Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(Plain, (a, b) => a + b).Hold(0));
 
+    // S3026. The firings of a bindable action are its sink, which has no link to the enablement cell. Thus, a counter that disables the action after three firings is not a cycle.
+    public static Cell<int> R2ApiFiringsOfAnActionWithALinkedEnablementAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return a.FiringsStream.Snapshot(l, (_, n) => n + 1).Hold(0); });
+
+    // S3027. The enablement of a bindable action is the cell that it got, thus a close with a map of a linked enablement is a cycle.
+    public static Cell<int> Ab104EnablementOfAnActionWithALinkedEnablementAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return a.IsEnabledCell.Map(e => e ? 1 : 0); });
+
+    // S3028. A sample of the enablement of a bindable action reads the pending cell that the action got.
+    public static Cell<int> Ab104EnablementOfAnActionWithAPendingEnablementRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return S.Hold(a.IsEnabledCell.Sample() ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -2539,6 +2539,11 @@ internal sealed partial class LoopStateEvaluator
                     symbols: this.region.Symbols,
                     method: method,
                     inputs: inputs),
+                OperatorRule.BindableAction => DefaultLibraryResult(
+                        symbols: this.region.Symbols,
+                        method: method,
+                        inputs: inputs)
+                    .WithMembers(this.ActionParts(method: method, arguments: arguments)),
                 _ => throw new ArgumentOutOfRangeException(
                     paramName: nameof(invocation),
                     message: "An operator rule has no case.")
@@ -5888,6 +5893,40 @@ internal sealed partial class LoopStateEvaluator
             MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
             _ => target.ToString()
         };
+
+    /// <summary>
+    ///     The members of a bindable action. The firings are the sink that the
+    ///     action gets. The action listens to its enablement cell, and that cell
+    ///     links nothing into the sink.
+    /// </summary>
+    private Construction ActionParts(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        Construction parts = Construction.Empty;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            string? member =
+                ParameterFor(method: method, argument: arguments[i], position: i)?.Name switch
+                {
+                    "firingsStreamSink" => "FiringsStream",
+                    "isEnabledCell" => "IsEnabledCell",
+                    _ => null
+                };
+
+            if (member != null
+                && method.ReturnType.AllInterfaces
+                        .Add(item: (INamedTypeSymbol)method.ReturnType)
+                        .SelectMany(type => type.GetMembers(member))
+                        .OfType<IPropertySymbol>()
+                        .FirstOrDefault()
+                    is { } property)
+            {
+                parts = parts.With(member: property, state: this.Eval(arguments[i].Expression));
+            }
+        }
+
+        return parts;
+    }
 
     /// <summary>
     ///     A method with no rule here gives its result the state of its inputs,

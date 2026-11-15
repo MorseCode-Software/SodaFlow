@@ -2051,7 +2051,9 @@ internal sealed class LoopReadAnalyzerTests
             ["R2ApiCanExecuteThroughICommand"] = ["SF1001"],
             ["Ab102ExecuteThroughICommand"] = ["SF1001"],
             ["R2ApiSnapshotLatestOfThePlaceholderAsTheClose"] = ["SF1002"],
-            ["R2ApiSnapshotLatestOfADerivedCellAsTheClose"] = ["SF1002"]
+            ["R2ApiSnapshotLatestOfADerivedCellAsTheClose"] = ["SF1002"],
+            ["Ab104EnablementOfAnActionWithALinkedEnablementAsTheClose"] = ["SF1002"],
+            ["Ab104EnablementOfAnActionWithAPendingEnablementRead"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

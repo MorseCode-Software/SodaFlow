@@ -112,6 +112,13 @@ internal enum OperatorRule
     /// <summary>A merge of streams. Linked when any stream input is.</summary>
     MergeStreams,
 
+    /// <summary>
+    ///     A bindable action. It has the state of its inputs, as with
+    ///     <see cref="Default" />. Its firings have the state of its sink only, and
+    ///     its enablement has the state of its cell.
+    /// </summary>
+    BindableAction,
+
     /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
     DeferLazy,
 
@@ -196,7 +203,8 @@ internal static class OperatorTable
             "Unlisten",
             "Loop",
             "Fold",
-            "FoldByIdentity");
+            "FoldByIdentity",
+            "CreateBindableAction");
 
     /// <summary>
     ///     The public operators with no row, for which the default is the correct
@@ -235,7 +243,6 @@ internal static class OperatorTable
             "SortByKeyDescending",
             "Take",
             // A bindable is pending when its cell is. A read of its value is a read of the cell.
-            "CreateBindableAction",
             "CreateOneWay",
             "CreateTwoWay");
 
@@ -442,6 +449,7 @@ internal static class OperatorTable
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
+            "CreateBindableAction" => OperatorRule.BindableAction,
             "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
