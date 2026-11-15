@@ -13093,6 +13093,34 @@ public static class Shapes
     public static Cell<int> Ag64TheComparandIsTheResultOfACall() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, Ag64Same(y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
 
+    // S2955. AG65. A method gives the element the object with the pending cell through ref, and the plain cell goes through the element.
+    public static Cell<int> Ag65AMethodGivesTheElementThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ab82Give(ref slots[0], y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2956. AG65. The same through out.
+    public static Cell<int> Ag65AMethodGivesTheElementThePendingObjectThroughOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ag65GiveOut(out slots[0], y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2957. AG65. The method gives the element the object only in a branch, which does not run.
+    public static Cell<int> Ag65TheMethodGivesTheObjectInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ag65GiveIf(ref slots[0], y, Kept.Count < 0); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2958. AG65. The call of the method is in a branch that does not run.
+    public static Cell<int> Ag65TheCallIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); if (Kept.Count < 0) { Ab82Give(ref slots[0], y); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2959. AG65. The method gives the parameter the object with the pending cell, and then puts the plain object into the element.
+    public static Cell<int> Ag65TheMethodPutsIntoTheElementAfterItGivesTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveThenPut(ref slots[0], slots, y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2960. AG65. The method gives the element through a second method after it gives the parameter.
+    public static Cell<int> Ag65TheMethodPutsThroughASecondMethodAfterItGivesTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveThenPutThroughASecond(ref slots[0], slots, y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2961. AG65. Two parameters with ref are the same element, and the method gives the first one last.
+    public static Cell<int> Ag65TwoParametersAreTheSameElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveBoth(ref slots[0], ref slots[0], first, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16349,6 +16377,40 @@ public static class Shapes
     }
 
     private static SettableSlot Ag64Same(SettableSlot slot) => slot;
+
+    private static void Ag65GiveOut(out SettableSlot slot, SettableSlot given) => slot = given;
+
+    private static void Ag65GiveIf(ref SettableSlot slot, SettableSlot given, bool when)
+    {
+        if (when)
+        {
+            slot = given;
+        }
+    }
+
+    private static void Ag65GiveThenPut(ref SettableSlot slot, SettableSlot[] all, SettableSlot given, SettableSlot other)
+    {
+        slot = given;
+        all[0] = other;
+    }
+
+    private static void Ag65GiveThenPutThroughASecond(
+        ref SettableSlot slot,
+        SettableSlot[] all,
+        SettableSlot given,
+        SettableSlot other)
+    {
+        slot = given;
+        Ag65Put(all, other);
+    }
+
+    private static void Ag65Put(SettableSlot[] all, SettableSlot other) => all[0] = other;
+
+    private static void Ag65GiveBoth(ref SettableSlot first, ref SettableSlot second, SettableSlot x, SettableSlot z)
+    {
+        second = z;
+        first = x;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

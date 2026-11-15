@@ -549,6 +549,9 @@ internal sealed partial class LoopStateEvaluator
         ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Builder through =
             ImmutableArray.CreateBuilder<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>();
 
+        ImmutableHashSet<ISymbol>.Builder alwaysGives =
+            ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
+
         // A parameter has a state here only when the callee gave it one. For a parameter that is
         // not ref or out, that is a value that the callee put into the object, as Add does. The
         // caller has the same object. An assignment to the parameter changes only the local of
@@ -560,6 +563,16 @@ internal sealed partial class LoopStateEvaluator
             if (inner.locals.TryGetValue(key: binding.Parameter, value: out LoopState? assigned))
             {
                 outs[binding.Parameter] = assigned.WithOrigins(Out).FromIfUnknown(inputs);
+
+                // An assignment that always runs gives the location of the argument this value. A
+                // put or a change of a position after the last such assignment can go to that
+                // location.
+                if (inner.Frame.PositionsAtASureAssignment.TryGetValue(key: binding.Parameter, value: out int at)
+                    && at == this.region.Objects.PositionChanges
+                    && inner.Frame.PutsBeforeAnAssignment[binding.Parameter] == inner.Frame.PutsIntoLocations.Count)
+                {
+                    alwaysGives.Add(binding.Parameter);
+                }
 
                 // The members that the callee set through the parameter.
                 if (assigned.Members is { } has
@@ -588,7 +601,8 @@ internal sealed partial class LoopStateEvaluator
             findings: findings,
             outs: outs.ToImmutable(),
             sets: sets,
-            through: through.ToImmutable());
+            through: through.ToImmutable(),
+            alwaysGives: alwaysGives.ToImmutable());
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)

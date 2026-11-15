@@ -65,6 +65,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public Dictionary<ISymbol, int> PutsBeforeAnAssignment { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     For a parameter with ref or out: the value of
+    ///     <see cref="ObjectStore.PositionChanges" /> at the last assignment to
+    ///     it. The assignment always runs in this code.
+    /// </summary>
+    public Dictionary<ISymbol, int> PositionsAtASureAssignment { get; } = new(SymbolEqualityComparer.Default);
+
     /// <summary>The frame of the block, which has no parent.</summary>
     public LoopFrame Root
     {

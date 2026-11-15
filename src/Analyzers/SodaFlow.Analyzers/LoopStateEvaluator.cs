@@ -388,6 +388,12 @@ internal sealed partial class LoopStateEvaluator
         if (local is IParameterSymbol { RefKind: not RefKind.None })
         {
             this.Frame.PutsBeforeAnAssignment[local] = this.Frame.PutsIntoLocations.Count;
+
+            // A function can run at a different time from its code.
+            if (this.function == null)
+            {
+                this.Frame.PositionsAtASureAssignment[local] = this.region.Objects.PositionChanges;
+            }
         }
     }
 
@@ -3362,7 +3368,8 @@ internal sealed partial class LoopStateEvaluator
                     findings: first.Findings.AddRange(second.Findings),
                     outs: first.Outs.SetItems(second.Outs),
                     sets: first.Sets.AddRange(second.Sets),
-                    through: first.Through.AddRange(second.Through));
+                    through: first.Through.AddRange(second.Through),
+                    alwaysGives: first.AlwaysGives.Intersect(second.AlwaysGives));
 
     private Followed? FollowFunctions(
         SyntaxNode call,
@@ -3713,7 +3720,8 @@ internal sealed partial class LoopStateEvaluator
                     findings: Followed.Nothing.Findings,
                     outs: Followed.Nothing.Outs,
                     sets: Followed.Nothing.Sets,
-                    through: Followed.Nothing.Through);
+                    through: Followed.Nothing.Through,
+                    alwaysGives: Followed.Nothing.AlwaysGives);
             case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
                 return null;
         }
@@ -4526,7 +4534,8 @@ internal sealed partial class LoopStateEvaluator
             findings: all?.Findings ?? ImmutableArray<Finding>.Empty,
             outs: Followed.Nothing.Outs,
             sets: Followed.Nothing.Sets,
-            through: Followed.Nothing.Through);
+            through: Followed.Nothing.Through,
+            alwaysGives: Followed.Nothing.AlwaysGives);
     }
 
     /// <summary>
@@ -5496,7 +5505,8 @@ internal sealed partial class LoopStateEvaluator
             findings: followed.Findings,
             outs: followed.Outs,
             sets: followed.Sets,
-            through: followed.Through);
+            through: followed.Through,
+            alwaysGives: followed.AlwaysGives);
 
         Followed? Run(LoopState given) =>
             makers.Aggregate(

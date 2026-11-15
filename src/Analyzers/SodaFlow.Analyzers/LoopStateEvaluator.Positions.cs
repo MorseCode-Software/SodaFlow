@@ -94,6 +94,27 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The same as <see cref="HasThePositionAfter" />, for a value that has
+    ///     no expression in this code.
+    /// </summary>
+    /// <param name="before">The result of <see cref="PositionsBefore" /> for the put.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="state">The state of the value.</param>
+    public void HasTheStateAtThePosition(
+        (MadeObject Made, ImmutableArray<LoopState> All)? before,
+        ElementAccessExpressionSyntax element,
+        LoopState state)
+    {
+        if (before is (var made, var all)
+            && element.ArgumentList.Arguments.Count == 1
+            && this.ConstantIndexOf(element.ArgumentList.Arguments[0]) is { } index
+            && index < all.Length)
+        {
+            this.region.Objects.HasPositions(collection: made, values: all.SetItem(index: index, item: state));
+        }
+    }
+
+    /// <summary>
     ///     Records what a call of a method of the platform on a collection does
     ///     to its positions. <c>Add</c>, <c>Insert</c>, <c>RemoveAt</c>,
     ///     <c>Remove</c>, and <c>Reverse</c> of a list give the new positions. A

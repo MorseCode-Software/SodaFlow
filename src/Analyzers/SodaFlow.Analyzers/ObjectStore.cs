@@ -405,6 +405,8 @@ internal sealed class ObjectStore
     /// <summary>Records the value at each position of a collection, for the state that it has now.</summary>
     public void HasPositions(MadeObject collection, ImmutableArray<LoopState> values)
     {
+        this.PositionChanges++;
+
         if (this.states.TryGetValue(key: collection, value: out LoopState? now))
         {
             this.positions[collection] = (values, now);
@@ -412,7 +414,18 @@ internal sealed class ObjectStore
     }
 
     /// <summary>Records that the walk does not know the positions of a collection.</summary>
-    public void HasNoPositions(MadeObject collection) => this.positions.Remove(collection);
+    public void HasNoPositions(MadeObject collection)
+    {
+        this.PositionChanges++;
+        this.positions.Remove(collection);
+    }
+
+    /// <summary>
+    ///     The number of calls of <see cref="HasPositions" /> and
+    ///     <see cref="HasNoPositions" />. When the number is the same at two
+    ///     times, no code between the two changed a position.
+    /// </summary>
+    public int PositionChanges { get; private set; }
 
     // For a member of an object: the one collection that the member is.
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> collectionIn = [];

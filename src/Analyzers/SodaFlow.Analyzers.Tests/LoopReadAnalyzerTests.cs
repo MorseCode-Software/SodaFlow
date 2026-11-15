@@ -1999,7 +1999,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag64ACompareExchangeTakesThePendingObjectAway"] = ["SF1001"],
             ["Ag64TheComparandCanBeEitherObject"] = ["SF1001"],
             ["Ag64TheCompareExchangeIsInABranch"] = ["SF1001"],
-            ["Ag64TheComparandIsTheResultOfACall"] = ["SF1001"]
+            ["Ag64TheComparandIsTheResultOfACall"] = ["SF1001"],
+            ["Ag65TheMethodGivesTheObjectInABranch"] = ["SF1001"],
+            ["Ag65TheCallIsInABranch"] = ["SF1001"],
+            ["Ag65TheMethodPutsIntoTheElementAfterItGivesTheParameter"] = ["SF1001"],
+            ["Ag65TheMethodPutsThroughASecondMethodAfterItGivesTheParameter"] = ["SF1001"],
+            ["Ag65TwoParametersAreTheSameElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
