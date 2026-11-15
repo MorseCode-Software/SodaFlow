@@ -2646,8 +2646,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
 
             // An element that gets a value has it in its collection, as an assignment to the
-            // element does.
-            if (arguments[i].Expression is ElementAccessExpressionSyntax element)
+            // element does. A callee with a body that gave its parameter no value gives nothing.
+            if (arguments[i].Expression is ElementAccessExpressionSyntax element
+                && (followed == null || followed.Outs.ContainsKey(parameter)))
             {
                 this.evaluator.GetsAState(collection: element.Expression, put: state);
             }

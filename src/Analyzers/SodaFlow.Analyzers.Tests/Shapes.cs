@@ -11961,6 +11961,90 @@ public static class Shapes
     public static Cell<int> Ab76AMethodOfThePlatformGivesTheElementAnObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Volatile.Write(ref slots[0], other); slots[0].Share = Plain; return S.Hold(first.Share!.Sample()); });
 
+    // S2672. AG59. An indexer with a body, on an object with no member, makes the keeper.
+    public static Cell<int> Ag59AKeeperFromAnIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag59Makers makers = new(); IAg59Keeper keeper = makers[0]; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2673. AG59. An object from a method with a type parameter has two names, and the pending cell goes through the second one.
+    public static Cell<int> Ag59AnObjectFromATypeParameterHasTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ag59Make<SettableSlot>(); SettableSlot second = x; second.Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S2674. AG59. A lambda in a method with a type parameter makes the keeper.
+    public static Cell<int> Ag59ALambdaInAMethodWithATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeInALambda<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2675. AG59. A method with a type parameter gives it to a second method, which makes the keeper.
+    public static Cell<int> Ag59ATypeParameterGoesToASecondMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag59MakeThroughASecond<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2676. AG59. An extension method with a type parameter makes the keeper.
+    public static Cell<int> Ag59AnExtensionMethodWithATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = first.Ag59MakeBeside<Ag59Keeper>(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2677. AG60. An inner loop that runs no turn has the call of the helper. The read of the object of the turn is after that loop.
+    public static Cell<int> Ag60AnInnerLoopThatRunsNoTurnHasTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; for (int j = 0; j < Kept.Count - Kept.Count; j++) { Ag60MakePlain(x); } Kept.Add(x.Share!.Sample()); } return S.Hold(0); });
+
+    // S2678. AG60. A lambda that a method of the platform runs for each element of no element has the call of the helper.
+    public static Cell<int> Ag60ALambdaForEachElementOfNoneHasTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Array.ForEach(Ab71None, _ => { Ag60MakePlain(x); }); return S.Hold(x.Share!.Sample()); });
+
+    // S2679. AG60. The loop runs no turn, and its helper calls the helper that gives the plain cell.
+    public static Cell<int> Ag60TheLoopOfTwoHelpersRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; for (int i = 0; i < Kept.Count - Kept.Count; i++) { Ag60MakePlainThroughASecond(x); } return S.Hold(x.Share!.Sample()); });
+
+    // S2680. AB76. The array is one that the walk did not see made. The method gives a pending cell through its parameter with ref, and then samples through the parameter.
+    public static Cell<int> Ab76AReadAfterAWriteThroughAParameterOfAnUnseenArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = Ab76UnseenForARead; int got = Ab76GiveThenRead(ref slots[0], l.Map(v => v)); return S.Hold(got); });
+
+    // S2681. AB76. The method gives its parameter a new object, and gives the parameter to a second method. That one gives a pending cell through it, and the read is of the object that the element had at the call.
+    public static Cell<int> Ab76TheFirstObjectAfterASecondMethodGotANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76NewThenThroughASecond(ref slots[0], l.Map(v => v)); return S.Hold(first.Share!.Sample()); });
+
+    // S2682. AB76. The same, and the read is through the element.
+    public static Cell<int> Ab76TheElementAfterASecondMethodGotANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76NewThenThroughASecond(ref slots[0], l.Map(v => v)); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2683. AB76. The method gives the field a different object, and then a plain cell through its parameter. The read after the call is through the field, whose first object had a pending cell.
+    public static Cell<int> Ab76TheFieldAfterTheCallHasThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76Box box = new() { Slot = new SettableSlot { Share = l.Map(v => v) } }; SettableSlot other = new SettableSlot { Share = Plain }; Ab76PutInTheBoxThenGive(ref box.Slot, box, other, Plain); return S.Hold(box.Slot!.Share!.Sample()); });
+
+    // S2684. AB76. The write of the method is through a member of its parameter with ref, after the field got a different object.
+    public static Cell<int> Ab76AWriteThroughAMemberOfTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76OuterBox box = new() { Slot = new OuterSlot() }; OuterSlot other = new(); other.Inner.Share = l.Map(v => v); Ab76PutInTheBoxThenGiveInner(ref box.Slot, box, other, Plain); return S.Hold(other.Inner.Share!.Sample()); });
+
+    // S2685. AB76. The method gives its parameter with ref no value. A plain cell through the element after the call replaces the pending one.
+    public static Cell<int> Ab76AMethodThatGivesItsParameterNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76Count(ref slots[0]); slots[0].Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S2686. AB76. The method gives its parameter with ref an object that the walk did not see made. A plain cell through the element is then no change for the object that the element had.
+    public static Cell<int> Ab76AMethodGivesItsParameterAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76GiveUnseen(ref slots[0]); slots[0].Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S2687. AB76. The parameter has in, and the method gives the element a different object before the pending cell.
+    public static Cell<int> Ab76AParameterWithIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76PutThenGiveIn(in slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2688. AB76. The parameter has in and the type object. Its argument is then a copy, and the pending cell goes to the object that the element had at the call.
+    public static Cell<int> Ab76AParameterWithInGetsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76GiveToACopy(slots[0], slots, other, l.Map(v => v)); return S.Hold(first.Share!.Sample()); });
+
+    // S2689. AB76. The same, and the read is of the different object.
+    public static Cell<int> Ab76TheDifferentObjectAfterAParameterWithInGotACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Ab76GiveToACopy(slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2690. AB76. A local function has the parameter with ref. It gives the element a different object, and then a pending cell through the parameter.
+    public static Cell<int> Ab76ALocalFunctionWithAParameterWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Cell<int> pending = l.Map(v => v); void PutThenGive(ref SettableSlot slot) { slots[0] = other; slot.Share = pending; } PutThenGive(ref slots[0]); return S.Hold(other.Share!.Sample()); });
+
+    // S2691. AB76. A lambda has the parameter with ref.
+    public static Cell<int> Ab76ALambdaWithAParameterWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Cell<int> pending = l.Map(v => v); Ab76Giver give = (ref SettableSlot slot) => { slots[0] = other; slot.Share = pending; }; give(ref slots[0]); return S.Hold(other.Share!.Sample()); });
+
+    // S2692. AB76. The call of the method with the parameter with ref is in a lambda.
+    public static Cell<int> Ab76TheCallIsInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Action run = () => { Ab76PutThenGive(ref slots[0], slots, other, l.Map(v => v)); }; run(); return S.Hold(other.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -14565,6 +14649,71 @@ public static class Shapes
         slot.Share = cell;
     }
 
+    private static readonly SettableSlot[] Ab76UnseenForARead = [new()];
+
+    private static readonly SettableSlot[] Ab76UnseenToGive = [new()];
+
+    private delegate void Ab76Giver(ref SettableSlot slot);
+
+    public sealed class Ag59Makers
+    {
+        public IAg59Keeper this[int index] => new Ag59Keeper(index);
+    }
+
+    public sealed class Ab76OuterBox
+    {
+        public OuterSlot? Slot;
+    }
+
+    private static T Ag59MakeInALambda<T>()
+        where T : new()
+    {
+        Func<T> make = static () => new T();
+
+        return make();
+    }
+
+    private static T Ag59MakeThroughASecond<T>()
+        where T : new() =>
+        Ag59Make<T>();
+
+    private static int Ab76GiveThenRead(ref SettableSlot slot, Cell<int> cell)
+    {
+        slot.Share = cell;
+
+        return slot.Share!.Sample();
+    }
+
+    private static void Ab76Give(ref SettableSlot slot, Cell<int> cell) => slot.Share = cell;
+
+    private static void Ab76NewThenThroughASecond(ref SettableSlot slot, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        Ab76Give(ref slot, cell);
+    }
+
+    private static void Ab76PutInTheBoxThenGiveInner(ref OuterSlot? slot, Ab76OuterBox box, OuterSlot other, Cell<int> cell)
+    {
+        box.Slot = other;
+        slot!.Inner.Share = cell;
+    }
+
+    private static void Ab76Count(ref SettableSlot slot) => Kept.Add(slot == null);
+
+    private static void Ab76GiveUnseen(ref SettableSlot slot) => slot = Ab76UnseenToGive[0];
+
+    private static void Ab76PutThenGiveIn(in SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[0] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab76GiveToACopy(in object slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[0] = other;
+        ((SettableSlot)slot).Share = cell;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -14573,6 +14722,14 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static T Ag59MakeBeside<T>(this Shapes.SettableSlot slot)
+        where T : new()
+    {
+        slot.Share ??= Cell.Constant(5);
+
+        return new T();
+    }
+
     public static void Ag60MakePlainByExtension(this Shapes.SettableSlot slot) => slot.Share = Cell.Constant(4);
 
     public static T Fresh<T>(this List<T> all)

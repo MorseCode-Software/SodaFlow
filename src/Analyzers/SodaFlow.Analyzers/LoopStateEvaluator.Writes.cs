@@ -493,7 +493,7 @@ internal sealed partial class LoopStateEvaluator
         // A name with ref is its location, and code can give that location a different object with
         // no assignment to the name. Thus, a write through such a name is sure for no object. A
         // parameter whose location the walk reads in the code of the caller has the object that
-        // the location has now.
+        // the location has at this write.
         bool isReadInTheCaller = owner != null && this.IsReadInTheCaller(owner);
 
         if (owner != null

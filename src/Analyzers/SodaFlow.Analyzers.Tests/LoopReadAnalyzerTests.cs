@@ -1839,7 +1839,19 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab76ALambdaGivesTheLocalADifferentObject"] = ["SF1001"],
             ["Ab76ASecondMethodGetsTheParameterWithRef"] = ["SF1001"],
             ["Ab76TheMethodGivesItsParameterANewObject"] = ["SF1001"],
-            ["Ab76AMethodOfThePlatformGivesTheElementAnObject"] = ["SF1001"]
+            ["Ab76AMethodOfThePlatformGivesTheElementAnObject"] = ["SF1001"],
+            ["Ag59AnObjectFromATypeParameterHasTwoNames"] = ["SF1001"],
+            ["Ag60AnInnerLoopThatRunsNoTurnHasTheHelper"] = ["SF1001"],
+            ["Ag60ALambdaForEachElementOfNoneHasTheHelper"] = ["SF1001"],
+            ["Ag60TheLoopOfTwoHelpersRunsNoTurn"] = ["SF1001"],
+            ["Ab76AReadAfterAWriteThroughAParameterOfAnUnseenArray"] = ["SF1004"],
+            ["Ab76TheElementAfterASecondMethodGotANewObject"] = ["SF1001"],
+            ["Ab76AMethodGivesItsParameterAnUnseenObject"] = ["SF1001"],
+            ["Ab76AParameterWithIn"] = ["SF1001"],
+            ["Ab76AParameterWithInGetsACopy"] = ["SF1001"],
+            ["Ab76ALocalFunctionWithAParameterWithRef"] = ["SF1001"],
+            ["Ab76ALambdaWithAParameterWithRef"] = ["SF1001"],
+            ["Ab76TheCallIsInALambda"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

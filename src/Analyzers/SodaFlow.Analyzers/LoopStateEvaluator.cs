@@ -719,13 +719,13 @@ internal sealed partial class LoopStateEvaluator
     private bool AlwaysRunsInTheTurnOf(MadeObject made) =>
         made.Turn != null && this.function == null && this.call?.AlwaysTurn == made.Turn;
 
-    // A write in a callee to an object that is older than a loop of a caller. The write always runs
-    // in the callee, and each turn of that loop always runs the call. The result is the body of
-    // the loop, with the frame of the code that has the loop.
-    private (SyntaxNode Turn, LoopFrame Frame)? TurnOfACallerFor(MadeObject made) =>
+    // The body of the loop of a caller whose each turn always runs the call of this code. The
+    // second part is the frame of the code that has the loop. A write of this code that always
+    // runs replaces until the end of that turn, for an object that is older than the turn. The
+    // object of the turn itself is sure before: see AlwaysRunsInTheTurnOf.
+    private (SyntaxNode Turn, LoopFrame Frame)? TurnOfACaller =>
         this.function == null
         && this.call is { AlwaysTurn: { } turn, FrameOfTheAlwaysTurn: { } frame }
-        && made.Turn != turn
         && IsTheBodyOfALoop(turn)
             ? (turn, frame)
             : null;
@@ -1601,7 +1601,7 @@ internal sealed partial class LoopStateEvaluator
                                 ? (turn, this.Frame)
                                 : null
                             : replaces
-                                ? this.TurnOfACallerFor(made)
+                                ? this.TurnOfACaller
                                 : null;
 
                 if (inItsTurn is (var itsTurn, var itsFrame) && member != null)
@@ -2004,8 +2004,8 @@ internal sealed partial class LoopStateEvaluator
                     return this.EvalAgain(location);
                 }
 
-                // A parameter with ref has the value that its location has now in the code of the
-                // caller.
+                // A parameter with ref, out, or in has the value that its location has now in the
+                // code of the caller.
                 if (this.ReadInTheCaller(expression) is { } inTheCaller)
                 {
                     return inTheCaller;
@@ -3057,7 +3057,7 @@ internal sealed partial class LoopStateEvaluator
             receiver: receiverState,
             target: null,
             returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate,
-            returnsAnObject: this.CanBeAnObject(method.ReturnType),
+            returnsAnObject: this.CanBeAnObject(this.TypeArgumentFor(method.ReturnType) ?? method.ReturnType),
             owner: receiverState == null ? null : receiver);
     }
 
@@ -3310,7 +3310,7 @@ internal sealed partial class LoopStateEvaluator
     // which class the type parameter is. Such a creation has no arguments.
     private IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
         creation is ExpressionSyntax made
-        && this.TypeArgumentFor(this.region.TypeOf(made)) is INamedTypeSymbol { TypeKind: TypeKind.Class } actual
+        && this.TypeArgumentFor(this.region.TypeOf(made)) is INamedTypeSymbol actual
             ? actual.InstanceConstructors.FirstOrDefault(static constructor => constructor.Parameters.IsEmpty)
             : null;
 
@@ -3323,20 +3323,23 @@ internal sealed partial class LoopStateEvaluator
             ? actual
             : null;
 
-    // The location of a parameter with ref of a callee, for a call in this code, with the
-    // locations of the parameters before it. The argument is a location that this code can read
-    // again, or a parameter with ref of this code that has such a location. A lambda or a local
-    // function can run at a different time. Thus, its code gets no location, and the code that it
-    // calls gets none.
-    private Locations WithTheLocationFor(Locations all, Binding binding, LoopStateEvaluator? definer)
+    // The location of a parameter with ref, out, or in of a callee, for a call in this code. The
+    // result has the locations of the parameters before it also. The argument is a location that
+    // this code can read again, or such a parameter of this code that has a location. The argument
+    // for a parameter with in is a copy when it has a different type, and a copy is no location.
+    private Locations WithTheLocationFor(Locations all, Binding binding)
     {
-        if (definer != null || this.function != null || this.quiet || binding.Parameter.RefKind != RefKind.Ref)
+        if (binding.Parameter.RefKind == RefKind.None
+            || (binding.Parameter.RefKind is not (RefKind.Ref or RefKind.Out)
+                && !SymbolEqualityComparer.Default.Equals(
+                    x: this.region.TypeOf(binding.Argument),
+                    y: binding.Parameter.Type)))
         {
             return all;
         }
 
         if (Unwrapped(binding.Argument) is IdentifierNameSyntax given
-            && this.region.SymbolOf(given) is IParameterSymbol { RefKind: RefKind.Ref } outer)
+            && this.region.SymbolOf(given) is IParameterSymbol { RefKind: not RefKind.None } outer)
         {
             // The callee gets the location that the parameter of this code has, while this code
             // gave that parameter no value.
@@ -3355,42 +3358,40 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The state that the location of a parameter with ref has now, read in
-    ///     the code of the caller. Null for each other expression, and when the
-    ///     parameter has the state that it got at the call.
+    ///     The state that the location of a parameter with ref, out, or in has
+    ///     now, read in the code of the caller. Null for each other expression,
+    ///     and when the parameter has the state that it got in the callee.
     /// </summary>
     /// <remarks>
     ///     The parameter has the object of its argument until code gives the
     ///     location a value. That code is not always an assignment to the
     ///     parameter: a second name of the array can give its element an object.
-    ///     Thus, after code that can give a location a value, the callee reads the
-    ///     location again. An assignment of the callee to the parameter gives the
-    ///     location the value of the callee. A location with no object of the
-    ///     store keeps its members in the names, and the read gives nothing more.
+    ///     Thus, the callee reads the location at each use. An assignment of the
+    ///     callee to the parameter gives the location the value of the callee. A
+    ///     location with no object of the store keeps its members in the names,
+    ///     and the read gives nothing more.
     /// </remarks>
     private LoopState? ReadInTheCaller(ExpressionSyntax written)
     {
-        if (this.function != null
-            || this.call == null
+        if (this.call == null
             || this.call.Locations.IsEmpty
             || Unwrapped(written) is not IdentifierNameSyntax use
             || this.region.SymbolOf(use) is not IParameterSymbol parameter
             || !this.call.Locations.TryGetValue(
                 key: parameter,
                 value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) of)
-            || this.assigned.Contains(parameter)
-            || !this.ALocationCanGetAValueBefore(name: parameter, use: use))
+            || this.assigned.Contains(parameter))
         {
             return null;
         }
 
         LoopState now = of.Reader.EvalAgain(of.Location);
 
-        return now.Objects.IsEmpty || now.Objects.Contains(MadeObject.Unknown) ? null : now.From(parameter);
+        return now.Objects.IsEmpty ? null : now.From(parameter);
     }
 
-    // True for an owner that is a parameter with ref, or a member of one. The walk must read the
-    // location of that parameter in the code of the caller.
+    // True for an owner that is a parameter with ref, out, or in, or a member of one. The walk
+    // must read the location of that parameter in the code of the caller.
     private bool IsReadInTheCaller(ExpressionSyntax owner)
     {
         ExpressionSyntax written = Unwrapped(owner);
@@ -3409,14 +3410,9 @@ internal sealed partial class LoopStateEvaluator
     ///     it to the element that is the argument.
     /// </summary>
     /// <param name="collection">The expression of the collection.</param>
-    /// <param name="put">The state of the value. A state with nothing is no value.</param>
+    /// <param name="put">The state of the value.</param>
     public void GetsAState(ExpressionSyntax collection, LoopState put)
     {
-        if (put is { IsNone: true, Objects.IsEmpty: true })
-        {
-            return;
-        }
-
         // A value that the store does not know comes in.
         if (put.Objects.IsEmpty || put.Objects.Contains(MadeObject.Unknown))
         {
@@ -5585,7 +5581,7 @@ internal sealed partial class LoopStateEvaluator
         foreach (Binding binding in bindings)
         {
             LoopState state = binding.State.From(binding.Parameter);
-            locations = this.WithTheLocationFor(all: locations, binding: binding, definer: definer);
+            locations = this.WithTheLocationFor(all: locations, binding: binding);
 
             // A parameter is the object of its argument. A params parameter is an array of them,
             // when the call does not give the array itself. An argument that is no name of a
@@ -5683,7 +5679,7 @@ internal sealed partial class LoopStateEvaluator
                         : ImmutableArray<SyntaxNode>.Empty,
                 alwaysRuns: eachRun == null && where.Always,
                 alwaysTurn: eachRun != null ? null : where.Turn,
-                frameOfTheAlwaysTurn: eachRun != null ? null : this.FrameOfTheTurnOf(call),
+                frameOfTheAlwaysTurn: this.FrameOfTheTurnOf(call),
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
@@ -6590,8 +6586,9 @@ internal sealed partial class LoopStateEvaluator
         public SyntaxNode? AlwaysTurn { get; } = alwaysTurn;
 
         /// <summary>
-        ///     The frame of the code that has the loop of <see cref="AlwaysTurn" />.
-        ///     That code is the caller, or a caller of the caller.
+        ///     The frame of the code that has the loop of <see cref="AlwaysTurn" />,
+        ///     when that is not null. That code is the caller, or a caller of the
+        ///     caller.
         /// </summary>
         public LoopFrame? FrameOfTheAlwaysTurn { get; } = frameOfTheAlwaysTurn;
 
