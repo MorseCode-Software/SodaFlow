@@ -109,6 +109,13 @@ internal enum OperatorRule
     /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
     DeferLazy,
 
+    /// <summary>
+    ///     A fold of a collection. It reads the snapshot of the receiver at
+    ///     construction. The result keeps the state of the inputs, as with
+    ///     <see cref="Default" />.
+    /// </summary>
+    FoldCollection,
+
     /// <summary>A new transaction, a listener, or a send. No state.</summary>
     Break
 }
@@ -181,7 +188,9 @@ internal static class OperatorTable
             "ListenOnceAsync",
             "Send",
             "Unlisten",
-            "Loop");
+            "Loop",
+            "Fold",
+            "FoldByIdentity");
 
     /// <summary>
     ///     The public operators with no row, for which the default is the correct
@@ -196,9 +205,7 @@ internal static class OperatorTable
             "Never",
             "AsStreamSink",
             // The cells and streams of a reactive collection. Their input is the collection, which is
-            // not a placeholder. A fold starts from the snapshot of the collection.
-            "Fold",
-            "FoldByIdentity",
+            // not a placeholder.
             "FromAdds",
             "FromRemoves",
             "FromStates",
@@ -252,6 +259,13 @@ internal static class OperatorTable
     /// </summary>
     public static bool RunsFunctionOneTime(IMethodSymbol method) =>
         LoopStateEvaluator.OperatorName(method) is "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures";
+
+    /// <summary>
+    ///     True for the name of a library method that reads the current value of
+    ///     its receiver at construction, as a read member does. A fold of a
+    ///     collection samples the snapshot of the collection.
+    /// </summary>
+    public static bool ReadsReceiverAtConstruction(string name) => name is "Fold" or "FoldByIdentity";
 
     /// <summary>The names of the methods that run a function in the call.</summary>
     public static ImmutableHashSet<string> FunctionsInTheCall { get; } = RunsInTheCall.Keys.ToImmutableHashSet();
@@ -418,6 +432,7 @@ internal static class OperatorTable
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
+            "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };

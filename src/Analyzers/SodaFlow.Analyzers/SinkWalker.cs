@@ -2313,13 +2313,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Report(followed);
         }
 
-        // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
-        // members count on a library receiver too, and not only on a library method.
-        if (receiver != null
-            && SodaFlowSymbols.ReadMembers.Contains(LoopStateEvaluator.OperatorName(method))
-            && (kind == CalleeKind.Library || symbols.IsCarrierType(this.region.TypeOf(receiver))))
+        if (receiver != null)
         {
-            this.CheckRead(node: node, owner: receiver, name: method.Name);
+            string operatorName = LoopStateEvaluator.OperatorName(method);
+
+            // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
+            // members count on a library receiver too, and not only on a library method. A fold of
+            // a collection reads the collection at construction.
+            if ((SodaFlowSymbols.ReadMembers.Contains(operatorName)
+                 && (kind == CalleeKind.Library || symbols.IsCarrierType(this.region.TypeOf(receiver))))
+                || (kind == CalleeKind.Library && OperatorTable.ReadsReceiverAtConstruction(operatorName)))
+            {
+                this.CheckRead(node: node, owner: receiver, name: method.Name);
+            }
         }
 
         return;

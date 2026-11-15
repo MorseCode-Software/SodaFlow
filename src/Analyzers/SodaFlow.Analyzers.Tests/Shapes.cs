@@ -13325,6 +13325,14 @@ public static class Shapes
     public static Cell<int> Ab99GotoBackFromANestedBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: Kept.Add(c.Sample()); { c = l.Map(v => v); n++; if (n < 2) { goto again; } } return S.Hold(0); });
 
+    // S3013. Fold samples the snapshot of its collection at construction, and the snapshot of a view with a pending limit reads the placeholder.
+    public static Cell<int> R2ApiFoldOfAViewWithAPendingLimit() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> total = Items().Take(limitCell: l).Fold(select: (_, state) => state, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(total, (a, b) => a + b).Hold(0); });
+
+    // S3014. FoldByIdentity samples the snapshot at construction, which forces the initial items of a collection made from a pending cell.
+    public static Cell<int> R2ApiFoldByIdentityOfACollectionFromAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> count = ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).FoldByIdentity(select: id => id.Number, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(count, (a, b) => a + b).Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

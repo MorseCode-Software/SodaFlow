@@ -2528,7 +2528,7 @@ internal sealed partial class LoopStateEvaluator
                     contentLinked: false),
                 // A defer, a split, a timer, a debounce, a listener, and a send: no state.
                 OperatorRule.Break => LoopState.None,
-                OperatorRule.Default => DefaultLibraryResult(
+                OperatorRule.Default or OperatorRule.FoldCollection => DefaultLibraryResult(
                     symbols: this.region.Symbols,
                     method: method,
                     inputs: inputs),
