@@ -2039,7 +2039,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab93TwoLevelsOfInitializerRunASetter"] = ["SF1004"],
             ["R2CsForeachDisposesTheEnumerator"] = ["SF1005"],
             ["R2CsTupleEqualityCallsTheOperator"] = ["SF1004"],
-            ["Ab94TupleInequalityCallsTheOperator"] = ["SF1004"]
+            ["Ab94TupleInequalityCallsTheOperator"] = ["SF1004"],
+            ["R2CsGotoBackRunsTheReadAgain"] = ["SF1001"],
+            ["Ab99GotoBackFromANestedBlock"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

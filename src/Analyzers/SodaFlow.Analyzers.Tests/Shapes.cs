@@ -13313,6 +13313,18 @@ public static class Shapes
     public static Cell<int> Ab94TupleEqualityOfPlainElements() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(Plain); R2Same b = new(Plain); bool same = (a, 1) == (b, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
 
+    // S3010. A goto back to a label runs the read a second time, after the local gets a pending cell.
+    public static Cell<int> R2CsGotoBackRunsTheReadAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: Kept.Add(c.Sample()); c = l.Map(v => v); n++; if (n < 2) { goto again; } return S.Hold(0); });
+
+    // S3011. A goto back to a label runs again only the code after the label, and the read comes after the goto.
+    public static Cell<int> Ab99GotoBackBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: n++; if (n < 2) { goto again; } Kept.Add(c.Sample()); c = l.Map(v => v); return S.Hold(0); });
+
+    // S3012. A goto back to a label in a nested block runs the read again, after the local gets a pending cell.
+    public static Cell<int> Ab99GotoBackFromANestedBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: Kept.Add(c.Sample()); { c = l.Map(v => v); n++; if (n < 2) { goto again; } } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

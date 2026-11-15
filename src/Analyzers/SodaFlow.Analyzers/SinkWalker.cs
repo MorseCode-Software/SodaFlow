@@ -406,6 +406,82 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, condition: node.Condition);
     }
 
+    /// <summary>
+    ///     Reads a block. A goto to a label that comes before it in the block runs
+    ///     the statements from the label again. The walk reads those statements as
+    ///     the turn of a loop, as it reads a <c>do</c> statement.
+    /// </summary>
+    /// <remarks>
+    ///     The labeled statement stands for the turn. Thus, only a local that it
+    ///     declares is new in each turn. A local that a later statement of the
+    ///     turn declares is the same variable in each turn.
+    /// </remarks>
+    public override void VisitBlock(BlockSyntax node)
+    {
+        SyntaxList<StatementSyntax> statements = node.Statements;
+
+        if (!statements.Any(static statement => statement is LabeledStatementSyntax))
+        {
+            base.VisitBlock(node);
+
+            return;
+        }
+
+        int first = 0;
+
+        while (first < statements.Count)
+        {
+            int last =
+                statements[first] is LabeledStatementSyntax label
+                    ? LastJumpBack(statements: statements, label: label, from: first)
+                    : -1;
+
+            if (last < 0)
+            {
+                this.Visit(statements[first]);
+                first++;
+
+                continue;
+            }
+
+            StatementSyntax[] turn = [.. statements.Skip(first).Take(last - first + 1)];
+            int before = this.evaluator.ShapeOfWhatALoopLeaves(statements[first]);
+
+            foreach (StatementSyntax part in turn)
+            {
+                this.Visit(part);
+            }
+
+            this.VisitTheSecondTurn(loop: node, body: statements[first], before: before, parts: turn);
+            first = last + 1;
+        }
+    }
+
+    // The position in the statements of the last one, from the label on, that has a goto to the
+    // label. The result is -1 when no statement has one. A lambda or a local function cannot go to
+    // a label of the code around it.
+    private static int LastJumpBack(SyntaxList<StatementSyntax> statements, LabeledStatementSyntax label, int from)
+    {
+        string name = label.Identifier.ValueText;
+
+        for (int last = statements.Count - 1; last >= from; last--)
+        {
+            if (statements[last]
+                .DescendantNodesAndSelf(static node =>
+                    node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                .OfType<GotoStatementSyntax>()
+                .Any(jump =>
+                    jump.IsKind(SyntaxKind.GotoStatement)
+                    && jump.Expression is IdentifierNameSyntax target
+                    && target.Identifier.ValueText == name))
+            {
+                return last;
+            }
+        }
+
+        return -1;
+    }
+
     public override void VisitDoStatement(DoStatementSyntax node)
     {
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
@@ -427,13 +503,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// <param name="condition">The condition that the loop reads before each turn, if it has one.</param>
     /// <param name="incrementors">The expressions that a <c>for</c> runs after each turn.</param>
     /// <param name="after">The condition that a <c>do</c> reads after each turn.</param>
+    /// <param name="parts">
+    ///     The statements of a turn that is not one node, in the order in which
+    ///     they run. The walk reads them in place of the body.
+    /// </param>
     private void VisitTheSecondTurn(
         SyntaxNode loop,
         SyntaxNode body,
         int before,
         SyntaxNode? condition = null,
         SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
-        SyntaxNode? after = null)
+        SyntaxNode? after = null,
+        IReadOnlyList<SyntaxNode>? parts = null)
     {
         this.evaluator.EndTurns(body);
 
@@ -457,7 +538,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.assignedInThisRead.RemoveWhere(assigned => assigned.Turn == body);
 
             this.Visit(condition);
-            this.Visit(body);
+
+            foreach (SyntaxNode part in parts ?? [body])
+            {
+                this.Visit(part);
+            }
 
             // A for runs its incrementors after the body, and a do reads its condition there.
             foreach (ExpressionSyntax incrementor in incrementors)
