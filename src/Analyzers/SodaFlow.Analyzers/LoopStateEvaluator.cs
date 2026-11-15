@@ -4058,7 +4058,11 @@ internal sealed partial class LoopStateEvaluator
             {
                 return Both(
                     first: result,
-                    second: this.FollowImpliedDefinition(call: printed, definition: written, owner: owner, arguments: []));
+                    second: this.FollowImpliedDefinition(
+                        call: printed,
+                        definition: written,
+                        owner: owner,
+                        arguments: []));
             }
 
             result =
