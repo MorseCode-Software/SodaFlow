@@ -2043,7 +2043,11 @@ internal sealed class LoopReadAnalyzerTests
             ["R2CsGotoBackRunsTheReadAgain"] = ["SF1001"],
             ["Ab99GotoBackFromANestedBlock"] = ["SF1001"],
             ["R2ApiFoldOfAViewWithAPendingLimit"] = ["SF1001"],
-            ["R2ApiFoldByIdentityOfACollectionFromAPendingCell"] = ["SF1001"]
+            ["R2ApiFoldByIdentityOfACollectionFromAPendingCell"] = ["SF1001"],
+            ["R2ApiExecuteOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["R2ApiDisposeOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["R2ApiTwoWayWriteOverAPendingCell"] = ["SF1001"],
+            ["R2ApiCanExecuteOfAnActionWithAPendingEnablement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

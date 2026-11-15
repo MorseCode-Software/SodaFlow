@@ -1095,6 +1095,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (accessor.DeclaringSyntaxReferences.IsEmpty)
         {
+            // The setter of a two-way bindable reads the initial value of its cell before it
+            // compares the new value. A compound assignment reads the getter first, and the walk
+            // reports that read.
+            if (node.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                && node.Left is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" } written
+                && this.region.Symbols.IsSodaFlow(accessor))
+            {
+                this.CheckRead(node: node.Left, owner: written.Expression, name: "Value");
+            }
+
             // The indexer of a dictionary of the platform calls a member of the key. The first key
             // of an empty dictionary has no second key to compare it with.
             if (node.Left is ElementAccessExpressionSyntax keyed)
@@ -2319,10 +2329,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             // CanExecute is an ICommand member, which a bindable action implements. Thus, the read
             // members count on a library receiver too, and not only on a library method. A fold of
-            // a collection reads the collection at construction.
+            // a collection reads the collection at construction. Execute and Dispose of a bindable
+            // action read the enablement cell, as CanExecute does. The Execute of a library method
+            // reads nothing in the call.
             if ((SodaFlowSymbols.ReadMembers.Contains(operatorName)
                  && (kind == CalleeKind.Library || symbols.IsCarrierType(this.region.TypeOf(receiver))))
-                || (kind == CalleeKind.Library && OperatorTable.ReadsReceiverAtConstruction(operatorName)))
+                || (kind == CalleeKind.Library && OperatorTable.ReadsReceiverAtConstruction(operatorName))
+                || (operatorName == "Execute"
+                    && kind != CalleeKind.Library
+                    && symbols.IsCarrierType(this.region.TypeOf(receiver)))
+                || (operatorName == "Dispose"
+                    && kind != CalleeKind.Body
+                    && symbols.IsBindableAction(this.region.TypeOf(receiver))))
             {
                 this.CheckRead(node: node, owner: receiver, name: method.Name);
             }

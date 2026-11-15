@@ -13333,6 +13333,26 @@ public static class Shapes
     public static Cell<int> R2ApiFoldByIdentityOfACollectionFromAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> count = ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).FoldByIdentity(select: id => id.Number, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(count, (a, b) => a + b).Hold(0); });
 
+    // S3015. Execute of a bindable action reads its enablement cell before it sends, as CanExecute does.
+    public static Cell<int> R2ApiExecuteOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); a.Execute(null); return S.Hold(0); });
+
+    // S3016. Dispose of a bindable action reads its enablement cell before it raises the last notification.
+    public static Cell<int> R2ApiDisposeOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); a.Dispose(); return S.Hold(0); });
+
+    // S3017. The setter of a two-way bindable reads the initial value of its cell before it compares the new value.
+    public static Cell<int> R2ApiTwoWayWriteOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<int> b = R2ApiFactory.CreateTwoWay(cell: l.Map(v => v), editsStreamSink: Stream.CreateSink<int>()); b.Value = 4; return S.Hold(0); });
+
+    // S3018. CanExecute of the same bindable action through its own type, which the table already knows as a read.
+    public static Cell<int> R2ApiCanExecuteOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)).CanExecute(null) ? 1 : 0));
+
+    // S3019. Dispose of a one-way bindable over a pending cell releases its listener and reads nothing, unlike the Dispose of a bindable action.
+    public static Cell<int> Ab101DisposeOfAOneWayOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(l.Map(v => v)); b.Dispose(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

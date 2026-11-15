@@ -863,6 +863,17 @@ internal sealed class SodaFlowSymbols
         && named.SpecialType == SpecialType.None
         && !IsListenerName(named.OriginalDefinition.Name);
 
+    /// <summary>
+    ///     True for a bindable action of the library, or for a type that
+    ///     implements one. Its Dispose reads the enablement cell, and the Dispose of
+    ///     a bindable value does not.
+    /// </summary>
+    public bool IsBindableAction(ITypeSymbol? type) =>
+        type != null && (this.IsActionInterface(type) || type.AllInterfaces.Any(this.IsActionInterface));
+
+    private bool IsActionInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.Name == "IBindableAction" && this.IsSodaFlow(type);
+
     private static bool IsStreamName(string name) =>
         name is "Stream" or "StreamSink" or "LoopedStream" or "CellStreamSink";
 
