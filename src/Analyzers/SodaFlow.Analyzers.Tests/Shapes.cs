@@ -13522,6 +13522,42 @@ public static class Shapes
     public static Cell<int> Ab83AFieldWithANewObjectIsASecondValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Field; c.Share = Plain; Ab83Field = new SettableSlot(); SettableSlot q = Ab83Field; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
 
+    // S3062. AB78 probe. A lambda in a local gets the first local, and gives it a pending cell.
+    public static Cell<int> Ab78ProbeALambdaGivesTheFirstNameAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3063. AB78 probe. A lambda in a local gets the second local, and gives it a pending cell.
+    public static Cell<int> Ab78ProbeALambdaGivesTheSecondNameAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(q); return S.Hold(c.Share!.Sample()); });
+
+    // S3064. AB84 probe. A lambda in a local has a second local for the value, and gives it a pending cell.
+    public static Cell<int> Ab84ProbeASecondNameInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action give = () => { SettableSlot q = c; q.Share = l.Map(v => v); }; give(); return S.Hold(c.Share!.Sample()); });
+
+    // S3065. AB84. A local function gives the argument the pending cell that it set through its parameter.
+    public static Cell<int> Ab84ALocalFunctionGivesTheArgumentAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; void Give(SettableSlot slot) => slot.Share = l.Map(v => v); Give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3066. AB84. A lambda in a local replaces the pending cell of the argument with a plain cell.
+    public static Cell<int> Ab84ALambdaReplacesThePendingCellOfTheArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); Action<SettableSlot> give = slot => slot.Share = Plain; give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3067. AB84. A lambda gives its out parameter an object with a pending cell.
+    public static Cell<int> Ab84ALambdaGivesItsOutParameterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab84Maker make = (out SettableSlot s) => s = new SettableSlot { Share = l.Map(v => v) }; make(out SettableSlot got); return S.Hold(got.Share!.Sample()); });
+
+    // S3068. AB84. The local in the lambda gets a different value before the write, thus it is no second name then.
+    public static Cell<int> Ab84TheLocalInTheLambdaGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action give = () => { SettableSlot q = c; q = Ab78Unseen[1]; q.Share = l.Map(v => v); }; give(); return S.Hold(c.Share!.Sample()); });
+
+    // S3069. AB84. A lambda gives its argument to a second lambda, which gives it a pending cell.
+    public static Cell<int> Ab84ALambdaGivesItsArgumentToASecondLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); Action<SettableSlot> pass = slot => give(slot); pass(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3070. AB84. A lambda gives the pending cell to a different element.
+    public static Cell<int> Ab84ALambdaGivesADifferentElementAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot d = Ab78Unseen[1]; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(d); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16826,6 +16862,8 @@ public static class Shapes
     private static readonly SettableSlot[] Ab83Unseen = [new(), new()];
 
     private static SettableSlot Ab83Field = Ab83Unseen[1];
+
+    public delegate void Ab84Maker(out SettableSlot slot);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

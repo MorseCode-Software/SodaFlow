@@ -3197,12 +3197,14 @@ internal sealed partial class LoopStateEvaluator
 
             return targetState.Functions.IsEmpty
                 ? null
-                : this.FollowFunctions(
-                    call: invocation,
-                    name: NameOf(target),
-                    functions: targetState.Functions,
-                    target: targetState,
-                    arguments: arguments);
+                : ForTheParametersOf(
+                    invoke: method,
+                    followed: this.FollowFunctions(
+                        call: invocation,
+                        name: NameOf(target),
+                        functions: targetState.Functions,
+                        target: targetState,
+                        arguments: arguments));
         }
 
         if (this.region.Symbols.IsSodaFlow(method))
@@ -3230,6 +3232,48 @@ internal sealed partial class LoopStateEvaluator
                             invocation: invocation,
                             method: method,
                             definition: definition)));
+    }
+
+    // A call of a delegate names the parameters of the delegate, and the function has parameters of
+    // its own. The caller gives each argument what the function set through the parameter at the
+    // same position, as for a call of a method. A method of a delegate with a receiver has a
+    // parameter for the receiver, and keeps its own parameters.
+    private static Followed? ForTheParametersOf(IMethodSymbol invoke, Followed? followed)
+    {
+        if (followed == null || (followed.Outs.IsEmpty && followed.Through.IsEmpty && followed.AlwaysGives.IsEmpty))
+        {
+            return followed;
+        }
+
+        ImmutableArray<IParameterSymbol> parameters = invoke.OriginalDefinition.Parameters;
+
+        IParameterSymbol? Of(ISymbol parameter) =>
+            parameter is IParameterSymbol { ContainingSymbol: IMethodSymbol { IsExtensionMethod: false } } own
+            && own.Ordinal < parameters.Length
+                ? parameters[own.Ordinal]
+                : null;
+
+        // Two functions that the delegate can be give two states for one parameter.
+        ImmutableDictionary<ISymbol, LoopState>.Builder outs =
+            ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
+        foreach (KeyValuePair<ISymbol, LoopState> pair in followed.Outs)
+        {
+            ISymbol key = Of(pair.Key) ?? pair.Key;
+            outs[key] = outs.TryGetValue(key: key, value: out LoopState? other) ? other.Join(pair.Value) : pair.Value;
+        }
+
+        return new Followed(
+            state: followed.State,
+            findings: followed.Findings,
+            outs: outs.ToImmutable(),
+            sets: followed.Sets,
+            through: followed.Through
+                .Select(one => (Of(one.Parameter) ?? one.Parameter, one.Member, one.State))
+                .ToImmutableArray(),
+            alwaysGives: followed.AlwaysGives
+                .Select(one => Of(one) ?? one)
+                .ToImmutableHashSet(SymbolEqualityComparer.Default));
     }
 
     private Followed? FollowDefinition(

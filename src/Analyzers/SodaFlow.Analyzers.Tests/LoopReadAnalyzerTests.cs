@@ -2077,7 +2077,13 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab78ProbeAWriteThroughTheElement"] = ["SF1001"],
             ["Ab83AWriteThroughTheFirstReadGoesToTheSecond"] = ["SF1001"],
             ["Ab83TheSecondReadHasTheStateOfTheFirst"] = ["SF1001"],
-            ["Ab83ASecondReadOfAFieldIsTheSameValue"] = ["SF1001"]
+            ["Ab83ASecondReadOfAFieldIsTheSameValue"] = ["SF1001"],
+            ["Ab78ProbeALambdaGivesTheFirstNameAPendingCell"] = ["SF1001"],
+            ["Ab78ProbeALambdaGivesTheSecondNameAPendingCell"] = ["SF1001"],
+            ["Ab84ProbeASecondNameInALambda"] = ["SF1001"],
+            ["Ab84ALocalFunctionGivesTheArgumentAPendingCell"] = ["SF1001"],
+            ["Ab84ALambdaGivesItsOutParameterAPendingCell"] = ["SF1001"],
+            ["Ab84ALambdaGivesItsArgumentToASecondLambda"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -134,12 +134,13 @@ internal sealed partial class LoopStateEvaluator
     ///     name of that value, and not a copy. Each read and each write of a
     ///     member through the second name then goes through the first name. That
     ///     is true while no code gives one of the two names a value. A function
-    ///     can run at a different time, thus the code of a function gets no first
-    ///     name.
+    ///     can run at a different time, thus the code of a function gets a first
+    ///     name only for a local of its own. One run of the function makes such
+    ///     a local, and the two names are one value in that run.
     /// </remarks>
     private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written)
     {
-        if (this.function != null || this.Frame.FirstNameOf.Count == 0)
+        if (this.Frame.FirstNameOf.Count == 0)
         {
             return null;
         }
@@ -152,6 +153,7 @@ internal sealed partial class LoopStateEvaluator
         {
             if (Unwrapped(use) is not IdentifierNameSyntax name
                 || this.region.SymbolOf(name) is not { } second
+                || (this.function != null && !IsDeclaredIn(local: second, code: this.function))
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
                 || FunctionOf(written) is not { } code
                 || this.region.SymbolOf(first) is not { } firstName
@@ -219,7 +221,7 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        if (this.function != null
+        if ((this.function != null && !IsDeclaredIn(local: local, code: this.function))
             || !KeepsItsObject(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
