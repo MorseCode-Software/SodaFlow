@@ -13389,6 +13389,14 @@ public static class Shapes
     public static Cell<int> Ab104EnablementOfAnActionWithAPendingEnablementRead() =>
         Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return S.Hold(a.IsEnabledCell.Sample() ? 1 : 0); });
 
+    // S3029. A collection samples its cell of initial items lazily and has no link to it. Thus, a close with its keys is an initial value that forces itself, and not a cycle.
+    public static Cell<int> R2ApiCollectionFromALinkedCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).KeysCell.Map(keys => keys.Count));
+
+    // S3030. A collection from a plain cell listens to its edit stream, and that stream comes from the placeholder. Thus, a close with its keys is a cycle.
+    public static Cell<int> Ab105CollectionWithALinkedEditStreamAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: Plain.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), l.Updates().Map(v => CollectionEdit<int, ItemId, int>.Add(new Item<ItemId, int>(identity: new ItemId(v), state: v)))).KeysCell.Map(keys => keys.Count));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

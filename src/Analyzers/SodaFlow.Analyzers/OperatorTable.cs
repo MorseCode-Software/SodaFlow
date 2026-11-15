@@ -119,6 +119,13 @@ internal enum OperatorRule
     /// </summary>
     BindableAction,
 
+    /// <summary>
+    ///     A reactive collection. Pending when an input is. It samples its cell
+    ///     of initial items lazily and does not listen to it. Thus, only a linked
+    ///     edit stream links it.
+    /// </summary>
+    CollectionCreate,
+
     /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
     DeferLazy,
 
@@ -204,7 +211,8 @@ internal static class OperatorTable
             "Loop",
             "Fold",
             "FoldByIdentity",
-            "CreateBindableAction");
+            "CreateBindableAction",
+            "Create");
 
     /// <summary>
     ///     The public operators with no row, for which the default is the correct
@@ -227,11 +235,10 @@ internal static class OperatorTable
             "IdentityCell",
             "ItemCell",
             "StateCell",
-            // A collection, and the views of a collection. A view is pending when its upstream is. A
-            // cell that the view reads also makes the view pending. Such a cell is the criteria of a
-            // filter, the order of a sort, or the limits of a slice. Filter and Map have a row for a
-            // stream or a cell. The methods of those names on a collection get this rule also.
-            "Create",
+            // The views of a collection. A view is pending when its upstream is. A cell that the view
+            // reads also makes the view pending. Such a cell is the criteria of a filter, the order
+            // of a sort, or the limits of a slice. Filter and Map have a row for a stream or a cell.
+            // The methods of those names on a collection get this rule also.
             "FilterByIdentity",
             "Slice",
             "SortBy",
@@ -450,6 +457,7 @@ internal static class OperatorTable
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
+            "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
             "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
