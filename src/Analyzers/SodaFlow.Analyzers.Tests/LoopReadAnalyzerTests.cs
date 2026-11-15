@@ -1829,7 +1829,17 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag60TwoHelpersForAnOlderObjectAndThePendingOneIsLast"] = ["SF1001"],
             ["Ag60TheWriteToAnOlderObjectIsInABranch"] = ["SF1001"],
             ["Ag60TheCallForAnOlderObjectIsInABranch"] = ["SF1001"],
-            ["Ag60AHelperWritesToAnOlderObjectThroughASecondName"] = ["SF1001"]
+            ["Ag60AHelperWritesToAnOlderObjectThroughASecondName"] = ["SF1001"],
+            ["Ab76APendingCellThroughAParameterAfterItsLocationGotAnObject"] = ["SF1001"],
+            ["Ab76TheFirstObjectKeepsItsPendingCell"] = ["SF1001"],
+            ["Ab76TheReadIsThroughTheElementAfterTheCall"] = ["SF1001"],
+            ["Ab76AReadThroughAParameterAfterItsLocationGotAnObject"] = ["SF1004"],
+            ["Ab76ACallThatChangesNoLocationBeforeThePendingCell"] = ["SF1001"],
+            ["Ab76TheLocationIsAFieldOfAnObject"] = ["SF1001"],
+            ["Ab76ALambdaGivesTheLocalADifferentObject"] = ["SF1001"],
+            ["Ab76ASecondMethodGetsTheParameterWithRef"] = ["SF1001"],
+            ["Ab76TheMethodGivesItsParameterANewObject"] = ["SF1001"],
+            ["Ab76AMethodOfThePlatformGivesTheElementAnObject"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

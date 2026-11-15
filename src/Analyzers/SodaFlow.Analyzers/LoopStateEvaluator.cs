@@ -34,6 +34,11 @@ internal sealed partial class LoopStateEvaluator
     private static readonly ImmutableDictionary<ISymbol, ITypeSymbol> NoTypeArguments =
         ImmutableDictionary.Create<ISymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
 
+    private static readonly ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)>
+        NoLocations =
+            ImmutableDictionary.Create<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)>(
+                SymbolEqualityComparer.Default);
+
     private static readonly ImmutableHashSet<ISymbol> NoParameters =
         ImmutableHashSet<ISymbol>.Empty.WithComparer(SymbolEqualityComparer.Default);
 
@@ -1996,6 +2001,13 @@ internal sealed partial class LoopStateEvaluator
                     return this.EvalAgain(location);
                 }
 
+                // A parameter with ref has the value that its location has now in the code of the
+                // caller.
+                if (this.ReadInTheCaller(expression) is { } inTheCaller)
+                {
+                    return inTheCaller;
+                }
+
                 LoopState named =
                     !this.assigned.Contains(symbol)
                     && this.bound.TryGetValue(key: symbol, value: out LoopState? boundState)
@@ -3307,6 +3319,124 @@ internal sealed partial class LoopStateEvaluator
         && this.call.TypeArguments.TryGetValue(key: parameter, value: out ITypeSymbol? actual)
             ? actual
             : null;
+
+    // The location of each parameter with ref of a callee, for a call in this code. The argument is
+    // a location that this code can read again, or a parameter with ref of this code that has such
+    // a location. A lambda or a local function can run at a different time. Thus, its code gets no
+    // location, and the code that it calls gets none.
+    private ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> LocationsFor(
+        IEnumerable<Binding> bindings,
+        LoopStateEvaluator? definer)
+    {
+        ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> all = NoLocations;
+
+        if (definer != null || this.function != null || this.quiet)
+        {
+            return all;
+        }
+
+        foreach (Binding binding in bindings.Where(static binding => binding.Parameter.RefKind == RefKind.Ref))
+        {
+            if (Unwrapped(binding.Argument) is IdentifierNameSyntax given
+                && this.region.SymbolOf(given) is IParameterSymbol { RefKind: RefKind.Ref } outer)
+            {
+                // The callee gets the location that the parameter of this code has, while this
+                // code gave that parameter no value.
+                if (this.call != null
+                    && !this.assigned.Contains(outer)
+                    && this.call.Locations.TryGetValue(
+                        key: outer,
+                        value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) known))
+                {
+                    all = all.SetItem(key: binding.Parameter, value: known);
+                }
+            }
+            else if (this.IsALocationThatTheWalkCanReadAgain(binding.Argument))
+            {
+                all = all.SetItem(key: binding.Parameter, value: (this, binding.Argument));
+            }
+        }
+
+        return all;
+    }
+
+    /// <summary>
+    ///     The state that the location of a parameter with ref has now, read in
+    ///     the code of the caller. Null for each other expression, and when the
+    ///     parameter has the state that it got at the call.
+    /// </summary>
+    /// <remarks>
+    ///     The parameter has the object of its argument until code gives the
+    ///     location a value. That code is not always an assignment to the
+    ///     parameter: a second name of the array can give its element an object.
+    ///     Thus, after code that can give a location a value, the callee reads the
+    ///     location again. An assignment of the callee to the parameter gives the
+    ///     location the value of the callee. A location with no object of the
+    ///     store keeps its members in the names, and the read gives nothing more.
+    /// </remarks>
+    private LoopState? ReadInTheCaller(ExpressionSyntax written)
+    {
+        if (this.function != null
+            || this.call == null
+            || this.call.Locations.IsEmpty
+            || Unwrapped(written) is not IdentifierNameSyntax use
+            || this.region.SymbolOf(use) is not IParameterSymbol parameter
+            || !this.call.Locations.TryGetValue(
+                key: parameter,
+                value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) of)
+            || this.assigned.Contains(parameter)
+            || !this.ALocationCanGetAValueBefore(name: parameter, use: use))
+        {
+            return null;
+        }
+
+        LoopState now = of.Reader.EvalAgain(of.Location);
+
+        return now.Objects.IsEmpty || now.Objects.Contains(MadeObject.Unknown) ? null : now.From(parameter);
+    }
+
+    // True for an owner that is a parameter with ref, or a member of one. The walk must read the
+    // location of that parameter in the code of the caller.
+    private bool IsReadInTheCaller(ExpressionSyntax owner)
+    {
+        ExpressionSyntax written = Unwrapped(owner);
+
+        while (written is MemberAccessExpressionSyntax access)
+        {
+            written = Unwrapped(access.Expression);
+        }
+
+        return this.ReadInTheCaller(written) != null;
+    }
+
+    /// <summary>
+    ///     Records that a collection got a value of which the walk has only the
+    ///     state. A callee that gives a value to a parameter with ref or out gives
+    ///     it to the element that is the argument.
+    /// </summary>
+    /// <param name="collection">The expression of the collection.</param>
+    /// <param name="put">The state of the value. A state with nothing is no value.</param>
+    public void GetsAState(ExpressionSyntax collection, LoopState put)
+    {
+        if (put is { IsNone: true, Objects.IsEmpty: true })
+        {
+            return;
+        }
+
+        // A value that the store does not know comes in.
+        if (put.Objects.IsEmpty || put.Objects.Contains(MadeObject.Unknown))
+        {
+            this.CanHoldMore(collection);
+        }
+
+        this.Change(
+            owner: this.Eval(collection),
+            change: old => put.IsOfNoObject
+                ? old.HoldingWhatCameWith(put).HoldingAnUnknownObject
+                : old.HoldingWhatCameWith(put),
+            replaces: false,
+            turn: null);
+    }
 
     // The type that a call gives each type parameter of its method. A type parameter of this code
     // in the call has the type that the call of this code gave it. A lambda or a local function
@@ -5561,7 +5691,8 @@ internal sealed partial class LoopStateEvaluator
                 code: this.region.Objects.CodeOf(parent: this.CodeOfThisCall, call: call),
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
-                typeArguments: this.TypeArgumentsOf(call: call, definer: definer)));
+                typeArguments: this.TypeArgumentsOf(call: call, definer: definer),
+                locations: this.LocationsFor(bindings: bindings, definer: definer)));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
@@ -6424,7 +6555,8 @@ internal sealed partial class LoopStateEvaluator
         in object code,
         in MadeObject? self,
         in bool hasItsOwnMembers,
-        in ImmutableDictionary<ISymbol, ITypeSymbol> typeArguments)
+        in ImmutableDictionary<ISymbol, ITypeSymbol> typeArguments,
+        in ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> locations)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -6491,5 +6623,15 @@ internal sealed partial class LoopStateEvaluator
         ///     The code of the call can make an object of such a type.
         /// </summary>
         public ImmutableDictionary<ISymbol, ITypeSymbol> TypeArguments { get; } = typeArguments;
+
+        /// <summary>
+        ///     For a parameter with ref of the code of the call: the expression of
+        ///     its location. The second part is the evaluator of the code that has
+        ///     that expression. That code is the caller, or a caller of the caller.
+        /// </summary>
+        public ImmutableDictionary<ISymbol, (LoopStateEvaluator Reader, ExpressionSyntax Location)> Locations
+        {
+            get;
+        } = locations;
     }
 }

@@ -2644,6 +2644,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         : LoopState.None;
 
             this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
+
+            // An element that gets a value has it in its collection, as an assignment to the
+            // element does.
+            if (arguments[i].Expression is ElementAccessExpressionSyntax element)
+            {
+                this.evaluator.GetsAState(collection: element.Expression, put: state);
+            }
         }
     }
 
