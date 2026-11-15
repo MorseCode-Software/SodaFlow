@@ -2112,6 +2112,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     }
                 }
 
+                // A send in the block puts its value into the sink in this transaction. A switch of
+                // the sink selects that value before the close.
+                if (receiver != null && method.Name == "Send" && arguments.Count == 1)
+                {
+                    this.evaluator.Merge(
+                        target: receiver,
+                        state: this.evaluator.Eval(arguments[0].Expression).AsContent);
+                }
+
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
             case CalleeKind.Body:

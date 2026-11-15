@@ -2443,12 +2443,16 @@ internal sealed partial class LoopStateEvaluator
                 OperatorRule.RunsNow => firstArgument.Join(this.Follow(invocation)?.State ?? LoopState.None),
                 // A read gives the value that the receiver holds, with the state of that value.
                 OperatorRule.Read => receiverState.Content,
+                // The lazy sample gives the value that the receiver holds.
                 OperatorRule.SampleLazy => new LoopState(
                     pending: receiverState.Pending,
                     linked: false,
                     contentPending: false,
-                    contentLinked: false),
-                OperatorRule.MapLazy => receiverState.WithLinked(false),
+                    contentLinked: false).WithContent(receiverState.Content),
+                OperatorRule.MapLazy => this.HoldsContent(method)
+                    ? receiverState.WithLinked(false)
+                        .WithContent(this.LambdaContent(invocation: invocation, parameterState: receiverState.Content))
+                    : receiverState.WithLinked(false),
                 OperatorRule.MapStream => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
@@ -2462,12 +2466,37 @@ internal sealed partial class LoopStateEvaluator
                     contentPending: false,
                     contentLinked: false).WithContent(
                     this.LambdaContent(invocation: invocation, parameterState: receiverState.Content)),
-                OperatorRule.LiftLazy => inputs.WithLinked(false),
+                OperatorRule.LiftLazy => this.HoldsContent(method)
+                    ? inputs.WithLinked(false)
+                        .WithContent(
+                            this.LiftedContent(
+                                invocation: invocation,
+                                receiver: receiver,
+                                receiverState: receiverState,
+                                argumentStates: argumentStates))
+                    : inputs.WithLinked(false),
                 OperatorRule.Combine => new LoopState(
                     pending: inputs.Pending,
                     linked: inputs.Linked,
                     contentPending: false,
                     contentLinked: false),
+                OperatorRule.LiftValue => new LoopState(
+                    pending: inputs.Pending,
+                    linked: inputs.Linked,
+                    contentPending: false,
+                    contentLinked: false).WithContent(
+                    this.HoldsContent(method)
+                        ? this.LiftedContent(
+                            invocation: invocation,
+                            receiver: receiver,
+                            receiverState: receiverState,
+                            argumentStates: argumentStates)
+                        : LoopState.None),
+                OperatorRule.SameValues => new LoopState(
+                    pending: inputs.Pending,
+                    linked: inputs.Linked,
+                    contentPending: false,
+                    contentLinked: false).WithContent(inputs.Content),
                 OperatorRule.SwitchValue => new LoopState(
                     pending: receiverState.Pending || receiverState.ContentPending,
                     linked: receiverState.Linked || receiverState.ContentLinked,
@@ -2489,7 +2518,12 @@ internal sealed partial class LoopStateEvaluator
                     pending: firstArgument.Pending,
                     linked: receiverState.Linked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.HeldContent(
+                        invocation: invocation,
+                        method: method,
+                        receiverState: receiverState,
+                        initial: firstArgument.Content)),
                 OperatorRule.ConstantLazy => firstArgument.WithLinked(false),
                 // A value given to a constant or a sink is content. The links of a value with members
                 // of its own are in it, and not links of the cell.
@@ -2498,7 +2532,12 @@ internal sealed partial class LoopStateEvaluator
                     pending: false,
                     linked: receiverState.Linked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.HeldContent(
+                        invocation: invocation,
+                        method: method,
+                        receiverState: receiverState,
+                        initial: firstArgument)),
                 OperatorRule.Updates => source.WithPending(false),
                 OperatorRule.MapTo => new LoopState(
                     pending: false,
@@ -6189,6 +6228,65 @@ internal sealed partial class LoopStateEvaluator
             ? LoopState.None
             : this.EvalLambdaResult(lambda: lambda, boundParameters: ImmutableArray.Create(parameterState));
     }
+
+    /// <summary>
+    ///     True when the value that the result of an operator holds can hold a
+    ///     state, as a cell of cells does. The walk reads the function of the
+    ///     operator for its content only then.
+    /// </summary>
+    private bool HoldsContent(IMethodSymbol method) =>
+        method.ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } result
+        && this.region.Symbols.CanHoldState(type: result.TypeArguments[0], compilation: this.region.Assembly);
+
+    /// <summary>
+    ///     The state of what the function of a lift returns. Each parameter has
+    ///     the content of its input: the receiver first, and then each argument.
+    /// </summary>
+    private LoopState LiftedContent(
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax? receiver,
+        LoopState receiverState,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        AnonymousFunctionExpressionSyntax? lambda =
+            invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault();
+
+        if (lambda == null)
+        {
+            return LoopState.None;
+        }
+
+        IEnumerable<LoopState> given = argumentStates.Select(static state => state.Content);
+
+        return this.EvalLambdaResult(
+            lambda: lambda,
+            boundParameters: (receiver != null ? given.Prepend(receiverState.Content) : given).ToImmutableArray());
+    }
+
+    /// <summary>
+    ///     The values that a hold or an accumulation holds. The initial value is
+    ///     one. A hold gets the values of its stream after the close, and an
+    ///     accumulation gets what its function returns then. A collect keeps no
+    ///     value that it gives.
+    /// </summary>
+    private LoopState HeldContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        LoopState receiverState,
+        LoopState initial) =>
+        !this.HoldsContent(method)
+            ? LoopState.None
+            : OperatorName(method) switch
+            {
+                "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
+                "Accum" or "AccumLazy" => initial.Join(
+                    this.LambdaContent(invocation: invocation, parameterState: receiverState.Content.AfterTheClose)
+                        .AfterTheClose),
+                _ => LoopState.None
+            };
 
     private LoopState EvalLambdaResult(
         AnonymousFunctionExpressionSyntax lambda,

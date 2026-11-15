@@ -49,8 +49,23 @@ internal enum OperatorRule
     /// </summary>
     MapValue,
 
-    /// <summary>A lift of lazy samples. Pending when any input is, with no link.</summary>
+    /// <summary>
+    ///     A lift of lazy samples. Pending when any input is, with no link, and
+    ///     the content is what the function returns.
+    /// </summary>
     LiftLazy,
+
+    /// <summary>
+    ///     A lift of cells or behaviors. Pending and linked when any input is, and
+    ///     the content is what the function returns.
+    /// </summary>
+    LiftValue,
+
+    /// <summary>
+    ///     The same values as the receiver, as a calm cell or a sink as a cell
+    ///     has. Pending and linked as the receiver, with its content.
+    /// </summary>
+    SameValues,
 
     /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
@@ -82,7 +97,10 @@ internal enum OperatorRule
     /// <summary>A constant or a sink. The value given is content.</summary>
     Content,
 
-    /// <summary>A fold with a given value. Linked when the stream is.</summary>
+    /// <summary>
+    ///     A fold with a given value. Linked when the stream is. The content of
+    ///     an accumulation is its initial state and what its function returns.
+    /// </summary>
     Fold,
 
     /// <summary>
@@ -447,7 +465,9 @@ internal static class OperatorTable
             "Map" => OperatorRule.MapValue,
             "Lift" when lazy => OperatorRule.LiftLazy,
             "Calm" when stream => OperatorRule.StreamFromReceiver,
-            "Lift" or "Apply" or "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.Combine,
+            "Lift" => OperatorRule.LiftValue,
+            "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.SameValues,
+            "Apply" => OperatorRule.Combine,
             "SwitchC" or "SwitchB" => OperatorRule.SwitchValue,
             "SwitchS" => OperatorRule.SwitchStream,
             "Hold" when ofStreams => OperatorRule.Hold,

@@ -2056,7 +2056,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab104EnablementOfAnActionWithAPendingEnablementRead"] = ["SF1001"],
             ["R2ApiCollectionFromALinkedCellAsTheClose"] = ["SF1006"],
             ["Ab105CollectionWithALinkedEditStreamAsTheClose"] = ["SF1002"],
-            ["Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock"] = ["SF1001"]
+            ["Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock"] = ["SF1001"],
+            ["R2ApiLiftThatGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["R2ApiLiftThatGivesAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiAccumFromAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiAsCellOfASinkOfALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["R2ApiCalmOfACellOfAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiConstantLazyOfAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiSendOfALinkedCellIntoASinkSwitchedAsTheClose"] = ["SF1002"],
+            ["Ab107HoldLazyOfAPendingCellSwitchedAndRead"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

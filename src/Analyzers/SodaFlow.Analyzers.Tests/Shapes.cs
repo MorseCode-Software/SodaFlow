@@ -13409,6 +13409,46 @@ public static class Shapes
     public static Cell<int> Ab106CollectionFromAListSampledInTheBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: new List<Item<ItemId, int>> { new Item<ItemId, int>(identity: new ItemId(1), state: 1) }, Stream.Never<CollectionEdit<int, ItemId, int>>()); int count = items.KeysCell.Sample().Count; return S.Hold(count + 0 * l.SampleLazy().GetHashCode()); });
 
+    // S3034. A lift whose function gives a cell linked to the placeholder, switched, as the close.
+    public static Cell<int> R2ApiLiftThatGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> d = l.Map(v => v); return Plain.Lift(Plain, (a, b) => d).SwitchC(); });
+
+    // S3035. A lift whose function gives a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiLiftThatGivesAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Lift(Plain, (a, b) => l.Map(v => v + a + b)).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3036. An accumulation whose initial state is a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiAccumFromAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Accum(initialState: l.Map(v => v), f: (_, c) => c).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3037. AsCell of a sink whose value is a cell linked to the placeholder is the same sink, switched as the close.
+    public static Cell<int> R2ApiAsCellOfASinkOfALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(l.Map(v => v)); return sink.AsCell().SwitchC(); });
+
+    // S3038. Calm of a cell whose value is a pending cell keeps that value, switched and sampled in the block.
+    public static Cell<int> R2ApiCalmOfACellOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.Constant(l.Map(v => v)).Calm().SwitchC().Sample(); return S.Hold(x); });
+
+    // S3039. A lazy constant whose lazy map gives a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiConstantLazyOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.ConstantLazy(Plain.SampleLazy().Map(_ => l.Map(v => v))).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3040. A send in the block puts a cell linked to the placeholder into a sink of cells. The switch of that sink selects it in the same transaction.
+    public static Cell<int> R2ApiSendOfALinkedCellIntoASinkSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); sink.Send(l.Map(v => v)); return sink.SwitchC(); });
+
+    // S3041. A hold from a lazy sample of a pending cell of cells keeps that cell as its value, switched and sampled in the block.
+    public static Cell<int> Ab107HoldLazyOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Map(v => Plain).HoldLazy(Cell.Constant(l.Map(v => v)).SampleLazy()).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3042. A lift whose function gives a plain cell, switched and sampled in the block, reads no pending value.
+    public static Cell<int> Ab107LiftThatGivesAPlainCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Lift(Plain, (a, b) => Plain).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3043. A send of a plain cell into a sink of cells, switched as the close, has no cycle.
+    public static Cell<int> Ab107SendOfAPlainCellIntoASinkSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); sink.Send(Plain.Map(v => v + 1)); return sink.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
