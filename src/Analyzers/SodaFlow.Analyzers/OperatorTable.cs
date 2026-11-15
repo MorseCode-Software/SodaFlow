@@ -103,6 +103,12 @@ internal enum OperatorRule
     /// </summary>
     StreamFromReceiver,
 
+    /// <summary>
+    ///     A stream from the receiver that takes the updates of each cell or
+    ///     behavior also. Linked when any input is.
+    /// </summary>
+    SnapshotLatest,
+
     /// <summary>A merge of streams. Linked when any stream input is.</summary>
     MergeStreams,
 
@@ -428,7 +434,10 @@ internal static class OperatorTable
             "Accum" or "Collect" when ofStreams => OperatorRule.Fold,
             "Updates" or "Values" => OperatorRule.Updates,
             "MapTo" when ofStreams => OperatorRule.MapTo,
-            "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
+            // The output of SnapshotLatest listens to the updates of each cell, thus it cannot close a
+            // loop.
+            "SnapshotLatest" when ofStreams => OperatorRule.SnapshotLatest,
+            "Snapshot" or "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,

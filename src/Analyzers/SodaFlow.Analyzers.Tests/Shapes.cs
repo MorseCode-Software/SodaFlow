@@ -13365,6 +13365,18 @@ public static class Shapes
     public static Cell<int> Ab102CanExecuteThroughICommandOfAPlainEnablement() =>
         Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => v > 0)); return S.Hold(c.CanExecute(null) ? 1 : 0); });
 
+    // S3023. SnapshotLatest links the updates of its cell into its output, thus a close with a SnapshotLatest of the placeholder is a cycle.
+    public static Cell<int> R2ApiSnapshotLatestOfThePlaceholderAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(l, (a, b) => a + b).Hold(0));
+
+    // S3024. The same cycle through the overload with two cells, where the second cell is a map of the placeholder.
+    public static Cell<int> R2ApiSnapshotLatestOfADerivedCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(Plain, l.Map(v => v * 2), (a, b, c) => a + b + c).Hold(0));
+
+    // S3025. SnapshotLatest of a cell that is not linked to the placeholder, as the close, has no cycle.
+    public static Cell<int> Ab103SnapshotLatestOfAPlainCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(Plain, (a, b) => a + b).Hold(0));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

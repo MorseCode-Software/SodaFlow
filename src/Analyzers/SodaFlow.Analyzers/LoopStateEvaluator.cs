@@ -2511,6 +2511,13 @@ internal sealed partial class LoopStateEvaluator
                     linked: receiverState.Linked,
                     contentPending: receiverState.ContentPending,
                     contentLinked: receiverState.ContentLinked),
+                // A function that the operator keeps gives no input. Thus, the links are of the
+                // stream and of each cell.
+                OperatorRule.SnapshotLatest => new LoopState(
+                    pending: false,
+                    linked: inputs.Linked,
+                    contentPending: receiverState.ContentPending,
+                    contentLinked: receiverState.ContentLinked),
                 OperatorRule.MergeStreams => new LoopState(
                     pending: false,
                     linked: LinkedStreamInput(
