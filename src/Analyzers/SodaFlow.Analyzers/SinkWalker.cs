@@ -1659,6 +1659,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Report(this.evaluator.FollowEnumeration(spread.Expression));
         }
 
+        this.Report(this.evaluator.FollowCollectionExpression(node));
+
         // A collection expression for a set of the platform calls Add for each element, and that
         // Add calls a member of the element.
         if (!this.region.Symbols.DeclaresKeyMembers
@@ -1763,6 +1765,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (initializer.Parent
             is not (ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax or WithExpressionSyntax))
         {
+            this.CheckNestedInitialized(initializer: initializer, expression: expression, setsMembers: setsMembers);
+
             return;
         }
 
@@ -1841,6 +1845,88 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 member: (add.ReducedFrom ?? add).OriginalDefinition,
                 owner: add.IsStatic ? null : this.evaluator.Eval(made),
                 arguments: [.. given.Select(value => (value, this.evaluator.Eval(value)))]));
+    }
+
+    /// <summary>
+    ///     An initializer in an initializer. Examples are <c>A = { B = x }</c>
+    ///     and <c>A = { x }</c>. It runs the setters or calls <c>Add</c> on the
+    ///     value that the member <c>A</c> has, and gives <c>A</c> no new value.
+    ///     The walk reads a setter or an <c>Add</c> of this compilation that has a
+    ///     body.
+    /// </summary>
+    private void CheckNestedInitialized(SyntaxNode initializer, ExpressionSyntax expression, bool setsMembers)
+    {
+        if (this.StateOfTheInitialized(initializer) is not { } owner)
+        {
+            return;
+        }
+
+        if (setsMembers)
+        {
+            if (expression is AssignmentExpressionSyntax
+                {
+                    Left: IdentifierNameSyntax name,
+                    Right: not InitializerExpressionSyntax
+                } assignment
+                && this.region.SymbolOf(name) is IPropertySymbol
+                {
+                    SetMethod: { DeclaringSyntaxReferences.IsEmpty: false } setter
+                })
+            {
+                this.Report(
+                    this.evaluator.FollowImplied(
+                        call: assignment,
+                        member: setter,
+                        owner: owner,
+                        arguments: [(assignment.Right, this.evaluator.Eval(assignment.Right))]));
+            }
+
+            return;
+        }
+
+        if (!initializer.IsKind(SyntaxKind.CollectionInitializerExpression)
+            || !this.region.Symbols.DeclaresAdd
+            || this.region.ModelFor(expression).GetCollectionInitializerSymbolInfo(expression).Symbol
+                is not IMethodSymbol { IsStatic: false, DeclaringSyntaxReferences.IsEmpty: false } add)
+        {
+            return;
+        }
+
+        IEnumerable<ExpressionSyntax> values =
+            expression is InitializerExpressionSyntax several ? several.Expressions : new[] { expression };
+
+        this.Report(
+            this.evaluator.FollowImplied(
+                call: expression,
+                member: add.OriginalDefinition,
+                owner: owner,
+                arguments: [.. values.Select(value => (value, this.evaluator.Eval(value)))]));
+    }
+
+    // The state of the object that an initializer is for. A nested initializer is for the value
+    // of a member of the object of the initializer around it. Null for each other initializer.
+    private LoopState? StateOfTheInitialized(SyntaxNode initializer)
+    {
+        if (initializer.Parent
+            is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax or WithExpressionSyntax)
+        {
+            return this.evaluator.Eval((ExpressionSyntax)initializer.Parent);
+        }
+
+        if (initializer.Parent is not AssignmentExpressionSyntax
+            {
+                Left: IdentifierNameSyntax name,
+                Parent: InitializerExpressionSyntax around
+            }
+            || !around.IsKind(SyntaxKind.ObjectInitializerExpression)
+            || this.StateOfTheInitialized(around) is not { } owner)
+        {
+            return null;
+        }
+
+        return this.region.SymbolOf(name) is { } member && owner.Members is { } members
+            ? members.StateThrough(member)
+            : LoopState.None;
     }
 
     public override void VisitInvocationExpression(InvocationExpressionSyntax node)

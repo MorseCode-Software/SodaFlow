@@ -13265,6 +13265,34 @@ public static class Shapes
     public static Cell<int> Ab92ConditionalIndexFromTheEndReadsCount() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Counted? r = new(l.Map(v => v)); int? x = r?[^1]; return S.Hold(x ?? 0); });
 
+    // S2998. A collection expression for a collection type of this file calls its Add, which samples the value that it gets.
+    public static Cell<int> R2CsCollectionExpressionCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pile p = [l.Map(v => v)]; Kept.Add(p); return S.Hold(0); });
+
+    // S2999. A collection expression for a type with a collection builder calls the Create method, which samples an element.
+    public static Cell<int> R2CsCollectionBuilderCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pack p = [l.Map(v => v)]; Kept.Add(p); return S.Hold(0); });
+
+    // S3000. A nested object initializer runs the setter of a member of a member, and the setter samples the value that it gets.
+    public static Cell<int> R2CsNestedInitializerRunsASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rack rack = new() { Holder = { Source = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3001. A collection initializer calls the same Add.
+    public static Cell<int> R2CsCollectionInitializerCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pile p = new() { l.Map(v => v) }; Kept.Add(p); return S.Hold(0); });
+
+    // S3002. A nested collection initializer calls the Add of a member, and that Add samples the value that it gets.
+    public static Cell<int> Ab93NestedCollectionInitializerCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab93PileRack rack = new() { Pile = { l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3003. An initializer two levels deep runs the setter of a member of a member of a member.
+    public static Cell<int> Ab93TwoLevelsOfInitializerRunASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab93DeepRack deep = new() { Rack = { Holder = { Source = l.Map(v => v) } } }; Kept.Add(deep); return S.Hold(0); });
+
+    // S3004. A nested initializer that gives a plain cell reads nothing pending.
+    public static Cell<int> Ab93NestedInitializerWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rack rack = new() { Holder = { Source = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16554,6 +16582,16 @@ public static class Shapes
     {
         second = z;
         first = x;
+    }
+
+    public sealed class Ab93PileRack
+    {
+        public R2Pile Pile { get; } = new();
+    }
+
+    public sealed class Ab93DeepRack
+    {
+        public R2Rack Rack { get; } = new();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

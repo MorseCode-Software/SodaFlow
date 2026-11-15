@@ -4085,6 +4085,89 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The members that a collection expression calls on a collection type
+    ///     of this compilation. A type with a collection builder gets the
+    ///     elements from the <c>Create</c> method of the builder. Each other type
+    ///     gets each element from an <c>Add</c> method.
+    /// </summary>
+    /// <remarks>
+    ///     The version of the compiler that the analyzer builds against has no
+    ///     operation for a collection expression. Thus, the evaluator finds the
+    ///     <c>Create</c> method from the attribute, and the <c>Add</c> method that
+    ///     takes the type of the element. A spread is not followed here.
+    /// </remarks>
+    public Followed? FollowCollectionExpression(CollectionExpressionSyntax collection)
+    {
+        if (this.region.TypeOf(collection) is not INamedTypeSymbol { DeclaringSyntaxReferences.IsEmpty: false } made)
+        {
+            return null;
+        }
+
+        if (BuilderOf(made) is { } create)
+        {
+            return this.FollowImplied(
+                call: collection,
+                member: create,
+                owner: null,
+                arguments: [(collection, this.Eval(collection))]);
+        }
+
+        if (!this.region.Symbols.DeclaresAdd)
+        {
+            return null;
+        }
+
+        IMethodSymbol[] adds =
+        [
+            .. Ancestry(made)
+                .SelectMany(static type => type.GetMembers("Add"))
+                .OfType<IMethodSymbol>()
+                .Where(static add => add is { IsStatic: false, Parameters.Length: 1 })
+        ];
+
+        return collection.Elements
+            .OfType<ExpressionElementSyntax>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, element) =>
+                    adds.FirstOrDefault(add =>
+                            this.region.TypeOf(element.Expression) is not { } type
+                            || this.region.Converts(from: type, to: add.Parameters[0].Type))
+                        is { } add
+                        ? Both(
+                            first: all,
+                            second: this.FollowImplied(
+                                call: element.Expression,
+                                member: add,
+                                owner: this.Eval(collection),
+                                arguments: [(element.Expression, this.Eval(element.Expression))]))
+                        : all);
+
+        static IEnumerable<INamedTypeSymbol> Ancestry(INamedTypeSymbol type)
+        {
+            for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+            {
+                yield return current;
+            }
+        }
+    }
+
+    // The method that the CollectionBuilder attribute of a type names: a static method of the
+    // builder type, with one parameter, the span of the elements.
+    private static IMethodSymbol? BuilderOf(INamedTypeSymbol type) =>
+        type.GetAttributes()
+            .Where(static attribute =>
+                attribute.AttributeClass is { Name: "CollectionBuilderAttribute" } builder
+                && builder.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices")
+            .Select(static attribute => attribute.ConstructorArguments)
+            .Where(static arguments => arguments.Length == 2)
+            .SelectMany(static arguments =>
+                arguments[0].Value is INamedTypeSymbol builder && arguments[1].Value is string name
+                    ? builder.GetMembers(name).OfType<IMethodSymbol>()
+                    : [])
+            .FirstOrDefault(static create => create is { IsStatic: true, Parameters.Length: 1 });
+
+    /// <summary>
     ///     The copy constructor that a <c>with</c> expression on a record calls,
     ///     when the code of the record declares one. The constructor of the
     ///     compiler only copies the fields, and the walk does not read it.
