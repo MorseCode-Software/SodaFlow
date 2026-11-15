@@ -289,7 +289,8 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
   element apart, so `cells[0]` is that one element.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
-  through an interface to an object that the block built.
+  through an interface to an object that the block built, or to one that a `readonly` field or a
+  get-only property creates in its initializer.
 - Loops: each pass of a `for`, `foreach`, `while`, or `do` is read until a pass adds nothing new.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
   event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
