@@ -12629,6 +12629,82 @@ public static class Shapes
     public static Cell<int> Ag63AMethodReversesTheList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; Ag62TurnAround(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
 
+    // S2839. AG61. The keeper is in a static field with readonly, and the type of the field is the interface.
+    public static Cell<int> Ag61AKeeperInAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAField; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2840. AG61. The same, and the keeper puts an object first.
+    public static Cell<int> Ag61AKeeperInAStaticFieldPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAField; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2841. AG61. The code reads the field for each call, and the keeper puts an object first.
+    public static Cell<int> Ag61TwoReadsOfTheFieldOfAKeeper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61InAField.Keep(list); Ag61InAField.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2842. AG61. The same with no put.
+    public static Cell<int> Ag61AReadOfTheFieldForTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61InAField.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2843. AG61. A lambda in a static field with readonly makes the keeper.
+    public static Cell<int> Ag61AKeeperFromALambdaInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Maker(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2844. AG61. The same, and the keeper puts an object first.
+    public static Cell<int> Ag61AKeeperFromALambdaInAFieldPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Maker(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2845. AG61. The keeper is in a static property with only a getter and an initializer.
+    public static Cell<int> Ag61AKeeperInAStaticProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAProperty; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2846. AG61. The keeper is in a field with readonly of an object that the block makes.
+    public static Cell<int> Ag61AKeeperInAFieldOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Owner owner = new(); owner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2847. AG61. The keeper is in a field with readonly of an object in a static field.
+    public static Cell<int> Ag61AKeeperInAFieldOfAnObjectInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61TheOwner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2848. AG61. The static constructor gives the field an object of a different class, which puts an object first.
+    public static Cell<int> Ag61AStaticConstructorGivesTheFieldADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Holder.Kept; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2849. AG61. A constructor gives the field of its object an object of a different class.
+    public static Cell<int> Ag61AConstructorGivesTheFieldADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61TheSecondOwner.Keeper; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2850. AG61. A static field with no readonly got an object of a different class after its initializer.
+    public static Cell<int> Ag61AFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Open; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2851. AG61. A property with a setter got an object of a different class after its initializer.
+    public static Cell<int> Ag61APropertyWithASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61OpenProperty; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2852. AG61. A lambda in a static field with readonly samples the cell that it gets.
+    public static Cell<int> Ag61ALambdaInAFieldSamplesItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61Sampler(l.Map(v => v))));
+
+    // S2853. AG61. A lambda in a static field with readonly gives back the cell that it gets.
+    public static Cell<int> Ag61ALambdaInAFieldGivesItsCellBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> same = Ag61Same(l.Map(v => v)); Kept.Add(same); return S.Hold(Plain.Sample()); });
+
+    // S2854. AG61. The same, and the code samples the result.
+    public static Cell<int> Ag61TheCodeSamplesWhatALambdaInAFieldGaveBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61Same(l.Map(v => v)).Sample()));
+
+    // S2855. AG61. A lambda in a static field with no readonly, which a method gave a different function.
+    public static Cell<int> Ag61ALambdaInAFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61OpenSampler(l.Map(v => v))));
+
+    // S2856. AG61. A lambda in a field with readonly of an object that the block makes gives the slot a plain cell.
+    public static Cell<int> Ag61ALambdaInAFieldOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; Ag61Owner owner = new(); owner.MakePlain(y); return S.Hold(y.Share!.Sample()); });
+
+    // S2857. AG61. The name of a static method in a static field with readonly gives back the cell that it gets.
+    public static Cell<int> Ag61AMethodNameInAFieldGivesItsCellBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> same = Ag61Group(l.Map(v => v)); Kept.Add(same); return S.Hold(Plain.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15421,6 +15497,71 @@ public static class Shapes
         public override bool Equals(object? obj) => obj is Ag63OpenSlot;
 
         public override int GetHashCode() => 0;
+    }
+
+    private static readonly IAg59Keeper Ag61InAField = new Ag59Keeper();
+
+    private static readonly Func<IAg59Keeper> Ag61Maker = static () => new Ag59Keeper();
+
+    private static IAg59Keeper Ag61InAProperty { get; } = new Ag59Keeper();
+
+    private static readonly Ag61Owner Ag61TheOwner = new();
+
+    private static readonly Ag61SecondOwner Ag61TheSecondOwner = new();
+
+    private static IAg59Keeper Ag61Open = new Ag61Harmless();
+
+    private static IAg59Keeper Ag61OpenProperty { get; set; } = new Ag61Harmless();
+
+    private static readonly Func<Cell<int>, int> Ag61Sampler = static cell => cell.Sample();
+
+    private static readonly Func<Cell<int>, Cell<int>> Ag61Same = static cell => cell;
+
+    private static Func<Cell<int>, int> Ag61OpenSampler = static _ => 0;
+
+    private static readonly bool Ag61Opened = Ag61OpenEach();
+
+    private static bool Ag61OpenEach()
+    {
+        Ag61Open = new Ag59Keeper();
+        Ag61OpenProperty = new Ag59Keeper();
+        Ag61OpenSampler = static cell => cell.Sample();
+
+        return Ag61Opened;
+    }
+
+    private static readonly Func<Cell<int>, Cell<int>> Ag61Group = Ag61GiveBack;
+
+    private static Cell<int> Ag61GiveBack(Cell<int> cell) => cell;
+
+    private sealed class Ag61Harmless : IAg59Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => Kept.Add(this.kept.Count);
+    }
+
+    private sealed class Ag61Owner
+    {
+        public readonly IAg59Keeper Keeper = new Ag59Keeper();
+
+        public readonly Action<SettableSlot> MakePlain = static slot => slot.Share = Plain;
+    }
+
+    private sealed class Ag61SecondOwner
+    {
+        public readonly IAg59Keeper Keeper = new Ag61Harmless();
+
+        public Ag61SecondOwner() => this.Keeper = new Ag59Keeper();
+    }
+
+    private static class Ag61Holder
+    {
+        public static readonly IAg59Keeper Kept = new Ag61Harmless();
+
+        static Ag61Holder() => Kept = new Ag59Keeper();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

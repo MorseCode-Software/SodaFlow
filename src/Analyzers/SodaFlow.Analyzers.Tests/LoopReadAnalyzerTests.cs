@@ -1930,7 +1930,17 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag63ACoalescingAssignmentInABranch"] = ["SF1001"],
             ["Ag63TheSecondElementAfterAReverse"] = ["SF1001"],
             ["Ag63AReverseOfAPart"] = ["SF1001"],
-            ["Ag63AReverseInABranch"] = ["SF1001"]
+            ["Ag63AReverseInABranch"] = ["SF1001"],
+            ["Ag61AKeeperInAStaticFieldPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag61TwoReadsOfTheFieldOfAKeeper"] = ["SF1001"],
+            ["Ag61AKeeperFromALambdaInAFieldPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag61AStaticConstructorGivesTheFieldADifferentObject"] = ["SF1001"],
+            ["Ag61AConstructorGivesTheFieldADifferentObject"] = ["SF1001"],
+            ["Ag61AFieldWithNoReadonly"] = ["SF1001"],
+            ["Ag61APropertyWithASetter"] = ["SF1001"],
+            ["Ag61ALambdaInAFieldSamplesItsCell"] = ["SF1004"],
+            ["Ag61TheCodeSamplesWhatALambdaInAFieldGaveBack"] = ["SF1001"],
+            ["Ag61ALambdaInAFieldWithNoReadonly"] = ["SF1003"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

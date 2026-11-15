@@ -31,6 +31,7 @@ internal sealed class ObjectStore
     private readonly Dictionary<MadeObject, (ImmutableArray<LoopState> Values, LoopState At)> positions = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
+    private readonly Dictionary<ISymbol, MadeObject> inStaticMembers = new(SymbolEqualityComparer.Default);
 
     // For the object in a member: its owner, the member, and the type of the member.
     private readonly Dictionary<MadeObject, (MadeObject Owner, ISymbol Member, ITypeSymbol Type)> memberOf = [];
@@ -307,6 +308,25 @@ internal sealed class ObjectStore
         && members.TryGetValue(key: member, value: out MadeObject? found)
             ? found
             : null;
+
+    /// <summary>
+    ///     The object in a static member that gets no value after its
+    ///     initializer. Null when no read of that member made it.
+    /// </summary>
+    public MadeObject? InAStaticMember(ISymbol member) =>
+        this.inStaticMembers.TryGetValue(key: member, value: out MadeObject? found) ? found : null;
+
+    /// <summary>
+    ///     Makes the object in a static member, with its first state. The object
+    ///     has the class of the creation in the initializer of the member.
+    /// </summary>
+    public MadeObject MakeInAStaticMember(ISymbol member, LoopFrame frame, ITypeSymbol type, LoopState state)
+    {
+        MadeObject found = this.Make(frame: frame, type: type, exact: true, state: state);
+        this.inStaticMembers[member] = found;
+
+        return found;
+    }
 
     /// <summary>
     ///     Makes the object in a member of an object of the store, with its first

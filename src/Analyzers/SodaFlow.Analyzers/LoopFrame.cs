@@ -36,6 +36,22 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public bool IsOfAConstructor { get; } = isOfAConstructor;
 
+    /// <summary>The frame of the block, which has no parent.</summary>
+    public LoopFrame Root
+    {
+        get
+        {
+            LoopFrame frame = this;
+
+            while (frame.parent != null)
+            {
+                frame = frame.parent;
+            }
+
+            return frame;
+        }
+    }
+
     /// <summary>
     ///     True for the given frame, and for the frame of each callee that the
     ///     code of the given frame calls.

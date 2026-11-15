@@ -1848,7 +1848,9 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
-                or GenericNameSyntax => this.EvalName(expression),
+                or GenericNameSyntax => this.WithItsInitializer(
+                    expression: expression,
+                    state: this.EvalName(expression)),
             // An operator of this compilation gives what it returns.
             _ => this.FollowExpression(expression) is { } result
                 ? result.State.Join(this.TypeState(expression))
@@ -3315,6 +3317,25 @@ internal sealed partial class LoopStateEvaluator
                     members: function.Definer.thisMembers,
                     receiver: null,
                     target: target,
+                    manyTimes: each != null);
+            // A lambda in the initializer of a member. It has no code around it, thus it reads
+            // no local.
+            case AnonymousFunctionExpressionSyntax lambda:
+                return this.Enter(
+                    call: call,
+                    name: name,
+                    body: lambda.Body,
+                    bindings: Bindings(
+                        ParametersOf(lambda)
+                            .Select(parameter => model.GetDeclaredSymbol(parameter))
+                            .OfType<IParameterSymbol>()
+                            .ToImmutableArray()),
+                    definer: null,
+                    members: TaggedMembers(LoopState.None),
+                    receiver: null,
+                    target: null,
+                    returnsAnObject: model.GetSymbolInfo(lambda).Symbol is IMethodSymbol { ReturnType: { } returned }
+                                     && this.DoesNotSayItsClass(returned),
                     manyTimes: each != null);
             case LocalFunctionStatementSyntax or MethodDeclarationSyntax
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method

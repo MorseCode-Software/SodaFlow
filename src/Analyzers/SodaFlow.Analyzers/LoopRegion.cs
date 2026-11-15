@@ -34,6 +34,7 @@ internal sealed class LoopRegion(
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
+    private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
     private readonly HashSet<(string Id, Location Location)> reported = [];
 
@@ -119,6 +120,55 @@ internal sealed class LoopRegion(
     }
 
     public SemanticModel ModelFor(SyntaxNode node) => this.ModelFor(node.SyntaxTree);
+
+    /// <summary>
+    ///     The initializer of a field or of a property, when no code can give the
+    ///     member a different value after it. Null for each other member.
+    /// </summary>
+    /// <remarks>
+    ///     The member is a field with readonly, or a property with only a getter
+    ///     that has no body. Only a constructor of the type can give such a
+    ///     member a value. Thus, a constructor that has the name of the member in
+    ///     its code can give it a different value.
+    /// </remarks>
+    public ExpressionSyntax? InitializerOf(ISymbol member)
+    {
+        if (!this.initializerOf.TryGetValue(key: member, value: out ExpressionSyntax? found))
+        {
+            found = FindTheInitializerOf(member);
+            this.initializerOf[member] = found;
+        }
+
+        return found;
+    }
+
+    private static ExpressionSyntax? FindTheInitializerOf(ISymbol member)
+    {
+        ExpressionSyntax? value =
+            member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
+            {
+                VariableDeclaratorSyntax { Initializer.Value: { } ofAField } => ofAField,
+                PropertyDeclarationSyntax { Initializer.Value: { } ofAProperty, AccessorList: { } accessors }
+                    when accessors.Accessors.All(static accessor =>
+                        accessor is { Body: null, ExpressionBody: null }) => ofAProperty,
+                _ => null
+            };
+
+        if (value == null)
+        {
+            return null;
+        }
+
+        bool aConstructorNamesIt =
+            member.ContainingType.DeclaringSyntaxReferences
+                .SelectMany(static declared => declared.GetSyntax().ChildNodes())
+                .OfType<ConstructorDeclarationSyntax>()
+                .Where(constructor => constructor.Modifiers.Any(SyntaxKind.StaticKeyword) == member.IsStatic)
+                .Any(constructor => constructor.DescendantTokens()
+                    .Any(token => token.IsKind(SyntaxKind.IdentifierToken) && token.ValueText == member.Name));
+
+        return aConstructorNamesIt ? null : value;
+    }
 
     /// <summary>The symbol that a node names, or null when it names none.</summary>
     public ISymbol? SymbolOf(SyntaxNode node)

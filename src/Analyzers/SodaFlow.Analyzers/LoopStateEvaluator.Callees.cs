@@ -14,6 +14,84 @@ namespace SodaFlow.Analyzers;
 // from the arguments of the call, and gives the caller what the walk found.
 internal sealed partial class LoopStateEvaluator
 {
+    // The state of a read of a member, with what the initializer of the member says. A creation
+    // there says the class of the object. A lambda or the name of a static method there is the
+    // function of the delegate. The walk reads the initializer for those things only.
+    private LoopState WithItsInitializer(SyntaxNode expression, LoopState state)
+    {
+        if (this.region.SymbolOf(expression) is not { } member
+            || member is not (IFieldSymbol { IsReadOnly: true } or IPropertySymbol { IsReadOnly: true })
+            || this.region.InitializerOf(member.OriginalDefinition) is not { } made)
+        {
+            return state;
+        }
+
+        switch (made)
+        {
+            case AnonymousFunctionExpressionSyntax lambda when state.Functions.IsEmpty:
+                return state.Join(
+                    LoopState.OfFunction(new FunctionValue(declaration: lambda, definer: null, receiver: null)));
+            case BaseObjectCreationExpressionSyntax creation
+                when state.Members == null
+                     && this.region.SymbolOf(creation)
+                         is IMethodSymbol
+                         {
+                             ContainingType: { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false }
+                             itsClass
+                         }:
+            {
+                Construction ofItsClass = Construction.Of(itsClass);
+
+                // The object in a member of an object of the store.
+                if (!state.Objects.IsEmpty)
+                {
+                    return state.WithMembers(ofItsClass);
+                }
+
+                // A static member has one object for each read of it. The store keeps that object,
+                // which is older than the block. An evaluator that reads code which does not run
+                // now makes no object.
+                if (!member.IsStatic)
+                {
+                    return state;
+                }
+
+                MadeObject? one = this.region.Objects.InAStaticMember(member.OriginalDefinition);
+
+                if (one == null)
+                {
+                    if (this.quiet)
+                    {
+                        return state;
+                    }
+
+                    one =
+                        this.region.Objects.MakeInAStaticMember(
+                            member: member.OriginalDefinition,
+                            frame: this.Frame.Root,
+                            type: itsClass,
+                            state: LoopState.None.WithMembers(ofItsClass));
+                }
+
+                return state.WithMembers(ofItsClass).WithObjects(ImmutableArray.Create(one));
+            }
+            // The name of a static method of this compilation, as a value.
+            case IdentifierNameSyntax or MemberAccessExpressionSyntax
+                when state.Functions.IsEmpty
+                     && this.region.SymbolOf(made) is IMethodSymbol { IsStatic: true } group
+                     && group.OriginalDefinition.DeclaringSyntaxReferences
+                             .Select(static reference => reference.GetSyntax())
+                             .OfType<MethodDeclarationSyntax>()
+                             .FirstOrDefault()
+                         is { } declaration:
+                return state.Join(
+                    LoopState.OfFunction(
+                        new FunctionValue(declaration: declaration, definer: null, receiver: null)));
+            default:
+                return state;
+        }
+    }
+
     /// <summary>
     ///     Walks the body of a callee as a call from this code, and gives the
     ///     caller what the walk found.
