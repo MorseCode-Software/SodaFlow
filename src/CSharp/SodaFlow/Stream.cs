@@ -70,12 +70,12 @@ public struct StreamLooper<T>
     [Pure]
     [MethodImpl(MethodImplOptions.NoInlining)]
     public (Stream<T> Stream, TCaptures Captures) WithCaptures<TCaptures>(
-        Func<LoopedStream<T>, (Stream<T> Stream, TCaptures Captures)> f) =>
+        [InstantHandle] Func<LoopedStream<T>, (Stream<T> Stream, TCaptures Captures)> f) =>
         TransactionInternal.Apply(code: static (trans, _, f) => WithCaptures(trans: trans, f: f), state: f);
 
     private static (Stream<T> Stream, TCaptures Captures) WithCaptures<TCaptures>(
         TransactionInternal trans,
-        Func<LoopedStream<T>, (Stream<T> Stream, TCaptures Captures)> f)
+        [InstantHandle] Func<LoopedStream<T>, (Stream<T> Stream, TCaptures Captures)> f)
     {
         LoopedStream<T> loop = new();
         (Stream<T> Stream, TCaptures Captures) result = f(loop);
@@ -92,6 +92,6 @@ public struct StreamLooper<T>
     /// </param>
     /// <returns>The resulting stream.</returns>
     [Pure]
-    public Stream<T> WithoutCaptures(Func<LoopedStream<T>, Stream<T>> f) =>
+    public Stream<T> WithoutCaptures([InstantHandle] Func<LoopedStream<T>, Stream<T>> f) =>
         this.WithCaptures(l => (Stream: f(l), Captures: UnitInternal.Value)).Stream;
 }

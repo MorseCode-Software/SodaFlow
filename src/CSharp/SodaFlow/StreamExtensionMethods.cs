@@ -24,6 +24,20 @@ namespace SodaFlow;
 public static class StreamExtensionMethods
 {
     /// <summary>
+    ///     Return a reference to this <see cref="Stream{T}" /> as a
+    ///     <see cref="Stream{T}" />.
+    /// </summary>
+    /// <typeparam name="T">The type of the stream.</typeparam>
+    /// <param name="s">The stream.</param>
+    /// <returns>This stream.</returns>
+    /// <remarks>
+    ///     This does nothing at run time. It is the twin of
+    ///     <see cref="CellExtensionMethods.AsCell{T}(Cell{T})" /> for a stream, so
+    ///     that the three names work on each plain type as they do on a placeholder.
+    /// </remarks>
+    public static Stream<T> AsStream<T>(this Stream<T> s) => s;
+
+    /// <summary>
     ///     Listen for events/firings on this stream. The listener from this call
     ///     listens while the caller keeps it. A call to
     ///     <see cref="IListener.Unlisten" /> or a disposal stops the listener, and the
@@ -90,9 +104,16 @@ public static class StreamExtensionMethods
     /// <param name="s">The stream.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
     /// <remarks>
-    ///     The caller keeps no listener. While the task waits, each source that can
-    ///     fire this stream keeps the wait in memory. When a GC collects each of
-    ///     those sources, it collects the wait also, and the task does not complete.
+    ///     <para>
+    ///         The caller keeps no listener. While the task waits, each source that
+    ///         can fire this stream keeps the wait in memory. When a GC collects each
+    ///         of those sources, it collects the wait also, and the task does not
+    ///         complete.
+    ///     </para>
+    ///     <para>
+    ///         See <see cref="ListenOnceAsync{T}(Stream{T}, CancellationToken)" /> for
+    ///         a transaction that fails.
+    ///     </para>
     /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s) => s.ListenOnceAsync(CancellationToken.None);
 
@@ -104,17 +125,38 @@ public static class StreamExtensionMethods
     /// <param name="token">The cancellation token.</param>
     /// <returns>A task that completes at the next firing of this stream.</returns>
     /// <remarks>
-    ///     The caller keeps no listener. While the task waits, each source that can
-    ///     fire this stream keeps the wait in memory. A token that can cancel also
-    ///     keeps the wait and this stream in memory until the task completes.
+    ///     <para>
+    ///         The task gets the value when the transaction of the firing commits.
+    ///         Thus, the value is always from a transaction that committed. A
+    ///         transaction that fails after the stream fired gives no value: the task
+    ///         fails with the exception of that transaction. That holds also where
+    ///         the transaction fails before the listener runs, for example where an
+    ///         operator below the stream throws.
+    ///     </para>
+    ///     <para>
+    ///         A transaction that fails before the stream fires gives the stream no
+    ///         firing. The body of a transaction and each operator above the stream
+    ///         come before the firing. The task then waits for the next firing.
+    ///     </para>
+    ///     <para>
+    ///         The caller keeps no listener. While the task waits, each source that
+    ///         can fire this stream keeps the wait in memory. A token that can cancel
+    ///         also keeps the wait and this stream in memory until the task completes.
+    ///     </para>
     /// </remarks>
     public static Task<T> ListenOnceAsync<T>(this Stream<T> s, CancellationToken token)
     {
         TaskCompletionSource<T> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // The task holds no listener, and the caller keeps none. Thus, the stream must root the
+        // The listener gives the outcome of the transaction of the firing: the value after a
+        // commit, and the exception of a transaction that fails. See OnceWithOutcomeAction. The
+        // task holds no listener, and the caller keeps none. Thus, the stream must root the
         // listener from the start, or the garbage collector can remove the wait.
-        IRootableListener listener = s.ListenOnceRootableImpl(a => tcs.TrySetResult(a));
+        IRootableListener listener =
+            s.ListenOnceWithOutcomeRootableImpl(
+                onCommitted: a => tcs.TrySetResult(a),
+                onFailed: e => tcs.TrySetException(e));
+
         listener.Root();
 
         if (token.CanBeCanceled)

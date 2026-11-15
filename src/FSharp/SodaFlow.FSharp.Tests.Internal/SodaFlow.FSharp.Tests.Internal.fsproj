@@ -3,7 +3,7 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.FSharp.Tests.Internal</AssemblyName>
         <RootNamespace>SodaFlow.Tests.Internal</RootNamespace>
-        <TargetFrameworks>net10.0;net472</TargetFrameworks>
+        <TargetFrameworks>net6.0;net10.0;net472</TargetFrameworks>
         <OutputType>Exe</OutputType>
         <!-- Never packed. Said here rather than inferred: what marked these as test
              projects was the reference to Microsoft.NET.Test.Sdk, which is gone. -->
@@ -13,6 +13,16 @@
         <!-- The usings are listed per file here, as everywhere else in this repository. -->
         <TUnitImplicitUsings>disable</TUnitImplicitUsings>
         <TUnitAssertionsImplicitUsings>disable</TUnitAssertionsImplicitUsings>
+    </PropertyGroup>
+
+    <!--
+        net6.0 runs the net6.0 build of the libraries, which an app on .NET 6 or .NET 7 takes. net10.0
+        runs the net8.0 build. The SDK reports net6.0 as out of support for an executable, and the
+        warning is an error here. The test project exists to run that build, thus the check is off for
+        this target only.
+    -->
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net6.0' ">
+        <CheckEolTargetFramework>false</CheckEolTargetFramework>
     </PropertyGroup>
 
     <!-- Microsoft.Testing.Platform builds a native apphost for net472, which needs an explicit RID. -->

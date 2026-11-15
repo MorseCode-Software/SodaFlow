@@ -354,6 +354,68 @@ while the same action run with no transaction open, which goes through the same 
 them. The exception continues to the code that ran the transaction that posted the action, as before, and a release
 given with the action still runs.
 
+Fixed: a posted action, or an element of a split, whose transaction fails no longer leaves behind the work it deferred.
+Each of them runs in a child transaction of the transaction that deferred it, and a Post or a Split from inside a child
+went straight into the queues of that first transaction. When the child then failed, by a throw from the action or from
+a listener while it propagated, nothing took that work out again: the actions it had posted ran, their releases did not,
+and the values it had sent through Defer or Split arrived in later transactions, although the transaction that produced
+them was discarded. The first transaction always dropped what it had deferred when it failed, so the two paths
+disagreed. What a child defers is at the end of each queue, after whatever was there when the child started, so a child
+that fails now has the queues put back to where they were, and the release of each post that goes runs with the child's
+exception as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for
+the first transaction.
+
+Changed: the queue behind Defer and Split is a list in order of arrival, sorted by position when a round of it runs,
+where it was a dictionary from a position to one delegate that joined every split at that position. The splits at one
+position still run in one transaction, in the order they were made, and the positions still run in order. That is what
+lets a failed child's splits be cut off the end, and it allocates less: no dictionary and key array for each round, and
+no delegate that grows when several splits share a position. A transaction also no longer keeps a reference to the one
+it defers into, which makes each transaction 8 bytes smaller. DeferredWorkBenchmarks in SodaFlow.Benchmarks measures the
+paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B to 440 B, a post from a posted action
+672 to 648, a defer 1,376 to 1,208, a defer after a defer 2,208 to 1,880, and a defer from each of 8 split elements
+8,720 to 7,208. The empty transaction that an entry above measured at 112 bytes is 104. Time on .NET Framework 4.7.2,
+where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
+posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
+
+Changed: a chain of deferred work that has no end throws DeferredChainLimitException, an InvalidOperationException,
+where before it ran forever. A posted action and each element of a split run in a transaction of their own after the
+one that deferred them, and that transaction can defer work in turn. A value that finds its way back to its own source
+through Defer, Split, or a posted action that posts again, with nothing on the way to stop it, made a new transaction
+for every lap: the call that started it never returned, on a full core, with flat memory and no exception. The drain
+of a transaction now counts the rounds of splits that it runs, and the generations of posts that it runs after the
+last round, where the posts that one generation makes are the next. It stops when either count is at 100,000. The
+exception comes out of the call that started the first transaction, after any other deferred failure. Every
+transaction before the limit has committed and its values stay; the work that was still waiting does not run, and a
+post that was waiting gets its release with the exception as the cause. A chain that does end, but only after more
+than 100,000 laps, throws as well, and there is no setting for the limit. The count is of depth and not of volume, so
+one split of a million elements is one round. The count of generations starts again after each round, so a chain of
+posts inside each lap of a chain of splits is held to the limit once for each kind and not for the product of the two
+depths. The deepest chain in the tests of the whole solution is 11 laps. The counts are locals in the drain and
+nothing on a queued entry, so a post and a split are the size they were. DeferredWorkBenchmarks allocates the same
+with the limit and without it: to a hundredth of a byte in each of its five cases on .NET Framework 4.7.2, and 440,
+648, 1,208, 1,880, and 7,208 B on .NET 10. The .NET 10 JIT removes a 32-byte object from some of these paths when its
+profile lets it, so a run can read 32 or 64 B more, with the limit or without it; with dynamic PGO off, the defer case
+reads 1,240 B both ways. The times do not show the limit: on a machine that was busy, the runs with it are inside the
+spread of the runs without it on both runtimes.
+
+Fixed: no transaction gets the id zero. Each transaction takes the next value of a 64-bit count as its id, and zero
+already means two things: a root transaction that has no id yet, and an input slot of a merge, lift, apply, or snapshot
+that holds no value for the current transaction. The count wraps without an exception, so after 2^64 transactions one of
+them took zero. A root transaction or an element of a split with that id read every empty slot as filled, so a merge of
+two types reported a default value for the input that did not fire. A posted action with that id took another one at its
+first use, and was not affected. The count now skips zero. Nobody was going to meet this: ids are given one at a time
+under the transaction lock, and at one id per nanosecond the count takes about 585 years to get there. The point is that
+"the id of a transaction is never zero", which the capture slot depends on, now holds without a condition. The cost is
+one comparison per id.
+
+Added, for the two language packages: a one-shot listener that gives the outcome of the transaction of its firing, which
+ListenOnceAsync and listenOnceAsync now use. It gives the value once that transaction has committed, and the exception
+of a transaction that fails after the stream fired, also where the transaction fails before the listener runs. For that,
+a transaction that fails now tells each queued step that it discards which exception failed it, and a step that carried
+a firing passes that on to a listener that asks for it. Nothing changes for any other listener, and the path of a
+transaction that commits is the same, with one allocation fewer where a listener attaches to a stream that already fired
+in the same transaction.
+
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
 each action in a transaction of its own. A throw from one used to discard the transaction that posted it, although
@@ -524,6 +586,21 @@ last action was silently dropped. The transaction now fails with an InvalidOpera
 failure discards the step, so the next transaction starts clean. Nothing in this library's own last actions does this;
 the check is there to make the mistake loud rather than silent. A last action can still queue a last action, which runs
 in the same drain, and a post, which runs after it.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
+cannot see one thing that the native AOT compiler reports. A native AOT publish that roots the assembly reports IL3054
+on generic expansions that the compiler stopped, because MaybeInternal<T> nests inside itself with no limit that the
+compiler can prove. The code of an expansion that stopped throws if it runs. A root makes the compiler follow each
+method of each expansion, and an app does not. The publish of an app that uses Gate, Calm, Snapshot, Accum, Collect,
+OrElse, Merge, Hold, Lift, Updates, and Listen reported none. The build of the repository now publishes that app with
+each warning as an error, and runs it.
 
 5.0.0
 

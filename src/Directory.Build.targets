@@ -16,4 +16,36 @@
         <PackageReference Remove="TUnit.Assertions.FSharp"/>
     </ItemGroup>
 
+    <!--
+        The loop analyzer runs on every C# project here, so that the solution's own code is held to
+        the rules a consumer's is. It is a project reference whose output goes to the compiler as an
+        analyzer and not as a reference: OutputItemType="Analyzer" puts the built dll in the Analyzer
+        items, the way a consumer's package does, and ReferenceOutputAssembly="false" keeps it out of
+        the compile references, the output folders, and the restore graph, so no lock file carries
+        it. PrivateAssets="all" keeps it out of the dependencies of every package. It is here and not
+        in each project for the reason EnableDefaultItems is in Directory.Build.props: a reference
+        every project has to remember is one a new project forgets, and a project without the
+        analyzer would be the one that reads a loop early without hearing about it.
+
+        The analyzer reaches a consumer inside the SodaFlow package, under analyzers/dotnet/cs, which
+        SodaFlow.csproj packs from the analyzer's build output; see the note there. It is not a
+        package of its own: NuGet leaves a ReferenceOutputAssembly="false" reference out of the
+        restore graph that pack reads its dependencies from, so SodaFlow could not depend on a
+        sibling analyzer package, and the spelling that keeps the reference in the graph also makes
+        the dll a compile reference of every project, which conflicts with the compiler's own
+        assemblies. Both were tried and read back from the nuspec and the reference items.
+
+        Two kinds of project are left out. The analyzer and its tests do not analyze themselves; the
+        tests run the analyzer in process over a shapes file that is meant to trip every rule, and a
+        build of that file under the analyzer would fail. F# projects are left out because a Roslyn
+        analyzer runs in the C# and VB compilers only; the F# surface keeps the runtime check, as
+        the loops page says.
+    -->
+    <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' and !$(MSBuildProjectName.StartsWith('SodaFlow.Analyzers'))">
+        <ProjectReference Include="$(MSBuildThisFileDirectory)Analyzers\SodaFlow.Analyzers\SodaFlow.Analyzers.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all"/>
+    </ItemGroup>
+
 </Project>

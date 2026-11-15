@@ -1,5 +1,17 @@
 6.0.0
 
+Added: a Roslyn analyzer, inside this package under analyzers/dotnet/cs, that reports a read of a looped cell or
+behavior before its loop closes, a loop closed with a value linked to its own placeholder, and the other shapes that
+throw at run time; rules SF1001 to SF1006, all warnings but the escape to unknown code, which is an info. It reads the
+block and the code of your own project that the block calls. A C# project that references SodaFlow runs it with no step
+of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer
+runs in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the
+analyzer does not see.
+
+Added: AsCell on a plain Cell<T>, AsBehavior on a plain Behavior<T>, and AsStream on a plain Stream<T>. Each returns
+its receiver. In a loop block they mark a value derived from the placeholder, at the argument where it leaves for code
+the analyzer cannot see into, as one that no callee reads before the loop closes.
+
 BREAKING: SampleLazy returns a LazySample<T>, and HoldLazy, AccumLazy, CollectLazy, and ConstantLazy take one, where
 each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a transaction that fails forget its value; the
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
@@ -101,6 +113,10 @@ Transaction.RunVoid no longer wraps its action in a closure and a delegate of it
 empty RunVoid from outside a transaction measures 55 ns and 288 bytes to 36 ns and 112 bytes on .NET 10, and one
 inside an open transaction 27 ns and 176 bytes to 6 ns and nothing; the core notes have the rest.
 
+Operational.Defer and Operational.Split allocate less with SodaFlow.Core 6.0.0, which keeps the splits of a transaction
+in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
+elements 8,720 to 7,208; the core notes have the rest.
+
 FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with SodaFlow.Functional 4.0.0. They call
 MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.
 Nothing in this package changed for it.
@@ -125,6 +141,13 @@ that reach this package, and its notes have the details of each:
   cell of higher rank than its output.
 - A long chain of operations no longer crashes the process with a stack overflow when a link raises the rank of every
   node in it, as closing a loop over a chain of 10,000 maps did.
+- A posted action, or an element of Operational.Split, whose transaction fails no longer leaves behind what it deferred.
+  The actions it posted do not run, the release of each one does, and the values it sent through Defer or Split do not
+  arrive.
+- A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
+  never returned. A value that finds its way back to its own source through Operational.Defer, Operational.Split, or a
+  posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
+  laps deep, and the laps before that have committed. The core notes have the rest.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
@@ -136,6 +159,17 @@ stream fired again.
 Fixed: ListenOnceAsync with a CancellationToken that can be canceled now removes its registration from the token when
 the task completes. Before, each call left a registration behind until the token was canceled or collected, so a
 long-lived token gathered one per call. The task, its result, and what happens on cancellation are unchanged.
+
+Fixed: ListenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the task as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the task already held a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The task now gets the
+value when the transaction commits, so a listener that runs later in the same transaction finds it still incomplete.
+When the stream fires in a transaction that then fails, the task fails with the exception of that transaction. That
+holds whether the failure comes after the listener ran, as when a second listener throws or the first value of a cell
+built in the same transaction throws, or before it ran, as when an operator below the stream or an earlier listener
+throws. A transaction that fails before the stream fires gives the stream no firing, as before: the task waits, and the
+next firing completes it. A throw from the body of the transaction and a throw from an operator above the stream are of
+that kind. A cancellation that arrives in the transaction of the firing, before it commits, cancels the task.
 
 Changed: Choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
 and costs about half as much to build.
@@ -166,6 +200,15 @@ counts with a Stopwatch, which only measures time going by.
 
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
 
 5.0.1
 

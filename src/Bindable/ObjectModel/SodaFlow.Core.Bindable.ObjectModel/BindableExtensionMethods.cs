@@ -38,10 +38,7 @@ public static partial class BindableCoreExtensionMethods
         IBindingScheduler scheduler,
         IEqualityComparer<T>? comparer = null)
     {
-        if (editsStreamSink == null)
-        {
-            throw new ArgumentNullException(nameof(editsStreamSink));
-        }
+        ThrowHelper.ThrowIfNull(argument: editsStreamSink, paramName: nameof(editsStreamSink));
 
         return new TwoWayBindableValue<T>(
             cell: cell,

@@ -1,4 +1,9 @@
 <Solution>
+    <Folder Name="/Analyzers/">
+        <Project Path="Analyzers/SodaFlow.Analyzers/SodaFlow.Analyzers.csproj"/>
+        <Project Path="Analyzers/SodaFlow.Analyzers.Platform.Tests/SodaFlow.Analyzers.Platform.Tests.csproj"/>
+        <Project Path="Analyzers/SodaFlow.Analyzers.Tests/SodaFlow.Analyzers.Tests.csproj"/>
+    </Folder>
     <Folder Name="/Async/">
         <Project Path="Async/SodaFlow.Core.Async.Tests/SodaFlow.Core.Async.Tests.csproj"/>
         <Project Path="Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj"/>
@@ -46,6 +51,7 @@
         <Project Path="CSharp/SodaFlow.Benchmarks.Blotter/SodaFlow.Benchmarks.Blotter.csproj"/>
         <Project Path="CSharp/SodaFlow.Benchmarks/SodaFlow.Benchmarks.csproj"/>
         <Project Path="CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj"/>
+        <Project Path="CSharp/SodaFlow.NativeAotCheck/SodaFlow.NativeAotCheck.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Internal/SodaFlow.Tests.Internal.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests.Memory/SodaFlow.Tests.Memory.csproj"/>
         <Project Path="CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj"/>

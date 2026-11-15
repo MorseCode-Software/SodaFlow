@@ -85,9 +85,9 @@ public sealed class BindingSchedulerTests
         await Assert.That(ranInside).IsTrue().Because("and it still runs, once the transaction has closed");
     }
 
-    // A bindable value keeps a flag and a count for each post, and only the post clears them. Thus,
-    // a post must run if its transaction commits and also if it fails, as a post to a dispatcher
-    // does.
+    // A post must run if its transaction commits and also if it fails, as a post to a dispatcher
+    // does. A post that the scheduler drops is lost. A bindable value posts again at its next
+    // update, but an action that is not a refresh does not come again.
     [Test]
     public async Task ImmediateRunsAPostFromATransactionThatFails()
     {

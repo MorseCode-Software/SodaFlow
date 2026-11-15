@@ -184,7 +184,12 @@ public static partial class BindableCoreExtensionMethods
             // it gives the value before the update, thus the post waits for its close. The
             // scheduler cannot hold the wait: a queue that a nested loop drains runs the post
             // again immediately, in the same transaction.
-            if (!outcome.Committed && TransactionInternal.GetCurrentTransaction() != null)
+            //
+            // The test is for an outcome that is not known, and not for one that did not commit. A
+            // transaction that failed is over, thus a read in the open transaction gives the value
+            // that committed. Before, the refresh waited also then, and a drain in a transaction
+            // made no progress.
+            if (!outcome.Known && TransactionInternal.GetCurrentTransaction() != null)
             {
                 TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
 

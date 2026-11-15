@@ -776,9 +776,11 @@ let orderByArrival () : KeyOrder<'TKey, 'TIdentity, 'TState> =
 /// <returns>The refined order.</returns>
 /// <remarks>
 ///     This is the equivalent of <c>ThenBy</c> after <c>OrderBy</c> in LINQ. The new level
-///     selects only between keys that the order ranks equal. Each level keeps its own sort value
-///     type to its comparer, thus this code boxes nothing at each count of levels, and the key is
-///     the last level in each order.
+///     selects only between keys that the order ranks equal. An order with one level or two
+///     levels keeps the sort value type of each level to its comparer, and boxes nothing. An order
+///     with three levels or more holds each sort value as an object. Thus, a level whose sort
+///     value is a value type boxes it one time for each key that the order sorts. A comparison
+///     allocates nothing. The key is the last level in each order.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let thenBy
