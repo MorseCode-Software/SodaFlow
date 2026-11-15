@@ -13161,6 +13161,10 @@ public static class Shapes
     public static Cell<int> Ag68TheArrayLocalGetsADifferentArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); SettableSlot[] kept = slots; ref SettableSlot r = ref slots[0]; slots = [first]; r = first; kept[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
 
+    // S2972. The operand of nameof names a getter that samples a pending member, and nameof runs no code.
+    public static Cell<int> R2CsNameofOfAGetterThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Gauge g = new(l.Map(v => v)); string name = nameof(g.Now); return S.Hold(name.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

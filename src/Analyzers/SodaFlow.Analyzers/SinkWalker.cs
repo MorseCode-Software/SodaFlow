@@ -1818,6 +1818,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         if (this.region.SymbolOf(node) is not IMethodSymbol method)
         {
+            // The operand of nameof only names a member, and no code of it runs. A method with
+            // the name nameof has a symbol, thus it does not come here.
+            if (node.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" })
+            {
+                return;
+            }
+
             base.VisitInvocationExpression(node);
 
             return;
