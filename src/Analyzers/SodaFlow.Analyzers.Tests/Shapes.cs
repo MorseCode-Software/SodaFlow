@@ -12901,6 +12901,26 @@ public static class Shapes
     public static Cell<int> Ab81AnExchangeInABranchThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); if (Never) { Kept.Add(Interlocked.Exchange(ref slots[0], first)); } return S.Hold(slots[0].Share!.Sample()); });
 
+    // S2907. A finally block samples the placeholder.
+    public static Cell<int> R2CsReadInAFinallyBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = 0; try { x = 1; } finally { Kept.Add(l.Sample()); } return S.Hold(x); });
+
+    // S2908. Gate samples its cell at each firing as a snapshot does, thus a gate by the placeholder is not a cycle.
+    public static Cell<int> R2ApiGateByThePlaceholderAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Gate(l.Map(v => v > 0)).Hold(0));
+
+    // S2909. AB82 probe. The element gets a different object after the ref, and the plain cell goes through the local.
+    public static Cell<int> Ab82ProbeTheElementGetsAnObjectAfterTheRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; slots[0] = first; r.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2910. AG63 probe. Clear and then an Add.
+    public static Cell<int> Ag63ProbeAnAddAfterAClear() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Clear(); list.Add(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2911. AB78 probe. Two locals for two elements, and the pending cell goes to the second one.
+    public static Cell<int> Ab78ProbeTwoLocalsForTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15867,6 +15887,197 @@ public static class Shapes
         all[all.Length - 1] = other;
         slot.Share = cell;
     }
+
+    private static readonly TaskCompletionSource R2NeverDone = new();
+
+    private static async Task R2ReadAfterAWait(Cell<int> c)
+    {
+        await R2NeverDone.Task;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task R2ReadBeforeAWait(Cell<int> c)
+    {
+        Kept.Add(c.Sample());
+        await R2NeverDone.Task;
+    }
+
+    private static async IAsyncEnumerable<int> R2AsyncReads(Cell<int> c)
+    {
+        yield return c.Sample();
+        await Task.Yield();
+    }
+
+    public sealed class R2Gauge(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed record R2Shown(Cell<int> Share)
+    {
+        public int Now => this.Share.Sample();
+    }
+
+    public sealed record R2Copied(Cell<int> Share)
+    {
+        private R2Copied(R2Copied other)
+        {
+            this.Share = other.Share;
+            Kept.Add(other.Share.Sample());
+        }
+    }
+
+    public sealed class R2Flag(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static implicit operator bool(R2Flag f) => f.Share.Sample() > 0;
+    }
+
+    public sealed class R2Counted(Cell<int> share)
+    {
+        public int Count => share.Sample();
+
+        public int this[int index] => index;
+    }
+
+    public sealed class R2Sliced(Cell<int> share)
+    {
+        public int Count => 1;
+
+        public int this[int index] => share.Sample() + index;
+
+        public R2Sliced Slice(int start, int length)
+        {
+            Kept.Add(share.Sample() + start + length);
+
+            return this;
+        }
+    }
+
+    public sealed class R2Steps(Cell<int> share)
+    {
+        public R2Stepper GetEnumerator() => new(share);
+    }
+
+    public sealed class R2Stepper(Cell<int> share) : IDisposable
+    {
+        public int Current => 0;
+
+        public bool MoveNext() => false;
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    public sealed class R2Pile : IEnumerable<Cell<int>>
+    {
+        private readonly List<Cell<int>> all = [];
+
+        public void Add(Cell<int> c)
+        {
+            Kept.Add(c.Sample());
+            this.all.Add(c);
+        }
+
+        public IEnumerator<Cell<int>> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    [System.Runtime.CompilerServices.CollectionBuilder(typeof(R2PackBuilder), nameof(R2PackBuilder.Create))]
+    public sealed class R2Pack(Cell<int>[] items) : IEnumerable<Cell<int>>
+    {
+        private readonly Cell<int>[] items = items;
+
+        public IEnumerator<Cell<int>> GetEnumerator() => ((IEnumerable<Cell<int>>)this.items).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public static class R2PackBuilder
+    {
+        public static R2Pack Create(ReadOnlySpan<Cell<int>> items)
+        {
+            Kept.Add(items[0].Sample());
+
+            return new R2Pack(items.ToArray());
+        }
+    }
+
+    public sealed class R2Rack
+    {
+        public TallyHolder Holder { get; } = new();
+    }
+
+    public static event Action? R2Rang;
+
+    public sealed class R2Same(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static bool operator ==(R2Same a, R2Same b) => a.Share.Sample() == b.Share.Sample();
+
+        public static bool operator !=(R2Same a, R2Same b) => !(a == b);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 0;
+    }
+
+    private static ref Cell<int> R2SlotOf(Cell<int>[] all) => ref all[0];
+
+    public sealed class R2FieldRow
+    {
+        public Cell<int>? Share
+        {
+            get => field;
+            set => field = value;
+        }
+    }
+
+    extension(Cell<int> c)
+    {
+        public int R2ReadNow() => c.Sample();
+    }
+
+    public interface IR2Reads
+    {
+        static abstract int ReadOf(Cell<int> c);
+    }
+
+    public sealed class R2Reads : IR2Reads
+    {
+        public static int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    private static int R2ReadThrough<T>(Cell<int> c) where T : IR2Reads => T.ReadOf(c);
+
+    private static readonly SodaFlow.Bindable.ObjectModel.IBindableFactory R2ApiFactory =
+        new SodaFlow.Bindable.ObjectModel.BindableFactory(SodaFlow.Bindable.ObjectModel.BindingScheduler.Immediate);
+
+    private static IAg59Keeper Ag61Deep1() => Ag61Deep2();
+
+    private static IAg59Keeper Ag61Deep2() => Ag61Deep3();
+
+    private static IAg59Keeper Ag61Deep3() => Ag61Deep4();
+
+    private static IAg59Keeper Ag61Deep4() => Ag61Deep5();
+
+    private static IAg59Keeper Ag61Deep5() => new Ag59Keeper();
+
+    private static readonly SettableSlot[] Ab79UnseenSeventh = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenEighth = [new()];
+
+    private static void Ab79Put(SettableSlot[] all, SettableSlot other) => all[0] = other;
+
+    private static void Ab79PutThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab79Put(all, other);
+        slot.Share = cell;
+    }
+
+    private static readonly ISlotLine Ab80Line = NewSlotLine();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

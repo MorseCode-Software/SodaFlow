@@ -1970,7 +1970,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab78ALambdaReadsThroughTheSecondName"] = ["SF1001"],
             ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1003"],
             ["Ab79APlainCellThroughAParameterThatCanBeTheObject"] = ["SF1001"],
-            ["Ab81AnExchangeInABranchThatDoesNotRun"] = ["SF1001"]
+            ["Ab81AnExchangeInABranchThatDoesNotRun"] = ["SF1001"],
+            ["R2CsReadInAFinallyBlock"] = ["SF1001"],
+            ["Ab82ProbeTheElementGetsAnObjectAfterTheRef"] = ["SF1001"],
+            ["Ag63ProbeAnAddAfterAClear"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
