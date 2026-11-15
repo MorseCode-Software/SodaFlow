@@ -3153,6 +3153,13 @@ internal sealed partial class LoopStateEvaluator
                 arguments: arguments,
                 extensionReceiver: method.ReducedFrom != null ? receiver : null);
 
+        IParameterSymbol? extended = receiver == null ? null : this.ExtensionParameterOf(definition);
+
+        if (extended != null && receiver != null)
+        {
+            bindings = [new Binding(parameter: extended, argument: receiver, state: this.Eval(receiver)), .. bindings];
+        }
+
         // A local function is part of the code that contains it, and reads the locals of that
         // code.
         if (definition.MethodKind == MethodKind.LocalFunction)
@@ -3168,8 +3175,9 @@ internal sealed partial class LoopStateEvaluator
                 target: null);
         }
 
+        // The receiver of a member of an extension block is a parameter, and not this object.
         (Dictionary<ISymbol, LoopState> members, LoopState? receiverState) =
-            this.MembersFor(isStatic: definition.IsStatic, owner: receiver);
+            this.MembersFor(isStatic: definition.IsStatic || extended != null, owner: receiver);
 
         return this.Enter(
             call: invocation,
@@ -3862,8 +3870,10 @@ internal sealed partial class LoopStateEvaluator
                         return all;
                     }
 
+                    IParameterSymbol? extended = owner == null ? null : this.ExtensionParameterOf(property);
+
                     (Dictionary<ISymbol, LoopState> members, LoopState? receiver) =
-                        this.MembersFor(isStatic: property.IsStatic, owner: owner);
+                        this.MembersFor(isStatic: property.IsStatic || extended != null, owner: owner);
 
                     return Both(
                         first: all,
@@ -3871,7 +3881,9 @@ internal sealed partial class LoopStateEvaluator
                             call: access,
                             name: property.Name,
                             body: body,
-                            bindings: [],
+                            bindings: extended != null && owner != null
+                                ? [new Binding(parameter: extended, argument: owner, state: this.Eval(owner))]
+                                : [],
                             definer: null,
                             members: members,
                             receiver: receiver,
@@ -3879,6 +3891,16 @@ internal sealed partial class LoopStateEvaluator
                             returnsAnObject: this.DoesNotSayItsClass(property.Type)));
                 });
     }
+
+    // The parameter of the extension block of C# 14 that declares a member. The member reads its
+    // receiver through that parameter. Null for each other member, and for a static member.
+    private IParameterSymbol? ExtensionParameterOf(ISymbol definition) =>
+        definition is { IsStatic: false, ContainingType: { } block }
+        && block.TypeKind == SodaFlowSymbols.ExtensionKind
+        && block.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is TypeDeclarationSyntax { ParameterList.Parameters.Count: 1 } declaration
+            ? this.region.ModelFor(declaration).GetDeclaredSymbol(declaration.ParameterList.Parameters[0])
+            : null;
 
     private static IEnumerable<IPropertySymbol> PropertiesOf(Construction? owner, IPropertySymbol written)
     {

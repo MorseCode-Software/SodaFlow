@@ -13049,6 +13049,26 @@ public static class Shapes
     public static Cell<int> Ab97FieldKeywordOnlyInTheSetterWithAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab97HalfRow r = new() { Share = Plain }; return S.Hold(r.Share!.Sample()); });
 
+    // S2944. A method of an extension block samples its receiver.
+    public static Cell<int> R2CsExtensionBlockMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).R2ReadNow(); return S.Hold(x); });
+
+    // S2945. AB98 control. A method of an extension block keeps its receiver and does not sample it.
+    public static Cell<int> Ab98ExtensionBlockMethodThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(l.Map(v => v).Ab98Same()); return S.Hold(0); });
+
+    // S2946. AB98 control. A method of an extension block samples its parameter, which gets the pending cell.
+    public static Cell<int> Ab98ExtensionBlockMethodReadsItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Ab98ReadOther(l.Map(v => v)); return S.Hold(x); });
+
+    // S2947. AB98 control. A method of an extension block samples its parameter, and only the receiver is pending.
+    public static Cell<int> Ab98ExtensionBlockMethodReadsAPlainParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).Ab98ReadOther(Plain); return S.Hold(x); });
+
+    // S2948. AB98. A property of an extension block samples its receiver.
+    public static Cell<int> Ab98ExtensionBlockProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).Ab98Now; return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16293,6 +16313,15 @@ public static class Shapes
     public sealed class Ab97HalfRow
     {
         public Cell<int>? Share { get; set => field = value; }
+    }
+
+    extension(Cell<int> c)
+    {
+        public Cell<int> Ab98Same() => c;
+
+        public int Ab98ReadOther(Cell<int> other) => other.Sample();
+
+        public int Ab98Now => c.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

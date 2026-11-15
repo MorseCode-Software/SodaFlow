@@ -1992,7 +1992,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab96AssignmentThroughARefParameterReturned"] = ["SF1001"],
             ["R2CsFieldKeywordProperty"] = ["SF1001"],
             ["Ab97FieldKeywordPropertySetAfterTheCreation"] = ["SF1001"],
-            ["Ab97FieldKeywordOnlyInTheSetter"] = ["SF1001"]
+            ["Ab97FieldKeywordOnlyInTheSetter"] = ["SF1001"],
+            ["R2CsExtensionBlockMethod"] = ["SF1004"],
+            ["Ab98ExtensionBlockMethodReadsItsParameter"] = ["SF1004"],
+            ["Ab98ExtensionBlockProperty"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

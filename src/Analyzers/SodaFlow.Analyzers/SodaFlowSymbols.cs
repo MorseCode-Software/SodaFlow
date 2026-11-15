@@ -75,6 +75,14 @@ internal sealed class SodaFlowSymbols
     public static readonly int FieldKeywordKind =
         Enum.TryParse(value: "FieldExpression", result: out SyntaxKind kind) ? (int)kind : -1;
 
+    /// <summary>
+    ///     The kind of the type of an extension block of C# 14. The analyzer
+    ///     builds with a Roslyn that does not have this kind, but a host that can
+    ///     parse an extension block has it. Otherwise, the value is null.
+    /// </summary>
+    public static readonly TypeKind? ExtensionKind =
+        Enum.TryParse(value: "Extension", result: out TypeKind kind) ? kind : null;
+
     // The node actions of one compilation run at the same time, and each asks this question.
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
     // call of a method with no body to read.
