@@ -1940,7 +1940,16 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag61APropertyWithASetter"] = ["SF1001"],
             ["Ag61ALambdaInAFieldSamplesItsCell"] = ["SF1004"],
             ["Ag61TheCodeSamplesWhatALambdaInAFieldGaveBack"] = ["SF1001"],
-            ["Ag61ALambdaInAFieldWithNoReadonly"] = ["SF1003"]
+            ["Ag61ALambdaInAFieldWithNoReadonly"] = ["SF1003"],
+            ["Ab78APendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab78AReadThroughASecondName"] = ["SF1001"],
+            ["Ab78AHelperGivesAPendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab78APendingCellThroughAThirdName"] = ["SF1001"],
+            ["Ab78TheSecondNameGetsADifferentValueInABranch"] = ["SF1001"],
+            ["Ab78TheFirstNameGetsADifferentValue"] = ["SF1001"],
+            ["Ab78AMethodGivesTheFirstNameADifferentValue"] = ["SF1001"],
+            ["Ab78AMethodGivesTheSecondNameADifferentValue"] = ["SF1001"],
+            ["Ab78APendingCellThroughASecondNameInATurn"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

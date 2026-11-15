@@ -36,6 +36,19 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public bool IsOfAConstructor { get; } = isOfAConstructor;
 
+    /// <summary>
+    ///     For a local that is a second name of a value with no object of the
+    ///     store: the expression of the first name. The expression is in the
+    ///     assignment that gave the local that value.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> FirstNameOf { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     Each name that was one of two names of a value with no object. The
+    ///     walk does not know now that the two names are one value.
+    /// </summary>
+    public HashSet<ISymbol> WasOneOfTwoNames { get; } = new(SymbolEqualityComparer.Default);
+
     /// <summary>The frame of the block, which has no parent.</summary>
     public LoopFrame Root
     {

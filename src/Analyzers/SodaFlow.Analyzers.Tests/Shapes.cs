@@ -12705,6 +12705,66 @@ public static class Shapes
     public static Cell<int> Ag61AMethodNameInAFieldGivesItsCellBack() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> same = Ag61Group(l.Map(v => v)); Kept.Add(same); return S.Hold(Plain.Sample()); });
 
+    // S2858. AB78. A value that is no object of the store gets a plain cell, and then a pending cell through a second local.
+    public static Cell<int> Ab78APendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2859. AB78. The same, where the pending cell is first and the plain cell goes through the second local.
+    public static Cell<int> Ab78APlainCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2860. AB78. The pending cell goes through the first local, and the read is through the second one.
+    public static Cell<int> Ab78AReadThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2861. AB78. The same with a plain cell after a pending cell.
+    public static Cell<int> Ab78AReadThroughASecondNameAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2862. AB78. A helper gives its parameter a plain cell, and then a pending cell through a second local.
+    public static Cell<int> Ab78AHelperGivesAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; Ab78ThroughASecondName(c, Plain, l.Map(v => v)); return S.Hold(c.Share!.Sample()); });
+
+    // S2863. AB78. The same, where the plain cell goes through the second local.
+    public static Cell<int> Ab78AHelperGivesAPlainCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; Ab78ThroughASecondName(c, l.Map(v => v), Plain); return S.Hold(c.Share!.Sample()); });
+
+    // S2864. AB78. A third local is a name of the second one.
+    public static Cell<int> Ab78APendingCellThroughAThirdName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; SettableSlot r = q; r.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2865. AB78. The same with a plain cell after a pending cell.
+    public static Cell<int> Ab78APlainCellThroughAThirdName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; SettableSlot r = q; r.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2866. AB78. The second local gets a different value before the pending cell.
+    public static Cell<int> Ab78TheSecondNameGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q = Ab78Unseen[1]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2867. AB78. The second local can get a different value in a branch.
+    public static Cell<int> Ab78TheSecondNameGetsADifferentValueInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; if (Never) { q = Ab78Unseen[1]; } q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2868. AB78. The first local gets a different value, and the read is through the second one.
+    public static Cell<int> Ab78TheFirstNameGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; c = Ab78Unseen[1]; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2869. AB78. A method gives the first local a different value through out, and the read is through the second one.
+    public static Cell<int> Ab78AMethodGivesTheFirstNameADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; Ab78Other(out c); c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2870. AB78. A method gives the second local a different value through out, and the read is through that local.
+    public static Cell<int> Ab78AMethodGivesTheSecondNameADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Ab78Pending(out q, l.Map(v => v)); return S.Hold(q.Share!.Sample()); });
+
+    // S2871. AB78. A struct in a second local is a copy, and the pending cell goes to the copy.
+    public static Cell<int> Ab78ACopyOfAStructGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = Ab78Values[0]; c.Share = Plain; SlotValue q = c; q.Share = l.Map(v => v); Kept.Add(q); return S.Hold(c.Share!.Sample()); });
+
+    // S2872. AB78. The pending cell goes through the second local in the turn of a loop.
+    public static Cell<int> Ab78APendingCellThroughASecondNameInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; for (int i = 0; i < 2; i++) { SettableSlot q = c; q.Share = l.Map(v => v); } return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15563,6 +15623,21 @@ public static class Shapes
 
         static Ag61Holder() => Kept = new Ag59Keeper();
     }
+
+    private static readonly SettableSlot[] Ab78Unseen = [new(), new()];
+
+    private static readonly SlotValue[] Ab78Values = [default];
+
+    private static void Ab78ThroughASecondName(SettableSlot slot, Cell<int> first, Cell<int> second)
+    {
+        slot.Share = first;
+        SettableSlot other = slot;
+        other.Share = second;
+    }
+
+    private static void Ab78Other(out SettableSlot slot) => slot = Ab78Unseen[1];
+
+    private static void Ab78Pending(out SettableSlot slot, Cell<int> cell) => slot = new SettableSlot { Share = cell };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

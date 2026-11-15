@@ -810,6 +810,8 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.CanBeUnseen.Remove(local);
         }
 
+        this.NotesASecondName(local: local, value: value, replaces: replaces);
+
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.
         if (value is RefExpressionSyntax { Expression: var location })
@@ -2048,8 +2050,9 @@ internal sealed partial class LoopStateEvaluator
                     return this.region.PlaceholderState;
                 }
 
-                // A name with ref has the value that its location has now.
-                if (this.TheLocationOf(expression) is { } location)
+                // A name with ref has the value that its location has now. A second name of a
+                // value with no object has the state of the first name.
+                if ((this.TheLocationOf(expression) ?? this.TheFirstNameOf(expression)) is { } location)
                 {
                     return this.EvalAgain(location);
                 }
@@ -2179,6 +2182,13 @@ internal sealed partial class LoopStateEvaluator
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
                         LoopState through = owner.Members.StateThrough(symbol);
+
+                        // A write through the other name of the value did not come to this name.
+                        // The region has each such write for the field.
+                        if (this.WasOneOfTwoNames(ownerExpression))
+                        {
+                            through = through.Join(field);
+                        }
 
                         // The members are of each object that the owner can be. An owner that the
                         // store does not know has a member that the store does not know.

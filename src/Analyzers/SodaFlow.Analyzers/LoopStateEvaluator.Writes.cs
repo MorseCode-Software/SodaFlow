@@ -124,6 +124,127 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     For a local that is a second name of a value with no object of the
+    ///     store: the expression of the first name. Null for each other
+    ///     expression.
+    /// </summary>
+    /// <remarks>
+    ///     A value that is no object of the store keeps the state of its members
+    ///     in its name. A local that gets the value of a second local is one more
+    ///     name of that value, and not a copy. Each read and each write of a
+    ///     member through the second name then goes through the first name. That
+    ///     is true while no code gives one of the two names a value. A function
+    ///     can run at a different time, thus the code of a function gets no first
+    ///     name.
+    /// </remarks>
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written)
+    {
+        if (this.function != null || this.Frame.FirstNameOf.Count == 0)
+        {
+            return null;
+        }
+
+        ExpressionSyntax? found = null;
+        ExpressionSyntax use = written;
+
+        // The first name can be a second name also. The number of names has an end.
+        for (int level = 0; level < MaxOwners; level++)
+        {
+            if (Unwrapped(use) is not IdentifierNameSyntax name
+                || this.region.SymbolOf(name) is not { } second
+                || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
+                || FunctionOf(written) is not { } code
+                || this.region.SymbolOf(first) is not { } firstName
+                || new[] { firstName, second }.Any(one =>
+                    this.GetsAValue(
+                        name: one,
+                        code: code,
+                        after: first.Span.End,
+                        before: written.SpanStart,
+                        orAFunctionUsesIt: false)))
+            {
+                break;
+            }
+
+            found = first;
+            use = first;
+        }
+
+        return found;
+    }
+
+    // True for a name whose own state can be without a write through a second name of its value.
+    // The name was one of two names, or it is a second name whose first name the walk cannot
+    // read here.
+    private bool WasOneOfTwoNames(ExpressionSyntax written) =>
+        (this.Frame.WasOneOfTwoNames.Count > 0 || this.Frame.FirstNameOf.Count > 0)
+        && Unwrapped(written) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is { } symbol
+        && (this.Frame.WasOneOfTwoNames.Contains(symbol)
+            || (this.Frame.FirstNameOf.ContainsKey(symbol) && this.TheFirstNameOf(name) == null));
+
+    // Records what an assignment to a local does to the names of a value with no object.
+    private void NotesASecondName(ISymbol local, ExpressionSyntax value, bool replaces)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        // The local gets a different value. Each second name of its value keeps that value, with
+        // the state that it has now.
+        foreach (ISymbol second in this.Frame.FirstNameOf
+                     .Where(pair =>
+                         SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(pair.Value), y: local))
+                     .Select(static pair => pair.Key)
+                     .ToArray())
+        {
+            if (this.locals.TryGetValue(key: local, value: out LoopState? now))
+            {
+                this.locals[second] = now;
+            }
+
+            this.Frame.FirstNameOf.Remove(second);
+        }
+
+        // After an assignment that is not sure to run, the local can be a second name.
+        if (this.Frame.FirstNameOf.TryGetValue(key: local, value: out ExpressionSyntax? first))
+        {
+            this.Frame.FirstNameOf.Remove(local);
+
+            if (!replaces && this.region.SymbolOf(first) is { } firstName)
+            {
+                this.Frame.WasOneOfTwoNames.Add(local);
+                this.Frame.WasOneOfTwoNames.Add(firstName);
+            }
+        }
+
+        if (this.function != null
+            || !KeepsItsObject(local)
+            || Unwrapped(value) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
+            || !KeepsItsObject(from)
+            || SymbolEqualityComparer.Default.Equals(x: from, y: local)
+            || this.region.TypeOf(name) is not { } type
+            || !this.CanBeAnObject(type)
+            || !this.Eval(name).Objects.IsEmpty)
+        {
+            return;
+        }
+
+        if (replaces)
+        {
+            this.Frame.FirstNameOf[local] = name;
+        }
+        else
+        {
+            // The local can be a second name after an assignment that is not sure to run.
+            this.Frame.WasOneOfTwoNames.Add(local);
+            this.Frame.WasOneOfTwoNames.Add(from);
+        }
+    }
+
+    /// <summary>
     ///     The collection of the element that a name with ref is for. It is for
     ///     a name whose location the walk cannot read again: see
     ///     <see cref="TheLocationOf" />. A value that goes to such a name goes into
@@ -515,7 +636,7 @@ internal sealed partial class LoopStateEvaluator
         // A write through a name with ref is a write through its location, read at this time.
         ExpressionSyntax? written = owner;
 
-        if (owner != null && this.TheLocationOf(owner) is { } location)
+        if (owner != null && (this.TheLocationOf(owner) ?? this.TheFirstNameOf(owner)) is { } location)
         {
             this.EvalAgain(location);
             owner = location;
@@ -1078,9 +1199,24 @@ internal sealed partial class LoopStateEvaluator
                 sets.Add(member.OriginalDefinition);
             }
 
+            // The value has two names, or it had them. A read through the other name can be one
+            // that does not see the state of this name. Thus, the region keeps the write also.
+            if (this.IsOneOfTwoNames(holder))
+            {
+                this.SetField(field: member, state: state);
+            }
+
             return;
         }
 
         this.SetField(field: member, state: state);
     }
+
+    // True for a name of a value with no object that has a second name, or had one.
+    private bool IsOneOfTwoNames(ISymbol name) =>
+        (this.Frame.WasOneOfTwoNames.Count > 0 || this.Frame.FirstNameOf.Count > 0)
+        && (this.Frame.WasOneOfTwoNames.Contains(name)
+            || this.Frame.FirstNameOf.ContainsKey(name)
+            || this.Frame.FirstNameOf.Values.Any(first =>
+                SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(first), y: name)));
 }
