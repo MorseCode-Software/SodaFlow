@@ -105,5 +105,7 @@ public struct BehaviorLooper<T>
     /// <returns>The resulting behavior.</returns>
     [Pure]
     public Behavior<T> WithoutCaptures([InstantHandle] Func<LoopedBehavior<T>, Behavior<T>> f) =>
+#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
         this.WithCaptures(l => (Behavior: f(l), Captures: UnitInternal.Value)).Behavior;
+#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
 }

@@ -78,4 +78,20 @@
         <None Include="PackageReleaseNotes.md"/>
     </ItemGroup>
 
+    <!--
+        The loop analyzer ships inside this package, under analyzers/dotnet/cs, where a consumer's
+        compiler loads it from a package reference with no step of their own; ExcludeAssets="analyzers"
+        on the reference removes it. The dll comes from the analyzer project's own build, which the
+        project reference that Directory.Build.targets gives every C# project orders before this one.
+        One copy, in this package only: SodaFlow.Core and the add-ons reach every consumer through
+        SodaFlow, and a second copy would run the same rules twice. The analyzer is not a package of
+        its own; Directory.Build.targets says why.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Analyzers\SodaFlow.Analyzers\bin\$(Configuration)\netstandard2.0\SodaFlow.Analyzers.dll"
+              Pack="true"
+              PackagePath="analyzers/dotnet/cs"
+              Visible="false"/>
+    </ItemGroup>
+
 </Project>

@@ -68,7 +68,9 @@ public static class ForwardReference<T>
         Cell.Loop<T>()
             .WithCaptures(reference =>
             {
+#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
                 (T Value, TCaptures Captures) result = f(reference);
+#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
                 return (Cell: Cell.Constant(result.Value), Captures: result);
             })
             .Captures;
@@ -90,7 +92,9 @@ public static class ForwardReference<T>
         Cell.Loop<T>()
             .WithCaptures(reference =>
             {
+#pragma warning disable SF1003 // The function is the block of the caller, which the analyzer cannot see into.
                 T value = f(reference);
+#pragma warning restore SF1003 // The function is the block of the caller, which the analyzer cannot see into.
                 return (Cell: Cell.Constant(value), Captures: value);
             })
             .Captures;

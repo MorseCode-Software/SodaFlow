@@ -603,7 +603,9 @@ public sealed class BindableValueConcurrencyTests
                     IOneWayBindableValue<string> created =
                         cellLoop.ToOneWayImpl(scheduler: BindingScheduler.Immediate);
 
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
                     return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
                 });
 
         using (b)
@@ -625,7 +627,9 @@ public sealed class BindableValueConcurrencyTests
                     ITwoWayBindableValue<string> created =
                         cellLoop.ToTwoWayImpl(editsStreamSink: edits, scheduler: BindingScheduler.Immediate);
 
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
                     return (Cell: Cell.Constant("looped"), Captures: (created, Caught(() => _ = created.Value)));
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
                 });
 
         using (b)
@@ -646,7 +650,9 @@ public sealed class BindableValueConcurrencyTests
                         Stream.CreateSink<int>()
                             .ToBindableActionImpl(isEnabledCell: cellLoop, scheduler: BindingScheduler.Immediate);
 
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
                     return (Cell: Cell.Constant(true), Captures: (created, Caught(() => _ = created.CanExecute(null))));
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
                 });
 
         using (a)

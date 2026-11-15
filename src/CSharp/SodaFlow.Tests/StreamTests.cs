@@ -14,6 +14,14 @@ namespace SodaFlow.Tests;
 public sealed class StreamTests
 {
     [Test]
+    public async Task AsStreamOnAPlainStreamIsThatStream()
+    {
+        Stream<int> s = Stream.Never<int>();
+
+        await Assert.That(s.AsStream()).IsSameReferenceAs(s);
+    }
+
+    [Test]
     public async Task TestStreamSend()
     {
         StreamSink<int> s = Stream.CreateSink<int>();
