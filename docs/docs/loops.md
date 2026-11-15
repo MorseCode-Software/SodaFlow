@@ -281,7 +281,13 @@ element. An object or a tuple of yours held as
 its type when the block sets its properties after `new`. Where a value can be one of several of your
 types, as after a `?:` or in a list of mixed rows, a call through `object` or an interface is read
 for each of them. It follows it into your own helpers, constructors, getters, records, and object
-initializers, and through an interface to the object you built behind it. When one of your helpers
+initializers, and through an interface to the object you built behind it. That holds also where a
+helper built the object and nothing from the loop went into the call: a factory method, a property,
+a conversion, a method held in a delegate, or `new T()` in a generic method. Where the declared
+type of what the helper hands back is an interface or a class that is not sealed, the analyzer
+reads the helper to learn the class, so a later call through an interface or a base class is read
+as the method of that class. Where the declared type is a sealed class of yours, that type is the
+class, and the helper is not read. When one of your helpers
 or constructors puts a value into a collection or an object you passed to it, the caller's
 collection or object has that value afterwards. A change made through one item of a collection is a
 change to the collection: `rows[0].Add(x)`, a property set on the variable of a `foreach`, or an
@@ -561,19 +567,31 @@ It does not see everything, and in a few places it guesses on the careful side:
   handed.
 - A `ref` variable is read as the place it names, where that place is a variable, an element of an
   array held in a variable, or a field of an object held in a variable. A read, a value set, or an
-  assignment through it goes to what the place holds at that point. Where the place is anything
-  else, where the array, the index, or the object variable is assigned after the `ref` is taken,
-  and for a `ref` parameter, the name starts with what the place held. A value set through it then
-  replaces only while nothing but writes through the name itself has run, and after a call or
-  another assignment it is added, because the place may hold another object by then. A read
-  through such a name still sees the object from when the `ref` was taken.
+  assignment through it goes to what the place holds at that point. A `ref` parameter of one of
+  your methods is read the same way where the caller passed such a place and the array or the
+  object is one the block built: after code in the method that could have changed the place, the
+  method reads the place again in the caller, so a value set through the parameter goes to the
+  object the place holds by then. Where the place is anything else, or where the array, the index,
+  or the object variable is assigned after the `ref` is taken, the name starts with what the place
+  held. A value set through it then replaces only while nothing but writes through the name itself
+  has run, and after a call or another assignment it is added, because the place may hold another
+  object by then. A read through such a name still sees the object from when the `ref` was taken.
+  That is also what a `ref` parameter does for an array that came from outside the block, and after
+  the method assigns its parameter and other code then changes the place.
+- An element that a method assigns through a `ref` or an `out` argument is in its array or list
+  afterwards, next to what was there: the analyzer does not know that the old item is gone.
 - A list built with `Add` statements at the top level of its block keeps its positions, as a
   literal does, so `list[0]` is the first item added. An `Add` in a branch or a loop, or any other
-  change to the list, ends that.
+  change to the list, ends that. So does an `Insert`, an element assigned by a method that was
+  handed the list or the array, and a helper or an object of yours that keeps the list.
 - A helper replaces what it sets on an object of its caller only where the statement always runs
-  in the helper and the call always runs in the block. A helper called in a branch or a loop adds.
-  What a method sets on its own object is read as an assignment at the call instead, so in a loop
-  it replaces for the rest of the pass.
+  in the helper and the call always runs: in the block, or in every pass of a loop. In a loop it
+  replaces as an assignment in the loop does. For the object that the pass built, the new value is
+  all there is. For an older object it replaces for the rest of the pass, and after the loop the
+  value from before the loop is there again as well, because the loop might not run. A helper
+  called in a branch adds, and so does a lambda or a local function inside the helper. What a
+  method sets on its own object is read as an assignment at the call instead, so in a loop it
+  replaces for the rest of the pass.
 - A `foreach` replaces what its variable sets on every item once the loop is done, where the
   collection has known positions, the loop always runs, nothing in its body can skip an item or
   leave early, and the body sets nothing else. Inside the body, a value set through the variable
@@ -600,6 +618,12 @@ It does not see everything, and in a few places it guesses on the careful side:
 - A call through an interface on an object whose type the analyzer does not know reads both
   objects, because the collections do not agree on which one gets the call. `ICollection<T>.Add`
   on such an object is not read at all, because a list adds without comparing.
+- The class behind an interface or a base class is known only for an object that the block, or a
+  helper it calls, builds. An object read from a field is not: not from a `static readonly` field
+  with `new` in its initializer either, and not from a delegate held in a field. A call through an
+  interface on such an object is code the analyzer cannot read.
+- An object that came into the block from outside and is held in two variables is two things to
+  the analyzer: a value set through one variable is not seen through the other.
 - A query is told from a collection that holds it by its type. Where the type says too little,
   as with `object`, the non-generic `IEnumerable`, or a type parameter, enumerating the outer value
   is read as enumerating each query in it.
