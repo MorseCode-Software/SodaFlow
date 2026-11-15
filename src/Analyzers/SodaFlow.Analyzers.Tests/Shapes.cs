@@ -11701,6 +11701,18 @@ public static class Shapes
     public static Cell<int> Ab75ALambdaThatTheMethodAlwaysCallsGivesThePlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab75Later x = new(); x.GiveThenPlain(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
 
+    // S2607. AB77. A local is one of a holder that the walk did not see made and a holder that the block made with its slot. A plain cell through the member of the local is no change for the slot of the block.
+    public static Cell<int> Ab77PlainThroughAMemberOfOneOfAnUnseenHolderAndAHolderOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder old = SharedHolderD; old.Item = SlotForASecondObject; SlotHolder a = new() { Item = new SettableSlot() }; a.Item!.Share = l.Map(v => v); SlotHolder h = Kept.Count >= 0 ? old : a; h.Item!.Share = Plain; return S.Hold(a.Item!.Share!.Sample()); });
+
+    // S2608. AB77. The same, where an assignment in a branch gives the local the holder that the walk did not see made.
+    public static Cell<int> Ab77PlainThroughAMemberAfterAnAssignmentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder old = SharedHolderD; old.Item = SlotForASecondObject; SlotHolder a = new() { Item = new SettableSlot() }; a.Item!.Share = l.Map(v => v); SlotHolder h = a; if (!Never) { h = old; } h.Item!.Share = Plain; return S.Hold(a.Item!.Share!.Sample()); });
+
+    // S2609. AB77. The local is only the holder of the block, and the plain cell replaces.
+    public static Cell<int> Ab77PlainThroughAMemberOfTheHolderOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotHolder old = SharedHolderD; old.Item = SlotForASecondObject; SlotHolder a = new() { Item = new SettableSlot() }; a.Item!.Share = l.Map(v => v); SlotHolder h = a; h.Item!.Share = Plain; return S.Hold(a.Item!.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

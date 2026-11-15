@@ -2079,7 +2079,13 @@ internal sealed partial class LoopStateEvaluator
                         && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
-                        return owner.Members.StateThrough(symbol)
+                        LoopState through = owner.Members.StateThrough(symbol);
+
+                        // The members are of each object that the owner can be. An owner that the
+                        // store does not know has a member that the store does not know.
+                        return (through.Objects.IsEmpty || !owner.Objects.Contains(MadeObject.Unknown)
+                                ? through
+                                : through.OrAnUnknownObject)
                             .FromIfUnknown(owner.Origin)
                             .Join(this.TypeState(expression));
                     }

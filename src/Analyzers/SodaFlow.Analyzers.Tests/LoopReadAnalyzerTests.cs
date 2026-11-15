@@ -1805,7 +1805,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab75ASetterOnAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
             ["Ab75TheMethodOfOneOfTwoClasses"] = ["SF1001"],
             ["Ag58AnAssignmentGivesTheMemberAListThatIsAnElement"] = ["SF1001"],
-            ["Ab74AParameterWithRefAndAnAssignmentBetweenTheWrites"] = ["SF1001"]
+            ["Ab74AParameterWithRefAndAnAssignmentBetweenTheWrites"] = ["SF1001"],
+            ["Ab77PlainThroughAMemberOfOneOfAnUnseenHolderAndAHolderOfTheBlock"] = ["SF1001"],
+            ["Ab77PlainThroughAMemberAfterAnAssignmentInABranch"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
