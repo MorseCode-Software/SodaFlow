@@ -1900,7 +1900,22 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag62ADeconstructionOfAPairIntoTwoElements"] = ["SF1001"],
             ["Ag62AnInsertOfAListThatCodeCannotChange"] = ["SF1001"],
             ["Ag62AReadThroughAMemberOfTheSecondPosition"] = ["SF1001"],
-            ["Ag62AMethodReadsThePositionWithThePendingCell"] = ["SF1004"]
+            ["Ag62AMethodReadsThePositionWithThePendingCell"] = ["SF1004"],
+            ["Ab81AnExchangeGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81AnExchangeWithNoCallForTheArray"] = ["SF1001"],
+            ["Ab81APendingCellThroughTheElementAfterAnExchange"] = ["SF1001"],
+            ["Ab81ACompareExchangeGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81AnExchangeInABranch"] = ["SF1001"],
+            ["Ab81AVolatileWriteGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81ADeconstructionOfAPairFromAMethodIntoAnElement"] = ["SF1001"],
+            ["Ab82ALocalWithRefAndAnIndexThatIsNoConstant"] = ["SF1001"],
+            ["Ab82AnObjectWithAPendingCellThroughALocalWithRef"] = ["SF1001"],
+            ["Ab82ALocalWithRefForAnElementOfAnArrayThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab82AMethodGivesANewObjectToALocalWithRef"] = ["SF1001"],
+            ["Ab82AMethodGivesANewObjectToALocalWithRefAndNoConstant"] = ["SF1001"],
+            ["Ab82AMethodGivesTheObjectWithThePendingCellToALocalWithRef"] = ["SF1001"],
+            ["Ab82AMethodGivesTheObjectWithThePendingCellAndNoConstant"] = ["SF1001"],
+            ["Ab82AnExchangeThroughALocalWithRef"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -123,6 +123,42 @@ internal sealed partial class LoopStateEvaluator
             : location;
     }
 
+    /// <summary>
+    ///     The collection of the element that a name with ref is for. It is for
+    ///     a name whose location the walk cannot read again: see
+    ///     <see cref="TheLocationOf" />. A value that goes to such a name goes into
+    ///     that collection, at a position that the walk does not know. Null for
+    ///     each other expression.
+    /// </summary>
+    public ExpressionSyntax? TheCollectionOfARef(ExpressionSyntax written) =>
+        Unwrapped(written) is IdentifierNameSyntax use
+        && this.region.SymbolOf(use) is ILocalSymbol { RefKind: not RefKind.None } name
+        && this.Frame.ElementOf.TryGetValue(key: name, value: out ExpressionSyntax? collection)
+            ? collection
+            : null;
+
+    /// <summary>
+    ///     Records that a collection got a value through a name with ref for one
+    ///     of its elements. The walk does not know the position. The ref to the
+    ///     element took the positions of the collection away.
+    /// </summary>
+    /// <param name="collection">The result of <see cref="TheCollectionOfARef" /> for the name.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="value">The expression of the value, when the code has one.</param>
+    public void GetsThroughARef(ExpressionSyntax collection, LoopState state, ExpressionSyntax? value)
+    {
+        if (value != null)
+        {
+            this.Gets(collection: collection, value: value);
+        }
+        else
+        {
+            this.GetsAState(collection: collection, put: state);
+        }
+
+        this.Absorb(target: collection, state: state);
+    }
+
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>

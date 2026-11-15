@@ -12453,6 +12453,86 @@ public static class Shapes
     public static Cell<int> Ag62AMethodReadsThePositionWithThePendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list[1].Share = Plain; return S.Hold(Ag62ReadFirst(list)); });
 
+    // S2795. AB81. Exchange gives the element of an array a different object, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangeGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2796. AB81. The same with no call that gets the array.
+    public static Cell<int> Ab81AnExchangeWithNoCallForTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2797. AB81. Exchange gives the element the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangePutsTheObjectWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2798. AB81. The pending cell goes through the element after an Exchange, and the read is of the object that came in.
+    public static Cell<int> Ab81APendingCellThroughTheElementAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
+
+    // S2799. AB81. The same, and the read is of the object that the element had before.
+    public static Cell<int> Ab81TheObjectThatAnExchangeTookOutKeepsItsPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = l.Map(v => v); return S.Hold(y.Share!.Sample()); });
+
+    // S2800. AB81. CompareExchange gives the element a different object.
+    public static Cell<int> Ab81ACompareExchangeGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.CompareExchange(ref slots[0], first, y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2801. AB81. Exchange with the second of two elements, and the plain cell goes through the first one.
+    public static Cell<int> Ab81AnExchangeWithTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[1], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2802. AB81. An Exchange in a branch, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangeInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); if (!Never) { Kept.Add(Interlocked.Exchange(ref slots[0], first)); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2803. AB81. Volatile.Write gives the element a different object.
+    public static Cell<int> Ab81AVolatileWriteGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Volatile.Write(ref slots[0], first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2804. AB81. A deconstruction of a pair from a method gives the element a different object.
+    public static Cell<int> Ab81ADeconstructionOfAPairFromAMethodIntoAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); (slots[0], SettableSlot other) = Ab81TwoOf(first); Kept.Add(other); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2805. AB82. A local with ref for an element whose index is no constant gets a different object.
+    public static Cell<int> Ab82ALocalWithRefAndAnIndexThatIsNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = first; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2806. AB82. The same, where the local gets the object with the pending cell, and the read is through the element.
+    public static Cell<int> Ab82AnObjectWithAPendingCellThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = y;  return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2807. AB82. The same for an array that the walk did not see made.
+    public static Cell<int> Ab82ALocalWithRefForAnElementOfAnArrayThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = Ab82Unseen; ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = y;  return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2808. AB82. A method gives a new object to a local with ref for an element.
+    public static Cell<int> Ab82AMethodGivesANewObjectToALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82New(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2809. AB82. The same, where the index of the element is no constant.
+    public static Cell<int> Ab82AMethodGivesANewObjectToALocalWithRefAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab82New(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2810. AB82. A method gives the object with the pending cell to a local with ref, and the read is through the element.
+    public static Cell<int> Ab82AMethodGivesTheObjectWithThePendingCellToALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82Give(ref r, y); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2811. AB82. The same, where the index of the element is no constant.
+    public static Cell<int> Ab82AMethodGivesTheObjectWithThePendingCellAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab82Give(ref r, y); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2812. AB82. A method gets a local with ref and gives it no value. The plain cell goes through the element.
+    public static Cell<int> Ab82AMethodThatGivesALocalWithRefNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab76Count(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2813. AB82. Exchange gives a local with ref for an element a different object.
+    public static Cell<int> Ab82AnExchangeThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Kept.Add(Interlocked.Exchange(ref r, first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2814. AB82. A plain cell through a local with ref whose index is no constant.
+    public static Cell<int> Ab82APlainCellThroughALocalWithRefAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15196,6 +15276,14 @@ public static class Shapes
 
         public static bool operator !(Ag62Flag flag) => flag.Share == null;
     }
+
+    private static (SettableSlot First, SettableSlot Second) Ab81TwoOf(SettableSlot slot) => (slot, slot);
+
+    private static readonly SettableSlot[] Ab82Unseen = [new()];
+
+    private static void Ab82New(ref SettableSlot slot) => slot = new SettableSlot();
+
+    private static void Ab82Give(ref SettableSlot slot, SettableSlot given) => slot = given;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

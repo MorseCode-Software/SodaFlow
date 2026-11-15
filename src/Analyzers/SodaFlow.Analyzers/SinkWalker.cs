@@ -1290,11 +1290,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // An assignment to a name with ref, with no ref for the value, is an assignment to the
         // location of the name.
-        if (value is not RefExpressionSyntax
-            && target is IdentifierNameSyntax aliased
-            && this.evaluator.TheLocationOf(aliased) is { } location)
+        if (value is not RefExpressionSyntax && target is IdentifierNameSyntax aliased)
         {
-            target = location;
+            if (this.evaluator.TheLocationOf(aliased) is { } location)
+            {
+                target = location;
+            }
+            else if (this.evaluator.TheCollectionOfARef(aliased) is { } collection)
+            {
+                // The walk cannot read the location again. The value is then in the collection.
+                this.evaluator.GetsThroughARef(
+                    collection: collection,
+                    state: this.evaluator.Eval(value),
+                    value: value);
+            }
         }
 
         LoopState whole = this.evaluator.Eval(value);
@@ -1409,6 +1418,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                             target: element.Expression,
                             state: this.evaluator.Eval(index.Expression));
                     }
+                }
+
+                // The collection holds the object of the value. An assignment with a value
+                // expression recorded that from the expression.
+                if (from == null)
+                {
+                    this.evaluator.GetsAState(collection: element.Expression, put: state);
                 }
 
                 return;
@@ -1802,13 +1818,29 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     LoopState put = this.evaluator.Eval(exchange.Value);
 
                     // Exchange always puts the value there. CompareExchange can leave the old one.
-                    bool always = method.Name == "Exchange";
+                    // After a call that is not sure to run, the location can have that one also.
+                    bool puts = method.Name == "Exchange";
+                    (bool always, SyntaxNode? itsTurn) = puts ? this.WhereACallRuns(node) : (false, null);
 
-                    this.AssignState(
-                        target: exchange.Location,
-                        state: always ? put : this.evaluator.Eval(exchange.Location).Join(put),
-                        replaces: always,
-                        turn: null);
+                    LoopState state = puts ? put : this.evaluator.Eval(exchange.Location).Join(put);
+                    SyntaxNode target = this.TargetThroughARef(written: exchange.Location, state: state, gets: true);
+
+                    // An element with a constant index has the value at its position after a put
+                    // that is sure to run.
+                    (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                        target is ElementAccessExpressionSyntax indexed
+                            ? this.evaluator.PositionsBefore(
+                                collection: indexed.Expression,
+                                replaces: always,
+                                turn: itsTurn)
+                            : null;
+
+                    this.AssignState(target: target, state: state, replaces: always, turn: itsTurn);
+
+                    if (target is ElementAccessExpressionSyntax assigned)
+                    {
+                        this.evaluator.HasThePositionAfter(before: positions, element: assigned, value: exchange.Value);
+                    }
                 }
                 else
                 {
@@ -2678,18 +2710,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         : LoopState.None;
 
             // A callee with a body that gave its parameter no value gives an element nothing.
-            if (arguments[i].Expression is not ElementAccessExpressionSyntax element)
-            {
-                this.AssignState(target: arguments[i].Expression, state: state, replaces: false, turn: null);
-            }
-            else if (followed == null || followed.Outs.ContainsKey(parameter))
-            {
-                this.AssignState(target: element, state: state, replaces: false, turn: null);
+            bool gives = followed == null || followed.Outs.ContainsKey(parameter);
 
-                // The element has the value in its collection, as after an assignment to it.
-                this.evaluator.GetsAState(collection: element.Expression, put: state);
+            SyntaxNode target =
+                this.TargetThroughARef(written: arguments[i].Expression, state: state, gets: gives);
+
+            if (target is not ElementAccessExpressionSyntax || gives)
+            {
+                this.AssignState(target: target, state: state, replaces: false, turn: null);
             }
         }
+    }
+
+    // The target of a value that a call gives through ref or out. A name with ref is its
+    // location, when the walk can read that location again. For each other name with ref for an
+    // element, the collection of that element gets the value.
+    private SyntaxNode TargetThroughARef(ExpressionSyntax written, LoopState state, bool gets)
+    {
+        if (this.evaluator.TheLocationOf(written) is { } location)
+        {
+            return location;
+        }
+
+        if (gets && this.evaluator.TheCollectionOfARef(written) is { } collection)
+        {
+            this.evaluator.GetsThroughARef(collection: collection, state: state, value: null);
+        }
+
+        return written;
     }
 
     // The operator ++ or -- gives its operand a new value, and the walk has no state for that

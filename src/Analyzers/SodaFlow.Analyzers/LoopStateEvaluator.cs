@@ -835,8 +835,10 @@ internal sealed partial class LoopStateEvaluator
         {
             this.Frame.ElementOf[local] = collection;
         }
-        else if (replaces)
+        else if (replaces && (value is RefExpressionSyntax || local is not ILocalSymbol { RefKind: not RefKind.None }))
         {
+            // A name with ref that gets a value with no ref keeps its location, and the element
+            // of that location gets the value.
             this.Frame.ElementOf.Remove(local);
         }
     }
