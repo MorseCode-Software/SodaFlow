@@ -73,6 +73,10 @@ Transaction.run no longer allocates a closure and a delegate of its own. With So
 a value from outside a transaction measures 42 ns and 200 bytes to 35 ns and 112 bytes on .NET 10; the core notes have
 the rest.
 
+Operational.defer and Operational.split allocate less with SodaFlow.Core 6.0.0, which keeps the splits of a transaction
+in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
+elements 8,720 to 7,208; the core notes have the rest.
+
 Added: UtcClockTimerSystem, a timer system over DateTime.UtcNow, and a constructor on SystemClockTimerSystem that
 takes the clock as a unit -> DateTime; the existing constructor still reads DateTime.Now. The C# notes say why: local
 time moves with the machine's clock at a daylight saving change, and a wait across that change waits for the wrong
@@ -99,6 +103,13 @@ that reach this package, and its notes have the details of each:
   cell of higher rank than its output.
 - A long chain of operations no longer crashes the process with a stack overflow when a link raises the rank of every
   node in it, as closing a loop over a chain of 10,000 maps did.
+- A posted action, or an element of Operational.split, whose transaction fails no longer leaves behind what it deferred.
+  The actions it posted do not run, the release of each one does, and the values it sent through defer or split do not
+  arrive.
+- A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
+  never returned. A value that finds its way back to its own source through Operational.defer, Operational.split, or a
+  posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
+  laps deep, and the laps before that have committed. The core notes have the rest.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
@@ -123,6 +134,16 @@ call caught the exception. Now the async ends the way any canceled async does: A
 task, a try ... with does not see it, and a try ... finally or a use still runs. Code that caught TaskCanceledException
 from listenOnceAsync to notice the cancellation no longer gets it, and the cancellation reaches whatever started the
 async, as it does for any other async.
+
+Fixed: listenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the result as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the async already had a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The value now arrives
+when the transaction commits. When the stream fires in a transaction that then fails, the async raises the exception of
+that transaction, the exception itself and not an AggregateException around it. That holds whether the failure comes
+after the listener ran, as when a second listener throws or the first value of a cell built in the same transaction
+throws, or before it ran, as when an operator below the stream or an earlier listener throws. A transaction that fails
+before the stream fires gives the stream no firing, as before: the async waits, and the next firing gives its value. A
+throw from the body of the transaction and a throw from an operator above the stream are of that kind.
 
 Fixed: a listenOnceAsync that never runs no longer leaves its listener on the stream. The listener attaches when you
 call listenOnceAsync, and only the running async removed it. An async can be stopped before it runs: started with a
@@ -161,6 +182,12 @@ counts with a Stopwatch, which only measures time going by.
 
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The
+analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
+inside FSharp.Core.
 
 5.0.1
 

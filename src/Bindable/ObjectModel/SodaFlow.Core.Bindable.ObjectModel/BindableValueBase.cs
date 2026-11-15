@@ -46,13 +46,7 @@ public static partial class BindableCoreExtensionMethods
         /// </summary>
         protected void RaiseValueChanged() => this.PropertyChanged?.Invoke(sender: this, e: ValueChangedEventArgs);
 
-        protected void ThrowIfDisposed()
-        {
-            if (this.IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
-            }
-        }
+        protected void ThrowIfDisposed() => ThrowHelper.ThrowIfDisposed(condition: this.IsDisposed, instance: this);
 
         /// <summary>Stops the subscription to the FRP graph. SodaFlow calls this one time.</summary>
         protected abstract void DisposeCore();

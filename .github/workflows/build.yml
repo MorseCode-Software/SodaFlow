@@ -125,7 +125,9 @@ jobs:
           # 8.0 was here for one project, the benchmarks, and went when they moved to net10.0.
           #
           # 6.0 is the one thing genuinely missing: no 6.0 SDK, no 6.0 runtime, and - the part that
-          # matters - no 6.0 entry under the reference packs on disk. That absence is why the lock
+          # matters - no 6.0 entry under the reference packs on disk. The runtime matters too, since
+          # the test projects target net6.0 to run the net6.0 builds of the libraries; net10.0 runs
+          # their net8.0 builds. That absence is why the lock
           # files record no framework package for net6.0: with the SDK installed the pack is found
           # locally and nothing is downloaded. Drop this and the build has to fetch
           # Microsoft.NETCore.App.Ref from NuGet, which is a package appearing where the lock file
@@ -266,6 +268,20 @@ jobs:
           format: cobertura
           base-path: ${{ github.workspace }}
           fail-on-error: true
+
+      # The one step that compiles the libraries as an app with native AOT does, and then runs the
+      # result. The analyzers in the library builds cannot see a generic type that nests in itself;
+      # the native AOT compiler stops such an expansion and reports IL3054, and only the compile of
+      # an app reaches it. The project treats every warning as an error and the app returns the
+      # count of its failed checks, so either one fails this step. See Verify-Native-Aot in
+      # build.cake.
+      #
+      # Here rather than in a job of its own because Build is the required check: a step of this job
+      # blocks a merge with no ruleset change, where a new job would report beside it and block
+      # nothing until someone added it. The link step needs the C++ build tools, which this image
+      # has.
+      - name: Verify native AOT
+        run: dotnet cake --target=Verify-Native-Aot --exclusive --configuration=${{ env.CONFIGURATION }}
 
       # Packing lives with the tests rather than with the inspection because the publish job takes
       # its packages from here, and because this is the shorter of the two jobs - the release is

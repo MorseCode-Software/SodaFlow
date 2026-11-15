@@ -46,15 +46,8 @@ public static class AsyncMapStatusExtensions
         this AsyncMapStatus<TInput, TResult> status,
         Cell<Maybe<TInput>> value)
     {
-        if (status is null)
-        {
-            throw new ArgumentNullException(nameof(status));
-        }
-
-        if (value is null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ThrowHelper.ThrowIfNull(argument: status, paramName: nameof(status));
+        ThrowHelper.ThrowIfNull(argument: value, paramName: nameof(value));
 
         ExecuteCompletion<TResult, Maybe<TResult>> completion = new(Maybe<TResult>.Some);
 

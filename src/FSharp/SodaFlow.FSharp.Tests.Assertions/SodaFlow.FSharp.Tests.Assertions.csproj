@@ -3,7 +3,7 @@
     <PropertyGroup>
         <AssemblyName>SodaFlow.FSharp.Tests.Assertions</AssemblyName>
         <RootNamespace>SodaFlow.Tests</RootNamespace>
-        <TargetFrameworks>net10.0;net472</TargetFrameworks>
+        <TargetFrameworks>net6.0;net10.0;net472</TargetFrameworks>
         <LangVersion>14</LangVersion>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>

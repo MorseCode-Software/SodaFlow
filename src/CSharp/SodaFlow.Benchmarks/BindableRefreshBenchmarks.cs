@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using SodaFlow.Bindable.ObjectModel;
@@ -33,6 +34,11 @@ namespace SodaFlow.Benchmarks;
 ///         difference between the two is what a sample costs. Most bindings are
 ///         one-way, and pay none of this.
 ///     </para>
+///     <para>
+///         The arm for a command changes its availability. The arm on a context
+///         uses <see cref="SynchronizationContextBindingScheduler" />, which holds
+///         the posts of a transaction and sends them as one item.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -43,9 +49,21 @@ namespace SodaFlow.Benchmarks;
 // ReSharper disable once MemberCanBeFileLocal
 public class BindableRefreshBenchmarks
 {
+    private readonly IBindableAction<int> command;
+
+    private readonly CellSink<bool> commandEnabledCell = Cell.CreateSink(false);
+
+    private readonly ManualScheduler commandScheduler = new();
+
+    private readonly ManualContext context = new();
+
     private readonly IOneWayBindableValue<int> oneWay;
 
     private readonly CellSink<int> oneWayCell = Cell.CreateSink(0);
+
+    private readonly IOneWayBindableValue<int> oneWayOnAContext;
+
+    private readonly CellSink<int> oneWayOnAContextCell = Cell.CreateSink(0);
 
     private readonly ManualScheduler oneWayScheduler = new();
 
@@ -59,14 +77,25 @@ public class BindableRefreshBenchmarks
 
     private int next;
 
+    private bool nextEnabled;
+
     /// <summary>
-    ///     Builds the two bound cells. A constructor rather than a global setup, so
+    ///     Builds the bound cells. A constructor rather than a global setup, so
     ///     the fields can stay readonly and non-nullable.
     /// </summary>
     public BindableRefreshBenchmarks()
     {
         this.oneWay = new BindableFactory(this.oneWayScheduler).CreateOneWay(this.oneWayCell);
         this.twoWay = new BindableFactory(this.twoWayScheduler).CreateTwoWay(this.twoWayCell);
+
+        this.command =
+            new BindableFactory(this.commandScheduler).CreateBindableAction(
+                firingsStreamSink: Stream.CreateSink<int>(),
+                isEnabledCell: this.commandEnabledCell);
+
+        this.oneWayOnAContext =
+            new BindableFactory(new SynchronizationContextBindingScheduler(this.context))
+                .CreateOneWay(this.oneWayOnAContextCell);
     }
 
     /// <summary>
@@ -96,6 +125,29 @@ public class BindableRefreshBenchmarks
         this.twoWayScheduler.Drain();
     }
 
+    /// <summary>
+    ///     One change of the availability of a command. Each change is a different
+    ///     value, thus the command writes its copy each time.
+    /// </summary>
+    [Benchmark(Description = "change and deliver, command enablement")]
+    public void ChangeAndDeliverCommandEnablement()
+    {
+        this.nextEnabled = !this.nextEnabled;
+        this.commandEnabledCell.Send(this.nextEnabled);
+        this.commandScheduler.Drain();
+    }
+
+    /// <summary>
+    ///     One update to a one-way value through the scheduler on a context. The
+    ///     scheduler adds a batch for the transaction to the cost of the arm above.
+    /// </summary>
+    [Benchmark(Description = "send and deliver, one-way, context scheduler")]
+    public void SendAndDeliverOneWayOnAContext()
+    {
+        this.oneWayOnAContextCell.Send(++this.next);
+        this.context.Drain();
+    }
+
     /// <summary>The added operation on its own: a sample with no open transaction.</summary>
     [Benchmark(Description = "sample, no transaction open")]
     public int SampleOutsideATransaction() => this.twoWayCell.Sample();
@@ -113,6 +165,8 @@ public class BindableRefreshBenchmarks
     {
         this.oneWay.Dispose();
         this.twoWay.Dispose();
+        this.command.Dispose();
+        this.oneWayOnAContext.Dispose();
     }
 
     /// <summary>Queues like a dispatcher, and runs only when asked.</summary>
@@ -132,6 +186,26 @@ public class BindableRefreshBenchmarks
             while (this.queue.Count > 0)
             {
                 this.queue.Dequeue()();
+            }
+        }
+    }
+
+    /// <summary>A context that queues like a dispatcher, and runs only when asked.</summary>
+    // ReSharper disable once InheritdocConsiderUsage - The summary says what this context is for, which the base
+    // cannot.
+    private sealed class ManualContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> queue = new();
+
+        /// <inheritdoc />
+        public override void Post(SendOrPostCallback d, object? state) => this.queue.Enqueue((d, state));
+
+        internal void Drain()
+        {
+            while (this.queue.Count > 0)
+            {
+                (SendOrPostCallback callback, object? state) = this.queue.Dequeue();
+                callback(state);
             }
         }
     }

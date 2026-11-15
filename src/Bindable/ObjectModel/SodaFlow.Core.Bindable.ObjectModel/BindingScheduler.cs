@@ -66,11 +66,13 @@ public interface IBindingScheduler
     ///         of a transaction and send them together after its last actions.
     ///     </para>
     ///     <para>
-    ///         A bindable value sets a flag and a count when it posts a refresh, and
-    ///         only that refresh clears them. Thus, an implementation that drops the
-    ///         actions of a transaction that fails stops the value permanently. A
-    ///         dispatcher keeps each post. The schedulers in this package run the
-    ///         actions of a transaction after it ends, also when it fails.
+    ///         An implementation that drops the actions of a transaction that fails
+    ///         loses them. A bindable value posts a refresh again at its next update,
+    ///         and that refresh shows the value of its cell. An action that is not a
+    ///         refresh does not come again, such as the notification of a command that
+    ///         a caller disposed. A dispatcher keeps each post. The schedulers in this
+    ///         package run the actions of a transaction after it ends, also when it
+    ///         fails.
     ///     </para>
     ///     <para>
     ///         An action can throw, and some actions throw by design. A writable value
@@ -141,6 +143,9 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
 
     private readonly SynchronizationContext context;
 
+    // One delegate for the life of this scheduler. Before, each batch made one.
+    private readonly Action sendBatch;
+
     /// <summary>
     ///     Creates an instance that posts through the given synchronization context.
     /// </summary>
@@ -155,6 +160,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     {
         this.context = context ?? throw new ArgumentNullException(nameof(context));
         this.bindingThreadId = Environment.CurrentManagedThreadId;
+        this.sendBatch = this.SendBatch;
     }
 
     // ReSharper disable once InheritdocConsiderUsage
@@ -210,10 +216,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ThrowHelper.ThrowIfNull(argument: action, paramName: nameof(action));
 
         TransactionInternal? transaction = TransactionInternal.GetCurrentTransaction();
 
@@ -241,8 +244,7 @@ public sealed class SynchronizationContextBindingScheduler : IBindingScheduler
             // the outcome is known after each last action and each discard. A Last put the send
             // before some of those, in the sequence of the listeners. The binding thread can then
             // run the batch before the transaction knows that it failed.
-            Action send = this.SendBatch;
-            transaction.AfterLast(commit: send, discard: send);
+            transaction.AfterLast(commit: this.sendBatch, discard: this.sendBatch);
         }
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - The code above sets the batch with its transaction.
@@ -369,10 +371,7 @@ public sealed class ImmediateBindingScheduler : IBindingScheduler
     // ReSharper disable once InheritdocConsiderUsage
     public void Post(Action action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ThrowHelper.ThrowIfNull(argument: action, paramName: nameof(action));
 
         // The action runs on this thread with no transaction open, also when a transaction fails. The
         // post queue of a transaction discards its actions at a failure, and a bindable value then

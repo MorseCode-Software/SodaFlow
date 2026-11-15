@@ -122,7 +122,9 @@ public sealed class LoopTests
 
         try
         {
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
             _ = Cell.Loop<int>().WithoutCaptures(static l => Cell.Constant(l.Sample()));
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
         }
         catch (Exception e)
         {
@@ -140,7 +142,9 @@ public sealed class LoopTests
 
         try
         {
+#pragma warning disable SF1001 // The read before the close is the subject of this test.
             _ = Behavior.Loop<int>().WithoutCaptures(static l => Behavior.Constant(l.Sample()));
+#pragma warning restore SF1001 // The read before the close is the subject of this test.
         }
         catch (Exception e)
         {
@@ -248,6 +252,7 @@ public sealed class LoopTests
                 CellStreamSink<IReadOnlyList<TestObject>> streamSink =
                     Cell.CreateStreamSink<IReadOnlyList<TestObject>>();
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                 Cell<IReadOnlyList<TestObject>> cell =
                     Cell.Loop<IReadOnlyList<TestObject>>()
                         .WithoutCaptures(cellLoop =>
@@ -267,6 +272,7 @@ public sealed class LoopTests
                                     f: static (f, g) => v => g(f(v)))
                                 .Snapshot(c: cellLoop, f: static (f, v) => f(v))
                                 .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
+#pragma warning restore SF1002 // The cycle is the subject of this test.
 
                 cell.Sample()[2].Input1.Send(1);
                 cell.Sample()[1].Input1.Send(-20);

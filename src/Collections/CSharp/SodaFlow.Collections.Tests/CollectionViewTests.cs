@@ -1369,8 +1369,8 @@ public sealed class CollectionViewTests
                 TestUtil.Item(number: 2, name: "a", score: 1),
                 TestUtil.Item(number: 3, name: "b", score: 1));
 
-        // There are three levels, two types of selector, and two directions. The sort value is a
-        // pair whose first part is a pair.
+        // There are three levels, two types of selector, and two directions. The sort value holds
+        // one object for each level.
         KeyOrder<int, ItemIdentity, ItemState> order =
             KeyOrder<int, ItemIdentity, ItemState>
                 .By(static (_, state) => state.Score)

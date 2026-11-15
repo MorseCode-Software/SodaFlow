@@ -59,7 +59,9 @@ public sealed class IssueTests
                                         : Maybe.None)
                             .FilterSome();
 
+#pragma warning disable SF1002 // The cycle is the subject of this test.
                     return (Stream: inputByAdded.Merge(s2: inputBySatisfaction, f: Math.Max), Captures: poolLocal);
+#pragma warning restore SF1002 // The cycle is the subject of this test.
                 });
         }
         catch (Exception e)
