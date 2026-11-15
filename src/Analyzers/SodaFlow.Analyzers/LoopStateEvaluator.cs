@@ -713,20 +713,14 @@ internal sealed partial class LoopStateEvaluator
         && !this.Frame.Repeats
         && this.call is { AlwaysRuns: true, RunsOneTime: true };
 
-    // A write in a callee to the object of a turn of a loop of a caller. The write always runs in
-    // the callee, and each turn of the loop that made the object always runs the call. Thus, the
-    // object of the turn has only the new state after the call.
-    private bool AlwaysRunsInTheTurnOf(MadeObject made) =>
-        made.Turn != null && this.function == null && this.call?.AlwaysTurn == made.Turn;
-
     // The body of the loop of a caller whose each turn always runs the call of this code. The
     // second part is the frame of the code that has the loop. A write of this code that always
-    // runs replaces until the end of that turn, for an object that is older than the turn. The
-    // object of the turn itself is sure before: see AlwaysRunsInTheTurnOf.
+    // runs replaces until the end of that turn. For an object that is older than the turn, the
+    // loop then gives back what the member had before. The object of the turn itself is new in
+    // the next turn, and no code reads that object after the loop. Only a loop statement gives a
+    // call such a turn.
     private (SyntaxNode Turn, LoopFrame Frame)? TurnOfACaller =>
-        this.function == null
-        && this.call is { AlwaysTurn: { } turn, FrameOfTheAlwaysTurn: { } frame }
-        && IsTheBodyOfALoop(turn)
+        this.function == null && this.call is { AlwaysTurn: { } turn, FrameOfTheAlwaysTurn: { } frame }
             ? (turn, frame)
             : null;
 
@@ -1342,10 +1336,8 @@ internal sealed partial class LoopStateEvaluator
     private LoopState MadeHere(ExpressionSyntax place, LoopState state, bool exact)
     {
         TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
-        ITypeSymbol? written = info.Type ?? info.ConvertedType;
 
-        // The creation of a type parameter makes an object of the class that the call gave.
-        if ((this.TypeArgumentFor(written) ?? written) is not { IsReferenceType: true } type)
+        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
         {
             return state.WithNoObjects;
         }
@@ -1586,13 +1578,13 @@ internal sealed partial class LoopStateEvaluator
                         ? made.Turn == null
                             ? replaces && this.AlwaysRunsFor(made)
                             : made.Turn == (turn ?? (replaces ? this.TurnOfAChangeTo(made) : null))
-                        : replaces
-                          && (this.AlwaysRunsForItsCaller(made) || this.AlwaysRunsInTheTurnOf(made)));
+                        : replaces && this.AlwaysRunsForItsCaller(made));
 
                 // A write that each turn always runs, to an object that is older than the turn.
                 // Until the end of the turn, the member has only the new state. After the loop,
                 // it can have the state from before the loop also, because the loop can run no turn.
-                // The loop is in this code, or in the code of a caller for a write of a callee.
+                // The loop is in this code, or in the code of a caller for a write of a callee. A
+                // write of a callee has this rule for the object of the turn also.
                 (SyntaxNode Turn, LoopFrame Frame)? inItsTurn =
                     sure || member == null || now.Length != 1 || made.IsOfTurnsBefore
                         ? null

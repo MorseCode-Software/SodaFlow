@@ -494,10 +494,8 @@ internal sealed partial class LoopStateEvaluator
         // no assignment to the name. Thus, a write through such a name is sure for no object. A
         // parameter whose location the walk reads in the code of the caller has the object that
         // the location has at this write.
-        bool isReadInTheCaller = owner != null && this.IsReadInTheCaller(owner);
-
         if (owner != null
-            && !isReadInTheCaller
+            && !this.IsReadInTheCaller(owner)
             && this.NameUnder(owner) is { } aliased
             && !KeepsItsObject(aliased)
             && this.ALocationCanGetAValueBefore(name: aliased, use: owner))
@@ -538,8 +536,7 @@ internal sealed partial class LoopStateEvaluator
                 replaces: replaces,
                 turn: turn,
                 has: has,
-                isKnown: isKnown,
-                isInTheStore: isReadInTheCaller);
+                isKnown: isKnown);
 
             this.Frame.LastWrite = null;
 
@@ -565,8 +562,7 @@ internal sealed partial class LoopStateEvaluator
             replaces: replaces,
             turn: turn,
             has: has,
-            isKnown: isKnown,
-            isInTheStore: false);
+            isKnown: isKnown);
 
         this.Frame.LastWrite =
             new WriteThroughAName(
@@ -929,9 +925,7 @@ internal sealed partial class LoopStateEvaluator
         };
 
     // The write itself: what SetMemberOf records for each owner. The store does not know each
-    // object that the owner can be when isKnown is false. The last argument is true for a name
-    // that is only objects of the store at this write. It is then not the object that the name
-    // got at first, and the name keeps no state of its own for the member.
+    // object that the owner can be when the last argument is false.
     private void Write(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -939,8 +933,7 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn,
         LoopState has,
-        bool isKnown,
-        bool isInTheStore)
+        bool isKnown)
     {
         LoopState changed = LoopState.None.WithMembers(Construction.Empty.With(member: member, state: state));
 
@@ -960,11 +953,6 @@ internal sealed partial class LoopStateEvaluator
         if (owner != null && this.CollectionOf(owner) != null)
         {
             this.Merge(target: owner, state: changed);
-        }
-
-        if (isInTheStore)
-        {
-            return;
         }
 
         if (owner is IdentifierNameSyntax

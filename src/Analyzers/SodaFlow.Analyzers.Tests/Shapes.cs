@@ -12045,6 +12045,10 @@ public static class Shapes
     public static Cell<int> Ab76TheCallIsInALambda() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = Plain }; Action run = () => { Ab76PutThenGive(ref slots[0], slots, other, l.Map(v => v)); }; run(); return S.Hold(other.Share!.Sample()); });
 
+    // S2693. AG60. The read is after the loop, of the object of the last turn, which the helper gave a plain cell.
+    public static Cell<int> Ag60TheObjectOfTheLastTurnAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ag60MakePlain(x); last = x; } return S.Hold(last!.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
