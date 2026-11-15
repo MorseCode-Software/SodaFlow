@@ -245,6 +245,96 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     Records that this code put a value into an element or into a field. A
+    ///     parameter with ref, out, or in of this code can be a name of that
+    ///     location. Then, the parameter has that value after the put.
+    /// </summary>
+    /// <param name="field">The field, or null for an element.</param>
+    /// <param name="element">The element, or null for a field.</param>
+    /// <param name="state">The state of the value.</param>
+    public void PutsIntoALocation(ISymbol? field, ElementAccessExpressionSyntax? element, LoopState state)
+    {
+        if (!this.quiet
+            && !state.Objects.IsEmpty
+            && this.bound.Keys.Any(static name => name is IParameterSymbol { RefKind: not RefKind.None }))
+        {
+            this.Frame.PutsIntoLocations.Add(
+                (field?.OriginalDefinition,
+                    element is { ArgumentList.Arguments: { Count: 1 } indexes } ? indexes[0] : null,
+                    state));
+        }
+    }
+
+    // The state of a parameter with ref, out, or in, where the walk does not read its location in
+    // the code of the caller. The location has no object that the store knows, or this code gave
+    // the parameter a value. A put of this code into an element or a field after that can be a put
+    // into the location of the parameter. Then, the parameter is the object of that put. The walk
+    // does not know which of them it is. Thus, the value can be an object that the store does not
+    // know also. A write through the parameter is then sure for no object.
+    private LoopState WithThePutsOfThisCode(IParameterSymbol parameter, LoopState state)
+    {
+        List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value)> puts = this.Frame.PutsIntoLocations;
+
+        int first =
+            this.Frame.PutsBeforeAnAssignment.TryGetValue(key: parameter, value: out int before) ? before : 0;
+
+        if (puts.Count <= first)
+        {
+            return state;
+        }
+
+        ExpressionSyntax? location =
+            this.call != null
+            && this.call.Locations.TryGetValue(
+                key: parameter,
+                value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) of)
+                ? Unwrapped(of.Location)
+                : null;
+
+        // An argument for a parameter with in can be a copy, and a copy is no location.
+        if (location == null && parameter.RefKind is not (RefKind.Ref or RefKind.Out))
+        {
+            return state;
+        }
+
+        LoopState all = state;
+
+        for (int i = first; i < puts.Count; i++)
+        {
+            if (this.CanBeTheLocationOf(location: location, field: puts[i].Field, index: puts[i].Index))
+            {
+                all = all.Join(puts[i].Value.AsElement).OrAnUnknownObject;
+            }
+        }
+
+        return all;
+    }
+
+    // False when a put into a field or an element is sure to be no put into the location of an
+    // argument. The location is then a local, or the two are an element and a field. Two fields
+    // are two locations also, and two elements with two constant indexes are. The walk does not
+    // know the location of an argument that it cannot read again, and that location can be each
+    // one.
+    private bool CanBeTheLocationOf(ExpressionSyntax? location, ISymbol? field, ArgumentSyntax? index) =>
+        location switch
+        {
+            null => true,
+            ElementAccessExpressionSyntax { ArgumentList.Arguments: var indexes } =>
+                field == null
+                && (index == null
+                    || indexes.Count != 1
+                    || this.ConstantIndexOf(indexes[0]) is not { } one
+                    || this.ConstantIndexOf(index) is not { } other
+                    || one == other),
+            MemberAccessExpressionSyntax access =>
+                field != null
+                && SymbolEqualityComparer.Default.Equals(
+                    x: this.region.SymbolOf(access)?.OriginalDefinition,
+                    y: field),
+            _ => false
+        };
+
+    /// <summary>
     ///     The collection of the element that a name with ref is for. It is for
     ///     a name whose location the walk cannot read again: see
     ///     <see cref="TheLocationOf" />. A value that goes to such a name goes into
@@ -646,6 +736,12 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+
+        // A field is a location that a parameter with ref can be a name of.
+        if (member is IFieldSymbol)
+        {
+            this.PutsIntoALocation(field: member, element: null, state: state);
+        }
 
         // A name with ref is its location, and code can give that location a different object with
         // no assignment to the name. Thus, a write through such a name is sure for no object. A

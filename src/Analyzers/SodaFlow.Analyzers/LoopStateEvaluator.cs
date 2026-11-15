@@ -381,6 +381,13 @@ internal sealed partial class LoopStateEvaluator
         this.IsOneCollection(local: local, state: state, from: this.function == null ? from : null);
         this.locals[local] = state;
         this.assigned.Add(local);
+
+        // The parameter is the value of this assignment until this code puts a value into a
+        // location after it.
+        if (local is IParameterSymbol { RefKind: not RefKind.None })
+        {
+            this.Frame.PutsBeforeAnAssignment[local] = this.Frame.PutsIntoLocations.Count;
+        }
     }
 
     /// <summary>
@@ -2079,6 +2086,12 @@ internal sealed partial class LoopStateEvaluator
                 else if (this.Frame.OfTheTurnBefore.TryGetValue(key: symbol, value: out LoopState? before))
                 {
                     named = named.Join(before);
+                }
+
+                // A parameter with ref, out, or in whose location the walk cannot read.
+                if (symbol is IParameterSymbol { RefKind: not RefKind.None } aliased)
+                {
+                    named = this.WithThePutsOfThisCode(parameter: aliased, state: named);
                 }
 
                 // A method of an object can read a parameter of the primary constructor of the

@@ -12765,6 +12765,54 @@ public static class Shapes
     public static Cell<int> Ab78APendingCellThroughASecondNameInATurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; for (int i = 0; i < 2; i++) { SettableSlot q = c; q.Share = l.Map(v => v); } return S.Hold(c.Share!.Sample()); });
 
+    // S2873. AB79. The array is one that the walk did not see made. The method gives its element a different object, and then a pending cell through its parameter with ref.
+    public static Cell<int> Ab79AnArrayThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79Unseen; Ab76PutThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2874. AB79. The method gives its parameter a new object, then the element a different object, and then a pending cell through the parameter.
+    public static Cell<int> Ab79AnAssignmentToTheParameterAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; Ab79AssignThenPutThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2875. AB79. The same with a parameter with out.
+    public static Cell<int> Ab79AParameterWithOutAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; Ab79OutThenPutThenGive(out slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2876. AB79. The method gives the second element the object, and the parameter is the first element.
+    public static Cell<int> Ab79APutIntoADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenTwo; Ab79PutSecondThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2877. AB79. The method gives an element with an index that is no constant the object.
+    public static Cell<int> Ab79APutIntoAnElementWithNoConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenThird; Ab79PutSomewhereThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2878. AB79. The method reads through its parameter after it gave the element an object with a pending cell.
+    public static Cell<int> Ab79AReadThroughTheParameterAfterAPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = Ab79UnseenForARead; int got = Ab76PutThenRead(ref slots[0], slots, other);  return S.Hold(got); });
+
+    // S2879. AB79. The parameter is a field of an object that the walk did not see made, and the method gives the field a different object.
+    public static Cell<int> Ab79AFieldOfAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; Ab79Holder holder = Ab79Holders[0]; Ab79PutInAFieldThenGive(ref holder.Item, holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2880. AB79. The parameter is an element, and the method gives a field the object.
+    public static Cell<int> Ab79APutIntoAFieldForAParameterThatIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenFourth; Ab79Holder holder = Ab79Holders[1]; Ab79PutInAFieldThenGive(ref slots[0], holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2881. AB79. The parameter is a field, and the method gives an element the object.
+    public static Cell<int> Ab79APutIntoAnElementForAParameterThatIsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenFifth; Ab79Holder holder = Ab79Holders[2]; Ab76PutThenGive(ref holder.Item, slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2882. AB79. The method gives its parameter a new object after the put, and then the pending cell.
+    public static Cell<int> Ab79AnAssignmentToTheParameterAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenSixth; Ab79PutThenAssignThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2883. AB79. The argument is a local, and no put into an element is a put into a local.
+    public static Cell<int> Ab79AnArgumentThatIsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenNinth; SettableSlot local = slots[0]; Ab79AssignThenPutThenGive(ref local, slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2884. AB79. The argument is an element with an index that is no constant, which the walk cannot read again.
+    public static Cell<int> Ab79AnArgumentWithNoConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenTenth; Ab76PutThenGive(ref slots[Kept.Count - Kept.Count], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15638,6 +15686,70 @@ public static class Shapes
     private static void Ab78Other(out SettableSlot slot) => slot = Ab78Unseen[1];
 
     private static void Ab78Pending(out SettableSlot slot, Cell<int> cell) => slot = new SettableSlot { Share = cell };
+
+    private static readonly SettableSlot[] Ab79Unseen = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenTwo = [new(), new()];
+
+    private static readonly SettableSlot[] Ab79UnseenThird = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenForARead = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenFourth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenFifth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenSixth = [new()];
+
+    private static readonly Ab79Holder[] Ab79Holders = [new(), new(), new()];
+
+    public sealed class Ab79Holder
+    {
+        public SettableSlot Item = new();
+    }
+
+    private static void Ab79AssignThenPutThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        all[0] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79OutThenPutThenGive(out SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        all[0] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutSecondThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[1] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutSomewhereThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[Kept.Count - Kept.Count] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutInAFieldThenGive(ref SettableSlot slot, Ab79Holder holder, SettableSlot other, Cell<int> cell)
+    {
+        holder.Item = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutThenAssignThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[0] = other;
+        slot = new SettableSlot();
+        slot.Share = cell;
+    }
+
+    private static readonly SettableSlot[] Ab79UnseenNinth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenTenth = [new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

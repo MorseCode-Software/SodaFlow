@@ -1949,7 +1949,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab78TheFirstNameGetsADifferentValue"] = ["SF1001"],
             ["Ab78AMethodGivesTheFirstNameADifferentValue"] = ["SF1001"],
             ["Ab78AMethodGivesTheSecondNameADifferentValue"] = ["SF1001"],
-            ["Ab78APendingCellThroughASecondNameInATurn"] = ["SF1001"]
+            ["Ab78APendingCellThroughASecondNameInATurn"] = ["SF1001"],
+            ["Ab79AnArrayThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab79AnAssignmentToTheParameterAndThenADifferentObject"] = ["SF1001"],
+            ["Ab79AParameterWithOutAndThenADifferentObject"] = ["SF1001"],
+            ["Ab79APutIntoAnElementWithNoConstantIndex"] = ["SF1001"],
+            ["Ab79AReadThroughTheParameterAfterAPut"] = ["SF1004"],
+            ["Ab79AFieldOfAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab79AnArgumentWithNoConstantIndex"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

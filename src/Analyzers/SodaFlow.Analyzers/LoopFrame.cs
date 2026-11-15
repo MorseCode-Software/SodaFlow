@@ -49,6 +49,22 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// </summary>
     public HashSet<ISymbol> WasOneOfTwoNames { get; } = new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    ///     Each value that the code of this frame put into an element or into a
+    ///     field, in order. The first part is the field, or null for an element.
+    ///     The second part is the index of an element that has one index. Only
+    ///     the frame of a callee that has a parameter with ref, out, or in keeps
+    ///     them.
+    /// </summary>
+    public List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value)> PutsIntoLocations { get; } = [];
+
+    /// <summary>
+    ///     For a parameter with ref or out that this code gave a value: the
+    ///     number of entries that <see cref="PutsIntoLocations" /> had at that
+    ///     assignment.
+    /// </summary>
+    public Dictionary<ISymbol, int> PutsBeforeAnAssignment { get; } = new(SymbolEqualityComparer.Default);
+
     /// <summary>The frame of the block, which has no parent.</summary>
     public LoopFrame Root
     {
