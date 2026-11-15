@@ -13225,6 +13225,22 @@ public static class Shapes
     public static Cell<int> Ab90TruthOfAValueInParentheses() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = (t) ? 1 : 0; return S.Hold(x); });
 
+    // S2988. The ToString that the compiler makes for a record reads each property, and a getter samples a pending member.
+    public static Cell<int> R2CsRecordToStringReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Shown r = new(l.Map(v => v)); string s = $"{r}"; return S.Hold(s.Length); });
+
+    // S2989. A with expression calls the copy constructor of the record, which samples a pending member of the original.
+    public static Cell<int> R2CsWithCallsACopyConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Copied a = new(l.Map(v => v)); R2Copied b = a with { }; Kept.Add(b); return S.Hold(0); });
+
+    // S2990. The ToString of a record whose properties have no getter body reads no pending member.
+    public static Cell<int> Ab91RecordToStringWithNoGetterBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Copied a = new(l.Map(v => v)); string s = $"{a}"; return S.Hold(s.Length); });
+
+    // S2991. A with expression on a record with no copy constructor of its code calls the one that the compiler writes, which reads nothing.
+    public static Cell<int> Ab91WithOnARecordWithNoCopyConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Shown a = new(l.Map(v => v)); R2Shown b = a with { }; Kept.Add(b); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

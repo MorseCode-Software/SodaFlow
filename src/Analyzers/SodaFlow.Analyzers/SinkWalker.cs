@@ -1725,6 +1725,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && constructor.Parameters.All(static parameter =>
                 SodaFlowSymbols.IsComparer(parameter.Type) || parameter.Type.SpecialType == SpecialType.System_Int32));
 
+    // A with expression calls the copy constructor of the record before the setters of its
+    // initializer.
+    public override void VisitWithExpression(WithExpressionSyntax node)
+    {
+        this.Visit(node.Expression);
+        this.Report(this.evaluator.FollowCopy(node));
+        this.Visit(node.Initializer);
+    }
+
     public override void VisitInitializerExpression(InitializerExpressionSyntax node)
     {
         // An object initializer names a member and gives it a value. Only the value is code that

@@ -3686,10 +3686,13 @@ internal sealed partial class LoopStateEvaluator
         return first;
     }
 
+    // A with expression has no argument list. The record that it copies is the argument of the
+    // copy constructor.
     private Followed? FollowConstructor(
         SyntaxNode call,
         IMethodSymbol constructor,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        ExpressionSyntax? copied = null)
     {
         IMethodSymbol definition = constructor.OriginalDefinition;
         SyntaxNode? declaration = definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
@@ -3710,7 +3713,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         IReadOnlyList<Binding> bindings =
-            this.Bind(definition: definition, arguments: arguments, extensionReceiver: null);
+            this.Bind(definition: definition, arguments: arguments, extensionReceiver: copied);
 
         // A constructor that gets no state gives no member a state, and the evaluator does not
         // read it. The object keeps its type, because the code can set a member of it later.
@@ -3989,6 +3992,13 @@ internal sealed partial class LoopStateEvaluator
     {
         Followed? result = null;
 
+        if (definition is { Name: "ToString", IsImplicitlyDeclared: true, ContainingType.IsRecord: true }
+            && owner != null
+            && call is ExpressionSyntax printed)
+        {
+            return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
+        }
+
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
         {
             IReadOnlyList<Binding> bindings =
@@ -4028,6 +4038,65 @@ internal sealed partial class LoopStateEvaluator
 
         return result;
     }
+
+    /// <summary>
+    ///     The getters that the <c>ToString</c> of a record reads. The compiler
+    ///     writes it, and it calls <c>PrintMembers</c>. The <c>PrintMembers</c> of
+    ///     the compiler reads each public property of the record and of each base
+    ///     record. A <c>PrintMembers</c> of the code replaces it, and the walk
+    ///     reads that body.
+    /// </summary>
+    private Followed? FollowPrintedMembers(ExpressionSyntax printed, INamedTypeSymbol record, LoopState owner)
+    {
+        Followed? result = null;
+
+        for (INamedTypeSymbol? type = record; type is { IsRecord: true }; type = type.BaseType)
+        {
+            if (type.GetMembers("PrintMembers")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static method => !method.IsImplicitlyDeclared) is { } written)
+            {
+                return Both(
+                    first: result,
+                    second: this.FollowImpliedDefinition(call: printed, definition: written, owner: owner, arguments: []));
+            }
+
+            result =
+                type.GetMembers()
+                    .OfType<IPropertySymbol>()
+                    .Where(static property =>
+                        property is
+                        {
+                            IsStatic: false,
+                            IsIndexer: false,
+                            IsOverride: false,
+                            DeclaredAccessibility: Accessibility.Public,
+                            GetMethod: not null
+                        })
+                    .Aggregate(
+                        seed: result,
+                        func: (all, property) =>
+                            Both(
+                                first: all,
+                                second: this.FollowGetterOn(access: printed, written: property, owner: owner)));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     The copy constructor that a <c>with</c> expression on a record calls,
+    ///     when the code of the record declares one. The constructor of the
+    ///     compiler only copies the fields, and the walk does not read it.
+    /// </summary>
+    public Followed? FollowCopy(WithExpressionSyntax copy) =>
+        this.region.TypeOf(copy.Expression) is INamedTypeSymbol { IsRecord: true, TypeKind: TypeKind.Class } record
+        && record.InstanceConstructors.FirstOrDefault(constructor =>
+                constructor is { IsImplicitlyDeclared: false, Parameters.Length: 1 }
+                && SymbolEqualityComparer.Default.Equals(x: constructor.Parameters[0].Type, y: record))
+            is { } copier
+            ? this.FollowConstructor(call: copy, constructor: copier, arguments: default, copied: copy.Expression)
+            : null;
 
     /// <summary>
     ///     The call that an expression makes with no call syntax. It is the getter
@@ -4111,7 +4180,8 @@ internal sealed partial class LoopStateEvaluator
     ///     makes on an object of this compilation.
     /// </summary>
     public Followed? FollowToString(ExpressionSyntax written) =>
-        this.region.Symbols is { DeclaresToString: true, ObjectToString: { } toString }
+        this.region.Symbols is { ObjectToString: { } toString } symbols
+        && (symbols.DeclaresToString || symbols.DeclaresRecords)
         && this.Self(written) is { Members: not null } owner
             ? this.FollowImplied(call: written, member: toString, owner: owner, arguments: [])
             : null;

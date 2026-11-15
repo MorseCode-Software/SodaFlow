@@ -2023,7 +2023,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab90ConversionOfAValueInParentheses"] = ["SF1004"],
             ["Ab90CastCallsTheConversionOneTime"] = ["SF1004"],
             ["Ab90UserMinusOperatorOneTime"] = ["SF1004"],
-            ["Ab90TruthOfAValueInParentheses"] = ["SF1004"]
+            ["Ab90TruthOfAValueInParentheses"] = ["SF1004"],
+            ["R2CsRecordToStringReadsAGetter"] = ["SF1005"],
+            ["R2CsWithCallsACopyConstructor"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

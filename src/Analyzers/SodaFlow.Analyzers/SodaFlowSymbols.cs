@@ -102,6 +102,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
     private readonly Lazy<bool> declaresCompare;
     private readonly Lazy<bool> declaresPlatformMembers;
+    private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
@@ -152,6 +153,16 @@ internal sealed class SodaFlowSymbols
                 this.DeclaresEnumerators
                 || this.DeclaredCallbacks != PlatformCallbacks.None
                 || this.declaresCompare.Value);
+
+        // A record has a ToString that its code does not declare. The search reads the declarations
+        // of types only, and not the members.
+        this.declaresRecords =
+            new Lazy<bool>(() =>
+                compilation.SyntaxTrees.Any(static tree =>
+                    tree.GetRoot()
+                        .DescendantNodes(static node =>
+                            node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or TypeDeclarationSyntax)
+                        .Any(static node => node is RecordDeclarationSyntax)));
 
         this.declaresOperators =
             new Lazy<bool>(() =>
@@ -224,6 +235,12 @@ internal sealed class SodaFlowSymbols
     ///     compilation that declares none has no such call to follow.
     /// </summary>
     public bool DeclaresPlatformMembers => this.declaresPlatformMembers.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a record. The <c>ToString</c> of a
+    ///     record reads its properties.
+    /// </summary>
+    public bool DeclaresRecords => this.declaresRecords.Value;
 
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;
