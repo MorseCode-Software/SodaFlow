@@ -1980,7 +1980,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab87AsyncHelperReadsAfterAValueTask"] = ["SF1004"],
             ["Ab87AsyncHelperReadsAfterABranchWithAnAwait"] = ["SF1004"],
             ["Ab87AsyncLambdaReadsAfterACompletedTask"] = ["SF1001"],
-            ["Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask"] = ["SF1001"]
+            ["Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask"] = ["SF1001"],
+            ["R2CsStaticAbstractThroughATypeParameter"] = ["SF1004"],
+            ["Ab89StaticAbstractOfAGenericInterface"] = ["SF1004"],
+            ["Ab89StaticVirtualOfTheInterface"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

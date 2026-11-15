@@ -3165,6 +3165,14 @@ internal sealed partial class LoopStateEvaluator
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
+        // A static member of an interface has no body when it is abstract. A call through a type
+        // parameter runs the member of the type argument that the call of this code gave.
+        if (definition is { IsStatic: true, ContainingType.TypeKind: TypeKind.Interface }
+            && (definition.IsAbstract || definition.IsVirtual))
+        {
+            return [this.ImplementationThroughATypeArgument(invocation: invocation, method: method) ?? definition];
+        }
+
         if (method is not { IsStatic: false, ReducedFrom: null }
             || ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is not { } receiver
             || this.Self(receiver).Members is not { } members)
@@ -3178,6 +3186,33 @@ internal sealed partial class LoopStateEvaluator
         ];
 
         return actual.Length == 0 ? [definition] : actual;
+    }
+
+    // The member of the type argument that implements a static member of an interface, for a call
+    // through a type parameter. The interface can be generic, thus the walk finds it in the
+    // interfaces of the type argument. Null when the call of this code does not say the type.
+    private IMethodSymbol? ImplementationThroughATypeArgument(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax access
+            || this.TypeArgumentFor(this.region.TypeOf(access.Expression)) is not INamedTypeSymbol actual)
+        {
+            return null;
+        }
+
+        IMethodSymbol definition = method.OriginalDefinition;
+
+        IMethodSymbol? member =
+            actual.AllInterfaces
+                .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                    x: candidate.OriginalDefinition,
+                    y: definition.ContainingType))
+                .SelectMany(candidate => candidate.GetMembers(definition.Name).OfType<IMethodSymbol>())
+                .FirstOrDefault(candidate =>
+                    SymbolEqualityComparer.Default.Equals(x: candidate.OriginalDefinition, y: definition));
+
+        return member != null && actual.FindImplementationForInterfaceMember(member) is IMethodSymbol found
+            ? found.OriginalDefinition
+            : null;
     }
 
     /// <summary>

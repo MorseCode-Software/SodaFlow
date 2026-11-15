@@ -12973,6 +12973,22 @@ public static class Shapes
     public static Cell<int> Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask() =>
         Cell.Loop<int>().WithoutCaptures(l => { async Task Run() { await Task.CompletedTask.ConfigureAwait(false); Kept.Add(l.Sample()); } Run().Wait(0); return S.Hold(0); });
 
+    // S2925. A generic helper calls a static abstract member of an interface through its type parameter, and the implementation samples.
+    public static Cell<int> R2CsStaticAbstractThroughATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ReadThrough<R2Reads>(l)));
+
+    // S2926. AB89 control. The implementation of the type argument does not sample.
+    public static Cell<int> Ab89StaticAbstractWithAnImplementationThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ReadThrough<Ab89Keeps>(l)));
+
+    // S2927. AB89. A generic interface calls its static abstract member through the type parameter of the interface itself.
+    public static Cell<int> Ab89StaticAbstractOfAGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab89ReadThroughSelf<Ab89SelfReads>(l)));
+
+    // S2928. AB89. A static virtual member with a body in the interface, which the type argument does not change, samples.
+    public static Cell<int> Ab89StaticVirtualOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab89ReadThroughVirtual<Ab89UsesTheDefault>(l)));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16177,6 +16193,33 @@ public static class Shapes
 
         Kept.Add(c.Sample());
     }
+
+    public sealed class Ab89Keeps : IR2Reads
+    {
+        public static int ReadOf(Cell<int> c) => 0;
+    }
+
+    public interface IAb89SelfReads<TSelf>
+        where TSelf : IAb89SelfReads<TSelf>
+    {
+        static abstract int ReadOf(Cell<int> c);
+    }
+
+    public sealed class Ab89SelfReads : IAb89SelfReads<Ab89SelfReads>
+    {
+        public static int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    private static int Ab89ReadThroughSelf<T>(Cell<int> c) where T : IAb89SelfReads<T> => T.ReadOf(c);
+
+    public interface IAb89VirtualReads
+    {
+        static virtual int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ab89UsesTheDefault : IAb89VirtualReads;
+
+    private static int Ab89ReadThroughVirtual<T>(Cell<int> c) where T : IAb89VirtualReads => T.ReadOf(c);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
