@@ -104,7 +104,7 @@ internal sealed class OperatorTableTests
             prefixes.FirstOrDefault(candidate =>
                 method.Name.StartsWith(value: candidate, comparisonType: StringComparison.Ordinal));
 
-        return prefix == null ? method.Name : method.Name.Substring(prefix.Length);
+        return prefix == null ? method.Name : method.Name[prefix.Length..];
     }
 
     [Test]
