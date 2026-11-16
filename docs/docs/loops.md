@@ -297,6 +297,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   made with `+` runs each of its functions.
 - Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
   until a pass adds nothing new.
+- Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
+  made before the send, such as a `Hold` of the sink or a switch of that hold.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
   event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
   `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection initializer or
@@ -341,5 +343,7 @@ Some reads that throw it does not see:
   is. That code runs in the block, and the analyzer reads it as code that runs later.
 - A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
   call where it stops.
+- A send in a function that `Transaction.Post` runs after the transaction. The analyzer reads that
+  function as code that runs later, so the sink does not get the sent value.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the
   code names, not an override.
