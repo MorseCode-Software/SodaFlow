@@ -2363,7 +2363,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab149MapOfAHoldWithTheSendAfter"] = ["SF1002"],
             ["Ab149SampleOfALocalThatGetsAConstant"] = ["SF1002"],
             ["Ab149SampleOfAHoldWithALinkedInitialValue"] = ["SF1002"],
-            ["Ab149SampleOfACellSinkWithALinkedInitialValue"] = ["SF1002"]
+            ["Ab149SampleOfACellSinkWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab150PostedSendAfterASwitchOfAHold"] = ["SF1002"],
+            ["Ab150PostedSendBeforeASwitchOfAHold"] = ["SF1002"],
+            ["Ab150PostedLambdaInALocal"] = ["SF1002"],
+            ["Ab150PostedLocalFunction"] = ["SF1002"],
+            ["Ab150PostedSendOfALocalOfTheFunction"] = ["SF1002"],
+            ["Ab150PostedSendThroughAMethod"] = ["SF1002"],
+            ["Ab150PostedSendIntoACellSink"] = ["SF1002"],
+            ["Ab150PostedSendOfASampleOfAHold"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

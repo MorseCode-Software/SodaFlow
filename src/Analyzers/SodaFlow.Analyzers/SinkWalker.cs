@@ -2318,6 +2318,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.Sends(sink: receiver, content: sent);
                 }
 
+                // The function that Transaction.Post gets runs after the transaction. A send in it
+                // gives content to the sink after the close.
+                if (receiver == null
+                    && method is { Name: "Post", ContainingType.Name: "Transaction" }
+                    && arguments.FirstOrDefault(argument =>
+                            LoopStateEvaluator.ParameterFor(
+                                method: method,
+                                argument: argument,
+                                position: arguments.IndexOf(argument)) is { Ordinal: 0 })
+                        is { } action)
+                {
+                    this.evaluator.RunsAfterTheTransaction(action.Expression);
+                }
+
                 break;
             // The evaluator follows the body, and a lambda is a value that the body gets.
             case CalleeKind.Body:

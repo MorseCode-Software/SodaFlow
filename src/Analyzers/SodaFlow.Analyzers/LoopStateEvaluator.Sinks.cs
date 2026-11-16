@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -84,6 +85,53 @@ internal sealed partial class LoopStateEvaluator
                 .Select(static argument => argument.Expression)
                 .FirstOrDefault()
             : null;
+    }
+
+    /// <summary>
+    ///     Reads a function that runs after the transaction of the block, as the
+    ///     function of <c>Transaction.Post</c> does. A send in it gives its value
+    ///     to the sink after the close. Thus, each value that the block made from
+    ///     the sink gets that value also.
+    /// </summary>
+    /// <remarks>
+    ///     An evaluator that changes nothing reads the function, and the walk
+    ///     reports nothing from it. A read after the close does not throw.
+    /// </remarks>
+    /// <param name="function">The expression of the function.</param>
+    public void RunsAfterTheTransaction(ExpressionSyntax function)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        ImmutableArray<FunctionValue> functions = this.Eval(function).Functions;
+
+        if (functions.IsEmpty)
+        {
+            return;
+        }
+
+        LoopStateEvaluator later = this.Quiet();
+        SinkWalker walker = later.ReadBy(new SinkWalker(region: this.region, evaluator: later, sink: static _ => { }));
+
+        this.region.ReadAfterTheTransaction(() =>
+        {
+            foreach (FunctionValue each in functions)
+            {
+                switch (each.Declaration)
+                {
+                    case AnonymousFunctionExpressionSyntax lambda:
+                        walker.Visit(lambda.Body);
+
+                        break;
+                    case LocalFunctionStatementSyntax local:
+                        walker.Visit((SyntaxNode?)local.Body ?? local.ExpressionBody);
+
+                        break;
+                }
+            }
+        });
     }
 
     // True when a node is in the code of the block, and not in a function or a query. Such

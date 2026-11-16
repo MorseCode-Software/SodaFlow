@@ -16067,6 +16067,62 @@ public static class Shapes
     public static Cell<int> Ab149SampleOfACellSinkWithALinkedInitialValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(l.Map(v => v)); c.Send(Plain); return c.Sample(); });
 
+    // S3540. A local has a switch of a hold of a sink. Then the block posts a send of a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab150PostedSendAfterASwitchOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Transaction.Post(() => s.Send(l.Map(v => v))); return sw; });
+
+    // S3541. The block posts a send of a cell linked to the placeholder into a sink, and the close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendBeforeASwitchOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3542. A lambda in a local sends a cell linked to the placeholder into a sink, and the block posts the lambda. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedLambdaInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Action send = () => s.Send(l.Map(v => v)); Transaction.Post(send); return s.Hold(Plain).SwitchC(); });
+
+    // S3543. The block posts a local function that sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(Send); return s.Hold(Plain).SwitchC(); void Send() => s.Send(l.Map(v => v)); });
+
+    // S3544. The posted function keeps a cell linked to the placeholder in a local of its own, and sends the local into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendOfALocalOfTheFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => { Cell<int> c = l.Map(v => v); s.Send(c); }); return s.Hold(Plain).SwitchC(); });
+
+    // S3545. The posted function calls a method that sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Ab146SendTo(s, l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3546. The block posts a send of a cell linked to the placeholder into a cell sink, and the close is a switch of the cell sink.
+    public static Cell<int> Ab150PostedSendIntoACellSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Cell<int> sw = c.SwitchC(); Transaction.Post(() => c.Send(l.Map(v => v))); return sw; });
+
+    // S3547. The block sends a cell linked to the placeholder into a sink, and posts a send of a sample of a hold of that sink into a second sink. The close is a switch of a hold of the second sink.
+    public static Cell<int> Ab150PostedSendOfASampleOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Transaction.Post(() => t.Send(h.Sample())); return t.Hold(Plain).SwitchC(); });
+
+    // S3548. The block posts a send of a cell linked to the placeholder into a sink, and the close is a sample of a hold of the sink. A control.
+    public static Cell<int> Ab150PostedSendAndASampleOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).Sample(); });
+
+    // S3549. The block posts a send of a plain cell into a sink, and the close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab150PostedSendOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(Plain.Map(v => v + 1))); return s.Hold(Plain).SwitchC(); });
+
+    // S3550. The block posts a function that sends nothing, and the close is a switch of a hold of a sink. A control.
+    public static Cell<int> Ab150PostThatSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> m = l.Map(v => v); Transaction.Post(() => Kept.Add(m)); return s.Hold(Plain).SwitchC(); });
+
+    // S3551. The block posts a send of a cell linked to the placeholder into a second sink, and the close is a switch of a hold of the first sink. A control.
+    public static Cell<int> Ab150PostedSendIntoASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => t.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3552. The posted function samples the placeholder, which is after the close. A control.
+    public static Cell<int> Ab150PostedFunctionSamplesThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Transaction.Post(() => Kept.Add(l.Sample())); return S.Hold(0); });
+
+    // S3553. The block posts a send of a pending cell into a cell sink, and a transaction that runs now in the block samples the cell sink and then the cell that it gives. A control.
+    public static Cell<int> Ab150PostedSendAndASampleInATransactionOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Transaction.Post(() => c.Send(l.Map(v => v))); int x = Transaction.Run(() => c.Sample()).Sample(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

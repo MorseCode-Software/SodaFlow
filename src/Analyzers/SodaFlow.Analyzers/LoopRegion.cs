@@ -75,6 +75,28 @@ internal sealed class LoopRegion(
     /// <summary>The content that the sends of this read give to the sinks.</summary>
     public SentContent Sent { get; } = new();
 
+    /// <summary>
+    ///     True while the walk reads a function that runs after the transaction
+    ///     of the block. A send in that function gives content to the sink after
+    ///     the close.
+    /// </summary>
+    public bool ReadsCodeAfterTheTransaction { get; private set; }
+
+    /// <summary>Reads a function that runs after the transaction of the block.</summary>
+    public void ReadAfterTheTransaction(Action read)
+    {
+        this.ReadsCodeAfterTheTransaction = true;
+
+        try
+        {
+            read();
+        }
+        finally
+        {
+            this.ReadsCodeAfterTheTransaction = false;
+        }
+    }
+
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
 

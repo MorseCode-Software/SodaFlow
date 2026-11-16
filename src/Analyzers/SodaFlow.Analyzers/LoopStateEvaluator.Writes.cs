@@ -925,9 +925,18 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="content">The state of the sink after the send of the value.</param>
     public void Sends(ExpressionSyntax sink, LoopState content)
     {
-        if (this.quiet || content.IsNone)
+        // An evaluator that reads a posted function changes nothing else. The send in that
+        // function comes after the close, thus no part of its content is pending.
+        bool later = this.region.ReadsCodeAfterTheTransaction;
+
+        if ((this.quiet && !later) || content.IsNone)
         {
             return;
+        }
+
+        if (later)
+        {
+            content = content.AfterTheClose;
         }
 
         bool toAnObject = false;
