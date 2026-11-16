@@ -14254,6 +14254,18 @@ public static class Shapes
     public static Cell<int> Ag72SlicePatternInASwitchExpression() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); int n = r switch { [_, .. var rest] => 1, _ => 0 }; return S.Hold(n); });
 
+    // S3245. Select of an ImmutableArray makes a query. Nothing enumerates the query, thus its function does not run.
+    public static Cell<int> Ag72ImmutableArraySelectNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Select(x => x + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S3246. Where of an ImmutableArray makes a query that nothing enumerates.
+    public static Cell<int> Ag72ImmutableArrayWhereNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Where(x => x > l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S3247. SelectMany of an ImmutableArray makes a query that nothing enumerates.
+    public static Cell<int> Ag72ImmutableArraySelectManyNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.SelectMany(x => Numbers, (x, y) => x + y + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

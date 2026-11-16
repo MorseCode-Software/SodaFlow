@@ -648,7 +648,9 @@ internal sealed class SodaFlowSymbols
     ///     and enumerates nothing. Such a method returns <c>IEnumerable</c> or
     ///     <c>IOrderedEnumerable</c>. Each other method of that class that reads
     ///     its source enumerates it in the call. The same rule is correct for the
-    ///     methods of <c>SodaFlow.Functional</c>, such as <c>Choose</c>.
+    ///     methods of <c>SodaFlow.Functional</c>, such as <c>Choose</c>. It is also
+    ///     correct for <c>ImmutableArrayExtensions</c>, whose <c>Select</c>,
+    ///     <c>Where</c>, and <c>SelectMany</c> return a query.
     /// </summary>
     /// <remarks>
     ///     The rule is not for code of a different owner: a method there that
@@ -664,6 +666,7 @@ internal sealed class SodaFlowSymbols
                    Name: "IEnumerable" or "IOrderedEnumerable"
                }
                && (IsLinqEnumerable(definition.ContainingType)
+                   || IsLinqImmutableArray(definition.ContainingType)
                    || PackagesWithNoGraph.Contains(definition.ContainingAssembly?.Name ?? string.Empty));
     }
 
@@ -701,6 +704,9 @@ internal sealed class SodaFlowSymbols
 
     public static bool IsLinqEnumerable(ISymbol? type) =>
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
+
+    private static bool IsLinqImmutableArray(ISymbol? type) =>
+        type is { Name: "ImmutableArrayExtensions" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
     /// <summary>
     ///     True for <c>IGrouping</c>, the element of a lookup. It has a key and
