@@ -16239,6 +16239,38 @@ public static class Shapes
     public static Cell<int> Ab155SampleOfAHoldInAMapOfALocalThatChanges() =>
         ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> k = Cell.Constant(1); k = t.Hold(0); return k.Map(_ => h.Sample()).SwitchC(); }); t.Send(1); return c; }))();
 
+    // S3583. The block posts a method of an object, and the method sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostedMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(new Ab156Sender(s, l.Map(v => v)).Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3584. A post in a posted function sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostInAPost() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Transaction.Post(() => s.Send(l.Map(v => v)))); return s.Hold(Plain).SwitchC(); });
+
+    // S3585. An object in a local has a cell linked to the placeholder, and the block posts its method that sends the cell into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostedMethodOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab156Sender sender = new(s, l.Map(v => v)); Transaction.Post(sender.Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3586. A post in a posted local function sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostInAPostedLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(Later); return s.Hold(Plain).SwitchC(); void Later() => Transaction.Post(() => s.Send(l.Map(v => v))); });
+
+    // S3587. The block posts a method of an object that sends a plain cell into a sink. The close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab156PostedMethodThatSendsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(new Ab156Sender(s, Plain.Map(v => v + 1)).Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3588. A post in a posted function sends nothing. The close is a switch of a hold of a sink. A control.
+    public static Cell<int> Ab156PostInAPostThatSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> m = l.Map(v => v); Transaction.Post(() => Transaction.Post(() => Kept.Add(m))); return s.Hold(Plain).SwitchC(); });
+
+    // S3589. A post in a posted function sends a cell linked to the placeholder into a second sink. The close is a switch of a hold of the first sink. A control.
+    public static Cell<int> Ab156PostInAPostIntoASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Transaction.Post(() => t.Send(l.Map(v => v)))); return s.Hold(Plain).SwitchC(); });
+
+    // S3590. A local function posts itself after a send of a plain cell into a sink. The close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab156LocalFunctionThatPostsItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); int n = 0; Transaction.Post(Again); return s.Hold(Plain).SwitchC(); void Again() { s.Send(Plain.Map(v => v + 1)); if (++n < 3) { Transaction.Post(Again); } } });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21490,6 +21522,11 @@ public static class Shapes
             Kept.Add(pending.Sample());
             await Task.CompletedTask;
         }
+    }
+
+    public sealed record Ab156Sender(StreamSink<Cell<int>> Sink, Cell<int> Value)
+    {
+        public void Send() => this.Sink.Send(this.Value);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

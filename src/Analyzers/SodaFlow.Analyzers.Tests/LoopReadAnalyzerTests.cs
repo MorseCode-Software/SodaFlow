@@ -2388,7 +2388,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab155SampleOfAHoldInAMapOfAStream"] = ["SF1002"],
             ["Ab155SampleOfAHoldInASnapshot"] = ["SF1002"],
             ["Ab155PostedSendOfASampleInATransaction"] = ["SF1002"],
-            ["Ab155SampleOfAHoldInAMapOfALocalThatChanges"] = ["SF1002"]
+            ["Ab155SampleOfAHoldInAMapOfALocalThatChanges"] = ["SF1002"],
+            ["Ab156PostedMethod"] = ["SF1002"],
+            ["Ab156PostInAPost"] = ["SF1002"],
+            ["Ab156PostedMethodOfALocal"] = ["SF1002"],
+            ["Ab156PostInAPostedLocalFunction"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

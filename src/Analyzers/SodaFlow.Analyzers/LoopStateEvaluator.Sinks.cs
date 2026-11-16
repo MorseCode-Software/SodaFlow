@@ -96,12 +96,15 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     An evaluator that changes nothing reads the function, and the walk
-    ///     reports nothing from it. A read after the close does not throw.
+    ///     reports nothing from it. A read after the close does not throw. A post
+    ///     in a posted function runs after the close also, thus the walk reads
+    ///     its function with this procedure. A method of an object gets the
+    ///     members that the object had at the post.
     /// </remarks>
     /// <param name="function">The expression of the function.</param>
     public void RunsAfterTheTransaction(ExpressionSyntax function)
     {
-        if (this.quiet)
+        if (this.quiet && !this.region.ReadsCodeAfterTheTransaction)
         {
             return;
         }
@@ -113,26 +116,48 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        // In a posted function, this evaluator is the one that changes nothing. The walk of that
+        // function continues after this read, thus the evaluator gets its walker again.
         LoopStateEvaluator later = this.Quiet();
+        SinkWalker? walking = later.walker;
         SinkWalker walker = later.ReadBy(new SinkWalker(region: this.region, evaluator: later, sink: static _ => { }));
 
-        this.region.ReadAfterTheTransaction(() =>
+        try
         {
             foreach (FunctionValue each in functions)
             {
-                switch (each.Declaration)
-                {
-                    case AnonymousFunctionExpressionSyntax lambda:
-                        walker.Visit(lambda.Body);
+                this.region.ReadAfterTheTransaction(
+                    function: each.Declaration,
+                    read: () =>
+                    {
+                        switch (each.Declaration)
+                        {
+                            case AnonymousFunctionExpressionSyntax lambda:
+                                walker.Visit(lambda.Body);
 
-                        break;
-                    case LocalFunctionStatementSyntax local:
-                        walker.Visit((SyntaxNode?)local.Body ?? local.ExpressionBody);
+                                break;
+                            case LocalFunctionStatementSyntax local:
+                                walker.Visit((SyntaxNode?)local.Body ?? local.ExpressionBody);
 
-                        break;
-                }
+                                break;
+                            case MethodDeclarationSyntax:
+                                later.FollowFunction(
+                                    call: function,
+                                    name: NameOf(function),
+                                    function: each,
+                                    target: LoopState.None,
+                                    arguments: default,
+                                    each: null);
+
+                                break;
+                        }
+                    });
             }
-        });
+        }
+        finally
+        {
+            later.walker = walking;
+        }
     }
 
     // True when a node runs only in the transaction of the block. That is the code of the block,

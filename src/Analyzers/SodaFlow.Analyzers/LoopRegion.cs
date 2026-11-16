@@ -75,17 +75,30 @@ internal sealed class LoopRegion(
     /// <summary>The content that the sends of this read give to the sinks.</summary>
     public SentContent Sent { get; } = new();
 
+    // The functions that run after the transaction of the block, while the walk reads them.
+    private readonly HashSet<SyntaxNode> readAfterTheTransaction = [];
+
     /// <summary>
     ///     True while the walk reads a function that runs after the transaction
     ///     of the block. A send in that function gives content to the sink after
     ///     the close.
     /// </summary>
-    public bool ReadsCodeAfterTheTransaction { get; private set; }
+    public bool ReadsCodeAfterTheTransaction => this.readAfterTheTransaction.Count > 0;
 
     /// <summary>Reads a function that runs after the transaction of the block.</summary>
-    public void ReadAfterTheTransaction(Action read)
+    /// <remarks>
+    ///     A posted function can post a function also. The walk does not read a
+    ///     function again while it reads that function. Thus, a function that
+    ///     posts itself does not make the walk continue without end.
+    /// </remarks>
+    /// <param name="function">The declaration of the function.</param>
+    /// <param name="read">The read of the function.</param>
+    public void ReadAfterTheTransaction(SyntaxNode function, Action read)
     {
-        this.ReadsCodeAfterTheTransaction = true;
+        if (!this.readAfterTheTransaction.Add(function))
+        {
+            return;
+        }
 
         try
         {
@@ -93,7 +106,7 @@ internal sealed class LoopRegion(
         }
         finally
         {
-            this.ReadsCodeAfterTheTransaction = false;
+            this.readAfterTheTransaction.Remove(function);
         }
     }
 
