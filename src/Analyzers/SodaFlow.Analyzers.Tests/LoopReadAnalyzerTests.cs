@@ -2288,7 +2288,16 @@ internal sealed class LoopReadAnalyzerTests
             ["DvVmCounter3ClassWithDeconstructDeconstructed"] = ["SF1001"],
             ["DvVmCounter3TupleDeconstructed"] = ["SF1001"],
             ["Ab132PartOfABaseRecordSampled"] = ["SF1001"],
-            ["Ab132DeconstructCallsAGetterThatReads"] = ["SF1005"]
+            ["Ab132DeconstructCallsAGetterThatReads"] = ["SF1005"],
+            ["DvVmPageBaseOverrideReads"] = ["SF1004"],
+            ["DvVmPage5AbstractHookInTheBaseConstructor"] = ["SF1004"],
+            ["DvVmPage5VirtualOverrideCalledOnTheBuiltObject"] = ["SF1005"],
+            ["DvVmPage5VirtualOverrideCalledInTheDerivedConstructor"] = ["SF1004"],
+            ["Ab133OverrideReadsThroughAPrimaryConstructor"] = ["SF1004"],
+            ["Ab133AbstractPropertyInTheBaseConstructor"] = ["SF1004"],
+            ["Ab133AbstractMethodThroughAMethodOfTheBase"] = ["SF1004"],
+            ["Ab133ImplicitConstructorCallsTheBase"] = ["SF1005"],
+            ["Ab133ConstructorWithNoInitializerCallsTheBase"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -93,6 +93,12 @@ internal sealed partial class LoopStateEvaluator
     // The objects that this code made for its call. Each of them is new in each call.
     private readonly HashSet<MadeObject> madeForTheCall = [];
 
+    // The type of the object that a new expression makes. The walk of its constructor has it, and
+    // so has each constructor that it calls first and each member that they call on this object.
+    // A virtual member that one of them calls on this object is the member of that type. Null for
+    // each other code.
+    private INamedTypeSymbol? builtType;
+
     // The walker that reads the code of this evaluator. It knows where a call always runs.
     private SinkWalker? walker;
 
@@ -181,7 +187,7 @@ internal sealed partial class LoopStateEvaluator
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
                 function: this.function,
-                call: this.call) { walker = this.walker };
+                call: this.call) { walker = this.walker, builtType = this.builtType };
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -3543,9 +3549,18 @@ internal sealed partial class LoopStateEvaluator
             return [this.ImplementationThroughATypeArgument(invocation: invocation, method: method) ?? definition];
         }
 
-        if (method is not { IsStatic: false, ReducedFrom: null }
-            || ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is not { } receiver
-            || this.Self(receiver).Members is not { } members)
+        if (method is not { IsStatic: false, ReducedFrom: null })
+        {
+            return [definition];
+        }
+
+        ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
+
+        if ((this.builtType != null && receiver is null or ThisExpressionSyntax
+                ? Construction.Of(this.builtType)
+                : receiver == null
+                    ? null
+                    : this.Self(receiver).Members) is not { } members)
         {
             return [definition];
         }
@@ -3988,19 +4003,18 @@ internal sealed partial class LoopStateEvaluator
     ///     base, or a second constructor of the type. The members that it sets are
     ///     members of the object that this code is in.
     /// </summary>
-    private Followed? FollowChain(SyntaxNode chain, BaseArgumentListSyntax? arguments)
-    {
-        if (this.region.SymbolOf(chain) is not IMethodSymbol constructor
-            || this.region.Symbols.IsSodaFlow(constructor))
-        {
-            return null;
-        }
+    private Followed? FollowChain(SyntaxNode chain, BaseArgumentListSyntax? arguments) =>
+        this.region.SymbolOf(chain) is IMethodSymbol constructor && !this.region.Symbols.IsSodaFlow(constructor)
+            ? this.FollowChainTo(chain: chain, constructor: constructor, arguments: arguments?.Arguments ?? default)
+            : null;
 
+    private Followed? FollowChainTo(
+        SyntaxNode chain,
+        IMethodSymbol constructor,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
         Followed? first =
-            this.FollowConstructor(
-                call: chain,
-                constructor: constructor,
-                arguments: arguments?.Arguments ?? default);
+            this.FollowConstructor(call: chain, constructor: constructor, arguments: arguments, chained: true);
 
         if (first?.State.Members != null)
         {
@@ -4019,7 +4033,8 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode call,
         IMethodSymbol constructor,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        ExpressionSyntax? copied = null)
+        ExpressionSyntax? copied = null,
+        bool chained = false)
     {
         IMethodSymbol definition = constructor.OriginalDefinition;
         SyntaxNode? declaration = definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
@@ -4074,6 +4089,9 @@ internal sealed partial class LoopStateEvaluator
                 eachRun: null,
                 self: null);
 
+        // The constructor that a constructor calls first builds the same object.
+        inner.builtType = chained ? this.builtType : definition.ContainingType;
+
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
         SemanticModel model = this.region.ModelFor(type);
@@ -4116,6 +4134,15 @@ internal sealed partial class LoopStateEvaluator
             };
 
         walker.Visit(chain);
+
+        // With no initializer, the constructor calls the constructor of the base type with no
+        // arguments first.
+        if (chain == null
+            && ImplicitChainOf(declaration: declaration, type: type, definition: definition) is var (at, first)
+            && inner.FollowChainTo(chain: at, constructor: first, arguments: default) is { } chainedFirst)
+        {
+            found.AddRange(chainedFirst.Findings);
+        }
 
         // The initializers of the members run in each constructor, but not in one that calls a
         // second constructor of the type first. The compiler writes no initializer into the copy
@@ -4182,6 +4209,35 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    // The constructor of the base type that a constructor with no initializer calls, and a node for
+    // that call. The node is the parameter list of the constructor, or the base type in the list
+    // of the type when the compiler writes the constructor. Null for a base type with no code, and
+    // for a base type with no constructor that has no parameters.
+    private static (SyntaxNode At, IMethodSymbol Constructor)? ImplicitChainOf(
+        SyntaxNode? declaration,
+        TypeDeclarationSyntax type,
+        IMethodSymbol definition)
+    {
+        if (IsCopyConstructor(definition)
+            || definition.ContainingType is not
+            {
+                TypeKind: TypeKind.Class,
+                BaseType: { DeclaringSyntaxReferences.IsEmpty: false } baseType
+            }
+            || baseType.InstanceConstructors.FirstOrDefault(static constructor => constructor.Parameters.IsEmpty)
+                is not { } first)
+        {
+            return null;
+        }
+
+        SyntaxNode? at =
+            declaration is ConstructorDeclarationSyntax written
+                ? written.ParameterList
+                : type.BaseList?.Types.FirstOrDefault();
+
+        return at == null ? null : (at, first);
+    }
+
     /// <summary>
     ///     The read of a property whose getter has a body. The getter is a member
     ///     of the object that owns the property, and reads the members of that
@@ -4211,7 +4267,11 @@ internal sealed partial class LoopStateEvaluator
 
         // A property that the code reads through an interface is the property of the object. A
         // value that is one of two objects has the property of each.
-        return PropertiesOf(owner: this.Self(owner).Members, written: written)
+        return PropertiesOf(
+                owner: this.builtType != null && owner is null or ThisExpressionSyntax
+                    ? Construction.Of(this.builtType)
+                    : this.Self(owner).Members,
+                written: written)
             .Aggregate(
                 seed: (Followed?)null,
                 func: (all, property) =>

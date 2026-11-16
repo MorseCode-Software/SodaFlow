@@ -476,6 +476,11 @@ internal sealed partial class LoopStateEvaluator
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 
+        // A function of this code, and a member of this object, run on the object that this code
+        // is in.
+        inner.builtType =
+            definer?.builtType ?? (ReferenceEquals(objA: members, objB: this.thisMembers) ? this.builtType : null);
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {

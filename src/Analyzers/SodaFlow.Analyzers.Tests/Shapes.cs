@@ -15471,6 +15471,78 @@ public static class Shapes
     public static Cell<int> Ab132DeconstructCallsAGetterThatReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab132Reading r = new(Share: l.Map(v => v), Number: 1); (Cell<int> share, int number) = r; return S.Hold(number); });
 
+    // S3399. Real view model: the constructor of the base class calls a virtual method, and the override of the page reads its title.
+    public static Cell<int> DvVmPageBaseOverrideReads(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmLoggingPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmLoggingPage(title: title, countCell: count);
+        })));
+
+    // S3400. Real view model: the constructor of the base class calls an abstract method, and the page implements it with a read of its title.
+    public static Cell<int> DvVmPage5AbstractHookInTheBaseConstructor(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmDescribedPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmDescribedPage(title: title, countCell: count);
+        })));
+
+    // S3401. Real view model: the block builds a page and keeps it as its base class. Then it calls a virtual method that the page overrides with a read.
+    public static Cell<int> DvVmPage5VirtualOverrideCalledOnTheBuiltObject(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            DvVmRefreshingBase other = new DvVmRefreshingPage(title: title, countCell: count); other.Refresh();
+            return new DvVmQuietPage(title: title, countCell: count);
+        })));
+
+    // S3402. Real view model: the constructor of the page calls a virtual method that the page overrides with a read of its title.
+    public static Cell<int> DvVmPage5VirtualOverrideCalledInTheDerivedConstructor(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmSelfRefreshingPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmSelfRefreshingPage(title: title, countCell: count);
+        })));
+
+    // S3403. The constructor of the base class calls a virtual method. The class that the block builds overrides it with no read, and a second class overrides it with a read. A control.
+    public static Cell<int> Ab133TheOverrideOfADifferentClassDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133Quiet(l.Map(v => v))); return S.Hold(0); });
+
+    // S3404. The constructor of the base class calls a virtual method, and the class that a primary constructor gives that base overrides it with a read.
+    public static Cell<int> Ab133OverrideReadsThroughAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133Loud(l.Map(v => v))); return S.Hold(0); });
+
+    // S3405. The constructor of the base class reads an abstract property, and the getter of the class that the block builds samples.
+    public static Cell<int> Ab133AbstractPropertyInTheBaseConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133SampledCaption(l.Map(v => v))); return S.Hold(0); });
+
+    // S3406. The constructor of the base class calls a method of the base class, which calls an abstract method. The class that the block builds implements it with a read.
+    public static Cell<int> Ab133AbstractMethodThroughAMethodOfTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133StartedLoud(l.Map(v => v))); return S.Hold(0); });
+
+    // S3407. A class with no constructor of its code calls the constructor of its base with no arguments. Its base constructor calls an abstract method, which samples the cell that the block gave a static field.
+    public static Cell<int> Ab133ImplicitConstructorCallsTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab133Shared = l.Map(v => v); Kept.Add(new Ab133ImplicitHook()); return S.Hold(0); });
+
+    // S3408. A constructor with no initializer calls the parameterless base constructor, which calls an abstract method that samples.
+    public static Cell<int> Ab133ConstructorWithNoInitializerCallsTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab133Shared2 = l.Map(v => v); Kept.Add(new Ab133ExplicitHook(1)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20262,6 +20334,149 @@ public static class Shapes
         public Stream<int> E { get; } = e;
 
         public Stream<int> F { get; } = f;
+    }
+
+    // Dive, real view-model code, fifth batch.
+    public abstract class DvVmDescribedBase : IDisposable
+    {
+        protected DvVmDescribedBase(IDvVmText title)
+        {
+            this.Title = title;
+            DvVmLog.Lines.Add(this.Describe());
+        }
+
+        public IDvVmText Title { get; }
+
+        protected abstract string Describe();
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmDescribedPage : DvVmDescribedBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmDescribedPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+
+        protected override string Describe() => "Page " + this.Title.Value;
+    }
+
+    public class DvVmRefreshingBase(in IDvVmText title) : IDisposable
+    {
+        public IDvVmText Title { get; } = title;
+
+        public virtual void Refresh() { }
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmRefreshingPage(in IDvVmText title, in Cell<int> countCell) : DvVmRefreshingBase(title)
+    {
+        internal readonly Cell<int> countCell = countCell;
+
+        public override void Refresh() => DvVmLog.Lines.Add(this.Title.Value);
+    }
+
+    public sealed class DvVmSelfRefreshingPage : DvVmRefreshingBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmSelfRefreshingPage(IDvVmText title, Cell<int> countCell)
+            : base(title)
+        {
+            this.countCell = countCell;
+            this.Refresh();
+        }
+
+        public override void Refresh() => DvVmLog.Lines.Add(this.Title.Value);
+    }
+
+    public abstract class Ab133Base
+    {
+        protected Ab133Base(Cell<int> share)
+        {
+            this.Share = share;
+            this.OnCreated();
+        }
+
+        public Cell<int> Share { get; }
+
+        protected virtual void OnCreated() { }
+    }
+
+    public sealed class Ab133Quiet(in Cell<int> share) : Ab133Base(share)
+    {
+        protected override void OnCreated() => Kept.Add(0);
+    }
+
+    public sealed class Ab133Loud(in Cell<int> share) : Ab133Base(share)
+    {
+        protected override void OnCreated() => Kept.Add(this.Share.Sample());
+    }
+
+    public abstract class Ab133Captioned
+    {
+        protected Ab133Captioned(Cell<int> share)
+        {
+            this.Share = share;
+            Kept.Add(this.Caption);
+        }
+
+        public Cell<int> Share { get; }
+
+        protected abstract int Caption { get; }
+    }
+
+    public sealed class Ab133SampledCaption(in Cell<int> share) : Ab133Captioned(share)
+    {
+        protected override int Caption => this.Share.Sample();
+    }
+
+    public abstract class Ab133Started
+    {
+        protected Ab133Started(Cell<int> share)
+        {
+            this.Share = share;
+            this.Start();
+        }
+
+        public Cell<int> Share { get; }
+
+        protected abstract void OnStarted();
+
+        private void Start() => this.OnStarted();
+    }
+
+    public sealed class Ab133StartedLoud(in Cell<int> share) : Ab133Started(share)
+    {
+        protected override void OnStarted() => Kept.Add(this.Share.Sample());
+    }
+
+    private static Cell<int> Ab133Shared = Plain;
+
+    private static Cell<int> Ab133Shared2 = Plain;
+
+    public abstract class Ab133Hooked
+    {
+        protected Ab133Hooked() => this.OnCreated();
+
+        protected abstract void OnCreated();
+    }
+
+    public sealed class Ab133ImplicitHook : Ab133Hooked
+    {
+        protected override void OnCreated() => Kept.Add(Ab133Shared.Sample());
+    }
+
+    public sealed class Ab133ExplicitHook : Ab133Hooked
+    {
+        public Ab133ExplicitHook(int number) => this.Number = number;
+
+        public int Number { get; }
+
+        protected override void OnCreated() => Kept.Add(Ab133Shared2.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
