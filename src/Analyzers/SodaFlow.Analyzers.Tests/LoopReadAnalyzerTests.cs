@@ -2229,7 +2229,26 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
             ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"],
             ["Ab122CodeInAPropertyOfAnUnseenObjectKeepsAnObject"] = ["SF1001"],
-            ["Ab122CodeInAPropertyOfAnElementWithNoLocal"] = ["SF1001"]
+            ["Ab122CodeInAPropertyOfAnElementWithNoLocal"] = ["SF1001"],
+            ["DvLinksForwardReferenceSwitchesItsOwnMember"] = ["SF1002"],
+            ["DvLinksForwardReferenceOfACellSwitched"] = ["SF1002"],
+            ["DvLinksForwardReferenceSwitchSOfItsOwnStream"] = ["SF1002"],
+            ["DvLinksForwardReferenceMembersSwitchEachOther"] = ["SF1006"],
+            ["DvLinksForwardReferenceWithCapturesSwitchesItsOwnMember"] = ["SF1002"],
+            ["DvLinksForwardReferenceLazyMemberReadsItself"] = ["SF1006"],
+            ["DvLinksForwardReferenceRunningTotalOfItsOwnStream"] = ["SF1002"],
+            ["DvVmTodoSelectionClosedWithItself"] = ["SF1006"],
+            ["DvVmCounterReadBackThroughTheForwardReference"] = ["SF1001"],
+            ["DvVmCounter2CountFieldIsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2CountFieldMapsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2CountFieldLiftsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2StepsFieldIsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2StepsFieldMergesItsReadBack"] = ["SF1002"],
+            ["DvVmPageCountFieldIsItsReadBackBaseClass"] = ["SF1002"],
+            ["DvVmCapturesCountFieldIsItsReadBack"] = ["SF1002"],
+            ["Ab127TodoSelectionSortedAndProjectedClosedWithItself"] = ["SF1006"],
+            ["Ab127TodoSelectionSortedNotProjectedClosedWithItself"] = ["SF1002"],
+            ["Ab127ForwardReferenceStreamsSwitchEachOther"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

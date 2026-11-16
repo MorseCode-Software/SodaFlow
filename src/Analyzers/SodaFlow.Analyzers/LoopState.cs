@@ -53,6 +53,8 @@ internal sealed class LoopState
 
     private readonly LoopState? content;
 
+    private readonly ImmutableArray<ISymbol> readBack;
+
     public LoopState(bool pending, bool linked, bool contentPending, bool contentLinked)
         : this(
             pending: pending,
@@ -90,10 +92,12 @@ internal sealed class LoopState
         ImmutableArray<QueryValue> queries,
         bool isContainer,
         ImmutableArray<MadeObject> objects,
-        ImmutableArray<MadeObject> held)
+        ImmutableArray<MadeObject> held,
+        ImmutableArray<ISymbol> readBack = default)
     {
         this.Objects = objects;
         this.Held = held;
+        this.readBack = readBack.IsDefault ? ImmutableArray<ISymbol>.Empty : readBack;
         this.Pending = pending;
         this.Linked = linked;
         this.Members = members;
@@ -153,6 +157,14 @@ internal sealed class LoopState
     public bool IsContainer { get; }
 
     /// <summary>
+    ///     The members of the object of a forward reference that this value
+    ///     reads back through the reference. These members give the value its
+    ///     links and its pending initial value. Only <see cref="Linked" /> and
+    ///     <see cref="Pending" /> give them a meaning.
+    /// </summary>
+    public ImmutableArray<ISymbol> ReadBack => this.readBack;
+
+    /// <summary>
     ///     The origin of the value, or of one part of it that has an origin. A
     ///     report about a read of a part of an argument uses it.
     /// </summary>
@@ -188,7 +200,8 @@ internal sealed class LoopState
                 queries: this.Queries,
                 isContainer: this.IsContainer,
                 objects: NoObjects,
-                held: NoObjects);
+                held: NoObjects,
+                readBack: this.readBack);
 
     /// <summary>
     ///     A number for what this state says. Two states that say the same have
@@ -221,7 +234,7 @@ internal sealed class LoopState
                     seed: shape,
                     func: static (sum, function) => sum + function.Declaration.SpanStart * 41);
 
-                return shape + this.Queries.Length * 43;
+                return shape + this.Queries.Length * 43 + this.readBack.Length * 47;
             }
         }
     }
@@ -289,7 +302,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: this.Objects,
-            held: Union(first: this.Held, second: more));
+            held: Union(first: this.Held, second: more),
+            readBack: this.readBack);
 
     /// <summary>The same state, for a value that is one of the given objects.</summary>
     public LoopState WithObjects(ImmutableArray<MadeObject> objects) =>
@@ -303,7 +317,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: objects,
-            held: this.Held);
+            held: this.Held,
+            readBack: this.readBack);
 
     /// <summary>
     ///     The state of a name of an object, with the state that the store has
@@ -332,7 +347,8 @@ internal sealed class LoopState
             queries: this.Queries.AddRange(stored.Queries.Where(query => !this.Queries.Contains(query))),
             isContainer: stored.Members != null ? stored.IsContainer : this.IsContainer,
             objects: this.Objects,
-            held: Union(first: this.Held, second: stored.Held));
+            held: Union(first: this.Held, second: stored.Held),
+            readBack: Union(first: this.readBack, second: stored.readBack));
 
     // A value can be one of two, where only one is an object of the store. The value can then be
     // an object that the store does not know. A pair from a dictionary is such an object.
@@ -370,6 +386,51 @@ internal sealed class LoopState
 
     // The length of an array of objects from which a set is faster than a search of the array.
     private const int SearchWithASetFrom = 16;
+
+    private static ImmutableArray<ISymbol> Union(ImmutableArray<ISymbol> first, ImmutableArray<ISymbol> second) =>
+        second.IsEmpty || first == second
+            ? first
+            : first.IsEmpty
+                ? second
+                : first.AddRange(
+                    second.Where(member => !first.Contains(value: member, comparer: SymbolEqualityComparer.Default)));
+
+    /// <summary>
+    ///     The state of a member of the object of a forward reference, which the
+    ///     code reads back through the reference. The close gives the member its
+    ///     value. Thus, the member itself gives the member its links and its
+    ///     initial value.
+    /// </summary>
+    public static LoopState ReadBackOf(ISymbol member) =>
+        new(
+            pending: true,
+            linked: true,
+            members: null,
+            content: null,
+            origin: null,
+            functions: ImmutableArray<FunctionValue>.Empty,
+            queries: ImmutableArray<QueryValue>.Empty,
+            isContainer: false,
+            objects: NoObjects,
+            held: NoObjects,
+            readBack: ImmutableArray.Create(member));
+
+    /// <summary>The same state, which also reads back the given members.</summary>
+    public LoopState ReadingBack(ImmutableArray<ISymbol> members) =>
+        members.IsEmpty || members == this.readBack
+            ? this
+            : new LoopState(
+                pending: this.Pending,
+                linked: this.Linked,
+                members: this.Members,
+                content: this.content,
+                origin: this.Origin,
+                functions: this.Functions,
+                queries: this.Queries,
+                isContainer: this.IsContainer,
+                objects: this.Objects,
+                held: this.Held,
+                readBack: Union(first: this.readBack, second: members));
 
     /// <summary>The state of a value that this expression holds.</summary>
     public LoopState Content => this.content ?? None;
@@ -411,7 +472,8 @@ internal sealed class LoopState
                 queries: ImmutableArray<QueryValue>.Empty,
                 isContainer: this.IsContainer,
                 objects: NoObjects,
-                held: NoObjects);
+                held: NoObjects,
+                readBack: this.readBack);
 
     /// <summary>True when the analyzer knows nothing about the expression.</summary>
     public bool IsNone =>
@@ -496,7 +558,8 @@ internal sealed class LoopState
             objects: Union(
                 first: Union(first: this.Objects, second: other.Objects),
                 second: AnUnknownObject(first: this, second: other)),
-            held: Union(first: this.Held, second: other.Held));
+            held: Union(first: this.Held, second: other.Held),
+            readBack: Union(first: this.readBack, second: other.readBack));
     }
 
     // A part of a pair that only one of two states knows gets the state of the other one also.
@@ -514,7 +577,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: this.Objects,
-            held: this.Held);
+            held: this.Held,
+            readBack: this.readBack);
 
     public LoopState WithLinked(bool linked) =>
         new(
@@ -527,7 +591,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: this.Objects,
-            held: this.Held);
+            held: this.Held,
+            readBack: this.readBack);
 
     public LoopState WithMembers(Construction? members) =>
         new(
@@ -540,7 +605,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: this.Objects,
-            held: this.Held);
+            held: this.Held,
+            readBack: this.readBack);
 
     /// <summary>The same state for a value that is also the given query.</summary>
     public LoopState WithQuery(QueryValue query) =>
@@ -556,7 +622,8 @@ internal sealed class LoopState
                 queries: this.Queries.Add(query),
                 isContainer: this.IsContainer,
                 objects: this.Objects,
-                held: this.Held);
+                held: this.Held,
+                readBack: this.readBack);
 
     /// <summary>A state that has only the queries of this one.</summary>
     public LoopState OnlyQueries =>
@@ -587,7 +654,8 @@ internal sealed class LoopState
             // A container holds the objects that the value is. An element is one of the objects
             // that its container holds.
             objects: isContainer ? NoObjects : this.Held,
-            held: isContainer ? Union(first: this.Objects, second: this.Held) : NoObjects);
+            held: isContainer ? Union(first: this.Objects, second: this.Held) : NoObjects,
+            readBack: this.readBack);
 
     public LoopState WithContent(LoopState content) =>
         new(
@@ -600,7 +668,8 @@ internal sealed class LoopState
             queries: this.Queries,
             isContainer: this.IsContainer,
             objects: this.Objects,
-            held: this.Held);
+            held: this.Held,
+            readBack: this.readBack);
 
     /// <summary>
     ///     The same state with each origin changed: the origin of the value, of
@@ -622,7 +691,8 @@ internal sealed class LoopState
                 queries: this.Queries,
                 isContainer: this.IsContainer,
                 objects: this.Objects,
-                held: this.Held);
+                held: this.Held,
+                readBack: this.readBack);
 
     /// <summary>
     ///     The same state, for a value that can be a second object where it can be
@@ -643,7 +713,8 @@ internal sealed class LoopState
                 queries: this.Queries,
                 isContainer: this.IsContainer,
                 objects: WithAlso(objects: this.Objects, second: second),
-                held: WithAlso(objects: this.Held, second: second));
+                held: WithAlso(objects: this.Held, second: second),
+                readBack: this.readBack);
 
     private static ImmutableArray<MadeObject> WithAlso(
         ImmutableArray<MadeObject> objects,

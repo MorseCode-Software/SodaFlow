@@ -52,6 +52,10 @@ internal sealed class LoopRegion(
     private int frames;
     private int objectFrames;
 
+    // The members of the object of a forward reference that the code samples at the end of the
+    // transaction, before a switch links to them.
+    private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
+
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
@@ -71,6 +75,18 @@ internal sealed class LoopRegion(
     public ISymbol Placeholder { get; } = placeholder;
 
     public LoopState PlaceholderState { get; } = placeholderState;
+
+    /// <summary>
+    ///     True for the block of a forward reference, whose placeholder holds the
+    ///     object that the block returns.
+    /// </summary>
+    public bool ReadsBack => !this.PlaceholderState.Content.ReadBack.IsEmpty;
+
+    /// <summary>
+    ///     Records the members of the object of a forward reference that the code
+    ///     samples at the end of the transaction.
+    /// </summary>
+    public void Forces(ImmutableArray<ISymbol> members) => this.forced.UnionWith(members);
 
     public string PlaceholderName => this.Placeholder.Name;
 
@@ -360,7 +376,7 @@ internal sealed class LoopRegion(
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool checkLinks)
+    public void Analyze(IEnumerable<ExpressionSyntax> closings)
     {
         LoopStateEvaluator evaluator = new(this);
 
@@ -373,16 +389,15 @@ internal sealed class LoopRegion(
             this.Report(unread.Diagnostic);
         }
 
-        if (!checkLinks)
-        {
-            return;
-        }
-
         foreach (ExpressionSyntax closing in closings)
         {
             LoopState state = evaluator.Eval(closing);
 
-            if (state.Linked)
+            if (this.ReadsBack)
+            {
+                this.CheckReadBack(closing: closing, state: state);
+            }
+            else if (state.Linked)
             {
                 this.Report(
                     Diagnostic.Create(
@@ -400,6 +415,81 @@ internal sealed class LoopRegion(
                         location: closing.GetLocation(),
                         this.PlaceholderName));
             }
+        }
+    }
+
+    /// <summary>
+    ///     Checks the value that closes a forward reference, and each of its
+    ///     members. The close gives each of them the value that the code reads
+    ///     back through the reference. A value that reads back itself gets its
+    ///     links or its initial value from itself.
+    /// </summary>
+    /// <remarks>
+    ///     A cycle through two members or more needs a switch for each. The first
+    ///     switch links to a value that has no link back yet, and then samples it.
+    ///     A sample that is pending forces itself before the second link. Thus,
+    ///     such a cycle is a link only when its values are not pending.
+    /// </remarks>
+    private void CheckReadBack(ExpressionSyntax closing, LoopState state)
+    {
+        Dictionary<ISymbol, LoopState> parts =
+            new(SymbolEqualityComparer.Default) { [this.PlaceholderState.Content.ReadBack[0]] = state };
+
+        foreach (KeyValuePair<ISymbol, LoopState> member in state.Members?.Members ?? [])
+        {
+            parts[member.Key] = member.Value;
+        }
+
+        foreach (KeyValuePair<ISymbol, LoopState> part in parts)
+        {
+            LoopState value = part.Value;
+
+            if (value is { Linked: false, Pending: false } || !ReachesItself(part.Key))
+            {
+                continue;
+            }
+
+            // A sample at the end of the transaction forces the value before the switch links to it.
+            bool linked =
+                value.ReadBack.Contains(value: part.Key, comparer: SymbolEqualityComparer.Default)
+                    ? value.Linked && !(value.Pending && this.forced.Contains(part.Key))
+                    : !value.Pending;
+
+            this.Report(
+                Diagnostic.Create(
+                    descriptor: linked ? Diagnostics.LinkedClose : Diagnostics.PendingClose,
+                    location: closing.GetLocation(),
+                    this.PlaceholderName));
+        }
+
+        bool ReachesItself(ISymbol start)
+        {
+            HashSet<ISymbol> seen = new(SymbolEqualityComparer.Default);
+            Stack<ISymbol> next = new([start]);
+
+            while (next.Count > 0)
+            {
+                if (!parts.TryGetValue(key: next.Pop(), value: out LoopState? from)
+                    || from is { Linked: false, Pending: false })
+                {
+                    continue;
+                }
+
+                foreach (ISymbol member in from.ReadBack)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(x: member, y: start))
+                    {
+                        return true;
+                    }
+
+                    if (seen.Add(member))
+                    {
+                        next.Push(member);
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }

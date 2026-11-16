@@ -14,19 +14,28 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.Serialization;
-using SodaFlow;
-using SodaFlow.Async;
-using SodaFlow.Collections;
-using SodaFlow.Analyzers.ShapesNoBody;
-using SodaFlow.Functional;
+using DvVmTodoEdit = SodaFlow.Collections.CollectionEdit<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
+using DvVmTodoOrder = SodaFlow.Collections.KeyOrder<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
+using DvVmTodos = SodaFlow.Collections.ReactiveCollection<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
 using IAb72Keeper = SodaFlow.Analyzers.ShapesNoBody.IKeeper<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot, SodaFlow.Analyzers.Shapes.Shapes.Ab72Box>;
 using IAg53Runner = SodaFlow.Analyzers.ShapesNoBody.IRunner;
+using IDvVmAction = SodaFlow.Bindable.ObjectModel.IBindableAction;
+using IDvVmFactory = SodaFlow.Bindable.ObjectModel.IBindableFactory;
+using IDvVmFlag = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<bool>;
+using IDvVmNumber = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int>;
+using IDvVmText = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string>;
 using IHolderFiller = SodaFlow.Analyzers.ShapesNoBody.IHolderFiller<SodaFlow.Analyzers.Shapes.Shapes.SlotListHolder>;
 using ISlotBag = SodaFlow.Analyzers.ShapesNoBody.IBag<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotFiller = SodaFlow.Analyzers.ShapesNoBody.IFiller<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotLine = SodaFlow.Analyzers.ShapesNoBody.ILine<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotMaker = SodaFlow.Analyzers.ShapesNoBody.IMaker<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotRow = SodaFlow.Analyzers.ShapesNoBody.IRow<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using SodaFlow;
+using SodaFlow.Analyzers.ShapesNoBody;
+using SodaFlow.Async;
+using SodaFlow.Collections;
+using SodaFlow.Functional;
+using SodaFlow.Time;
 
 namespace SodaFlow.Analyzers.Shapes;
 
@@ -14506,6 +14515,518 @@ public static class Shapes
     public static Cell<int> Ab122CodeInAPropertyOfAnElementWithNoLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab122NoLocal[0].Line.Put(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(Ab122NoLocal[0].Line.Last().Share!.Sample()); });
 
+    // S3308. A forward reference whose object has a member defined by a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceSwitchesItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(r.Map(b => b.A).SwitchC().Map(v => v + 1))).A;
+
+    // S3309. A forward reference whose object has a member that holds a snapshot of a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceSnapshotsItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(S.Snapshot(r.Map(b => b.A).SwitchC(), (a, v) => a + v).Hold(0))).A;
+
+    // S3310. A forward reference to a cell, closed with a map of a switch of the reference.
+    public static Cell<int> DvLinksForwardReferenceOfACellSwitched() =>
+        ForwardReference<Cell<int>>.WithoutCaptures(r => r.SwitchC().Map(v => v + 1));
+
+    // S3311. A forward reference whose object has a stream defined by a SwitchS of that same stream.
+    public static Cell<int> DvLinksForwardReferenceSwitchSOfItsOwnStream() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => new DvLinksEvents(r.Map(x => x.E).SwitchS().Map(v => v + 1).OrElse(S))).E.Hold(0);
+
+    // S3312. A forward reference whose object has two members, each a switch of the other.
+    public static Cell<int> DvLinksForwardReferenceMembersSwitchEachOther() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(r.Map(p => p.B).SwitchC().Map(v => v + 1), r.Map(p => p.A).SwitchC())).A;
+
+    // S3313. A forward reference whose object has a member that switches a second member, which is plain.
+    public static Cell<int> DvLinksForwardReferenceSwitchesAPlainMember() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(r.Map(p => p.B).SwitchC().Map(v => v + 1), Plain.Map(v => v))).A;
+
+    // S3314. A forward reference with captures whose object has a member defined by a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceWithCapturesSwitchesItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithCaptures(r => { DvLinksBox box = new(r.Map(b => b.A).SwitchC().Map(v => v + 1)); return (Value: box, Captures: 1); }).Value.A;
+
+    // S3315. A forward reference whose object has a member whose lazy initial value samples that same member.
+    public static Cell<int> DvLinksForwardReferenceLazyMemberReadsItself() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(Cell.ConstantLazy(r.SampleLazy().Map(b => b.A.Sample() + 1)))).A;
+
+    // S3316. A forward reference whose object has a member that holds a lazy sample of a second member, which is plain.
+    public static Cell<int> DvLinksForwardReferenceLazyMemberReadsAPlainMember() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(Cell.ConstantLazy(r.SampleLazy().Map(p => p.B.Sample() + 1)), Plain.Map(v => v))).A;
+
+    // S3317. A forward reference, as a view model writes one. A running total accumulates a switch of the stream of the object, and that stream is the updates of the total.
+    public static Cell<int> DvLinksForwardReferenceRunningTotalOfItsOwnStream() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => { Stream<int> back = r.Map(static x => x.E).SwitchS(); Cell<int> total = back.Accum(initialState: 0, f: static (a, s) => a + s); return new DvLinksEvents(total.Updates().Map(static v => v + 1)); }).E.Hold(0);
+
+    // S3318. Control. The same view model, where the stream of the object is a snapshot of the total.
+    public static Cell<int> DvLinksForwardReferenceRunningTotalSnapshotted() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => { Stream<int> back = r.Map(static x => x.E).SwitchS(); Cell<int> total = back.Accum(initialState: 0, f: static (a, s) => a + s); return new DvLinksEvents(S.Snapshot(total, static (a, t) => a + t)); }).E.Hold(0);
+
+    // S3319. Real view model: a todo list built in one forward reference, with a filter, a sort by a looped cell, rows, and commands.
+    public static Cell<int> DvVmTodoCorrect() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: selectedLoop, key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: selectedLoop,
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: selectedLoop.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false)));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(selectedLoop.Map(static current => current.Match(onSome: static key => "#" + key, onNone: static () => "none")));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selected,
+                projection: rows);
+        })));
+
+    // S3320. Real view model: the selection that the object keeps is a function of the looped selection, so the switch selects a cycle. At run time, a lazy sample forces itself first.
+    public static Cell<int> DvVmTodoSelectionClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: selectedLoop, key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: selectedLoop,
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: selectedLoop.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false)));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(selectedLoop.Map(static current => current.Match(onSome: static key => "#" + key, onNone: static () => "none")));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3321. Real view model: the block reads a bindable of the object back through the forward reference.
+    public static Cell<int> DvVmCounterReadBackThroughTheForwardReference() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmCounterViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n)).Accum(initialState: 0, f: static (step, n) => n + step);
+            IDvVmText countText = R2ApiFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = R2ApiFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            string first = viewModelLoop.Map(static vm => vm.CountText.Value).Sample();
+            return new DvVmCounterViewModel(
+                count: R2ApiFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: R2ApiFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count);
+        })));
+
+    // S3322. Real view model: a counter whose Create takes the factory, and whose count and steps the object feeds back.
+    public static Cell<int> DvVmCounter2Correct(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3323. Real view model: the object keeps, as its count, the cell that the block reads back from that member. The switch selects a cycle.
+    public static Cell<int> DvVmCounter2CountFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: countLoop,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3324. Real view model: the object keeps, as its count, a clamp of the cell that the block reads back from that member.
+    public static Cell<int> DvVmCounter2CountFieldMapsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: countLoop.Map(static n => Math.Min(val1: n, val2: 10)),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3325. Real view model: the object keeps, as its count, a Lift of the fold and the cell that the block reads back from that member.
+    public static Cell<int> DvVmCounter2CountFieldLiftsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count.Lift(countLoop, static (a, b) => Math.Max(val1: a, val2: b)),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3326. Real view model: the object keeps, as its steps, the stream that the block reads back from that member.
+    public static Cell<int> DvVmCounter2StepsFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: stepsLoop,
+                extra: extra);
+        })));
+
+    // S3327. Real view model: the object keeps, as its steps, a merge with a filter of the stream that the block reads back from that member.
+    public static Cell<int> DvVmCounter2StepsFieldMergesItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps.OrElse(stepsLoop.Filter(static n => n > 5)),
+                extra: extra);
+        })));
+
+    // S3328. Real view model: a gate on the steps uses the count that the block reads back. Gate samples the cell, so there is no cycle.
+    public static Cell<int> DvVmCounter2StepsGatedByTheReadBackCount(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps.Gate(countLoop.Map(static n => n < 100)),
+                extra: extra);
+        })));
+
+    // S3329. Real view model: the object keeps, as its count, a fold of the steps that the block reads back. The fold holds, so there is no cycle.
+    public static Cell<int> DvVmCounter2CountFieldHoldsTheReadBackSteps(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3330. Real view model: the block reads back the firings of a command of the object, and holds a count of them.
+    public static Cell<int> DvVmCounter2FiringsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            Stream<Unit> clicksLoop = viewModelLoop.Map(static vm => vm.Increment.FiringsStream).SwitchS(); Cell<int> clicks = clicksLoop.Accum(initialState: 0, f: static (_, n) => n + 1); int none = clicks.Sample();
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3331. Real view model: a page with a base class whose constructor calls a virtual method that the page does not override.
+    public static Cell<int> DvVmPageBaseQuiet(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmQuietPage(title: title, countCell: count);
+        })));
+
+    // S3332. Real view model: the page keeps, as its count, the cell that the block reads back from that member.
+    public static Cell<int> DvVmPageCountFieldIsItsReadBackBaseClass(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmQuietPage(title: title, countCell: countLoop);
+        })));
+
+    // S3333. Real view model: a forward reference with captures keeps, as the count, the cell that the block reads back.
+    public static Cell<int> DvVmCapturesCountFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmPage>.WithCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return (Value: new DvVmPage(title: title, countCell: countLoop), Captures: extra);
+        })));
+
+    // S3334. A forward reference to a view model whose selection is a lift of its own read back. A projection to rows reads a view that sorts by that selection, and thus samples the selection at the end of the transaction. That sample forces itself before the switch links.
+    public static Cell<int> Ab127TodoSelectionSortedAndProjectedClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: Cell.Constant(Maybe<int>.None), key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: Cell.Constant(Maybe<int>.None),
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: Cell.Constant(true));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(Cell.Constant("none"));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3335. The same view model, where no projection reads the sorted view. The switch links to the selection first, and that link is a cycle.
+    public static Cell<int> Ab127TodoSelectionSortedNotProjectedClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                todos.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: Cell.Constant(Maybe<int>.None), key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: Cell.Constant(Maybe<int>.None),
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: Cell.Constant(true));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(Cell.Constant("none"));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3336. A forward reference whose object has two streams, each a switch of the other. A stream has no value to sample, thus the second switch makes the cycle.
+    public static Cell<int> Ab127ForwardReferenceStreamsSwitchEachOther() =>
+        ForwardReference<Ab127Streams>.WithoutCaptures(r => new Ab127Streams(r.Map(x => x.F).SwitchS().Map(v => v + 1), r.Map(x => x.E).SwitchS())).E.Hold(0);
+
+    // S3337. A forward reference whose object has a stream that merges a switch of a second stream, which is plain.
+    public static Cell<int> Ab127ForwardReferenceStreamMergesAPlainStream() =>
+        ForwardReference<Ab127Streams>.WithoutCaptures(r => new Ab127Streams(r.Map(x => x.F).SwitchS().OrElse(S), S.Map(v => v + 1))).E.Hold(0);
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18443,6 +18964,821 @@ public static class Shapes
 
     private static readonly Ab110LineHolder[] Ab122NoLocal = [new()];
 
+    // Dive, real view-model code. The types and helpers of the view models in the DvVm shapes.
+    private static Cell<int> DvVmBuilt(object built) => Plain;
+
+    private static readonly SodaFlow.Time.ITimerSystem<double> DvVmTimers =
+        new SodaFlow.Time.TimerSystem<double>(implementation: new DvVmManualClock(), handleException: static _ => { });
+
+    public sealed class DvVmManualClock : SodaFlow.Time.ITimerSystemImplementation<double>
+    {
+        public double Now => 0.0;
+
+        public void Start(Action<Exception> handleException) { }
+
+        public void Stop() { }
+
+        public SodaFlow.Time.ITimer SetTimer(double time, Action callback) => new DvVmNoTimer();
+
+        public void RunTimersTo(double now) { }
+    }
+
+    public sealed class DvVmNoTimer : SodaFlow.Time.ITimer
+    {
+        public void Cancel() { }
+
+        public void Dispose() { }
+    }
+
+    public sealed record DvVmTodoId(int Number, string Title) : IIdentity<int>
+    {
+        public int Key => this.Number;
+    }
+
+    public sealed record DvVmTodoState(bool Done, int Priority);
+
+    private static Item<DvVmTodoId, DvVmTodoState>[] DvVmTodoSeed() =>
+    [
+        new(identity: new DvVmTodoId(Number: 1, Title: "Milk"), state: new DvVmTodoState(Done: false, Priority: 2)),
+        new(identity: new DvVmTodoId(Number: 2, Title: "Bread"), state: new DvVmTodoState(Done: true, Priority: 1))
+    ];
+
+    private static DvVmTodoEdit DvVmClearAll(OrderedKeys<int, DvVmTodoId, DvVmTodoState> keys)
+    {
+        List<int> all = [];
+
+        for (int index = 0; index < keys.Count; index++)
+        {
+            all.Add(keys[index]);
+        }
+
+        return DvVmTodoEdit.Remove([.. all]);
+    }
+
+    private static DvVmTodoOrder DvVmPinned(Maybe<int> selected) =>
+        DvVmTodoOrder.By((id, _) => selected.Match(onSome: key => key == id.Number ? 0 : 1, onNone: static () => 1))
+            .ThenByIdentity(static id => id.Title);
+
+    public interface IDvVmTodoRow : IDisposable
+    {
+        IDvVmText Title { get; }
+
+        IDvVmFlag IsSelected { get; }
+
+        IDvVmAction Toggle { get; }
+
+        IDvVmAction Select { get; }
+
+        string Describe();
+    }
+
+    public sealed class DvVmTodoRow : IDvVmTodoRow
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoRow(
+            IDvVmText title,
+            IDvVmFlag isSelected,
+            IDvVmAction toggle,
+            IDvVmAction select,
+            Stream<DvVmTodoEdit> edits,
+            Stream<Maybe<int>> selects)
+        {
+            this.Title = title;
+            this.IsSelected = isSelected;
+            this.Toggle = toggle;
+            this.Select = select;
+            this.Edits = edits;
+            this.Selects = selects;
+            this.disposables = [title, isSelected, toggle, select];
+        }
+
+        public IDvVmText Title { get; }
+
+        public IDvVmFlag IsSelected { get; }
+
+        public IDvVmAction Toggle { get; }
+
+        public IDvVmAction Select { get; }
+
+        internal Stream<DvVmTodoEdit> Edits { get; }
+
+        internal Stream<Maybe<int>> Selects { get; }
+
+        public string Describe() => this.Title.Value + (this.IsSelected.Value ? " (selected)" : string.Empty);
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    private static DvVmTodoRow DvVmTodoRowOf(IDvVmFactory bindableFactory, DvVmTodos todos, Cell<Maybe<int>> selected, int key)
+    {
+        Cell<Maybe<DvVmTodoId>> identity = todos.IdentityCell(key);
+        Cell<Maybe<DvVmTodoState>> state = todos.StateCell(key);
+        StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
+        StreamSink<Unit> select = Stream.CreateSink<Unit>();
+        Cell<bool> isSelected = selected.Map(current => current.Match(onSome: k => k == key, onNone: static () => false));
+
+        return new DvVmTodoRow(
+            title: bindableFactory.CreateOneWay(
+                identity.Map(static current => current.Match(onSome: static id => id.Title, onNone: static () => string.Empty))),
+            isSelected: bindableFactory.CreateOneWay(isSelected),
+            toggle: bindableFactory.CreateBindableAction(
+                firingsStreamSink: toggle,
+                isEnabledCell: state.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false))),
+            select: bindableFactory.CreateBindableAction(firingsStreamSink: select, isEnabledCell: isSelected.Map(static s => !s)),
+            edits: DvVmTodoEdit.FromUpdates(
+                key: key,
+                transformsStream: toggle.MapTo(static (DvVmTodoState s) => s with { Done = !s.Done })),
+            selects: select.MapTo(Maybe.Some(key)));
+    }
+
+    // The same row, which reads the selection when it is built, for its first caption.
+    private static DvVmTodoRow DvVmTodoRowThatReads(IDvVmFactory bindableFactory, DvVmTodos todos, Cell<Maybe<int>> selected, int key)
+    {
+        bool selectedAtStart = selected.Sample().Match(onSome: k => k == key, onNone: static () => false);
+        StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
+        StreamSink<Unit> select = Stream.CreateSink<Unit>();
+
+        return new DvVmTodoRow(
+            title: bindableFactory.CreateOneWay(
+                todos.IdentityCell(key).Map(current => current.Match(onSome: id => id.Title + (selectedAtStart ? "*" : ""), onNone: static () => string.Empty))),
+            isSelected: bindableFactory.CreateOneWay(selected.Map(current => current.Match(onSome: k => k == key, onNone: static () => false))),
+            toggle: bindableFactory.CreateBindableAction(toggle),
+            select: bindableFactory.CreateBindableAction(select),
+            edits: DvVmTodoEdit.FromUpdates(
+                key: key,
+                transformsStream: toggle.MapTo(static (DvVmTodoState s) => s with { Done = !s.Done })),
+            selects: select.MapTo(Maybe.Some(key)));
+    }
+
+    private static string DvVmCaptionOf(IDvVmText text) => "Selected: " + text.Value;
+
+    public static class DvVmLog
+    {
+        public static List<string> Lines { get; } = [];
+
+        public static void Write(string name, IDvVmAction action) => Lines.Add(name + (action.CanExecute(null) ? " on" : " off"));
+    }
+
+    public interface IDvVmTodoViewModel : IDisposable
+    {
+        SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        IDvVmNumber Remaining { get; }
+
+        IDvVmText SelectedText { get; }
+
+        IDvVmAction ClearAll { get; }
+
+        IDvVmAction RemoveSelected { get; }
+
+        SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+    }
+
+    public sealed class DvVmTodoViewModel : IDvVmTodoViewModel
+    {
+        internal readonly Stream<DvVmTodoEdit> edits;
+        internal readonly Cell<Maybe<int>> selected;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoViewModel(
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> rows,
+            IDvVmNumber remaining,
+            IDvVmText selectedText,
+            IDvVmAction clearAll,
+            IDvVmAction removeSelected,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> showDone,
+            Stream<DvVmTodoEdit> edits,
+            Cell<Maybe<int>> selected,
+            IDisposable projection)
+        {
+            this.Rows = rows;
+            this.Remaining = remaining;
+            this.SelectedText = selectedText;
+            this.ClearAll = clearAll;
+            this.RemoveSelected = removeSelected;
+            this.ShowDone = showDone;
+            this.edits = edits;
+            this.selected = selected;
+            this.disposables = [rows, remaining, selectedText, clearAll, removeSelected, showDone, projection];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        public IDvVmNumber Remaining { get; }
+
+        public IDvVmText SelectedText { get; }
+
+        public IDvVmAction ClearAll { get; }
+
+        public IDvVmAction RemoveSelected { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // The same view model, with a constructor that reads the caption of the selection for a log.
+    public sealed class DvVmTodoViewModelThatLogs : IDvVmTodoViewModel
+    {
+        internal readonly Stream<DvVmTodoEdit> edits;
+        internal readonly Cell<Maybe<int>> selected;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoViewModelThatLogs(
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> rows,
+            IDvVmNumber remaining,
+            IDvVmText selectedText,
+            IDvVmAction clearAll,
+            IDvVmAction removeSelected,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> showDone,
+            Stream<DvVmTodoEdit> edits,
+            Cell<Maybe<int>> selected,
+            IDisposable projection)
+        {
+            this.Rows = rows;
+            this.Remaining = remaining;
+            this.SelectedText = selectedText;
+            this.ClearAll = clearAll;
+            this.RemoveSelected = removeSelected;
+            this.ShowDone = showDone;
+            this.edits = edits;
+            this.selected = selected;
+            this.disposables = [rows, remaining, selectedText, clearAll, removeSelected, showDone, projection];
+            this.LogState();
+        }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        public IDvVmNumber Remaining { get; }
+
+        public IDvVmText SelectedText { get; }
+
+        public IDvVmAction ClearAll { get; }
+
+        public IDvVmAction RemoveSelected { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+
+        private void LogState() => DvVmLog.Lines.Add("Remove is " + (this.RemoveSelected.CanExecute(null) ? "on" : "off"));
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A form.
+    public sealed record DvVmForm(string Name, string Email);
+
+    public sealed record DvVmSaveResult(bool Ok);
+
+    private static ImmutableList<string> DvVmValidate(DvVmForm form) =>
+        form.Name.Length == 0 ? ImmutableList.Create("A name is necessary.") : ImmutableList<string>.Empty;
+
+    public sealed class DvVmFormViewModel : IDisposable
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmFormViewModel(
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> name,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> email,
+            IDvVmText errors,
+            IDvVmAction save,
+            IDisposable status)
+        {
+            this.Name = name;
+            this.Email = email;
+            this.Errors = errors;
+            this.Save = save;
+            this.disposables = [name, email, errors, save, status];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Name { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Email { get; }
+
+        public IDvVmText Errors { get; }
+
+        public IDvVmAction Save { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // An editor with undo.
+    public sealed record DvVmHistory(ImmutableStack<string> Past, string Present, ImmutableStack<string> Future)
+    {
+        public static DvVmHistory Start { get; } = new(Past: ImmutableStack<string>.Empty, Present: string.Empty, Future: ImmutableStack<string>.Empty);
+
+        public bool CanUndo => !this.Past.IsEmpty;
+
+        public bool CanRedo => !this.Future.IsEmpty;
+
+        public DvVmHistory Push(string text) => new(Past: this.Past.Push(this.Present), Present: text, Future: ImmutableStack<string>.Empty);
+
+        public DvVmHistory Undo() => new(Past: this.Past.Pop(), Present: this.Past.Peek(), Future: this.Future.Push(this.Present));
+
+        public DvVmHistory Redo() => new(Past: this.Past.Push(this.Present), Present: this.Future.Peek(), Future: this.Future.Pop());
+
+        public DvVmHistory Trimmed() => this;
+    }
+
+    public sealed class DvVmEditorViewModel : IDisposable
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmEditorViewModel(IDvVmText text, IDvVmAction undo, IDvVmAction redo, SodaFlow.Bindable.ObjectModel.IBindableAction<string> commit)
+        {
+            this.Text = text;
+            this.Undo = undo;
+            this.Redo = redo;
+            this.Commit = commit;
+            this.disposables = [text, undo, redo, commit];
+        }
+
+        public IDvVmText Text { get; }
+
+        public IDvVmAction Undo { get; }
+
+        public IDvVmAction Redo { get; }
+
+        public SodaFlow.Bindable.ObjectModel.IBindableAction<string> Commit { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A message that hides after a time.
+    public sealed class DvVmToastViewModel(in IDvVmText message, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmText Message { get; } = message;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public void Dispose()
+        {
+            this.Message.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    // A search with a retry.
+    private static readonly IReadOnlyList<string> DvVmNoResults = [];
+
+    private static IReadOnlyList<string> DvVmFind(string query, int limit) => [query, limit.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+
+    public sealed class DvVmSearchViewModel : IDisposable
+    {
+        internal readonly Stream<string> retries;
+        internal readonly Cell<int> pageSize;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmSearchViewModel(
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> query,
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<string>> results,
+            IDvVmFlag isBusy,
+            IDvVmAction retry,
+            Stream<string> retries,
+            Cell<int> pageSize,
+            IDisposable status)
+        {
+            this.Query = query;
+            this.Results = results;
+            this.IsBusy = isBusy;
+            this.Retry = retry;
+            this.retries = retries;
+            this.pageSize = pageSize;
+            this.disposables = [query, results, isBusy, retry, status];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Query { get; }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<string>> Results { get; }
+
+        public IDvVmFlag IsBusy { get; }
+
+        public IDvVmAction Retry { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Tabs, built in a loop of the block.
+    private static readonly string[] DvVmTabNames = ["Home", "Files", "Settings"];
+
+    public sealed class DvVmTab : IDisposable
+    {
+        private DvVmTab(IDvVmText name, IDvVmFlag isSelected, IDvVmAction select, Stream<string> selects)
+        {
+            this.Name = name;
+            this.IsSelected = isSelected;
+            this.Select = select;
+            this.Selects = selects;
+        }
+
+        public IDvVmText Name { get; }
+
+        public IDvVmFlag IsSelected { get; }
+
+        public IDvVmAction Select { get; }
+
+        internal Stream<string> Selects { get; }
+
+        public bool IsCurrent() => this.IsSelected.Value;
+
+        public static DvVmTab Create(IDvVmFactory bindableFactory, string name, Cell<string> selected)
+        {
+            StreamSink<Unit> select = Stream.CreateSink<Unit>();
+            Cell<bool> isSelected = selected.Map(current => current == name);
+
+            return new DvVmTab(
+                name: bindableFactory.CreateOneWay(Cell.Constant(name)),
+                isSelected: bindableFactory.CreateOneWay(isSelected),
+                select: bindableFactory.CreateBindableAction(firingsStreamSink: select, isEnabledCell: isSelected.Map(static s => !s)),
+                selects: select.MapTo(name));
+        }
+
+        // The same factory, which reads the selection to log the first state of the tab.
+        public static DvVmTab CreateAndLog(IDvVmFactory bindableFactory, string name, Cell<string> selected)
+        {
+            DvVmTab tab = Create(bindableFactory: bindableFactory, name: name, selected: selected);
+            DvVmLog.Lines.Add(name + (tab.IsCurrent() ? " is open" : " is closed"));
+
+            return tab;
+        }
+
+        public void Dispose()
+        {
+            this.Name.Dispose();
+            this.IsSelected.Dispose();
+            this.Select.Dispose();
+        }
+    }
+
+    public static class DvVmTabs
+    {
+        public static void OpenFirst(IReadOnlyList<DvVmTab> tabs) => tabs[0].Select.Execute(null);
+
+        public static int CountOpen(IEnumerable<DvVmTab> tabs) => tabs.Count(static tab => tab.IsSelected.Value);
+    }
+
+    public sealed class DvVmTabsViewModel : IDisposable
+    {
+        internal readonly Cell<string> selected;
+        private readonly List<IDisposable> disposables;
+
+        internal DvVmTabsViewModel(IReadOnlyList<DvVmTab> tabs, Cell<string> selected, IDvVmText title)
+        {
+            this.Tabs = tabs;
+            this.selected = selected;
+            this.Title = title;
+            this.disposables = [.. tabs, title];
+        }
+
+        public IReadOnlyList<DvVmTab> Tabs { get; }
+
+        public IDvVmText Title { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A counter whose constructor reads what it gets.
+    public sealed class DvVmCounterViewModel : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmCounterViewModel(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.disposables = [count, countText, increment, reset];
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    public sealed class DvVmCounterViewModelThatReads : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        private readonly IReadOnlyList<IDisposable> disposables;
+        private readonly string firstText;
+
+        internal DvVmCounterViewModelThatReads(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.disposables = [count, countText, increment, reset];
+            this.firstText = this.CountText.Value;
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public string FirstText => this.firstText;
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Dive, real view-model code, second batch.
+    public sealed record DvVmRowCommands(IDvVmAction Open, IDvVmAction Delete);
+
+    private static DvVmRowCommands DvVmCommandsFor(IDvVmFactory bindableFactory, Cell<bool> canEdit) =>
+        new(
+            Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: canEdit),
+            Delete: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: canEdit.Map(static c => c)));
+
+    private static IDvVmAction DvVmActionFor(IDvVmFactory bindableFactory, StreamSink<Unit> sink, Cell<bool> isEnabled) =>
+        bindableFactory.CreateBindableAction(firingsStreamSink: sink, isEnabledCell: isEnabled);
+
+    private static T DvVmTrack<T>(List<IDisposable> disposables, T item)
+        where T : IDisposable
+    {
+        disposables.Add(item);
+
+        return item;
+    }
+
+    public sealed class DvVmBadge(in IDvVmNumber count, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmNumber Count { get; } = count;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public bool IsShown => this.IsVisible.Value;
+
+        public void Dispose()
+        {
+            this.Count.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    public sealed class DvVmBadgeThatReads(in IDvVmNumber count, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmNumber Count { get; } = count;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public bool StartsVisible { get; } = isVisible.Value;
+
+        public void Dispose()
+        {
+            this.Count.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    public sealed class DvVmDetailViewModel : IDisposable
+    {
+        internal readonly Cell<int> revision;
+
+        internal DvVmDetailViewModel(IDvVmText title, IDvVmAction save, Cell<int> revision)
+        {
+            this.Title = title;
+            this.Save = save;
+            this.revision = revision;
+        }
+
+        public IDvVmText Title { get; }
+
+        public IDvVmAction Save { get; }
+
+        public void Dispose()
+        {
+            this.Title.Dispose();
+            this.Save.Dispose();
+        }
+    }
+
+    private static DvVmDetailViewModel DvVmDetailCreate(IDvVmFactory bindableFactory, Cell<int> selected) =>
+        Transaction.Run(() =>
+            ForwardReference<DvVmDetailViewModel>.WithoutCaptures(detailLoop =>
+            {
+                Cell<int> revisionLoop = detailLoop.Map(static detail => detail.revision).SwitchC();
+                StreamSink<Unit> save = Stream.CreateSink<Unit>();
+                Cell<int> revision = save.Snapshot(revisionLoop, static (_, r) => r + 1).Hold(0);
+
+                return new DvVmDetailViewModel(
+                    title: bindableFactory.CreateOneWay(selected.Lift(revisionLoop, static (s, r) => "#" + s + " v" + r)),
+                    save: bindableFactory.CreateBindableAction(firingsStreamSink: save, isEnabledCell: selected.Map(static s => s > 0)),
+                    revision: revision);
+            }));
+
+    // The same factory, which reads the selection that it gets in its own block, for a log.
+    private static DvVmDetailViewModel DvVmDetailCreateThatReads(IDvVmFactory bindableFactory, Cell<int> selected) =>
+        Transaction.Run(() =>
+            ForwardReference<DvVmDetailViewModel>.WithoutCaptures(detailLoop =>
+            {
+                Cell<int> revisionLoop = detailLoop.Map(static detail => detail.revision).SwitchC();
+                StreamSink<Unit> save = Stream.CreateSink<Unit>();
+                Cell<int> revision = save.Snapshot(revisionLoop, static (_, r) => r + 1).Hold(0);
+                DvVmLog.Lines.Add("detail of " + selected.Sample());
+
+                return new DvVmDetailViewModel(
+                    title: bindableFactory.CreateOneWay(selected.Lift(revisionLoop, static (s, r) => "#" + s + " v" + r)),
+                    save: bindableFactory.CreateBindableAction(firingsStreamSink: save, isEnabledCell: selected.Map(static s => s > 0)),
+                    revision: revision);
+            }));
+
+    private static async Task DvVmLoadAsync(Cell<int> selected, List<string> log)
+    {
+        log.Add("loading " + selected.Sample());
+        await Task.Delay(1);
+    }
+
+    private static async Task DvVmLoadLaterAsync(Cell<int> selected, List<string> log)
+    {
+        await Task.Delay(1);
+        log.Add("loaded " + selected.Sample());
+    }
+
+    public sealed class DvVmCounterViewModel2 : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        internal readonly Stream<int> steps;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmCounterViewModel2(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell, Stream<int> steps, IReadOnlyList<IDisposable> extra)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.steps = steps;
+            this.disposables = [count, countText, increment, reset, .. extra];
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Dive, real view-model code, fourth batch.
+    public abstract class DvVmViewModelBase : IDisposable
+    {
+        protected DvVmViewModelBase(IDvVmText title)
+        {
+            this.Title = title;
+            this.OnCreated();
+        }
+
+        public IDvVmText Title { get; }
+
+        protected virtual void OnCreated() { }
+
+        public virtual void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmQuietPage : DvVmViewModelBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmQuietPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+    }
+
+    public sealed class DvVmLoggingPage : DvVmViewModelBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmLoggingPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+
+        protected override void OnCreated() => DvVmLog.Lines.Add("Created " + this.Title.Value);
+    }
+
+    private static readonly Func<IDvVmText, string> DvVmCaptionFunction = static text => "Caption: " + text.Value;
+
+    public sealed class DvVmPage(in IDvVmText title, in Cell<int> countCell) : IDisposable
+    {
+        internal readonly Cell<int> countCell = countCell;
+
+        public IDvVmText Title { get; } = title;
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvLinksBox(Cell<int> a)
+    {
+        public Cell<int> A { get; } = a;
+    }
+
+    public sealed class DvLinksPair(Cell<int> a, Cell<int> b)
+    {
+        public Cell<int> A { get; } = a;
+
+        public Cell<int> B { get; } = b;
+    }
+
+    public sealed class DvLinksEvents(Stream<int> e)
+    {
+        public Stream<int> E { get; } = e;
+    }
+
+    private static (Cell<int> Cell, Cell<int> Captures) DvLinksMakePair(Cell<int> first, Cell<int> second) =>
+        (first, second);
+
+    public sealed class DvLinksDynamicReader
+    {
+        public int Read(Cell<int> c) => c.Sample();
+    }
+
+    public static class DvLinksReader
+    {
+        public static int Read(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ab127Streams(Stream<int> e, Stream<int> f)
+    {
+        public Stream<int> E { get; } = e;
+
+        public Stream<int> F { get; } = f;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -18451,6 +19787,8 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static string DvVmCaptionExtension(this SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string> text) => "Caption: " + text.Value;
+
     public static void Add(this Shapes.Ag72Bare bare, Cell<int> c) => bare.Put(c, c.Sample());
 
     public static Shapes.IAg59Keeper Ag59MakeBehindBeside<T>(this Shapes.SettableSlot slot)

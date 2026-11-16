@@ -3468,7 +3468,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     location: node.GetLocation(),
                     name,
                     this.region.PlaceholderName),
-                subject: name));
+                subject: name,
+                readBack: state.ReadBack));
     }
 
     private void Report(Followed? followed)

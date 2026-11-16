@@ -659,7 +659,8 @@ internal sealed partial class LoopStateEvaluator
                                     name,
                                     finding.Origin.Name,
                                     this.region.PlaceholderName),
-                            subject: finding.Subject));
+                            subject: finding.Subject,
+                            readBack: finding.ReadBack));
 
                     continue;
                 }
@@ -695,7 +696,8 @@ internal sealed partial class LoopStateEvaluator
                                 name,
                                 finding.Origin.Name,
                                 this.region.PlaceholderName),
-                        subject: finding.Subject));
+                        subject: finding.Subject,
+                        readBack: finding.ReadBack));
             }
 
             return changed.ToImmutable();

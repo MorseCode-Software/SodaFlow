@@ -116,10 +116,16 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         string looper = method.ContainingType.OriginalDefinition.Name;
 
         LoopState placeholderState =
-            looper == "StreamLooper" ? LoopState.StreamPlaceholder : LoopState.PendingPlaceholder;
+            looper switch
+            {
+                "StreamLooper" => LoopState.StreamPlaceholder,
+                "ForwardReference" => ForwardReferenceState(
+                    value: method.ContainingType.TypeArguments[0],
+                    symbols: symbols,
+                    compilation: model.Compilation.Assembly),
+                _ => LoopState.PendingPlaceholder
+            };
 
-        // A forward reference closes its loop with a constant cell, which has no links.
-        bool checkLinks = looper != "ForwardReference";
         bool withCaptures = method.Name is "WithCaptures" or "WithCapturesImpl";
 
         IEnumerable<ExpressionSyntax> closings =
@@ -136,7 +142,63 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 report: report,
                 cancellation: cancellation);
 
-        region.Analyze(closings: closings, checkLinks: checkLinks);
+        region.Analyze(closings);
+    }
+
+    /// <summary>
+    ///     The state of the placeholder of a forward reference. A constant cell
+    ///     closes the loop, thus the placeholder itself has no links after the
+    ///     close. The value that it holds is the object that the block returns.
+    ///     A member of that object has the value that the block gives it.
+    ///     Thus, a read back of the value or of a member has that value as the
+    ///     origin of its links.
+    /// </summary>
+    private static LoopState ForwardReferenceState(
+        ITypeSymbol value,
+        SodaFlowSymbols symbols,
+        IAssemblySymbol compilation)
+    {
+        ImmutableDictionary<ISymbol, LoopState>.Builder members =
+            ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
+        IEnumerable<ITypeSymbol> types =
+            value.TypeKind == TypeKind.Interface ? value.AllInterfaces.Prepend(value) : BaseTypes(value);
+
+        foreach (ISymbol member in types.SelectMany(static type => type.GetMembers()))
+        {
+            ITypeSymbol? type =
+                member switch
+                {
+                    IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false } field => field.Type,
+                    IPropertySymbol { IsStatic: false, IsIndexer: false } property => property.Type,
+                    _ => null
+                };
+
+            if (type != null && symbols.CanHoldState(type: type, compilation: compilation))
+            {
+                members[member.OriginalDefinition] = LoopState.ReadBackOf(member.OriginalDefinition);
+            }
+        }
+
+        // A value of the library is a node of the graph, which can have links. A different value has
+        // only its members.
+        LoopState itself =
+            value is INamedTypeSymbol library && symbols.IsSodaFlow(library)
+                ? LoopState.ReadBackOf(value)
+                : LoopState.None.ReadingBack(ImmutableArray.Create<ISymbol>(value));
+
+        return LoopState.PendingPlaceholder.WithContent(
+            members.Count > 0 && value is INamedTypeSymbol named
+                ? itself.WithMembers(Construction.Of(members: members.ToImmutable(), type: named.OriginalDefinition))
+                : itself);
+
+        static IEnumerable<ITypeSymbol> BaseTypes(ITypeSymbol type)
+        {
+            for (ITypeSymbol? each = type; each != null; each = each.BaseType)
+            {
+                yield return each;
+            }
+        }
     }
 
     /// <summary>

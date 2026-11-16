@@ -2494,8 +2494,11 @@ internal sealed partial class LoopStateEvaluator
         LoopState firstArgument = argumentStates.Count > 0 ? argumentStates[0] : LoopState.None;
         LoopState source = receiver != null ? receiverState : firstArgument;
 
+        OperatorRule rule =
+            OperatorTable.Rule(symbols: this.region.Symbols, method: method, receiverType: receiverType);
+
         LoopState state =
-            OperatorTable.Rule(symbols: this.region.Symbols, method: method, receiverType: receiverType) switch
+            rule switch
             {
                 // A function that is not written at the call is a lambda in a local, a local
                 // function, or a method. The evaluator follows it.
@@ -2683,6 +2686,19 @@ internal sealed partial class LoopStateEvaluator
                         .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))))
         {
             state = state.WithPending(true);
+        }
+
+        if (this.region.ReadsBack)
+        {
+            state = this.WithReadBack(
+                rule: rule,
+                state: state,
+                invocation: invocation,
+                method: method,
+                receiverState: receiverState,
+                receiverType: receiverType,
+                firstArgument: firstArgument,
+                inputs: inputs);
         }
 
         // The result of an operator came into this code as its inputs did.

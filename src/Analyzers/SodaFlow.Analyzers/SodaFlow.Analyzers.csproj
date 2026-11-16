@@ -58,6 +58,7 @@
         <Compile Include="LoopStateEvaluator.Platform.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
         <Compile Include="LoopStateEvaluator.Positions.cs"/>
+        <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
         <Compile Include="ObjectStore.cs"/>
