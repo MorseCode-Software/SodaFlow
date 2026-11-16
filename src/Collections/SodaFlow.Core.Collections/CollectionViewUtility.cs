@@ -758,9 +758,40 @@ internal static class CollectionViewUtility
                 onEvicted: onEvicted,
                 keyEqualityComparer: collection.Root.KeyEqualityComparer);
 
+        // The disposal sends here. This is not a sink, because a sink refuses a send in a callback,
+        // and a caller can dispose a projection in a listener.
+        Stream<UnitInternal> releases = new();
+
+        // One transaction, thus the first value and the first update use one version of the keys.
+        Cell<IReadOnlyList<TResult>> items =
+            TransactionInternal.RunImpl(() =>
+                releases.MapToImpl<IReadOnlyList<TResult>>([])
+                    .OrElseImpl(collection.KeysCell.UpdatesImpl.MapImpl(cache.ProjectUnlessReleased).FilterSomeInternal())
+                    .HoldLazyImpl(
+                        collection.KeysCell.SampleLazyMappedImpl(keys =>
+                            cache.ProjectUnlessReleased(keys)
+                                .Match(
+                                    onSome: static projected => projected,
+                                    onNone: static () => []))));
+
+        // The release runs at the call and not in the graph. Thus, the eviction callback runs where the
+        // caller runs, as before. The transaction stops a change of the keys on a different thread
+        // during the release. The send then makes the items empty in that transaction, and the release
+        // wins over a change of the keys in it.
         return new MappedItems<TResult>(
-            items: collection.KeysCell.MapImpl(cache.Project),
-            dispose: cache.ReleaseAll);
+            items: items,
+            dispose: () =>
+                TransactionInternal.Apply(
+                    code: static (trans, _, state) =>
+                    {
+                        if (state.Cache.Release())
+                        {
+                            state.Releases.Send(trans: trans, a: UnitInternal.Value);
+                        }
+
+                        return UnitInternal.Value;
+                    },
+                    state: (Cache: cache, Releases: releases)));
     }
 
     #endregion
