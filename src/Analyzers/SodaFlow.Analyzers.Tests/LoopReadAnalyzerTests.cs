@@ -2092,7 +2092,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut"] = ["SF1001"],
             ["Ab86CodeInAFieldGivesBackASequence"] = ["SF1001"],
             ["Ag67TheFirstElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"],
-            ["Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"]
+            ["Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"],
+            ["Ag71APlainWriteThroughANameWithRefAfterTheElementGotADifferentObject"] = ["SF1001"],
+            ["Ag71APlainWriteThroughARefResultAfterTheElementGotADifferentObject"] = ["SF1001"],
+            ["Ag71AHelperGivesAPendingCellToAnObjectFromCodeWithNoBodyBetween"] = ["SF1001"],
+            ["Ag71APutThroughTwoIndexesIntoTheLocationOfAParameter"] = ["SF1001"],
+            ["Ag71DictionaryAddOfATupleKey"] = ["SF1005"],
+            ["Ag71AFilterKeepsAContentThatIsOnlyLinked"] = ["SF1002"],
+            ["Ag71TruthOperatorInAForCondition"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2672,6 +2679,75 @@ internal sealed class LoopReadAnalyzerTests
         // pending. The third method reads the looped cell itself.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
+    }
+
+    /// <summary>
+    ///     Only <c>First</c> of <c>System.Linq.Enumerable</c> gives the first
+    ///     position. A class with the name <c>Enumerable</c> in a different
+    ///     namespace can give a different element. The shapes file cannot declare
+    ///     such a class, because its own uses of <c>Enumerable</c> then name that
+    ///     class. The first method has a literal, and the second one reads the
+    ///     positions of the store through a second local.
+    /// </summary>
+    [Test]
+    public async Task FirstOfAnEnumerableOutsideSystemLinqGivesNoPosition()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using Other;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> FirstOfALiteral() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+
+                        return S.Hold(cs.First().Sample());
+                    });
+
+                public static Cell<int> FirstThroughASecondLocal() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+                        List<Cell<int>> same = cs;
+
+                        return S.Hold(same.First().Sample());
+                    });
+            }
+
+            namespace Other
+            {
+                public static class Enumerable
+                {
+                    public static T First<T>(this List<T> all) => all[all.Count - 1];
+                }
+            }
+            """;
+
+        CSharpCompilation compilation =
+            AnalyzerHarness.Compile(source: source, libraries: ShapeLibraries, assemblyName: "OnlyAnEnumerable");
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(analyzer: new LoopReadAnalyzer(), compilation: compilation);
+
+        // First gives the last element, which is the pending cell.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1001", "SF1001"]);
+
+        Type only =
+            AnalyzerHarness.Load(compilation: compilation, images: []).GetType("Only")
+            ?? throw new InvalidOperationException("The source has no class with the name Only.");
+
+        await Assert.That(
+                only.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                    .Select(static method => Run(method).Outcome))
+            .IsEquivalentTo([Outcome.ReadsEarly, Outcome.ReadsEarly]);
     }
 
     /// <summary>

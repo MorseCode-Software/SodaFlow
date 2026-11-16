@@ -38,6 +38,8 @@ public static class NoBody
 
     public static IRunner Runner() => new Runner();
 
+    public static IEcho Echo() => new Echo();
+
     public static IKeeper<T, TBox> Keeper<T, TBox>(string list)
         where T : new()
         where TBox : class =>
@@ -110,6 +112,12 @@ public interface IRunner
     void Keep(Action change);
 
     void Run();
+}
+
+// An object that is no sequence, with a method that gives back its value as object.
+public interface IEcho
+{
+    object Back(object value);
 }
 
 public interface IKeeper<T, TBox>
@@ -213,6 +221,11 @@ internal sealed class Runner : IRunner
     public void Keep(Action change) => this.kept = change;
 
     public void Run() => this.kept();
+}
+
+internal sealed class Echo : IEcho
+{
+    public object Back(object value) => value;
 }
 
 internal sealed class Keeper<T, TBox>(string list) : IKeeper<T, TBox>

@@ -13610,6 +13610,54 @@ public static class Shapes
     public static Cell<int> Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); return S.Hold(list[1].Share!.Sample()); });
 
+    // S3084. AG71. A plain write through a name with ref, after the index got a new value and the element got a different object. The first object keeps its pending cell.
+    public static Cell<int> Ag71APlainWriteThroughANameWithRefAfterTheElementGotADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = Plain }; SettableSlot[] slots = [a]; int i = 0; ref SettableSlot r = ref slots[i]; i = 1; slots[0] = b; r.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3085. AG71. The same, where the name with ref is the result of a method that returns a ref to the first element.
+    public static Cell<int> Ag71APlainWriteThroughARefResultAfterTheElementGotADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = Plain }; SettableSlot[] slots = [a]; ref SettableSlot r = ref Ag71FirstOf(slots); slots[0] = b; r.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3086. AG71. Between the two writes, a helper gives a pending cell to an object from code with no body. At run time, that object is the other object. The helper changes no object of the store.
+    public static Cell<int> Ag71AHelperGivesAPendingCellToAnObjectFromCodeWithNoBodyBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new SettableSlot { Share = Plain }; SettableSlot y = new SettableSlot { Share = Plain }; SettableSlot z = (SettableSlot)NoBody.Echo().Back(y); SettableSlot c = Never ? y : x; c.Share = l.Map(v => v); Ag51Set(z, l.Map(v => v)); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3087. AG71. The method gives its parameter with ref a new object. Then, it puts an object into the location of the argument through an indexer with two indexes. Then, it gives a pending cell through the parameter.
+    public static Cell<int> Ag71APutThroughTwoIndexesIntoTheLocationOfAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = [new SettableSlot { Share = Plain }]; Ag71Grid grid = new(slots); Ag71AssignThenPutThenGive(ref slots[0], grid, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3088. AG71. A method of an object that is no sequence gives back the list that it got, as object. The text of the list reads no element.
+    public static Cell<int> Ag71AMethodOfAnObjectGivesBackAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new Titled(l.Map(v => v))]; object back = NoBody.Echo().Back(all); Kept.Add(back.ToString()!); return S.Hold(0); });
+
+    // S3089. AG71. A dictionary calls GetHashCode of a key that is a tuple, and the tuple calls GetHashCode of its first element.
+    public static Cell<int> Ag71DictionaryAddOfATupleKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<(Hashed, int), int> d = new(); d.Add((new Hashed(l.Map(v => v)), 1), 1); return S.Hold(d.Count); });
+
+    // S3090. AG71. A filter keeps the content of a stream of cells. The loop links the content, which is not pending. The switch of its hold closes the loop.
+    public static Cell<int> Ag71AFilterKeepsAContentThatIsOnlyLinked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); sink.Send(l.Updates().Hold(0)); return sink.Filter(_ => true).Hold(Plain).SwitchC(); });
+
+    // S3091. AG71. A write through a name of one class does not go to an object of a second class. The one class does not derive from the other. The object from the platform keeps its plain cell.
+    public static Cell<int> Ag71AWriteThroughANameOfAClassWithNoRelation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag71First a = Activator.CreateInstance<Ag71First>(); a.Share = Plain; object o = Never ? a : new Ag71Second(); Ag71Second b = (Ag71Second)o; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3092. AG71. ForEach runs its lambda for each element. Each run makes its own object, puts it into a list, and gives it a plain cell.
+    public static Cell<int> Ag71EachRunOfForEachMakesItsOwnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> xs = [1, 2]; List<SettableSlot> made = []; xs.ForEach(x => { SettableSlot s = new SettableSlot { Share = l.Map(v => v) }; made.Add(s); s.Share = Plain; }); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3093. AG71. A conditional with no type of its own gives object. Its second result is an int in parentheses, which has a type and is no object of the store. Thus, the local is the one object.
+    public static Cell<int> Ag71AnIntInParenthesesIsNoObjectOfTheStore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new SettableSlot { Share = l.Map(v => v) }; object o = !Never ? x : (5); SettableSlot s = (SettableSlot)o; s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3094. AG71. A sorted set calls CompareTo, and not Dispose, which is a member of a different interface of System.
+    public static Cell<int> Ag71ASortedSetDoesNotCallDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ag71RankedAndDisposable> set = [new(Plain)]; set.Add(new(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S3095. AG71. The condition of a for statement calls the true operator of the type.
+    public static Cell<int> Ag71TruthOperatorInAForCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int n = 0; for (; t; ) { n++; break; } return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16962,6 +17010,38 @@ public static class Shapes
     }
 
     private static readonly ISlotLine Ab86Line = NewSlotLine();
+
+    private static ref SettableSlot Ag71FirstOf(SettableSlot[] all) => ref all[0];
+
+    private static void Ag71AssignThenPutThenGive(ref SettableSlot slot, Ag71Grid grid, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        grid[0, 0] = other;
+        slot.Share = cell;
+    }
+
+    // The indexer with two indexes gives a ref to an element of an array with one dimension.
+    public sealed class Ag71Grid(SettableSlot[] all)
+    {
+        public ref SettableSlot this[int row, int column] => ref all[row + column];
+    }
+
+    // Two classes with one base class. The one class does not derive from the other.
+    public abstract class Ag71Base
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag71First : Ag71Base;
+
+    public sealed class Ag71Second : Ag71Base;
+
+    public sealed class Ag71RankedAndDisposable(Cell<int> share) : IComparable<Ag71RankedAndDisposable>, IDisposable
+    {
+        public int CompareTo(Ag71RankedAndDisposable? other) => 0;
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
