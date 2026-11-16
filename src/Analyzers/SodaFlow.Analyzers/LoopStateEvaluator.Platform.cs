@@ -360,7 +360,8 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The calls that code of the platform makes when it enumerates a sequence
     ///     of this compilation. The first is <c>GetEnumerator</c>. The others are
-    ///     <c>MoveNext</c> and <c>Current</c> of an enumerator of this compilation.
+    ///     <c>MoveNext</c>, <c>Current</c>, and <c>Dispose</c> of an enumerator of
+    ///     this compilation.
     ///     The result has the state of the elements. It is null for a value that is
     ///     not such a sequence.
     /// </summary>
@@ -369,12 +370,24 @@ internal sealed partial class LoopStateEvaluator
     ///     enumerates the query, which can be after the block. The analyzer reads
     ///     the call as the time, as it does for a function that a query gets.
     /// </remarks>
-    public Followed? FollowEnumeration(ExpressionSyntax written)
+    /// <param name="written">The expression for the sequence.</param>
+    /// <param name="byThePattern">
+    ///     True for an enumeration that the compiler writes, as for a spread. The
+    ///     compiler calls a <c>GetEnumerator</c> method that it finds by its name,
+    ///     and the members of the enumerator by their names. The type then needs
+    ///     no interface.
+    /// </param>
+    public Followed? FollowEnumeration(ExpressionSyntax written, bool byThePattern = false)
     {
         if (!this.region.Symbols.DeclaresEnumerators
             || this.Self(written) is not { Members: { HasType: true } members } sequence)
         {
             return null;
+        }
+
+        if (byThePattern && PatternMemberOf(type: this.region.TypeOf(written), name: "GetEnumerator") is { } named)
+        {
+            return this.FollowEnumerationFrom(written: written, sequence: sequence, start: named, byThePattern: true);
         }
 
         // The method for the generic interface. The other one calls it. A value that is one of
@@ -392,10 +405,41 @@ internal sealed partial class LoopStateEvaluator
                 func: (all, start) =>
                     Both(
                         first: all,
-                        second: this.FollowEnumerationFrom(written: written, sequence: sequence, start: start)));
+                        second: this.FollowEnumerationFrom(
+                            written: written,
+                            sequence: sequence,
+                            start: start,
+                            byThePattern: byThePattern)));
     }
 
-    private Followed? FollowEnumerationFrom(SyntaxNode written, LoopState sequence, IMethodSymbol start)
+    // The public instance method with no parameter that a type or a base type declares with the
+    // given name. The compiler takes GetEnumerator and MoveNext by this pattern.
+    private static IMethodSymbol? PatternMemberOf(ITypeSymbol? type, string name)
+    {
+        for (ITypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static method =>
+                        method is
+                        {
+                            IsStatic: false,
+                            Parameters.IsEmpty: true,
+                            DeclaredAccessibility: Accessibility.Public
+                        }) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private Followed? FollowEnumerationFrom(
+        SyntaxNode written,
+        LoopState sequence,
+        IMethodSymbol start,
+        bool byThePattern)
     {
         if (this.FollowImplied(call: written, member: start, owner: sequence, arguments: []) is not { } enumerator)
         {
@@ -413,7 +457,22 @@ internal sealed partial class LoopStateEvaluator
         Followed? all = enumerator;
         LoopState elements = LoopState.None;
 
-        foreach (IMethodSymbol member in made.Implementations(SodaFlowSymbols.IsEnumeratorInterface))
+        IEnumerable<IMethodSymbol> steps = made.Implementations(SodaFlowSymbols.IsEnumeratorInterface);
+
+        // An enumerator that the compiler reads by the pattern has MoveNext and Current by their
+        // names, with no interface.
+        if (byThePattern)
+        {
+            IMethodSymbol?[] named =
+            [
+                PatternMemberOf(type: start.ReturnType, name: "MoveNext"),
+                PatternMemberOf(type: start.ReturnType, name: "get_Current")
+            ];
+
+            steps = steps.Concat(named.OfType<IMethodSymbol>()).Distinct<IMethodSymbol>(SymbolEqualityComparer.Default);
+        }
+
+        foreach (IMethodSymbol member in steps)
         {
             if (member.Name is "Reset" || !member.Parameters.IsEmpty)
             {
@@ -427,6 +486,23 @@ internal sealed partial class LoopStateEvaluator
             {
                 elements = elements.Join(step?.State ?? LoopState.None);
             }
+        }
+
+        // The code that enumerates calls Dispose of an enumerator that is IDisposable at the end.
+        if (this.region.Symbols.DeclaresDispose)
+        {
+            all =
+                made.Implementations(static contract => contract.SpecialType == SpecialType.System_IDisposable)
+                    .Aggregate(
+                        seed: all,
+                        func: (followed, dispose) =>
+                            Both(
+                                first: followed,
+                                second: this.FollowImplied(
+                                    call: written,
+                                    member: dispose,
+                                    owner: enumerator.State,
+                                    arguments: [])));
         }
 
         return new Followed(

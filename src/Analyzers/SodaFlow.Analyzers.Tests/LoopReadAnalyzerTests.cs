@@ -2174,7 +2174,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72NestedInitializerCallsASetterThatReadsItsObject"] = ["SF1005"],
             ["Ag72MemberKeepsItsObjectAfterAnInitializer"] = ["SF1005"],
             ["Ag72NestedInitializerGivesTheObjectOfAMemberAPendingCell"] = ["SF1001"],
-            ["Ag72NestedInitializerThroughAGetterThatReturnsAField"] = ["SF1001"]
+            ["Ag72NestedInitializerThroughAGetterThatReturnsAField"] = ["SF1001"],
+            ["Ag72SpreadIntoATypeWithAnAddThatReads"] = ["SF1004"],
+            ["Ag72SpreadOfATypeWhoseGetEnumeratorReads"] = ["SF1005"],
+            ["Ag72SpreadOfATypeWhoseEnumeratorDisposeReads"] = ["SF1005"],
+            ["Ag72CollectionExpressionCallsAnExtensionAdd"] = ["SF1004"],
+            ["Ag72SpreadIntoATypeWithAnExtensionAdd"] = ["SF1004"],
+            ["Ag72PlatformEnumerationDisposesTheEnumerator"] = ["SF1005"],
+            ["Ag72SpreadDisposesTheEnumeratorOfASequence"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

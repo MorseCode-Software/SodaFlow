@@ -14170,6 +14170,42 @@ public static class Shapes
     public static Cell<int> Ag72NestedInitializerThroughAGetterThatReturnsAField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = { Share = l.Map(v => v) } }; int x = rack.Slot.Share!.Sample(); return S.Hold(x); });
 
+    // S3224. A spread into a collection type of this file calls its Add for each element, and the Add samples the value.
+    public static Cell<int> Ag72SpreadIntoATypeWithAnAddThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; R2Pile p = [.. cells]; Kept.Add(p); return S.Hold(0); });
+
+    // S3225. A spread of a type of this file calls its GetEnumerator, which samples a pending member.
+    public static Cell<int> Ag72SpreadOfATypeWhoseGetEnumeratorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Walked(l.Map(v => v))]; return S.Hold(all.Length); });
+
+    // S3226. A spread of a type of this file calls Dispose of its enumerator, which samples a pending member.
+    public static Cell<int> Ag72SpreadOfATypeWhoseEnumeratorDisposeReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = [.. new R2Steps(l.Map(v => v))]; return S.Hold(all.Count); });
+
+    // S3227. A collection expression for a type whose Add is an extension method calls it, and it samples the value.
+    public static Cell<int> Ag72CollectionExpressionCallsAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = [l.Map(v => v)]; Kept.Add(b); return S.Hold(0); });
+
+    // S3228. A spread into a type whose Add is an extension method calls it for each element, and it samples the value.
+    public static Cell<int> Ag72SpreadIntoATypeWithAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; Ag72Bare b = [.. cells]; Kept.Add(b); return S.Hold(0); });
+
+    // S3229. A list of the platform enumerates the sequence that its constructor gets, and calls Dispose of the enumerator, which samples a pending member.
+    public static Cell<int> Ag72PlatformEnumerationDisposesTheEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = new(new Ag72Listed(l.Map(v => v))); return S.Hold(all.Count); });
+
+    // S3230. A spread of a sequence of this file calls Dispose of its enumerator through the interface.
+    public static Cell<int> Ag72SpreadDisposesTheEnumeratorOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Listed(l.Map(v => v))]; return S.Hold(all.Length); });
+
+    // S3231. A spread of a sequence of this file whose enumerator disposes a plain cell reads nothing pending.
+    public static Cell<int> Ag72SpreadOfASequenceWithAPlainDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Listed(Plain)]; Kept.Add(l.Map(v => v)); return S.Hold(all.Length); });
+
+    // S3232. A spread of a type with the GetEnumerator pattern whose members read a plain cell reads nothing pending.
+    public static Cell<int> Ag72SpreadOfATypeWithAPlainEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = [.. new R2Steps(Plain)]; Kept.Add(l.Map(v => v)); return S.Hold(all.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17859,6 +17895,38 @@ public static class Shapes
     public sealed class Ag72AutoRack
     {
         public SettableSlot Slot { get; } = new();
+    }
+
+    public sealed class Ag72Walked(Cell<int> share)
+    {
+        public IEnumerator<int> GetEnumerator()
+        {
+            Kept.Add(share.Sample());
+
+            return Enumerable.Empty<int>().GetEnumerator();
+        }
+    }
+
+    public sealed class Ag72Listed(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator() => new Ag72ListedWalk(share);
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ag72ListedWalk(Cell<int> share) : IEnumerator<int>
+    {
+        public int Current => 0;
+
+        object IEnumerator.Current => 0;
+
+        public bool MoveNext() => false;
+
+        public void Reset()
+        {
+        }
+
+        public void Dispose() => Kept.Add(share.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

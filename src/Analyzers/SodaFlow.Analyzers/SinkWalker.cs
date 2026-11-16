@@ -1789,7 +1789,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         foreach (SpreadElementSyntax spread in node.Elements.OfType<SpreadElementSyntax>())
         {
             this.RunQueries(spread.Expression);
-            this.Report(this.evaluator.FollowEnumeration(spread.Expression));
+            this.Report(this.evaluator.FollowEnumeration(written: spread.Expression, byThePattern: true));
         }
 
         this.Report(this.evaluator.FollowCollectionExpression(node));

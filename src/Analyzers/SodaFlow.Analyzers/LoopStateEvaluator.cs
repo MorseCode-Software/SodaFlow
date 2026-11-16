@@ -4313,7 +4313,7 @@ internal sealed partial class LoopStateEvaluator
     ///     The version of the compiler that the analyzer builds against has no
     ///     operation for a collection expression. Thus, the evaluator finds the
     ///     <c>Create</c> method from the attribute, and the <c>Add</c> method that
-    ///     takes the type of the element. A spread is not followed here.
+    ///     takes the type of the element.
     /// </remarks>
     public Followed? FollowCollectionExpression(CollectionExpressionSyntax collection)
     {
@@ -4344,23 +4344,72 @@ internal sealed partial class LoopStateEvaluator
                 .Where(static add => add is { IsStatic: false, Parameters.Length: 1 })
         ];
 
+        IMethodSymbol[]? extensions = null;
+
+        // A spread gives each element of its value to one Add. The walk reads that Add one time,
+        // with the state of an element.
         return collection.Elements
-            .OfType<ExpressionElementSyntax>()
             .Aggregate(
                 seed: (Followed?)null,
                 func: (all, element) =>
-                    adds.FirstOrDefault(add =>
-                            this.region.TypeOf(element.Expression) is not { } type
-                            || this.region.Converts(from: type, to: add.Parameters[0].Type))
-                        is { } add
-                        ? Both(
+                    element switch
+                    {
+                        ExpressionElementSyntax one => Both(
                             first: all,
-                            second: this.FollowImplied(
-                                call: element.Expression,
-                                member: add,
-                                owner: this.Eval(collection),
-                                arguments: [(element.Expression, this.Eval(element.Expression))]))
-                        : all);
+                            second: FollowAdd(
+                                written: one.Expression,
+                                type: this.region.TypeOf(one.Expression),
+                                state: this.Eval(one.Expression))),
+                        SpreadElementSyntax spread => Both(first: all, second: FollowSpread(spread.Expression)),
+                        _ => all
+                    });
+
+        Followed? FollowSpread(ExpressionSyntax written)
+        {
+            ITypeSymbol? type = SodaFlowSymbols.ElementTypeOf(this.region.TypeOf(written));
+
+            return FollowAdd(
+                written: written,
+                type: type,
+                state: ElementOf(collection: this.Eval(written), type: type));
+        }
+
+        Followed? FollowAdd(ExpressionSyntax written, ITypeSymbol? type, LoopState state)
+        {
+            if (adds.FirstOrDefault(Takes) is { } add)
+            {
+                return this.FollowImplied(
+                    call: written,
+                    member: add,
+                    owner: this.Eval(collection),
+                    arguments: [(written, state)]);
+            }
+
+            // With no Add of the type, the compiler takes an extension method. That method gets
+            // the collection as its first argument.
+            extensions ??=
+            [
+                .. this.region.ModelFor(collection)
+                    .LookupSymbols(
+                        position: collection.SpanStart,
+                        container: made,
+                        name: "Add",
+                        includeReducedExtensionMethods: true)
+                    .OfType<IMethodSymbol>()
+                    .Where(static found => found is { ReducedFrom: not null, Parameters.Length: 1 })
+            ];
+
+            return extensions.FirstOrDefault(Takes) is { ReducedFrom: { } extension }
+                ? this.FollowImplied(
+                    call: written,
+                    member: extension.OriginalDefinition,
+                    owner: null,
+                    arguments: [(collection, this.Eval(collection)), (written, state)])
+                : null;
+
+            bool Takes(IMethodSymbol candidate) =>
+                type == null || this.region.Converts(from: type, to: candidate.Parameters[0].Type);
+        }
 
         static IEnumerable<INamedTypeSymbol> Ancestry(INamedTypeSymbol type)
         {
