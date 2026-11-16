@@ -449,7 +449,7 @@ internal sealed class LoopRegion(
     ///     A sample that is pending forces itself before the second link. Thus,
     ///     such a cycle is a link only when its values are not pending.
     /// </remarks>
-    private void CheckReadBack(ExpressionSyntax closing, LoopState state)
+    private void CheckReadBack(CSharpSyntaxNode closing, LoopState state)
     {
         Dictionary<ISymbol, LoopState> parts =
             new(SymbolEqualityComparer.Default) { [this.PlaceholderState.Content.ReadBack[0]] = state };
@@ -459,27 +459,26 @@ internal sealed class LoopRegion(
             parts[member.Key] = member.Value;
         }
 
-        foreach (KeyValuePair<ISymbol, LoopState> part in parts)
+        foreach (Diagnostic diagnostic in parts
+                     .Where(part => part.Value is not { Linked: false, Pending: false } && ReachesItself(part.Key))
+                     .Select(part =>
+                         Diagnostic.Create(
+                             descriptor: IsALink(member: part.Key, value: part.Value)
+                                 ? Diagnostics.LinkedClose
+                                 : Diagnostics.PendingClose,
+                             location: closing.GetLocation(),
+                             this.PlaceholderName)))
         {
-            LoopState value = part.Value;
-
-            if (value is { Linked: false, Pending: false } || !ReachesItself(part.Key))
-            {
-                continue;
-            }
-
-            // A sample at the end of the transaction forces the value before the switch links to it.
-            bool linked =
-                value.ReadBack.Contains(value: part.Key, comparer: SymbolEqualityComparer.Default)
-                    ? value.Linked && !(value.Pending && this.forced.Contains(part.Key))
-                    : !value.Pending;
-
-            this.Report(
-                Diagnostic.Create(
-                    descriptor: linked ? Diagnostics.LinkedClose : Diagnostics.PendingClose,
-                    location: closing.GetLocation(),
-                    this.PlaceholderName));
+            this.Report(diagnostic);
         }
+
+        return;
+
+        // A sample at the end of the transaction forces the value before the switch links to it.
+        bool IsALink(ISymbol member, LoopState value) =>
+            value.ReadBack.Contains(value: member, comparer: SymbolEqualityComparer.Default)
+                ? value.Linked && !(value.Pending && this.forced.Contains(member))
+                : !value.Pending;
 
         bool ReachesItself(ISymbol start)
         {

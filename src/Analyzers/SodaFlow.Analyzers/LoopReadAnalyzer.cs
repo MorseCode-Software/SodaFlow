@@ -213,9 +213,12 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         if (written is IdentifierNameSyntax
             && model.GetSymbolInfo(written).Symbol is ILocalSymbol { Type.TypeKind: TypeKind.Delegate } delegateLocal)
         {
-            return OnlyFunctionOf(local: delegateLocal, model: model) is { } assigned
-                ? BlockOf(written: assigned, model: model)
-                : null;
+            if (OnlyFunctionOf(local: delegateLocal, model: model) is not { } assigned)
+            {
+                return null;
+            }
+
+            written = assigned;
         }
 
         if (written is AnonymousFunctionExpressionSyntax function)
@@ -261,7 +264,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     gives it. Null when the code can give the local a different value, by
     ///     an assignment or through a reference.
     /// </summary>
-    private static AnonymousFunctionExpressionSyntax? OnlyFunctionOf(ILocalSymbol local, SemanticModel model)
+    private static AnonymousFunctionExpressionSyntax? OnlyFunctionOf(ISymbol local, SemanticModel model)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax

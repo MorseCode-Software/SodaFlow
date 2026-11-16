@@ -1650,6 +1650,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     collection: indexed.Expression,
                     replaces: replaces,
                     turn: turn);
+
             this.evaluator.Gets(collection: indexed.Expression, value: value);
         }
         else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)

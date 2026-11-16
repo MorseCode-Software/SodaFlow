@@ -79,17 +79,13 @@ internal sealed partial class LoopStateEvaluator
     {
         Followed? result = null;
 
-        if (definition is { Name: "ToString", IsImplicitlyDeclared: true, ContainingType.IsRecord: true }
-            && owner != null
-            && call is ExpressionSyntax printed)
+        switch (definition)
         {
-            return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
-        }
-
-        if (definition is { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true }
-            && owner != null)
-        {
-            return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
+            case { Name: "ToString", IsImplicitlyDeclared: true, ContainingType.IsRecord: true }
+                when owner != null && call is ExpressionSyntax printed:
+                return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
+            case { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true } when owner != null:
+                return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
         }
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)

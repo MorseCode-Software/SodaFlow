@@ -147,8 +147,7 @@ internal sealed partial class LoopStateEvaluator
         bool noState =
             definer == null
             && members.Count == 0
-            && !this.region.HasFields
-            && !this.region.Objects.ChangedAStaticObject
+            && this.region is { HasFields: false, Objects.ChangedAStaticObject: false }
             && bindings.All(static binding => binding.State.IsNone);
 
         switch (noState)

@@ -3249,8 +3249,10 @@ internal sealed partial class LoopStateEvaluator
         };
 
     private static bool IsDynamicInvoke(IMethodSymbol method) =>
-        method is { Name: "DynamicInvoke", Parameters.Length: 1, ContainingType: { } type }
-        && type.SpecialType == SpecialType.System_Delegate;
+        method is
+        {
+            Name: "DynamicInvoke", Parameters.Length: 1, ContainingType.SpecialType: SpecialType.System_Delegate
+        };
 
     /// <summary>
     ///     The parameter that gets an argument of a call. It is a parameter of the
@@ -4132,7 +4134,7 @@ internal sealed partial class LoopStateEvaluator
         // With no initializer, the constructor calls the constructor of the base type with no
         // arguments first.
         if (chain == null
-            && ImplicitChainOf(declaration: declaration, type: type, definition: definition) is var (at, first)
+            && ImplicitChainOf(declaration: declaration, type: type, definition: definition) is (var at, var first)
             && inner.FollowChainTo(chain: at, constructor: first, arguments: default) is { } chainedFirst)
         {
             found.AddRange(chainedFirst.Findings);
@@ -4209,7 +4211,7 @@ internal sealed partial class LoopStateEvaluator
     // for a base type with no constructor that has no parameters.
     private static (SyntaxNode At, IMethodSymbol Constructor)? ImplicitChainOf(
         SyntaxNode? declaration,
-        TypeDeclarationSyntax type,
+        BaseTypeDeclarationSyntax type,
         IMethodSymbol definition)
     {
         if (IsCopyConstructor(definition)

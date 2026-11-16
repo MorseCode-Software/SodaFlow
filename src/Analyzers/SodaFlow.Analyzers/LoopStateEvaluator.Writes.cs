@@ -513,8 +513,8 @@ internal sealed partial class LoopStateEvaluator
             body switch
             {
                 ExpressionSyntax expression => expression,
-                BlockSyntax { Statements: { Count: 1 } statements }
-                    when statements[0] is ReturnStatementSyntax { Expression: { } returned } => returned,
+                BlockSyntax { Statements: { Count: 1 } statements } =>
+                    (statements[0] as ReturnStatementSyntax)?.Expression,
                 _ => null
             };
     }
@@ -590,30 +590,23 @@ internal sealed partial class LoopStateEvaluator
     // The location that an expression reads, as a key of KeptAt. The key has the element or the
     // field, the local that names it, and the member of the value there. Null when the walk cannot
     // read that location again.
-    private (ExpressionSyntax Location, ISymbol? Name, ISymbol? Member)? KeptKeyOf(ExpressionSyntax expression)
-    {
-        ExpressionSyntax written = Unwrapped(expression);
-
-        if (written is MemberAccessExpressionSyntax access
-            && this.region.SymbolOf(access) is { } member
-            && IsALocation(member)
-            && this.KeptKeyOf(access.Expression) is (var location, var name, null))
+    private (ExpressionSyntax Location, ISymbol? Name, ISymbol? Member)? KeptKeyOf(ExpressionSyntax expression) =>
+        Unwrapped(expression) switch
         {
-            return (location, name, member.OriginalDefinition);
-        }
-
-        if (written is IdentifierNameSyntax local
-            && this.region.SymbolOf(local) is ILocalSymbol named
-            && this.Frame.ReadFrom.TryGetValue(key: named, value: out ExpressionSyntax? from))
-        {
-            return (from, named, null);
-        }
-
-        return written is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax
-               && this.LocationKeyOf(written) != null
-            ? (written, null, null)
-            : null;
-    }
+            MemberAccessExpressionSyntax access
+                when this.region.SymbolOf(access) is { } member
+                     && IsALocation(member)
+                     && this.KeptKeyOf(access.Expression) is (var location, var name, null) =>
+                (location, name, member.OriginalDefinition),
+            IdentifierNameSyntax local
+                when this.region.SymbolOf(local) is ILocalSymbol named
+                     && this.Frame.ReadFrom.TryGetValue(key: named, value: out ExpressionSyntax? from) =>
+                (from, named, null),
+            (ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax) and var written
+                when this.LocationKeyOf(written) != null =>
+                (written, null, null),
+            _ => null
+        };
 
     /// <summary>
     ///     What code with no body keeps for the location that an expression
@@ -1001,7 +994,7 @@ internal sealed partial class LoopStateEvaluator
             || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
             || !RunsStraightIn(node: declarator, code: code)
             || this.GetsASecondValue(local: local, scope: code)
-            || this.UsesOfTheLocation(location: remove.Left, code: code) is not var (changes, start))
+            || this.UsesOfTheLocation(location: remove.Left, code: code) is not (var changes, var start))
         {
             return null;
         }
@@ -1021,29 +1014,27 @@ internal sealed partial class LoopStateEvaluator
                 return null;
             }
 
-            if (use.Parent is InvocationExpressionSyntax call && call.Expression == use)
+            switch (use.Parent)
             {
-                continue;
-            }
-
-            if (use.Parent is AssignmentExpressionSyntax change
-                && change.Right == use
-                && changes.Contains(change))
-            {
-                if (!RunsStraightIn(node: change, code: code))
+                case InvocationExpressionSyntax call when call.Expression == use:
+                    continue;
+                case AssignmentExpressionSyntax change when change.Right == use && changes.Contains(change):
                 {
-                    return null;
+                    if (!RunsStraightIn(node: change, code: code))
+                    {
+                        return null;
+                    }
+
+                    ofTheLambda.Add(change);
+
+                    if (change.SpanStart < remove.SpanStart)
+                    {
+                        count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
+                        first ??= change;
+                    }
+
+                    continue;
                 }
-
-                ofTheLambda.Add(change);
-
-                if (change.SpanStart < remove.SpanStart)
-                {
-                    count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
-                    first ??= change;
-                }
-
-                continue;
             }
 
             // An operand of the sum that is the first value of the local location.
@@ -1111,7 +1102,7 @@ internal sealed partial class LoopStateEvaluator
                 _ => null
             };
 
-        if (named is not var (variable, member)
+        if (named is not (var variable, var member)
             || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax declarator
             || FunctionOf(declarator) != code

@@ -104,7 +104,7 @@ internal sealed partial class LoopStateEvaluator
                     ? this.TurnOfACaller
                     : null;
 
-        if (inItsTurn is not var (itsTurn, itsFrame))
+        if (inItsTurn is not (var itsTurn, var itsFrame))
         {
             return null;
         }

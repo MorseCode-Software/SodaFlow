@@ -269,7 +269,7 @@ internal sealed partial class LoopStateEvaluator
 
         if (!this.quiet && this.function == null && this.KeptKeyOf(target) is { } key)
         {
-            this.Frame.KeptAt.Add((Location: key.Location, Name: key.Name, Member: key.Member, State: holding));
+            this.Frame.KeptAt.Add((key.Location, key.Name, key.Member, State: holding));
         }
     }
 
