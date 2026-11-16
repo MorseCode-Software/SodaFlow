@@ -234,7 +234,7 @@ is quiet.
 
 | Rule | Reports | What to do |
 | --- | --- | --- |
-| `SF1001` | `Sample()`, the `Value` of a bindable, or `CanExecute` on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
+| `SF1001` | `Sample()`, the `Value` of a bindable, a write to the `Value` of a two-way bindable, or `CanExecute`, `Execute`, or `Dispose` of a bindable action, on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
 | `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
 | `SF1003` | A value made from the placeholder that goes to code the analyzer cannot read, and that can read the value. | If that code does not read the value before the close, [mark the argument](#code-the-analyzer-cannot-read). |
 | `SF1004` | A method, constructor, local function, or lambda of your project that reads a value it gets from the block. Reported at the argument. | As for `SF1001`, in that code. |
@@ -290,16 +290,26 @@ The analyzer follows a value made from the placeholder through the code of your 
   element apart, so `cells[0]` is that one element.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
-  get-only property creates in its initializer.
-- Loops: each pass of a `for`, `foreach`, `while`, or `do` is read until a pass adds nothing new.
+  get-only property creates in its initializer. That includes a property that uses `field`, a
+  member of an extension block, and a static member of an interface called through a type
+  parameter.
+- Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
+  made with `+` runs each of its functions.
+- Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
+  until a pass adds nothing new.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
   event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
-  `using`, the enumerator of a `foreach`, and the `Add` of a collection initializer.
+  `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection initializer or
+  a collection expression, the `Create` method of a `CollectionBuilder`, `Count` and `Slice` for
+  an index from the end, a range, or a list pattern, the `ToString` and the copy constructor of a
+  record, and the `==` of each element of a tuple comparison.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` where something reads its `Value`.
+  and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
+  runs in the block up to its first `await` of a task that may not be complete, and the rest of it
+  runs later. An async iterator runs nothing until something enumerates it.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 
@@ -314,6 +324,7 @@ careful side, so it can report a read that does not throw:
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one.
+- A handler removed with `-=` still counts as a handler of the event.
 
 Some reads that throw it does not see:
 
@@ -324,6 +335,8 @@ Some reads that throw it does not see:
 - A serializer with options or a converter of its own.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>` or the
   comparer of a platform collection.
+- Code after an `await` of a task that is already complete when the analyzer cannot tell that it
+  is. That code runs in the block, and the analyzer reads it as code that runs later.
 - A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
   call where it stops.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the
