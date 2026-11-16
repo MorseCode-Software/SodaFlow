@@ -235,11 +235,11 @@ is quiet.
 | Rule | Reports | What to do |
 | --- | --- | --- |
 | `SF1001` | `Sample()`, the `Value` of a bindable, a write to the `Value` of a two-way bindable, or `CanExecute`, `Execute`, or `Dispose` of a bindable action, on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
-| `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
+| `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. With `ForwardReference`, the same holds for a member of the object that is defined by reading that member back through the reference, for example with `SwitchC`. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
 | `SF1003` | A value made from the placeholder that goes to code the analyzer cannot read, and that can read the value. | If that code does not read the value before the close, [mark the argument](#code-the-analyzer-cannot-read). |
 | `SF1004` | A method, constructor, local function, or lambda of your project that reads a value it gets from the block. Reported at the argument. | As for `SF1001`, in that code. |
 | `SF1005` | A call that reads a pending member of an object built in the block. Also a helper that reads a field the block set, or a lambda that your code kept and the block runs. Reported at the call. | Make the call after the block, or in a callback. |
-| `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. | Give the loop an initial value that does not read the loop. |
+| `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. With `ForwardReference`, a member that is read back while it is still pending, so that the first read of the member needs its own value. | Give the loop an initial value that does not read the loop. |
 
 ### What is not reported
 
@@ -324,11 +324,13 @@ careful side, so it can report a read that does not throw:
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one.
-- A handler removed with `-=` still counts as a handler of the event.
+- A handler removed with `-=` still counts as a handler of the event, unless the code adds and
+  removes that one lambda in a straight line, with nothing between the add and the remove.
 
 Some reads that throw it does not see:
 
-- Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`.
+- Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
+  placeholder that you pass to one of these gets `SF1003`.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.
