@@ -8,16 +8,17 @@ namespace SodaFlow.Analyzers;
 internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
-    ///     The state that a read in the code of the block gives for a hold that
-    ///     the code of the block made. That state is the initial value of the
-    ///     hold. Null for each other read.
+    ///     The state that a read in the transaction of the block gives for a hold
+    ///     that the code of that transaction made. That state is the initial value
+    ///     of the hold. Null for each other read.
     /// </summary>
     /// <remarks>
     ///     A hold gets the value of a firing at the end of the transaction. The
     ///     block and each send in it run in one transaction. Thus, a read in the
     ///     block gives the initial value, also after a send into the sink of the
-    ///     hold. An accumulation and a cell sink are holds also. A read in a
-    ///     function can run after the transaction, thus it gets each value.
+    ///     hold. An accumulation and a cell sink are holds also. A function that
+    ///     runs only in the transaction is a part of it. Each other function can
+    ///     run after the transaction, thus a read in it gets each value.
     /// </remarks>
     /// <param name="read">The call that reads.</param>
     /// <param name="receiver">The cell that the call reads.</param>
@@ -42,9 +43,9 @@ internal sealed partial class LoopStateEvaluator
         }
 
         if (this.InitialValueOf(cell) is not { } initial
-            || !this.IsCodeOfTheBlock(read)
+            || !this.RunsInTheTransaction(read)
             || (named is { Local: var only, Declarator: var declaredAt }
-                && (!this.IsCodeOfTheBlock(declaredAt)
+                && (!this.RunsInTheTransaction(declaredAt)
                     || NamesOf(local: only, declarator: declaredAt, region: this.region)?.Any(IsWritten) != false)))
         {
             return null;
@@ -134,9 +135,11 @@ internal sealed partial class LoopStateEvaluator
         });
     }
 
-    // True when a node is in the code of the block, and not in a function or a query. Such
-    // code runs in the transaction of the block.
-    private bool IsCodeOfTheBlock(SyntaxNode node)
+    // True when a node runs only in the transaction of the block. That is the code of the block,
+    // and a function in it that the library runs only in the call. The function of a map of a
+    // constant cell is such a function also, because the transaction computes the first value of
+    // the map. Each other function, a query, and a member can run after the transaction.
+    private bool RunsInTheTransaction(SyntaxNode node)
     {
         for (SyntaxNode? each = node; each != null; each = each.Parent)
         {
@@ -145,15 +148,66 @@ internal sealed partial class LoopStateEvaluator
                 return true;
             }
 
-            if (each is AnonymousFunctionExpressionSyntax
-                or LocalFunctionStatementSyntax
-                or QueryExpressionSyntax
-                or MemberDeclarationSyntax)
+            if ((each is AnonymousFunctionExpressionSyntax function && !this.RunsOnlyInTheCall(function))
+                || each is LocalFunctionStatementSyntax or QueryExpressionSyntax or MemberDeclarationSyntax)
             {
                 return false;
             }
         }
 
         return false;
+    }
+
+    // True when the library runs a function only in the call that gets it. A transaction and a
+    // loop block run it one time. A map of a constant cell runs it for the first value, and has
+    // no update that runs it again.
+    private bool RunsOnlyInTheCall(AnonymousFunctionExpressionSyntax function)
+    {
+        if (function.Parent is not ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax call }
+            || this.region.SymbolOf(call) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return false;
+        }
+
+        if (OperatorTable.RunsFunctionOneTime(method))
+        {
+            return true;
+        }
+
+        return method.Name == "Map"
+               && ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method) is { } receiver
+               && this.region.Symbols.IsCellOrBehaviorType(this.region.TypeOf(receiver))
+               && this.IsAConstant(receiver);
+    }
+
+    // True for a call of Constant of the library. The call can also be the initializer of a
+    // readonly field, or of a local that no code writes.
+    private bool IsAConstant(ExpressionSyntax cell)
+    {
+        ExpressionSyntax made = Unwrapped(cell);
+
+        switch (this.region.SymbolOf(made))
+        {
+            case IFieldSymbol { IsReadOnly: true } field
+                when this.region.InitializerOf(field.OriginalDefinition) is { } value:
+                made = Unwrapped(value);
+
+                break;
+            case ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+                when local.DeclaringSyntaxReferences[0].GetSyntax()
+                         is VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+                     && NamesOf(local: local, declarator: declarator, region: this.region)?.Any(IsWritten) == false:
+                made = Unwrapped(value);
+
+                break;
+        }
+
+        return made is InvocationExpressionSyntax
+                   {
+                       Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Constant" }
+                   } constant
+               && this.region.SymbolOf(constant) is IMethodSymbol method
+               && this.region.Symbols.IsSodaFlow(method);
     }
 }

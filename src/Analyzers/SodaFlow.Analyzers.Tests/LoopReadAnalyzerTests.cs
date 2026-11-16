@@ -2381,7 +2381,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab154ThePendingWrittenRecordIsFirst"] = ["SF1004"],
             ["Ab154AnAwaitOfACompleteTaskAfterEachRecord"] = ["SF1004"],
             ["Ab154TheBlockDeconstructsEachRecord"] = ["SF1001"],
-            ["Ab154TheBlockDeconstructsEachWrittenRecord"] = ["SF1001"]
+            ["Ab154TheBlockDeconstructsEachWrittenRecord"] = ["SF1001"],
+            ["Ab155SampleInATransactionOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab155SwitchOfAHoldInATransaction"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfACellThatChanges"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfAStream"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInASnapshot"] = ["SF1002"],
+            ["Ab155PostedSendOfASampleInATransaction"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfALocalThatChanges"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
