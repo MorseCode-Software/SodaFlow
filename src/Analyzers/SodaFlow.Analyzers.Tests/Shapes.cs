@@ -14374,6 +14374,50 @@ public static class Shapes
     public static Cell<int> Ab136ANestedDeconstructionMakesTwoNames() =>
         Cell.Loop<int>().WithoutCaptures(l => { var ((a, n), b) = ((Ab136Names2[0], 1), Ab136Names2[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample() + n); });
 
+    // S3275. AB125. Two runs of one method group give the one object of a static field. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoRunsOfAMethodGroupGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab125GiveTheKept); SettableSlot t = Transaction.Run(Ab125GiveTheKept); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3276. AB125. Two calls of a helper give the one object of a static field. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheKept(); SettableSlot t = Ab125GiveTheKept(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3277. AB125. A helper returns an element, and a second read of the element gets a pending cell.
+    public static Cell<int> DvStateAHelperReturnsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = DvStFirstOf(DvStHelp1); SettableSlot t = DvStHelp1[0]; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3278. AB125. Transaction.Run returns an element of an array that the walk did not see made, and a second read of it gets a pending cell.
+    public static Cell<int> DvStateRunReturnsAnUnseenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => DvStRun4[0]); SettableSlot t = DvStRun4[0]; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3279. AB125. Transaction.Run returns an element of an array that the walk did not see made, and a second read of it gets a plain cell.
+    public static Cell<int> DvStateRunReturnsAnUnseenElementThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => DvStRun5[0]); s.Share = l.Map(v => v); SettableSlot t = DvStRun5[0]; t.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3280. AB125. Two calls of a helper give the one object of a static property with an initializer.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheProperty(); SettableSlot t = Ab125GiveTheProperty(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3281. AB125 control. Two calls of a helper give the one object of a static field, and the second name gets a plain cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAFieldThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveThePlainKept(); SettableSlot t = Ab125GiveThePlainKept(); s.Share = l.Map(v => v); t.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3282. AB125 control. Two calls of a helper that makes an object give two objects.
+    public static Cell<int> Ab125TwoCallsOfAHelperThatMakesGiveTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125NewSlot(); SettableSlot t = Ab125NewSlot(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3283. AB125. Two calls of a helper give the one object of a static field with no readonly. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheOpen(); SettableSlot t = Ab125GiveTheOpen(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3284. AB125 control. A helper returns the first element of the array that it gets, and two calls with two arrays give two values.
+    public static Cell<int> Ab125AHelperGivesTheElementsOfTwoArrays() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = DvStFirstOf(Ab125Left); SettableSlot t = DvStFirstOf(Ab125Right); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3285. AB125 control. A helper returns the second element, and a read of the first element is a second value.
+    public static Cell<int> Ab125AHelperGivesADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125SecondOf(Ab125Pair); SettableSlot t = Ab125Pair[0]; s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18197,6 +18241,43 @@ public static class Shapes
     private static readonly SettableSlot[] Ab136Names1 = [new(), new()];
 
     private static readonly SettableSlot[] Ab136Names2 = [new()];
+
+    private static readonly SettableSlot Ab125Kept = new();
+
+    private static SettableSlot Ab125GiveTheKept() => Ab125Kept;
+
+    private static SettableSlot Ab125Property { get; } = new();
+
+    private static SettableSlot Ab125GiveTheProperty() => Ab125Property;
+
+    private static readonly SettableSlot Ab125PlainKept = new();
+
+    private static SettableSlot Ab125GiveThePlainKept() => Ab125PlainKept;
+
+    private static SettableSlot Ab125NewSlot() => new();
+
+    private static readonly SettableSlot[] DvStRun4 = [new()];
+
+    private static readonly SettableSlot[] DvStRun5 = [new()];
+
+    private static readonly SettableSlot[] DvStHelp1 = [new()];
+
+    private static SettableSlot DvStFirstOf(SettableSlot[] all) => all[0];
+
+    private static SettableSlot Ab125Open = new();
+
+    private static SettableSlot Ab125GiveTheOpen() => Ab125Open;
+
+    private static readonly SettableSlot[] Ab125Left = [new()];
+
+    private static readonly SettableSlot[] Ab125Right = [new()];
+
+    private static readonly SettableSlot[] Ab125Pair = [new(), new()];
+
+    private static SettableSlot Ab125SecondOf(SettableSlot[] all)
+    {
+        return all[1];
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

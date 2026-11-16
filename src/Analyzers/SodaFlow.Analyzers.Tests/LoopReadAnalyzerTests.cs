@@ -2208,7 +2208,13 @@ internal sealed class LoopReadAnalyzerTests
             ["DvStateAVarDeconstructionMakesTwoNames"] = ["SF1001"],
             ["DvStateALocalAndADeconstructionOfOneElement"] = ["SF1001"],
             ["DvStateADeconstructionIntoDeclaredLocalsMakesTwoNames"] = ["SF1001"],
-            ["Ab136ANestedDeconstructionMakesTwoNames"] = ["SF1001"]
+            ["Ab136ANestedDeconstructionMakesTwoNames"] = ["SF1001"],
+            ["Ab125TwoRunsOfAMethodGroupGiveTheObjectOfAField"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAField"] = ["SF1001"],
+            ["DvStateAHelperReturnsAnElement"] = ["SF1001"],
+            ["DvStateRunReturnsAnUnseenElement"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAProperty"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

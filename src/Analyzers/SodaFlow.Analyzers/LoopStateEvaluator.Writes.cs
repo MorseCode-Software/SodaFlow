@@ -397,8 +397,127 @@ internal sealed partial class LoopStateEvaluator
                         (field, owner, -1),
                     _ => null
                 },
+            InvocationExpressionSyntax call => this.LocationReturnedBy(call),
             _ => null
         };
+
+    // The location that a call gives the value of, as a read of it at the call does. A parameter
+    // of the callee there is its argument, and an array or an owner of a field must be a name of
+    // the caller. Null when the callee returns no location.
+    private (ISymbol Of, ISymbol? Owner, int Index)? LocationReturnedBy(InvocationExpressionSyntax call)
+    {
+        if (this.ReturnedBy(call) is not ({ } returned, var callee)
+            || Unwrapped(returned) is InvocationExpressionSyntax
+            || this.LocationKeyOf(returned) is not { } key)
+        {
+            return null;
+        }
+
+        ISymbol? of = this.AtTheCall(part: key.Of, call: call, callee: callee);
+        ISymbol? owner = key.Owner == null ? null : this.AtTheCall(part: key.Owner, call: call, callee: callee);
+
+        // A field of the object of an instance method is a field of this object only for a call
+        // on this object.
+        bool onThis =
+            callee is not { IsStatic: false }
+            || Unwrapped(call.Expression) is IdentifierNameSyntax or GenericNameSyntax
+                or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax };
+
+        return of == null
+               || (key.Owner != null && owner == null)
+               || (!onThis && key is { Owner: null, Of: IFieldSymbol { IsStatic: false } })
+            ? null
+            : (of, owner, key.Index);
+    }
+
+    // A part of a location that a callee returns, as a name of the caller. A parameter of the
+    // callee gives the name that is its argument. A local of a method is no name of the caller.
+    // A lambda reads the locals of the code around it, thus its names are names of the caller.
+    private ISymbol? AtTheCall(ISymbol part, InvocationExpressionSyntax call, IMethodSymbol? callee)
+    {
+        if (callee == null || part is IFieldSymbol)
+        {
+            return part;
+        }
+
+        if (part is not IParameterSymbol parameter
+            || !SymbolEqualityComparer.Default.Equals(
+                x: parameter.ContainingSymbol,
+                y: (callee.ReducedFrom ?? callee).OriginalDefinition))
+        {
+            return null;
+        }
+
+        ExpressionSyntax? argument =
+            callee.ReducedFrom != null
+                ? parameter.Ordinal == 0
+                    ? (call.Expression as MemberAccessExpressionSyntax)?.Expression
+                    : ArgumentAt(ordinal: parameter.Ordinal - 1)
+                : ArgumentAt(ordinal: parameter.Ordinal);
+
+        return argument != null
+               && Unwrapped(argument) is IdentifierNameSyntax name
+               && this.region.SymbolOf(name) is { } given
+               && (given is IFieldSymbol || KeepsItsObject(given))
+            ? given
+            : null;
+
+        ExpressionSyntax? ArgumentAt(int ordinal) =>
+            call.ArgumentList.Arguments.Any(static each => each.NameColon != null)
+            || ordinal >= call.ArgumentList.Arguments.Count
+                ? null
+                : call.ArgumentList.Arguments[ordinal].Expression;
+    }
+
+    /// <summary>
+    ///     The expression that a call returns, when the code of the callee is only
+    ///     a return of it, with the callee. The callee is a method of this
+    ///     compilation that no override can replace. For a transaction, it is the
+    ///     function that the transaction runs. Its callee is null for a lambda.
+    /// </summary>
+    private (ExpressionSyntax? Returned, IMethodSymbol? Callee) ReturnedBy(InvocationExpressionSyntax call)
+    {
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
+        {
+            return (null, null);
+        }
+
+        if (this.region.Symbols.IsSodaFlow(method))
+        {
+            if (!OperatorTable.RunsFunctionOneTime(method)
+                || call.ArgumentList.Arguments.Count != 1
+                || call.ArgumentList.Arguments[0].Expression is not { } function)
+            {
+                return (null, null);
+            }
+
+            return function switch
+            {
+                ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 0 } lambda =>
+                    (OnlyReturnOf(lambda.Body), null),
+                IdentifierNameSyntax or MemberAccessExpressionSyntax
+                    when this.region.SymbolOf(function) is IMethodSymbol { Parameters.Length: 0 } group =>
+                    ReturnedByMethod(group),
+                _ => (null, null)
+            };
+        }
+
+        return ReturnedByMethod(method);
+
+        static (ExpressionSyntax?, IMethodSymbol?) ReturnedByMethod(IMethodSymbol method) =>
+            method is { IsVirtual: false, IsAbstract: false, IsOverride: false }
+                ? (OnlyReturnOf(BodyOf((method.ReducedFrom ?? method).OriginalDefinition)), method)
+                : (null, null);
+
+        static ExpressionSyntax? OnlyReturnOf(SyntaxNode? body) =>
+            body switch
+            {
+                ExpressionSyntax expression => expression,
+                BlockSyntax { Statements: { Count: 1 } statements }
+                    when statements[0] is ReturnStatementSyntax { Expression: { } returned } => returned,
+                _ => null
+            };
+    }
 
     // True when a local is still a name of the location that it got its value from, at a use. No
     // code between the two gave the local, the array, the field, or the owner a value. No code
@@ -445,6 +564,12 @@ internal sealed partial class LoopStateEvaluator
         if (arguments == null)
         {
             return receiver != null && IsTheSameLocation(one: this.LocationKeyOf(receiver), other: key);
+        }
+
+        // A callee that only returns a location changes nothing.
+        if (node is InvocationExpressionSyntax read && this.LocationReturnedBy(read) != null)
+        {
+            return false;
         }
 
         return (receiver != null && this.IsAPartOf(expression: receiver, key: key))

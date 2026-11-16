@@ -1597,6 +1597,24 @@ internal sealed partial class LoopStateEvaluator
             return result;
         }
 
+        // A call that returns a location is a read of that location, which gives no new object.
+        // A static member has the object that a read of it has. See LocationReturnedBy.
+        if (call is InvocationExpressionSyntax invocation && this.ReturnedBy(invocation).Returned is { } returned)
+        {
+            if (Unwrapped(returned) is IdentifierNameSyntax or MemberAccessExpressionSyntax
+                && this.region.SymbolOf(returned)
+                    is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true }
+                && this.Eval(returned) is { Objects.IsEmpty: false } read)
+            {
+                return result.Join(read);
+            }
+
+            if (this.LocationKeyOf(invocation) != null)
+            {
+                return result;
+            }
+        }
+
         // A sealed class of this compilation is the class of each of its objects. Thus, the result
         // has that class also when the walk did not read the callee.
         LoopState known =
