@@ -2099,7 +2099,26 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag71APutThroughTwoIndexesIntoTheLocationOfAParameter"] = ["SF1001"],
             ["Ag71DictionaryAddOfATupleKey"] = ["SF1005"],
             ["Ag71AFilterKeepsAContentThatIsOnlyLinked"] = ["SF1002"],
-            ["Ag71TruthOperatorInAForCondition"] = ["SF1004"]
+            ["Ag71TruthOperatorInAForCondition"] = ["SF1004"],
+            ["Ab109TheObjectOfRunKeepsItsPendingCell"] = ["SF1001"],
+            ["Ab109TheObjectOfRunGetsAPendingCellAfterThePlainOne"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneLocalFunctionMakeTwoObjects"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneLambdaMakeTwoObjects"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunCallsALambdaTwoTimes"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunCallsTheHelperInALoop"] = ["SF1001"],
+            ["Ab109ARunInALoopMakesAnObjectInEachTurn"] = ["SF1001"],
+            ["Ab109RunGivesBackOneOfTwoObjects"] = ["SF1001"],
+            ["Ab109ALambdaThatRunsTwoTimesCallsTheHelper"] = ["SF1001"],
+            ["Ab109RunGivesBackAnObjectOfTheBlockOrANewOne"] = ["SF1001"],
+            ["Ab109RunGivesBackAnObjectOfTheBlockOrTheObjectOfAHelper"] = ["SF1001"],
+            ["Ab109ARunInALambdaForEachElement"] = ["SF1001"],
+            ["Ab109ALocalFunctionWithARunRunsTwoTimes"] = ["SF1001"],
+            ["Ab109AHelperWithARunRunsTwoTimes"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunPutsAPendingCell"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunPutsThePlainCellInABranch"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneMethodGroupMakeTwoObjects"] = ["SF1001"],
+            ["Ab109AMethodWithTheNameRunCallsItsFunctionTwoTimes"] = ["SF1001"],
+            ["Ab109TwoRunsGiveTheObjectOfAField"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

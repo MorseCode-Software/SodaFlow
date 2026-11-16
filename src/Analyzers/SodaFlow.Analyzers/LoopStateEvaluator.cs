@@ -666,6 +666,8 @@ internal sealed partial class LoopStateEvaluator
 
             switch (ancestor)
             {
+                case AnonymousFunctionExpressionSyntax lambda when this.RunsOneTimeInItsCall(lambda):
+                    continue;
                 case ForStatementSyntax
                     or CommonForEachStatementSyntax
                     or WhileStatementSyntax
@@ -681,6 +683,15 @@ internal sealed partial class LoopStateEvaluator
 
         return false;
     }
+
+    // True for a lambda that the code writes at a call of the library which runs its function one
+    // time, as a transaction does. The code of the lambda then runs one time for each run of the
+    // call, as the code around the call does.
+    private bool RunsOneTimeInItsCall(SyntaxNode lambda) =>
+        lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax call }
+        && this.region.SymbolOf(call) is IMethodSymbol method
+        && this.region.Symbols.IsSodaFlow(method)
+        && OperatorTable.RunsFunctionOneTime(method);
 
     /// <summary>
     ///     Records the walker that reads the code of this evaluator. The evaluator
@@ -1539,6 +1550,8 @@ internal sealed partial class LoopStateEvaluator
 
             switch (ancestor)
             {
+                case AnonymousFunctionExpressionSyntax lambda when this.RunsOneTimeInItsCall(lambda):
+                    continue;
                 case ForStatementSyntax
                     or CommonForEachStatementSyntax
                     or WhileStatementSyntax
@@ -2444,7 +2457,11 @@ internal sealed partial class LoopStateEvaluator
             {
                 // A function that is not written at the call is a lambda in a local, a local
                 // function, or a method. The evaluator follows it.
-                OperatorRule.RunsNow => firstArgument.Join(this.Follow(invocation)?.State ?? LoopState.None),
+                // The result is an object when the function returns one. A function that the walk
+                // did not read gives no object, and the result then gets the object of the call.
+                OperatorRule.RunsNow => this.ReturnedHere(
+                    call: invocation,
+                    result: firstArgument.Join(this.Follow(invocation)?.State ?? LoopState.None)),
                 // A read gives the value that the receiver holds, with the state of that value.
                 OperatorRule.Read => receiverState.Content,
                 // The lazy sample gives the value that the receiver holds.
@@ -3446,6 +3463,9 @@ internal sealed partial class LoopStateEvaluator
                     ? this.Moved(invocation: invocation, method: method, withReceiver: true).AsElement
                     : LoopState.None;
 
+            // A transaction and a loop block run the function one time, as a call of it does.
+            bool manyTimes = kind != CalleeKind.Library || !OperatorTable.RunsFunctionOneTime(method);
+
             Followed? ofArgument =
                 callables.Aggregate(
                     seed: (Followed?)null,
@@ -3458,7 +3478,7 @@ internal sealed partial class LoopStateEvaluator
                                 function: function,
                                 target: functions,
                                 arguments: default,
-                                each: (written, given))));
+                                each: (written, given, ManyTimes: manyTimes))));
 
             if (ofArgument != null)
             {
@@ -3536,7 +3556,8 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="each">
     ///     For a callee with no body that runs the function. It is the expression
     ///     that names the function at the call, and the state that each of its
-    ///     parameters gets.
+    ///     parameters gets. The last part is true when the callee can run the
+    ///     function two or more times in the call.
     /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
@@ -3544,12 +3565,12 @@ internal sealed partial class LoopStateEvaluator
         FunctionValue function,
         LoopState target,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        (ExpressionSyntax Written, LoopState Given)? each)
+        (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each)
     {
         SemanticModel model = this.region.ModelFor(function.Declaration);
 
         IReadOnlyList<Binding> Bindings(ImmutableArray<IParameterSymbol> parameters) =>
-            each is (var written, var given)
+            each is (var written, var given, _)
                 ?
                 [
                     .. parameters.Select(parameter =>
@@ -3573,7 +3594,7 @@ internal sealed partial class LoopStateEvaluator
                     members: function.Definer.thisMembers,
                     receiver: null,
                     target: target,
-                    manyTimes: each != null);
+                    manyTimes: each is { ManyTimes: true });
             // A lambda in the initializer of a member. It has no code around it, thus it reads
             // no local.
             case AnonymousFunctionExpressionSyntax lambda:
@@ -3592,7 +3613,7 @@ internal sealed partial class LoopStateEvaluator
                     target: null,
                     returnsAnObject: model.GetSymbolInfo(lambda).Symbol is IMethodSymbol { ReturnType: { } returned }
                                      && this.DoesNotSayItsClass(returned),
-                    manyTimes: each != null);
+                    manyTimes: each is { ManyTimes: true });
             case LocalFunctionStatementSyntax or MethodDeclarationSyntax
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method
                      && BodyOf(method) is { } body:
@@ -3610,7 +3631,7 @@ internal sealed partial class LoopStateEvaluator
                         members: function.Definer.thisMembers,
                         receiver: null,
                         target: target,
-                        manyTimes: each != null);
+                        manyTimes: each is { ManyTimes: true });
                 }
 
                 LoopState owner = LoopState.None.WithMembers(function.Receiver);
@@ -3625,7 +3646,7 @@ internal sealed partial class LoopStateEvaluator
                     receiver: owner,
                     target: null,
                     returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
-                    manyTimes: each != null);
+                    manyTimes: each is { ManyTimes: true });
             }
             default:
                 return null;
@@ -4706,7 +4727,7 @@ internal sealed partial class LoopStateEvaluator
                             function: function,
                             target: lazy,
                             arguments: default,
-                            each: (written, given))));
+                            each: (written, given, ManyTimes: true))));
     }
 
     private bool ReturnsDelegate(FunctionValue function) =>
@@ -4906,7 +4927,7 @@ internal sealed partial class LoopStateEvaluator
                             function: function,
                             target: functions,
                             arguments: default,
-                            each: (argument.Written, given))
+                            each: (argument.Written, given, ManyTimes: true))
                         is { } followed
                     && followed.Findings.Any(static finding => !finding.Escape));
         }

@@ -13658,6 +13658,166 @@ public static class Shapes
     public static Cell<int> Ag71TruthOperatorInAForCondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int n = 0; for (; t; ) { n++; break; } return S.Hold(n); });
 
+    // S3096. AB109. A helper in the function of Transaction.Run makes the object, and the object gets a plain cell through its name.
+    public static Cell<int> Ab109AHelperInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3097. AB109. The function of Transaction.Run is a method group of a helper that makes the object.
+    public static Cell<int> Ab109AMethodGroupInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab109NewEmptySlot); s.Share = l.Map(v => v); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3098. AB109. The function of Transaction.Run is a local function that calls the helper.
+    public static Cell<int> Ab109ALocalFunctionInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(Make); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3099. AB109. The function of Transaction.Run is a lambda in a local, and it calls the helper.
+    public static Cell<int> Ab109ALambdaInALocalInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(make); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3100. AB109. A Transaction.Run in a Transaction.Run, and the helper is in the function of the second one.
+    public static Cell<int> Ab109ANestedRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3101. AB109. The function of Transaction.Run has a block, and a local of the block has the object of the helper.
+    public static Cell<int> Ab109ABlockLambdaInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); return n; }); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3102. AB109. The helper in the function of Transaction.Run calls a second helper, which makes the object.
+    public static Cell<int> Ab109AHelperOfAHelperInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlotThroughAHelper(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3103. AB109. A helper of the block has the Transaction.Run, and the function of that call calls the helper that makes the object.
+    public static Cell<int> Ab109AHelperWithARunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109RunMakes(l.Map(v => v)); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3104. AB109. The function of Transaction.Run makes the object with a creation, and no helper.
+    public static Cell<int> Ab109ACreationInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => new SettableSlot { Share = l.Map(v => v) }); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3105. AB109. The block calls a lambda in a local with no Transaction.Run, and the lambda calls the helper.
+    public static Cell<int> Ab109ALambdaThatTheBlockCallsMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3106. AB109. The block calls a local function with no Transaction.Run, and the local function calls the helper.
+    public static Cell<int> Ab109ALocalFunctionThatTheBlockCallsMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3107. AB109. A Transaction.RunVoid puts the plain cell into the object that a Transaction.Run made.
+    public static Cell<int> Ab109ARunVoidPutsThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; Transaction.RunVoid(() => { s.Share = Plain; }); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3108. AB109. The read is through the name of the object, with no list.
+    public static Cell<int> Ab109TheReadIsThroughTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3109. AB109. The helper with no Transaction.Run, which was right before the change.
+    public static Cell<int> Ab109AHelperWithNoRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109NewSlot(l.Map(v => v)); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3110. AB109. Transaction.Run gives back an object that the block made, and the put of the plain cell is through the result.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => a); s.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3111. AB109 control. The object of the helper in Transaction.Run keeps its pending cell.
+    public static Cell<int> Ab109TheObjectOfRunKeepsItsPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3112. AB109 control. The object of the helper in Transaction.Run gets a pending cell after the plain one.
+    public static Cell<int> Ab109TheObjectOfRunGetsAPendingCellAfterThePlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(Plain)); List<SettableSlot> made = [s]; s.Share = l.Map(v => v); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3113. AB109 control. Two calls of Transaction.Run with one local function make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneLocalFunctionMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(Make); SettableSlot t = Transaction.Run(Make); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3114. AB109 control. Two calls of Transaction.Run with one lambda in a local make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneLambdaMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(make); SettableSlot t = Transaction.Run(make); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3115. AB109 control. The function of Transaction.Run calls a lambda two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109TheFunctionOfRunCallsALambdaTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot First, SettableSlot Second) pair = Transaction.Run(() => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); return (make(), make()); }); pair.First.Share = Plain; return S.Hold(pair.Second.Share!.Sample()); });
+
+    // S3116. AB109 control. The function of Transaction.Run calls the helper in a loop, and only the first object gets the plain cell.
+    public static Cell<int> Ab109TheFunctionOfRunCallsTheHelperInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = Transaction.Run(() => { List<SettableSlot> each = []; for (int i = 0; i < 2; i++) { each.Add(Ab109NewSlot(l.Map(v => v))); } return each; }); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3117. AB109 control. A Transaction.Run in a loop makes an object in each turn, and only the object of the second turn gets the plain cell.
+    public static Cell<int> Ab109ARunInALoopMakesAnObjectInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); if (i == 0) { first = s; } else { s.Share = Plain; } } return S.Hold(first!.Share!.Sample()); });
+
+    // S3118. AB109 control. Transaction.Run gives back one of two objects of the block, and the put of the plain cell is to the second one.
+    public static Cell<int> Ab109RunGivesBackOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot b = new() { Share = Plain }; SettableSlot s = Transaction.Run(() => Never ? a : b); s.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3119. AB109 control. A lambda that runs two times calls the helper, and only the object of the first run gets the plain cell.
+    public static Cell<int> Ab109ALambdaThatRunsTwoTimesCallsTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); List<SettableSlot> made = [make(), make()]; made[0].Share = Plain; return S.Hold(made[1].Share!.Sample()); });
+
+    // S3120. AB109. A loop block in the block gives the object of the helper as its capture.
+    public static Cell<int> Ab109ALoopBlockInTheBlockMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> _, SettableSlot s) = Cell.Loop<int>().WithCaptures(m => (Cell: S.Hold(1), Captures: Ab109NewSlot(l.Map(v => v)))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3121. AB109. The block of a forward reference in the block gives the object of the helper.
+    public static Cell<int> Ab109AForwardReferenceInTheBlockMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = ForwardReference<SettableSlot>.WithoutCaptures(r => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3122. AB109. A local function of the block has the Transaction.Run, and the block calls it one time.
+    public static Cell<int> Ab109ALocalFunctionWithARunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); SettableSlot s = Make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3123. AB109. The function of Transaction.Run puts the plain cell into the object that it makes.
+    public static Cell<int> Ab109TheFunctionOfRunPutsThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); n.Share = Plain; return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3124. AB109. The result of Transaction.Run goes into the list with no local, and the put of the plain cell is through the list.
+    public static Cell<int> Ab109TheResultOfRunGoesIntoAListWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = [Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))]; made[0].Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3125. AB109 control. Transaction.Run gives back an object of the block or a new object, and the plain cell goes to the new one.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlockOrANewOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => Never ? x : new SettableSlot { Share = Plain }); s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3126. AB109 control. Transaction.Run gives back an object of the block or the object of a helper, and the plain cell goes to the second one.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlockOrTheObjectOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => Never ? x : Ab109NewSlot(Plain)); s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3127. AB109 control. A lambda that runs for each element has the Transaction.Run, and only the first object gets the plain cell.
+    public static Cell<int> Ab109ARunInALambdaForEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = new[] { 0, 1 }.Select(i => Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))).ToList(); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3128. AB109 control. A local function of the block has the Transaction.Run, and the block calls it two times.
+    public static Cell<int> Ab109ALocalFunctionWithARunRunsTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); SettableSlot s = Make(); SettableSlot t = Make(); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3129. AB109 control. The block calls the helper with the Transaction.Run two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109AHelperWithARunRunsTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109RunMakes(l.Map(v => v)); SettableSlot t = Ab109RunMakes(l.Map(v => v)); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3130. AB109 control. The function of Transaction.Run puts a pending cell into the object that it makes.
+    public static Cell<int> Ab109TheFunctionOfRunPutsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(Plain); n.Share = l.Map(v => v); return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3131. AB109 control. The function of Transaction.Run puts the plain cell in a branch that does not run.
+    public static Cell<int> Ab109TheFunctionOfRunPutsThePlainCellInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); if (Never) { n.Share = Plain; } return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3132. AB109 control. Two calls of Transaction.Run with one method group make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneMethodGroupMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab109NewEmptySlot); SettableSlot t = Transaction.Run(Ab109NewEmptySlot); t.Share = l.Map(v => v); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3133. AB109 control. A method of this code with the name Run calls its function two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109AMethodWithTheNameRunCallsItsFunctionTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = Ab109Twice.Run(() => Ab109NewSlot(l.Map(v => v))); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3134. AB109 control. Two calls of Transaction.Run give the one object of a field, and the object gets a pending cell through the second name.
+    public static Cell<int> Ab109TwoRunsGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109Kept); SettableSlot t = Transaction.Run(() => Ab109Kept); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3135. AB109. A Transaction.RunVoid gives a local of the block the object of the helper.
+    public static Cell<int> Ab109ARunVoidGivesALocalTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? s = null; Transaction.RunVoid(() => { s = Ab109NewSlot(l.Map(v => v)); }); List<SettableSlot> made = [s!]; s!.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17041,6 +17201,21 @@ public static class Shapes
         public int CompareTo(Ag71RankedAndDisposable? other) => 0;
 
         public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    private static SettableSlot Ab109NewSlot(Cell<int> share) => new() { Share = share };
+
+    private static SettableSlot Ab109NewEmptySlot() => new();
+
+    private static SettableSlot Ab109NewSlotThroughAHelper(Cell<int> share) => Ab109NewSlot(share);
+
+    private static SettableSlot Ab109RunMakes(Cell<int> share) => Transaction.Run(() => Ab109NewSlot(share));
+
+    private static readonly SettableSlot Ab109Kept = new();
+
+    private static class Ab109Twice
+    {
+        public static List<SettableSlot> Run(Func<SettableSlot> make) => [make(), make()];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
