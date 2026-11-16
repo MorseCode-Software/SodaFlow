@@ -45,6 +45,25 @@ internal sealed partial class LoopStateEvaluator
         return this.Eval(access.Expression).Origin is { } origin ? all[index].From(origin) : all[index];
     }
 
+    /// <summary>
+    ///     The state of the first element of a collection, when the walk knows
+    ///     the positions. Null for each other collection.
+    /// </summary>
+    public LoopState? FirstElementOf(ExpressionSyntax collection)
+    {
+        if (this.ElementsOf(collection) is { Count: > 0 } elements)
+        {
+            return this.Eval(elements[0]);
+        }
+
+        if (this.StorePositionsOf(collection) is not (_, { Length: > 0 } all))
+        {
+            return null;
+        }
+
+        return this.Eval(collection).Origin is { } origin ? all[0].From(origin) : all[0];
+    }
+
     // The number that an argument has in the code, when it is a constant that is not negative.
     private int? ConstantIndexOf(ArgumentSyntax argument) =>
         this.region.ModelFor(argument).GetConstantValue(argument.Expression) is { Value: int index and >= 0 }

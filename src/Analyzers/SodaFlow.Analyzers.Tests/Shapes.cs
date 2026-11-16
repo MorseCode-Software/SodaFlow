@@ -15791,6 +15791,46 @@ public static class Shapes
     public static Cell<int> Ab142ASecondTurnAddsADifferentObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); list.Add(i == 0 ? fresh : new SettableSlot { Share = Plain }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
 
+    // S3471. An async helper reads each element of an array, and awaits a task that does not complete after the first.
+    public static Cell<int> DvStateAsyncAwaitAfterTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadEachThenAwait([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3472. An async lambda reads each element of an array in a local, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab145AsyncLambdaAwaitsAfterTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3473. An async helper reads each element of a list, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab145AsyncAwaitAfterTheFirstElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEachOfAListThenAwait([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3474. Control: the first element has the pending cell.
+    public static Cell<int> Ab145ThePendingCellIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadEachThenAwait([l.Map(v => v), Plain]).Wait(0); return S.Hold(0); });
+
+    // S3475. Control: the helper awaits a complete task, thus the second turn reads now.
+    public static Cell<int> Ab145AnAwaitOfACompleteTaskAfterEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEachThenAwaitComplete([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3476. Control: a helper reads each element with no await, thus the second turn reads now.
+    public static Cell<int> Ab145AHelperReadsEachElementWithNoAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEach([Plain, l.Map(v => v)]); return S.Hold(0); });
+
+    // S3477. Control: the block reads each element of an array, and the second element has the pending cell.
+    public static Cell<int> Ab145TheBlockReadsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); } return S.Hold(0); });
+
+    // S3478. Control: the block keeps each element in a local, and reads the local after the loop.
+    public static Cell<int> Ab145TheBlockKeepsTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; Cell<int> last = Plain; foreach (Cell<int> each in cells) { last = each; } return S.Hold(last.Sample()); });
+
+    // S3479. Control: a Reverse of the list puts the pending cell first, and the helper awaits after the first element.
+    public static Cell<int> Ab145AReverseMovesThePendingCellFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain, l.Map(v => v)]; cells.Reverse(); Ab145ReadEachOfAListThenAwait(cells).Wait(0); return S.Hold(0); });
+
+    // S3480. Control: the platform reverses the array, which puts the pending cell first, and the helper awaits after the first element.
+    public static Cell<int> Ab145AnArrayReverseMovesThePendingCellFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; Array.Reverse(cells); DvStReadEachThenAwait(cells).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20885,6 +20925,41 @@ public static class Shapes
         public void Twice() => this.Rang += this.Rang;
 
         public void Ring() => this.Rang?.Invoke();
+    }
+
+    private static async Task DvStReadEachThenAwait(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab145ReadEachOfAListThenAwait(List<Cell<int>> cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab145ReadEachThenAwaitComplete(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await Task.CompletedTask;
+        }
+    }
+
+    private static void Ab145ReadEach(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

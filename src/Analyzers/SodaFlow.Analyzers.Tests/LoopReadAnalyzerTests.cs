@@ -2321,7 +2321,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab142ABreakEndsTheForeach"] = ["SF1001"],
             ["Ab142AnObjectOlderThanTheTurn"] = ["SF1001"],
             ["Ab142AnAddAfterTheForeach"] = ["SF1001"],
-            ["Ab142ASecondTurnAddsADifferentObject"] = ["SF1001"]
+            ["Ab142ASecondTurnAddsADifferentObject"] = ["SF1001"],
+            ["Ab145ThePendingCellIsFirst"] = ["SF1004"],
+            ["Ab145AnAwaitOfACompleteTaskAfterEachElement"] = ["SF1004"],
+            ["Ab145AHelperReadsEachElementWithNoAwait"] = ["SF1004"],
+            ["Ab145TheBlockReadsEachElement"] = ["SF1001"],
+            ["Ab145TheBlockKeepsTheLastElement"] = ["SF1001"],
+            ["Ab145AReverseMovesThePendingCellFirst"] = ["SF1004"],
+            ["Ab145AnArrayReverseMovesThePendingCellFirst"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -342,11 +342,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
-        LoopState elements =
+        LoopState ofTheCollection =
             LoopStateEvaluator.ElementOf(
-                    collection: this.evaluator.Eval(node.Expression),
-                    type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType)
-                .Join(this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState));
+                collection: this.evaluator.Eval(node.Expression),
+                type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType);
+
+        LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
+        LoopState elements = ofTheCollection.Join(enumerated);
+
+        // The first turn has the first element, when the walk knows the positions. Thus, an await
+        // that stops the first turn stops it before a later element.
+        LoopState? first =
+            enumerated.IsNone
+            && this.evaluator.FirstElementOf(node.Expression) is { } one
+            && one.Shape != elements.Shape
+                ? one
+                : null;
 
         // The conversion of each element to the type of the variable has no node of its own.
         if (this.region.Symbols.DeclaresConversions
@@ -361,15 +372,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     arguments: [(node.Expression, elements)]));
         }
 
-        if (this.region.ModelFor(node).GetDeclaredSymbol(node) is { } element)
+        ILocalSymbol? element = this.region.ModelFor(node).GetDeclaredSymbol(node);
+
+        if (element != null)
         {
-            this.evaluator.Declare(local: element, state: elements);
+            this.evaluator.Declare(local: element, state: first ?? elements);
             this.evaluator.HoldsOneOf(local: element, collection: node.Expression);
         }
 
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.evaluator.StartsEach(node);
         this.Visit(node.Statement);
+
+        // A later turn can have each element. The variable then changes what the first read
+        // leaves, and the walk reads a second turn.
+        if (first != null && element != null)
+        {
+            this.evaluator.Declare(local: element, state: elements);
+        }
+
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
 
         // The loop has a turn for each element when it always runs and no statement ends a turn
