@@ -41,6 +41,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="ArrayOfAForeach.cs"/>
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="CalleeKind.cs"/>
         <Compile Include="CompleteTasks.cs"/>

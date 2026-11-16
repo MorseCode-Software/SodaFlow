@@ -343,9 +343,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
         ITypeSymbol? type = this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType;
-
-        LoopState ofTheCollection =
-            LoopStateEvaluator.ElementOf(collection: this.evaluator.Eval(node.Expression), type: type);
+        LoopState collection = this.evaluator.Eval(node.Expression);
+        LoopState ofTheCollection = LoopStateEvaluator.ElementOf(collection: collection, type: type);
 
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
         LoopState elements = ofTheCollection.Join(enumerated);
@@ -376,6 +375,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.evaluator.HoldsOneOf(local: element, collection: node.Expression);
         }
 
+        // Each turn reads the array of the start, also when the body gives the name a new array.
+        ArrayOfAForeach? array = element != null ? this.evaluator.ArrayOf(loop: node, state: collection) : null;
+
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.evaluator.StartsEach(node);
         this.Visit(node.Statement);
@@ -384,11 +386,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // leaves, and the walk reads a second turn. A later turn of an array also has what a turn
         // before put into the array.
         Action? startsALaterTurn =
-            element != null && this.evaluator.PutsIntoALaterElement(node)
+            element != null && array != null && this.evaluator.PutsIntoALaterElement(loop: node, array: array)
                 ? this.StartsALaterTurn(
                     loop: node,
                     element: element,
                     elements: elements,
+                    array: array,
                     type: type,
                     count: start?.Count)
                 : null;
@@ -423,6 +426,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ForEachStatementSyntax loop,
         ISymbol element,
         LoopState elements,
+        ArrayOfAForeach array,
         ITypeSymbol? type,
         int? count)
     {
@@ -434,7 +438,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (readsThatPutForALaterTurn > 0)
             {
                 readsThatPutForALaterTurn--;
-                later = elements.Join(this.evaluator.ElementsNow(loop: loop, type: type));
+                later = elements.Join(this.evaluator.ElementsNow(loop: loop, array: array, type: type));
             }
 
             this.evaluator.Declare(local: element, state: later);

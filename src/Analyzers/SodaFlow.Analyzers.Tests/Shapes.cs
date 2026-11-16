@@ -16271,6 +16271,30 @@ public static class Shapes
     public static Cell<int> Ab156LocalFunctionThatPostsItself() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); int n = 0; Transaction.Post(Again); return s.Hold(Plain).SwitchC(); void Again() { s.Send(Plain.Map(v => v + 1)); if (++n < 3) { Transaction.Post(Again); } } });
 
+    // S3591. The body puts the pending cell into the first array through a second name, and gives the name a new array. The third turn reads the pending cell from the first array.
+    public static Cell<int> Ab157TheBodyPutsIntoTheFirstArrayThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[2] = d; d = l.Map(v => v); cells = [Plain, Plain]; } return S.Hold(0); });
+
+    // S3592. The first turn puts the pending cell into the first array through its name, and then gives the name a new array. The third turn reads the pending cell.
+    public static Cell<int> Ab157TheBodyPutsIntoTheFirstArrayThroughItsName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = l.Map(v => v); foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[2] = d; d = Plain; cells = [Plain, Plain, Plain]; } return S.Hold(0); });
+
+    // S3593. Control: the body gives the name a new array, and puts the pending cell into the new array. The loop never reads it.
+    public static Cell<int> Ab157TheBodyPutsIntoTheNewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = [Plain, Plain, Plain]; cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3594. Control: the body gives the name a new array, and puts the pending cell into the new array through a second name.
+    public static Cell<int> Ab157TheBodyPutsIntoTheNewArrayThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = new Cell<int>[] { Plain, Plain, Plain }; Cell<int>[] other = cells; other[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3595. The body puts the pending cell into the first array through a second name, and gives the name the first array again. The third turn reads it.
+    public static Cell<int> Ab157TheBodyGivesTheNameTheFirstArrayAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[2] = d; d = l.Map(v => v); cells = other; } return S.Hold(0); });
+
+    // S3596. Control: a list. The body gives the name a new list, and puts the pending cell into the new list. The loop never reads it.
+    public static Cell<int> Ab157TheBodyPutsIntoANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = [Plain, Plain, Plain]; cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -66,31 +66,53 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True when a foreach statement is over an array, and its body puts a
-    ///     value into an element that a later turn can read.
+    ///     The array of a foreach statement over a name of an array, as the loop
+    ///     starts. Null for each other foreach statement.
+    /// </summary>
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="state">The state of the collection at the start of the loop.</param>
+    public ArrayOfAForeach? ArrayOf(ForEachStatementSyntax loop, LoopState state) =>
+        Unwrapped(loop.Expression) is IdentifierNameSyntax name && this.region.TypeOf(name) is IArrayTypeSymbol
+            ? new ArrayOfAForeach(name: name, state: state, one: this.TheOneCollectionOf(name))
+            : null;
+
+    /// <summary>
+    ///     True when the body of a foreach statement over an array puts a value
+    ///     into an element that a later turn can read.
     /// </summary>
     /// <remarks>
     ///     A foreach statement reads an element of an array at the start of its
     ///     turn. Thus, a later turn reads a value that a turn before put into the
     ///     array. A list stops the loop with an exception after such a change.
     /// </remarks>
-    public bool PutsIntoALaterElement(ForEachStatementSyntax loop) =>
-        Unwrapped(loop.Expression) is IdentifierNameSyntax collection
-        && this.region.TypeOf(collection) is IArrayTypeSymbol
-        && loop.Statement.DescendantNodes()
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="array">The result of <see cref="ArrayOf" /> for the loop.</param>
+    public bool PutsIntoALaterElement(ForEachStatementSyntax loop, ArrayOfAForeach array) =>
+        loop.Statement.DescendantNodes()
             .OfType<AssignmentExpressionSyntax>()
-            .Any(assignment => this.PutsIntoALaterElement(assignment: assignment, collection: collection));
+            .Any(assignment => this.PutsIntoALaterElement(assignment: assignment, array: array));
 
     /// <summary>
-    ///     The state of each element of the collection of a foreach statement at
-    ///     this time. See <see cref="PutsIntoALaterElement(ForEachStatementSyntax)" />.
+    ///     The state of each element of the array of a foreach statement at this
+    ///     time. See <see cref="PutsIntoALaterElement(ForEachStatementSyntax, ArrayOfAForeach)" />.
     /// </summary>
-    public LoopState ElementsNow(ForEachStatementSyntax loop, ITypeSymbol? type) =>
-        ElementOf(collection: this.EvalAgain(loop.Expression), type: type);
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="array">The result of <see cref="ArrayOf" /> for the loop.</param>
+    /// <param name="type">The type of the element.</param>
+    public LoopState ElementsNow(ForEachStatementSyntax loop, ArrayOfAForeach array, ITypeSymbol? type)
+    {
+        LoopState now = this.EvalAgain(loop.Expression);
 
-    // True for an assignment to an element of a collection that a later turn can read. A second
-    // name of the same collection is the same collection. No later turn reads the first element.
-    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, ExpressionSyntax collection)
+        // The body can give the name a different array. The loop reads the array of the start,
+        // and the store has the elements of that array.
+        return ElementOf(
+            collection: now.Objects.SequenceEqual(array.State.Objects) ? now : this.InTheStoreNow(array) ?? now,
+            type: type);
+    }
+
+    // True for an assignment to an element of the array that a later turn can read. A second name
+    // of the array of the start is the same array. No later turn reads the first element.
+    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, ArrayOfAForeach array)
     {
         if (Unwrapped(assignment.Left)
                 is not ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
@@ -102,9 +124,40 @@ internal sealed partial class LoopStateEvaluator
 
         return SymbolEqualityComparer.Default.Equals(
                    x: this.region.SymbolOf(written),
-                   y: this.region.SymbolOf(collection))
-               || (this.TheOneCollectionOf(written) is { } one
-                   && ReferenceEquals(objA: one, objB: this.TheOneCollectionOf(collection)));
+                   y: this.region.SymbolOf(array.Name))
+               || (array.One != null && ReferenceEquals(objA: this.TheOneCollectionOf(written), objB: array.One));
+    }
+
+    // The state of the array of the start of a foreach statement, as the store has it now. Null
+    // when the store does not have each object of the array. See Refreshed.
+    private LoopState? InTheStoreNow(ArrayOfAForeach array)
+    {
+        LoopState? stored = null;
+
+        foreach (MadeObject made in array.State.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is not { } one)
+            {
+                return null;
+            }
+
+            stored = stored == null ? one : stored.Join(one);
+        }
+
+        if (stored == null)
+        {
+            return null;
+        }
+
+        LoopState refreshed =
+            array.State.RefreshedFrom(stored: stored.FromIfUnknown(array.State.AnyOrigin), all: true);
+
+        LoopState parts =
+            this.InAnObjectOf(
+                turn: array.One is { } only ? only.Turn : TurnOfTheNewOne(refreshed),
+                state: refreshed);
+
+        return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
     }
 
     // The number that an argument has in the code, when it is a constant that is not negative.
