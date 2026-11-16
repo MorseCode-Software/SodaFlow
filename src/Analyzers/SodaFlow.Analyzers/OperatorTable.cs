@@ -374,7 +374,8 @@ internal static class OperatorTable
             "Update");
 
     // The operators whose function computes the current value of the result. Map, Lift, and
-    // Defer are for a cell, a behavior, and a lazy sample. The filters and the sorts are the
+    // Defer are for a cell, a behavior, and a lazy sample. Apply runs the function that its cell
+    // holds. The filters and the sorts are the
     // views of a collection. The next six make a sort order. A view that sorts by that order
     // runs the function of the order, and the pending state of the order tells the view so. The
     // last three get a comparer or a key selector, which the collection calls at its first read.
@@ -382,6 +383,7 @@ internal static class OperatorTable
         ImmutableHashSet.Create(
             "Map",
             "Lift",
+            "Apply",
             "Defer",
             "Filter",
             "FilterByIdentity",

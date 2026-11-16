@@ -13449,6 +13449,22 @@ public static class Shapes
     public static Cell<int> Ab107SendOfAPlainCellIntoASinkSwitchedAsTheClose() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); sink.Send(Plain.Map(v => v + 1)); return sink.SwitchC(); });
 
+    // S3044. Apply runs the function in its cell at the first read, and that function samples the placeholder.
+    public static Cell<int> R2ApiApplyOfAFunctionThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + l.Sample())).Sample(); return S.Hold(x); });
+
+    // S3045. A view filtered by a cell that holds a predicate runs that predicate at the first read of the keys. The predicate samples the placeholder.
+    public static Cell<int> R2ApiViewFilteredByACellOfAFunctionThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = Items().Filter(predicateCell: Cell.Constant<Func<ItemId, int, bool>>((_, state) => state > l.Sample())).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3046. Apply of a function in a local cell runs that function at the first read, and the function samples the placeholder.
+    public static Cell<int> Ab108ApplyOfAFunctionInALocalThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Func<int, int>> f = Cell.Constant<Func<int, int>>(v => v + l.Sample()); int x = Plain.Apply(f).Sample(); return S.Hold(x); });
+
+    // S3047. Apply of a function that reads no pending value, sampled in the block, reads nothing of the loop.
+    public static Cell<int> Ab108ApplyOfAFunctionThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + 1)).Sample(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -2526,8 +2526,9 @@ internal sealed partial class LoopStateEvaluator
                         initial: firstArgument.Content)),
                 OperatorRule.ConstantLazy => firstArgument.WithLinked(false),
                 // A value given to a constant or a sink is content. The links of a value with members
-                // of its own are in it, and not links of the cell.
-                OperatorRule.Content => firstArgument.AsContent,
+                // of its own are in it, and not links of the cell. A function is a value also.
+                OperatorRule.Content => firstArgument.Join(this.KeptFunction(arguments: arguments, receiver: receiver))
+                    .AsContent,
                 OperatorRule.Fold => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
@@ -6063,6 +6064,13 @@ internal sealed partial class LoopStateEvaluator
         {
             LoopState functions = this.Eval(argument.Written);
 
+            // A cell of functions, as Apply and a filter by a cell of predicates get, gives the
+            // operator the function that it holds.
+            if (functions.Functions.IsEmpty && this.region.Symbols.IsCellOrBehaviorType(argument.Parameter?.Type))
+            {
+                functions = functions.Content;
+            }
+
             return Callables(state: functions, parameter: argument.Parameter)
                 .Any(function =>
                     this.FollowFunction(
@@ -6106,6 +6114,27 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The functions of the value that a constant or a sink gets. An operator
+    ///     argument with functions gives no state, thus the evaluator reads the
+    ///     functions here.
+    /// </summary>
+    private LoopState KeptFunction(SeparatedSyntaxList<ArgumentSyntax> arguments, ExpressionSyntax? receiver)
+    {
+        ExpressionSyntax? value =
+            arguments.Select(static argument => argument.Expression).FirstOrDefault(written => written != receiver);
+
+        // Only a lambda or a name can be a function of this compilation.
+        if (value is not (AnonymousFunctionExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        {
+            return LoopState.None;
+        }
+
+        LoopState state = this.Eval(value);
+
+        return state.Functions.IsEmpty ? LoopState.None : state;
+    }
+
+    /// <summary>
     ///     False when no function in the arguments can use a value with a state.
     ///     This is a check of the syntax only. For most functions, the evaluator
     ///     then does not read the function. A function gets such a value through
@@ -6127,7 +6156,8 @@ internal sealed partial class LoopStateEvaluator
                 if (this.region.SymbolOf(written) is IMethodSymbol
                     || (this.region.TypeOf(written) is { } type
                         && (type.TypeKind == TypeKind.Delegate
-                            || (SodaFlowSymbols.IsComparer(type) && !this.Eval(written).IsNone))))
+                            || (SodaFlowSymbols.IsComparer(type) && !this.Eval(written).IsNone)
+                            || IsCellOfFunctions(type))))
                 {
                     return true;
                 }
@@ -6163,6 +6193,12 @@ internal sealed partial class LoopStateEvaluator
 
         return false;
     }
+
+    // A cell of functions, as Apply and a filter by a cell of predicates get.
+    private bool IsCellOfFunctions(ITypeSymbol type) =>
+        type is INamedTypeSymbol { TypeArguments.Length: 1 } cell
+        && cell.TypeArguments[0].TypeKind == TypeKind.Delegate
+        && this.region.Symbols.IsCellOrBehaviorType(cell);
 
     private HashSet<string> NamesWithState()
     {
