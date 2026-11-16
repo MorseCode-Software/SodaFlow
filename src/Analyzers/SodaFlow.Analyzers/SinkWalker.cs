@@ -343,6 +343,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
         ITypeSymbol? type = this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType;
+
         LoopState ofTheCollection =
             LoopStateEvaluator.ElementOf(collection: this.evaluator.Eval(node.Expression), type: type);
 
@@ -686,11 +687,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         loop is ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
         && body is StatementSyntax turn
         && EndsTheLoop(turn)
-        && !turn.DescendantNodes(static node =>
+        && turn.DescendantNodes(static node =>
                 node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
             .OfType<ContinueStatementSyntax>()
-            .Any(next => next.Ancestors().Select(LoopStateEvaluator.LoopBodyOf).First(static found => found != null)
-                         == turn);
+            .All(next => next.Ancestors().Select(LoopStateEvaluator.LoopBodyOf).First(static found => found != null)
+                         != turn);
 
     // True for a statement that ends the loop around it on each path. Each branch ends with a
     // break, a return, or a throw. A break in a block or in an if is for that loop.

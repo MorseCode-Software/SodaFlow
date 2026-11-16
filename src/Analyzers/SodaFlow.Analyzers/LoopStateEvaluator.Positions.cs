@@ -89,7 +89,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True for an assignment to an element of a collection that a later turn can read. A second
     // name of the same collection is the same collection. No later turn reads the first element.
-    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, IdentifierNameSyntax collection)
+    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, ExpressionSyntax collection)
     {
         if (Unwrapped(assignment.Left)
                 is not ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
