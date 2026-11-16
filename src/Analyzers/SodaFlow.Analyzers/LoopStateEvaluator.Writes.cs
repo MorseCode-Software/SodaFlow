@@ -1718,7 +1718,7 @@ internal sealed partial class LoopStateEvaluator
         {
             if (noted)
             {
-                this.Frame.AddsOfEachTurn[call] = (before.List, null);
+                this.Frame.AddsOfEachTurn[call] = before with { Added = null };
             }
 
             return;

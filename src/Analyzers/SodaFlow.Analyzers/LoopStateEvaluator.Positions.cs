@@ -545,7 +545,7 @@ internal sealed partial class LoopStateEvaluator
     // The value that a statement at the first level of a block adds to a list of the platform. The
     // name is the name of the list in that statement. Null for each other use of the name.
     private ExpressionSyntax? AddedBy(SyntaxNode use, BlockSyntax scope) =>
-        this.AnAddOf(use) is var (added, statement) && statement.Parent == scope ? added : null;
+        this.AnAddOf(use) is (var added, var statement) && statement.Parent == scope ? added : null;
 
     // The same for a statement at each level, with the statement.
     private (ExpressionSyntax Added, ExpressionStatementSyntax Statement)? AnAddOf(SyntaxNode use) =>
