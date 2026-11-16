@@ -253,16 +253,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         BlockSyntax? block = null;
+        SyntaxNode part = statement;
 
-        // The statement of each of these runs the statement in it to its end.
         for (SyntaxNode? place = statement.Parent;
-             place is BlockSyntax
-                 or UsingStatementSyntax
-                 or LockStatementSyntax
-                 or CheckedStatementSyntax
-                 or UnsafeStatementSyntax
-                 or FixedStatementSyntax;
-             place = place.Parent)
+             place != null && RunsToItsEnd(statement: place, part: part);
+             part = place, place = place.Parent)
         {
             block = place as BlockSyntax ?? block;
         }
@@ -270,14 +265,35 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return block?.DescendantNodes().OfType<LabeledStatementSyntax>().Any() == false ? block : null;
     }
 
-    // True when each turn of a loop runs an await of a task that is not complete. The next turn then
-    // runs after the task completes, which is after the call, and the walk reads no second turn. A
-    // continue can start the next turn before the await. Synchronous code has no such await, and
-    // the test is one test of an empty list.
+    // True when each run of a statement runs a part of it to its end. A do runs its body one time at
+    // least. A try runs its block. With a catch clause, the code after the try can run when the
+    // block stops before the await. Thus, only a try with no catch clause counts.
+    private static bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
+        statement switch
+        {
+            BlockSyntax
+                or UsingStatementSyntax
+                or LockStatementSyntax
+                or CheckedStatementSyntax
+                or UnsafeStatementSyntax
+                or FixedStatementSyntax => true,
+            DoStatementSyntax loop => loop.Statement == part,
+            TryStatementSyntax attempt => attempt.Block == part && attempt.Catches.Count == 0,
+            _ => false
+        };
+
+    // True when each turn of a loop runs an await of a task that is not complete. That await is in
+    // the body, and its block holds the body. The next turn then runs after the task completes,
+    // which is after the call, and the walk reads no second turn. A continue can start the next
+    // turn before the await. Synchronous code has no such await, and the test is one test of an
+    // empty list.
     private bool AwaitEndsEachTurn(SyntaxNode body) =>
         this.later.Count > 0
         && body is BlockSyntax turn
-        && this.later.Any(awaited => awaited.Block == turn)
+        && this.later.Any(awaited =>
+            awaited.Block.Span.Contains(turn.Span)
+            && awaited.From > turn.SpanStart
+            && awaited.From <= turn.Span.End)
         && !turn.DescendantNodes(descendIntoChildren: static node =>
                 node is not (AnonymousFunctionExpressionSyntax
                     or LocalFunctionStatementSyntax

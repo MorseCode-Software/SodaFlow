@@ -2304,7 +2304,9 @@ internal sealed class LoopReadAnalyzerTests
             ["DvStateAsyncReadBeforeAnAwaitInALoop"] = ["SF1004"],
             ["DvStateAsyncReadAfterACompleteAwaitInALoop"] = ["SF1004"],
             ["DvStateAsyncCompleteAwaitAtTheEndOfATurn"] = ["SF1004"],
-            ["Ab138ContinueBeforeTheAwait"] = ["SF1004"]
+            ["Ab138ContinueBeforeTheAwait"] = ["SF1004"],
+            ["Ab139ReadAfterATryWithACatch"] = ["SF1004"],
+            ["Ab139ReadAfterAWhileWithAnAwait"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

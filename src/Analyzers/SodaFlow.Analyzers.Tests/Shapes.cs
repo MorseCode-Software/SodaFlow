@@ -15671,6 +15671,26 @@ public static class Shapes
     public static Cell<int> Ab138ContinueBeforeTheAwait() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab138ContinueBeforeTheAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
 
+    // S3441. An async helper reads after a do loop that awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncReadAfterADoWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitInADoThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3442. An async helper reads after a try whose body awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncReadAfterATryWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitInATryThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3443. An async helper reads in a do body after an await of a task that does not complete. A control.
+    public static Cell<int> Ab139ReadInADoAfterTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139AwaitThenReadInADo(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3444. An async helper reads after a try whose block awaits a task that does not complete. The catch clause of the try can run the code after the try now. The read in the catch clause throws. A control.
+    public static Cell<int> Ab139ReadAfterATryWithACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139ThrowInATryThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3445. An async helper reads after a while loop whose body awaits a task that does not complete. The loop can run no turn. A control.
+    public static Cell<int> Ab139ReadAfterAWhileWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139AwaitInAWhileThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20696,6 +20716,66 @@ public static class Shapes
 
             await R2NeverDone.Task;
         }
+    }
+
+    private static async Task DvStAwaitInADoThenRead(Cell<int> c)
+    {
+        do
+        {
+            await R2NeverDone.Task;
+        }
+        while (Kept.Count < 0);
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task DvStAwaitInATryThenRead(Cell<int> c)
+    {
+        try
+        {
+            await R2NeverDone.Task;
+        }
+        finally
+        {
+            Kept.Add(0);
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab139AwaitThenReadInADo(Cell<int> c)
+    {
+        do
+        {
+            await R2NeverDone.Task;
+            Kept.Add(c.Sample());
+        }
+        while (Kept.Count < 0);
+    }
+
+    private static async Task Ab139ThrowInATryThenRead(Cell<int> c)
+    {
+        try
+        {
+            Kept.Add(Kept.Count >= 0 ? throw new InvalidOperationException() : 0);
+            await R2NeverDone.Task;
+        }
+        catch (InvalidOperationException)
+        {
+            Kept.Add(1);
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab139AwaitInAWhileThenRead(Cell<int> c)
+    {
+        while (Kept.Count < 0)
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
