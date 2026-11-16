@@ -173,8 +173,21 @@ internal sealed partial class LoopStateEvaluator
                 return true;
             }
 
-            if ((each is AnonymousFunctionExpressionSyntax function && !this.RunsOnlyInTheCall(function))
-                || each is LocalFunctionStatementSyntax or QueryExpressionSyntax or MemberDeclarationSyntax)
+            bool runsLater =
+                each switch
+                {
+                    AnonymousFunctionExpressionSyntax
+                    {
+                        Parent: ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax call }
+                    } => !this.RunsOnlyInTheCall(call),
+                    AnonymousFunctionExpressionSyntax
+                        or LocalFunctionStatementSyntax
+                        or QueryExpressionSyntax
+                        or MemberDeclarationSyntax => true,
+                    _ => false
+                };
+
+            if (runsLater)
             {
                 return false;
             }
@@ -183,13 +196,12 @@ internal sealed partial class LoopStateEvaluator
         return false;
     }
 
-    // True when the library runs a function only in the call that gets it. A transaction and a
-    // loop block run it one time. A map of a constant cell runs it for the first value, and has
+    // True when the library runs a function that a call gets only in that call. A transaction and
+    // a loop block run it one time. A map of a constant cell runs it for the first value, and has
     // no update that runs it again.
-    private bool RunsOnlyInTheCall(AnonymousFunctionExpressionSyntax function)
+    private bool RunsOnlyInTheCall(InvocationExpressionSyntax call)
     {
-        if (function.Parent is not ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax call }
-            || this.region.SymbolOf(call) is not IMethodSymbol method
+        if (this.region.SymbolOf(call) is not IMethodSymbol method
             || !this.region.Symbols.IsSodaFlow(method))
         {
             return false;
