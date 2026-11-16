@@ -1600,7 +1600,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (target is ElementAccessExpressionSyntax indexed)
         {
-            positions = this.evaluator.PositionsBefore(collection: indexed.Expression, replaces: replaces, turn: turn);
+            positions =
+                this.evaluator.PositionsBeforeAnAssignment(
+                    collection: indexed.Expression,
+                    replaces: replaces,
+                    turn: turn);
             this.evaluator.Gets(collection: indexed.Expression, value: value);
         }
         else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)

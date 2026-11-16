@@ -15579,6 +15579,62 @@ public static class Shapes
     public static Cell<int> Ab137LambdaInALocalRemovesThePendingObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }, new SettableSlot { Share = Plain }]; Action drop = () => list.RemoveAt(0); drop(); return S.Hold(list[0].Share!.Sample()); });
 
+    // S3418. Each turn puts its new object into the element through a method, and gives it a plain cell through ref.
+    public static Cell<int> DvStateAPutThroughRefInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); Ab76PutThenGive(ref slots[0], slots, fresh, Plain); } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3419. Control: each turn puts its new object into the element, and gives it a plain cell through the element.
+    public static Cell<int> DvStateAPutInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3420. Each turn makes an object with a pending cell, puts it into a list, and gives it a plain cell.
+    public static Cell<int> DvStateEachTurnGivesItsObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); fresh.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3421. Each turn makes an object with a pending cell and gives it a plain cell, and a local keeps the last one.
+    public static Cell<int> DvStateEachTurnGivesItsObjectAPlainCellAndALocalKeepsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; fresh.Share = Plain; last = fresh; } return S.Hold(last!.Share!.Sample()); });
+
+    // S3422. Each turn puts its object into an element and gives it a plain cell through the element, and the block reads the element.
+    public static Cell<int> DvStateEachTurnGivesTheElementAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3423. Control: the turn with no loop.
+    public static Cell<int> DvStateTheTurnWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); slots[0] = fresh; slots[0].Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3424. Each turn gives its object a plain cell through a local that is older than the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughAnOlderLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? current = null; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; current = fresh; current.Share = Plain; } return S.Hold(current!.Share!.Sample()); });
+
+    // S3425. Each turn puts its object into an element, gives it a plain cell through its local, and the block reads the element.
+    public static Cell<int> DvStateEachTurnPutsThenWritesThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; fresh.Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3426. Each turn puts its object into an element of a list, and gives it a plain cell through the element.
+    public static Cell<int> DvStateEachTurnWritesThroughAListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3427. Each turn gives its object a plain cell through the element, and reads the element in the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughTheElementAndReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; Kept.Add(slots[0].Share!.Sample()); } return S.Hold(0); });
+
+    // S3428. Each turn gives its object a plain cell through the element, and reads it through its local in the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughTheElementAndReadsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; Kept.Add(fresh.Share!.Sample()); } return S.Hold(0); });
+
+    // S3429. Each turn puts an object with a pending cell into the element, and the block reads the element after the loop. A control.
+    public static Cell<int> Ab140EachTurnPutsAPendingObjectIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { slots[0] = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3430. A loop that runs no turn would put a plain object into the element. After the loop, the element can have its pending object from before the loop. A control.
+    public static Cell<int> Ab140ALoopWithNoTurnGivesBackTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < Kept.Count * 0; i++) { slots[0] = new SettableSlot { Share = Plain }; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3431. Each turn puts a plain object into the element of a list, and the block reads the element after the loop.
+    public static Cell<int> Ab140EachTurnPutsAPlainObjectIntoAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } Kept.Add(slots[0].Share!.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -1113,6 +1113,25 @@ internal sealed partial class LoopStateEvaluator
         }
 
         this.Frame.BeforeATurn.RemoveAll(kept => kept.Turn == turn);
+
+        // A position has the value from before the loop also. Positions of a different count
+        // tell nothing.
+        foreach ((SyntaxNode _, MadeObject made, ImmutableArray<LoopState> before)
+                 in this.Frame.PositionsBeforeATurn.Where(kept => kept.Turn == turn).ToArray())
+        {
+            if (this.region.Objects.PositionsOf(made) is { } after && after.Length == before.Length)
+            {
+                this.region.Objects.HasPositions(
+                    collection: made,
+                    values: after.Select((value, position) => value.Join(before[position])).ToImmutableArray());
+            }
+            else
+            {
+                this.region.Objects.HasNoPositions(made);
+            }
+        }
+
+        this.Frame.PositionsBeforeATurn.RemoveAll(kept => kept.Turn == turn);
     }
 
     private static LoopState WithAlso(LoopState state, ISymbol member, LoopState also)

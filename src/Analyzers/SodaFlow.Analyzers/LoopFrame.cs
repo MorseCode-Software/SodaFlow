@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -207,6 +208,16 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     ///     write is to an object or through a name that is older than the turn.
     /// </summary>
     public List<(SyntaxNode Turn, MadeObject? Made, ISymbol? Name, ISymbol Member, LoopState Before)> BeforeATurn
+    {
+        get;
+    } = [];
+
+    /// <summary>
+    ///     For a loop of this code: each collection that is older than the turn,
+    ///     with its positions before the loop. An assignment of the turn replaced
+    ///     an element of it.
+    /// </summary>
+    public List<(SyntaxNode Turn, MadeObject Made, ImmutableArray<LoopState> Before)> PositionsBeforeATurn
     {
         get;
     } = [];

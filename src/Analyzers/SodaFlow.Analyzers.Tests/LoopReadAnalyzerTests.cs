@@ -2298,7 +2298,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab133AbstractMethodThroughAMethodOfTheBase"] = ["SF1004"],
             ["Ab133ImplicitConstructorCallsTheBase"] = ["SF1005"],
             ["Ab133ConstructorWithNoInitializerCallsTheBase"] = ["SF1005"],
-            ["Ab137LocalFunctionInsertsAndTheBlockReadsIt"] = ["SF1001"]
+            ["Ab137LocalFunctionInsertsAndTheBlockReadsIt"] = ["SF1001"],
+            ["Ab140EachTurnPutsAPendingObjectIntoTheElement"] = ["SF1001"],
+            ["Ab140ALoopWithNoTurnGivesBackTheElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

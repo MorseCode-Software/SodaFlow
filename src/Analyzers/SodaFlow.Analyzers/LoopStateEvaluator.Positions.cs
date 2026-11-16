@@ -70,6 +70,55 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The same as <see cref="PositionsBefore" />, for an assignment to an
+    ///     element. Each turn of a loop can always run the assignment, on a
+    ///     collection that is older than the turn. Then, the assignment is sure
+    ///     until the end of the turn, as a write to a member is. After the loop,
+    ///     each position can have its value from before the loop also.
+    /// </summary>
+    /// <param name="collection">The expression of the collection.</param>
+    /// <param name="replaces">True when the assignment always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the assignment.</param>
+    public (MadeObject Made, ImmutableArray<LoopState> All)? PositionsBeforeAnAssignment(
+        ExpressionSyntax collection,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.PositionsBefore(collection: collection, replaces: replaces, turn: turn) is { } sure)
+        {
+            return sure;
+        }
+
+        if (this.quiet || this.StorePositionsOf(collection) is not (var made, var all) || made.IsOfTurnsBefore)
+        {
+            return null;
+        }
+
+        // The loop is in this code, or in the code of a caller for an assignment of a callee.
+        (SyntaxNode Turn, LoopFrame Frame)? inItsTurn =
+            made.IsFrom(this.Frame)
+                ? turn != null && made.Turn != turn && IsTheBodyOfALoop(turn)
+                    ? (turn, this.Frame)
+                    : null
+                : replaces
+                    ? this.TurnOfACaller
+                    : null;
+
+        if (inItsTurn is not var (itsTurn, itsFrame))
+        {
+            return null;
+        }
+
+        if (!itsFrame.PositionsBeforeATurn.Any(kept =>
+                kept.Turn == itsTurn && ReferenceEquals(objA: kept.Made, objB: made)))
+        {
+            itsFrame.PositionsBeforeATurn.Add((itsTurn, made, all));
+        }
+
+        return (made, all);
+    }
+
+    /// <summary>
     ///     Records that an assignment gave an element of a collection a value. An
     ///     assignment that is sure to run, to a constant index, gives that
     ///     position the value.
