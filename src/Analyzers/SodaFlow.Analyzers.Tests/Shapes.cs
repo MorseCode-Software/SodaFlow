@@ -13818,6 +13818,98 @@ public static class Shapes
     public static Cell<int> Ab109ARunVoidGivesALocalTheObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? s = null; Transaction.RunVoid(() => { s = Ab109NewSlot(l.Map(v => v)); }); List<SettableSlot> made = [s!]; s!.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
 
+    // S3136. AB110. Code with no body in a static field keeps an object with a pending cell, and the object gets a plain cell after the put.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Line.Put(x); x.Share = Plain; return S.Hold(Ab110Line.Last().Share!.Sample()); });
+
+    // S3137. AB110. The same, where the code with no body gives each object back in a sequence.
+    public static Cell<int> Ab110CodeInAFieldGivesBackASequenceAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110SequenceLine.Put(x); x.Share = Plain; foreach (SettableSlot each in Ab110SequenceLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3138. AB110. The same, where an indexer of the code with no body gives the object back.
+    public static Cell<int> Ab110AnIndexerOfCodeInAFieldGivesTheObjectBackAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Bag.Put(x); x.Share = Plain; return S.Hold(Ab110Bag[0].Share!.Sample()); });
+
+    // S3139. AB110. Code with no body in a static field keeps two objects, and each gets a plain cell after the puts.
+    public static Cell<int> Ab110TwoObjectsThatCodeInAFieldKeepsGetAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = l.Map(v => v) }; Ab110PairLine.Put(x); Ab110PairLine.Put(y); x.Share = Plain; y.Share = Plain; return S.Hold(Ab110PairLine.Last().Share!.Sample()); });
+
+    // S3140. AB110. Code with no body in a static field keeps a list of the block. The object in the list gets a plain cell after the put.
+    public static Cell<int> Ab110AListThatCodeInAFieldKeepsHoldsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [x]; Ab110ListLine.Put(list); x.Share = Plain; return S.Hold(Ab110ListLine.Last()[0].Share!.Sample()); });
+
+    // S3141. AB110 control. Code with no body in a static field keeps an object, and the object keeps its pending cell.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PendingLine.Put(x); return S.Hold(Ab110PendingLine.Last().Share!.Sample()); });
+
+    // S3142. AB110 control. The object gets a plain cell after the put, and then a pending cell.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110AgainLine.Put(x); x.Share = Plain; x.Share = l.Map(v => v); return S.Hold(Ab110AgainLine.Last().Share!.Sample()); });
+
+    // S3143. AB110 control. Code with no body in a static field keeps two objects, and only the first gets a plain cell.
+    public static Cell<int> Ab110OnlyTheFirstOfTwoObjectsThatCodeInAFieldKeepsGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = l.Map(v => v) }; Ab110TwoLine.Put(x); Ab110TwoLine.Put(y); x.Share = Plain; return S.Hold(Ab110TwoLine.Last().Share!.Sample()); });
+
+    // S3144. AB110 control. The put of the plain cell is in a branch that does not run.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110BranchLine.Put(x); if (Never) { x.Share = Plain; } return S.Hold(Ab110BranchLine.Last().Share!.Sample()); });
+
+    // S3145. AB110 control. Code with no body in a static field keeps a struct, which is a copy. The name gets a plain cell after the put, and the copy keeps its pending cell.
+    public static Cell<int> Ab110AStructThatCodeInAFieldKeepsIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue x = new() { Share = l.Map(v => v) }; Ab110ValueLine.Put(x); x.Share = Plain; return S.Hold(Ab110ValueLine.Last().Share!.Sample()); });
+
+    // S3146. AB110 control. The local gets a second object after the put, and the plain cell goes to that one.
+    public static Cell<int> Ab110TheNameGetsASecondObjectAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110SecondLine.Put(x); x = new SettableSlot(); x.Share = Plain; return S.Hold(Ab110SecondLine.Last().Share!.Sample()); });
+
+    // S3147. AB110 control. Code with no body in a static field keeps a pending cell, which is no object, and gives it back. With no reference to the library it is a package, and the walk follows the cell to the read.
+    public static Cell<int> Ab110ACellThatCodeInAFieldKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab110CellLine.Put(l.Map(v => v)); return S.Hold(Ab110CellLine.Last().Sample()); });
+
+    // S3148. AB110. The code with no body is in a property of an object of the block. The object of the put gets a plain cell after the put.
+    public static Cell<int> Ab110CodeInAPropertyOfAnObjectKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = new(); holder.Line.Put(x); x.Share = Plain; return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3149. AB110. The code with no body is in a static property.
+    public static Cell<int> Ab110CodeInAStaticPropertyKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PlainProperty.Put(x); x.Share = Plain; return S.Hold(Ab110PlainProperty.Last().Share!.Sample()); });
+
+    // S3150. AB110. Each turn of a loop puts an object into the code with no body, and gives that object a plain cell.
+    public static Cell<int> Ab110EachTurnPutsAnObjectAndGivesItAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110TurnPlainLine.Put(x); x.Share = Plain; } foreach (SettableSlot each in Ab110TurnPlainLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3151. AB110. A callee puts the object into the code with no body in a static field, and the block gives the object a plain cell.
+    public static Cell<int> Ab110ACalleePutsTheObjectAndTheBlockGivesItAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutInTheField(x); x.Share = Plain; return S.Hold(Ab110CalleePlainLine.Last().Share!.Sample()); });
+
+    // S3152. AB110 control. A local is a second name of the code with no body in a static array, and the read is through the array. The walk has no report with the reference to the library, which is a miss.
+    public static Cell<int> Ab110ASecondNameOfCodeInAnArrayKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab110SecondNameLines[0]; SettableSlot x = new() { Share = l.Map(v => v) }; line.Put(x); return S.Hold(Ab110SecondNameLines[0].Last().Share!.Sample()); });
+
+    // S3153. AB110 control. The code with no body is an element of a static array with no local for it, and the object keeps its pending cell. The walk has no report with the reference to the library, which is a miss.
+    public static Cell<int> Ab110CodeInAnArrayWithNoLocalKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110NoLocalLines[0].Put(x); return S.Hold(Ab110NoLocalLines[0].Last().Share!.Sample()); });
+
+    // S3154. AB110 control. A callee puts the object into the code with no body that it gets as a parameter, and the object keeps its pending cell. The walk has no report with the reference to the library, which is a miss.
+    public static Cell<int> Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutIn(Ab110ParameterLine, x); return S.Hold(Ab110ParameterLine.Last().Share!.Sample()); });
+
+    // S3155. AB110 control. The code with no body is in a property of an object of the block, and the object of the put keeps its pending cell.
+    public static Cell<int> Ab110CodeInAPropertyOfAnObjectKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = new(); holder.Line.Put(x); return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3156. AB110 control. The code with no body is in a static property, and the object keeps its pending cell.
+    public static Cell<int> Ab110CodeInAStaticPropertyKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Property.Put(x); return S.Hold(Ab110Property.Last().Share!.Sample()); });
+
+    // S3157. AB110 control. Each turn of a loop puts an object into the code with no body, and only the second turn gives its object a plain cell.
+    public static Cell<int> Ab110OnlyTheSecondTurnGivesItsObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110TurnLine.Put(x); if (i == 1) { x.Share = Plain; } } foreach (SettableSlot each in Ab110TurnLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3158. AB110 control. A callee puts the object into the code with no body in a static field, and then gives the object a pending cell.
+    public static Cell<int> Ab110ACalleePutsTheObjectAndGivesItAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Ab110PutThenGive(x, l.Map(v => v)); return S.Hold(Ab110CalleeLine.Last().Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17216,6 +17308,63 @@ public static class Shapes
     private static class Ab109Twice
     {
         public static List<SettableSlot> Run(Func<SettableSlot> make) => [make(), make()];
+    }
+
+    private static readonly ISlotLine Ab110Line = NewSlotLine();
+
+    private static readonly ISlotLine Ab110SequenceLine = NewSlotLine();
+
+    private static readonly ISlotBag Ab110Bag = NoBody.Bag<SettableSlot>();
+
+    private static readonly ISlotLine Ab110PairLine = NewSlotLine();
+
+    private static readonly ILine<List<SettableSlot>> Ab110ListLine = NoBody.Line<List<SettableSlot>>();
+
+    private static readonly ISlotLine Ab110PendingLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110AgainLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TwoLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110BranchLine = NewSlotLine();
+
+    private static readonly ILine<SlotValue> Ab110ValueLine = NoBody.Line<SlotValue>();
+
+    private static readonly ISlotLine Ab110SecondLine = NewSlotLine();
+
+    private static readonly ILine<Cell<int>> Ab110CellLine = NoBody.Line<Cell<int>>();
+
+    private static ISlotLine Ab110PlainProperty { get; } = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TurnPlainLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110CalleePlainLine = NewSlotLine();
+
+    private static readonly ISlotLine[] Ab110SecondNameLines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab110NoLocalLines = [NewSlotLine()];
+
+    private static readonly ISlotLine Ab110ParameterLine = NewSlotLine();
+
+    private static ISlotLine Ab110Property { get; } = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TurnLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110CalleeLine = NewSlotLine();
+
+    private static void Ab110PutIn(ISlotLine line, SettableSlot slot) => line.Put(slot);
+
+    private static void Ab110PutInTheField(SettableSlot slot) => Ab110CalleePlainLine.Put(slot);
+
+    private static void Ab110PutThenGive(SettableSlot slot, Cell<int> cell)
+    {
+        Ab110CalleeLine.Put(slot);
+        slot.Share = cell;
+    }
+
+    public sealed class Ab110LineHolder
+    {
+        public ISlotLine Line { get; } = NewSlotLine();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

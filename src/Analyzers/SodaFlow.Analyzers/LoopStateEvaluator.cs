@@ -2850,7 +2850,15 @@ internal sealed partial class LoopStateEvaluator
     ///     False for only the arguments, which are what the call can put into the
     ///     receiver.
     /// </param>
-    public LoopState Moved(InvocationExpressionSyntax invocation, IMethodSymbol method, bool withReceiver)
+    /// <param name="withObjects">
+    ///     False for only the arguments that are no object of the store. The
+    ///     receiver then holds each other argument as an object.
+    /// </param>
+    public LoopState Moved(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        bool withReceiver,
+        bool withObjects = true)
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
         ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
@@ -2869,14 +2877,16 @@ internal sealed partial class LoopStateEvaluator
             definition: definition,
             arguments: invocation.ArgumentList.Arguments,
             offset: method.ReducedFrom != null ? 1 : 0,
-            seed: seed);
+            seed: seed,
+            withObjects: withObjects);
     }
 
     private LoopState MovedArguments(
         IMethodSymbol definition,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         int offset,
-        LoopState seed)
+        LoopState seed,
+        bool withObjects)
     {
         // A callee that returns a delegate gives back the function that it got, as a wrapper
         // does. Then, the function is a value that it moves. A Lazy keeps the function that its
@@ -2898,6 +2908,7 @@ internal sealed partial class LoopStateEvaluator
                         argument: argument,
                         position: position + offset)))
             .Where(given => keepsFunctions || given.Parameter is not { Type.TypeKind: TypeKind.Delegate })
+            .Where(given => withObjects || !IsOnlyKnownObjects(this.Eval(given.Written)))
             .Aggregate(
                 seed: seed,
                 func: (moved, given) =>
@@ -3196,7 +3207,8 @@ internal sealed partial class LoopStateEvaluator
                 definition: constructor.OriginalDefinition,
                 arguments: arguments.Arguments,
                 offset: 0,
-                seed: LoopState.None)
+                seed: LoopState.None,
+                withObjects: true)
             : LoopState.None;
     }
 

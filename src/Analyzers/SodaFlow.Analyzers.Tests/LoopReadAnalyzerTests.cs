@@ -2118,7 +2118,18 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab109TheFunctionOfRunPutsThePlainCellInABranch"] = ["SF1001"],
             ["Ab109TwoRunsOfOneMethodGroupMakeTwoObjects"] = ["SF1001"],
             ["Ab109AMethodWithTheNameRunCallsItsFunctionTwoTimes"] = ["SF1001"],
-            ["Ab109TwoRunsGiveTheObjectOfAField"] = ["SF1001"]
+            ["Ab109TwoRunsGiveTheObjectOfAField"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsHasAPendingCell"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePlainOne"] = ["SF1001"],
+            ["Ab110OnlyTheFirstOfTwoObjectsThatCodeInAFieldKeepsGetsAPlainCell"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellInABranch"] = ["SF1001"],
+            ["Ab110AStructThatCodeInAFieldKeepsIsACopy"] = ["SF1001"],
+            ["Ab110TheNameGetsASecondObjectAfterThePut"] = ["SF1001"],
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1003"],
+            ["Ab110CodeInAPropertyOfAnObjectKeepsAnObject"] = ["SF1001"],
+            ["Ab110CodeInAStaticPropertyKeepsAnObject"] = ["SF1001"],
+            ["Ab110OnlyTheSecondTurnGivesItsObjectAPlainCell"] = ["SF1001"],
+            ["Ab110ACalleePutsTheObjectAndGivesItAPendingCell"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2137,7 +2148,11 @@ internal sealed class LoopReadAnalyzerTests
     private static readonly Dictionary<string, string[]> ExpectedForAPackage =
         new()
         {
-            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"]
+            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"],
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
+            ["Ab110ASecondNameOfCodeInAnArrayKeepsAnObject"] = ["SF1001"],
+            ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
+            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"]
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,

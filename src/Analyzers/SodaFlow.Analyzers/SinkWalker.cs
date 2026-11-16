@@ -2195,7 +2195,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     // The owner of a method of a package holds each object that it gets. The
                     // store has the state of that object at each read. A copy of that state keeps
                     // a cell that the object had at the call.
-                    if (!isOfAPackage || !this.evaluator.HoldsEachAsAnObject(owner: receiver, arguments: arguments))
+                    if (isOfAPackage)
+                    {
+                        this.evaluator.KeepsWhatAPackageGets(owner: receiver, invocation: node, method: method);
+                    }
+                    else
                     {
                         this.evaluator.Absorb(
                             target: receiver,

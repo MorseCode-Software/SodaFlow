@@ -128,13 +128,69 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True when an owner and each argument of a call are objects that the
-    ///     store knows. The owner then holds each argument as an object, and it
-    ///     needs no copy of the state of an argument.
+    ///     Records that the owner of a method of a package got the arguments of
+    ///     a call. The owner holds each argument that is an object of the store,
+    ///     where the walk has a record for that. The owner then needs no copy of
+    ///     the state of that argument.
     /// </summary>
-    public bool HoldsEachAsAnObject(ExpressionSyntax owner, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
-        IsOnlyKnownObjects(this.Eval(owner))
-        && arguments.All(argument => IsOnlyKnownObjects(this.Eval(argument.Expression)));
+    /// <remarks>
+    ///     <para>
+    ///         A copy keeps a cell that the object had at the call, and the store
+    ///         has the state of the object at each read. An owner that is an
+    ///         object of the store holds its objects there, from
+    ///         <see cref="Gets" />. It gets a copy of each argument when one of
+    ///         them is no such object.
+    ///     </para>
+    ///     <para>
+    ///         The store has no record of what each other owner holds. A static
+    ///         field or a static property has one record of the region, and each
+    ///         read of its name gets that record. Thus, that name holds the
+    ///         objects, as in <see cref="KeepsWhatItGets" />, and keeps a copy of
+    ///         only a value with no object. A local, a parameter, or an element
+    ///         gives a copy to each owner of it. A record that only holds objects
+    ///         does not go to those owners. Thus, each such owner keeps a copy of
+    ///         each argument.
+    ///     </para>
+    /// </remarks>
+    /// <param name="owner">The owner in the call.</param>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the package.</param>
+    public void KeepsWhatAPackageGets(
+        ExpressionSyntax owner,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method)
+    {
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        LoopState has = this.Eval(owner);
+        ExpressionSyntax name = Unwrapped(owner);
+
+        bool inItsName =
+            IsOfNoObjectOfTheStore(has)
+            && this.region.SymbolOf(name) is { IsStatic: true } and (IFieldSymbol or IPropertySymbol);
+
+        if (inItsName)
+        {
+            foreach (LoopState put in arguments
+                         .Select(argument => this.Eval(argument.Expression))
+                         .Where(IsOnlyKnownObjects))
+            {
+                this.MergeInto(target: name, state: LoopState.None.HoldingWhatCameWith(put), level: 0);
+            }
+        }
+
+        bool holdsItsObjects =
+            inItsName
+            || (IsOnlyKnownObjects(has)
+                && arguments.All(argument => IsOnlyKnownObjects(this.Eval(argument.Expression))));
+
+        this.Absorb(
+            target: owner,
+            state: this.Moved(
+                invocation: invocation,
+                method: method,
+                withReceiver: false,
+                withObjects: !holdsItsObjects));
+    }
 
     private static bool IsOnlyKnownObjects(LoopState state) =>
         !state.Objects.IsEmpty && !state.Objects.Contains(MadeObject.Unknown);
