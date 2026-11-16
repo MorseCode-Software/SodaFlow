@@ -2203,7 +2203,12 @@ internal sealed class LoopReadAnalyzerTests
             ["DvStateASecondReadAfterAListReverse"] = ["SF1001"],
             ["DvStateASecondReadAfterARemoveAt"] = ["SF1001"],
             ["DvStateASecondReadOfAFieldAfterAMethodOfTheOwner"] = ["SF1001"],
-            ["DvStateASecondReadOfAStaticFieldAfterAMethod"] = ["SF1001"]
+            ["DvStateASecondReadOfAStaticFieldAfterAMethod"] = ["SF1001"],
+            ["DvStateADeconstructionMakesTwoNames"] = ["SF1001"],
+            ["DvStateAVarDeconstructionMakesTwoNames"] = ["SF1001"],
+            ["DvStateALocalAndADeconstructionOfOneElement"] = ["SF1001"],
+            ["DvStateADeconstructionIntoDeclaredLocalsMakesTwoNames"] = ["SF1001"],
+            ["Ab136ANestedDeconstructionMakesTwoNames"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

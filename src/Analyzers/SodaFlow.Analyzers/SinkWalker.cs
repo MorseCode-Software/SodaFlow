@@ -1513,6 +1513,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        // A new local of a deconstruction gets its part of a tuple expression as a declaration
+        // does. Thus, it can be a name of the location of that part.
+        switch (target is DeclarationExpressionSyntax { Designation: { } designated } ? designated : target)
+        {
+            case ParenthesizedVariableDesignationSyntax several
+                when value is TupleExpressionSyntax each && several.Variables.Count == each.Arguments.Count:
+                for (int i = 0; i < several.Variables.Count; i++)
+                {
+                    this.Assign(
+                        target: several.Variables[i],
+                        value: each.Arguments[i].Expression,
+                        replaces: replaces,
+                        turn: turn);
+                }
+
+                return;
+            case SingleVariableDesignationSyntax single:
+                if (this.region.ModelFor(single).GetDeclaredSymbol(single) is { } declared)
+                {
+                    this.evaluator.Declare(local: declared, state: this.evaluator.Eval(value), from: value);
+                    this.evaluator.HoldsValueOf(local: declared, value: value, replaces: true);
+                }
+
+                return;
+        }
+
         // Parentheses around a target do not change the target.
         while (target is ParenthesizedExpressionSyntax around)
         {

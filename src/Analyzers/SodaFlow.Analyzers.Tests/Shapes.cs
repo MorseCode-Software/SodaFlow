@@ -14346,6 +14346,34 @@ public static class Shapes
     public static Cell<int> Ab134ACallThatGetsTheValueOfAFieldKeepsTheName() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Field; a.Share = l.Map(v => v); Kept.Add(Ab134Field.GetHashCode()); SettableSlot c = Ab134Field; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
 
+    // S3268. A deconstruction gives two locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateADeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot a, SettableSlot b) = (DvStDecon1[0], DvStDecon1[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3269. A deconstruction gives two locals one element, and the second gets a plain cell.
+    public static Cell<int> DvStateADeconstructionMakesTwoNamesThatGetAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot a, SettableSlot b) = (DvStDecon2[0], DvStDecon2[0]); a.Share = l.Map(v => v); b.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3270. A var deconstruction gives two locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateAVarDeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var (a, b) = (DvStDecon8[0], DvStDecon8[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3271. A local and a deconstruction read one element, and the local of the deconstruction gets a pending cell.
+    public static Cell<int> DvStateALocalAndADeconstructionOfOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStDecon6[0]; (SettableSlot b, int n) = (DvStDecon6[0], 1); b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample() + n); });
+
+    // S3272. Control: a deconstruction gives two declared locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateADeconstructionIntoDeclaredLocalsMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a; SettableSlot b; (a, b) = (DvStDecon7[0], DvStDecon7[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3273. AB136 control. A deconstruction gives two new locals two different elements, thus they are two values.
+    public static Cell<int> Ab136ADeconstructionOfTwoElementsMakesTwoValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var (a, b) = (Ab136Names1[0], Ab136Names1[1]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3274. AB136. A nested deconstruction gives two new locals one element, and the second gets a pending cell.
+    public static Cell<int> Ab136ANestedDeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var ((a, n), b) = ((Ab136Names2[0], 1), Ab136Names2[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18155,6 +18183,20 @@ public static class Shapes
     private static readonly SettableSlot[] Ab134Names3 = [new(), new()];
 
     private static readonly SettableSlot Ab134Field = new();
+
+    private static readonly SettableSlot[] DvStDecon1 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon2 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon6 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon7 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon8 = [new()];
+
+    private static readonly SettableSlot[] Ab136Names1 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab136Names2 = [new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
