@@ -28,6 +28,11 @@ it, holds each sort value as an object, where each level made a deeper generic t
 a value type boxes it one time for each key that the order sorts. An order with one level or two levels did not change.
 That package's notes have the figures.
 
+Fixed, through SodaFlow.Core.Collections 3.0.0: disposing the result of map and mapWith now stops the projection. Before, the
+next change of the keys built each row in the view again and nothing released those rows. Items now becomes empty in
+the transaction of the Dispose, and the Dispose runs in a transaction, so it can no longer clear the caches while a
+transaction on another thread changes them. That package's notes have the details.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The

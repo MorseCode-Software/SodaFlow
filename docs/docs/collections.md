@@ -439,7 +439,10 @@ paging back and forth over the same rows free.
 
 `onEvicted` is where anything a row owns gets released, and disposing the `MappedItems` releases
 everything still held, including the rows that never left and so were never evicted. A projection
-that builds bindables needs both halves of that or it leaks the ones still on screen.
+that builds bindables needs both halves of that or it leaks the ones still on screen. After the
+dispose, the projection never runs again and `Items` goes empty in the same transaction, so a list
+that is still bound to it, such as a view that outlives its view model, shows nothing that was
+released.
 
 F# has `map` and `mapWith`, the second taking the bound and the eviction callback.
 
