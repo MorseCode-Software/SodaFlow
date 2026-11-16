@@ -1162,6 +1162,11 @@ internal sealed partial class LoopStateEvaluator
                     expression: expression,
                     state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
 
+        if (this.Frame.KeptAt.Count > 0)
+        {
+            own = own.Join(this.KeptThrough(expression));
+        }
+
         LoopState state = this.Refreshed(expression: expression, state: own);
 
         if (!ReferenceEquals(objA: own, objB: state) && own.Objects.Contains(MadeObject.Unknown))

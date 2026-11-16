@@ -211,8 +211,23 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="arguments">The arguments of the call.</param>
     public void KeepsWhatItGets(ExpressionSyntax owner, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
-        if (arguments.Count == 0 || !IsOfNoObjectOfTheStore(this.Eval(owner)))
+        if (arguments.Count == 0)
         {
+            return;
+        }
+
+        // An owner that is an object of the store holds each object that it gets, from Gets. A
+        // value with no object has its state only in a copy, and the owner keeps that copy also. A
+        // pending value gets SF1003 there, and the walk does not follow it.
+        if (!IsOfNoObjectOfTheStore(this.Eval(owner)))
+        {
+            foreach (LoopState put in arguments
+                         .Select(argument => this.Eval(argument.Expression))
+                         .Where(static put => put is { IsNone: false, Pending: false } && IsOfNoObjectOfTheStore(put)))
+            {
+                this.Absorb(target: owner, state: put);
+            }
+
             return;
         }
 
@@ -224,8 +239,35 @@ internal sealed partial class LoopStateEvaluator
             }
             else
             {
-                this.MergeInto(target: Unwrapped(owner), state: LoopState.None.HoldingWhatCameWith(put), level: 0);
+                this.KeepsInTheNameOf(owner: owner, holding: LoopState.None.HoldingWhatCameWith(put));
             }
+        }
+    }
+
+    /// <summary>
+    ///     Gives a state that only holds objects to the name of an owner with no
+    ///     object of the store. When the owner is a location that the walk can
+    ///     read again, each later read of that location holds the objects also.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Merge(ExpressionSyntax, LoopState)" /> stops at such a
+    ///     state. The store has each change to an object that a value holds, but
+    ///     an owner with no object has no record in the store. An element or a
+    ///     member of a location has no name of its own. The state of its
+    ///     collection or its owner is of a different value. See
+    ///     <see cref="KeptThrough" />.
+    /// </remarks>
+    /// <param name="owner">The owner, as the code names it.</param>
+    /// <param name="holding">The state, which only holds objects.</param>
+    private void KeepsInTheNameOf(ExpressionSyntax owner, LoopState holding)
+    {
+        ExpressionSyntax target = Unwrapped(owner);
+
+        this.MergeInto(target: target, state: holding, level: 0);
+
+        if (!this.quiet && this.function == null && this.KeptKeyOf(target) is { } key)
+        {
+            this.Frame.KeptAt.Add((Location: key.Location, Name: key.Name, Member: key.Member, State: holding));
         }
     }
 

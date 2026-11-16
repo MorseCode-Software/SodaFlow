@@ -587,6 +587,65 @@ internal sealed partial class LoopStateEvaluator
         && ((key.Index >= 0 && SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Of))
             || SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Owner));
 
+    // The location that an expression reads, as a key of KeptAt. The key has the element or the
+    // field, the local that names it, and the member of the value there. Null when the walk cannot
+    // read that location again.
+    private (ExpressionSyntax Location, ISymbol? Name, ISymbol? Member)? KeptKeyOf(ExpressionSyntax expression)
+    {
+        ExpressionSyntax written = Unwrapped(expression);
+
+        if (written is MemberAccessExpressionSyntax access
+            && this.region.SymbolOf(access) is { } member
+            && IsALocation(member)
+            && this.KeptKeyOf(access.Expression) is (var location, var name, null))
+        {
+            return (location, name, member.OriginalDefinition);
+        }
+
+        if (written is IdentifierNameSyntax local
+            && this.region.SymbolOf(local) is ILocalSymbol named
+            && this.Frame.ReadFrom.TryGetValue(key: named, value: out ExpressionSyntax? from))
+        {
+            return (from, named, null);
+        }
+
+        return written is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax
+               && this.LocationKeyOf(written) != null
+            ? (written, null, null)
+            : null;
+    }
+
+    /// <summary>
+    ///     What code with no body keeps for the location that an expression
+    ///     reads, from <see cref="LoopFrame.KeptAt" />. Only the code between the
+    ///     two cannot give the location a new value.
+    /// </summary>
+    private LoopState KeptThrough(ExpressionSyntax expression)
+    {
+        if (this.function != null
+            || this.KeptKeyOf(expression) is not { } read
+            || this.LocationKeyOf(read.Location) is not { } at)
+        {
+            return LoopState.None;
+        }
+
+        LoopState kept = LoopState.None;
+
+        foreach ((ExpressionSyntax location, ISymbol? name, ISymbol? member, LoopState state) in this.Frame.KeptAt)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: member, y: read.Member)
+                && IsTheSameLocation(one: this.LocationKeyOf(location), other: at)
+                && this.IsStillTheLocationOf(name: name ?? at.Of, location: location, use: expression)
+                && (read.Name == null
+                    || this.IsStillTheLocationOf(name: read.Name, location: read.Location, use: expression)))
+            {
+                kept = kept.Join(state);
+            }
+        }
+
+        return kept;
+    }
+
     private static bool IsTheSameLocation(
         (ISymbol Of, ISymbol? Owner, int Index)? one,
         (ISymbol Of, ISymbol? Owner, int Index) other) =>

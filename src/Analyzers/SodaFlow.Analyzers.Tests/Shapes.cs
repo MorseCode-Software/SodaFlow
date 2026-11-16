@@ -13882,15 +13882,15 @@ public static class Shapes
     public static Cell<int> Ab110ACalleePutsTheObjectAndTheBlockGivesItAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutInTheField(x); x.Share = Plain; return S.Hold(Ab110CalleePlainLine.Last().Share!.Sample()); });
 
-    // S3152. AB110 control. A local is a second name of the code with no body in a static array, and the read is through the array. The walk has no report with the reference to the library, which is a miss.
+    // S3152. AB110 control. A local is a second name of the code with no body in a static array, and the read is through the array.
     public static Cell<int> Ab110ASecondNameOfCodeInAnArrayKeepsAnObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab110SecondNameLines[0]; SettableSlot x = new() { Share = l.Map(v => v) }; line.Put(x); return S.Hold(Ab110SecondNameLines[0].Last().Share!.Sample()); });
 
-    // S3153. AB110 control. The code with no body is an element of a static array with no local for it, and the object keeps its pending cell. The walk has no report with the reference to the library, which is a miss.
+    // S3153. AB110 control. The code with no body is an element of a static array with no local for it, and the object keeps its pending cell.
     public static Cell<int> Ab110CodeInAnArrayWithNoLocalKeepsAnObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110NoLocalLines[0].Put(x); return S.Hold(Ab110NoLocalLines[0].Last().Share!.Sample()); });
 
-    // S3154. AB110 control. A callee puts the object into the code with no body that it gets as a parameter, and the object keeps its pending cell. The walk has no report with the reference to the library, which is a miss.
+    // S3154. AB110 control. A callee puts the object into the code with no body that it gets as a parameter, and the object keeps its pending cell.
     public static Cell<int> Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutIn(Ab110ParameterLine, x); return S.Hold(Ab110ParameterLine.Last().Share!.Sample()); });
 
@@ -14457,6 +14457,18 @@ public static class Shapes
     // S3295. AB135 control. The block gives a static object a pending cell through a local, and a callee reads a different static object.
     public static Cell<int> Ab135ACalleeReadsADifferentStaticObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = Ab135Written; k.Share = l.Map(v => v); return S.Hold(Ab135ReadOther()); });
+
+    // S3296. Code with no body keeps a cell of a pending cell, and the block switches what it gives back.
+    public static Cell<int> DvStateABagKeepsACellOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<Cell<int>>> bag = NoBody.Bag<Cell<Cell<int>>>(); bag.Put(Cell.Constant(l.Map(v => v))); return S.Hold(bag[0].SwitchC().Sample()); });
+
+    // S3297. Code with no body in a static field keeps a cell of a pending cell, and the block switches what it gives back.
+    public static Cell<int> DvStateAStaticBagKeepsACellOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStCellBag.Put(Cell.Constant(l.Map(v => v))); return S.Hold(DvStCellBag[0].SwitchC().Sample()); });
+
+    // S3298. AB121. A second local is a name of the element, and the read is through it.
+    public static Cell<int> Ab121TheReadIsThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab121Names[0]; line.Put(new SettableSlot { Share = l.Map(v => v) }); ISlotLine again = Ab121Names[0]; return S.Hold(again.Last().Share!.Sample()); });
 
     public sealed class Scene(Stream<int> restarts)
     {
@@ -18372,6 +18384,10 @@ public static class Shapes
     private static readonly SettableSlot Ab135Other = new() { Share = Plain };
 
     private static int Ab135ReadOther() => Ab135Other.Share!.Sample();
+
+    private static readonly IBag<Cell<Cell<int>>> DvStCellBag = NoBody.Bag<Cell<Cell<int>>>();
+
+    private static readonly ISlotLine[] Ab121Names = [NewSlotLine()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

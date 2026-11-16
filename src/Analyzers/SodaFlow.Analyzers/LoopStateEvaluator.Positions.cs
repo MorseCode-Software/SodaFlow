@@ -379,6 +379,15 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public void MergesWhatACalleePut(ExpressionSyntax target, LoopState state)
     {
+        // The callee put objects into code with no body that the argument names. See
+        // KeepsWhatItGets.
+        if (state is { IsNone: true, HoldsAnObject: true } && IsOfNoObjectOfTheStore(this.Eval(target)))
+        {
+            this.KeepsInTheNameOf(owner: target, holding: state);
+
+            return;
+        }
+
         (MadeObject Made, ImmutableArray<LoopState> All)? kept = this.StorePositionsOf(target);
         this.Merge(target: target, state: state);
 

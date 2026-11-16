@@ -58,6 +58,14 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, ExpressionSyntax> ReadFrom { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     The objects that code with no body keeps, for an owner that is a
+    ///     location that the walk can read again. The location is an element or a
+    ///     field, through the local that is a name of it when the code has one. The
+    ///     member is set for a field or a property of the value at that location.
+    /// </summary>
+    public List<(ExpressionSyntax Location, ISymbol? Name, ISymbol? Member, LoopState State)> KeptAt { get; } = [];
+
+    /// <summary>
     ///     Each value that the code of this frame put into an element or into a
     ///     field, in order. The first part is the field, or null for an element.
     ///     The second part is the index of an element that has one index. Only

@@ -2221,7 +2221,13 @@ internal sealed class LoopReadAnalyzerTests
             ["DvStateTwoCalleesOfAStaticObjectThroughALocal"] = ["SF1005"],
             ["DvStateACalleeThatKeepsItsArgumentReadsAStaticObject"] = ["SF1005"],
             ["DvStateTheBlockReadsAStaticObjectThatALocalWrote"] = ["SF1001"],
-            ["DvStateTwoCalleesOfAStaticObject"] = ["SF1005"]
+            ["DvStateTwoCalleesOfAStaticObject"] = ["SF1005"],
+            ["DvStateABagKeepsACellOfAPendingCell"] = ["SF1001"],
+            ["DvStateAStaticBagKeepsACellOfAPendingCell"] = ["SF1001"],
+            ["Ab121TheReadIsThroughASecondLocal"] = ["SF1001"],
+            ["Ab110ASecondNameOfCodeInAnArrayKeepsAnObject"] = ["SF1001"],
+            ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
+            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2241,10 +2247,7 @@ internal sealed class LoopReadAnalyzerTests
         new()
         {
             ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"],
-            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
-            ["Ab110ASecondNameOfCodeInAnArrayKeepsAnObject"] = ["SF1001"],
-            ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
-            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"]
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"]
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
