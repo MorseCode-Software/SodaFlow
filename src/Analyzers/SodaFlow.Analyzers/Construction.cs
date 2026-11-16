@@ -283,6 +283,17 @@ internal sealed class Construction(
                     _ => -1
                 }, pair.Value));
 
+    /// <summary>
+    ///     The instance methods of the types of this object that have the name
+    ///     and the number of parameters.
+    /// </summary>
+    public IEnumerable<IMethodSymbol> MethodsOf(string name, int parameters) =>
+        this.types
+            .SelectMany(type => type.GetMembers(name))
+            .OfType<IMethodSymbol>()
+            .Where(method => method is { IsStatic: false, MethodKind: MethodKind.Ordinary }
+                             && method.Parameters.Length == parameters);
+
     /// <summary>True when the evaluator knows a state for the member.</summary>
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
 

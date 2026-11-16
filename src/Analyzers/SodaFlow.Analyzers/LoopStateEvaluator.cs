@@ -2044,7 +2044,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The expression in parentheses, in a cast, after ref, or before the operator that says not
     // null.
-    private static ExpressionSyntax Unwrapped(ExpressionSyntax expression)
+    public static ExpressionSyntax Unwrapped(ExpressionSyntax expression)
     {
         while (true)
         {
@@ -2928,9 +2928,15 @@ internal sealed partial class LoopStateEvaluator
             return CalleeKind.Library;
         }
 
-        if (method.MethodKind == MethodKind.DelegateInvoke)
+        if (method.MethodKind == MethodKind.DelegateInvoke || IsDynamicInvoke(method))
         {
             return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
+        }
+
+        // Reflection runs code that it finds at run time.
+        if (SodaFlowSymbols.IsReflectionCall(method))
+        {
+            return CalleeKind.Unknown;
         }
 
         IMethodSymbol definition =
@@ -3242,6 +3248,10 @@ internal sealed partial class LoopStateEvaluator
                  && !RunsOnAnotherThread(method.ContainingType)
         };
 
+    private static bool IsDynamicInvoke(IMethodSymbol method) =>
+        method is { Name: "DynamicInvoke", Parameters.Length: 1, ContainingType: { } type }
+        && type.SpecialType == SpecialType.System_Delegate;
+
     /// <summary>
     ///     The parameter that gets an argument of a call. It is a parameter of the
     ///     definition of the callee, which has the types that the callee itself
@@ -3364,6 +3374,25 @@ internal sealed partial class LoopStateEvaluator
                         functions: targetState.Functions,
                         target: targetState,
                         arguments: arguments));
+        }
+
+        // DynamicInvoke runs the functions of the delegate also. Each argument at the call is one
+        // argument of the function. An array at the call is the arguments themselves, and the
+        // walk does not know them.
+        if (IsDynamicInvoke(method))
+        {
+            return invocation.Expression is MemberAccessExpressionSyntax access
+                   && this.Eval(access.Expression) is { Functions.IsEmpty: false } functions
+                   && arguments.All(argument => this.IsOneOfAParamsArray(
+                       parameter: method.Parameters[0],
+                       argument: argument.Expression))
+                ? this.FollowFunctions(
+                    call: invocation,
+                    name: NameOf(access.Expression),
+                    functions: functions.Functions,
+                    target: functions,
+                    arguments: arguments)
+                : null;
         }
 
         if (this.region.Symbols.IsSodaFlow(method))

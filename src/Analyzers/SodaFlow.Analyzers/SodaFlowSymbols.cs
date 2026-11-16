@@ -872,6 +872,21 @@ internal sealed class SodaFlowSymbols
         type is INamedTypeSymbol { OriginalDefinition.Name: "LazySample" } named && this.IsSodaFlow(named);
 
     /// <summary>
+    ///     True for a method of reflection that runs a method or a constructor
+    ///     that it finds at run time. These are <c>MethodBase.Invoke</c>,
+    ///     <c>ConstructorInfo.Invoke</c>, and <c>Activator.CreateInstance</c>.
+    /// </summary>
+    public static bool IsReflectionCall(IMethodSymbol method) =>
+        method switch
+        {
+            { Name: "Invoke", ContainingType: { Name: "MethodBase" or "ConstructorInfo" } type } =>
+                type.ContainingNamespace.ToDisplayString() == "System.Reflection",
+            { Name: "CreateInstance", ContainingType: { Name: "Activator" } type } =>
+                type.ContainingNamespace.ToDisplayString() == "System",
+            _ => false
+        };
+
+    /// <summary>
     ///     A type whose values can hold a pending read: a cell, a behavior, a
     ///     lazy sample, or a bindable.
     /// </summary>

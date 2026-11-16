@@ -1103,6 +1103,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (accessor.DeclaringSyntaxReferences.IsEmpty)
         {
+            // Code that can know the library can read a value in its setter, as in a method. A
+            // setter with no body to read is then such code.
+            if (node.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                && this.evaluator.Classify(call: node, method: accessor) == CalleeKind.Unknown)
+            {
+                this.CheckEscape(callee: accessor.AssociatedSymbol ?? accessor, argument: node.Right);
+            }
+
             // The setter of a two-way bindable reads the initial value of its cell before it
             // compares the new value. A compound assignment reads the getter first, and the walk
             // reports that read.
@@ -2129,6 +2137,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
 
             base.VisitInvocationExpression(node);
+            this.CheckDynamicCall(node);
 
             return;
         }
@@ -3485,6 +3494,44 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    /// <summary>
+    ///     A call that the program binds at run time, on a value of the type
+    ///     <c>dynamic</c>. The walk can know the type of the object. It then reads
+    ///     the method of that type with the name and the number of arguments of
+    ///     the call. Otherwise, a pending argument goes to code that the analyzer
+    ///     cannot read.
+    /// </summary>
+    private void CheckDynamicCall(InvocationExpressionSyntax node)
+    {
+        if (this.region.TypeOf(node) is not { TypeKind: TypeKind.Dynamic })
+        {
+            return;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = node.ArgumentList.Arguments;
+
+        if (node.Expression is MemberAccessExpressionSyntax access
+            && this.evaluator.Eval(access.Expression) is { Members: { } members } owner
+            && members.MethodsOf(name: access.Name.Identifier.ValueText, parameters: arguments.Count)
+                .ToList() is { Count: 1 } found)
+        {
+            this.Report(
+                this.evaluator.FollowImplied(
+                    call: node,
+                    member: found[0],
+                    owner: owner,
+                    arguments: arguments.Select(argument =>
+                        (argument.Expression, this.evaluator.Eval(argument.Expression)))));
+
+            return;
+        }
+
+        foreach (ArgumentSyntax argument in arguments)
+        {
+            this.CheckEscape(subject: node.Expression.ToString(), argument: argument.Expression);
+        }
+    }
+
     private void CheckEscapes(ISymbol callee, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         foreach (ArgumentSyntax argument in arguments)
@@ -3498,21 +3545,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     <c>AsCell()</c> at the argument is the assertion of the caller and reports
     ///     nothing.
     /// </summary>
-    private void CheckEscape(ISymbol callee, ExpressionSyntax argument)
+    private void CheckEscape(ISymbol callee, ExpressionSyntax argument) =>
+        this.CheckEscape(
+            subject: callee.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            argument: argument);
+
+    private void CheckEscape(string subject, ExpressionSyntax argument)
     {
         LoopState state = this.evaluator.Eval(argument);
 
         // Only a library value escapes. An object of the caller that holds a pending member goes
         // where the caller sends it, as it does with the looped types. The walk checks its reads
         // through its members.
-        if (!state.Pending
-            || !this.region.Symbols.IsCarrierType(this.region.TypeOf(argument))
-            || LoopStateEvaluator.IsAsserted(argument))
+        if (!state.Pending || !this.IsCarrier(argument))
         {
             return;
         }
-
-        string subject = callee.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         this.sink(
             new Finding(
@@ -3525,5 +3573,39 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.region.PlaceholderName,
                     subject),
                 subject: subject));
+    }
+
+    /// <summary>
+    ///     True for a value of the library with no assertion, or for an array or
+    ///     a collection expression that has one. A cast to <c>object</c> or an
+    ///     array of objects hides the type of the value, but not the type of the
+    ///     expression in it.
+    /// </summary>
+    private bool IsCarrier(ExpressionSyntax argument)
+    {
+        if (LoopStateEvaluator.IsAsserted(argument))
+        {
+            return false;
+        }
+
+        ExpressionSyntax value = LoopStateEvaluator.Unwrapped(argument);
+        ITypeSymbol? type = this.region.TypeOf(value);
+
+        if (this.region.Symbols.IsCarrierType(type))
+        {
+            return true;
+        }
+
+        // The elements of an array or a collection that the code writes here have their own types.
+        return value switch
+        {
+            CollectionExpressionSyntax collection => collection.Elements
+                .OfType<ExpressionElementSyntax>()
+                .Any(element => this.IsCarrier(element.Expression)),
+            ImplicitArrayCreationExpressionSyntax made => made.Initializer.Expressions.Any(this.IsCarrier),
+            ArrayCreationExpressionSyntax { Initializer: { } initializer } =>
+                initializer.Expressions.Any(this.IsCarrier),
+            _ => type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType)
+        };
     }
 }

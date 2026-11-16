@@ -15171,6 +15171,54 @@ public static class Shapes
     public static Cell<int> Ag73BlockInADelegateLocalAssignedTwice() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => l.Map(v => v); f = l => S.Hold(0); return Cell.Loop<int>().WithoutCaptures(f); }))();
 
+    // S3374. Control. A method of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> b = NoBody.Bag<Cell<int>>(); b.Put(l); return S.Hold(0); });
+
+    // S3375. An indexer setter of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAnIndexerSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> b = NoBody.Bag<Cell<int>>(); b.Put(Plain); b[0] = l; return S.Hold(0); });
+
+    // S3376. A property setter of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAPropertySetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDvLinksHolder<Cell<int>> h = NoBody.DvLinksHolder<Cell<int>>(); h.Held = l; return S.Hold(0); });
+
+    // S3377. An array that holds the placeholder goes to code with no body that can know the library.
+    public static Cell<int> DvLinksEscapeOfAnArrayOfThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(new[] { l }); return S.Hold(0); });
+
+    // S3378. A dynamic call gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughADynamicCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic reader = new DvLinksDynamicReader(); int x = reader.Read(l); return S.Hold(0); });
+
+    // S3379. A call through reflection gets the placeholder, and the method that it calls samples it.
+    public static Cell<int> DvLinksEscapeThroughReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [l]); return S.Hold(0); });
+
+    // S3380. DynamicInvoke of a delegate whose function samples its parameter gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughDynamicInvoke() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = c => c.Sample(); object? read = f.DynamicInvoke(l); return S.Hold(0); });
+
+    // S3381. The placeholder, cast to object, goes to code with no body that can know the library.
+    public static Cell<int> DvLinksEscapeOfThePlaceholderCastToObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((object)l); return S.Hold(0); });
+
+    // S3382. Control. An array of an AsCell() of the placeholder, given to code with no body.
+    public static Cell<int> Ab130EscapeOfAnArrayOfAnAssertedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(new[] { l.AsCell() }); return S.Hold(0); });
+
+    // S3383. Control. A dynamic call of a method that samples, with a plain cell.
+    public static Cell<int> Ab130DynamicCallWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic reader = new DvLinksDynamicReader(); int x = reader.Read(Plain); return S.Hold(0); });
+
+    // S3384. Control. DynamicInvoke of a function that maps the cell that it gets, with the placeholder. The map reads nothing.
+    public static Cell<int> Ab130DynamicInvokeOfAFunctionThatMaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Cell<int>> f = c => c.Map(v => v); object? mapped = f.DynamicInvoke(l); return S.Hold(0); });
+
+    // S3385. Control. Reflection runs a method that samples, with a plain cell.
+    public static Cell<int> Ab130ReflectionWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [Plain]); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

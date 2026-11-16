@@ -40,6 +40,8 @@ public static class NoBody
 
     public static IEcho Echo() => new Echo();
 
+    public static IDvLinksHolder<T> DvLinksHolder<T>() => new DvLinksHolder<T>();
+
     public static IKeeper<T, TBox> Keeper<T, TBox>(string list)
         where T : new()
         where TBox : class =>
@@ -221,6 +223,16 @@ internal sealed class Runner : IRunner
     public void Keep(Action change) => this.kept = change;
 
     public void Run() => this.kept();
+}
+
+public interface IDvLinksHolder<T>
+{
+    T Held { get; set; }
+}
+
+internal sealed class DvLinksHolder<T> : IDvLinksHolder<T>
+{
+    public T Held { get; set; } = default!;
 }
 
 internal sealed class Echo : IEcho

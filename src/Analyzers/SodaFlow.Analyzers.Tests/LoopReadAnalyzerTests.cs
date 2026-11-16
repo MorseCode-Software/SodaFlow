@@ -2269,7 +2269,15 @@ internal sealed class LoopReadAnalyzerTests
             ["DvLinksSwitchCOfASwitchC"] = ["SF1002"],
             ["DvLinksEscapeOfThePlaceholderAsObject"] = ["SF1003"],
             ["DvLinksBlockInADelegateLocal"] = ["SF1002"],
-            ["Ag73BlockInADelegateLocalSamples"] = ["SF1001"]
+            ["Ag73BlockInADelegateLocalSamples"] = ["SF1001"],
+            ["DvLinksEscapeThroughAMethod"] = ["SF1003"],
+            ["DvLinksEscapeThroughAnIndexerSetter"] = ["SF1003"],
+            ["DvLinksEscapeThroughAPropertySetter"] = ["SF1003"],
+            ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = ["SF1003"],
+            ["DvLinksEscapeThroughADynamicCall"] = ["SF1004"],
+            ["DvLinksEscapeThroughReflection"] = ["SF1003"],
+            ["DvLinksEscapeThroughDynamicInvoke"] = ["SF1004"],
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = ["SF1003"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2290,7 +2298,12 @@ internal sealed class LoopReadAnalyzerTests
         {
             ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"],
             ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
-            ["DvLinksEscapeOfThePlaceholderAsObject"] = []
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = [],
+            ["DvLinksEscapeThroughAMethod"] = [],
+            ["DvLinksEscapeThroughAnIndexerSetter"] = [],
+            ["DvLinksEscapeThroughAPropertySetter"] = [],
+            ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = [],
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = []
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
