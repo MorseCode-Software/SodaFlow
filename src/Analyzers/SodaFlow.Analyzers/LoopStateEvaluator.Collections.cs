@@ -144,12 +144,12 @@ internal sealed partial class LoopStateEvaluator
     ///     <para>
     ///         The store has no record of what each other owner holds. A static
     ///         field or a static property has one record of the region, and each
-    ///         read of its name gets that record. Thus, that name holds the
+    ///         read of its name gets that record. A parameter gives what it holds
+    ///         to its argument. A location that the walk can read again gives it
+    ///         to each later read of that location. Thus, such a name holds the
     ///         objects, as in <see cref="KeepsWhatItGets" />, and keeps a copy of
-    ///         only a value with no object. A local, a parameter, or an element
-    ///         gives a copy to each owner of it. A record that only holds objects
-    ///         does not go to those owners. Thus, each such owner keeps a copy of
-    ///         each argument.
+    ///         only a value with no object. Each other owner keeps a copy of each
+    ///         argument.
     ///     </para>
     /// </remarks>
     /// <param name="owner">The owner in the call.</param>
@@ -166,7 +166,9 @@ internal sealed partial class LoopStateEvaluator
 
         bool inItsName =
             IsOfNoObjectOfTheStore(has)
-            && this.region.SymbolOf(name) is { IsStatic: true } and (IFieldSymbol or IPropertySymbol);
+            && (this.region.SymbolOf(name) is { IsStatic: true } and (IFieldSymbol or IPropertySymbol)
+                    or IParameterSymbol { RefKind: RefKind.None }
+                || this.KeptKeyOf(name) != null);
 
         if (inItsName)
         {
@@ -174,7 +176,7 @@ internal sealed partial class LoopStateEvaluator
                          .Select(argument => this.Eval(argument.Expression))
                          .Where(IsOnlyKnownObjects))
             {
-                this.MergeInto(target: name, state: LoopState.None.HoldingWhatCameWith(put), level: 0);
+                this.KeepsInTheNameOf(owner: name, holding: LoopState.None.HoldingWhatCameWith(put));
             }
         }
 

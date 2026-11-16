@@ -14470,6 +14470,30 @@ public static class Shapes
     public static Cell<int> Ab121TheReadIsThroughASecondLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab121Names[0]; line.Put(new SettableSlot { Share = l.Map(v => v) }); ISlotLine again = Ab121Names[0]; return S.Hold(again.Last().Share!.Sample()); });
 
+    // S3299. AB123. The code with no body is an element of a static array, which the store has no object for. The object gets a plain cell after the put.
+    public static Cell<int> Ab123AnObjectThatCodeInAnArrayKeepsGetsAPlainCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab123Lines[0]; SettableSlot x = new() { Share = l.Map(v => v) }; line.Put(x); x.Share = Plain; return S.Hold(line.Last().Share!.Sample()); });
+
+    // S3300. AB123. The code with no body is an element of a static array with no local for it. The object gets a plain cell after the put.
+    public static Cell<int> Ab123CodeInAnArrayWithNoLocalKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab123NoLocalPlainLines[0].Put(x); x.Share = Plain; return S.Hold(Ab123NoLocalPlainLines[0].Last().Share!.Sample()); });
+
+    // S3301. AB123. A callee puts the object into the code with no body that it gets as a parameter. The object gets a plain cell after the call.
+    public static Cell<int> Ab123ACalleePutsTheObjectIntoItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutIn(Ab123ParameterPlainLine, x); x.Share = Plain; return S.Hold(Ab123ParameterPlainLine.Last().Share!.Sample()); });
+
+    // S3302. AB123. The code with no body is in a property of an object that the walk did not see made. The object gets a plain cell after the put.
+    public static Cell<int> Ab123CodeInAPropertyOfAnUnseenObjectKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = Ab123PlainHolders[0]; holder.Line.Put(x); x.Share = Plain; return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3303. AB123 control. The element gets a new line after the put through a local, and the read is of the new line.
+    public static Cell<int> Ab123TheElementGetsANewLineAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab123NewLines[0]; line.Put(new SettableSlot { Share = l.Map(v => v) }); Ab123NewLines[0] = NewSlotLine(); Ab123NewLines[0].Put(new SettableSlot { Share = Plain }); return S.Hold(Ab123NewLines[0].Last().Share!.Sample()); });
+
+    // S3304. AB123 control. Code with no body in the first element keeps the pending cell, and the read is of the second element.
+    public static Cell<int> Ab123TheReadIsOfADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab123Pair[0].Put(new SettableSlot { Share = l.Map(v => v) }); Ab123Pair[1].Put(new SettableSlot { Share = Plain }); return S.Hold(Ab123Pair[1].Last().Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18388,6 +18412,18 @@ public static class Shapes
     private static readonly IBag<Cell<Cell<int>>> DvStCellBag = NoBody.Bag<Cell<Cell<int>>>();
 
     private static readonly ISlotLine[] Ab121Names = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123Lines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123NoLocalPlainLines = [NewSlotLine()];
+
+    private static readonly ISlotLine Ab123ParameterPlainLine = NewSlotLine();
+
+    private static readonly Ab110LineHolder[] Ab123PlainHolders = [new()];
+
+    private static readonly ISlotLine[] Ab123NewLines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123Pair = [NewSlotLine(), NewSlotLine()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
