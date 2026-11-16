@@ -692,6 +692,16 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     Forgets the result of a <c>Deconstruct</c> that the evaluator followed
+    ///     at a node. The next follow at that node reads the method again, with
+    ///     the state that it gets then.
+    /// </summary>
+    /// <param name="call">The node of the deconstruction.</param>
+    /// <param name="method">The method that the compiler found.</param>
+    public void ForgetsTheDeconstructOf(SyntaxNode call, IMethodSymbol method) =>
+        this.implied.Remove((call, (method.ReducedFrom ?? method).OriginalDefinition));
+
+    /// <summary>
     ///     The members that a list pattern calls on a type of this compilation:
     ///     <c>Count</c> or <c>Length</c>, the indexer, and <c>Slice</c>. No node
     ///     names them, thus the evaluator asks for the operation of the pattern.

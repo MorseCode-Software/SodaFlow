@@ -16159,6 +16159,34 @@ public static class Shapes
     public static Cell<int> Ab153AHelperPutsALocalIntoTheLastOfThree() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab153ReadEachThenPutTheLocal([Plain, Plain, Plain], l.Map(v => v)); return S.Hold(0); });
 
+    // S3563. An async helper deconstructs each record of an array, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab154AHelperDeconstructsEachRecordThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwait([new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3564. An async helper deconstructs each record whose Deconstruct the code writes, and awaits after the first.
+    public static Cell<int> Ab154AHelperDeconstructsEachWrittenRecordThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachWrittenRecordThenAwait([new Ab154WrittenPair(Plain, Plain), new Ab154WrittenPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3565. Control: the same helper over records, and the first record has the pending cell.
+    public static Cell<int> Ab154ThePendingRecordIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwait([new RecordPair(l.Map(v => v), Plain), new RecordPair(Plain, Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3566. Control: the helper over records whose Deconstruct the code writes, and the first record has the pending cell.
+    public static Cell<int> Ab154ThePendingWrittenRecordIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachWrittenRecordThenAwait([new Ab154WrittenPair(l.Map(v => v), Plain), new Ab154WrittenPair(Plain, Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3567. Control: an async helper deconstructs each record, and awaits a complete task. The second turn reads the pending cell.
+    public static Cell<int> Ab154AnAwaitOfACompleteTaskAfterEachRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwaitComplete([new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3568. Control: the block deconstructs each record of an array. The second turn reads the pending cell.
+    public static Cell<int> Ab154TheBlockDeconstructsEachRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RecordPair[] pairs = [new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]; foreach ((Cell<int> pending, Cell<int> _) in pairs) { Kept.Add(pending.Sample()); } return S.Hold(0); });
+
+    // S3569. Control: the block deconstructs each record whose Deconstruct the code writes. The second turn reads the pending cell.
+    public static Cell<int> Ab154TheBlockDeconstructsEachWrittenRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154WrittenPair[] pairs = [new Ab154WrittenPair(Plain, Plain), new Ab154WrittenPair(l.Map(v => v), Plain)]; foreach ((Cell<int> pending, Cell<int> _) in pairs) { Kept.Add(pending.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21373,6 +21401,42 @@ public static class Shapes
             Kept.Add(each.Sample());
             cells[cells.Length - 1] = d;
             d = later;
+        }
+    }
+
+    public sealed record Ab154WrittenPair(Cell<int> Pending, Cell<int> Plain)
+    {
+        public void Deconstruct(out Cell<int> pending, out Cell<int> plain)
+        {
+            pending = this.Pending;
+            plain = this.Plain;
+        }
+    }
+
+    private static async Task Ab154ReadEachRecordThenAwait(RecordPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab154ReadEachWrittenRecordThenAwait(Ab154WrittenPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab154ReadEachRecordThenAwaitComplete(RecordPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await Task.CompletedTask;
         }
     }
 

@@ -457,21 +457,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
                 : null;
 
-        // The first turn has the first element, as for a foreach with one variable. The walk keeps
-        // one result for each Deconstruct that it follows at a node. Thus, the first element is
-        // only for a deconstruction that the walk does not follow.
+        // The first turn has the first element, as for a foreach with one variable.
         LoopState? first =
             enumerated.IsNone
             && this.evaluator.FirstElementOf(node.Expression) is ({ } one, _)
             && one.Shape != elements.Shape
-            && (method == null
-                || PartsOfAPair(pair: one, deconstruct: method) != null
-                || (method.ReducedFrom ?? method).OriginalDefinition
-                is { DeclaringSyntaxReferences.IsEmpty: true, IsImplicitlyDeclared: false })
                 ? one
                 : null;
 
         this.DeconstructAnElement(node: node, method: method, element: first ?? elements);
+
+        // The walk keeps one result for each Deconstruct that it follows at a node. Thus, it forgets
+        // the result for the first element, and the later elements get a result of their own.
+        if (first != null && method != null)
+        {
+            this.evaluator.ForgetsTheDeconstructOf(call: node.Variable, method: method);
+        }
+
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Statement);
 
