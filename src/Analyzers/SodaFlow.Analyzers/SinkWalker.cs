@@ -270,6 +270,24 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return block?.DescendantNodes().OfType<LabeledStatementSyntax>().Any() == false ? block : null;
     }
 
+    // True when each turn of a loop runs an await of a task that is not complete. The next turn then
+    // runs after the task completes, which is after the call, and the walk reads no second turn. A
+    // continue can start the next turn before the await. Synchronous code has no such await, and
+    // the test is one test of an empty list.
+    private bool AwaitEndsEachTurn(SyntaxNode body) =>
+        this.later.Count > 0
+        && body is BlockSyntax turn
+        && this.later.Any(awaited => awaited.Block == turn)
+        && !turn.DescendantNodes(descendIntoChildren: static node =>
+                node is not (AnonymousFunctionExpressionSyntax
+                    or LocalFunctionStatementSyntax
+                    or ForStatementSyntax
+                    or CommonForEachStatementSyntax
+                    or WhileStatementSyntax
+                    or DoStatementSyntax))
+            .OfType<ContinueStatementSyntax>()
+            .Any();
+
     private bool RunsLater(SyntaxNode node)
     {
         foreach ((BlockSyntax block, int from) in this.later)
@@ -537,7 +555,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // while a read gives a location a new state. The locals of the body keep the state of the
         // last read, because the result of a function can be a local of a loop.
         for (int read = 2;
-             read <= MaxReadsOfALoop && left.Add(this.evaluator.ShapeOfWhatALoopLeaves(body));
+             read <= MaxReadsOfALoop
+             && !this.AwaitEndsEachTurn(body)
+             && left.Add(this.evaluator.ShapeOfWhatALoopLeaves(body));
              read++)
         {
             this.evaluator.StartTheSecondTurn(loop: loop, turn: body);

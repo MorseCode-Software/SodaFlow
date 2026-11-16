@@ -15635,6 +15635,42 @@ public static class Shapes
     public static Cell<int> Ab140EachTurnPutsAPlainObjectIntoAPendingElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } Kept.Add(slots[0].Share!.Sample()); return S.Hold(0); });
 
+    // S3432. An async helper reads in a loop before an await of a task that does not complete.
+    public static Cell<int> DvStateAsyncReadBeforeAnAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadThenAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3433. An async helper reads in a loop a local that the code after an await that does not complete gives a pending cell.
+    public static Cell<int> DvStateAsyncReadOfWhatAnAwaitSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitThenGiveInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3434. An async helper reads in a loop a local that the code after an await of a complete task gives a pending cell.
+    public static Cell<int> DvStateAsyncReadAfterACompleteAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitCompleteThenGiveInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3435. An async lambda in a loop of the block reads after an await that does not complete.
+    public static Cell<int> DvStateAsyncLambdaInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Func<Task> run = async () => { await R2NeverDone.Task; Kept.Add(l.Sample()); }; run().Wait(0); } return S.Hold(0); });
+
+    // S3436. An async helper reads in a loop, gives the local a pending cell, and awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadGiveThenAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3437. Control: the same with a complete task.
+    public static Cell<int> DvStateAsyncCompleteAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadGiveThenAwaitCompleteInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3438. An async lambda of the block reads in a loop, gives the local a pending cell, and awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncLambdaAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Cell<int> d = Plain; while (Kept.Count >= 0) { Kept.Add(d.Sample()); d = l; await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3439. An async helper reads in a do loop and gives the local a pending cell. At the end of the turn, it awaits a task that does not complete.
+    public static Cell<int> Ab138AwaitAtTheEndOfADoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab138ReadGiveThenAwaitInADo(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3440. An async helper reads in a loop and gives the local a pending cell. A continue skips the await in the first turn, thus the second turn reads now. A control.
+    public static Cell<int> Ab138ContinueBeforeTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab138ContinueBeforeTheAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20577,6 +20613,90 @@ public static class Shapes
     }
 
     private static readonly DvStRunner DvStRunner7 = new();
+
+    private static async Task DvStReadThenAwaitInALoop(Cell<int> c)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(c.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task DvStAwaitThenGiveInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            await R2NeverDone.Task;
+            d = c;
+        }
+    }
+
+    private static async Task DvStAwaitCompleteThenGiveInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            await Task.CompletedTask;
+            d = c;
+        }
+    }
+
+    private static async Task DvStReadGiveThenAwaitInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task DvStReadGiveThenAwaitCompleteInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await Task.CompletedTask;
+        }
+    }
+
+    private static async Task Ab138ReadGiveThenAwaitInADo(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+
+        do
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await R2NeverDone.Task;
+        }
+        while (Kept.Count >= 0);
+    }
+
+    private static async Task Ab138ContinueBeforeTheAwaitInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+
+            if (i == 0)
+            {
+                continue;
+            }
+
+            await R2NeverDone.Task;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

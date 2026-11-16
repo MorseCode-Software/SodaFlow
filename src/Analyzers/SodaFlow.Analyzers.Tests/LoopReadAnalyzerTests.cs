@@ -2300,7 +2300,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab133ConstructorWithNoInitializerCallsTheBase"] = ["SF1005"],
             ["Ab137LocalFunctionInsertsAndTheBlockReadsIt"] = ["SF1001"],
             ["Ab140EachTurnPutsAPendingObjectIntoTheElement"] = ["SF1001"],
-            ["Ab140ALoopWithNoTurnGivesBackTheElement"] = ["SF1001"]
+            ["Ab140ALoopWithNoTurnGivesBackTheElement"] = ["SF1001"],
+            ["DvStateAsyncReadBeforeAnAwaitInALoop"] = ["SF1004"],
+            ["DvStateAsyncReadAfterACompleteAwaitInALoop"] = ["SF1004"],
+            ["DvStateAsyncCompleteAwaitAtTheEndOfATurn"] = ["SF1004"],
+            ["Ab138ContinueBeforeTheAwait"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
