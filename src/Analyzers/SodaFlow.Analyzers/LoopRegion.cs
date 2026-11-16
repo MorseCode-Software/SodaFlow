@@ -200,6 +200,18 @@ internal sealed class LoopRegion(
     }
 
     /// <summary>
+    ///     The operator of the code that converts a value of the type to bool
+    ///     with no cast. Null when no such operator makes that conversion.
+    /// </summary>
+    public IMethodSymbol? ConversionToBoolean(ITypeSymbol from) =>
+        this.compilation.ClassifyConversion(
+                source: from,
+                destination: this.compilation.GetSpecialType(SpecialType.System_Boolean))
+            is { IsImplicit: true, IsUserDefined: true, MethodSymbol: { } method }
+            ? method
+            : null;
+
+    /// <summary>
     ///     True when the compiler converts the first type to the second one with
     ///     no cast. No operator converts an interface. Thus, each value of a first
     ///     type that is an interface is then a value of the second type.

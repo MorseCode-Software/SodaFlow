@@ -2181,7 +2181,13 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72CollectionExpressionCallsAnExtensionAdd"] = ["SF1004"],
             ["Ag72SpreadIntoATypeWithAnExtensionAdd"] = ["SF1004"],
             ["Ag72PlatformEnumerationDisposesTheEnumerator"] = ["SF1005"],
-            ["Ag72SpreadDisposesTheEnumeratorOfASequence"] = ["SF1005"]
+            ["Ag72SpreadDisposesTheEnumeratorOfASequence"] = ["SF1005"],
+            ["Ag72TupleInAVariableComparedWithATupleExpression"] = ["SF1004"],
+            ["Ag72TwoTuplesInVariablesCompared"] = ["SF1004"],
+            ["Ag72TupleFromAMethodCompared"] = ["SF1004"],
+            ["Ag72ConversionOfTheResultOfAnElementOperator"] = ["SF1005"],
+            ["Ag72TupleInAVariableAsAnElementCompared"] = ["SF1004"],
+            ["Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

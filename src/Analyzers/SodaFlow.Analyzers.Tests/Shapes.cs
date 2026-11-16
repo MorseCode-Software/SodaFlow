@@ -14206,6 +14206,42 @@ public static class Shapes
     public static Cell<int> Ag72SpreadOfATypeWithAPlainEnumerator() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<int> all = [.. new R2Steps(Plain)]; Kept.Add(l.Map(v => v)); return S.Hold(all.Count); });
 
+    // S3233. A tuple in a variable compared with a tuple expression calls the equality operator of each element.
+    public static Cell<int> Ag72TupleInAVariableComparedWithATupleExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) t = (a, 1); bool same = t == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3234. Two tuples in variables compared call the equality operator of each element.
+    public static Cell<int> Ag72TwoTuplesInVariablesCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) first = (a, 1); (R2Same, int) second = (b, 1); bool same = first == second; return S.Hold(same ? 1 : 0); });
+
+    // S3235. A tuple that a method returns compared with a tuple expression calls the equality operator of each element.
+    public static Cell<int> Ag72TupleFromAMethodCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = Ag72PairOf(a) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3236. A tuple equality converts the result of the operator of an element to bool with a conversion of the code, which samples.
+    public static Cell<int> Ag72ConversionOfTheResultOfAnElementOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(l.Map(v => v)); Ag72Judged b = new(Plain); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3237. A tuple in a variable that is an element of a tuple expression gives its elements to the operator of each pair.
+    public static Cell<int> Ag72TupleInAVariableAsAnElementCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) inner = (a, 1); bool same = (inner, 2) == ((b, 1), 2); return S.Hold(same ? 1 : 0); });
+
+    // S3238. A tuple in a variable has a pending cell where no operator of the code reads, and a plain one where the operator reads.
+    public static Cell<int> Ag72TupleInAVariableWithAPendingElementThatNoOperatorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same b = new(Plain); (Cell<int>, R2Same) t = (l.Map(v => v), b); bool same = t == (Plain, b); return S.Hold(same ? 1 : 0); });
+
+    // S3239. A tuple that a method returns, of plain elements, compared with a tuple expression.
+    public static Cell<int> Ag72TupleFromAMethodOfPlainElementsCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same b = new(Plain); bool same = Ag72PairOf(b) == (b, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3240. A tuple equality converts the result of the operator of an element, and that result has a plain cell.
+    public static Cell<int> Ag72ConversionOfAPlainResultOfAnElementOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(Plain); Ag72Judged b = new(l.Map(v => v)); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3241. Two tuples in variables call one operator for two pairs of elements, and only the second pair has a pending cell.
+    public static Cell<int> Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, R2Same) first = (b, b); (R2Same, R2Same) second = (b, a); bool same = first == second; return S.Hold(same ? 1 : 0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17928,6 +17964,8 @@ public static class Shapes
 
         public void Dispose() => Kept.Add(share.Sample());
     }
+
+    private static (R2Same Same, int Number) Ag72PairOf(R2Same same) => (same, 1);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

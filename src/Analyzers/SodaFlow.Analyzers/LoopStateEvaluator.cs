@@ -6,6 +6,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
+using ComparedPart =
+    (Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Written,
+    Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Bound,
+    Microsoft.CodeAnalysis.ITypeSymbol? Type,
+    SodaFlow.Analyzers.LoopState? State);
 using Locations =
     System.Collections.Immutable.ImmutableDictionary<
         Microsoft.CodeAnalysis.ISymbol,
@@ -4511,60 +4516,138 @@ internal sealed partial class LoopStateEvaluator
     ///     compiler which operator a comparison of the two elements binds to.
     /// </summary>
     /// <remarks>
-    ///     Only a tuple expression has elements that the evaluator can read. A
-    ///     comparison with a tuple in a variable is not followed.
+    ///     A side that is not a tuple expression, as a local or the result of a
+    ///     call, has no node for each element. The question to the compiler then
+    ///     names the element as <c>ItemN</c> of that side. The state of the
+    ///     element comes from the members of the state of the side.
     /// </remarks>
-    private Followed? FollowTupleEquality(BinaryExpressionSyntax comparison) =>
-        Unwrapped(comparison.Left) is TupleExpressionSyntax left
-        && Unwrapped(comparison.Right) is TupleExpressionSyntax right
-            ? this.FollowElementEquality(comparison: comparison, left: left, right: right)
-            : null;
-
-    private Followed? FollowElementEquality(
-        CSharpSyntaxNode comparison,
-        ExpressionSyntax left,
-        ExpressionSyntax right)
+    private Followed? FollowTupleEquality(BinaryExpressionSyntax comparison)
     {
-        if (Unwrapped(left) is TupleExpressionSyntax lefts && Unwrapped(right) is TupleExpressionSyntax rights)
+        ComparedPart[] lefts =
+            [.. this.PartsOf(written: comparison.Left, bound: comparison.Left, type: null, state: null)];
+
+        ComparedPart[] rights =
+            [.. this.PartsOf(written: comparison.Right, bound: comparison.Right, type: null, state: null)];
+
+        if (lefts.Length != rights.Length)
         {
-            return lefts.Arguments.Count != rights.Arguments.Count
-                ? null
-                : lefts.Arguments
-                    .Zip(second: rights.Arguments, resultSelector: static (one, other) => (one, other))
-                    .Aggregate(
-                        seed: (Followed?)null,
-                        func: (all, pair) =>
-                            Both(
-                                first: all,
-                                second: this.FollowElementEquality(
-                                    comparison: comparison,
-                                    left: pair.one.Expression,
-                                    right: pair.other.Expression)));
+            return null;
         }
 
+        (ComparedPart Left, ComparedPart Right)[] pairs =
+            [.. lefts.Zip(second: rights, resultSelector: static (one, other) => (one, other))];
+
+        // The evaluator keeps one result for each node and member. Two parts of a tuple that is
+        // not a tuple expression have the same node. Thus, each pair of parts of the same two such
+        // tuples gets the states of all those pairs, and gives the same result.
+        return pairs.Aggregate(
+            seed: (Followed?)null,
+            func: (all, pair) =>
+                Both(
+                    first: all,
+                    second: pair is { Left.State: not null, Right.State: not null }
+                        ? this.FollowPartEquality(
+                            comparison: comparison,
+                            left: pair.Left with { State = Joined(of: pair, side: static part => part.Left) },
+                            right: pair.Right with { State = Joined(of: pair, side: static part => part.Right) })
+                        : this.FollowPartEquality(comparison: comparison, left: pair.Left, right: pair.Right)));
+
+        LoopState Joined(
+            (ComparedPart Left, ComparedPart Right) of,
+            Func<(ComparedPart Left, ComparedPart Right), ComparedPart> side) =>
+            pairs
+                .Where(other =>
+                    other is { Left.State: not null, Right.State: not null }
+                    && other.Left.Written == of.Left.Written
+                    && other.Right.Written == of.Right.Written)
+                .Aggregate(seed: LoopState.None, func: (state, other) => state.Join(side(other).State ?? LoopState.None));
+    }
+
+    // The elements that a tuple equality compares, in their order. An element that is a tuple
+    // gives its own elements. A part with no state is a node of the code, and the evaluator reads
+    // its state and its type there.
+    private IEnumerable<ComparedPart> PartsOf(
+        ExpressionSyntax written,
+        ExpressionSyntax bound,
+        ITypeSymbol? type,
+        LoopState? state)
+    {
+        if (state == null && Unwrapped(written) is TupleExpressionSyntax tuple)
+        {
+            return tuple.Arguments.SelectMany(argument =>
+                this.PartsOf(written: argument.Expression, bound: argument.Expression, type: null, state: null));
+        }
+
+        ITypeSymbol? actual = state == null ? this.region.TypeOf(written) : type;
+
+        if (actual is not INamedTypeSymbol { IsTupleType: true } tupleType)
+        {
+            return [(Written: written, Bound: bound.WithoutTrivia(), Type: actual, State: state)];
+        }
+
+        LoopState whole = state ?? this.Eval(written);
+
+        return tupleType.TupleElements.SelectMany((element, position) =>
+            this.PartsOf(
+                written: written,
+                bound: SyntaxFactory.MemberAccessExpression(
+                    kind: SyntaxKind.SimpleMemberAccessExpression,
+                    expression: SyntaxFactory.ParenthesizedExpression(bound.WithoutTrivia()),
+                    name: SyntaxFactory.IdentifierName("Item" + (position + 1))),
+                type: element.Type,
+                state: whole.Members is { } members && members.Has(element) ? members.StateOf(element) : whole));
+    }
+
+    private Followed? FollowPartEquality(CSharpSyntaxNode comparison, ComparedPart left, ComparedPart right)
+    {
         // Only an operator of this compilation has a body to read, and it takes a type of this
         // compilation. The question to the compiler is for such a pair only.
-        if (this.region.TypeOf(left) is not { DeclaringSyntaxReferences.IsEmpty: false }
-            && this.region.TypeOf(right) is not { DeclaringSyntaxReferences.IsEmpty: false })
+        if (left.Type is not { DeclaringSyntaxReferences.IsEmpty: false }
+            && right.Type is not { DeclaringSyntaxReferences.IsEmpty: false })
         {
             return null;
         }
 
         ExpressionSyntax compared =
-            SyntaxFactory.BinaryExpression(
-                kind: comparison.Kind(),
-                left: left.WithoutTrivia(),
-                right: right.WithoutTrivia());
+            SyntaxFactory.BinaryExpression(kind: comparison.Kind(), left: left.Bound, right: right.Bound);
 
-        return this.region.ModelFor(comparison)
+        if (this.region.ModelFor(comparison)
                 .GetSpeculativeSymbolInfo(
                     position: comparison.SpanStart,
                     expression: compared,
                     bindingOption: SpeculativeBindingOption.BindAsExpression)
                 .Symbol
-            is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation
-            ? this.FollowOperator(call: left, operation: operation, operands: [left, right])
-            : null;
+            is not IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation)
+        {
+            return null;
+        }
+
+        // A part of a tuple that is not a tuple expression has the node of the whole tuple. Thus,
+        // the call is the node of a part that is a node of the code, when there is one.
+        ExpressionSyntax call = left.State == null || right.State != null ? left.Written : right.Written;
+
+        Followed? result =
+            this.FollowImplied(
+                call: call,
+                member: operation,
+                owner: null,
+                arguments:
+                [
+                    (left.Written, left.State ?? this.Eval(left.Written)),
+                    (right.Written, right.State ?? this.Eval(right.Written))
+                ]);
+
+        // The compiler converts a result that is not bool with an operator of the code.
+        return operation.ReturnType.SpecialType != SpecialType.System_Boolean
+               && this.region.ConversionToBoolean(operation.ReturnType) is { } conversion
+            ? Both(
+                first: result,
+                second: this.FollowImplied(
+                    call: call,
+                    member: conversion,
+                    owner: null,
+                    arguments: [(call, result?.State ?? LoopState.None)]))
+            : result;
     }
 
     /// <summary>
