@@ -5241,6 +5241,8 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="alwaysTurn">The value of <see cref="AlwaysTurn" />.</param>
     /// <param name="frameOfTheAlwaysTurn">The value of <see cref="FrameOfTheAlwaysTurn" />.</param>
     /// <param name="code">The value of <see cref="Code" />.</param>
+    /// <param name="caller">The value of <see cref="Caller" />.</param>
+    /// <param name="site">The value of <see cref="Site" />.</param>
     private sealed class CallOfThisCode(
         in bool runsOneTime,
         in SyntaxNode? turn,
@@ -5253,7 +5255,9 @@ internal sealed partial class LoopStateEvaluator
         in MadeObject? self,
         in bool hasItsOwnMembers,
         in ImmutableDictionary<ISymbol, ITypeSymbol> typeArguments,
-        in Locations locations)
+        in Locations locations,
+        in LoopStateEvaluator caller,
+        in SyntaxNode site)
     {
         /// <summary>True when the call runs one time at most.</summary>
         public bool RunsOneTime { get; } = runsOneTime;
@@ -5328,5 +5332,11 @@ internal sealed partial class LoopStateEvaluator
         ///     that expression. That code is the caller, or a caller of the caller.
         /// </summary>
         public Locations Locations { get; } = locations;
+
+        /// <summary>The evaluator of the code that has the call.</summary>
+        public LoopStateEvaluator Caller { get; } = caller;
+
+        /// <summary>The call.</summary>
+        public SyntaxNode Site { get; } = site;
     }
 }

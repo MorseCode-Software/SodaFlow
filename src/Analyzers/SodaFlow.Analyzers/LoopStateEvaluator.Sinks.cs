@@ -163,7 +163,8 @@ internal sealed partial class LoopStateEvaluator
     // True when a node runs only in the transaction of the block. That is the code of the block,
     // and a function in it that the library runs only in the call. The function of a map of a
     // constant cell is such a function also, because the transaction computes the first value of
-    // the map. Each other function, a query, and a member can run after the transaction.
+    // the map. A function that this evaluator reads for a call in the transaction is such a
+    // function also. Each other function, a query, and a member can run after the transaction.
     private bool RunsInTheTransaction(SyntaxNode node)
     {
         for (SyntaxNode? each = node; each != null; each = each.Parent)
@@ -189,11 +190,32 @@ internal sealed partial class LoopStateEvaluator
 
             if (runsLater)
             {
-                return false;
+                return this.IsReadForACallInTheTransaction(each);
             }
         }
 
         return false;
+    }
+
+    // True when this evaluator reads a function for a call that runs in the transaction of the
+    // block. A call of the library runs the function in the call only where RunsOnlyInTheCall
+    // says so. Each other call that the walk follows into the function runs it in the call, as
+    // the walk reads it. Thus, a function that the code gives by its name is a part of the
+    // transaction, as a lambda at Transaction.Run is. Each other run of the function has an
+    // evaluator of its own, with its own call.
+    private bool IsReadForACallInTheTransaction(SyntaxNode function)
+    {
+        if (this.call is not { Caller: var caller, Site: InvocationExpressionSyntax site }
+            || (function is MethodDeclarationSyntax ? this.function != null : function != this.function))
+        {
+            return false;
+        }
+
+        bool runsTheFunction =
+            this.region.SymbolOf(site) is IMethodSymbol called
+            && (!this.region.Symbols.IsSodaFlow(called) || caller.RunsOnlyInTheCall(site));
+
+        return runsTheFunction && caller.RunsInTheTransaction(site);
     }
 
     // True when the library runs a function that a call gets only in that call. A transaction and

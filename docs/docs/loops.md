@@ -332,12 +332,14 @@ careful side, so it can report a read that does not throw:
   one.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
   removes that one lambda in a straight line, with nothing between the add and the remove.
-- A sample of a hold gives only the initial value where the block itself makes the hold and
-  samples it, in its own code or in a function that runs only in the transaction: one that
-  `Transaction.Run` runs, or the function of a `Map` of a `Cell.Constant`. A sample in any other
-  lambda, in a local function or a helper, or of a hold kept in a record or a list, gets each value
-  sent into the sink as well. A close with such a sample can then get `SF1002`, although the sample
-  runs before the end of the transaction.
+- A sample of a hold gives only the initial value where the hold is made and sampled in the
+  transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
+  the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
+  code calls or passes to a call that runs it there. A lambda written at a call counts only where
+  the call is one of those two or a method of your own. A sample in a lambda written at any other
+  call, such as a `Map` of a stream or a LINQ `Select`, or of a hold kept in a record, a list, or a
+  field, gets each value sent into the sink as well. A close with such a sample can then get
+  `SF1002`, although the sample runs before the end of the transaction.
 
 Some reads that throw it does not see:
 

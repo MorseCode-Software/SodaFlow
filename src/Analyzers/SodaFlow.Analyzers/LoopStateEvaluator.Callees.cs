@@ -471,7 +471,9 @@ internal sealed partial class LoopStateEvaluator
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
                 typeArguments: this.TypeArgumentsOf(call: call, definer: definer),
-                locations: locations));
+                locations: locations,
+                caller: this,
+                site: call));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
 

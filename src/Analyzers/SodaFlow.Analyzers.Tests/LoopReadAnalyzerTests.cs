@@ -2395,7 +2395,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab156PostInAPostedLocalFunction"] = ["SF1002"],
             ["Ab157TheBodyPutsIntoTheFirstArrayThroughASecondName"] = ["SF1001"],
             ["Ab157TheBodyPutsIntoTheFirstArrayThroughItsName"] = ["SF1001"],
-            ["Ab157TheBodyGivesTheNameTheFirstArrayAgain"] = ["SF1001"]
+            ["Ab157TheBodyGivesTheNameTheFirstArrayAgain"] = ["SF1001"],
+            ["Ab158LocalFunctionAlsoCalledInAMapOfAStream"] = ["SF1002"],
+            ["Ab158RunOfALocalFunctionInAMapOfAStream"] = ["SF1002"],
+            ["Ab158LocalFunctionGivenToAMethodThatRunsItLater"] = ["SF1002"],
+            ["Ab158LocalFunctionGivenToRunOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab158PostedRunOfALocalFunction"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
