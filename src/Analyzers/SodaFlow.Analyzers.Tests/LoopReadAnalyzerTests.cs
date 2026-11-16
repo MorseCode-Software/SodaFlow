@@ -2150,7 +2150,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72ASecondLambdaWithTheSameTextRemoved"] = ["SF1001"],
             ["Ag72AccumOfCellsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
             ["Ag72AccumOfRecordsFromAPendingCellSwitchedAndRead"] = ["SF1001"],
-            ["Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead"] = ["SF1001"]
+            ["Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["Ag72UsingStatementOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["Ag72UsingDeclarationOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["Ag72UsingStatementOfAnActionInALocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

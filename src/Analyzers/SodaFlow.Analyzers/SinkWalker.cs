@@ -166,8 +166,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // A using declaration calls Dispose when the code leaves the block that it is in.
             if (disposes)
             {
-                this.Report(this.evaluator.FollowDispose(declarator.Initializer.Value));
+                this.CheckDisposed(declarator.Initializer.Value);
             }
+        }
+    }
+
+    // The Dispose that a using calls on its resource. An object of this compilation has a body to
+    // read. The Dispose of a bindable action of the library reads its enablement cell, as a call of
+    // that Dispose in the code does.
+    private void CheckDisposed(ExpressionSyntax resource)
+    {
+        if (this.evaluator.FollowDispose(resource) is { } followed)
+        {
+            this.Report(followed);
+
+            return;
+        }
+
+        LoopState state = this.evaluator.Eval(resource);
+
+        if (state.Pending && this.region.Symbols.IsBindableAction(this.region.TypeOf(resource)))
+        {
+            this.CheckRead(node: resource, state: state, name: "Dispose");
         }
     }
 
@@ -195,7 +215,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         foreach (ExpressionSyntax resource in resources)
         {
-            this.Report(this.evaluator.FollowDispose(resource));
+            this.CheckDisposed(resource);
         }
     }
 

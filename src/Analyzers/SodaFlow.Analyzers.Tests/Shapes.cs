@@ -14038,6 +14038,18 @@ public static class Shapes
     public static Cell<int> Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.Constant(new Ag72Step(l.Map(v => v))).Map(r => r.Share).SwitchC().Sample(); return S.Hold(x); });
 
+    // S3191. A using statement disposes a bindable action at its end, and Dispose reads the pending enablement cell.
+    public static Cell<int> Ag72UsingStatementOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0))) { } return S.Hold(0); });
+
+    // S3192. A using declaration disposes a bindable action at the end of the block, and Dispose reads the pending enablement cell.
+    public static Cell<int> Ag72UsingDeclarationOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); return S.Hold(0); });
+
+    // S3193. A using statement of a local that holds a bindable action with a pending enablement cell.
+    public static Cell<int> Ag72UsingStatementOfAnActionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); using (a) { } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
