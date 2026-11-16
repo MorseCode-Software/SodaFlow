@@ -2214,6 +2214,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.Merge(
                         target: receiver,
                         state: this.evaluator.Eval(arguments[0].Expression).AsContent);
+
+                    this.evaluator.SendsToTheCellsOf(sink: receiver, send: node);
                 }
 
                 break;

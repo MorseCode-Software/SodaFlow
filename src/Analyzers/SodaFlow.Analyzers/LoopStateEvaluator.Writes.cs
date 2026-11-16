@@ -919,6 +919,48 @@ internal sealed partial class LoopStateEvaluator
             _ => false
         };
 
+    /// <summary>
+    ///     Gives a send into a sink in a local to each hold and each accumulation
+    ///     of that local that the code made before the send. At the end of the
+    ///     transaction, such a cell has the value of the send. A cell that the
+    ///     code makes after the send has it also. The local of the cell gets the
+    ///     state of its creation again, with the content of the sink now.
+    /// </summary>
+    /// <param name="sink">The receiver of the send.</param>
+    /// <param name="send">The call of <c>Send</c>.</param>
+    public void SendsToTheCellsOf(ExpressionSyntax sink, SyntaxNode send)
+    {
+        if (this.quiet
+            || Unwrapped(sink) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol local
+            || (FunctionOf(send) ?? this.region.Root) is not { } code)
+        {
+            return;
+        }
+
+        foreach (VariableDeclaratorSyntax declarator in code
+                     .DescendantNodes(descendIntoChildren: node =>
+                         node == code
+                         || node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                     .OfType<VariableDeclaratorSyntax>()
+                     .Where(declarator => declarator.Span.End <= send.SpanStart))
+        {
+            if (declarator.Initializer?.Value is InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax from }
+                } made
+                && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(from), y: local)
+                && this.region.SymbolOf(made) is IMethodSymbol method
+                && this.region.Symbols.IsSodaFlow(method)
+                && OperatorName(method) is "Hold" or "HoldLazy" or "Accum" or "AccumLazy"
+                && this.region.ModelFor(declarator).GetDeclaredSymbol(declarator) is { } cell
+                && this.locals.TryGetValue(key: cell, value: out LoopState? before))
+            {
+                this.locals[cell] = before.Join(this.EvalAgain(made));
+            }
+        }
+    }
+
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.
     private LoopState EvalAgain(ExpressionSyntax expression)

@@ -15691,6 +15691,26 @@ public static class Shapes
     public static Cell<int> Ab139ReadAfterAWhileWithAnAwait() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab139AwaitInAWhileThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
 
+    // S3446. An accumulation of records from a stream of cells, and the send comes after the accumulation.
+    public static Cell<int> Ab126AccumOfRecordsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); s.Send(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3447. An accumulation of cells from a stream of cells, and the send comes after the accumulation.
+    public static Cell<int> Ab126AccumOfCellsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> acc = s.Accum(initialState: Plain, f: static (c, r) => c); s.Send(l.Map(v => v)); return acc.SwitchC(); });
+
+    // S3448. A hold of a stream of cells, and the send comes after the hold.
+    public static Cell<int> Ab126HoldOfCellsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> held = s.Hold(Plain); s.Send(l.Map(v => v)); return held.SwitchC(); });
+
+    // S3449. A hold of a stream of cells, and a send of a plain cell after the hold. A control.
+    public static Cell<int> Ab126HoldOfCellsWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> held = s.Hold(Plain); s.Send(Plain); return held.SwitchC(); });
+
+    // S3450. An accumulation of records from a stream of cells with a static function, and a send of a plain cell after the accumulation. A control.
+    public static Cell<int> Ab126AccumOfRecordsWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); s.Send(Plain); return acc.Map(r => r.Share).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
