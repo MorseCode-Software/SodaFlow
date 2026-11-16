@@ -233,10 +233,17 @@ internal static class OperatorTable
             "Create");
 
     /// <summary>
-    ///     The public operators with no row, for which the default is the correct
-    ///     rule. Each gives its result the state of its inputs. None crosses a
-    ///     transaction or reads a current value at construction.
+    ///     The public members of the library with no row, for which the default
+    ///     is the correct rule. An operator here gives its result the state of its
+    ///     inputs. None crosses a transaction or reads a current value at
+    ///     construction.
     /// </summary>
+    /// <remarks>
+    ///     A member that is not an operator is here also, with the reason that
+    ///     the default is correct for it. A property of the library that is not a
+    ///     read member has the state of its owner. A result whose type cannot hold
+    ///     a pending read, as a bool or a task, has no state.
+    /// </remarks>
     public static readonly ImmutableHashSet<string> DefaultIsSound =
         ImmutableHashSet.Create(
             // A stream of the values a function keeps, from a stream: linked as the stream is.
@@ -269,7 +276,120 @@ internal static class OperatorTable
             "Take",
             // A bindable is pending when its cell is. A read of its value is a read of the cell.
             "CreateOneWay",
-            "CreateTwoWay");
+            "CreateTwoWay",
+            // The values that a collection gives: a snapshot, a change, an edit, an item, the keys
+            // of a view, and the parts of each. Each is data that holds what the code or the graph
+            // put in it. A read of a part runs no code of the graph and reads no cell.
+            "Add",
+            "Added",
+            "Adds",
+            "After",
+            "Before",
+            "ChangeFor",
+            "ChangedKeys",
+            "CombineWith",
+            "Contains",
+            "ContainsKey",
+            "Count",
+            "Empty",
+            "FromIndex",
+            "GetEnumerator",
+            "Identities",
+            "Identity",
+            "Index",
+            "IndexOf",
+            "IsReset",
+            "IsStructural",
+            "Item",
+            "Key",
+            "Keys",
+            "Lookup",
+            "NewStates",
+            "Operations",
+            "Pairs",
+            "Remove",
+            "Removed",
+            "Removes",
+            "State",
+            "States",
+            "ToIndex",
+            "TryGetItem",
+            "TryGetNewState",
+            "TryGetState",
+            "Update",
+            "WasChanged",
+            // The cells and streams that a collection holds. They have the state of the collection,
+            // thus a cell of a pending collection is pending.
+            "ItemChangesStream",
+            "KeyChangesStream",
+            "KeysCell",
+            "ShapeCell",
+            "SnapshotCell",
+            // The cell of a bindable, and the members of a bindable action, which CreateBindableAction
+            // gives their own state. An event of a bindable keeps its handler and reads no cell.
+            "Cell",
+            "FiringsStream",
+            "IsEnabledCell",
+            "CanExecuteChanged",
+            "PropertyChanged",
+            // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
+            // action, and the walk checks that read. Each other Dispose releases listeners. Execute of
+            // an AsyncMapStatus reads its cell in a transaction of its own, after the close.
+            "Dispose",
+            "Execute",
+            // The sort orders of a collection. Each keeps its function for a view that sorts by it.
+            // An order whose function reads a pending value is pending, because each order with a
+            // function is in ValueFromFunction.
+            "By",
+            "ByArrival",
+            "ByDescending",
+            "ByIdentity",
+            "ByIdentityDescending",
+            "ByKey",
+            "ByKeyDescending",
+            "ThenBy",
+            "ThenByDescending",
+            "ThenByIdentity",
+            "ThenByIdentityDescending",
+            // Listeners from listeners. A listener holds no value and has no state.
+            "Append",
+            "AppendStrong",
+            "AppendWeak",
+            "CreateComposite",
+            "CreateStrongComposite",
+            "CreateWeakComposite",
+            // IsActive of a transaction reads no cell. OnStart keeps its function for the start of
+            // each transaction after this one.
+            "IsActive",
+            "OnStart",
+            // A clock and its timers. Each member gives the time, moves it, or keeps a callback for a
+            // time. A timer sends into a sink, and reads no cell. Time is the behavior of the clock,
+            // which no loop gives a state.
+            "Cancel",
+            "Now",
+            "RunTimersTo",
+            "SetTimer",
+            "Start",
+            "Stop",
+            "Time",
+            // The scheduler of the binding thread. It holds no value of the graph.
+            "Capture",
+            "CheckAccess",
+            "Immediate",
+            // The map of a stream through a task. MapAsync keeps its function for a firing, and its
+            // status has the state of its inputs. The strategies, the results, and the status of
+            // one item are data.
+            "MapAsync",
+            "Construct",
+            "FromValue",
+            "IsRunning",
+            "Items",
+            "Parallel",
+            "Queue",
+            "QueuePerGroup",
+            "Status",
+            "SwitchLatest",
+            "UndeliveredError");
 
     /// <summary>
     ///     The library methods that run a function in the call, before the loop
@@ -375,10 +495,10 @@ internal static class OperatorTable
 
     // The operators whose function computes the current value of the result. Map, Lift, and
     // Defer are for a cell, a behavior, and a lazy sample. Apply runs the function that its cell
-    // holds. The filters and the sorts are the
-    // views of a collection. The next six make a sort order. A view that sorts by that order
-    // runs the function of the order, and the pending state of the order tells the view so. The
-    // last three get a comparer or a key selector, which the collection calls at its first read.
+    // holds. The filters and the sorts are the views of a collection. The next eight make a sort
+    // order. A view that sorts by that order runs the function of the order, and the pending state
+    // of the order tells the view so. The last three get a comparer or a key selector, which the
+    // collection calls at its first read.
     private static readonly ImmutableHashSet<string> ValueFromFunction =
         ImmutableHashSet.Create(
             "Map",
@@ -397,6 +517,8 @@ internal static class OperatorTable
             "ThenByDescending",
             "ThenByIdentity",
             "ThenByIdentityDescending",
+            "ByDescending",
+            "ByIdentityDescending",
             "ByKey",
             "SortByKey",
             "Create");

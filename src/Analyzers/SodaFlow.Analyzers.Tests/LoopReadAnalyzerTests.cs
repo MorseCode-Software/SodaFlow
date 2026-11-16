@@ -2067,7 +2067,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab107HoldLazyOfAPendingCellSwitchedAndRead"] = ["SF1001"],
             ["R2ApiApplyOfAFunctionThatReads"] = ["SF1001"],
             ["R2ApiViewFilteredByACellOfAFunctionThatReads"] = ["SF1001"],
-            ["Ab108ApplyOfAFunctionInALocalThatReads"] = ["SF1001"]
+            ["Ab108ApplyOfAFunctionInALocalThatReads"] = ["SF1001"],
+            ["Ag69SortByADescendingOrderThatReads"] = ["SF1001"],
+            ["Ag69SortByADescendingIdentityOrderThatReads"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -13465,6 +13465,14 @@ public static class Shapes
     public static Cell<int> Ab108ApplyOfAFunctionThatReadsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + 1)).Sample(); return S.Hold(x); });
 
+    // S3048. A descending sort order whose function samples the placeholder. The block reads the keys of a view that sorts by that order.
+    public static Cell<int> Ag69SortByADescendingOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByDescending((_, state) => state + l.Sample()); int count = Items().SortBy(order: order).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3049. The same read through a descending order of the identity.
+    public static Cell<int> Ag69SortByADescendingIdentityOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByIdentityDescending(id => id.Number + l.Sample()); int count = Items().SortBy(order: order).KeysCell.Sample().Count; return S.Hold(count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

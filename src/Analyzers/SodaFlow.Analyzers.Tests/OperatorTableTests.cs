@@ -12,38 +12,23 @@ using TUnit.Core;
 namespace SodaFlow.Analyzers.Tests;
 
 /// <summary>
-///     Holds <see cref="OperatorTable" /> to the public operators of the
+///     Holds <see cref="OperatorTable" /> to the public members of the
 ///     library.
 /// </summary>
 /// <remarks>
-///     An operator is a public method that returns a cell, a behavior, a
-///     stream, a lazy sample, a sink, a collection, or a bindable. An operator
-///     with no row falls to the default rule, which keeps the state of its
-///     inputs. That is correct for most operators. It is incorrect for one that
-///     crosses a transaction or reads a value at construction. Thus, a new
-///     operator has to say which it is, with a row in the table or an entry in
+///     A member with no row falls to the default rule, which keeps the state of
+///     its inputs. That is correct for most members. It is incorrect for one
+///     that crosses a transaction or reads a value at construction. Thus, a new
+///     member has to say which it is, with a row in the table or an entry in
 ///     <see cref="OperatorTable.DefaultIsSound" />. This test fails until it
-///     does.
+///     does. A member is each method, property, and event of a type of the
+///     library. Each member of an interface of the platform that such a type
+///     implements is one also.
 /// </remarks>
 internal sealed class OperatorTableTests
 {
-    private static readonly string[] ResultTypes =
-    [
-        "Cell`1",
-        "Behavior`1",
-        "Stream`1",
-        "LazySample`1",
-        "CellSink`1",
-        "BehaviorSink`1",
-        "StreamSink`1",
-        "CellStreamSink`1",
-        "ReactiveCollection`3",
-        "MappedItems`1",
-        "IOneWayBindableValue`1",
-        "ITwoWayBindableValue`1",
-        "IBindableAction",
-        "IBindableAction`1"
-    ];
+    private const BindingFlags Declared =
+        BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
     // The assemblies of the library that have C# operators. The F# assemblies give the same
     // operators different names, and the analyzer reads C# only.
@@ -60,38 +45,66 @@ internal sealed class OperatorTableTests
     ];
 
     [Test]
-    public async Task EveryPublicOperatorHasARowOrIsListedAsSound()
+    public async Task EveryPublicMemberHasARowOrIsListedAsSound()
     {
-        IReadOnlyList<string> operators =
+        IReadOnlyList<string> members =
         [
             .. Libraries
                 .SelectMany(static assembly => assembly.GetExportedTypes())
-                .SelectMany(static type =>
-                    type.GetMethods(
-                        BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-                // A property getter is not an operator: it has no inputs of its own.
-                .Where(static method => !method.IsSpecialName)
-                .Where(static method =>
-                    ResultTypes.Contains(
-                        method.ReturnType.IsGenericType
-                            ? method.ReturnType.GetGenericTypeDefinition().Name
-                            : method.ReturnType.Name))
-                .Select(static method => method.Name)
+                // A delegate type has methods to call it. They are not members of the library.
+                .Where(static type => !typeof(Delegate).IsAssignableFrom(type))
+                .SelectMany(MembersOf)
                 .Distinct()
                 .OrderBy(keySelector: static name => name, comparer: StringComparer.Ordinal)
         ];
 
-        await Assert.That(operators).IsNotEmpty();
+        // An operator, a property, a setter, and an interface member of the platform are each in
+        // the list.
+        await Assert.That(members).Contains("Map");
+        await Assert.That(members).Contains("KeysCell");
+        await Assert.That(members).Contains("Value");
+        await Assert.That(members).Contains("CanExecuteChanged");
 
         IReadOnlyList<string> unknown =
         [
-            .. operators.Where(static name =>
+            .. members.Where(static name =>
                 !OperatorTable.Names.Contains(name) && !OperatorTable.DefaultIsSound.Contains(name))
         ];
 
         await Assert.That(unknown)
             .IsEmpty()
-            .Because("each public operator needs a row in OperatorTable, or a place in DefaultIsSound");
+            .Because("each public member needs a row in OperatorTable, or a place in DefaultIsSound");
+    }
+
+    // The methods that a type declares, and the members of each interface of the platform that
+    // it implements, as ICommand of a bindable action. An accessor has the name of its property
+    // or event, thus a setter is in the list as its property. A base type of the platform, as
+    // Enum or Exception is, gives its own interfaces, which read no value of the graph.
+    private static IEnumerable<string> MembersOf(Type type) =>
+        type.GetMethods(Declared)
+            .Concat(
+                type.GetInterfaces()
+                    .Where(static contract => contract.Namespace?.StartsWith(
+                        value: "System",
+                        comparisonType: StringComparison.Ordinal) == true)
+                    .Except(type.BaseType?.GetInterfaces() ?? [])
+                    .SelectMany(static contract => contract.GetMethods()))
+            .Select(NameOf);
+
+    private static string NameOf(MethodInfo method)
+    {
+        if (!method.IsSpecialName)
+        {
+            return method.Name;
+        }
+
+        string[] prefixes = ["get_", "set_", "add_", "remove_"];
+
+        string? prefix =
+            prefixes.FirstOrDefault(candidate =>
+                method.Name.StartsWith(value: candidate, comparisonType: StringComparison.Ordinal));
+
+        return prefix == null ? method.Name : method.Name.Substring(prefix.Length);
     }
 
     [Test]
@@ -114,9 +127,7 @@ internal sealed class OperatorTableTests
                 // A delegate type has methods with a callback parameter. They are not methods of
                 // the library.
                 .Where(static type => !typeof(Delegate).IsAssignableFrom(type))
-                .SelectMany(static type =>
-                    type.GetMethods(
-                        BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                .SelectMany(static type => type.GetMethods(Declared))
                 .Where(static method => !method.IsSpecialName)
                 .Where(static method =>
                     method.GetParameters()
