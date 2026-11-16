@@ -2328,7 +2328,23 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab145TheBlockReadsEachElement"] = ["SF1001"],
             ["Ab145TheBlockKeepsTheLastElement"] = ["SF1001"],
             ["Ab145AReverseMovesThePendingCellFirst"] = ["SF1004"],
-            ["Ab145AnArrayReverseMovesThePendingCellFirst"] = ["SF1004"]
+            ["Ab145AnArrayReverseMovesThePendingCellFirst"] = ["SF1004"],
+            ["DvLinksDeferOfASentLinkedCell"] = ["SF1002"],
+            ["DvLinksSplitOfASentLinkedCell"] = ["SF1002"],
+            ["Ab146SwitchOfAHoldWithTheSendAfter"] = ["SF1002"],
+            ["Ab146ChainOfASinkWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldInARecordWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldInAListWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldOfASecondNameOfTheSink"] = ["SF1002"],
+            ["Ab146SwitchMadeByALocalFunctionBeforeTheSend"] = ["SF1002"],
+            ["Ab146HoldOfASinkInAProperty"] = ["SF1002"],
+            ["Ab146SendThroughAParameterAfterAHold"] = ["SF1002"],
+            ["Ab146SinkOfTheCodeAroundTheBlock"] = ["SF1002"],
+            ["Ab146SwitchOfACellSinkWithTheSendAfter"] = ["SF1002"],
+            ["Ab146SendInATransactionOfTheBlock"] = ["SF1002"],
+            ["Ab146SendOfASwitchOfASecondSink"] = ["SF1002"],
+            ["Ab146SinkInAStaticField"] = ["SF1002"],
+            ["Ab146SwitchOfAHoldWithTheSendBefore"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

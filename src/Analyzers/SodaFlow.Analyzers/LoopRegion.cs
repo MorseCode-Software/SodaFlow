@@ -20,7 +20,8 @@ internal sealed class LoopRegion(
     in LoopState placeholderState,
     in SyntaxNode root,
     in Action<Diagnostic> report,
-    in CancellationToken cancellation)
+    in CancellationToken cancellation,
+    in LoopRegion? readBefore)
 {
     // The walk reads at most this many callee bodies for one block. A block that needs more is
     // code that calls itself through many paths, and the limit is what ends the work.
@@ -36,7 +37,9 @@ internal sealed class LoopRegion(
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
-    private readonly HashSet<(string Id, Location Location)> reported = [];
+
+    // A read of the block after the first one reports only what the reads before did not.
+    private readonly HashSet<(string Id, Location Location)> reported = readBefore?.reported ?? [];
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
@@ -65,6 +68,12 @@ internal sealed class LoopRegion(
 
     /// <summary>The one state of each object that the code of the region makes.</summary>
     public ObjectStore Objects { get; } = new();
+
+    /// <summary>The content that the sends of the read before gave to the sinks.</summary>
+    public SentContent SentBefore { get; } = readBefore?.Sent ?? new SentContent();
+
+    /// <summary>The content that the sends of this read give to the sinks.</summary>
+    public SentContent Sent { get; } = new();
 
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
@@ -384,7 +393,13 @@ internal sealed class LoopRegion(
     ///     True for a block that returns a tuple. The first element of the tuple
     ///     closes the loop.
     /// </param>
-    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool withCaptures)
+    /// <param name="canReadAgain">True when the block can have a read after this one.</param>
+    /// <returns>
+    ///     False when the block needs a read after this one. A send then gave a
+    ///     sink content that it did not have in this read. This read then checks
+    ///     no close, because the next read gives the close more content.
+    /// </returns>
+    public bool Analyze(ImmutableArray<ExpressionSyntax> closings, bool withCaptures, bool canReadAgain)
     {
         LoopStateEvaluator evaluator = new(this);
 
@@ -395,6 +410,11 @@ internal sealed class LoopRegion(
         foreach (Finding unread in evaluator.Frame.TakeUnread())
         {
             this.Report(unread.Diagnostic);
+        }
+
+        if (canReadAgain && this.Sent.SaysMoreThan(this.SentBefore))
+        {
+            return false;
         }
 
         foreach (ExpressionSyntax closing in closings)
@@ -435,6 +455,8 @@ internal sealed class LoopRegion(
                         this.PlaceholderName));
             }
         }
+
+        return true;
     }
 
     /// <summary>

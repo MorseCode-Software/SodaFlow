@@ -15831,6 +15831,86 @@ public static class Shapes
     public static Cell<int> Ab145AnArrayReverseMovesThePendingCellFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; Array.Reverse(cells); DvStReadEachThenAwait(cells).Wait(0); return S.Hold(0); });
 
+    // S3481. A send in the block puts a cell linked to the placeholder into a sink, and a defer of the sink is held and switched.
+    public static Cell<int> DvLinksDeferOfASentLinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); Stream<Cell<int>> later = Operational.Defer(sink); sink.Send(l.Map(v => v)); return later.Hold(Plain).SwitchC(); });
+
+    // S3482. A send in the block puts a cell linked to the placeholder into a sink, and a split of the sink is held and switched.
+    public static Cell<int> DvLinksSplitOfASentLinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>[]> sink = Stream.CreateSink<Cell<int>[]>(); Stream<Cell<int>> later = Operational.Split<Cell<int>, Cell<int>[]>(sink); sink.Send([l.Map(v => v)]); return later.Hold(Plain).SwitchC(); });
+
+    // S3483. A local has a switch of a hold of a sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SwitchOfAHoldWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); s.Send(l.Map(v => v)); return sw; });
+
+    // S3484. A local has a switch of a hold of a filter of a map of a sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146ChainOfASinkWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Map(c => c).Filter(_ => true).Hold(Plain).SwitchC(); s.Send(l.Map(v => v)); return sw; });
+
+    // S3485. A hold of a sink is in a record, and a send of a cell linked to the placeholder into the sink comes after it.
+    public static Cell<int> Ab146HoldInARecordWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab146Held r = new Ab146Held(s.Hold(Plain)); s.Send(l.Map(v => v)); return r.Held.SwitchC(); });
+
+    // S3486. A hold of a sink is in a list, and a send of a cell linked to the placeholder into the sink comes after it.
+    public static Cell<int> Ab146HoldInAListWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); List<Cell<Cell<int>>> all = [s.Hold(Plain)]; s.Send(l.Map(v => v)); return all[0].SwitchC(); });
+
+    // S3487. A second local names the sink. A hold of it comes before a send through the first local.
+    public static Cell<int> Ab146HoldOfASecondNameOfTheSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = s; Cell<Cell<int>> held = t.Hold(Plain); s.Send(l.Map(v => v)); return held.SwitchC(); });
+
+    // S3488. A local function makes the switch of a hold of the sink before the send.
+    public static Cell<int> Ab146SwitchMadeByALocalFunctionBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = Switch(s); s.Send(l.Map(v => v)); return sw; static Cell<int> Switch(Stream<Cell<int>> from) => from.Hold(Plain).SwitchC(); });
+
+    // S3489. The sink is in a property of an object that the block makes. A hold of it comes before the send.
+    public static Cell<int> Ab146HoldOfASinkInAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab146SinkBox box = new Ab146SinkBox(); Cell<int> sw = box.Sink.Hold(Plain).SwitchC(); box.Sink.Send(l.Map(v => v)); return sw; });
+
+    // S3490. A method sends into the sink that it gets as a parameter, after a hold of that sink.
+    public static Cell<int> Ab146SendThroughAParameterAfterAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Ab146SendTo(s, l.Map(v => v)); return sw; });
+
+    // S3491. The sink is a local of the code around the block. A switch of a hold of it comes before a send in the block.
+    public static Cell<int> Ab146SinkOfTheCodeAroundTheBlock() =>
+        ((Func<Cell<int>>)(() => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); return Cell.Loop<int>().WithoutCaptures(l => { Cell<int> sw = t.Hold(Plain).SwitchC(); t.Send(l.Map(v => v)); return sw; }); }))();
+
+    // S3492. A local has a switch of a cell sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SwitchOfACellSinkWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Cell<int> sw = c.SwitchC(); c.Send(l.Map(v => v)); return sw; });
+
+    // S3493. A local has a switch of a hold of a sink. Then a transaction that runs now in the block sends a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SendInATransactionOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Transaction.RunVoid(() => s.Send(l.Map(v => v))); return sw; });
+
+    // S3494. A local has a switch of a hold of the second sink. Then the second sink gets a switch of a hold of the first sink. Then the first sink gets a cell linked to the placeholder.
+    public static Cell<int> Ab146SendOfASwitchOfASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<int> sw = t.Hold(Plain).SwitchC(); t.Send(s.Hold(Plain).SwitchC()); s.Send(l.Map(v => v)); return sw; });
+
+    // S3495. The sink is in a static field of the class. A switch of a hold of it comes before a send in the block.
+    public static Cell<int> Ab146SinkInAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> sw = Ab146Sink.Hold(Plain).SwitchC(); Ab146Sink.Send(l.Map(v => v)); return sw; });
+
+    // S3496. A switch of a hold of a sink is in a local, and a send of a plain cell comes after it. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); s.Send(Plain.Map(v => v + 1)); return sw; });
+
+    // S3497. A switch of a hold of a sink, and a send of a linked cell into a second sink. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithASendToASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); t.Send(l.Map(v => v)); return sw; });
+
+    // S3498. A switch of a hold of a sink, and a lambda in a local that sends a linked cell into the sink. The lambda does not run. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithASendInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Action send = () => s.Send(l.Map(v => v)); Kept.Add(send); return sw; });
+
+    // S3499. A send of a linked cell into a sink, and the switch of a hold of the sink after it.
+    public static Cell<int> Ab146SwitchOfAHoldWithTheSendBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<int> sw = s.Hold(Plain).SwitchC(); return sw; });
+
+    // S3500. A hold of a sink is in a record, and a send of a plain cell comes after it. A control.
+    public static Cell<int> Ab146HoldInARecordWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab146Held r = new Ab146Held(s.Hold(Plain)); s.Send(Plain.Map(v => v + 1)); return r.Held.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20961,6 +21041,17 @@ public static class Shapes
             Kept.Add(each.Sample());
         }
     }
+
+    private static readonly StreamSink<Cell<int>> Ab146Sink = Stream.CreateSink<Cell<int>>();
+
+    public sealed record Ab146Held(Cell<Cell<int>> Held);
+
+    public sealed class Ab146SinkBox
+    {
+        public StreamSink<Cell<int>> Sink { get; } = Stream.CreateSink<Cell<int>>();
+    }
+
+    private static void Ab146SendTo(StreamSink<Cell<int>> sink, Cell<int> c) => sink.Send(c);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

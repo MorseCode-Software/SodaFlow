@@ -27,6 +27,10 @@ namespace SodaFlow.Analyzers;
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
 public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 {
+    // The most reads of one block. A read can give a sink content that a send of a sink gets in
+    // the next read. Each read after the first one is for such a chain of sinks.
+    private const int MaxReads = 3;
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             Diagnostics.ReadBeforeClose,
@@ -128,21 +132,35 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
         bool withCaptures = method.Name is "WithCaptures" or "WithCapturesImpl";
 
-        IEnumerable<ExpressionSyntax> closings =
+        ImmutableArray<ExpressionSyntax> closings =
             (body is ExpressionSyntax expression ? [expression] : LoopStateEvaluator.ReturnExpressions(body))
-            .Select(e => withCaptures ? LoopedElement(e) : e);
+            .Select(e => withCaptures ? LoopedElement(e) : e)
+            .ToImmutableArray();
 
-        LoopRegion region =
-            new(
-                compilation: model.Compilation,
-                symbols: symbols,
-                placeholder: placeholder,
-                placeholderState: placeholderState,
-                root: body,
-                report: report,
-                cancellation: cancellation);
+        // A send can give a sink content after the code made a value from the sink. The next read
+        // gives each sink that content from the start.
+        LoopRegion? before = null;
 
-        region.Analyze(closings: closings, withCaptures: withCaptures);
+        for (int read = 1;; read++)
+        {
+            LoopRegion region =
+                new(
+                    compilation: model.Compilation,
+                    symbols: symbols,
+                    placeholder: placeholder,
+                    placeholderState: placeholderState,
+                    root: body,
+                    report: report,
+                    cancellation: cancellation,
+                    readBefore: before);
+
+            if (region.Analyze(closings: closings, withCaptures: withCaptures, canReadAgain: read < MaxReads))
+            {
+                return;
+            }
+
+            before = region;
+        }
     }
 
     /// <summary>

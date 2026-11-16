@@ -67,6 +67,7 @@
         <Compile Include="PlatformCallers.cs"/>
         <Compile Include="PlatformReceivers.cs"/>
         <Compile Include="QueryValue.cs"/>
+        <Compile Include="SentContent.cs"/>
         <Compile Include="ShapeNumber.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>

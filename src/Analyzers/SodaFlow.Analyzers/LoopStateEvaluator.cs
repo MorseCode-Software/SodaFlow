@@ -1928,9 +1928,9 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
-                or GenericNameSyntax => this.WithItsInitializer(
-                    expression: expression,
-                    state: this.EvalName(expression)),
+                or GenericNameSyntax => this.WithTheSendsBefore(
+                    name: expression,
+                    state: this.WithItsInitializer(expression: expression, state: this.EvalName(expression))),
             _ when expression.RawKind == SodaFlowSymbols.FieldKeywordKind => this.EvalFieldKeyword(expression),
             // An operator of this compilation gives what it returns.
             _ => this.FollowExpression(expression) is { } result
@@ -2727,7 +2727,11 @@ internal sealed partial class LoopStateEvaluator
         }
 
         // The result of an operator came into this code as its inputs did.
-        return state.FromIfUnknown(inputs.Origin);
+        state = state.FromIfUnknown(inputs.Origin);
+
+        return rule == OperatorRule.Content && OperatorName(method) is "CreateSink" or "CreateStreamSink"
+            ? this.ASink(creation: invocation, state: state)
+            : state;
     }
 
     /// <summary>

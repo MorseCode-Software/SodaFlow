@@ -475,6 +475,25 @@ internal sealed class LoopState
                 held: NoObjects,
                 readBack: this.readBack);
 
+    /// <summary>
+    ///     The same state for a second read of the block. An object of the store
+    ///     and the evaluator of a function or of a query are of one read. Thus,
+    ///     no part of the state keeps them.
+    /// </summary>
+    public LoopState ForASecondRead =>
+        new(
+            pending: this.Pending,
+            linked: this.Linked,
+            members: this.Members?.Select(static state => state.ForASecondRead),
+            content: this.content?.ForASecondRead,
+            origin: this.Origin,
+            functions: ImmutableArray<FunctionValue>.Empty,
+            queries: ImmutableArray<QueryValue>.Empty,
+            isContainer: this.IsContainer,
+            objects: NoObjects,
+            held: NoObjects,
+            readBack: this.readBack);
+
     /// <summary>True when the analyzer knows nothing about the expression.</summary>
     public bool IsNone =>
         !this.Pending

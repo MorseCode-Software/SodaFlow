@@ -300,6 +300,28 @@ internal sealed class ObjectStore
         }
     }
 
+    // The call that made each sink of the store.
+    private readonly Dictionary<MadeObject, SyntaxNode> sinks = [];
+
+    /// <summary>
+    ///     Records that an object is a sink that the call made. Each object of
+    ///     the turns before it is such a sink also. At the end of a loop, a name
+    ///     gets such an object.
+    /// </summary>
+    public void IsASink(MadeObject made, SyntaxNode creation)
+    {
+        for (MadeObject? each = made;
+             each != null && !this.sinks.ContainsKey(each);
+             each = this.before.TryGetValue(key: each, value: out MadeObject? older) ? older : null)
+        {
+            this.sinks[each] = creation;
+        }
+    }
+
+    /// <summary>The call that made a sink of the store. Null for each other object.</summary>
+    public SyntaxNode? CreationOfASink(MadeObject made) =>
+        this.sinks.TryGetValue(key: made, value: out SyntaxNode? creation) ? creation : null;
+
     /// <summary>
     ///     The object in a member of an object of the store. Null when no read of
     ///     that member made it.

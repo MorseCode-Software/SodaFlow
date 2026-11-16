@@ -913,46 +913,67 @@ internal sealed partial class LoopStateEvaluator
         };
 
     /// <summary>
-    ///     Gives a send into a sink in a local to each hold and each accumulation
-    ///     of that local that the code made before the send. At the end of the
-    ///     transaction, such a cell has the value of the send. A cell that the
-    ///     code makes after the send has it also. The local of the cell gets the
-    ///     state of its creation again, with the content of the sink now.
+    ///     Records the content of a send for the next read of the block. That
+    ///     read gives the content to the sink from the start. Thus, a value that
+    ///     the code made from the sink before the send gets it also.
     /// </summary>
+    /// <remarks>
+    ///     The sink is an object of the store, through each name of it. A sink
+    ///     that the walk did not see made has only the name of the send.
+    /// </remarks>
     /// <param name="sink">The receiver of the send.</param>
-    /// <param name="send">The call of <c>Send</c>.</param>
-    public void SendsToTheCellsOf(ExpressionSyntax sink, SyntaxNode send)
+    /// <param name="content">The state of the sink after the send of the value.</param>
+    public void Sends(ExpressionSyntax sink, LoopState content)
     {
-        if (this.quiet
-            || Unwrapped(sink) is not IdentifierNameSyntax name
-            || this.region.SymbolOf(name) is not ILocalSymbol local
-            || (FunctionOf(send) ?? this.region.Root) is not { } code)
+        if (this.quiet || content.IsNone)
         {
             return;
         }
 
-        foreach (VariableDeclaratorSyntax declarator in code
-                     .DescendantNodes(descendIntoChildren: node =>
-                         node == code
-                         || node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
-                     .OfType<VariableDeclaratorSyntax>()
-                     .Where(declarator => declarator.Span.End <= send.SpanStart))
+        bool toAnObject = false;
+
+        foreach (MadeObject made in this.region.Objects.Now(this.Eval(sink).Objects))
         {
-            if (declarator.Initializer?.Value is InvocationExpressionSyntax
-                {
-                    Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax from }
-                } made
-                && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(from), y: local)
-                && this.region.SymbolOf(made) is IMethodSymbol method
-                && this.region.Symbols.IsSodaFlow(method)
-                && OperatorName(method) is "Hold" or "HoldLazy" or "Accum" or "AccumLazy"
-                && this.region.ModelFor(declarator).GetDeclaredSymbol(declarator) is { } cell
-                && this.locals.TryGetValue(key: cell, value: out LoopState? before))
+            if (this.region.Objects.CreationOfASink(made) is { } creation)
             {
-                this.locals[cell] = before.Join(this.EvalAgain(made));
+                this.region.Sent.Add(creation: creation, content: content);
+                toAnObject = true;
             }
         }
+
+        if (!toAnObject
+            && Unwrapped(sink) is IdentifierNameSyntax or MemberAccessExpressionSyntax
+            && this.region.SymbolOf(Unwrapped(sink))
+                is { } name and (ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol))
+        {
+            this.region.Sent.Add(name: name.OriginalDefinition, content: content);
+        }
     }
+
+    // A sink that a call makes is an object of the store. It has the content that the sends of
+    // the read before gave it.
+    private LoopState ASink(ExpressionSyntax creation, LoopState state)
+    {
+        LoopState made =
+            this.MadeHere(
+                place: creation,
+                state: state.Join(this.region.SentBefore.To(creation)),
+                exact: false);
+
+        foreach (MadeObject sink in made.Objects)
+        {
+            this.region.Objects.IsASink(made: sink, creation: creation);
+        }
+
+        return made;
+    }
+
+    // A name of a sink whose creation the walk did not see has the content that the sends of the
+    // read before gave it.
+    private LoopState WithTheSendsBefore(SyntaxNode name, LoopState state) =>
+        this.region.SentBefore.HasNames && this.region.SymbolOf(name) is { } symbol
+            ? state.Join(this.region.SentBefore.To(symbol.OriginalDefinition))
+            : state;
 
     /// <summary>
     ///     The state of a delegate after a remove, as in <c>handlers -= handler</c>,

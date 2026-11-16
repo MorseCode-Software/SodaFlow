@@ -2242,11 +2242,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 // the sink selects that value before the close.
                 if (receiver != null && method.Name == "Send" && arguments.Count == 1)
                 {
-                    this.evaluator.Merge(
-                        target: receiver,
-                        state: this.evaluator.Eval(arguments[0].Expression).AsContent);
+                    LoopState sent = this.evaluator.Eval(arguments[0].Expression).AsContent;
 
-                    this.evaluator.SendsToTheCellsOf(sink: receiver, send: node);
+                    this.evaluator.Merge(target: receiver, state: sent);
+                    this.evaluator.Sends(sink: receiver, content: sent);
                 }
 
                 break;
