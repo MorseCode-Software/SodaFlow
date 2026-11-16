@@ -4728,24 +4728,47 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The members that a list pattern calls on a type of this compilation:
-    ///     <c>Count</c> or <c>Length</c>, and the indexer. No node names them, thus
-    ///     the evaluator asks for the operation of the pattern.
+    ///     <c>Count</c> or <c>Length</c>, the indexer, and <c>Slice</c>. No node
+    ///     names them, thus the evaluator asks for the operation of the pattern.
     /// </summary>
     /// <param name="pattern">The list pattern.</param>
     /// <param name="owner">The state of the value that the pattern is for.</param>
-    public Followed? FollowListPattern(ListPatternSyntax pattern, LoopState owner) =>
-        this.region.Symbols.DeclaresIndexers
-        && this.region.ModelFor(pattern).GetOperation(pattern)
-            is IListPatternOperation
-            {
-                IndexerSymbol: IPropertySymbol { GetMethod: { DeclaringSyntaxReferences.IsEmpty: false } getter }
-            } list
-            ? Both(
+    public Followed? FollowListPattern(ListPatternSyntax pattern, LoopState owner)
+    {
+        if (!this.region.Symbols.DeclaresIndexers
+            || this.region.ModelFor(pattern).GetOperation(pattern)
+                is not IListPatternOperation
+                {
+                    IndexerSymbol: IPropertySymbol { GetMethod: { DeclaringSyntaxReferences.IsEmpty: false } getter }
+                } list)
+        {
+            return null;
+        }
+
+        Followed? elements =
+            Both(
                 first: list.LengthSymbol is IPropertySymbol { GetMethod: { } count }
                     ? this.FollowImplied(call: pattern, member: count, owner: owner, arguments: [])
                     : null,
-                second: this.FollowImplied(call: pattern, member: getter, owner: owner, arguments: []))
-            : null;
+                second: this.FollowImplied(call: pattern, member: getter, owner: owner, arguments: []));
+
+        // Only a slice with a pattern of its own calls Slice, or the indexer that takes a range.
+        IMethodSymbol? slice =
+            list.Patterns.OfType<ISlicePatternOperation>().FirstOrDefault() is { Pattern: not null } part
+                ? part.SliceSymbol switch
+                {
+                    IMethodSymbol method => method,
+                    IPropertySymbol { GetMethod: { } ranged } => ranged,
+                    _ => null
+                }
+                : null;
+
+        return slice is { DeclaringSyntaxReferences.IsEmpty: false }
+            ? Both(
+                first: elements,
+                second: this.FollowImplied(call: pattern, member: slice, owner: owner, arguments: []))
+            : elements;
+    }
 
     // A range binds to a Slice method. An index from the end or a range on a type of this
     // compilation also reads Count or Length first. The operation of the access names that

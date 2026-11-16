@@ -14242,6 +14242,18 @@ public static class Shapes
     public static Cell<int> Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs() =>
         Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, R2Same) first = (b, b); (R2Same, R2Same) second = (b, a); bool same = first == second; return S.Hold(same ? 1 : 0); });
 
+    // S3242. A slice pattern with a pattern for the slice calls Slice of the type, which samples a pending member.
+    public static Cell<int> Ag72SlicePatternCallsSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); bool some = r is [_, .. var rest]; return S.Hold(some ? 1 : 0); });
+
+    // S3243. A slice pattern with a pattern for the slice calls the range indexer of the type, which samples a pending member.
+    public static Cell<int> Ag72SlicePatternCallsTheRangeIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Ranged r = new(l.Map(v => v)); bool some = r is [_, .. var rest]; return S.Hold(some ? 1 : 0); });
+
+    // S3244. A slice pattern in an arm of a switch expression calls Slice of the type.
+    public static Cell<int> Ag72SlicePatternInASwitchExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); int n = r switch { [_, .. var rest] => 1, _ => 0 }; return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17966,6 +17978,23 @@ public static class Shapes
     }
 
     private static (R2Same Same, int Number) Ag72PairOf(R2Same same) => (same, 1);
+
+    public sealed class Ag72Ranged(Cell<int> share)
+    {
+        public int Length => 2;
+
+        public int this[Index index] => index.Value;
+
+        public Ag72Ranged this[Range range]
+        {
+            get
+            {
+                Kept.Add(share.Sample() + range.Start.Value);
+
+                return this;
+            }
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

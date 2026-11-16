@@ -2187,7 +2187,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72TupleFromAMethodCompared"] = ["SF1004"],
             ["Ag72ConversionOfTheResultOfAnElementOperator"] = ["SF1005"],
             ["Ag72TupleInAVariableAsAnElementCompared"] = ["SF1004"],
-            ["Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs"] = ["SF1004"]
+            ["Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs"] = ["SF1004"],
+            ["Ag72SlicePatternCallsSlice"] = ["SF1005"],
+            ["Ag72SlicePatternCallsTheRangeIndexer"] = ["SF1005"],
+            ["Ag72SlicePatternInASwitchExpression"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
