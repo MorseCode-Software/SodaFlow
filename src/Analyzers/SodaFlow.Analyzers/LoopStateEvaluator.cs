@@ -4011,8 +4011,10 @@ internal sealed partial class LoopStateEvaluator
         walker.Visit(chain);
 
         // The initializers of the members run in each constructor, but not in one that calls a
-        // second constructor of the type first.
-        if (chain is not ConstructorInitializerSyntax { RawKind: (int)SyntaxKind.ThisConstructorInitializer })
+        // second constructor of the type first. The compiler writes no initializer into the copy
+        // constructor of a record, which a with expression calls.
+        if (chain is not ConstructorInitializerSyntax { RawKind: (int)SyntaxKind.ThisConstructorInitializer }
+            && !IsCopyConstructor(definition))
         {
             foreach (MemberDeclarationSyntax member in type.Members)
             {
@@ -4447,12 +4449,16 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public Followed? FollowCopy(WithExpressionSyntax copy) =>
         this.region.TypeOf(copy.Expression) is INamedTypeSymbol { IsRecord: true, TypeKind: TypeKind.Class } record
-        && record.InstanceConstructors.FirstOrDefault(constructor =>
-                constructor is { IsImplicitlyDeclared: false, Parameters.Length: 1 }
-                && SymbolEqualityComparer.Default.Equals(x: constructor.Parameters[0].Type, y: record))
+        && record.InstanceConstructors.FirstOrDefault(static constructor =>
+                constructor is { IsImplicitlyDeclared: false } && IsCopyConstructor(constructor))
             is { } copier
             ? this.FollowConstructor(call: copy, constructor: copier, arguments: default, copied: copy.Expression)
             : null;
+
+    // The constructor of a record class that gets one value of the record.
+    private static bool IsCopyConstructor(IMethodSymbol constructor) =>
+        constructor is { ContainingType: { IsRecord: true, TypeKind: TypeKind.Class }, Parameters.Length: 1 }
+        && SymbolEqualityComparer.Default.Equals(x: constructor.Parameters[0].Type, y: constructor.ContainingType);
 
     /// <summary>
     ///     The call that an expression makes with no call syntax. It is the getter

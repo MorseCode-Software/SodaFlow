@@ -14266,6 +14266,10 @@ public static class Shapes
     public static Cell<int> Ag72ImmutableArraySelectManyNeverEnumerated() =>
         Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.SelectMany(x => Numbers, (x, y) => x + y + l.Sample()); Kept.Add(q); return S.Hold(0); });
 
+    // S3248. A with expression calls the copy constructor of the code, which runs no initializer of the record. Thus, the initializer that samples a static field does not run again.
+    public static Cell<int> Ag72WithDoesNotRunAnInitializerOfTheRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Noted a = new(); Ag72SharedForAWith = l.Map(v => v); Ag72Noted b = a with { }; Ag72SharedForAWith = Plain; Kept.Add(b); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18006,6 +18010,19 @@ public static class Shapes
                 return this;
             }
         }
+    }
+
+    private static Cell<int> Ag72SharedForAWith = Plain;
+
+    public sealed record Ag72Noted
+    {
+        public Ag72Noted()
+        {
+        }
+
+        private Ag72Noted(Ag72Noted other) => this.Noted = other.Noted;
+
+        public int Noted { get; init; } = Ag72SharedForAWith.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
