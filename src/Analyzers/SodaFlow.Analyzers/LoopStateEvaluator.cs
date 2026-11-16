@@ -3250,12 +3250,6 @@ internal sealed partial class LoopStateEvaluator
 
         ImmutableArray<IParameterSymbol> parameters = invoke.OriginalDefinition.Parameters;
 
-        IParameterSymbol? Of(ISymbol parameter) =>
-            parameter is IParameterSymbol { ContainingSymbol: IMethodSymbol { IsExtensionMethod: false } } own
-            && own.Ordinal < parameters.Length
-                ? parameters[own.Ordinal]
-                : null;
-
         // Two functions that the delegate can be give two states for one parameter.
         ImmutableDictionary<ISymbol, LoopState>.Builder outs =
             ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
@@ -3277,6 +3271,12 @@ internal sealed partial class LoopStateEvaluator
             alwaysGives: followed.AlwaysGives
                 .Select(one => Of(one) ?? one)
                 .ToImmutableHashSet(SymbolEqualityComparer.Default));
+
+        IParameterSymbol? Of(ISymbol parameter) =>
+            parameter is IParameterSymbol { ContainingSymbol: IMethodSymbol { IsExtensionMethod: false } } own
+            && own.Ordinal < parameters.Length
+                ? parameters[own.Ordinal]
+                : null;
     }
 
     private Followed? FollowDefinition(
@@ -3376,7 +3376,9 @@ internal sealed partial class LoopStateEvaluator
     // The member of the type argument that implements a static member of an interface, for a call
     // through a type parameter. The interface can be generic, thus the walk finds it in the
     // interfaces of the type argument. Null when the call of this code does not say the type.
-    private IMethodSymbol? ImplementationThroughATypeArgument(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    private IMethodSymbol? ImplementationThroughATypeArgument(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax access
             || this.TypeArgumentFor(this.region.TypeOf(access.Expression)) is not INamedTypeSymbol actual)
@@ -4294,7 +4296,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The method that the CollectionBuilder attribute of a type names: a static method of the
     // builder type, with one parameter, the span of the elements.
-    private static IMethodSymbol? BuilderOf(INamedTypeSymbol type) =>
+    private static IMethodSymbol? BuilderOf(ISymbol type) =>
         type.GetAttributes()
             .Where(static attribute =>
                 attribute.AttributeClass is { Name: "CollectionBuilderAttribute" } builder
@@ -4393,7 +4395,7 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     private Followed? FollowElementEquality(
-        BinaryExpressionSyntax comparison,
+        CSharpSyntaxNode comparison,
         ExpressionSyntax left,
         ExpressionSyntax right)
     {
@@ -4982,7 +4984,7 @@ internal sealed partial class LoopStateEvaluator
                     || (this.region.TypeOf(written) is { } type
                         && (type.TypeKind == TypeKind.Delegate
                             || (SodaFlowSymbols.IsComparer(type) && !this.Eval(written).IsNone)
-                            || IsCellOfFunctions(type))))
+                            || this.IsCellOfFunctions(type))))
                 {
                     return true;
                 }
@@ -5021,6 +5023,7 @@ internal sealed partial class LoopStateEvaluator
 
     // A cell of functions, as Apply and a filter by a cell of predicates get.
     private bool IsCellOfFunctions(ITypeSymbol type) =>
+        // ReSharper disable once MergeIntoPattern - A list pattern needs System.Index, and netstandard2.0 has none.
         type is INamedTypeSymbol { TypeArguments.Length: 1 } cell
         && cell.TypeArguments[0].TypeKind == TypeKind.Delegate
         && this.region.Symbols.IsCellOrBehaviorType(cell);
@@ -5107,7 +5110,7 @@ internal sealed partial class LoopStateEvaluator
         InvocationExpressionSyntax invocation,
         ExpressionSyntax? receiver,
         LoopState receiverState,
-        IReadOnlyList<LoopState> argumentStates)
+        IEnumerable<LoopState> argumentStates)
     {
         AnonymousFunctionExpressionSyntax? lambda =
             invocation.ArgumentList.Arguments
@@ -5145,7 +5148,9 @@ internal sealed partial class LoopStateEvaluator
                 "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
                 "Accum" or "AccumLazy" => initial.Join(
                     this.AccumulatesValuesOfTheGraph(method)
-                        ? this.LambdaContent(invocation: invocation, parameterState: receiverState.Content.AfterTheClose)
+                        ? this.LambdaContent(
+                                invocation: invocation,
+                                parameterState: receiverState.Content.AfterTheClose)
                             .AfterTheClose
                         : LoopState.None),
                 _ => LoopState.None

@@ -89,7 +89,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // The compiler says where it adds a conversion or a test for true. The walk keeps no list
         // of such places, because a list missed places. The walk asks only in a compilation that
         // declares such an operator, and not where the compiler never adds one.
-        if ((!this.region.Symbols.DeclaresConversions && !this.region.Symbols.DeclaresTruth)
+        if (this.region.Symbols is { DeclaresConversions: false, DeclaresTruth: false }
             || NeverConverts(expression))
         {
             return;
@@ -231,7 +231,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The largest block that always runs the statement of the await to its end. Null when a
     // statement, a branch, or a function between the two can skip the await. A goto to a label
     // after the await can skip it also.
-    private static BlockSyntax? LaterPartOf(AwaitExpressionSyntax node)
+    private static BlockSyntax? LaterPartOf(SyntaxNode node)
     {
         if (WhereItAlwaysRuns(node) is not StatementSyntax statement)
         {
@@ -406,16 +406,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, condition: node.Condition);
     }
 
-    /// <summary>
-    ///     Reads a block. A goto to a label that comes before it in the block runs
-    ///     the statements from the label again. The walk reads those statements as
-    ///     the turn of a loop, as it reads a <c>do</c> statement.
-    /// </summary>
-    /// <remarks>
-    ///     The labeled statement stands for the turn. Thus, only a local that it
-    ///     declares is new in each turn. A local that a later statement of the
-    ///     turn declares is the same variable in each turn.
-    /// </remarks>
+    // A goto to a label that comes before it in the block runs the statements from the label again.
+    // The walk reads those statements as the turn of a loop, as it reads a do statement. The labeled
+    // statement stands for the turn. Thus, only a local that it declares is new in each turn. A local
+    // that a later statement of the turn declares is the same variable in each turn.
     public override void VisitBlock(BlockSyntax node)
     {
         SyntaxList<StatementSyntax> statements = node.Statements;
@@ -1540,6 +1534,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 if (isAnElement)
                 {
                     this.evaluator.ForgetsThePositionsOf(location);
+
                     this.evaluator.GetsThroughARef(
                         collection: location,
                         state: this.evaluator.Eval(value),
@@ -1701,38 +1696,39 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 when from is not RefExpressionSyntax
                      && target is ExpressionSyntax name
                      && this.evaluator.TheLocationOf(name) is { } location:
+                // ReSharper disable once TailRecursiveCall - It runs one time more at most: a location is no local with ref.
                 this.AssignState(target: location, state: state, replaces: replaces, turn: turn);
 
                 break;
-            case { } local and (ILocalSymbol or IParameterSymbol) when target is IdentifierNameSyntax:
-                if (replaces || IsNewInEachTurn(local: local, turn: turn))
+            case ILocalSymbol or IParameterSymbol when target is IdentifierNameSyntax:
+                if (replaces || IsNewInEachTurn(local: assigned, turn: turn))
                 {
-                    this.evaluator.Assign(local: local, state: state, from: from, kept: from);
+                    this.evaluator.Assign(local: assigned, state: state, from: from, kept: from);
                 }
                 else if (turn != null)
                 {
-                    this.AssignInATurn(local: local, state: state, turn: turn);
+                    this.AssignInATurn(local: assigned, state: state, turn: turn);
                 }
                 else
                 {
-                    this.evaluator.Declare(local: local, state: state);
+                    this.evaluator.Declare(local: assigned, state: state);
                 }
 
                 break;
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
-            case { IsStatic: false } own and (IFieldSymbol or IPropertySymbol or IEventSymbol)
+            case { IsStatic: false } and (IFieldSymbol or IPropertySymbol or IEventSymbol)
                 when (target is IdentifierNameSyntax
                           or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
                       || isTheFieldKeyword)
-                     && HasAValue(own):
-                this.evaluator.SetMember(member: own, state: state, replaces: replaces, from: from);
+                     && HasAValue(assigned):
+                this.evaluator.SetMember(member: assigned, state: state, replaces: replaces, from: from);
                 break;
-            case { } member and (IFieldSymbol or IPropertySymbol or IEventSymbol)
-                when !this.region.Symbols.IsSodaFlow(member) && HasAValue(member):
+            case IFieldSymbol or IPropertySymbol or IEventSymbol
+                when !this.region.Symbols.IsSodaFlow(assigned) && HasAValue(assigned):
                 this.evaluator.SetMemberOf(
                     owner: (target as MemberAccessExpressionSyntax)?.Expression,
-                    member: member,
+                    member: assigned,
                     state: state,
                     replaces: replaces,
                     turn: turn,
@@ -2253,6 +2249,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         (bool always, SyntaxNode? itsTurn) = puts ? this.WhereACallRuns(node) : (false, null);
 
                         LoopState state = puts ? put : this.evaluator.Eval(exchange.Location).Join(put);
+
                         SyntaxNode target =
                             this.TargetThroughARef(written: exchange.Location, state: state, gets: true);
 

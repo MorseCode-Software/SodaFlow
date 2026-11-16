@@ -70,7 +70,7 @@ internal sealed partial class LoopStateEvaluator
             this.region.Objects.HasPositions(
                 collection: made,
                 values: ordered.Select(this.Eval).ToImmutableArray(),
-                givenBy: ordered.Select(static element => (SyntaxNode?)element).ToImmutableArray());
+                givenBy: ordered.Select(static SyntaxNode? (element) => element).ToImmutableArray());
         }
     }
 
@@ -160,10 +160,8 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        foreach (ArgumentSyntax argument in arguments)
+        foreach (LoopState put in arguments.Select(argument => this.Eval(argument.Expression)))
         {
-            LoopState put = this.Eval(argument.Expression);
-
             if (IsOfNoObjectOfTheStore(put))
             {
                 this.Absorb(target: owner, state: put);

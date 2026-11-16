@@ -450,7 +450,7 @@ internal sealed class ObjectStore
             value: out (ImmutableArray<LoopState> Values, ImmutableArray<SyntaxNode?> Given) known)
         && known.Values == values
             ? known.Given
-            : values.Select(static _ => (SyntaxNode?)null).ToImmutableArray();
+            : values.Select(static SyntaxNode? (_) => null).ToImmutableArray();
 
     /// <summary>
     ///     The number of calls of

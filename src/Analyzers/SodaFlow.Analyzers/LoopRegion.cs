@@ -98,7 +98,7 @@ internal sealed class LoopRegion(
     public void SetField(ISymbol field, LoopState state)
     {
         // A state that only holds objects of the store says what the owner of the field holds.
-        if (state.IsNone && !state.HoldsAnObject)
+        if (state is { IsNone: true, HoldsAnObject: false })
         {
             return;
         }

@@ -279,7 +279,7 @@ internal static class OperatorTable
             "CreateTwoWay",
             // The values that a collection gives: a snapshot, a change, an edit, an item, the keys
             // of a view, and the parts of each. Each is data that holds what the code or the graph
-            // put in it. A read of a part runs no code of the graph and reads no cell.
+            // gave it. A read of a part runs no code of the graph and reads no cell.
             "Add",
             "Added",
             "Adds",

@@ -255,7 +255,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="local">The local.</param>
     /// <param name="value">The expression of the value.</param>
     /// <param name="replaces">True when the local then has only this value.</param>
-    public void NotesANameOfALocation(ISymbol local, ExpressionSyntax value, bool replaces)
+    private void NotesANameOfALocation(ISymbol local, ExpressionSyntax value, bool replaces)
     {
         if (this.quiet)
         {
@@ -361,13 +361,15 @@ internal sealed partial class LoopStateEvaluator
             return [];
         }
 
-        return this.Frame.ReadFrom
-            .Where(pair =>
-                !SymbolEqualityComparer.Default.Equals(x: pair.Key, y: self)
-                && IsTheSameLocation(this.LocationKeyOf(pair.Value), key)
-                && this.IsStillTheLocationOf(name: pair.Key, location: pair.Value, use: at))
-            .Select(static pair => pair.Key)
-            .ToArray();
+        return
+        [
+            .. this.Frame.ReadFrom
+                .Where(pair =>
+                    !SymbolEqualityComparer.Default.Equals(x: pair.Key, y: self)
+                    && IsTheSameLocation(one: this.LocationKeyOf(pair.Value), other: key)
+                    && this.IsStillTheLocationOf(name: pair.Key, location: pair.Value, use: at))
+                .Select(static pair => pair.Key)
+        ];
     }
 
     // The parts of a location that the walk can read again. They are the array or the field, the
@@ -423,7 +425,7 @@ internal sealed partial class LoopStateEvaluator
                        assignment.SpanStart > after
                        && assignment.SpanStart < before
                        && assignment.Left is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax
-                       && IsTheSameLocation(this.LocationKeyOf(assignment.Left), key));
+                       && IsTheSameLocation(one: this.LocationKeyOf(assignment.Left), other: key));
     }
 
     private static bool IsTheSameLocation(
@@ -601,13 +603,10 @@ internal sealed partial class LoopStateEvaluator
                 continue;
             }
 
-            foreach (Binding binding in bindings)
-            {
-                if (SymbolEqualityComparer.Default.Equals(x: binding.Parameter, y: parameter))
-                {
-                    locations.Add((binding.Argument, isAnElement));
-                }
-            }
+            locations.AddRange(
+                bindings
+                    .Where(binding => SymbolEqualityComparer.Default.Equals(x: binding.Parameter, y: parameter))
+                    .Select(binding => (binding.Argument, isAnElement)));
         }
 
         return locations;

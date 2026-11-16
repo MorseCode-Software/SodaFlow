@@ -8,8 +8,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
-// The part of the evaluator for the members that code of the platform calls: a call to the
-// platform, its comparers, and the values that it keeps.
+// The part of the evaluator for the members that code of the platform calls. It reads a call to
+// the platform, the comparers of the platform, and the values that the platform keeps.
 internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
