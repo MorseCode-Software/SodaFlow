@@ -142,7 +142,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 report: report,
                 cancellation: cancellation);
 
-        region.Analyze(closings);
+        region.Analyze(closings: closings, withCaptures: withCaptures);
     }
 
     /// <summary>
@@ -247,20 +247,13 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The element of the returned tuple that closes the loop: the one named
-    ///     Cell, Behavior, or Stream, or else the first.
+    ///     The element of a returned tuple literal that closes the loop. C# converts
+    ///     a tuple to the result type of the block by position and not by name,
+    ///     thus it is the first element. A different value stays whole, and the
+    ///     region takes its first part.
     /// </summary>
-    private static ExpressionSyntax LoopedElement(ExpressionSyntax returned)
-    {
-        if (returned is not TupleExpressionSyntax tuple || tuple.Arguments.Count == 0)
-        {
-            return returned;
-        }
-
-        ArgumentSyntax? named =
-            tuple.Arguments.FirstOrDefault(static a =>
-                a.NameColon?.Name.Identifier.ValueText is "Cell" or "Behavior" or "Stream");
-
-        return (named ?? tuple.Arguments[0]).Expression;
-    }
+    private static ExpressionSyntax LoopedElement(ExpressionSyntax returned) =>
+        returned is TupleExpressionSyntax { Arguments: { Count: > 0 } elements }
+            ? elements[0].Expression
+            : returned;
 }

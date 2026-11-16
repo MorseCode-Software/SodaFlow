@@ -2248,7 +2248,11 @@ internal sealed class LoopReadAnalyzerTests
             ["DvVmCapturesCountFieldIsItsReadBack"] = ["SF1002"],
             ["Ab127TodoSelectionSortedAndProjectedClosedWithItself"] = ["SF1006"],
             ["Ab127TodoSelectionSortedNotProjectedClosedWithItself"] = ["SF1002"],
-            ["Ab127ForwardReferenceStreamsSwitchEachOther"] = ["SF1002"]
+            ["Ab127ForwardReferenceStreamsSwitchEachOther"] = ["SF1002"],
+            ["DvLinksCapturesTupleInALocalLinkedCell"] = ["SF1002"],
+            ["DvLinksCapturesTupleFromAHelperLinkedCell"] = ["SF1002"],
+            ["DvLinksCapturesNamedFirst"] = ["SF1002"],
+            ["DvLinksStreamLoopWithCapturesMap"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

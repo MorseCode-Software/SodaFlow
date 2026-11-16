@@ -15027,6 +15027,38 @@ public static class Shapes
     public static Cell<int> Ab127ForwardReferenceStreamMergesAPlainStream() =>
         ForwardReference<Ab127Streams>.WithoutCaptures(r => new Ab127Streams(r.Map(x => x.F).SwitchS().OrElse(S), S.Map(v => v + 1))).E.Hold(0);
 
+    // S3338. WithCaptures returns a tuple from a local. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleInALocalLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => { (Cell<int> Cell, Cell<int> Captures) t = (S.Hold(0), l.Map(v => v)); return t; }).Cell;
+
+    // S3339. WithCaptures returns a tuple from a local. The cell links to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleInALocalLinkedCell() =>
+        Cell.Loop<int>().WithCaptures(l => { (Cell<int> Cell, Cell<int> Captures) t = (l.Map(v => v), Plain); return t; }).Cell;
+
+    // S3340. WithCaptures returns a tuple from a helper. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleFromAHelperLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => DvLinksMakePair(S.Hold(0), l.Map(v => v))).Cell;
+
+    // S3341. WithCaptures returns a tuple from a helper. The cell links to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleFromAHelperLinkedCell() =>
+        Cell.Loop<int>().WithCaptures(l => DvLinksMakePair(l.Map(v => v), Plain)).Cell;
+
+    // S3342. WithCaptures returns one of two tuples. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesConditionalTupleLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => Environment.ProcessorCount > 0 ? (Cell: S.Hold(0), Captures: l.Map(v => v)) : (Cell: S.Hold(1), Captures: l.Map(v => v))).Cell;
+
+    // S3343. WithCaptures returns a tuple whose captures element is first by name. The captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesNamedFirst() =>
+        Cell.Loop<int>().WithCaptures(l => (Captures: l.Map(v => v), Cell: S.Hold(0))).Cell;
+
+    // S3344. Stream.Loop with captures closed with a map of itself.
+    public static Cell<int> DvLinksStreamLoopWithCapturesMap() =>
+        Transaction.Run(() => { Stream<int> s = Stream.Loop<int>().WithCaptures(x => (Stream: x.Map(v => v + 1), Captures: 1)).Stream; return Plain; });
+
+    // S3345. WithCaptures returns a tuple whose elements have the names of the other position. The cell is the first element, a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesNamesSwappedPlainCell() =>
+        Cell.Loop<int>().WithCaptures(l => (Captures: S.Hold(0), Cell: l.Map(v => v))).Cell;
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

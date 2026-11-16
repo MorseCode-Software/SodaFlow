@@ -376,7 +376,15 @@ internal sealed class LoopRegion(
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(IEnumerable<ExpressionSyntax> closings)
+    /// <param name="closings">
+    ///     The expressions that the block returns, or the first element of a
+    ///     tuple literal that it returns.
+    /// </param>
+    /// <param name="withCaptures">
+    ///     True for a block that returns a tuple. The first element of the tuple
+    ///     closes the loop.
+    /// </param>
+    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool withCaptures)
     {
         LoopStateEvaluator evaluator = new(this);
 
@@ -392,6 +400,17 @@ internal sealed class LoopRegion(
         foreach (ExpressionSyntax closing in closings)
         {
             LoopState state = evaluator.Eval(closing);
+
+            // A tuple that is not a literal, as from a local or a helper, can have a state for each
+            // part. The state of the whole is then of each part.
+            if (withCaptures
+                && this.TypeOf(closing) is { IsTupleType: true }
+                && state.Members?.PartsAt(ofATuple: true).ToList() is { Count: > 0 } parts)
+            {
+                state = parts.Where(static part => part.Position == 0)
+                    .Select(static part => part.State)
+                    .FirstOrDefault() ?? LoopState.None;
+            }
 
             if (this.ReadsBack)
             {
