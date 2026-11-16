@@ -5144,10 +5144,19 @@ internal sealed partial class LoopStateEvaluator
             {
                 "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
                 "Accum" or "AccumLazy" => initial.Join(
-                    this.LambdaContent(invocation: invocation, parameterState: receiverState.Content.AfterTheClose)
-                        .AfterTheClose),
+                    this.AccumulatesValuesOfTheGraph(method)
+                        ? this.LambdaContent(invocation: invocation, parameterState: receiverState.Content.AfterTheClose)
+                            .AfterTheClose
+                        : LoopState.None),
                 _ => LoopState.None
             };
+
+    // The walk of the function of an accumulation costs much in a view model, which accumulates
+    // records. Thus, the walk reads the function only for an accumulation of cells or streams.
+    private bool AccumulatesValuesOfTheGraph(IMethodSymbol method) =>
+        method.ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } result
+        && (this.region.Symbols.IsCellOrBehaviorType(result.TypeArguments[0])
+            || this.region.Symbols.IsStreamType(result.TypeArguments[0]));
 
     private LoopState EvalLambdaResult(
         AnonymousFunctionExpressionSyntax lambda,
