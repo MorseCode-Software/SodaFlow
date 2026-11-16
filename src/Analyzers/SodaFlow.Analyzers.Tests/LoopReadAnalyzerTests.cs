@@ -2344,7 +2344,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab146SendInATransactionOfTheBlock"] = ["SF1002"],
             ["Ab146SendOfASwitchOfASecondSink"] = ["SF1002"],
             ["Ab146SinkInAStaticField"] = ["SF1002"],
-            ["Ab146SwitchOfAHoldWithTheSendBefore"] = ["SF1002"]
+            ["Ab146SwitchOfAHoldWithTheSendBefore"] = ["SF1002"],
+            ["Ab147TheBodyPutsAPendingCellIntoTheSecondElement"] = ["SF1001"],
+            ["Ab147TheBodyPutsAPendingCellIntoTheLastElement"] = ["SF1001"],
+            ["Ab147AHelperPutsAPendingCellIntoTheSecondElement"] = ["SF1004"],
+            ["Ab147TheBodyPutsAPendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

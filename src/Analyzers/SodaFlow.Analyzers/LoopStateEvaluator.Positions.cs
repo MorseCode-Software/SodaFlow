@@ -64,6 +64,48 @@ internal sealed partial class LoopStateEvaluator
         return this.Eval(collection).Origin is { } origin ? all[0].From(origin) : all[0];
     }
 
+    /// <summary>
+    ///     True when a foreach statement is over an array, and its body puts a
+    ///     value into an element that a later turn can read.
+    /// </summary>
+    /// <remarks>
+    ///     A foreach statement reads an element of an array at the start of its
+    ///     turn. Thus, a later turn reads a value that a turn before put into the
+    ///     array. A list stops the loop with an exception after such a change.
+    /// </remarks>
+    public bool PutsIntoALaterElement(ForEachStatementSyntax loop) =>
+        Unwrapped(loop.Expression) is IdentifierNameSyntax collection
+        && this.region.TypeOf(collection) is IArrayTypeSymbol
+        && loop.Statement.DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>()
+            .Any(assignment => this.PutsIntoALaterElement(assignment: assignment, collection: collection));
+
+    /// <summary>
+    ///     The state of each element of the collection of a foreach statement at
+    ///     this time. See <see cref="PutsIntoALaterElement(ForEachStatementSyntax)" />.
+    /// </summary>
+    public LoopState ElementsNow(ForEachStatementSyntax loop, ITypeSymbol? type) =>
+        ElementOf(collection: this.EvalAgain(loop.Expression), type: type);
+
+    // True for an assignment to an element of a collection that a later turn can read. A second
+    // name of the same collection is the same collection. No later turn reads the first element.
+    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, IdentifierNameSyntax collection)
+    {
+        if (Unwrapped(assignment.Left)
+                is not ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+            || Unwrapped(element.Expression) is not IdentifierNameSyntax written
+            || this.ConstantIndexOf(indexes[0]) == 0)
+        {
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(
+                   x: this.region.SymbolOf(written),
+                   y: this.region.SymbolOf(collection))
+               || (this.TheOneCollectionOf(written) is { } one
+                   && ReferenceEquals(objA: one, objB: this.TheOneCollectionOf(collection)));
+    }
+
     // The number that an argument has in the code, when it is a constant that is not negative.
     private int? ConstantIndexOf(ArgumentSyntax argument) =>
         this.region.ModelFor(argument).GetConstantValue(argument.Expression) is { Value: int index and >= 0 }

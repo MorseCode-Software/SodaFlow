@@ -15911,6 +15911,42 @@ public static class Shapes
     public static Cell<int> Ab146HoldInARecordWithAPlainSendAfter() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab146Held r = new Ab146Held(s.Hold(Plain)); s.Send(Plain.Map(v => v + 1)); return r.Held.SwitchC(); });
 
+    // S3501. The body of a foreach over an array puts a pending cell into the second element. The second turn reads it.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3502. The body puts a pending cell into the last element of three. The third turn reads it.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; foreach (var each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3503. A helper reads each element of an array, and puts a pending cell into the second element.
+    public static Cell<int> Ab147AHelperPutsAPendingCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab147ReadEachThenPut([Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
+    // S3504. The body puts a pending cell into the second element through a second name of the array.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int>[] other = cells; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3505. Control: the body puts a pending cell into the first element, which no later turn reads.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[0] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3506. Control: the body puts a cell that is not pending into the second element.
+    public static Cell<int> Ab147TheBodyPutsAPlainCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = Plain.Map(v => v); } return S.Hold(0); });
+
+    // S3507. Control: the body puts a pending cell into the second element of a different array.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int>[] other = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3508. Control: the body puts a pending cell into the second element, and reads no element.
+    public static Cell<int> Ab147TheBodyReadsNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each); cells[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3509. The second turn puts the pending cell of a local into the last element of three. The third turn reads it.
+    public static Cell<int> Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21052,6 +21088,15 @@ public static class Shapes
     }
 
     private static void Ab146SendTo(StreamSink<Cell<int>> sink, Cell<int> c) => sink.Send(c);
+
+    private static void Ab147ReadEachThenPut(Cell<int>[] cells, Cell<int> later)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            cells[1] = later;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

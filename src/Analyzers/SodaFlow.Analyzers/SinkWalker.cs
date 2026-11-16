@@ -342,10 +342,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
+        ITypeSymbol? type = this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType;
         LoopState ofTheCollection =
-            LoopStateEvaluator.ElementOf(
-                collection: this.evaluator.Eval(node.Expression),
-                type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType);
+            LoopStateEvaluator.ElementOf(collection: this.evaluator.Eval(node.Expression), type: type);
 
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
         LoopState elements = ofTheCollection.Join(enumerated);
@@ -385,13 +384,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Statement);
 
         // A later turn can have each element. The variable then changes what the first read
-        // leaves, and the walk reads a second turn.
-        if (first != null && element != null)
+        // leaves, and the walk reads a second turn. A later turn of an array also has what a turn
+        // before put into the array.
+        Action? startsALaterTurn =
+            element != null && this.evaluator.PutsIntoALaterElement(node)
+                ? () => this.evaluator.Declare(
+                    local: element,
+                    state: elements.Join(this.evaluator.ElementsNow(loop: node, type: type)))
+                : null;
+
+        if (startsALaterTurn != null)
+        {
+            startsALaterTurn();
+        }
+        else if (first != null && element != null)
         {
             this.evaluator.Declare(local: element, state: elements);
         }
 
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, startsATurn: startsALaterTurn);
 
         // The loop has a turn for each element when it always runs and no statement ends a turn
         // or the loop before its end.
@@ -572,6 +583,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     The statements of a turn that is not one node, in the order in which
     ///     they run. The walk reads them in place of the body.
     /// </param>
+    /// <param name="startsATurn">
+    ///     What the walk does at the end of each read, before the next turn.
+    /// </param>
     private void VisitTheSecondTurn(
         SyntaxNode loop,
         SyntaxNode body,
@@ -579,7 +593,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SyntaxNode? condition = null,
         SeparatedSyntaxList<ExpressionSyntax> incrementors = default,
         SyntaxNode? after = null,
-        IReadOnlyList<SyntaxNode>? parts = null)
+        IReadOnlyList<SyntaxNode>? parts = null,
+        Action? startsATurn = null)
     {
         this.evaluator.EndTurns(body);
 
@@ -619,6 +634,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             this.Visit(after);
             this.evaluator.EndTurns(body);
+            startsATurn?.Invoke();
         }
 
         // After the loop, a local has also what it had before an assignment of a turn.
