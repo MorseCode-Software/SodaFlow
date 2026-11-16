@@ -83,6 +83,16 @@ internal sealed class SodaFlowSymbols
     public static readonly TypeKind? ExtensionKind =
         Enum.TryParse(value: "Extension", result: out TypeKind kind) ? kind : null;
 
+    /// <summary>
+    ///     True for a property of the library that reads the current value of
+    ///     its owner. The Value of an item of a map through a task is the input
+    ///     that the item holds, and reads no cell.
+    /// </summary>
+    public bool ReadsItsOwner(IPropertySymbol property) =>
+        ReadMembers.Contains(property.Name)
+        && property.ContainingType.Name is not ("AsyncItem" or "AsyncQueuedItem")
+        && this.IsSodaFlow(property);
+
     // The node actions of one compilation run at the same time, and each asks this question.
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
     // call of a method with no body to read.

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SodaFlow.Async;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -2069,7 +2070,9 @@ internal sealed class LoopReadAnalyzerTests
             ["R2ApiViewFilteredByACellOfAFunctionThatReads"] = ["SF1001"],
             ["Ab108ApplyOfAFunctionInALocalThatReads"] = ["SF1001"],
             ["Ag69SortByADescendingOrderThatReads"] = ["SF1001"],
-            ["Ag69SortByADescendingIdentityOrderThatReads"] = ["SF1001"]
+            ["Ag69SortByADescendingIdentityOrderThatReads"] = ["SF1001"],
+            ["Ag70MapAsyncItemsOfALinkedSourceAsTheClose"] = ["SF1002"],
+            ["Ag70AsyncItemValueOfAPendingCellSampled"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2114,6 +2117,8 @@ internal sealed class LoopReadAnalyzerTests
         typeof(IOneWayBindableValue<>).Assembly,
         typeof(IIdentity<>).Assembly,
         typeof(CollectionExtensionMethods).Assembly,
+        typeof(AsyncMapStatus).Assembly,
+        typeof(AsyncStreamExtensions).Assembly,
         // The shapes of the serializer rule call it. The run of the shapes holds the rule to it.
         typeof(Newtonsoft.Json.JsonConvert).Assembly
     ];

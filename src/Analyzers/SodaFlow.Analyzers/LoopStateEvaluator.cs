@@ -2136,8 +2136,7 @@ internal sealed partial class LoopStateEvaluator
 
                     // A property of the library that reads the current value gives the value that
                     // its owner holds.
-                    if (SodaFlowSymbols.ReadMembers.Contains(property.Name)
-                        && this.region.Symbols.IsSodaFlow(property))
+                    if (this.region.Symbols.ReadsItsOwner(property))
                     {
                         return this.Eval(
                                 expression switch
@@ -2647,7 +2646,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState state =
             this.TypeState(creation)
                 .Join(this.Follow(creation)?.State ?? LoopState.None)
-                .Join(this.MovedInto(creation));
+                .Join(this.MovedInto(creation))
+                .Join(this.MadeByTheLibrary(creation));
 
         if (initializer != null)
         {
@@ -3139,6 +3139,21 @@ internal sealed partial class LoopStateEvaluator
     ///     The state of an object from a constructor of code that cannot know the
     ///     library: the state of the arguments.
     /// </summary>
+    /// <summary>
+    ///     An object that a constructor of the library makes. It has the state
+    ///     of its arguments, as the result of an operator with no row has, when its
+    ///     type can hold a pending read.
+    /// </summary>
+    private LoopState MadeByTheLibrary(SyntaxNode creation) =>
+        creation is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments }
+        && this.region.SymbolOf(creation) is IMethodSymbol constructor
+        && this.Classify(call: creation, method: constructor) == CalleeKind.Library
+        && this.region.Symbols.IsCarrierType(constructor.ContainingType)
+            ? arguments.Arguments.Aggregate(
+                seed: LoopState.None,
+                func: (all, argument) => all.Join(this.EvalArgument(argument: argument.Expression, runsNow: false)))
+            : LoopState.None;
+
     private LoopState MovedInto(SyntaxNode creation)
     {
         BaseArgumentListSyntax? arguments =

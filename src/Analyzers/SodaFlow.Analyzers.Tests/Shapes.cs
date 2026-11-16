@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using SodaFlow;
+using SodaFlow.Async;
 using SodaFlow.Collections;
 using SodaFlow.Analyzers.ShapesNoBody;
 using SodaFlow.Functional;
@@ -13472,6 +13473,22 @@ public static class Shapes
     // S3049. The same read through a descending order of the identity.
     public static Cell<int> Ag69SortByADescendingIdentityOrderThatReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByIdentityDescending(id => id.Number + l.Sample()); int count = Items().SortBy(order: order).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3050. The items of a map through a task are a map of a hold of its source. Thus, a close with them, from a source linked to the placeholder, is a cycle.
+    public static Cell<int> Ag70MapAsyncItemsOfALinkedSourceAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncMapStatus<int, int> status = l.Updates().MapAsync(results: Stream.CreateSink<int>(), errors: Stream.CreateSink<Exception>(), handleException: _ => { }, operation: (v, f, _) => Task.FromResult(f.FromValue(v)), strategy: AsyncConcurrencyStrategy.Parallel()); return status.Items.Map(items => items.Count); });
+
+    // S3051. IsRunning of a map through a task from a source with no link, as the close, has no cycle.
+    public static Cell<int> Ag70MapAsyncIsRunningOfAPlainSourceAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncMapStatus<int, int> status = S.MapAsync(results: Stream.CreateSink<int>(), errors: Stream.CreateSink<Exception>(), handleException: _ => { }, operation: (v, f, _) => Task.FromResult(f.FromValue(v)), strategy: AsyncConcurrencyStrategy.Parallel()); return status.IsRunning.Map(r => r ? 1 : 0); });
+
+    // S3052. The Value of an async item is the input that it holds, and not a read of a cell. That is true also for a pending cell.
+    public static Cell<int> Ag70AsyncItemValueOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncItem<Cell<int>> item = new(value: l.Map(v => v), status: AsyncItemStatus.Queued); Cell<int> c = item.Value; return S.Hold(0); });
+
+    // S3053. A sample of the cell that an async item holds reads it.
+    public static Cell<int> Ag70AsyncItemValueOfAPendingCellSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncItem<Cell<int>> item = new(value: l.Map(v => v), status: AsyncItemStatus.Queued); return S.Hold(item.Value.Sample()); });
 
     public sealed class Scene(Stream<int> restarts)
     {

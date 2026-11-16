@@ -854,7 +854,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             if (this.region.Symbols.IsSodaFlow(property))
             {
-                if (SodaFlowSymbols.ReadMembers.Contains(property.Name))
+                if (this.region.Symbols.ReadsItsOwner(property))
                 {
                     this.CheckRead(node: name, state: owner, name: property.Name);
 
@@ -3360,7 +3360,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.ReadGetter(node: node, property: property);
             }
         }
-        else if (SodaFlowSymbols.ReadMembers.Contains(property.Name))
+        else if (this.region.Symbols.ReadsItsOwner(property))
         {
             this.CheckRead(node: node, owner: owner, name: property.Name);
         }
