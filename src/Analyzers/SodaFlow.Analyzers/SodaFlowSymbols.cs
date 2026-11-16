@@ -296,7 +296,9 @@ internal sealed class SodaFlowSymbols
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
 
-    // An explicit member of an interface has the name of the interface before its own name.
+    // Each gate from Declares is only for speed. A search for a member that the compilation does
+    // not declare finds no body to read, thus a true value changes no rule. An explicit member of
+    // an interface has the name of the interface before its own name.
     private static Lazy<bool> Declares(Compilation compilation, string name) =>
         new(() =>
             compilation.ContainsSymbolsWithName(

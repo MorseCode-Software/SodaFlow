@@ -1224,7 +1224,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         bool replaces = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? turn);
         LoopState right = this.evaluator.Eval(node.Right);
 
-        // A deconstruction of a value that is not a tuple calls a Deconstruct method.
+        // A deconstruction of a value that is not a tuple calls a Deconstruct method. The compiler
+        // gives no such method for a tuple expression, thus the test for a tuple is only for speed.
         IMethodSymbol? deconstruct =
             (this.region.Symbols.DeclaresDeconstruct || right.Members is { HasParts: true })
             && node.Right is not TupleExpressionSyntax

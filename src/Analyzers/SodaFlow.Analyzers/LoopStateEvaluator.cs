@@ -4365,6 +4365,8 @@ internal sealed partial class LoopStateEvaluator
                     operands: [postfix.Operand]),
             CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators =>
                 this.FollowOperator(call: cast, operation: this.region.SymbolOf(cast), operands: [cast.Expression]),
+            // The compiler gives a plain assignment no operator, and only an operator of this
+            // compilation has a body to read. Thus, these two tests are only for speed.
             AssignmentExpressionSyntax compound
                 when this.region.Symbols.DeclaresOperators
                      && !compound.IsKind(SyntaxKind.SimpleAssignmentExpression) =>
