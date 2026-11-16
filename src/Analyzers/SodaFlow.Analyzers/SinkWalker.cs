@@ -2336,6 +2336,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         collection: receiver,
                         method: method,
                         arguments: arguments);
+
+                    if (!always && itsTurn != null)
+                    {
+                        this.evaluator.AddsInEachTurn(
+                            call: node,
+                            collection: receiver,
+                            method: method,
+                            arguments: arguments,
+                            turn: itsTurn);
+                    }
                 }
 
                 if (LoopStateEvaluator.ExchangeOf(

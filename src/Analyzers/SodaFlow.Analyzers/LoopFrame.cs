@@ -236,10 +236,19 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public HashSet<ISymbol> CanBeUnseen { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
-    ///     For each foreach statement that the walk is in, and whose collection
-    ///     keeps its positions: the writes to a member through its variable.
+    ///     For each foreach statement that the walk is in: the writes to a member
+    ///     through its variable. The collection keeps its positions, or it has
+    ///     the objects of a loop.
     /// </summary>
     public Dictionary<SyntaxNode, WritesThroughEach> WritesThroughEach { get; } = [];
+
+    /// <summary>
+    ///     For each <c>Add</c> of a list in a loop of this code: the list, and
+    ///     the object of the turn that the call adds. Each turn always runs the
+    ///     call. The object is null when a read of the loop added a different
+    ///     value.
+    /// </summary>
+    public Dictionary<SyntaxNode, (MadeObject List, MadeObject? Added)> AddsOfEachTurn { get; } = [];
 
     /// <summary>
     ///     The last write to a member through an element of a collection in the

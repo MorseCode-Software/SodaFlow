@@ -15739,6 +15739,58 @@ public static class Shapes
     public static Cell<int> Ab120HandlerRemovedTwiceBeforeTheRaise() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang -= h; b.Rang -= h; b.Ring(); return S.Hold(0); });
 
+    // S3458. Each turn puts an object from Transaction.Run into a list, and each object then gets a plain cell.
+    public static Cell<int> DvStateRunObjectsOfALoopGetPlainCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(Transaction.Run(() => new SettableSlot { Share = l.Map(v => v) })); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3459. Each turn adds an object with a pending cell, and a foreach gives each a plain cell.
+    public static Cell<int> DvStateAForeachGivesEachObjectOfALoopAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3460. Each turn adds the object of a local of the turn, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab142ATurnAddsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; list.Add(fresh); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3461. Each turn of a loop in a loop adds an object, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab142ALoopInALoopAddsTheObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { for (int j = 0; j < 2; j++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[3].Share!.Sample()); });
+
+    // S3462. Each turn of a foreach adds an object, and a second foreach gives each object a plain cell.
+    public static Cell<int> Ab142AForeachAddsTheObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; foreach (int n in (int[])[1, 2]) { list.Add(new SettableSlot { Share = l.Map(v => v + n) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3463. Control: an add under a condition puts only the first object into the list, and the block reads the second.
+    public static Cell<int> Ab142AnAddUnderAConditionMissesAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); if (i == 0) { list.Add(fresh); } } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3464. Control: a continue before the add keeps the second object out of the list, and the block reads it.
+    public static Cell<int> Ab142AContinueBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); if (i == 1) { continue; } list.Add(fresh); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3465. Control: a RemoveAt takes the first object out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab142ARemoveTakesAnObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } SettableSlot first = list[0]; list.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(first.Share!.Sample()); });
+
+    // S3466. Control: the foreach gives a plain cell only under a condition that is false.
+    public static Cell<int> Ab142AWriteUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (list.Count > 2) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3467. Control: a break ends the foreach after the first object, and the block reads the second.
+    public static Cell<int> Ab142ABreakEndsTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; break; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3468. Control: a loop that runs no turn adds an object that is older than the turn, and the block reads that object.
+    public static Cell<int> Ab142AnObjectOlderThanTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < Kept.Count * 0; i++) { list.Add(one); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3469. Control: a second loop adds objects after the foreach, and the block reads one of them.
+    public static Cell<int> Ab142AnAddAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } return S.Hold(list[3].Share!.Sample()); });
+
+    // S3470. Control: the second turn adds a different object than the object of its turn, and the block reads the object of that turn.
+    public static Cell<int> Ab142ASecondTurnAddsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); list.Add(i == 0 ? fresh : new SettableSlot { Share = Plain }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

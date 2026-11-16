@@ -1665,13 +1665,15 @@ internal sealed partial class LoopStateEvaluator
 
         IReadOnlyList<ExpressionSyntax>? elements = this.ElementsOf(loop.Expression);
         IReadOnlyList<LoopState>? values = elements == null ? this.StorePositionsOf(loop.Expression)?.All : null;
+        IReadOnlyList<MadeObject>? whole = elements == null && values == null ? this.WhollyIn(loop.Expression) : null;
 
-        if (elements != null || values != null)
+        if (elements != null || values != null || whole != null)
         {
             this.Frame.WritesThroughEach[loop] =
                 new WritesThroughEach(
                     elements: elements ?? [],
                     values: values,
+                    whole: whole,
                     start: this.region.MemberWrites,
                     member: null,
                     state: LoopState.None,
@@ -1679,6 +1681,79 @@ internal sealed partial class LoopStateEvaluator
                     visits: 0,
                     last: 0);
         }
+    }
+
+    /// <summary>
+    ///     Records a call of <c>Add</c> of a list of the platform, which each
+    ///     turn of a loop always runs. When the call adds the object of the
+    ///     turn, each object that the same code makes in a turn goes into the
+    ///     list. See <see cref="WhollyIn" />.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="collection">The owner of the call.</param>
+    /// <param name="method">The method.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="turn">The body of the loop.</param>
+    public void AddsInEachTurn(
+        SyntaxNode call,
+        ExpressionSyntax collection,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SyntaxNode turn)
+    {
+        if (this.quiet
+            || arguments.Count != 1
+            || method is not { Name: "Add", ContainingType: { Name: "List" or "IList" or "ICollection" } owner }
+            || !SodaFlowSymbols.IsPlatform(owner))
+        {
+            return;
+        }
+
+        bool noted =
+            this.Frame.AddsOfEachTurn.TryGetValue(key: call, value: out (MadeObject List, MadeObject? Added) before);
+
+        // Each read of the loop must add the object of its turn to the same list, which no loop made.
+        if (this.TheOneCollectionOf(collection) is not { Turn: null, IsOfTurnsBefore: false } list
+            || (noted && (before.Added == null || !ReferenceEquals(objA: before.List, objB: list))))
+        {
+            if (noted)
+            {
+                this.Frame.AddsOfEachTurn[call] = (before.List, null);
+            }
+
+            return;
+        }
+
+        this.Frame.AddsOfEachTurn[call] =
+            (list,
+                this.TheOneObjectOf(arguments[0].Expression) is { IsOfTurnsBefore: false } added && added.Turn == turn
+                    ? added
+                    : null);
+    }
+
+    // Each identity of the store whose objects are all elements of a collection. An Add that each
+    // turn of a loop always runs put each of those objects into the collection. Null when the walk
+    // knows no such identity, or when code can take an element out of the collection.
+    private List<MadeObject>? WhollyIn(ExpressionSyntax collection)
+    {
+        if (this.Frame.AddsOfEachTurn.Count == 0
+            || this.TheOneCollectionOf(collection) is not { } list
+            || !this.OnlyGetsAdds(collection))
+        {
+            return null;
+        }
+
+        List<MadeObject> whole = [];
+
+        foreach ((MadeObject into, MadeObject? added) in this.Frame.AddsOfEachTurn.Values)
+        {
+            if (added != null && ReferenceEquals(objA: into, objB: list))
+            {
+                whole.AddRange(this.region.Objects.Now(ImmutableArray.Create(added)));
+            }
+        }
+
+        return whole.Count > 0 ? whole : null;
     }
 
     // A write to a member through the variable of a foreach statement, which each turn of the
@@ -1717,6 +1792,11 @@ internal sealed partial class LoopStateEvaluator
     ///         that the code of this frame made.
     ///     </para>
     ///     <para>
+    ///         A collection with no positions can have the objects of the turns of
+    ///         a loop, which each turn added. The objects of such an identity are
+    ///         all elements, thus each of them has the value also.
+    ///     </para>
+    ///     <para>
     ///         A second write to a member in the body can give an element that a
     ///         turn before changed a different value. Thus, each write to a member
     ///         in each read of the body is the write through the variable.
@@ -1745,10 +1825,12 @@ internal sealed partial class LoopStateEvaluator
 
         List<(MadeObject Object, LoopState State)> objects = [];
 
-        foreach (MadeObject? made in noted.Values?.Select(this.TheOneObjectIn)
+        foreach (MadeObject? made in noted.Whole
+                                     ?? noted.Values?.Select(this.TheOneObjectIn)
                                      ?? noted.Elements.Select(this.TheOneObjectOf))
         {
-            if (made is not { Turn: null, IsOfTurnsBefore: false }
+            if (made == null
+                || (noted.Whole == null && made is not { Turn: null, IsOfTurnsBefore: false })
                 || !made.IsFrom(this.Frame)
                 || this.region.Objects.StateOf(made) is not { } old)
             {
