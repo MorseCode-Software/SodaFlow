@@ -14270,6 +14270,82 @@ public static class Shapes
     public static Cell<int> Ag72WithDoesNotRunAnInitializerOfTheRecord() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag72Noted a = new(); Ag72SharedForAWith = l.Map(v => v); Ag72Noted b = a with { }; Ag72SharedForAWith = Plain; Kept.Add(b); return S.Hold(0); });
 
+    // S3249. A list from the block gets an insert between two reads of its first element.
+    public static Cell<int> DvStateASecondReadAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames1[0], DvStNames1[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.Insert(0, DvStNames1[1]); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3250. A callee swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterACalleeSwaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames2[0]; a.Share = l.Map(v => v); DvStSwap(DvStNames2); SettableSlot c = DvStNames2[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3251. A callee swaps two elements between two reads of the first element, and the second gets the pending cell.
+    public static Cell<int> DvStateASecondReadAfterACalleeSwapsGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames3[0]; a.Share = Plain; DvStSwap(DvStNames3); SettableSlot c = DvStNames3[0]; c.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3252. A deconstruction swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames4[0]; a.Share = l.Map(v => v); (DvStNames4[0], DvStNames4[1]) = (DvStNames4[1], DvStNames4[0]); SettableSlot c = DvStNames4[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3253. A local with ref gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames5[0]; a.Share = l.Map(v => v); ref SettableSlot r = ref DvStNames5[0]; r = DvStNames5[1]; SettableSlot c = DvStNames5[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3254. An Exchange gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames6[0]; a.Share = l.Map(v => v); Interlocked.Exchange(ref DvStNames6[0], DvStNames6[1]); SettableSlot c = DvStNames6[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3255. A method with a parameter with ref gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterARefArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames7[0]; a.Share = l.Map(v => v); DvStGive(ref DvStNames7[0], DvStNames7[1]); SettableSlot c = DvStNames7[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3256. Array.Reverse changes the element between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames8[0]; a.Share = l.Map(v => v); Array.Reverse(DvStNames8); SettableSlot c = DvStNames8[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3257. A callee gives the field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAFieldAfterACalleeSetsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76Box box = DvStBoxes9[0]; SettableSlot a = box.Slot!; a.Share = l.Map(v => v); DvStRefill(box); SettableSlot c = box.Slot!; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3258. A lambda in a local swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterALambdaSwaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action swap = () => (DvStNames10[0], DvStNames10[1]) = (DvStNames10[1], DvStNames10[0]); SettableSlot a = DvStNames10[0]; a.Share = l.Map(v => v); swap(); SettableSlot c = DvStNames10[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3259. The block reverses a list between two reads of its first element.
+    public static Cell<int> DvStateASecondReadAfterAListReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames11[0], DvStNames11[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.Reverse(); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3260. A list from the block loses its first element between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterARemoveAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames12[0], DvStNames12[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.RemoveAt(0); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3261. A method of the owner gives its field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAFieldAfterAMethodOfTheOwner() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStCursor cur = DvStCursors[0]; SettableSlot a = cur.Current; a.Share = l.Map(v => v); cur.Next(); SettableSlot c = cur.Current; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3262. A static method gives a static field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAStaticFieldAfterAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStCurrent; a.Share = l.Map(v => v); DvStAdvance(); SettableSlot c = DvStCurrent; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3263. A static method gives a static field a new object between two reads of the field, and the second gets the pending cell.
+    public static Cell<int> DvStateASecondReadOfAStaticFieldAfterAMethodGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStCurrentB; a.Share = Plain; DvStAdvanceB(); SettableSlot c = DvStCurrentB; c.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3264. AB134 control. A call between two reads of the first element of a list gets no part of the list. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallThatGetsNoPartOfAListKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [Ab134Names1[0], Ab134Names1[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); Kept.Add(0); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3265. AB134 control. A call of the platform between two reads of an element of a static array gets no part of the array. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallOfThePlatformKeepsTheNameOfAStaticElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Names2[0]; a.Share = l.Map(v => v); Kept.Add(0); SettableSlot c = Ab134Names2[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3266. AB134 control. An Exchange of a different element comes between two reads of the first element. Thus, the two reads stay one value.
+    public static Cell<int> Ab134AnExchangeOfADifferentElementKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Names3[0]; a.Share = l.Map(v => v); Interlocked.Exchange(ref Ab134Names3[1], Ab134Names3[1]); SettableSlot c = Ab134Names3[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3267. AB134 control. A callee gets the value of a static field between two reads of the field, and cannot give the field a value. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallThatGetsTheValueOfAFieldKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Field; a.Share = l.Map(v => v); Kept.Add(Ab134Field.GetHashCode()); SettableSlot c = Ab134Field; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18024,6 +18100,61 @@ public static class Shapes
 
         public int Noted { get; init; } = Ag72SharedForAWith.Sample();
     }
+
+    private static readonly SettableSlot[] DvStNames1 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames2 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames3 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames4 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames5 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames6 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames7 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames8 = [new(), new()];
+
+    private static readonly Ab76Box[] DvStBoxes9 = [new Ab76Box { Slot = new SettableSlot() }];
+
+    private static readonly SettableSlot[] DvStNames10 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames11 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames12 = [new(), new()];
+
+    private static void DvStSwap(SettableSlot[] all) => (all[0], all[1]) = (all[1], all[0]);
+
+    private static void DvStGive(ref SettableSlot slot, SettableSlot other) => slot = other;
+
+    private static void DvStRefill(Ab76Box box) => box.Slot = new SettableSlot();
+
+    public sealed class DvStCursor
+    {
+        public SettableSlot Current = new();
+
+        public void Next() => this.Current = new SettableSlot();
+    }
+
+    private static readonly DvStCursor[] DvStCursors = [new()];
+
+    private static SettableSlot DvStCurrent = new();
+
+    private static SettableSlot DvStCurrentB = new();
+
+    private static void DvStAdvance() => DvStCurrent = new SettableSlot();
+
+    private static void DvStAdvanceB() => DvStCurrentB = new SettableSlot();
+
+    private static readonly SettableSlot[] Ab134Names1 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab134Names2 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab134Names3 = [new(), new()];
+
+    private static readonly SettableSlot Ab134Field = new();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

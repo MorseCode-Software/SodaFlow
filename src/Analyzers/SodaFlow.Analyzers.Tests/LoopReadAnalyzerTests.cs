@@ -2190,7 +2190,20 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs"] = ["SF1004"],
             ["Ag72SlicePatternCallsSlice"] = ["SF1005"],
             ["Ag72SlicePatternCallsTheRangeIndexer"] = ["SF1005"],
-            ["Ag72SlicePatternInASwitchExpression"] = ["SF1005"]
+            ["Ag72SlicePatternInASwitchExpression"] = ["SF1005"],
+            ["DvStateASecondReadAfterAnInsert"] = ["SF1001"],
+            ["DvStateASecondReadAfterACalleeSwaps"] = ["SF1001"],
+            ["DvStateASecondReadAfterADeconstruction"] = ["SF1001"],
+            ["DvStateASecondReadAfterALocalWithRef"] = ["SF1001"],
+            ["DvStateASecondReadAfterAnExchange"] = ["SF1001"],
+            ["DvStateASecondReadAfterARefArgument"] = ["SF1001"],
+            ["DvStateASecondReadAfterAReverse"] = ["SF1001"],
+            ["DvStateASecondReadOfAFieldAfterACalleeSetsIt"] = ["SF1001"],
+            ["DvStateASecondReadAfterALambdaSwaps"] = ["SF1001"],
+            ["DvStateASecondReadAfterAListReverse"] = ["SF1001"],
+            ["DvStateASecondReadAfterARemoveAt"] = ["SF1001"],
+            ["DvStateASecondReadOfAFieldAfterAMethodOfTheOwner"] = ["SF1001"],
+            ["DvStateASecondReadOfAStaticFieldAfterAMethod"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

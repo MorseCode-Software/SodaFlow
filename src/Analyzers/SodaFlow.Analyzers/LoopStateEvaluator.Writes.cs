@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace SodaFlow.Analyzers;
 
@@ -401,8 +402,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a local is still a name of the location that it got its value from, at a use. No
     // code between the two gave the local, the array, the field, or the owner a value. No code
-    // between them gave the location itself a value. A call between them is not such code for
-    // the walk.
+    // between them can give the location itself a value.
     private bool IsStillTheLocationOf(ISymbol name, ExpressionSyntax location, SyntaxNode use)
     {
         if (FunctionOf(location) is not { } code
@@ -419,14 +419,48 @@ internal sealed partial class LoopStateEvaluator
         return new[] { name, key.Of, key.Owner }.All(part =>
                    part == null
                    || !this.GetsAValue(name: part, code: code, after: after, before: before, orAFunctionUsesIt: false))
-               && !code.DescendantNodes()
-                   .OfType<AssignmentExpressionSyntax>()
-                   .Any(assignment =>
-                       assignment.SpanStart > after
-                       && assignment.SpanStart < before
-                       && assignment.Left is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax
-                       && IsTheSameLocation(one: this.LocationKeyOf(assignment.Left), other: key));
+               && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
+                   .Any(node => node.SpanStart > after
+                                && node.SpanStart < before
+                                && this.CanChangeTheLocation(node: node, key: key));
     }
+
+    // True for code that can give a location a value. It is an assignment, a deconstruction, or a
+    // use with ref of the location. It is a call that gets the array or the owner, or a call of a
+    // delegate or of a local function. For a location in a field, each call of code of this
+    // compilation can change it also.
+    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key)
+    {
+        (ExpressionSyntax? receiver, ArgumentListSyntax? arguments) =
+            node switch
+            {
+                ElementAccessExpressionSyntax or MemberAccessExpressionSyntax when GivesAValue(node) =>
+                    ((ExpressionSyntax)node, null),
+                InvocationExpressionSyntax call =>
+                    ((call.Expression as MemberAccessExpressionSyntax)?.Expression, call.ArgumentList),
+                BaseObjectCreationExpressionSyntax creation => (null, creation.ArgumentList),
+                _ => (null, null)
+            };
+
+        if (arguments == null)
+        {
+            return receiver != null && IsTheSameLocation(one: this.LocationKeyOf(receiver), other: key);
+        }
+
+        return (receiver != null && this.IsAPartOf(expression: receiver, key: key))
+               || arguments.Arguments.Any(argument => this.IsAPartOf(expression: argument.Expression, key: key))
+               || (this.region.SymbolOf(node) is IMethodSymbol method
+                   && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
+                       || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
+    }
+
+    // True for an expression that is the array or the owner of a location. A call that gets the
+    // value of a field cannot give the field a value, thus the field itself is no such part.
+    private bool IsAPartOf(ExpressionSyntax expression, (ISymbol Of, ISymbol? Owner, int Index) key) =>
+        Unwrapped(expression) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is { } symbol
+        && ((key.Index >= 0 && SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Of))
+            || SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Owner));
 
     private static bool IsTheSameLocation(
         (ISymbol Of, ISymbol? Owner, int Index)? one,
