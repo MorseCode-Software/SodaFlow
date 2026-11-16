@@ -73,7 +73,9 @@ internal sealed partial class LoopStateEvaluator
                             state: LoopState.None.WithMembers(ofItsClass));
                 }
 
-                return state.WithMembers(ofItsClass).WithObjects(ImmutableArray.Create(one));
+                // The member is the origin of what its object has, as a field that the code set is.
+                // Thus, a callee that reads the object gives its caller a finding.
+                return state.WithMembers(ofItsClass).WithObjects(ImmutableArray.Create(one)).FromIfUnknown(member);
             }
             // The name of a static method of this compilation, as a value.
             case IdentifierNameSyntax or MemberAccessExpressionSyntax
@@ -146,6 +148,7 @@ internal sealed partial class LoopStateEvaluator
             definer == null
             && members.Count == 0
             && !this.region.HasFields
+            && !this.region.Objects.ChangedAStaticObject
             && bindings.All(static binding => binding.State.IsNone);
 
         switch (noState)

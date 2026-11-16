@@ -2214,7 +2214,14 @@ internal sealed class LoopReadAnalyzerTests
             ["DvStateAHelperReturnsAnElement"] = ["SF1001"],
             ["DvStateRunReturnsAnUnseenElement"] = ["SF1001"],
             ["Ab125TwoCallsGiveTheObjectOfAProperty"] = ["SF1001"],
-            ["Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly"] = ["SF1001"]
+            ["Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly"] = ["SF1001"],
+            ["DvStateACalleeReadsAStaticObjectThatALocalWrote"] = ["SF1005"],
+            ["DvStateACalleeReadsAStaticObjectAfterAFieldWrite"] = ["SF1005"],
+            ["DvStateACalleeWithAnArgumentReadsAStaticObjectThatALocalWrote"] = ["SF1005"],
+            ["DvStateTwoCalleesOfAStaticObjectThroughALocal"] = ["SF1005"],
+            ["DvStateACalleeThatKeepsItsArgumentReadsAStaticObject"] = ["SF1005"],
+            ["DvStateTheBlockReadsAStaticObjectThatALocalWrote"] = ["SF1001"],
+            ["DvStateTwoCalleesOfAStaticObject"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

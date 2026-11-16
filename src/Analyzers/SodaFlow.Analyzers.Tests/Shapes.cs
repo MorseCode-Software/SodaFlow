@@ -14418,6 +14418,46 @@ public static class Shapes
     public static Cell<int> Ab125AHelperGivesADifferentElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125SecondOf(Ab125Pair); SettableSlot t = Ab125Pair[0]; s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
 
+    // S3286. The block gives a static object a pending cell through a local, and a callee reads it.
+    public static Cell<int> DvStateACalleeReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptB; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptB()); });
+
+    // S3287. A callee puts a pending cell into a static object that a second callee reads, with a plain field write before.
+    public static Cell<int> DvStateACalleeReadsAStaticObjectAfterAFieldWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptJ; k.Share = l.Map(v => v); DvStOther = Plain; return S.Hold(DvStReadKeptJ()); });
+
+    // S3288. The block gives a static object a pending cell through a local, and a callee that gets the placeholder reads it.
+    public static Cell<int> DvStateACalleeWithAnArgumentReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptG; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptGWith(l)); });
+
+    // S3289. A callee gives a static object a pending cell through a local, and a second callee reads it.
+    public static Cell<int> DvStateTwoCalleesOfAStaticObjectThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStSetKept8ThroughALocal(l.Map(v => v)); return S.Hold(DvStReadKept8()); });
+
+    // S3290. A callee that gets an argument with a state reads a static object that the block gave a pending cell through a local.
+    public static Cell<int> DvStateACalleeThatKeepsItsArgumentReadsAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptQ; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptQWith(l)); });
+
+    // S3291. Control: the block gives a static object a pending cell through a local, and reads it through the field.
+    public static Cell<int> DvStateTheBlockReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptH; k.Share = l.Map(v => v); return S.Hold(DvStKeptH.Share!.Sample()); });
+
+    // S3292. A callee gives a static object a plain cell after the block gave it a pending one.
+    public static Cell<int> DvStateACalleeGivesAStaticObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStKept2.Share = l.Map(v => v); DvStSetKept2(Plain); return S.Hold(DvStKept2.Share!.Sample()); });
+
+    // S3293. One callee gives a static object a pending cell, and a second callee reads it.
+    public static Cell<int> DvStateTwoCalleesOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStSetKept1(l.Map(v => v)); return S.Hold(DvStReadKept1()); });
+
+    // S3294. AB135 control. The block gives a static object a plain cell through a local, and a callee reads it.
+    public static Cell<int> Ab135ACalleeReadsAPlainCellThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = Ab135Kept; k.Share = Plain; return S.Hold(Ab135ReadKept()); });
+
+    // S3295. AB135 control. The block gives a static object a pending cell through a local, and a callee reads a different static object.
+    public static Cell<int> Ab135ACalleeReadsADifferentStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = Ab135Written; k.Share = l.Map(v => v); return S.Hold(Ab135ReadOther()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18278,6 +18318,60 @@ public static class Shapes
     {
         return all[1];
     }
+
+    private static readonly SettableSlot DvStKept2 = new();
+
+    private static void DvStSetKept1(Cell<int> cell) => DvStKept1.Share = cell;
+
+    private static int DvStReadKept1() => DvStKept1.Share!.Sample();
+
+    private static void DvStSetKept2(Cell<int> cell) => DvStKept2.Share = cell;
+
+    private static void DvStSetKept8ThroughALocal(Cell<int> cell)
+    {
+        SettableSlot kept = DvStKept8;
+        kept.Share = cell;
+    }
+
+    private static int DvStReadKept8() => DvStKept8.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptB = new();
+
+    private static int DvStReadKeptB() => DvStKeptB.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptG = new();
+
+    private static readonly SettableSlot DvStKeptH = new();
+
+    private static readonly SettableSlot DvStKeptJ = new();
+
+    private static Cell<int> DvStOther = Cell.Constant(0);
+
+    private static int DvStReadKeptGWith(Cell<int> unused) => unused == null ? 0 : DvStKeptG.Share!.Sample();
+
+    private static int DvStReadKeptJ() => DvStKeptJ.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptQ = new();
+
+    private static int DvStReadKeptQWith(Cell<int> given)
+    {
+        Kept.Add(given);
+        return DvStKeptQ.Share!.Sample();
+    }
+
+    private static readonly SettableSlot DvStKept1 = new();
+
+    private static readonly SettableSlot DvStKept8 = new();
+
+    private static readonly SettableSlot Ab135Kept = new();
+
+    private static int Ab135ReadKept() => Ab135Kept.Share!.Sample();
+
+    private static readonly SettableSlot Ab135Written = new();
+
+    private static readonly SettableSlot Ab135Other = new() { Share = Plain };
+
+    private static int Ab135ReadOther() => Ab135Other.Share!.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

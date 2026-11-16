@@ -32,6 +32,7 @@ internal sealed class ObjectStore
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
     private readonly Dictionary<ISymbol, MadeObject> inStaticMembers = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<MadeObject> ofStaticMembers = [];
 
     // For the object in a member: its owner, the member, and the type of the member.
     private readonly Dictionary<MadeObject, (MadeObject Owner, ISymbol Member, ITypeSymbol Type)> memberOf = [];
@@ -324,6 +325,7 @@ internal sealed class ObjectStore
     {
         MadeObject found = this.Make(frame: frame, type: type, exact: true, state: state);
         this.inStaticMembers[member] = found;
+        this.ofStaticMembers.Add(found);
 
         return found;
     }
@@ -514,6 +516,20 @@ internal sealed class ObjectStore
     public LoopState? StateOf(MadeObject found) =>
         this.states.TryGetValue(key: found, value: out LoopState? state) ? state : null;
 
+    /// <summary>
+    ///     True when the code gave an object in a static member a new state. Each
+    ///     callee can read that object.
+    /// </summary>
+    public bool ChangedAStaticObject { get; private set; }
+
     /// <summary>Gives an object of the store a new state.</summary>
-    public void Set(MadeObject found, LoopState state) => this.states[found] = state;
+    public void Set(MadeObject found, LoopState state)
+    {
+        this.states[found] = state;
+
+        if (this.ofStaticMembers.Count > 0 && !this.ChangedAStaticObject)
+        {
+            this.ChangedAStaticObject = this.ofStaticMembers.Contains(found);
+        }
+    }
 }
