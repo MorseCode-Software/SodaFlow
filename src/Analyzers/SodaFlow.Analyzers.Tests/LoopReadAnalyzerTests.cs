@@ -2359,7 +2359,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab152AnAwaitOfACompleteTaskAfterEachPair"] = ["SF1004"],
             ["Ab152AHelperDeconstructsEachPairWithNoAwait"] = ["SF1004"],
             ["Ab152TheBlockDeconstructsEachPair"] = ["SF1001"],
-            ["Ab152ThePendingKeyIsFirst"] = ["SF1004"]
+            ["Ab152ThePendingKeyIsFirst"] = ["SF1004"],
+            ["Ab149MapOfAHoldWithTheSendAfter"] = ["SF1002"],
+            ["Ab149SampleOfALocalThatGetsAConstant"] = ["SF1002"],
+            ["Ab149SampleOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab149SampleOfACellSinkWithALinkedInitialValue"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

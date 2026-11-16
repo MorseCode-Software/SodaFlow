@@ -2507,8 +2507,10 @@ internal sealed partial class LoopStateEvaluator
                 OperatorRule.RunsNow => this.ReturnedHere(
                     call: invocation,
                     result: firstArgument.Join(this.Follow(invocation)?.State ?? LoopState.None)),
-                // A read gives the value that the receiver holds, with the state of that value.
-                OperatorRule.Read => receiverState.Content,
+                // A read gives the value that the receiver holds, with the state of that value. A
+                // read in the block of a hold that the block made gives the initial value.
+                OperatorRule.Read => this.InitialOfAHoldOfTheBlock(read: invocation, receiver: receiver)
+                                     ?? receiverState.Content,
                 // The lazy sample gives the value that the receiver holds.
                 OperatorRule.SampleLazy => new LoopState(
                     pending: receiverState.Pending,

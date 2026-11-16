@@ -16027,6 +16027,46 @@ public static class Shapes
     public static Cell<int> Ab152ThePendingKeyIsFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachKeyThenAwait([new KeyValuePair<Cell<int>, int>(l.Map(v => v), 1), new KeyValuePair<Cell<int>, int>(Plain, 2)]).Wait(0); return S.Hold(0); });
 
+    // S3530. A sample of a hold of a sink, and then a send of a cell linked to the placeholder into the sink. The sample gives the initial value.
+    public static Cell<int> Ab149SampleOfAHoldBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> x = s.Hold(Plain).Sample(); s.Send(l.Map(v => v)); return x; });
+
+    // S3531. A send of a cell linked to the placeholder into a sink, and then a sample of a hold of the sink. The sample gives the initial value.
+    public static Cell<int> Ab149SampleOfAHoldAfterTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<int> x = s.Hold(Plain).Sample(); return x; });
+
+    // S3532. A local has a hold of a sink. Then a send puts a cell linked to the placeholder into the sink, and the close is a sample of the local.
+    public static Cell<int> Ab149SampleOfAHoldInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Sample(); });
+
+    // S3533. A send of a cell linked to the placeholder into a cell sink, and then a sample of the cell sink.
+    public static Cell<int> Ab149SampleOfACellSinkAfterTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); c.Send(l.Map(v => v)); return c.Sample(); });
+
+    // S3534. A sample of a hold of a map of the updates of the placeholder to a linked cell.
+    public static Cell<int> Ab149SampleOfAHoldOfTheUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return l.Updates().Map(v => l.Map(w => w + v)).Hold(Plain).Sample(); });
+
+    // S3535. A sample of an accumulation of a sink, and then a send of a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab149SampleOfAnAccumBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> x = s.Accum(initialState: Plain, f: static (c, r) => c).Sample(); s.Send(l.Map(v => v)); return x; });
+
+    // S3536. A local has a hold of a sink, a send of a cell linked to the placeholder comes after it, and the close is a switch of a map of the hold. A control.
+    public static Cell<int> Ab149MapOfAHoldWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Map(c => c).SwitchC(); });
+
+    // S3537. A local has a hold of a sink, and then gets a constant of a cell linked to the placeholder. The close is a sample of the local. A control.
+    public static Cell<int> Ab149SampleOfALocalThatGetsAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); h = Cell.Constant(l.Map(v => v)); return h.Sample(); });
+
+    // S3538. A sample of a hold of a sink whose initial value is a cell linked to the placeholder. A control.
+    public static Cell<int> Ab149SampleOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); return s.Hold(l.Map(v => v)).Sample(); });
+
+    // S3539. A sample of a cell sink whose initial value is a cell linked to the placeholder, after a send of a plain cell. A control.
+    public static Cell<int> Ab149SampleOfACellSinkWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(l.Map(v => v)); c.Send(Plain); return c.Sample(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
