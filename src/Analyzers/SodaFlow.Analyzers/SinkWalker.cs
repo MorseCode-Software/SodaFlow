@@ -227,22 +227,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // An async function runs in the call until it awaits a task that is not complete. The rest
-    // runs when the task completes, which is after the call. The walk knows only a task of the
-    // platform that is complete before the await. A local function or a stored lambda has a walker
+    // runs when the task completes, which is after the call. CompleteTasks says which tasks the
+    // walk knows as complete before the await. A local function or a stored lambda has a walker
     // of its own. Thus, the positions of this walker do not apply to its code.
     public override void VisitAwaitExpression(AwaitExpressionSyntax node)
     {
         base.VisitAwaitExpression(node);
 
-        ExpressionSyntax task =
-            node.Expression is InvocationExpressionSyntax
-            {
-                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } configured
-            }
-                ? configured.Expression
-                : node.Expression;
-
-        if (!SodaFlowSymbols.MakesACompleteTask(this.region.SymbolOf(task)) && LaterPartOf(node) is { } block)
+        if (!CompleteTasks.IsComplete(region: this.region, task: node.Expression) && LaterPartOf(node) is { } block)
         {
             this.later.Add((block, node.Span.End));
         }

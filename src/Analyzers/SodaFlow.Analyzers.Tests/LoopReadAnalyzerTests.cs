@@ -2157,7 +2157,18 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72AccumOfRecordsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
             ["Ag72AccumOfRecordsFromAStreamOfLinkedCells"] = ["SF1002"],
             ["Ag72AccumOfRecordsWhoseFunctionCallsALocalFunction"] = ["SF1002"],
-            ["Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell"] = ["SF1002"]
+            ["Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell"] = ["SF1002"],
+            ["Ag72ReadAfterAnAwaitOfAnAsyncHelperThatNeverWaits"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAHelperThatReturnsADoneTask"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfWhenAllOfNothing"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADefaultValueTask"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAValueTaskFromAHelper"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADoneTaskInALocal"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADelayOfZero"] = ["SF1004"],
+            ["Ag72AsyncLambdaReadsAfterWhenAllOfNothing"] = ["SF1001"],
+            ["Ag72ReadAfterAnAwaitOfWhenAllOfDoneTasks"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAConfiguredHelper"] = ["SF1004"],
+            ["Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

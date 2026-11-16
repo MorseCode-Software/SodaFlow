@@ -14070,6 +14070,62 @@ public static class Shapes
     public static Cell<int> Ag72AccumOfRecordsWhoseStaticFunctionGivesAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (n, r) => new Ag72Step(Plain.Map(v => v + 1))); s.Send(1); Kept.Add(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
 
+    // S3199. An async helper samples after an await of an async helper that never waits. The read runs in the call.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAnAsyncHelperThatNeverWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAnAsyncHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3200. An async helper samples after an await of a helper that returns Task.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAHelperThatReturnsADoneTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADoneHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3201. An async helper samples after an await of Task.WhenAll of no task, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllOfNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllOfNothing(l).Wait(0); return S.Hold(0); });
+
+    // S3202. An async helper samples after an await of a default ValueTask, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADefaultValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADefaultValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S3203. An async helper samples after an await of a helper that returns a ValueTask made from a value.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAValueTaskFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAReadyHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3204. An async helper samples after an await of a local that holds Task.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADoneTaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterATaskInALocal(l).Wait(0); return S.Hold(0); });
+
+    // S3205. An async helper samples after an await of Task.Delay of zero, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADelayOfZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADelayOfZero(l).Wait(0); return S.Hold(0); });
+
+    // S3206. An async lambda samples after an await of Task.WhenAll of no task.
+    public static Cell<int> Ag72AsyncLambdaReadsAfterWhenAllOfNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await Task.WhenAll(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3207. An async helper samples after an await of Task.WhenAll of two tasks that are complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllOfDoneTasks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllOfDoneTasks(l).Wait(0); return S.Hold(0); });
+
+    // S3208. An async helper samples after an await of Task.WhenAll of a complete task and a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllWithATaskNotDone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllWithATaskNotDone(l).Wait(0); return S.Hold(0); });
+
+    // S3209. An async helper samples after an await of a helper that returns one of two tasks, and the task of this call never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAHelperThatCanWait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAHelperThatCanWait(l).Wait(0); return S.Hold(0); });
+
+    // S3210. An async helper samples after an await of a local that got a second value, a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfALocalWithASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterALocalWithASecondValue(l).Wait(0); return S.Hold(0); });
+
+    // S3211. An async helper samples after an await of ConfigureAwait on an async helper that never waits.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAConfiguredHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAConfiguredHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3212. An async lambda samples after an await of an async local function that never waits.
+    public static Cell<int> Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Quick() { await Task.CompletedTask; } Func<Task> run = async () => { await Quick(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17667,6 +17723,89 @@ public static class Shapes
     }
 
     public sealed record Ag72Step(Cell<int> Share);
+
+    private static async Task Ag72NoWait() => await Task.CompletedTask;
+
+    private static Task Ag72Done() => Task.CompletedTask;
+
+    private static ValueTask<int> Ag72Ready() => new(1);
+
+    private static async Task Ag72ReadAfterAnAsyncHelper(Cell<int> c)
+    {
+        await Ag72NoWait();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADoneHelper(Cell<int> c)
+    {
+        await Ag72Done();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterWhenAllOfNothing(Cell<int> c)
+    {
+        await Task.WhenAll();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADefaultValueTask(Cell<int> c)
+    {
+        await default(ValueTask);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAReadyHelper(Cell<int> c)
+    {
+        int n = await Ag72Ready();
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ag72ReadAfterATaskInALocal(Cell<int> c)
+    {
+        Task done = Task.CompletedTask;
+        await done;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADelayOfZero(Cell<int> c)
+    {
+        await Task.Delay(0);
+        Kept.Add(c.Sample());
+    }
+
+    private static Task Ag72Either(bool waits) => waits ? R2NeverDone.Task : Task.CompletedTask;
+
+    private static async Task Ag72ReadAfterWhenAllOfDoneTasks(Cell<int> c)
+    {
+        await Task.WhenAll(Task.CompletedTask, Task.FromResult(1));
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterWhenAllWithATaskNotDone(Cell<int> c)
+    {
+        await Task.WhenAll(Task.CompletedTask, R2NeverDone.Task);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAHelperThatCanWait(Cell<int> c)
+    {
+        await Ag72Either(true);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterALocalWithASecondValue(Cell<int> c)
+    {
+        Task done = Task.CompletedTask;
+        done = R2NeverDone.Task;
+        await done;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAConfiguredHelper(Cell<int> c)
+    {
+        await Ag72NoWait().ConfigureAwait(false);
+        Kept.Add(c.Sample());
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -511,7 +511,8 @@ internal sealed class SodaFlowSymbols
         symbol is IEventSymbol { DeclaringSyntaxReferences.Length: 1 } happening
         && happening.DeclaringSyntaxReferences[0].GetSyntax() is VariableDeclaratorSyntax;
 
-    private static bool IsTask(INamedTypeSymbol? type) =>
+    /// <summary>True for <c>Task</c> or <c>ValueTask</c> of the platform, with or without a result.</summary>
+    public static bool IsTask(INamedTypeSymbol? type) =>
         type is { Name: "Task" or "ValueTask" }
         && type.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
 
