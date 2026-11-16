@@ -15131,6 +15131,30 @@ public static class Shapes
     public static Cell<int> Ab129SwitchSOfPlainCells() =>
         ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(t.Map(_ => Plain)).SwitchS().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
 
+    // S3364. Control. The placeholder goes to code with no body that can know the library, as object.
+    public static Cell<int> DvLinksEscapeOfThePlaceholderAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l); return S.Hold(0); });
+
+    // S3365. Control. AsCell at the argument says that the code with no body does not read it.
+    public static Cell<int> DvLinksEscapeAsserted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l.AsCell()); return S.Hold(0); });
+
+    // S3366. AsCell at the argument, in parentheses.
+    public static Cell<int> DvLinksEscapeAssertedInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((l.AsCell())); return S.Hold(0); });
+
+    // S3367. AsCell at the argument, with the null-forgiving operator.
+    public static Cell<int> DvLinksEscapeAssertedWithNullForgiving() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l.AsCell()!); return S.Hold(0); });
+
+    // S3368. AsCell at the argument, cast to object.
+    public static Cell<int> DvLinksEscapeAssertedWithACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((object)l.AsCell()); return S.Hold(0); });
+
+    // S3369. An AsCell() in parentheses before a map, with the operator that says not null, given to code with no body.
+    public static Cell<int> Ab131EscapeAssertedInParenthesesThenMapped() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((l.AsCell())!.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -2266,7 +2266,8 @@ internal sealed class LoopReadAnalyzerTests
             ["DvLinksLaterStreamLoopOfLinkedCells"] = ["SF1002"],
             ["DvLinksLaterSwitchSOfLinkedCells"] = ["SF1002"],
             ["DvLinksLaterSnapshotOfACellOfALinkedCell"] = ["SF1002"],
-            ["DvLinksSwitchCOfASwitchC"] = ["SF1002"]
+            ["DvLinksSwitchCOfASwitchC"] = ["SF1002"],
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = ["SF1003"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -2286,7 +2287,8 @@ internal sealed class LoopReadAnalyzerTests
         new()
         {
             ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"],
-            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"]
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = []
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,

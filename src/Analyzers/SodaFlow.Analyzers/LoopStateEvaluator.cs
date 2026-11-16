@@ -5729,11 +5729,12 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a
     ///     value it is derived from, is the assertion that nothing reads it before the
-    ///     close.
+    ///     close. Parentheses, a cast, and the operator that says not null do not
+    ///     hide it.
     /// </summary>
     public static bool IsAsserted(ExpressionSyntax argument)
     {
-        ExpressionSyntax current = argument;
+        ExpressionSyntax current = Unwrapped(argument);
 
         while (current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access })
         {
@@ -5742,7 +5743,7 @@ internal sealed partial class LoopStateEvaluator
                 return true;
             }
 
-            current = access.Expression;
+            current = Unwrapped(access.Expression);
         }
 
         return false;
