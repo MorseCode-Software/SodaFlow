@@ -2090,7 +2090,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab86ProbeAnObjectThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
             ["Ab86CodeInAFieldKeepsAValueWithNoObject"] = ["SF1001"],
             ["Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut"] = ["SF1001"],
-            ["Ab86CodeInAFieldGivesBackASequence"] = ["SF1001"]
+            ["Ab86CodeInAFieldGivesBackASequence"] = ["SF1001"],
+            ["Ag67TheFirstElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"],
+            ["Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

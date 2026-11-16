@@ -13594,6 +13594,22 @@ public static class Shapes
     public static Cell<int> Ab86CodeInAFieldGivesBackASequence() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab86Line.Put(x); foreach (SettableSlot each in Ab86Line.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
 
+    // S3080. AG61 probe. The keeper in a field puts an object first, and the plain cell goes through the second element.
+    public static Cell<int> Ag61ProbeTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3081. AG67. The keeper in a field puts an object first, and the plain cell goes through the first element.
+    public static Cell<int> Ag67TheFirstElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3082. AG67. The keeper in a field puts an object first, and the block reads the first element.
+    public static Cell<int> Ag67AReadOfTheFirstElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3083. AG67. The keeper in a field puts an object first, and the block reads the second element.
+    public static Cell<int> Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); return S.Hold(list[1].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
