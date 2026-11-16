@@ -2371,7 +2371,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab150PostedSendOfALocalOfTheFunction"] = ["SF1002"],
             ["Ab150PostedSendThroughAMethod"] = ["SF1002"],
             ["Ab150PostedSendIntoACellSink"] = ["SF1002"],
-            ["Ab150PostedSendOfASampleOfAHold"] = ["SF1002"]
+            ["Ab150PostedSendOfASampleOfAHold"] = ["SF1002"],
+            ["Ab153TheFirstTurnPutsAPendingCellIntoTheLastOfTwo"] = ["SF1001"],
+            ["Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfThree"] = ["SF1001"],
+            ["Ab153TheSecondTurnPutsAPendingCellIntoAnArrayOfNoKnownLength"] = ["SF1001"],
+            ["Ab153AnOuterLoopRunsTheForeachOverTwoAgain"] = ["SF1001"],
+            ["Ab153AHelperPutsALocalIntoTheLastOfThree"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

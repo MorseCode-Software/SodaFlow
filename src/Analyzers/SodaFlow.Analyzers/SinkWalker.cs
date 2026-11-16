@@ -352,12 +352,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         // The first turn has the first element, when the walk knows the positions. Thus, an await
         // that stops the first turn stops it before a later element.
-        LoopState? first =
-            enumerated.IsNone
-            && this.evaluator.FirstElementOf(node.Expression) is { } one
-            && one.Shape != elements.Shape
-                ? one
-                : null;
+        (LoopState First, int Count)? start = enumerated.IsNone ? this.evaluator.FirstElementOf(node.Expression) : null;
+        LoopState? first = start is ({ } one, _) && one.Shape != elements.Shape ? one : null;
 
         // The conversion of each element to the type of the variable has no node of its own.
         if (this.region.Symbols.DeclaresConversions
@@ -389,9 +385,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // before put into the array.
         Action? startsALaterTurn =
             element != null && this.evaluator.PutsIntoALaterElement(node)
-                ? () => this.evaluator.Declare(
-                    local: element,
-                    state: elements.Join(this.evaluator.ElementsNow(loop: node, type: type)))
+                ? this.StartsALaterTurn(
+                    loop: node,
+                    element: element,
+                    elements: elements,
+                    type: type,
+                    count: start?.Count)
                 : null;
 
         if (startsALaterTurn != null)
@@ -416,6 +415,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.DisposeTheEnumerator(node: node, enumerator: enumeratorState);
     }
 
+    // Gives the variable of a foreach over an array its elements for the next turn: the elements of
+    // the start and the elements now. Each turn reads the element at its own position. Thus, no
+    // turn reads what the last turn puts into the array. The read for the last turn, and each read
+    // after it, keeps the elements that the reads before it gave.
+    private Action StartsALaterTurn(
+        ForEachStatementSyntax loop,
+        ISymbol element,
+        LoopState elements,
+        ITypeSymbol? type,
+        int? count)
+    {
+        int readsThatPutForALaterTurn = (count ?? int.MaxValue) - 1;
+        LoopState later = elements;
+
+        return () =>
+        {
+            if (readsThatPutForALaterTurn > 0)
+            {
+                readsThatPutForALaterTurn--;
+                later = elements.Join(this.evaluator.ElementsNow(loop: loop, type: type));
+            }
+
+            this.evaluator.Declare(local: element, state: later);
+        };
+    }
+
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         this.Visit(node.Expression);
@@ -437,7 +462,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // only for a deconstruction that the walk does not follow.
         LoopState? first =
             enumerated.IsNone
-            && this.evaluator.FirstElementOf(node.Expression) is { } one
+            && this.evaluator.FirstElementOf(node.Expression) is ({ } one, _)
             && one.Shape != elements.Shape
             && (method == null
                 || PartsOfAPair(pair: one, deconstruct: method) != null

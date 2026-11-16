@@ -16123,6 +16123,42 @@ public static class Shapes
     public static Cell<int> Ab150PostedSendAndASampleInATransactionOfTheBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Transaction.Post(() => c.Send(l.Map(v => v))); int x = Transaction.Run(() => c.Sample()).Sample(); return S.Hold(x); });
 
+    // S3554. The second turn puts the pending cell of a local into the last element of two. No turn reads it.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3555. The second turn puts the pending cell of a local into the last of two, by an index that is not a constant.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3556. The second turn puts the pending cell of a local into the last of two, through a second name of the array.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new Cell<int>[] { Plain, Plain }; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3557. Control: the first turn puts the pending cell of a local into the last element of two. The second turn reads it.
+    public static Cell<int> Ab153TheFirstTurnPutsAPendingCellIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = l.Map(v => v); foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = Plain; } return S.Hold(0); });
+
+    // S3558. Control: the second turn puts a pending cell by an index that is not a constant into the last of three.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfThree() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3559. Control: the walk does not know the number of elements. The run has three, and the third turn reads the pending cell.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellIntoAnArrayOfNoKnownLength() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = Never ? [Plain, Plain] : [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3560. Control: an outer loop runs the foreach over two elements again. Its second run reads the pending cell.
+    public static Cell<int> Ab153AnOuterLoopRunsTheForeachOverTwoAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; for (int i = 0; i < 2; i++) { foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = l.Map(v => v); } } return S.Hold(0); });
+
+    // S3561. A helper reads each element of an array of two, then puts a local into the last, then gives the local a pending cell.
+    public static Cell<int> Ab153AHelperPutsALocalIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab153ReadEachThenPutTheLocal([Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
+    // S3562. Control: the same helper with an array of three. The third turn reads the pending cell.
+    public static Cell<int> Ab153AHelperPutsALocalIntoTheLastOfThree() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab153ReadEachThenPutTheLocal([Plain, Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21325,6 +21361,18 @@ public static class Shapes
         {
             Kept.Add(cell.Sample());
             await R2NeverDone.Task;
+        }
+    }
+
+    private static void Ab153ReadEachThenPutTheLocal(Cell<int>[] cells, Cell<int> later)
+    {
+        Cell<int> d = Plain;
+
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            cells[cells.Length - 1] = d;
+            d = later;
         }
     }
 

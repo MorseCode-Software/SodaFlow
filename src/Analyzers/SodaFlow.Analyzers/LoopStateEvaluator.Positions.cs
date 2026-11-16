@@ -46,14 +46,15 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The state of the first element of a collection, when the walk knows
-    ///     the positions. Null for each other collection.
+    ///     The state of the first element of a collection, and the number of
+    ///     elements, when the walk knows the positions. Null for each other
+    ///     collection.
     /// </summary>
-    public LoopState? FirstElementOf(ExpressionSyntax collection)
+    public (LoopState First, int Count)? FirstElementOf(ExpressionSyntax collection)
     {
         if (this.ElementsOf(collection) is { Count: > 0 } elements)
         {
-            return this.Eval(elements[0]);
+            return (this.Eval(elements[0]), elements.Count);
         }
 
         if (this.StorePositionsOf(collection) is not (_, { Length: > 0 } all))
@@ -61,7 +62,7 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        return this.Eval(collection).Origin is { } origin ? all[0].From(origin) : all[0];
+        return (this.Eval(collection).Origin is { } origin ? all[0].From(origin) : all[0], all.Length);
     }
 
     /// <summary>
