@@ -2563,16 +2563,17 @@ internal sealed partial class LoopStateEvaluator
                     linked: inputs.Linked,
                     contentPending: false,
                     contentLinked: false).WithContent(inputs.Content),
+                // A switch holds what the selected cell or stream holds.
                 OperatorRule.SwitchValue => new LoopState(
                     pending: receiverState.Pending || receiverState.ContentPending,
                     linked: receiverState.Linked || receiverState.ContentLinked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(receiverState.Content.Content),
                 OperatorRule.SwitchStream => new LoopState(
                     pending: false,
                     linked: receiverState.ContentLinked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(receiverState.Content.Content),
                 // A read before the close gives the initial value. The value of a firing comes
                 // after the close.
                 OperatorRule.Hold => new LoopState(
@@ -2600,11 +2601,17 @@ internal sealed partial class LoopStateEvaluator
                     linked: receiverState.Linked,
                     contentPending: false,
                     contentLinked: false).WithContent(
-                    this.HeldContent(
-                        invocation: invocation,
-                        method: method,
-                        receiverState: receiverState,
-                        initial: firstArgument)),
+                    OperatorName(method) == "Collect"
+                        ? this.CollectedContent(
+                            invocation: invocation,
+                            method: method,
+                            receiverState: receiverState,
+                            initial: firstArgument)
+                        : this.HeldContent(
+                            invocation: invocation,
+                            method: method,
+                            receiverState: receiverState,
+                            initial: firstArgument)),
                 OperatorRule.Updates => source.WithPending(false),
                 OperatorRule.MapTo => new LoopState(
                     pending: false,
@@ -2617,13 +2624,28 @@ internal sealed partial class LoopStateEvaluator
                     linked: receiverState.Linked,
                     contentPending: receiverState.ContentPending,
                     contentLinked: receiverState.ContentLinked),
+                OperatorRule.Snapshot => new LoopState(
+                    pending: false,
+                    linked: receiverState.Linked,
+                    contentPending: false,
+                    contentLinked: false).WithContent(
+                    this.SnapshotContent(
+                        invocation: invocation,
+                        method: method,
+                        receiverState: receiverState,
+                        argumentStates: argumentStates)),
                 // A function that the operator keeps gives no input. Thus, the links are of the
                 // stream and of each cell.
                 OperatorRule.SnapshotLatest => new LoopState(
                     pending: false,
                     linked: inputs.Linked,
-                    contentPending: receiverState.ContentPending,
-                    contentLinked: receiverState.ContentLinked),
+                    contentPending: false,
+                    contentLinked: false).WithContent(
+                    this.SnapshotContent(
+                        invocation: invocation,
+                        method: method,
+                        receiverState: receiverState,
+                        argumentStates: argumentStates)),
                 OperatorRule.MergeStreams => new LoopState(
                     pending: false,
                     linked: LinkedStreamInput(
@@ -2639,7 +2661,10 @@ internal sealed partial class LoopStateEvaluator
                     linked: false,
                     contentPending: false,
                     contentLinked: false),
-                // A defer, a split, a timer, a debounce, a listener, and a send: no state.
+                // A defer and a split fire in a new transaction. Thus, they have no link, and fire
+                // what their stream fires, or each element of it.
+                OperatorRule.Later => LoopState.None.WithContent(source.Content.AsOneOfItsElements),
+                // A timer, a debounce, a listener, and a send: no state.
                 OperatorRule.Break => LoopState.None,
                 OperatorRule.Default or OperatorRule.FoldCollection => DefaultLibraryResult(
                     symbols: this.region.Symbols,
@@ -5449,6 +5474,78 @@ internal sealed partial class LoopStateEvaluator
                         : LoopState.None),
                 _ => LoopState.None
             };
+
+    /// <summary>
+    ///     The values that a snapshot fires: what its function returns, or else
+    ///     the value of its cell. The function gets the value of the stream and of
+    ///     each cell at a firing, which is after the close. The walk reads the
+    ///     function only for a result that can hold a state.
+    /// </summary>
+    private LoopState SnapshotContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        LoopState receiverState,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        if (!this.HoldsContent(method))
+        {
+            return LoopState.None;
+        }
+
+        AnonymousFunctionExpressionSyntax? lambda =
+            invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault();
+
+        if (lambda != null)
+        {
+            return this.EvalLambdaResult(
+                lambda: lambda,
+                boundParameters: argumentStates.Select(static state => state.Content.AfterTheClose)
+                    .Prepend(receiverState.Content.AfterTheClose)
+                    .ToImmutableArray());
+        }
+
+        // A function that is not a lambda gives nothing that the walk knows.
+        return method.Parameters.Any(static parameter => parameter.Type.TypeKind == TypeKind.Delegate)
+               || argumentStates.Count == 0
+            ? LoopState.None
+            : argumentStates[0].Content.AfterTheClose;
+    }
+
+    /// <summary>
+    ///     The values that a collect fires: the first element of the tuple that
+    ///     its function returns. The function gets the value of the stream and the
+    ///     state, at a firing after the close.
+    /// </summary>
+    private LoopState CollectedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        LoopState receiverState,
+        LoopState initial)
+    {
+        if (!this.HoldsContent(method)
+            || invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault() is not { } lambda)
+        {
+            return LoopState.None;
+        }
+
+        LoopState returned =
+            this.EvalLambdaResult(
+                lambda: lambda,
+                boundParameters: ImmutableArray.Create(
+                    item1: receiverState.Content.AfterTheClose,
+                    item2: initial.AfterTheClose));
+
+        return returned.Members?.PartsAt(ofATuple: true).ToList() is { Count: > 0 } parts
+            ? parts.Where(static part => part.Position == 0).Select(static part => part.State).FirstOrDefault()
+              ?? LoopState.None
+            : returned;
+    }
 
     // The walk of the function of an accumulation costs much in a view model, which accumulates
     // records. Thus, the walk always reads the function only for an accumulation of cells or

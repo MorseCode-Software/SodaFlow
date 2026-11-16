@@ -15059,6 +15059,78 @@ public static class Shapes
     public static Cell<int> DvLinksCapturesNamesSwappedPlainCell() =>
         Cell.Loop<int>().WithCaptures(l => (Captures: S.Hold(0), Cell: l.Map(v => v))).Cell;
 
+    // S3346. Control. A map of a trigger to a cell linked to the placeholder, held and switched. The send after the close makes the cycle.
+    public static Cell<int> DvLinksLaterMapToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3347. A defer of a map of a trigger to a cell linked to the placeholder, held and switched. The send after the close makes the cycle.
+    public static Cell<int> DvLinksLaterDeferOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Defer(t.Map(_ => l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3348. A split of a map of a trigger to an array of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSplitOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Split<Cell<int>, Cell<int>[]>(t.Map(_ => new[] { l.Map(v => v) })).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3349. FilterSome of a map of a trigger to a Some of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterFilterSomeOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => Maybe.Some(l.Map(v => v))).FilterSome().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3350. Choose of a trigger to a Some of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterChooseOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Choose(_ => Maybe.Some(l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3351. Snapshot of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(Plain, (_, v) => l.Map(x => x + v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3352. SnapshotLatest of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotLatestToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.SnapshotLatest(Plain, (_, v) => l.Map(x => x + v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3353. Collect of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterCollectToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Collect(0, (_, s) => (l.Map(v => v), s)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3354. Merge of a trigger mapped to a cell linked to the placeholder with a plain stream of cells, held and switched.
+    public static Cell<int> DvLinksLaterMergeOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).OrElse(Stream.Never<Cell<int>>()).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3355. Gate of a trigger mapped to a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterGateOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).Gate(Cell.Constant(true)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3356. A stream loop of cells, closed with a map of a trigger to a cell linked to the outer placeholder. The outer closes with a switch of its hold.
+    public static Cell<int> DvLinksLaterStreamLoopOfLinkedCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Stream.Loop<Cell<int>>().WithoutCaptures(x => t.Map(_ => l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3357. A switch of a stream of cells, held and switched. The outer cell is constant. It holds a map of a trigger to a cell that links to the placeholder.
+    public static Cell<int> DvLinksLaterSwitchSOfLinkedCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(t.Map(_ => l.Map(v => v))).SwitchS().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3358. Snapshot of a trigger and a constant cell of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotOfACellOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(Cell.Constant(l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3359. A switch of a switch of a constant cell of a constant cell of a map of the placeholder, as the close.
+    public static Cell<int> DvLinksSwitchCOfASwitchC() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(Cell.Constant(l.Map(v => v))).SwitchC().SwitchC());
+
+    // S3360. Control. A split of a stream of arrays of a plain cell, held and switched.
+    public static Cell<int> Ab129SplitOfAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Split<Cell<int>, Cell<int>[]>(t.Map(_ => new[] { Plain })).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3361. Control. A snapshot of the placeholder whose function returns a plain cell, held and switched. The snapshot samples the placeholder at a firing, with no link.
+    public static Cell<int> Ab129SnapshotOfTheLoopToAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(l, (_, v) => Plain).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3362. Control. A collect whose state is a cell linked to the placeholder, and whose output is a plain cell, held and switched.
+    public static Cell<int> Ab129CollectWithALinkedStateToAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Collect(l.Map(v => v), (_, s) => (Plain, s)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3363. Control. A switch of a constant cell of a stream of plain cells, held and switched.
+    public static Cell<int> Ab129SwitchSOfPlainCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(t.Map(_ => Plain)).SwitchS().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

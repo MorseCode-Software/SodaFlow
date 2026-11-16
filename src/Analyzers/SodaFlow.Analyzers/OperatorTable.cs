@@ -122,6 +122,13 @@ internal enum OperatorRule
     StreamFromReceiver,
 
     /// <summary>
+    ///     A snapshot. It links when the receiver links, as with
+    ///     <see cref="StreamFromReceiver" />. It fires what its function returns,
+    ///     or else the value of its cell.
+    /// </summary>
+    Snapshot,
+
+    /// <summary>
     ///     A stream from the receiver that takes the updates of each cell or
     ///     behavior also. Linked when any input is.
     /// </summary>
@@ -153,6 +160,12 @@ internal enum OperatorRule
     ///     <see cref="Default" />.
     /// </summary>
     FoldCollection,
+
+    /// <summary>
+    ///     A defer or a split. Its firings come in a new transaction, thus it has
+    ///     no link. It fires the values of its stream, or their elements.
+    /// </summary>
+    Later,
 
     /// <summary>A new transaction, a listener, or a send. No state.</summary>
     Break
@@ -203,6 +216,7 @@ internal static class OperatorTable
             "CreateStreamSink",
             "Accum",
             "Collect",
+            "Choose",
             "Updates",
             "Values",
             "MapTo",
@@ -246,8 +260,6 @@ internal static class OperatorTable
     /// </remarks>
     public static readonly ImmutableHashSet<string> DefaultIsSound =
         ImmutableHashSet.Create(
-            // A stream of the values a function keeps, from a stream: linked as the stream is.
-            "Choose",
             // A stream or sink with no inputs.
             "Never",
             "AsStreamSink",
@@ -585,7 +597,7 @@ internal static class OperatorTable
             "Sample" or "Value" or "CanExecute" => OperatorRule.Read,
             "SampleLazy" => OperatorRule.SampleLazy,
             "Map" when lazy => OperatorRule.MapLazy,
-            "Map" when stream => OperatorRule.MapStream,
+            "Map" or "Choose" when stream => OperatorRule.MapStream,
             "Map" => OperatorRule.MapValue,
             "Lift" when lazy => OperatorRule.LiftLazy,
             "Calm" when stream => OperatorRule.StreamFromReceiver,
@@ -604,10 +616,12 @@ internal static class OperatorTable
             // The output of SnapshotLatest listens to the updates of each cell, thus it cannot close a
             // loop.
             "SnapshotLatest" when ofStreams => OperatorRule.SnapshotLatest,
-            "Snapshot" or "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
+            "Snapshot" when ofStreams => OperatorRule.Snapshot,
+            "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
+            "Defer" or "Split" when ofStreams => OperatorRule.Later,
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,

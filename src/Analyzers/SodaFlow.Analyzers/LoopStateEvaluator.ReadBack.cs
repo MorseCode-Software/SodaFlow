@@ -33,7 +33,8 @@ internal sealed partial class LoopStateEvaluator
                 {
                     // A snapshot, a gate, and a hold have links only to their stream.
                     OperatorRule.SampleLazy or OperatorRule.MapStream or OperatorRule.MapValue or OperatorRule.Hold
-                        or OperatorRule.Fold or OperatorRule.MapTo or OperatorRule.StreamFromReceiver =>
+                        or OperatorRule.Fold or OperatorRule.MapTo or OperatorRule.StreamFromReceiver
+                        or OperatorRule.Snapshot =>
                         receiverState.ReadBack,
                     OperatorRule.SwitchValue or OperatorRule.SwitchStream => receiverState.ReadBack.AddRange(
                         receiverState.Content.ReadBack),

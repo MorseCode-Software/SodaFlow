@@ -2252,7 +2252,21 @@ internal sealed class LoopReadAnalyzerTests
             ["DvLinksCapturesTupleInALocalLinkedCell"] = ["SF1002"],
             ["DvLinksCapturesTupleFromAHelperLinkedCell"] = ["SF1002"],
             ["DvLinksCapturesNamedFirst"] = ["SF1002"],
-            ["DvLinksStreamLoopWithCapturesMap"] = ["SF1002"]
+            ["DvLinksStreamLoopWithCapturesMap"] = ["SF1002"],
+            ["DvLinksLaterMapToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterDeferOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSplitOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterFilterSomeOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterChooseOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSnapshotToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSnapshotLatestToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterCollectToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterMergeOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterGateOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterStreamLoopOfLinkedCells"] = ["SF1002"],
+            ["DvLinksLaterSwitchSOfLinkedCells"] = ["SF1002"],
+            ["DvLinksLaterSnapshotOfACellOfALinkedCell"] = ["SF1002"],
+            ["DvLinksSwitchCOfASwitchC"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
