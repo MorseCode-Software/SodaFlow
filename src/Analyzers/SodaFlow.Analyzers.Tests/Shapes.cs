@@ -15219,6 +15219,258 @@ public static class Shapes
     public static Cell<int> Ab130ReflectionWithAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [Plain]); return S.Hold(0); });
 
+    // S3386. Real view model: the block deconstructs the record and runs one command.
+    public static Cell<int> DvVmCounter2CommandsRecordDeconstructedExecute(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; delete.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3387. Real view model: the block deconstructs the record of commands with var and runs one.
+    public static Cell<int> DvVmCounter3RecordDeconstructedIntoVar(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); var (open, delete) = commands; delete.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3388. Real view model: the block deconstructs the record of commands and asks one if it can run.
+    public static Cell<int> DvVmCounter3RecordDeconstructedThenAsked(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; bool can = open.CanExecute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3389. Real view model: the block deconstructs the record of commands and keeps both.
+    public static Cell<int> DvVmCounter3RecordDeconstructedKept(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; extra.Add(open); extra.Add(delete);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3390. Real view model: a positional pattern takes a command out of the record, and the block runs it.
+    public static Cell<int> DvVmCounter3RecordPositionalPattern(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); if (commands is (var open, _)) { open.Execute(null); }
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3391. Real view model: the block builds the record of commands itself, deconstructs it, and runs one.
+    public static Cell<int> DvVmCounter3RecordBuiltInTheBlockDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = new(Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), Delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = commands; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3392. Real view model: the block deconstructs a record struct of commands and runs one.
+    public static Cell<int> DvVmCounter3RecordStructDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmCommandValues values = new(Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), Delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = values; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3393. Real view model: a foreach deconstructs each record of commands and runs one.
+    public static Cell<int> DvVmCounter3RecordsDeconstructedInAForeach(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); List<DvVmRowCommands> all = [commands]; foreach ((IDvVmAction open, IDvVmAction delete) in all) { open.Execute(null); }
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3394. Real view model: the block deconstructs a class with a Deconstruct of its own and runs one command. A control.
+    public static Cell<int> DvVmCounter3ClassWithDeconstructDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmPair pair = new(open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = pair; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3395. Real view model: the block deconstructs a tuple of commands and runs one. A control.
+    public static Cell<int> DvVmCounter3TupleDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            (IDvVmAction Open, IDvVmAction Delete) pair = (bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = pair; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3396. The Deconstruct of a record gives each part its own property. The block samples the plain part. A control.
+    public static Cell<int> Ab132PlainPartOfARecordSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Derived d = new(First: l.Map(v => v), Second: Plain); (Cell<int> first, Cell<int> second) = d; Kept.Add(second.Sample()); return S.Hold(0); });
+
+    // S3397. The Deconstruct of a record gives a part the property of its base record, and the block samples it.
+    public static Cell<int> Ab132PartOfABaseRecordSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Derived d = new(First: l.Map(v => v), Second: Plain); (Cell<int> first, Cell<int> second) = d; Kept.Add(first.Sample()); return S.Hold(0); });
+
+    // S3398. The Deconstruct of a record calls the getter of its property, which samples a pending member.
+    public static Cell<int> Ab132DeconstructCallsAGetterThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Reading r = new(Share: l.Map(v => v), Number: 1); (Cell<int> share, int number) = r; return S.Hold(number); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -19180,6 +19432,47 @@ public static class Shapes
         public void Cancel() { }
 
         public void Dispose() { }
+    }
+
+    // Dive, real view-model code, third batch.
+    public sealed class DvVmPair
+    {
+        internal DvVmPair(IDvVmAction open, IDvVmAction delete)
+        {
+            this.Open = open;
+            this.Delete = delete;
+        }
+
+        public IDvVmAction Open { get; }
+
+        public IDvVmAction Delete { get; }
+
+        public void Deconstruct(out IDvVmAction open, out IDvVmAction delete)
+        {
+            open = this.Open;
+            delete = this.Delete;
+        }
+    }
+
+    public readonly record struct DvVmCommandValues(IDvVmAction Open, IDvVmAction Delete);
+
+    public record Ab132Base(Cell<int> First);
+
+    public sealed record Ab132Derived(Cell<int> First, Cell<int> Second) : Ab132Base(First);
+
+    public sealed record Ab132Reading(Cell<int> Share, int Number)
+    {
+        private readonly Cell<int> share = Share;
+
+        public Cell<int> Share
+        {
+            get
+            {
+                Kept.Add(this.share.Sample());
+
+                return this.share;
+            }
+        }
     }
 
     public sealed record DvVmTodoId(int Number, string Title) : IIdentity<int>

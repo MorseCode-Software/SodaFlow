@@ -360,7 +360,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 .Join(this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState));
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct || elements.Members is { HasParts: true }
+            this.region.Symbols.DeclaresDeconstruct
+            || this.region.Symbols.DeclaresRecords
+            || elements.Members is { HasParts: true }
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
                 : null;
 
@@ -805,7 +807,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private void DeclareParts(ParenthesizedVariableDesignationSyntax several, ExpressionSyntax? value, LoopState state)
     {
         IMethodSymbol? deconstruct =
-            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
+            this.region.Symbols.DeclaresDeconstruct
+            || this.region.Symbols.DeclaresRecords
+            || state.Members is { HasParts: true }
                 ? (this.region.ModelFor(several).GetOperation(several) as IRecursivePatternOperation)?.DeconstructSymbol
                 as IMethodSymbol
                 : null;
@@ -885,33 +889,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        if (owner.Members == null)
-        {
-            return owner;
-        }
-
-        // A pair that the evaluator saw made has a state for each of its parts.
-        if (SodaFlowSymbols.HoldsParts(member.ContainingType) && owner.Members.Has(member))
-        {
-            return owner.Members.StateOf(member).FromIfUnknown(owner.Origin);
-        }
-
-        if (owner.Members.CanOwn(member))
-        {
-            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
-        }
-
-        // The members are those of an object that the owner contains, as a pair of the platform
-        // contains its value. A member that is not a sequence is one of those values.
-        ITypeSymbol? type =
-            member switch
-            {
-                IPropertySymbol read => read.Type,
-                IFieldSymbol read => read.Type,
-                _ => null
-            };
-
-        return SodaFlowSymbols.IsSequence(type) ? owner : owner.AsElement;
+        return LoopStateEvaluator.StateOfAMember(owner: owner, member: member);
     }
 
     /// <summary>
@@ -928,7 +906,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         IMethodSymbol? method =
-            this.region.Symbols.DeclaresDeconstruct || state.Members is { HasParts: true }
+            this.region.Symbols.DeclaresDeconstruct
+            || this.region.Symbols.DeclaresRecords
+            || state.Members is { HasParts: true }
                 ? this.region.ModelFor(clause).GetSymbolInfo(clause).Symbol as IMethodSymbol
                 : null;
 
@@ -1243,7 +1223,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A deconstruction of a value that is not a tuple calls a Deconstruct method. The compiler
         // gives no such method for a tuple expression, thus the test for a tuple is only for speed.
         IMethodSymbol? deconstruct =
-            (this.region.Symbols.DeclaresDeconstruct || right.Members is { HasParts: true })
+            (this.region.Symbols.DeclaresDeconstruct
+             || this.region.Symbols.DeclaresRecords
+             || right.Members is { HasParts: true })
             && node.Right is not TupleExpressionSyntax
             && PartsOf(node.Left) != null
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method

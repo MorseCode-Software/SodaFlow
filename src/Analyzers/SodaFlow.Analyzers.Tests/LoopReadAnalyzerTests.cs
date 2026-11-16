@@ -2277,7 +2277,18 @@ internal sealed class LoopReadAnalyzerTests
             ["DvLinksEscapeThroughADynamicCall"] = ["SF1004"],
             ["DvLinksEscapeThroughReflection"] = ["SF1003"],
             ["DvLinksEscapeThroughDynamicInvoke"] = ["SF1004"],
-            ["DvLinksEscapeOfThePlaceholderCastToObject"] = ["SF1003"]
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = ["SF1003"],
+            ["DvVmCounter2CommandsRecordDeconstructedExecute"] = ["SF1001"],
+            ["DvVmCounter3RecordDeconstructedIntoVar"] = ["SF1001"],
+            ["DvVmCounter3RecordDeconstructedThenAsked"] = ["SF1001"],
+            ["DvVmCounter3RecordPositionalPattern"] = ["SF1001"],
+            ["DvVmCounter3RecordBuiltInTheBlockDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3RecordStructDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3RecordsDeconstructedInAForeach"] = ["SF1001"],
+            ["DvVmCounter3ClassWithDeconstructDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3TupleDeconstructed"] = ["SF1001"],
+            ["Ab132PartOfABaseRecordSampled"] = ["SF1001"],
+            ["Ab132DeconstructCallsAGetterThatReads"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

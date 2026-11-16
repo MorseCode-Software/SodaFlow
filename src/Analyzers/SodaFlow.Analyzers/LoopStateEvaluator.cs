@@ -4328,6 +4328,12 @@ internal sealed partial class LoopStateEvaluator
             return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
         }
 
+        if (definition is { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true }
+            && owner != null)
+        {
+            return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
+        }
+
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
         {
             IReadOnlyList<Binding> bindings =
@@ -4415,6 +4421,98 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return result;
+    }
+
+    /// <summary>
+    ///     The <c>Deconstruct</c> that the compiler writes for a record. It gives
+    ///     each <c>out</c> parameter the property or the field with the same name.
+    ///     That member can be a member of a base record. The walk reads a getter
+    ///     of the code as a call.
+    /// </summary>
+    private Followed FollowRecordParts(SyntaxNode call, IMethodSymbol deconstruct, LoopState owner)
+    {
+        Followed result = Followed.Nothing;
+
+        foreach (IParameterSymbol parameter in deconstruct.Parameters)
+        {
+            ISymbol? member = null;
+            INamedTypeSymbol? type = deconstruct.ContainingType;
+
+            while (member == null && type != null)
+            {
+                member =
+                    type.GetMembers(parameter.Name)
+                        .FirstOrDefault(static found =>
+                            found is IPropertySymbol { IsStatic: false, IsIndexer: false }
+                                or IFieldSymbol { IsStatic: false });
+
+                type = type.BaseType;
+            }
+
+            Followed? getter =
+                member is IPropertySymbol { IsStatic: false } property
+                && GetterOf(property.OriginalDefinition) is { } body
+                    ? this.Enter(
+                        call: call,
+                        name: property.Name,
+                        body: body,
+                        bindings: [],
+                        definer: null,
+                        members: TaggedMembers(owner),
+                        receiver: owner,
+                        target: null)
+                    : null;
+
+            LoopState part =
+                getter?.State ?? (member == null ? LoopState.None : StateOfAMember(owner: owner, member: member));
+
+            result =
+                new Followed(
+                    state: LoopState.None,
+                    findings: getter == null ? result.Findings : result.Findings.AddRange(getter.Findings),
+                    outs: result.Outs.SetItem(key: parameter, value: part),
+                    sets: result.Sets,
+                    through: result.Through,
+                    alwaysGives: result.AlwaysGives);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    ///     The state of a member of a value with the given state, where no
+    ///     getter of the code runs. A property pattern and the
+    ///     <c>Deconstruct</c> of a record read a member this way.
+    /// </summary>
+    public static LoopState StateOfAMember(LoopState owner, ISymbol member)
+    {
+        if (owner.Members == null)
+        {
+            return owner;
+        }
+
+        // A pair that the evaluator saw made has a state for each of its parts.
+        if (SodaFlowSymbols.HoldsParts(member.ContainingType) && owner.Members.Has(member))
+        {
+            return owner.Members.StateOf(member).FromIfUnknown(owner.Origin);
+        }
+
+        if (owner.Members.CanOwn(member))
+        {
+            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
+        }
+
+        // The members are those of an object that the owner contains, as a pair of the platform
+        // contains its value. A member that is not a sequence is one of those values.
+        ITypeSymbol? type =
+            member switch
+            {
+                IPropertySymbol read => read.Type,
+                IFieldSymbol read => read.Type,
+                _ => null
+            };
+
+        return SodaFlowSymbols.IsSequence(type) ? owner : owner.AsElement;
     }
 
     /// <summary>

@@ -166,8 +166,8 @@ internal sealed class SodaFlowSymbols
                 || this.DeclaredCallbacks != PlatformCallbacks.None
                 || this.declaresCompare.Value);
 
-        // A record has a ToString that its code does not declare. The search reads the declarations
-        // of types only, and not the members.
+        // A record has a ToString and a Deconstruct that its code does not declare. The search reads
+        // the declarations of types only, and not the members.
         this.declaresRecords =
             new Lazy<bool>(() =>
                 compilation.SyntaxTrees.Any(static tree =>
@@ -249,8 +249,8 @@ internal sealed class SodaFlowSymbols
     public bool DeclaresPlatformMembers => this.declaresPlatformMembers.Value;
 
     /// <summary>
-    ///     True when the compilation declares a record. The <c>ToString</c> of a
-    ///     record reads its properties.
+    ///     True when the compilation declares a record. The <c>ToString</c> and
+    ///     the <c>Deconstruct</c> of a record read its properties.
     /// </summary>
     public bool DeclaresRecords => this.declaresRecords.Value;
 
