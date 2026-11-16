@@ -284,7 +284,10 @@ internal sealed partial class LoopStateEvaluator
     // function can run after the next call, with the local of its own call.
     private void ForgetTheLocalsOf(SyntaxNode function)
     {
-        if (this.region.CapturedIn(function) is not { } captured)
+        // The compiler does not keep its data flow analysis, and that analysis walks the full
+        // member. When the function declares no local with a state, the walk has nothing to forget.
+        if (!this.locals.Keys.Any(local => IsDeclaredIn(local: local, code: function))
+            || this.region.CapturedIn(function) is not { } captured)
         {
             return;
         }
