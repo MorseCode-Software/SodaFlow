@@ -255,7 +255,9 @@ is quiet.
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view.
 - **A sample of a `Hold` with a plain initial value.** A read in the block gives the initial
-  value, because a firing of the stream comes after the close.
+  value, because a firing of the stream comes after the close. That is also true for a hold that
+  the block makes, after a send into its sink in the block: the hold takes the sent value only at
+  the end of the transaction. The same goes for an `Accum` and for a cell sink.
 
 ### Code the analyzer cannot read
 
@@ -298,7 +300,8 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
   until a pass adds nothing new.
 - Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
-  made before the send, such as a `Hold` of the sink or a switch of that hold.
+  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
+  sent in a function that `Transaction.Post` runs after the transaction.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
   event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
   `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection initializer or
@@ -328,6 +331,10 @@ careful side, so it can report a read that does not throw:
   one.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
   removes that one lambda in a straight line, with nothing between the add and the remove.
+- A sample of a hold gives only the initial value where the block itself makes the hold and
+  samples it. A sample in a lambda or a helper, or of a hold kept in a record or a list, gets each
+  value sent into the sink as well. A close with such a sample can then get `SF1002`, although the
+  sample runs before the end of the transaction.
 
 Some reads that throw it does not see:
 
@@ -343,7 +350,8 @@ Some reads that throw it does not see:
   is. That code runs in the block, and the analyzer reads it as code that runs later.
 - A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
   call where it stops.
-- A send in a function that `Transaction.Post` runs after the transaction. The analyzer reads that
-  function as code that runs later, so the sink does not get the sent value.
+- A send in a method that you give to `Transaction.Post` by its name, or in a post inside a posted
+  function. The analyzer reads a lambda or a local function that a post in the block runs, but not
+  a method, and not a second post.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the
   code names, not an override.
