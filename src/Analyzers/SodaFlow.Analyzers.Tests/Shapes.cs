@@ -15947,6 +15947,50 @@ public static class Shapes
     public static Cell<int> Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
 
+    // S3510. A foreach reads the first element, then ends with a break. The second element has the pending cell.
+    public static Cell<int> Ab148ABreakAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); break; } return S.Hold(0); });
+
+    // S3511. A helper reads the first element of an array, then ends its foreach with a break.
+    public static Cell<int> Ab148AHelperBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab148ReadTheFirst([Plain, l.Map(v => v)]); return S.Hold(0); });
+
+    // S3512. Each branch at the end of the body ends the loop: a break or a return.
+    public static Cell<int> Ab148EachBranchEndsTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count > 0) { break; } else { return S.Hold(1); } } return S.Hold(0); });
+
+    // S3513. A while loop reads a local, then puts a pending cell into it, then ends with a break.
+    public static Cell<int> Ab148AWhileLoopBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; while (Kept.Count >= 0) { Kept.Add(c.Sample()); c = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3514. A for loop reads a local, then puts a pending cell into it, then ends with a break.
+    public static Cell<int> Ab148AForLoopBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; for (int i = 0; i < 2; i++) { Kept.Add(c.Sample()); c = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3515. The body puts a pending cell into the second element of the array, then ends with a break.
+    public static Cell<int> Ab148ABreakAfterAPutIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3516. Control: a break in an if that does not run. The second turn reads the pending cell.
+    public static Cell<int> Ab148ABreakInAnIf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count < 0) break; } return S.Hold(0); });
+
+    // S3517. Control: a continue comes before the break and starts the second turn.
+    public static Cell<int> Ab148AContinueBeforeTheBreak() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count >= 0) continue; break; } return S.Hold(0); });
+
+    // S3518. Control: the break at the end is for a loop in the body.
+    public static Cell<int> Ab148ABreakOfALoopInTheBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); while (Kept.Count >= 0) { break; } } return S.Hold(0); });
+
+    // S3519. Control: the break at the end is for a switch statement in the body.
+    public static Cell<int> Ab148ABreakOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); switch (Kept.Count) { default: break; } } return S.Hold(0); });
+
+    // S3520. Control: the first element has the pending cell, and the body ends with a break.
+    public static Cell<int> Ab148ThePendingCellIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); break; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21095,6 +21139,16 @@ public static class Shapes
         {
             Kept.Add(each.Sample());
             cells[1] = later;
+        }
+    }
+
+    private static void Ab148ReadTheFirst(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+
+            break;
         }
     }
 

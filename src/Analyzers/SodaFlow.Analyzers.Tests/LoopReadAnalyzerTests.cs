@@ -2349,7 +2349,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab147TheBodyPutsAPendingCellIntoTheLastElement"] = ["SF1001"],
             ["Ab147AHelperPutsAPendingCellIntoTheSecondElement"] = ["SF1004"],
             ["Ab147TheBodyPutsAPendingCellThroughASecondName"] = ["SF1001"],
-            ["Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement"] = ["SF1001"]
+            ["Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement"] = ["SF1001"],
+            ["Ab148ABreakInAnIf"] = ["SF1001"],
+            ["Ab148AContinueBeforeTheBreak"] = ["SF1001"],
+            ["Ab148ABreakOfALoopInTheBody"] = ["SF1001"],
+            ["Ab148ABreakOfASwitch"] = ["SF1001"],
+            ["Ab148ThePendingCellIsFirst"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

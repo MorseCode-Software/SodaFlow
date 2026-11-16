@@ -602,12 +602,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // true for the first read also. When it changes no location that is older than the turn,
         // the second turn is the same as the first one.
         HashSet<int> left = [before];
+        bool hasOneTurn = EndsTheLoopOnEachPath(loop: loop, body: body);
 
         // A value can come to its read only after two or more turns. The walk reads the loop again
         // while a read gives a location a new state. The locals of the body keep the state of the
         // last read, because the result of a function can be a local of a loop.
         for (int read = 2;
-             read <= MaxReadsOfALoop
+             !hasOneTurn
+             && read <= MaxReadsOfALoop
              && !this.AwaitEndsEachTurn(body)
              && left.Add(this.evaluator.ShapeOfWhatALoopLeaves(body));
              read++)
@@ -651,6 +653,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         this.evaluator.GivesBackWhatATurnReplaced(body);
     }
+
+    // True when each path through the body of a loop statement ends the loop. The loop then has one
+    // turn at most. A continue for the loop starts the next turn. The test reads the last statement
+    // of the body first, and that statement is usually not a jump.
+    private static bool EndsTheLoopOnEachPath(SyntaxNode loop, SyntaxNode body) =>
+        loop is ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
+        && body is StatementSyntax turn
+        && EndsTheLoop(turn)
+        && !turn.DescendantNodes(static node =>
+                node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .OfType<ContinueStatementSyntax>()
+            .Any(next => next.Ancestors().Select(LoopStateEvaluator.LoopBodyOf).First(static found => found != null)
+                         == turn);
+
+    // True for a statement that ends the loop around it on each path. Each branch ends with a
+    // break, a return, or a throw. A break in a block or in an if is for that loop.
+    private static bool EndsTheLoop(StatementSyntax statement) =>
+        statement switch
+        {
+            BreakStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax => true,
+            YieldStatementSyntax yield => yield.IsKind(SyntaxKind.YieldBreakStatement),
+            BlockSyntax { Statements: { Count: > 0 } statements } => EndsTheLoop(statements.Last()),
+            IfStatementSyntax { Else: { } otherwise } choice =>
+                EndsTheLoop(choice.Statement) && EndsTheLoop(otherwise.Statement),
+            _ => false
+        };
 
     /// <summary>
     ///     The calls that a foreach makes on a collection of this compilation:
