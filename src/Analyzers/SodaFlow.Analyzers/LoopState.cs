@@ -504,6 +504,23 @@ internal sealed class LoopState
     public LoopState AsOneOfItsElements =>
         this.IsContainer || this.Held.IsEmpty ? this.AsElement : this.WithContainer(false);
 
+    /// <summary>
+    ///     The same state, for a delegate that is none of the functions of the
+    ///     given declaration.
+    /// </summary>
+    public LoopState WithoutFunctionsOf(SyntaxNode declaration) =>
+        new(
+            pending: this.Pending,
+            linked: this.Linked,
+            members: this.Members,
+            content: this.content,
+            origin: this.Origin,
+            functions: this.Functions.RemoveAll(function => function.Declaration == declaration),
+            queries: this.Queries,
+            isContainer: this.IsContainer,
+            objects: this.Objects,
+            held: this.Held);
+
     /// <summary>The state of a delegate that is one known function.</summary>
     public static LoopState OfFunction(FunctionValue function) =>
         new(

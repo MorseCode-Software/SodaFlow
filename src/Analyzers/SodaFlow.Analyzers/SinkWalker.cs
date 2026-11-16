@@ -1213,6 +1213,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.AssignState(target: node.Left, state: added, replaces: false, turn: null);
             }
 
+            // A delegate that loses the last occurrence of a function, as in handlers -= handler.
+            if (node.IsKind(SyntaxKind.SubtractAssignmentExpression)
+                && this.AlwaysRuns(assignment: node, turn: out SyntaxNode? removedIn)
+                && removedIn == null
+                && this.evaluator.AfterTheLastRemove(node) is { } left)
+            {
+                this.AssignState(target: node.Left, state: left, replaces: true, turn: null);
+            }
+
             // A coalescing assignment runs only when its target is null. Thus, the target keeps
             // the state that it had, and gets the state of the value also. An element at a
             // position that has no object always gets the value. An element at a position that

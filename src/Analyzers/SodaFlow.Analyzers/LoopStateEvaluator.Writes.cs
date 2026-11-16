@@ -961,6 +961,233 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     The state of a delegate after a remove, as in <c>handlers -= handler</c>,
+    ///     that takes away the last occurrence of a lambda. Null when the walk
+    ///     is not sure of that, and the delegate keeps the function.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A remove takes away one occurrence of a delegate that is equal to
+    ///         the one that it gets. The state of a delegate is a set of
+    ///         functions. It has no count, and it does not tell two instances
+    ///         apart. Thus, the walk counts here, only where the code shows each
+    ///         occurrence.
+    ///     </para>
+    ///     <para>
+    ///         The value is a local with one lambda. No loop and no branch is
+    ///         around its declaration, and it gets no second value. Thus, it is
+    ///         one instance in each run of the code. Each use of it adds it to
+    ///         the location, removes it from the location, or calls it.
+    ///     </para>
+    ///     <para>
+    ///         The location is a local of the code, or an event of a local that
+    ///         has a new object. Each other use of the location adds a value,
+    ///         removes a value, or calls it. Each add and each remove of the
+    ///         lambda has no loop, branch, or function around it. No code runs
+    ///         between the first add and the remove.
+    ///     </para>
+    /// </remarks>
+    /// <param name="remove">The assignment with <c>-=</c>.</param>
+    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove)
+    {
+        if (this.quiet
+            || Unwrapped(remove.Right) is not IdentifierNameSyntax handler
+            || this.region.SymbolOf(handler) is not ILocalSymbol local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+            || Unwrapped(value) is not AnonymousFunctionExpressionSyntax lambda
+            || FunctionOf(remove) is not { } code
+            || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
+            || !RunsStraightIn(node: declarator, code: code)
+            || this.GetsASecondValue(local: local, scope: code)
+            || this.UsesOfTheLocation(location: remove.Left, code: code) is not var (changes, start))
+        {
+            return null;
+        }
+
+        int count = 0;
+        SyntaxNode? first = null;
+        HashSet<SyntaxNode> ofTheLambda = [];
+
+        foreach (IdentifierNameSyntax use in code.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>()
+                     .Where(use =>
+                         use.Identifier.ValueText == local.Name
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)))
+        {
+            if (FunctionOf(use) != code)
+            {
+                return null;
+            }
+
+            if (use.Parent is InvocationExpressionSyntax call && call.Expression == use)
+            {
+                continue;
+            }
+
+            if (use.Parent is AssignmentExpressionSyntax change
+                && change.Right == use
+                && changes.Contains(change))
+            {
+                if (!RunsStraightIn(node: change, code: code))
+                {
+                    return null;
+                }
+
+                ofTheLambda.Add(change);
+
+                if (change.SpanStart < remove.SpanStart)
+                {
+                    count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
+                    first ??= change;
+                }
+
+                continue;
+            }
+
+            // An operand of the sum that is the first value of the local location.
+            SyntaxNode sum =
+                use.Ancestors()
+                    .TakeWhile(static around =>
+                        around is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression }
+                            or ParenthesizedExpressionSyntax)
+                    .LastOrDefault()
+                ?? use;
+
+            if (start == null || sum.Parent != start.Initializer)
+            {
+                return null;
+            }
+
+            count++;
+            first ??= start;
+        }
+
+        // The remove takes away the last occurrence. No code runs between the first add and the
+        // remove, because a call can copy the delegate into its location again.
+        if (count != 1
+            || first == null
+            || code.DescendantNodes(descendIntoChildren: node =>
+                    node == code || node is not AnonymousFunctionExpressionSyntax)
+                .Any(node =>
+                    node.SpanStart >= first.Span.End
+                    && node.Span.End <= remove.SpanStart
+                    && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
+                    && node is InvocationExpressionSyntax
+                        or BaseObjectCreationExpressionSyntax
+                        or AssignmentExpressionSyntax
+                        or AwaitExpressionSyntax
+                        or PrefixUnaryExpressionSyntax
+                        or PostfixUnaryExpressionSyntax
+                        or ElementAccessExpressionSyntax
+                        or MemberAccessExpressionSyntax))
+        {
+            return null;
+        }
+
+        return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+    }
+
+    // The assignments with += and -= of a delegate location of this run of the code, and, for a
+    // local, its declarator. The location is a local, or an event of a local whose value is a new
+    // object. Null when a use of the location can copy the delegate, or when the location can be
+    // of a different run.
+    private (HashSet<SyntaxNode> Changes, VariableDeclaratorSyntax? Start)? UsesOfTheLocation(
+        ExpressionSyntax location,
+        SyntaxNode code)
+    {
+        (ISymbol Variable, ISymbol? Member)? named =
+            Unwrapped(location) switch
+            {
+                IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
+                MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
+                    when this.region.SymbolOf(owner) is ILocalSymbol own
+                         && this.region.SymbolOf(access) is IEventSymbol happening
+                         && SodaFlowSymbols.IsFieldLikeEvent(happening)
+                         && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
+                             reference.SyntaxTree == location.SyntaxTree
+                             && reference.Span.Contains(location.Span)) => (own, happening),
+                _ => null
+            };
+
+        if (named is not var (variable, member)
+            || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax declarator
+            || FunctionOf(declarator) != code
+            || !RunsStraightIn(node: declarator, code: code)
+            || (member != null
+                && (declarator.Initializer?.Value is not BaseObjectCreationExpressionSyntax
+                    || this.GetsASecondValue(local: variable, scope: code))))
+        {
+            return null;
+        }
+
+        HashSet<SyntaxNode> changes = [];
+
+        foreach (IdentifierNameSyntax use in code.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>()
+                     .Where(use =>
+                         use.Identifier.ValueText == variable.Name
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)))
+        {
+            if (FunctionOf(use) != code)
+            {
+                return null;
+            }
+
+            // For an event, a use of the local can name a different member. That use reads the
+            // member, or calls a method of the object. Such code runs only where the remove
+            // permits it.
+            SyntaxNode? at =
+                member == null
+                    ? use
+                    : use.Parent is MemberAccessExpressionSyntax access
+                      && access.Expression == use
+                      && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(access), y: member)
+                        ? access
+                        : null;
+
+            if (at == null)
+            {
+                continue;
+            }
+
+            switch (at.Parent)
+            {
+                case InvocationExpressionSyntax call when call.Expression == at:
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Invoke" } invoke
+                    when invoke.Expression == at:
+                case ConditionalAccessExpressionSyntax conditional when conditional.Expression == at:
+                    continue;
+                case AssignmentExpressionSyntax change
+                    when change.Left == at
+                         && change.Kind() is SyntaxKind.AddAssignmentExpression
+                             or SyntaxKind.SubtractAssignmentExpression:
+                    changes.Add(change);
+
+                    continue;
+                default:
+                    return null;
+            }
+        }
+
+        return (changes, member == null ? declarator : null);
+    }
+
+    // True when each run of the code runs the node. The node has only blocks and its own statement
+    // around it, up to the code.
+    private static bool RunsStraightIn(SyntaxNode node, SyntaxNode code) =>
+        node.Ancestors()
+            .TakeWhile(around => around != code)
+            .All(static around =>
+                around is BlockSyntax
+                    or ExpressionStatementSyntax
+                    or LocalDeclarationStatementSyntax
+                    or VariableDeclarationSyntax
+                    or VariableDeclaratorSyntax
+                    or EqualsValueClauseSyntax);
+
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.
     private LoopState EvalAgain(ExpressionSyntax expression)

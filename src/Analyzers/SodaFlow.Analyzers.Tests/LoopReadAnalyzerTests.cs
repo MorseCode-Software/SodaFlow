@@ -2309,7 +2309,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab139ReadAfterAWhileWithAnAwait"] = ["SF1004"],
             ["Ab126AccumOfRecordsWithTheSendAfter"] = ["SF1002"],
             ["Ab126AccumOfCellsWithTheSendAfter"] = ["SF1002"],
-            ["Ab126HoldOfCellsWithTheSendAfter"] = ["SF1002"]
+            ["Ab126HoldOfCellsWithTheSendAfter"] = ["SF1002"],
+            ["Ab120HandlerAddedTwiceRemovedOnce"] = ["SF1001"],
+            ["Ab120HandlerAddedInALoopRemovedOnce"] = ["SF1001"],
+            ["Ab120FunctionTwiceInADelegateRemovedOnce"] = ["SF1001"],
+            ["Ab120ACallCopiesTheHandlerBeforeTheRemove"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

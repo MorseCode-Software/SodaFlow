@@ -15711,6 +15711,34 @@ public static class Shapes
     public static Cell<int> Ab126AccumOfRecordsWithAPlainSendAfter() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); s.Send(Plain); return acc.Map(r => r.Share).SwitchC(); });
 
+    // S3451. The block adds a handler that samples to an event, removes it, and then raises the event.
+    public static Cell<int> Ag72HandlerRemovedBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3452. The block takes the function that samples out of a delegate with minus, and then calls the delegate.
+    public static Cell<int> Ag72FunctionRemovedFromADelegate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action? both = first + second; both -= second; both?.Invoke(); return S.Hold(0); });
+
+    // S3453. The block adds a handler that samples two times and removes it one time. One occurrence stays, and the raise runs it. A control.
+    public static Cell<int> Ab120HandlerAddedTwiceRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang += h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3454. The block adds a handler that samples in each turn of a loop and removes it one time. The walk cannot count the turns. A control.
+    public static Cell<int> Ab120HandlerAddedInALoopRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); for (int i = 0; i < 2; i++) { b.Rang += h; } b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3455. A delegate has the function that samples two times, and the block takes it out one time. A control.
+    public static Cell<int> Ab120FunctionTwiceInADelegateRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action? all = second + first + second; all -= second; all?.Invoke(); return S.Hold(0); });
+
+    // S3456. A method of the object copies the handlers of its event between the add and the remove, thus the handler that samples stays. A control.
+    public static Cell<int> Ab120ACallCopiesTheHandlerBeforeTheRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab120Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3457. The block adds a handler that samples, and removes it two times before the raise.
+    public static Cell<int> Ab120HandlerRemovedTwiceBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang -= h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20796,6 +20824,15 @@ public static class Shapes
         }
 
         Kept.Add(c.Sample());
+    }
+
+    public sealed class Ab120Bell
+    {
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
