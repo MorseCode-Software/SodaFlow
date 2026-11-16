@@ -2354,7 +2354,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab148AContinueBeforeTheBreak"] = ["SF1001"],
             ["Ab148ABreakOfALoopInTheBody"] = ["SF1001"],
             ["Ab148ABreakOfASwitch"] = ["SF1001"],
-            ["Ab148ThePendingCellIsFirst"] = ["SF1001"]
+            ["Ab148ThePendingCellIsFirst"] = ["SF1001"],
+            ["Ab152ThePendingPairIsFirst"] = ["SF1004"],
+            ["Ab152AnAwaitOfACompleteTaskAfterEachPair"] = ["SF1004"],
+            ["Ab152AHelperDeconstructsEachPairWithNoAwait"] = ["SF1004"],
+            ["Ab152TheBlockDeconstructsEachPair"] = ["SF1001"],
+            ["Ab152ThePendingKeyIsFirst"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

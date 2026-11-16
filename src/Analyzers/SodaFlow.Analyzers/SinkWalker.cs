@@ -420,10 +420,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
 
-        LoopState elements =
-            this.evaluator.Eval(node.Expression)
-                .AsElement
-                .Join(this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState));
+        LoopState ofTheCollection = this.evaluator.Eval(node.Expression).AsElement;
+        LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
+        LoopState elements = ofTheCollection.Join(enumerated);
 
         IMethodSymbol? method =
             this.region.Symbols.DeclaresDeconstruct
@@ -432,22 +431,48 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? this.region.ModelFor(node).GetDeconstructionInfo(node).Method
                 : null;
 
+        // The first turn has the first element, as for a foreach with one variable. The walk keeps
+        // one result for each Deconstruct that it follows at a node. Thus, the first element is
+        // only for a deconstruction that the walk does not follow.
+        LoopState? first =
+            enumerated.IsNone
+            && this.evaluator.FirstElementOf(node.Expression) is { } one
+            && one.Shape != elements.Shape
+            && (method == null
+                || PartsOfAPair(pair: one, deconstruct: method) != null
+                || (method.ReducedFrom ?? method).OriginalDefinition
+                is { DeclaringSyntaxReferences.IsEmpty: true, IsImplicitlyDeclared: false })
+                ? one
+                : null;
+
+        this.DeconstructAnElement(node: node, method: method, element: first ?? elements);
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
+        this.Visit(node.Statement);
+
+        // A later turn can have each element. See VisitForEachStatement.
+        if (first != null)
+        {
+            this.DeconstructAnElement(node: node, method: method, element: elements);
+        }
+
+        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
+        this.DisposeTheEnumerator(node: node, enumerator: enumeratorState);
+    }
+
+    // Gives each part of the variable of a foreach statement its part of an element.
+    private void DeconstructAnElement(ForEachVariableStatementSyntax node, IMethodSymbol? method, LoopState element)
+    {
         if (!this.Deconstruct(
                 call: node.Variable,
                 target: node.Variable,
                 value: node.Expression,
-                owner: elements,
+                owner: element,
                 method: method,
                 replaces: false,
                 turn: null))
         {
-            this.AssignState(target: node.Variable, state: elements, replaces: false, turn: null);
+            this.AssignState(target: node.Variable, state: element, replaces: false, turn: null);
         }
-
-        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
-        this.Visit(node.Statement);
-        this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before);
-        this.DisposeTheEnumerator(node: node, enumerator: enumeratorState);
     }
 
     public override void VisitForStatement(ForStatementSyntax node)

@@ -15991,6 +15991,42 @@ public static class Shapes
     public static Cell<int> Ab148ThePendingCellIsFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); break; } return S.Hold(0); });
 
+    // S3521. An async helper deconstructs each pair, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab152AHelperDeconstructsEachPairThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwait([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3522. An async lambda deconstructs each pair of an array in a local, and awaits after the first.
+    public static Cell<int> Ab152AnAsyncLambdaDeconstructsEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { (Cell<int> Cell, int N)[] pairs = [(Plain, 1), (l.Map(v => v), 2)]; foreach ((Cell<int> cell, int _) in pairs) { Kept.Add(cell.Sample()); await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3523. An async helper deconstructs each pair with var, and awaits after the first.
+    public static Cell<int> Ab152AVarDeconstructionThenAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairWithVarThenAwait([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3524. Control: the first pair has the pending cell.
+    public static Cell<int> Ab152ThePendingPairIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwait([(l.Map(v => v), 1), (Plain, 2)]).Wait(0); return S.Hold(0); });
+
+    // S3525. Control: the helper awaits a complete task, thus the second turn reads now.
+    public static Cell<int> Ab152AnAwaitOfACompleteTaskAfterEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwaitComplete([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3526. Control: a helper deconstructs each pair with no await, thus the second turn reads now.
+    public static Cell<int> Ab152AHelperDeconstructsEachPairWithNoAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPair([(Plain, 1), (l.Map(v => v), 2)]); return S.Hold(0); });
+
+    // S3527. Control: the block deconstructs each pair of an array, and the second pair has the pending cell.
+    public static Cell<int> Ab152TheBlockDeconstructsEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> Cell, int N)[] pairs = [(Plain, 1), (l.Map(v => v), 2)]; foreach ((Cell<int> cell, int _) in pairs) { Kept.Add(cell.Sample()); } return S.Hold(0); });
+
+    // S3528. An async helper deconstructs each key and value of an array, and awaits after the first.
+    public static Cell<int> Ab152AHelperDeconstructsEachKeyValuePairThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachKeyThenAwait([new KeyValuePair<Cell<int>, int>(Plain, 1), new KeyValuePair<Cell<int>, int>(l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3529. Control: the same helper, and the first key has the pending cell.
+    public static Cell<int> Ab152ThePendingKeyIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachKeyThenAwait([new KeyValuePair<Cell<int>, int>(l.Map(v => v), 1), new KeyValuePair<Cell<int>, int>(Plain, 2)]).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21149,6 +21185,50 @@ public static class Shapes
             Kept.Add(each.Sample());
 
             break;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairThenAwait((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairWithVarThenAwait((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach (var (cell, _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairThenAwaitComplete((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await Task.CompletedTask;
+        }
+    }
+
+    private static void Ab152ReadEachPair((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+        }
+    }
+
+    private static async Task Ab152ReadEachKeyThenAwait(KeyValuePair<Cell<int>, int>[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
         }
     }
 

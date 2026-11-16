@@ -814,7 +814,7 @@ internal sealed partial class LoopStateEvaluator
             } =>
                 this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom.ContainingType: { } owner }
                 && SodaFlowSymbols.IsLinqEnumerable(owner),
-            ForEachStatementSyntax => true,
+            CommonForEachStatementSyntax => true,
             _ => false
         };
 
