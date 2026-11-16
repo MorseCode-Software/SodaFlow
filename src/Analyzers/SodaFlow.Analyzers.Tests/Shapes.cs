@@ -13578,6 +13578,22 @@ public static class Shapes
     public static Cell<int> Ab85ACalleePutsTheObjectIntoTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; Ab79Holder holder = Ab85Holders[0]; Ab85PutInAFieldThroughAMethodThenGive(ref holder.Item, holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
 
+    // S3076. AB86 probe. Code with no body in a static field keeps an object with a pending cell. The store has no object for that code.
+    public static Cell<int> Ab86ProbeAnObjectThatCodeInAFieldKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab80Line.Put(x); return S.Hold(Ab80Line.Last().Share!.Sample()); });
+
+    // S3077. AB86. Code with no body in a static field keeps a value with no object of the store, and gives it back.
+    public static Cell<int> Ab86CodeInAFieldKeepsAValueWithNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); Ab86Line.Put(c); return S.Hold(Ab86Line.Last().Share!.Sample()); });
+
+    // S3078. AB86. Code with no body in a static field keeps an object, and the object gets a pending cell after the put.
+    public static Cell<int> Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Ab86Line.Put(x); x.Share = l.Map(v => v); return S.Hold(Ab86Line.Last().Share!.Sample()); });
+
+    // S3079. AB86. Code with no body in a static field keeps an object with a pending cell, and gives each object back in a sequence.
+    public static Cell<int> Ab86CodeInAFieldGivesBackASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab86Line.Put(x); foreach (SettableSlot each in Ab86Line.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -16928,6 +16944,8 @@ public static class Shapes
         Ab85PutInTheField(holder, other);
         slot.Share = cell;
     }
+
+    private static readonly ISlotLine Ab86Line = NewSlotLine();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

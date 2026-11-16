@@ -2319,6 +2319,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     {
                         this.evaluator.Gets(collection: receiver, value: argument.Expression);
                     }
+
+                    this.evaluator.KeepsWhatItGets(owner: receiver, arguments: arguments);
                 }
 
                 if (method.ReducedFrom != null && receiver != null)

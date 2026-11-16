@@ -140,6 +140,42 @@ internal sealed partial class LoopStateEvaluator
         !state.Objects.IsEmpty && !state.Objects.Contains(MadeObject.Unknown);
 
     /// <summary>
+    ///     Records that code with no body to read got the arguments of a call
+    ///     on an owner that is no object of the store. The store has no record of
+    ///     what such an owner holds. Thus, the name of the owner keeps it, as the
+    ///     owner of a method of a package does.
+    /// </summary>
+    /// <remarks>
+    ///     An argument that is an object of the store keeps its state in the
+    ///     store. The owner then holds the object, and a later change to the
+    ///     object is a change to what the owner gives back. A value with no object
+    ///     has its members only in a copy, and the owner keeps that copy.
+    /// </remarks>
+    /// <param name="owner">The owner in the call.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public void KeepsWhatItGets(ExpressionSyntax owner, SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (arguments.Count == 0 || !IsOfNoObjectOfTheStore(this.Eval(owner)))
+        {
+            return;
+        }
+
+        foreach (ArgumentSyntax argument in arguments)
+        {
+            LoopState put = this.Eval(argument.Expression);
+
+            if (IsOfNoObjectOfTheStore(put))
+            {
+                this.Absorb(target: owner, state: put);
+            }
+            else
+            {
+                this.MergeInto(target: Unwrapped(owner), state: LoopState.None.HoldingWhatCameWith(put), level: 0);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Records that a method of the platform got its arguments. The method
     ///     can put a value into a collection that it gets, as <c>CopyTo</c> does to
     ///     an array. The parameter must have a type that the method can change.

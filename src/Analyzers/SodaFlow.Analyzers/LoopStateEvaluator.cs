@@ -2893,10 +2893,13 @@ internal sealed partial class LoopStateEvaluator
     // result can be an object that the store does not know also.
     private LoopState KeptByTheOwnerOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
+        // An owner with no object of the store keeps a copy of each value with no object that it
+        // got. See KeepsWhatItGets.
         if (method.IsStatic
             || method.ReducedFrom != null
             || invocation.Expression is not MemberAccessExpressionSyntax { Expression: var owner }
-            || this.Eval(owner) is not { HoldsAnObject: true } has)
+            || this.Eval(owner) is not { } has
+            || has is not ({ HoldsAnObject: true } or { IsContainer: true, Members: not null }))
         {
             return LoopState.None;
         }

@@ -2086,7 +2086,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab84ALambdaGivesItsArgumentToASecondLambda"] = ["SF1001"],
             ["Ab79ProbeACalleeOfTheMethodPutsTheObject"] = ["SF1001"],
             ["Ab85AMethodTwoCallsDownPutsTheObject"] = ["SF1001"],
-            ["Ab85ACalleePutsTheObjectIntoTheField"] = ["SF1001"]
+            ["Ab85ACalleePutsTheObjectIntoTheField"] = ["SF1001"],
+            ["Ab86ProbeAnObjectThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
+            ["Ab86CodeInAFieldKeepsAValueWithNoObject"] = ["SF1001"],
+            ["Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut"] = ["SF1001"],
+            ["Ab86CodeInAFieldGivesBackASequence"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
