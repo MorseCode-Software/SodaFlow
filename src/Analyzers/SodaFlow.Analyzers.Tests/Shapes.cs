@@ -15543,6 +15543,42 @@ public static class Shapes
     public static Cell<int> Ab133ConstructorWithNoInitializerCallsTheBase() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab133Shared2 = l.Map(v => v); Kept.Add(new Ab133ExplicitHook(1)); return S.Hold(0); });
 
+    // S3409. A lambda in a field gives a plain cell to an object that had a pending one.
+    public static Cell<int> DvStateALambdaInAFieldGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; DvStRunner r = new() { Run = () => x.Share = Plain }; r.Run(); return S.Hold(x.Share!.Sample()); });
+
+    // S3410. A lambda in a field of a static object gives a plain cell to an object that had a pending one.
+    public static Cell<int> DvStateALambdaInAStaticFieldGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; DvStRunner7.Run = () => x.Share = Plain; DvStRunner7.Run(); return S.Hold(x.Share!.Sample()); });
+
+    // S3411. A lambda in a local inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALambdaInALocalInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Action insert = () => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); insert(); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3412. A local function inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALocalFunctionInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; void Insert() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); Insert(); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3413. A lambda in a local adds an object with a pending cell, and the block reads the first element.
+    public static Cell<int> DvStateALambdaInALocalAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Action add = () => list.Add(new SettableSlot { Share = l.Map(v => v) }); add(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3414. A lambda at RunVoid inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALambdaAtRunVoidInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Transaction.RunVoid(() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) })); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3415. A lambda in a local gives the first element a pending cell, and the block reads the second element.
+    public static Cell<int> DvStateALambdaInALocalSetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain, Plain]; Action set = () => list[0] = l.Map(v => v); set(); return S.Hold(list[1].Sample()); });
+
+    // S3416. A local function inserts an object with a pending cell, and the block reads the element at that position. A control.
+    public static Cell<int> Ab137LocalFunctionInsertsAndTheBlockReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; void Insert() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); Insert(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3417. A lambda in a local removes the object with a pending cell from the list. Then the block reads the element that is first now.
+    public static Cell<int> Ab137LambdaInALocalRemovesThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }, new SettableSlot { Share = Plain }]; Action drop = () => list.RemoveAt(0); drop(); return S.Hold(list[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -20478,6 +20514,13 @@ public static class Shapes
 
         protected override void OnCreated() => Kept.Add(Ab133Shared2.Sample());
     }
+
+    public sealed class DvStRunner
+    {
+        public Action Run = static () => { };
+    }
+
+    private static readonly DvStRunner DvStRunner7 = new();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

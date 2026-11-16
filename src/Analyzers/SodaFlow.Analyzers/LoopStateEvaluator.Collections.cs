@@ -341,7 +341,8 @@ internal sealed partial class LoopStateEvaluator
 
     // The object of a local of this code that is one collection and no other value. A function
     // can run at a different time, thus a local that it reads from the code around it is no such
-    // name. A static field with readonly is one object for each read, at each time, when the store
+    // name. A function of this run that a call runs now, one time, reads the locals as they are
+    // now. A static field with readonly is one object for each read, at each time, when the store
     // has an object for it. See WithItsInitializer.
     private MadeObject? TheOneCollectionOf(ExpressionSyntax expression)
     {
@@ -355,7 +356,7 @@ internal sealed partial class LoopStateEvaluator
         return this.region.SymbolOf(written) switch
         {
             { } local and (ILocalSymbol or IParameterSymbol) =>
-                this.function == null
+                (this.function == null || this.call is { RunsAFunctionOfThisRun: true, RunsOneTime: true })
                 && written is IdentifierNameSyntax
                 && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
                     ? one
