@@ -43,6 +43,12 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ExpressionSyntax, IMethodSymbol?> conversionOf = [];
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
+
+    // The compiler makes a new array of the declarations of a local each time. The walk takes a loop
+    // shape before and after each function that runs for each element, and each shape tests each local.
+    private readonly Dictionary<ISymbol, ImmutableArray<SyntaxReference>> declarationsOf =
+        new(SymbolEqualityComparer.Default);
+
     private int frames;
     private int objectFrames;
 
@@ -181,6 +187,23 @@ internal sealed class LoopRegion(
         }
 
         return symbol;
+    }
+
+    /// <summary>
+    ///     True for a local that the given code declares. The region keeps the
+    ///     declarations of each local.
+    /// </summary>
+    /// <param name="local">The local.</param>
+    /// <param name="code">The body of a loop, or a function.</param>
+    public bool IsDeclaredIn(ISymbol local, SyntaxNode code)
+    {
+        if (!this.declarationsOf.TryGetValue(key: local, value: out ImmutableArray<SyntaxReference> declarations))
+        {
+            declarations = local.DeclaringSyntaxReferences;
+            this.declarationsOf[local] = declarations;
+        }
+
+        return LoopStateEvaluator.IsDeclaredIn(declarations: declarations, code: code);
     }
 
     /// <summary>

@@ -286,14 +286,15 @@ internal sealed partial class LoopStateEvaluator
     {
         // The compiler does not keep its data flow analysis, and that analysis walks the full
         // member. When the function declares no local with a state, the walk has nothing to forget.
-        if (!this.locals.Keys.Any(local => IsDeclaredIn(local: local, code: function))
+        if (!this.locals.Keys.Any(local => this.region.IsDeclaredIn(local: local, code: function))
             || this.region.CapturedIn(function) is not { } captured)
         {
             return;
         }
 
         foreach (ISymbol local in this.locals.Keys
-                     .Where(local => IsDeclaredIn(local: local, code: function) && !captured.Contains(local))
+                     .Where(local =>
+                         this.region.IsDeclaredIn(local: local, code: function) && !captured.Contains(local))
                      .ToArray())
         {
             this.locals.Remove(local);

@@ -443,8 +443,13 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="local">The local.</param>
     /// <param name="code">The body of a loop, or a function.</param>
     public static bool IsDeclaredIn(ISymbol local, SyntaxNode code) =>
-        local.DeclaringSyntaxReferences.Any(reference =>
-            reference.SyntaxTree == code.SyntaxTree && code.Span.Contains(reference.Span));
+        IsDeclaredIn(declarations: local.DeclaringSyntaxReferences, code: code);
+
+    /// <summary>True when the given code has one of the declarations.</summary>
+    /// <param name="declarations">The declarations of a local.</param>
+    /// <param name="code">The body of a loop, or a function.</param>
+    public static bool IsDeclaredIn(ImmutableArray<SyntaxReference> declarations, SyntaxNode code) =>
+        declarations.Any(reference => reference.SyntaxTree == code.SyntaxTree && code.Span.Contains(reference.Span));
 
     /// <summary>The body of a loop statement. Null for a node that is not a loop statement.</summary>
     public static StatementSyntax? LoopBodyOf(SyntaxNode node) =>
@@ -478,7 +483,9 @@ internal sealed partial class LoopStateEvaluator
         Forget(found: this.followed, code: loop, node: static key => key);
         Forget(found: this.implied, code: loop, node: static key => key.Node);
 
-        foreach (ISymbol local in this.locals.Keys.Where(local => IsDeclaredIn(local: local, code: turn)).ToArray())
+        foreach (ISymbol local in this.locals.Keys
+                     .Where(local => this.region.IsDeclaredIn(local: local, code: turn))
+                     .ToArray())
         {
             this.Frame.OfTheTurnBefore[local] = this.locals[local];
             this.locals.Remove(local);
@@ -494,7 +501,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="turn">The body of the loop.</param>
     public int ShapeOfWhatALoopLeaves(SyntaxNode turn) =>
         unchecked(
-            Shapes(this.locals.Where(local => !IsDeclaredIn(local: local.Key, code: turn)))
+            Shapes(this.locals.Where(local => !this.region.IsDeclaredIn(local: local.Key, code: turn)))
             + Shapes(this.thisMembers) * 3
             + this.region.Objects.Shape * 5
             + this.region.ShapeOfFields * 7
