@@ -14494,6 +14494,18 @@ public static class Shapes
     public static Cell<int> Ab123TheReadIsOfADifferentElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab123Pair[0].Put(new SettableSlot { Share = l.Map(v => v) }); Ab123Pair[1].Put(new SettableSlot { Share = Plain }); return S.Hold(Ab123Pair[1].Last().Share!.Sample()); });
 
+    // S3305. AB122. The code with no body is in a property of an object that the walk did not see made. The read is through a second name of that object.
+    public static Cell<int> Ab122CodeInAPropertyOfAnUnseenObjectKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = Ab122Holders[0]; holder.Line.Put(x); return S.Hold(Ab122Holders[0].Line.Last().Share!.Sample()); });
+
+    // S3306. AB122 control. The code with no body is in a property of the first of two objects that the walk did not see made. The read is of the second object.
+    public static Cell<int> Ab122TheReadIsOfTheSecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab110LineHolder holder = Ab122Pair[0]; holder.Line.Put(new SettableSlot { Share = l.Map(v => v) }); Ab122Pair[1].Line.Put(new SettableSlot { Share = Plain }); return S.Hold(Ab122Pair[1].Line.Last().Share!.Sample()); });
+
+    // S3307. AB122. The code with no body is in a property of an element that the walk did not see made, with no local.
+    public static Cell<int> Ab122CodeInAPropertyOfAnElementWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab122NoLocal[0].Line.Put(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(Ab122NoLocal[0].Line.Last().Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -18424,6 +18436,12 @@ public static class Shapes
     private static readonly ISlotLine[] Ab123NewLines = [NewSlotLine()];
 
     private static readonly ISlotLine[] Ab123Pair = [NewSlotLine(), NewSlotLine()];
+
+    private static readonly Ab110LineHolder[] Ab122Holders = [new()];
+
+    private static readonly Ab110LineHolder[] Ab122Pair = [new(), new()];
+
+    private static readonly Ab110LineHolder[] Ab122NoLocal = [new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

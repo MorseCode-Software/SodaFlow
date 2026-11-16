@@ -2227,7 +2227,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab121TheReadIsThroughASecondLocal"] = ["SF1001"],
             ["Ab110ASecondNameOfCodeInAnArrayKeepsAnObject"] = ["SF1001"],
             ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
-            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"]
+            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"],
+            ["Ab122CodeInAPropertyOfAnUnseenObjectKeepsAnObject"] = ["SF1001"],
+            ["Ab122CodeInAPropertyOfAnElementWithNoLocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
