@@ -2753,6 +2753,23 @@ internal sealed partial class LoopStateEvaluator
             if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
                 && this.region.SymbolOf(name) is { } member and (IPropertySymbol or IFieldSymbol))
             {
+                // A member whose value is an initializer keeps its object, and that object gets
+                // the members or the elements of the initializer.
+                if (assignment.Right is InitializerExpressionSyntax nested)
+                {
+                    ISymbol written = this.InitializedThrough(member);
+
+                    state =
+                        state.WithMembers(
+                            (state.Members ?? Construction.Empty).With(
+                                member: written,
+                                state: this.WithInitializer(
+                                    state: state.Members?.StateThrough(written) ?? LoopState.None,
+                                    initializer: nested)));
+
+                    continue;
+                }
+
                 state =
                     state.WithMembers(
                         (state.Members ?? Construction.Empty).With(member: member, state: this.Eval(assignment.Right)));
@@ -2777,6 +2794,33 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return state;
+    }
+
+    /// <summary>
+    ///     The member whose object an initializer of a member writes, as in
+    ///     <c>A = { B = x }</c>. For a property whose getter only names a field or
+    ///     a property of its object, it is that member. For each other member, it
+    ///     is the member itself.
+    /// </summary>
+    public ISymbol InitializedThrough(ISymbol member)
+    {
+        if (member is not IPropertySymbol property)
+        {
+            return member;
+        }
+
+        ExpressionSyntax? returned =
+            GetterOf(property.OriginalDefinition) switch
+            {
+                ExpressionSyntax expression => expression,
+                BlockSyntax { Statements.Count: 1 } block => (block.Statements[0] as ReturnStatementSyntax)?.Expression,
+                _ => null
+            };
+
+        return returned is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+               && this.region.SymbolOf(returned) is { IsStatic: false } behind and (IFieldSymbol or IPropertySymbol)
+            ? behind
+            : member;
     }
 
     /// <summary>

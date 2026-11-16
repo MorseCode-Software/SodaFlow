@@ -1923,7 +1923,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         before: Before(initializer: initializer, expression: expression)));
             }
 
-            if (expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax name } assignment
+            if (expression is AssignmentExpressionSyntax
+                {
+                    Left: IdentifierNameSyntax name,
+                    Right: not InitializerExpressionSyntax
+                } assignment
                 && this.region.SymbolOf(name) is IPropertySymbol
                 {
                     SetMethod: { DeclaringSyntaxReferences.IsEmpty: false } setter
@@ -1936,6 +1940,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         owner: this.evaluator.Eval(made),
                         arguments: [(assignment.Right, this.evaluator.Eval(assignment.Right))]));
             }
+
+            this.CheckInitializedMember(expression: expression, owner: this.evaluator.Eval(made));
 
             return;
         }
@@ -2014,6 +2020,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         arguments: [(assignment.Right, this.evaluator.Eval(assignment.Right))]));
             }
 
+            this.CheckInitializedMember(expression: expression, owner: owner);
+
             return;
         }
 
@@ -2034,6 +2042,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 member: add.OriginalDefinition,
                 owner: owner,
                 arguments: [.. values.Select(value => (value, this.evaluator.Eval(value)))]));
+    }
+
+    // A member whose value is an initializer, as in A = { B = x }, gets no new value. The compiler
+    // calls only the getter of A, and the walk reads a getter that has a body. It does not read
+    // the setter of A.
+    private void CheckInitializedMember(ExpressionSyntax expression, LoopState owner)
+    {
+        if (expression is AssignmentExpressionSyntax
+            {
+                Left: IdentifierNameSyntax name,
+                Right: InitializerExpressionSyntax
+            }
+            && this.region.SymbolOf(name) is IPropertySymbol
+            {
+                GetMethod: { DeclaringSyntaxReferences.IsEmpty: false } getter
+            })
+        {
+            this.Report(this.evaluator.FollowImplied(call: name, member: getter, owner: owner, arguments: []));
+        }
     }
 
     // The state of the object that an initializer is for. A nested initializer is for the value
@@ -2058,7 +2085,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return this.region.SymbolOf(name) is { } member && owner.Members is { } members
-            ? members.StateThrough(member)
+            ? members.StateThrough(this.evaluator.InitializedThrough(member))
             : LoopState.None;
     }
 

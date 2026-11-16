@@ -14126,6 +14126,50 @@ public static class Shapes
     public static Cell<int> Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits() =>
         Cell.Loop<int>().WithoutCaptures(l => { async Task Quick() { await Task.CompletedTask; } Func<Task> run = async () => { await Quick(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S3213. An object initializer of a member calls only the getter of the member. The setter, which samples a pending member, does not run.
+    public static Cell<int> Ag72InitializerOfAMemberDoesNotCallItsSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Slot = { Share = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3214. A collection initializer of a member calls only the getter of the member, and the setter does not run.
+    public static Cell<int> Ag72CollectionInitializerOfAMemberDoesNotCallItsSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Counts = { 1, 2 } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3215. An object initializer of a member gives the object of the member a pending cell. The setter of the member, which samples its value, does not run.
+    public static Cell<int> Ag72InitializerOfAMemberWithASetterThatReadsItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = { Share = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3216. An object initializer of a member calls the getter of the member, which samples a pending member.
+    public static Cell<int> Ag72InitializerOfAMemberCallsItsGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Read = { Share = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3217. An initializer two levels deep calls the getter of a member of a member, which samples a pending member.
+    public static Cell<int> Ag72InitializerTwoLevelsDeepCallsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Read = { Share = Plain } } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3218. An initializer two levels deep does not call the setter of a member of a member.
+    public static Cell<int> Ag72InitializerTwoLevelsDeepDoesNotCallASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = { Share = Plain } } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3219. A nested initializer calls the setter of a member of a member, and the setter samples a pending member of its object.
+    public static Cell<int> Ag72NestedInitializerCallsASetterThatReadsItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = new SettableSlot() } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3220. A member whose value is an initializer keeps its object. Thus, a getter of that object that the block calls after the creation samples its pending member.
+    public static Cell<int> Ag72MemberKeepsItsObjectAfterAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = { Share = Plain } } }; Kept.Add(outer.Inner.Read); return S.Hold(0); });
+
+    // S3221. A nested initializer gives a pending cell to the object of a member, and the block samples it through the member.
+    public static Cell<int> Ag72NestedInitializerGivesTheObjectOfAMemberAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72AutoRack rack = new() { Slot = { Share = l.Map(v => v) } }; int x = rack.Slot.Share!.Sample(); return S.Hold(x); });
+
+    // S3222. A nested initializer gives a plain cell to the object of a member, and the block samples it through the member.
+    public static Cell<int> Ag72NestedInitializerGivesTheObjectOfAMemberAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72AutoRack rack = new() { Slot = { Share = Plain } }; int x = rack.Slot.Share!.Sample(); Kept.Add(l.Map(v => v)); return S.Hold(x); });
+
+    // S3223. The same pending cell, where the getter of the member has a body that returns a field. The initializer writes the object of that field.
+    public static Cell<int> Ag72NestedInitializerThroughAGetterThatReturnsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = { Share = l.Map(v => v) } }; int x = rack.Slot.Share!.Sample(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17805,6 +17849,16 @@ public static class Shapes
     {
         await Ag72NoWait().ConfigureAwait(false);
         Kept.Add(c.Sample());
+    }
+
+    public sealed class Ag72OuterRack(Cell<int> share)
+    {
+        public Ag72SetterRack Inner { get; } = new(share);
+    }
+
+    public sealed class Ag72AutoRack
+    {
+        public SettableSlot Slot { get; } = new();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

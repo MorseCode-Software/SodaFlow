@@ -2168,7 +2168,13 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72AsyncLambdaReadsAfterWhenAllOfNothing"] = ["SF1001"],
             ["Ag72ReadAfterAnAwaitOfWhenAllOfDoneTasks"] = ["SF1004"],
             ["Ag72ReadAfterAnAwaitOfAConfiguredHelper"] = ["SF1004"],
-            ["Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits"] = ["SF1001"]
+            ["Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits"] = ["SF1001"],
+            ["Ag72InitializerOfAMemberCallsItsGetter"] = ["SF1005"],
+            ["Ag72InitializerTwoLevelsDeepCallsAGetter"] = ["SF1005"],
+            ["Ag72NestedInitializerCallsASetterThatReadsItsObject"] = ["SF1005"],
+            ["Ag72MemberKeepsItsObjectAfterAnInitializer"] = ["SF1005"],
+            ["Ag72NestedInitializerGivesTheObjectOfAMemberAPendingCell"] = ["SF1001"],
+            ["Ag72NestedInitializerThroughAGetterThatReturnsAField"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
