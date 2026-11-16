@@ -614,6 +614,13 @@ internal sealed partial class LoopStateEvaluator
     {
         ExpressionSyntax callee = Unwrapped(name);
 
+        // Only a simple name can name a local or a local function. The symbol of a different name
+        // can cost a full bind of its chain of owners.
+        if (callee is not SimpleNameSyntax)
+        {
+            return false;
+        }
+
         return this.region.SymbolOf(callee) switch
         {
             IMethodSymbol { MethodKind: MethodKind.LocalFunction } named =>

@@ -3402,6 +3402,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
+            && !this.IsTheNameOfACalledMethod(node)
             && this.region.SymbolOf(node)
                 is IPropertySymbol { IsStatic: false, DeclaringSyntaxReferences.Length: > 0 } property)
         {
@@ -3409,13 +3410,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
+    // The name of a called method is not a property. The compiler keeps the symbol of a call, but
+    // not the symbol of the name of its method. For that name, it binds the name and its owners
+    // again each time. A call of a property that has a delegate gets the method Invoke.
+    private bool IsTheNameOfACalledMethod(SyntaxNode node) =>
+        node.Parent is InvocationExpressionSyntax call
+        && call.Expression == node
+        && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke };
+
     /// <summary>
     ///     A property of the library that reads the current value, or a property
     ///     with a getter of this compilation, on the given owner.
     /// </summary>
     private void CheckPropertyRead(SyntaxNode node, ExpressionSyntax owner)
     {
-        if (this.region.SymbolOf(node) is not IPropertySymbol property)
+        if (this.IsTheNameOfACalledMethod(node) || this.region.SymbolOf(node) is not IPropertySymbol property)
         {
             return;
         }
