@@ -2129,7 +2129,28 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab110CodeInAPropertyOfAnObjectKeepsAnObject"] = ["SF1001"],
             ["Ab110CodeInAStaticPropertyKeepsAnObject"] = ["SF1001"],
             ["Ab110OnlyTheSecondTurnGivesItsObjectAPlainCell"] = ["SF1001"],
-            ["Ab110ACalleePutsTheObjectAndGivesItAPendingCell"] = ["SF1001"]
+            ["Ab110ACalleePutsTheObjectAndGivesItAPendingCell"] = ["SF1001"],
+            ["Ag72ImmutableArraySelectEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArrayWhereEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArraySelectManyEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArrayAnyRunsItsFunction"] = ["SF1001"],
+            ["Ag72AssignmentInAnInitializerCallsTheSetter"] = ["SF1005"],
+            ["Ag72AssignmentInAnInitializerGivesTheSetterAPendingValue"] = ["SF1004"],
+            ["Ag72NewRunsAnInitializerOfTheRecord"] = ["SF1005"],
+            ["Ag72ListPatternFromTheEndCallsTheIndexer"] = ["SF1005"],
+            ["Ag72SpreadIntoATypeWithABuilderThatReads"] = ["SF1004"],
+            ["Ag72CollectionInitializerCallsAnExtensionAdd"] = ["SF1004"],
+            ["Ag72NestedTupleEquality"] = ["SF1004"],
+            ["Ag72ConversionOfAnElementInATupleEquality"] = ["SF1004"],
+            ["Ag72ConversionOfTheResultOfAnOperator"] = ["SF1005"],
+            ["Ag72ReadAfterAnAwaitOfTheCompletedValueTask"] = ["SF1004"],
+            ["Ag72ADifferentHandlerRemovedBeforeTheRaise"] = ["SF1001"],
+            ["Ag72HandlerRemovedAfterTheRaise"] = ["SF1001"],
+            ["Ag72HandlerRemovedInABranch"] = ["SF1001"],
+            ["Ag72ASecondLambdaWithTheSameTextRemoved"] = ["SF1001"],
+            ["Ag72AccumOfCellsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["Ag72AccumOfRecordsFromAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

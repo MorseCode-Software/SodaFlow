@@ -13910,6 +13910,134 @@ public static class Shapes
     public static Cell<int> Ab110ACalleePutsTheObjectAndGivesItAPendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Ab110PutThenGive(x, l.Map(v => v)); return S.Hold(Ab110CalleeLine.Last().Share!.Sample()); });
 
+    // S3159. Select of an ImmutableArray, and the block counts the query, which runs its function.
+    public static Cell<int> Ag72ImmutableArraySelectEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Select(x => x + l.Sample()); int n = q.Count(); return S.Hold(n); });
+
+    // S3160. Where of an ImmutableArray, and the block makes a list from the query, which runs its function.
+    public static Cell<int> Ag72ImmutableArrayWhereEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Where(x => x > l.Sample()); return S.Hold(q.ToList().Count); });
+
+    // S3161. SelectMany of an ImmutableArray, and a foreach of the query runs its function.
+    public static Cell<int> Ag72ImmutableArraySelectManyEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.SelectMany(x => Numbers, (x, y) => x + y + l.Sample()); int total = 0; foreach (int x in q) { total += x; } return S.Hold(total); });
+
+    // S3162. Any of an ImmutableArray runs its function in the call.
+    public static Cell<int> Ag72ImmutableArrayAnyRunsItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); bool any = a.Any(x => x > l.Sample()); return S.Hold(any ? 1 : 0); });
+
+    // S3163. An assignment to the member in an initializer calls the setter, which samples a pending member.
+    public static Cell<int> Ag72AssignmentInAnInitializerCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Slot = new SettableSlot() }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3164. An assignment to the member in an initializer calls the setter, which samples the pending cell of its value.
+    public static Cell<int> Ag72AssignmentInAnInitializerGivesTheSetterAPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = new SettableSlot { Share = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3165. The parameterless constructor of the same kind of record runs the initializer, which samples the static field that the block set.
+    public static Cell<int> Ag72NewRunsAnInitializerOfTheRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SharedForANew = l.Map(v => v); Ag72NotedNew a = new(); Kept.Add(a); return S.Hold(0); });
+
+    // S3166. A with expression gives a pending cell to a record whose initializer samples the parameter of the primary constructor. The copy constructor of the code does not run the initializer.
+    public static Cell<int> Ag72WithOnARecordWhoseInitializerReadsItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Started a = new(Plain); Ag72Started b = a with { Start = l.Map(v => v) }; Kept.Add(b); return S.Hold(0); });
+
+    // S3167. A slice with no pattern of its own calls no Slice.
+    public static Cell<int> Ag72SliceWithNoPatternCallsNoSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); bool some = r is [_, ..]; return S.Hold(some ? 1 : 0); });
+
+    // S3168. A list pattern with an element after a slice calls the indexer of the type, which samples a pending member.
+    public static Cell<int> Ag72ListPatternFromTheEndCallsTheIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); bool some = r is [.., var last]; return S.Hold(some ? 1 : 0); });
+
+    // S3169. A slice pattern on a type whose Slice reads a plain cell reads nothing pending.
+    public static Cell<int> Ag72SlicePatternWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(Plain); bool some = r is [_, .. var rest]; Kept.Add(l.Map(v => v)); return S.Hold(some ? 1 : 0); });
+
+    // S3170. A spread into a type with a collection builder calls the Create method, which samples an element.
+    public static Cell<int> Ag72SpreadIntoATypeWithABuilderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; R2Pack p = [.. cells]; Kept.Add(p); return S.Hold(0); });
+
+    // S3171. A spread of plain cells into a collection type of this file reads nothing pending.
+    public static Cell<int> Ag72SpreadOfPlainCellsIntoATypeWithAnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2Pile p = [.. cells]; Kept.Add(p); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3172. A collection initializer for a type whose Add is an extension method calls it, and it samples the value.
+    public static Cell<int> Ag72CollectionInitializerCallsAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = new() { l.Map(v => v) }; Kept.Add(b); return S.Hold(0); });
+
+    // S3173. A collection expression of a plain cell for a type whose Add is an extension method reads nothing pending.
+    public static Cell<int> Ag72CollectionExpressionWithAnExtensionAddOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = [Plain]; Kept.Add(b); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3174. Two tuples in variables with plain elements compared read nothing pending.
+    public static Cell<int> Ag72TwoTuplesInVariablesOfPlainElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(Plain); R2Same b = new(Plain); (R2Same, int) first = (a, 1); (R2Same, int) second = (b, 1); bool same = first == second; Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3175. A tuple equality of tuples in tuples calls the equality operator of each inner element.
+    public static Cell<int> Ag72NestedTupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = ((a, 1), 2) == ((b, 1), 2); return S.Hold(same ? 1 : 0); });
+
+    // S3176. A tuple equality converts an element with a conversion of the code, which samples a pending member.
+    public static Cell<int> Ag72ConversionOfAnElementInATupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); bool same = (f, 1) == (true, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3177. A tuple equality converts a plain element with a conversion of the code, and reads nothing pending.
+    public static Cell<int> Ag72ConversionOfAPlainElementInATupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(Plain); bool same = (f, 1) == (true, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3178. With no tuple, the same operator and the same conversion of its result to bool.
+    public static Cell<int> Ag72ConversionOfTheResultOfAnOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(l.Map(v => v)); Ag72Judged b = new(Plain); bool same = a == b; return S.Hold(same ? 1 : 0); });
+
+    // S3179. A using statement of a bindable action with a plain enablement cell reads nothing pending.
+    public static Cell<int> Ag72UsingStatementOfAnActionWithAPlainEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => v > 0))) { } Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3180. A using statement of a one-way bindable over a pending cell. Its Dispose reads no cell.
+    public static Cell<int> Ag72UsingStatementOfAOneWayOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateOneWay(l.Map(v => v))) { } return S.Hold(0); });
+
+    // S3181. An async helper samples after an await of ValueTask.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfTheCompletedValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterTheCompletedValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S3182. An async helper samples after an await of an async helper that waits for a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAnAsyncHelperThatWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAHelperThatWaits(l).Wait(0); return S.Hold(0); });
+
+    // S3183. The block removes a different handler, thus the handler that samples runs at the raise.
+    public static Cell<int> Ag72ADifferentHandlerRemovedBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); Action other = () => Kept.Add(0); b.Rang += h; b.Rang -= other; b.Ring(); return S.Hold(0); });
+
+    // S3184. The block removes the handler after the raise, thus the handler runs.
+    public static Cell<int> Ag72HandlerRemovedAfterTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Ring(); b.Rang -= h; return S.Hold(0); });
+
+    // S3185. The block removes the handler only in a branch that does not run, thus the handler runs at the raise.
+    public static Cell<int> Ag72HandlerRemovedInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; if (Kept.Count < 0) { b.Rang -= h; } b.Ring(); return S.Hold(0); });
+
+    // S3186. The block removes a second lambda with the same text, which is a different delegate. Thus, the first lambda runs at the raise.
+    public static Cell<int> Ag72ASecondLambdaWithTheSameTextRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l.Sample()); b.Rang -= () => Kept.Add(l.Sample()); b.Ring(); return S.Hold(0); });
+
+    // S3187. An accumulation of cells whose function gives a cell linked to the placeholder. A send in the block runs the function, and the switch selects the cell.
+    public static Cell<int> Ag72AccumOfCellsWhoseFunctionGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Cell<int>> acc = s.Accum(initialState: Plain, f: (_, c) => l.Map(v => v)); s.Send(1); return acc.SwitchC(); });
+
+    // S3188. An accumulation of records whose initial state holds a pending cell. The block switches the cell of the record and samples it.
+    public static Cell<int> Ag72AccumOfRecordsFromAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Accum(initialState: new Ag72Step(l.Map(v => v)), f: (_, r) => r).Map(r => r.Share).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3189. An accumulation of records whose function gives a record with a plain cell has no cycle.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(Plain.Map(v => v + 1))); s.Send(1); Kept.Add(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3190. A constant cell of a record that holds a pending cell. The block switches the cell of the record and samples it.
+    public static Cell<int> Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.Constant(new Ag72Step(l.Map(v => v))).Map(r => r.Share).SwitchC().Sample(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -17367,6 +17495,147 @@ public static class Shapes
         public ISlotLine Line { get; } = NewSlotLine();
     }
 
+    public sealed class Ag72SetterRack(Cell<int> share)
+    {
+        private SettableSlot slot = new();
+        private List<int> counts = [];
+
+        public SettableSlot Slot
+        {
+            get => this.slot;
+            set
+            {
+                Kept.Add(share.Sample());
+                this.slot = value;
+            }
+        }
+
+        public List<int> Counts
+        {
+            get => this.counts;
+            set
+            {
+                Kept.Add(share.Sample());
+                this.counts = value;
+            }
+        }
+
+        public SettableSlot Read
+        {
+            get
+            {
+                Kept.Add(share.Sample());
+
+                return this.slot;
+            }
+            set => this.slot = value;
+        }
+    }
+
+    public sealed class Ag72ValueRack
+    {
+        private SettableSlot slot = new();
+
+        public SettableSlot Slot
+        {
+            get => this.slot;
+            set
+            {
+                Kept.Add(value.Share!.Sample());
+                this.slot = value;
+            }
+        }
+    }
+
+    private static Cell<int> Ag72SharedForANew = Plain;
+
+    public sealed record Ag72NotedNew
+    {
+        public Ag72NotedNew()
+        {
+        }
+
+        private Ag72NotedNew(Ag72NotedNew other) => this.Noted = other.Noted;
+
+        public int Noted { get; init; } = Ag72SharedForANew.Sample();
+    }
+
+    public sealed record Ag72Started(Cell<int> Start)
+    {
+        private Ag72Started(Ag72Started other)
+        {
+            this.Start = other.Start;
+            this.Noted = other.Noted;
+        }
+
+        public int Noted { get; init; } = Start.Sample();
+    }
+
+    public sealed class Ag72Cut(Cell<int> share)
+    {
+        public int Count => 2;
+
+        public int this[int index] => index;
+
+        public Ag72Cut Slice(int start, int length)
+        {
+            Kept.Add(share.Sample() + start + length);
+
+            return this;
+        }
+    }
+
+    public sealed class Ag72Bare : IEnumerable<Cell<int>>
+    {
+        private readonly List<Cell<int>> all = [];
+
+        public void Put(Cell<int> c, int now)
+        {
+            Kept.Add(now);
+            this.all.Add(c);
+        }
+
+        public IEnumerator<Cell<int>> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ag72Verdict(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static implicit operator bool(Ag72Verdict v) => v.Share.Sample() > 0;
+    }
+
+    public sealed class Ag72Judged(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static Ag72Verdict operator ==(Ag72Judged a, Ag72Judged b) => new(a.Share);
+
+        public static Ag72Verdict operator !=(Ag72Judged a, Ag72Judged b) => new(b.Share);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 0;
+    }
+
+    private static async Task Ag72Waits() => await R2NeverDone.Task;
+
+    private static async Task Ag72ReadAfterTheCompletedValueTask(Cell<int> c)
+    {
+        await ValueTask.CompletedTask;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAHelperThatWaits(Cell<int> c)
+    {
+        await Ag72Waits();
+        Kept.Add(c.Sample());
+    }
+
+    public sealed record Ag72Step(Cell<int> Share);
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -17375,6 +17644,8 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static void Add(this Shapes.Ag72Bare bare, Cell<int> c) => bare.Put(c, c.Sample());
+
     public static Shapes.IAg59Keeper Ag59MakeBehindBeside<T>(this Shapes.SettableSlot slot)
         where T : Shapes.IAg59Keeper, new()
     {
