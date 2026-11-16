@@ -2267,7 +2267,9 @@ internal sealed class LoopReadAnalyzerTests
             ["DvLinksLaterSwitchSOfLinkedCells"] = ["SF1002"],
             ["DvLinksLaterSnapshotOfACellOfALinkedCell"] = ["SF1002"],
             ["DvLinksSwitchCOfASwitchC"] = ["SF1002"],
-            ["DvLinksEscapeOfThePlaceholderAsObject"] = ["SF1003"]
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = ["SF1003"],
+            ["DvLinksBlockInADelegateLocal"] = ["SF1002"],
+            ["Ag73BlockInADelegateLocalSamples"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

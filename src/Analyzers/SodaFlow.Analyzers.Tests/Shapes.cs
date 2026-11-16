@@ -15155,6 +15155,22 @@ public static class Shapes
     public static Cell<int> Ab131EscapeAssertedInParenthesesThenMapped() =>
         Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((l.AsCell())!.Map(v => v)); return S.Hold(0); });
 
+    // S3370. A block in a local of a delegate type, closed with a map of the placeholder.
+    public static Cell<int> DvLinksBlockInADelegateLocal() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => l.Map(v => v); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3371. Control. A block in a local of a delegate type, which snapshots the placeholder and holds.
+    public static Cell<int> Ag73BlockInADelegateLocalSnapshots() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => S.Snapshot(l, (s, v) => s + v).Hold(0); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3372. A block in a local of a delegate type, which samples the placeholder.
+    public static Cell<int> Ag73BlockInADelegateLocalSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => S.Hold(l.Sample()); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3373. Control. A local of a delegate type that gets a second function before the block runs. The analyzer does not know which function runs, and reads none.
+    public static Cell<int> Ag73BlockInADelegateLocalAssignedTwice() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => l.Map(v => v); f = l => S.Hold(0); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

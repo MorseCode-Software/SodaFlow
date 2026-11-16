@@ -204,10 +204,20 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     /// <summary>
     ///     The placeholder and the body of a block. The block can be a lambda, an
     ///     anonymous method, or the name of a method or a local function of this
-    ///     compilation. A delegate from a different source has no body to read.
+    ///     compilation. It can also be a local of a delegate type that only its
+    ///     declaration gives a value. A delegate from a different source has no
+    ///     body to read.
     /// </summary>
     private static (ISymbol Placeholder, SyntaxNode Body)? BlockOf(ExpressionSyntax written, SemanticModel model)
     {
+        if (written is IdentifierNameSyntax
+            && model.GetSymbolInfo(written).Symbol is ILocalSymbol { Type.TypeKind: TypeKind.Delegate } delegateLocal)
+        {
+            return OnlyFunctionOf(local: delegateLocal, model: model) is { } assigned
+                ? BlockOf(written: assigned, model: model)
+                : null;
+        }
+
         if (written is AnonymousFunctionExpressionSyntax function)
         {
             ParameterSyntax? parameter =
@@ -244,6 +254,40 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             };
 
         return body != null && position < method.Parameters.Length ? (method.Parameters[position], body) : null;
+    }
+
+    /// <summary>
+    ///     The lambda or the anonymous method that the declaration of a local
+    ///     gives it. Null when the code can give the local a different value, by
+    ///     an assignment or through a reference.
+    /// </summary>
+    private static AnonymousFunctionExpressionSyntax? OnlyFunctionOf(ILocalSymbol local, SemanticModel model)
+    {
+        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax
+                {
+                    Initializer.Value: AnonymousFunctionExpressionSyntax function
+                } declarator
+            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        {
+            return null;
+        }
+
+        bool changes =
+            scope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(name => name.Identifier.ValueText == local.Name)
+                .Any(name =>
+                    name.Parent switch
+                    {
+                        AssignmentExpressionSyntax assignment => assignment.Left == name,
+                        ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+                        RefExpressionSyntax => true,
+                        _ => false
+                    }
+                    && SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(name).Symbol, y: local));
+
+        return changes ? null : function;
     }
 
     /// <summary>
