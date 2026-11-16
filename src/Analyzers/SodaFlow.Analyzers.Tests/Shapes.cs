@@ -14050,6 +14050,26 @@ public static class Shapes
     public static Cell<int> Ag72UsingStatementOfAnActionInALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); using (a) { } return S.Hold(0); });
 
+    // S3194. An accumulation of records whose function gives a record with a cell linked to the placeholder. A send in the block runs the function, and the switch selects the cell of the record.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(l.Map(v => v))); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3195. An accumulation of records from a stream of cells. Its static function puts the cell of the firing into the record. A send in the block, before the accumulation, gives the stream a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsFromAStreamOfLinkedCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3196. An accumulation of records whose function calls a local function, which gives a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionCallsALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> Linked() => l.Map(v => v); StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(Linked())); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3197. An accumulation of records whose function copies the record with a local that holds a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> d = l.Map(v => v); StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => r with { Share = d }); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3198. An accumulation of records whose static function gives a record with a plain cell has no cycle.
+    public static Cell<int> Ag72AccumOfRecordsWhoseStaticFunctionGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (n, r) => new Ag72Step(Plain.Map(v => v + 1))); s.Send(1); Kept.Add(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -5181,6 +5181,9 @@ internal sealed partial class LoopStateEvaluator
                 "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
                 "Accum" or "AccumLazy" => initial.Join(
                     this.AccumulatesValuesOfTheGraph(method)
+                    || this.FunctionCanGiveAState(
+                        invocation: invocation,
+                        given: receiverState.Content.AfterTheClose)
                         ? this.LambdaContent(
                                 invocation: invocation,
                                 parameterState: receiverState.Content.AfterTheClose)
@@ -5190,11 +5193,63 @@ internal sealed partial class LoopStateEvaluator
             };
 
     // The walk of the function of an accumulation costs much in a view model, which accumulates
-    // records. Thus, the walk reads the function only for an accumulation of cells or streams.
+    // records. Thus, the walk always reads the function only for an accumulation of cells or
+    // streams. For each other accumulation, FunctionCanGiveAState decides.
     private bool AccumulatesValuesOfTheGraph(IMethodSymbol method) =>
         method.ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } result
         && (this.region.Symbols.IsCellOrBehaviorType(result.TypeArguments[0])
             || this.region.Symbols.IsStreamType(result.TypeArguments[0]));
+
+    /// <summary>
+    ///     True when the function of an accumulation of other values, such as
+    ///     records, can return a value with a state. This is a check of the syntax
+    ///     only, as <see cref="CanUseState" /> is. The walk reads the function only
+    ///     then, and an accumulation that cannot give a state stays cheap.
+    /// </summary>
+    /// <remarks>
+    ///     A function gets a value with a state through its parameters, when the
+    ///     stream has content. A static lambda has no other source. Each other
+    ///     lambda can also name a local, a parameter, or a member that has a state.
+    ///     It can also call a local function or a member of this object.
+    /// </remarks>
+    private bool FunctionCanGiveAState(InvocationExpressionSyntax invocation, LoopState given)
+    {
+        if (!given.IsNone || this.region.HasFields)
+        {
+            return true;
+        }
+
+        AnonymousFunctionExpressionSyntax? lambda =
+            invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault();
+
+        if (lambda == null || lambda.Modifiers.Any(SyntaxKind.StaticKeyword))
+        {
+            return false;
+        }
+
+        HashSet<string> names = this.NamesWithState();
+
+        return lambda.Body.DescendantNodesAndSelf()
+            .Any(node =>
+                node switch
+                {
+                    ThisExpressionSyntax => this.thisMembers.Count > 0,
+                    InvocationExpressionSyntax { Expression: SimpleNameSyntax called } =>
+                        this.thisMembers.Count > 0
+                        || NamesALocalFunction(from: lambda, name: called.Identifier.ValueText),
+                    IdentifierNameSyntax name => names.Contains(name.Identifier.ValueText),
+                    _ => false
+                });
+
+        static bool NamesALocalFunction(SyntaxNode from, string name) =>
+            from.Ancestors()
+                .OfType<BlockSyntax>()
+                .SelectMany(static block => block.Statements.OfType<LocalFunctionStatementSyntax>())
+                .Any(function => function.Identifier.ValueText == name);
+    }
 
     private LoopState EvalLambdaResult(
         AnonymousFunctionExpressionSyntax lambda,

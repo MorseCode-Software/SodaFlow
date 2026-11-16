@@ -2153,7 +2153,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead"] = ["SF1001"],
             ["Ag72UsingStatementOfAnActionWithAPendingEnablement"] = ["SF1001"],
             ["Ag72UsingDeclarationOfAnActionWithAPendingEnablement"] = ["SF1001"],
-            ["Ag72UsingStatementOfAnActionInALocal"] = ["SF1001"]
+            ["Ag72UsingStatementOfAnActionInALocal"] = ["SF1001"],
+            ["Ag72AccumOfRecordsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["Ag72AccumOfRecordsFromAStreamOfLinkedCells"] = ["SF1002"],
+            ["Ag72AccumOfRecordsWhoseFunctionCallsALocalFunction"] = ["SF1002"],
+            ["Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
