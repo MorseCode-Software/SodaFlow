@@ -139,7 +139,12 @@ internal sealed partial class LoopStateEvaluator
     ///     name only for a local of its own. One run of the function makes such
     ///     a local, and the two names are one value in that run.
     /// </remarks>
-    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written)
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written) =>
+        this.TheFirstNameOf(written: written, at: written);
+
+    // The same, with the first name read at a given use. The location of a name with ref needs
+    // it: the walk reads that location again at each use of the name with ref.
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written, SyntaxNode at)
     {
         if (this.Frame.FirstNameOf.Count == 0)
         {
@@ -156,14 +161,14 @@ internal sealed partial class LoopStateEvaluator
                 || this.region.SymbolOf(name) is not { } second
                 || (this.function != null && !IsDeclaredIn(local: second, code: this.function))
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
-                || FunctionOf(written) is not { } code
+                || FunctionOf(at) is not { } code
                 || this.region.SymbolOf(first) is not { } firstName
                 || new[] { firstName, second }.Any(one =>
                     this.GetsAValue(
                         name: one,
                         code: code,
                         after: first.Span.End,
-                        before: written.SpanStart,
+                        before: at.SpanStart,
                         orAFunctionUsesIt: false)))
             {
                 break;
@@ -1690,7 +1695,12 @@ internal sealed partial class LoopStateEvaluator
         // A write through a name with ref is a write through its location, read at this time.
         ExpressionSyntax? written = owner;
 
-        if (owner != null && (this.TheLocationOf(owner) ?? this.TheFirstNameOf(owner)) is { } location)
+        // The location can be a second name. Its first name holds from the code that gave the
+        // location its value up to this write.
+        if (owner != null
+            && (this.TheLocationOf(owner) is { } named
+                ? this.TheFirstNameOf(written: named, at: owner) ?? named
+                : this.TheFirstNameOf(owner)) is { } location)
         {
             this.EvalAgain(location);
             owner = location;

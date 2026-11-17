@@ -2727,7 +2727,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab191HelperFillsAnArrayAndReadsAnElementByRef"] = ["SF1002"],
             ["Ab191HelperSetsARefFillsAndReads"] = ["SF1002"],
             ["Ab191HelperSetsARefSetsAnElementAndReads"] = ["SF1002"],
-            ["Ab191HelperSetsAnElementAndReadsItByIn"] = ["SF1002"]
+            ["Ab191HelperSetsAnElementAndReadsItByIn"] = ["SF1002"],
+            ["Ab190PendingThroughARefLocalWhoseLocationGotAnotherLocal"] = ["SF1001"],
+            ["Ab190PendingThroughARefLocalAfterItsLocationGetsAnotherLocal"] = ["SF1001"],
+            ["Ab190PendingThroughARefLocalReachesTheFirstNameOfTheFirstName"] = ["SF1001"],
+            ["Ab190PlainCellThroughARefLocalAfterItsLocationGetsAValueByOut"] = ["SF1001"],
+            ["Ab190PendingThroughTheLocationOfARefLocal"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
