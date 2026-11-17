@@ -119,6 +119,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresSlice;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
+    private readonly Lazy<IMethodSymbol?> formattableToString;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -201,6 +202,13 @@ internal sealed class SodaFlowSymbols
             root.GetMembers("GetHashCode")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(static method => method.Parameters.IsEmpty);
+
+        this.formattableToString =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.IFormattable")
+                    ?.GetMembers("ToString")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static method => method.Parameters.Length == 2));
 
         this.DisposableDispose =
             compilation.GetSpecialType(SpecialType.System_IDisposable)
@@ -289,6 +297,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
     public IMethodSymbol? ObjectToString { get; }
+
+    /// <summary>
+    ///     <c>ToString</c> of <c>IFormattable</c>, which an interpolation calls on
+    ///     an object that implements it.
+    /// </summary>
+    public IMethodSymbol? FormattableToString => this.formattableToString.Value;
 
     /// <summary><c>Equals</c> of <c>object</c>, with one parameter.</summary>
     public IMethodSymbol? ObjectEquals { get; }

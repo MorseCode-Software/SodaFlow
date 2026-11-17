@@ -17318,6 +17318,58 @@ public static class Shapes
     public static Cell<int> Ab167OverrideOfAKeptConditionalMethodRuns() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab167LoudChild c = new(); c.Log(l.Sample()); return S.Hold(0); });
 
+    // S3852. An interpolation calls the ToString of IFormattable, which samples a pending member, and not the plain ToString.
+    public static Cell<int> R3CsInterpolationCallsIFormattable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsFormatted f = new(l.Map(v => v)); string s = $"n{f}"; return S.Hold(s.Length); });
+
+    // S3853. The ToString of a record calls the ToString of each value that it prints, and that ToString samples a pending member.
+    public static Cell<int> R3CsRecordToStringCallsToStringOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsShows r = new(new Titled(l.Map(v => v))); string s = $"n{r}"; return S.Hold(s.Length); });
+
+    // S3854. The ToString of a tuple calls the ToString of each item, and that ToString samples a pending member.
+    public static Cell<int> R3CsTupleToStringCallsToStringOfAnItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); string s = $"n{(t, 1)}"; return S.Hold(s.Length); });
+
+    // S3855. An interpolation calls the ToString of IFormattable on an object that implements it, and not the plain ToString that samples a pending member.
+    public static Cell<int> Ab170InterpolationDoesNotCallThePlainToStringOfAnIFormattable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab170Formatted f = new(l.Map(v => v)); string s = $"n{f}"; return S.Hold(s.Length); });
+
+    // S3856. A value is one of an IFormattable and an object whose plain ToString samples a pending member, and the interpolation gets the second.
+    public static Cell<int> Ab170InterpolationOfOneOfAnIFormattableAndAPlainObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = Numbers.Length > 100 ? new Ab170Formatted(l.Map(v => v)) : new Titled(l.Map(v => v)); string s = $"n{o}"; return S.Hold(s.Length); });
+
+    // S3857. The ToString of a record calls the ToString of a public field, which samples a pending member.
+    public static Cell<int> Ab170RecordToStringCallsToStringOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab170Fielded r = new() { Field = new Titled(l.Map(v => v)) }; string s = $"n{r}"; return S.Hold(s.Length); });
+
+    // S3858. The ToString of a record calls the ToString of a member with a plain cell.
+    public static Cell<int> Ab170RecordToStringOfAMemberWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsShows r = new(new Titled(Plain)); string s = $"n{r}"; return S.Snapshot(l, (a, b) => a + b + s.Length).Hold(0); });
+
+    // S3859. The ToString of a record calls the plain ToString of a member that is an IFormattable, and that ToString reads nothing.
+    public static Cell<int> Ab170RecordToStringCallsThePlainToStringOfAnIFormattable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab170ShowsFormatted r = new(new R3CsFormatted(l.Map(v => v))); string s = $"n{r}"; return S.Hold(s.Length); });
+
+    // S3860. The ToString of a record calls the ToString of a record of the same type in it, which prints a member that samples a pending member.
+    public static Cell<int> Ab170RecordToStringCallsToStringOfAnInnerRecordOfItsType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab170Node n = new(new Titled(Plain), new Ab170Node(new Titled(l.Map(v => v)), null)); string s = $"n{n}"; return S.Hold(s.Length); });
+
+    // S3861. The ToString of a tuple in a tuple calls the ToString of each item of the inner tuple.
+    public static Cell<int> Ab170TupleToStringCallsToStringOfAnItemOfAnInnerTuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); string s = $"n{((t, 1), 2)}"; return S.Hold(s.Length); });
+
+    // S3862. The ToString of a tuple calls the ToString of an item with a plain cell.
+    public static Cell<int> Ab170TupleToStringOfAnItemWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); string s = $"n{(t, 1)}"; return S.Snapshot(l, (a, b) => a + b + s.Length).Hold(0); });
+
+    // S3863. The ToString of a tuple calls the plain ToString of an item that is an IFormattable, and that ToString reads nothing.
+    public static Cell<int> Ab170TupleToStringCallsThePlainToStringOfAnIFormattable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsFormatted f = new(l.Map(v => v)); string s = $"n{(f, 1)}"; return S.Hold(s.Length); });
+
+    // S3864. A record holds itself, and its ToString calls the ToString of a member before it prints itself again. That ToString samples a pending member.
+    public static Cell<int> Ab170RecordThatHoldsItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab170Loop a = new() { Part = new Titled(l.Map(v => v)) }; a.Next = a; string s = $"n{a}"; return S.Hold(s.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23271,6 +23323,29 @@ public static class Shapes
     public sealed class Ab167LoudChild : Ab167LoudLogger
     {
         public override void Log(int value) => Kept.Add(value + 1);
+    }
+
+    public sealed class Ab170Formatted(Cell<int> share) : IFormattable
+    {
+        public override string ToString() => share.Sample().ToString();
+
+        public string ToString(string? format, IFormatProvider? formatProvider) => "r3";
+    }
+
+    public sealed record Ab170Fielded
+    {
+        public Titled? Field;
+    }
+
+    public sealed record Ab170ShowsFormatted(R3CsFormatted Part);
+
+    public sealed record Ab170Node(Titled Part, Ab170Node? Next);
+
+    public sealed record Ab170Loop
+    {
+        public Titled? Part { get; set; }
+
+        public Ab170Loop? Next { get; set; }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

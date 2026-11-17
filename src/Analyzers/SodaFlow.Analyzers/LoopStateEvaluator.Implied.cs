@@ -86,6 +86,12 @@ internal sealed partial class LoopStateEvaluator
                 return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
             case { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true } when owner != null:
                 return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
+            // The ToString of a tuple calls the ToString of each item.
+            case { Name: "ToString", Parameters.IsEmpty: true }
+                when owner is { Members.IsTuple: true } && call is ExpressionSyntax printed:
+                return owner.Members.TupleElements.Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, item) => Both(first: all, second: this.FollowToStringOf(call: printed, value: item)));
         }
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
@@ -156,26 +162,66 @@ internal sealed partial class LoopStateEvaluator
 
             result =
                 type.GetMembers()
-                    .OfType<IPropertySymbol>()
-                    .Where(static property =>
-                        property is
-                        {
-                            IsStatic: false,
-                            IsIndexer: false,
-                            IsOverride: false,
-                            DeclaredAccessibility: Accessibility.Public,
-                            GetMethod: not null
-                        })
+                    .Where(static member =>
+                        member is IPropertySymbol
+                            {
+                                IsStatic: false,
+                                IsIndexer: false,
+                                IsOverride: false,
+                                DeclaredAccessibility: Accessibility.Public,
+                                GetMethod: not null
+                            }
+                            or IFieldSymbol { IsStatic: false, DeclaredAccessibility: Accessibility.Public })
                     .Aggregate(
                         seed: result,
-                        func: (all, property) =>
-                            Both(
-                                first: all,
-                                second: this.FollowGetterOn(access: printed, written: property, owner: owner)));
+                        func: (all, member) =>
+                            Both(first: all, second: this.FollowPrinted(printed: printed, member: member, owner: owner)));
         }
 
         return result;
     }
+
+    // PrintMembers reads the value of each member, and calls the ToString of that value.
+    private Followed? FollowPrinted(ExpressionSyntax printed, ISymbol member, LoopState owner)
+    {
+        Followed? getter =
+            member is IPropertySymbol property
+                ? this.FollowGetterOn(access: printed, written: property, owner: owner)
+                : null;
+
+        return Both(
+            first: getter,
+            second: this.FollowToStringOf(
+                call: printed,
+                value: getter?.State ?? StateOfAMember(owner: owner, member: member)));
+    }
+
+    /// <summary>
+    ///     The <c>ToString</c> of <c>object</c> on a value that a record prints,
+    ///     or on an item of a tuple. Such a value has no node of its own. Thus,
+    ///     the walk does not keep the result for the node, as
+    ///     <see cref="FollowImplied" /> does.
+    /// </summary>
+    /// <remarks>
+    ///     A record that holds itself has a state that holds an earlier state of
+    ///     the record. A state does not hold itself. Thus, the walk through the
+    ///     printed values always ends.
+    /// </remarks>
+    private Followed? FollowToStringOf(ExpressionSyntax call, LoopState value) =>
+        this.region.Symbols.ObjectToString is { } toString && value.Members is { } members
+            ? members.Resolve(toString)
+                .OfType<IMethodSymbol>()
+                .Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, actual) =>
+                        Both(
+                            first: all,
+                            second: this.FollowImpliedDefinition(
+                                call: call,
+                                definition: actual.OriginalDefinition,
+                                owner: value,
+                                arguments: [])))
+            : null;
 
     /// <summary>
     ///     The <c>Deconstruct</c> that the compiler writes for a record. It gives
@@ -660,14 +706,38 @@ internal sealed partial class LoopStateEvaluator
     ///     The call of <c>ToString</c> that an interpolation makes on its value,
     ///     when the interpolated string formats it now.
     /// </summary>
-    public Followed? FollowInterpolation(InterpolationSyntax interpolation) =>
-        this.region.Symbols is { ObjectToString: { } toString } symbols
-        && (symbols.DeclaresToString || symbols.DeclaresRecords)
-        && this.Self(interpolation.Expression) is { Members: not null } owner
-        && interpolation.Parent is InterpolatedStringExpressionSyntax whole
-        && this.FormatsNow(whole)
-            ? this.FollowImplied(call: interpolation.Expression, member: toString, owner: owner, arguments: [])
-            : null;
+    public Followed? FollowInterpolation(InterpolationSyntax interpolation)
+    {
+        if (this.region.Symbols is not { ObjectToString: { } toString } symbols
+            || !(symbols.DeclaresToString || symbols.DeclaresRecords)
+            || this.Self(interpolation.Expression) is not { Members: { } members } owner
+            || interpolation.Parent is not InterpolatedStringExpressionSyntax whole
+            || !this.FormatsNow(whole))
+        {
+            return null;
+        }
+
+        ExpressionSyntax value = interpolation.Expression;
+
+        // The formatter calls the ToString of IFormattable on an object that implements it, and the
+        // ToString of object on each other object. Of two objects, the walk reads each one.
+        if (symbols is not { DeclaresToString: true, FormattableToString: { } formattable }
+            || !members.Is(formattable.ContainingType))
+        {
+            return this.FollowImplied(call: value, member: toString, owner: owner, arguments: []);
+        }
+
+        Construction formatted = members.Narrow(formattable.ContainingType);
+
+        Followed? result =
+            this.FollowImplied(call: value, member: formattable, owner: owner.WithMembers(formatted), arguments: []);
+
+        return ReferenceEquals(objA: formatted, objB: members)
+            ? result
+            : Both(
+                first: result,
+                second: this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
+    }
 
     // A FormattableString or an IFormattable keeps the values of the interpolated string, and
     // formats nothing at this point. A method of FormattableString that gets it formats it now.

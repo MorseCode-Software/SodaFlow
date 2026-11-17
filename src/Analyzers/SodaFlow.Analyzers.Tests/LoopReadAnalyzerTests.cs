@@ -2529,7 +2529,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab167TraceWriteLineRuns"] = ["SF1001"],
             ["Ab167ConditionalOnASymbolOfADirective"] = ["SF1001"],
             ["Ab167ConditionalOnTwoSymbolsWithOneDefined"] = ["SF1001"],
-            ["Ab167OverrideOfAKeptConditionalMethodRuns"] = ["SF1001"]
+            ["Ab167OverrideOfAKeptConditionalMethodRuns"] = ["SF1001"],
+            ["R3CsInterpolationCallsIFormattable"] = ["SF1005"],
+            ["R3CsRecordToStringCallsToStringOfAMember"] = ["SF1005"],
+            ["R3CsTupleToStringCallsToStringOfAnItem"] = ["SF1005"],
+            ["Ab170InterpolationOfOneOfAnIFormattableAndAPlainObject"] = ["SF1005"],
+            ["Ab170RecordToStringCallsToStringOfAField"] = ["SF1005"],
+            ["Ab170RecordToStringCallsToStringOfAnInnerRecordOfItsType"] = ["SF1005"],
+            ["Ab170TupleToStringCallsToStringOfAnItemOfAnInnerTuple"] = ["SF1005"],
+            ["Ab170RecordThatHoldsItself"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
