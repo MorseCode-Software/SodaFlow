@@ -319,7 +319,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a `foreach` runs
   later as well when such an `await` comes before it in its scope. An `await foreach` runs its body
   in the block only for an item that the sequence gives at once, and the code after it only when
-  every item comes at once. An async iterator runs nothing until something enumerates it.
+  every item comes at once. An async iterator runs nothing until something enumerates it. A method
+  of `SodaFlow.Functional` that gets a task and returns one, such as the `Map` of a
+  `Task<Maybe<T>>`, awaits that task first, so its function runs in the block only when the
+  analyzer knows that the task is complete.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 

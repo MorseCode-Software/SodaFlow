@@ -16843,6 +16843,34 @@ public static class Shapes
     public static Cell<int> Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = Ab163Tally(l.Map(v => v), (await Task.FromResult(new[] { 1 })).Length); }; run().Wait(0); return S.Hold(0); });
 
+    // S3734. The Map of SodaFlow.Functional on a task of a Maybe awaits that task, which never completes, so the function that samples the placeholder never runs.
+    public static Cell<int> R3CsAsyncMapOfAMaybeTaskWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Maybe<int>> m = R3CsNeverMaybe.Task.Map(c => c.Sample() + l.Sample()); Kept.Add(m); return S.Hold(0); });
+
+    // S3735. Control: the Map of SodaFlow.Functional on a complete task of a Maybe runs its function in the call, and the function samples the pending cell of the Maybe.
+    public static Cell<int> Ab164AsyncMapOfACompleteMaybeTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Task.FromResult(Maybe.Some(l.Map(v => v))).Map(c => c.Sample()).Result); return S.Hold(0); });
+
+    // S3736. The Map of SodaFlow.Functional on a task of a Maybe that never completes gets a function from a local, so the function that samples the placeholder never runs.
+    public static Cell<int> Ab164AsyncMapOfAMaybeTaskWaitsWithAStoredFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = c => c.Sample() + l.Sample(); Kept.Add(R3CsNeverMaybe.Task.Map(f)); return S.Hold(0); });
+
+    // S3737. Control: the Map of SodaFlow.Functional on a complete task of a Maybe gets a function from a local, and runs it in the call.
+    public static Cell<int> Ab164AsyncMapOfACompleteMaybeTaskWithAStoredFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = c => c.Sample() + l.Sample(); Kept.Add(Task.FromResult(Maybe.Some(Plain)).Map(f).Result); return S.Hold(0); });
+
+    // S3738. Control: the MapAsync of SodaFlow.Functional on a Maybe gets no task, and runs its function in the call.
+    public static Cell<int> Ab164MapAsyncOfAMaybeRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Maybe.Some(l.Map(v => v)).MapAsync(c => Task.FromResult(c.Sample())).Result); return S.Hold(0); });
+
+    // S3739. The Where of SodaFlow.Functional on a task of a Maybe that never completes awaits that task, so the predicate that samples the placeholder never runs.
+    public static Cell<int> Ab164AsyncWhereOfAMaybeTaskWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsNeverMaybe.Task.Where(c => c.Sample() + l.Sample() > 0)); return S.Hold(0); });
+
+    // S3740. The Map of SodaFlow.Functional, called as a static method, gets a task of a Maybe that never completes, so the function that samples the placeholder never runs.
+    public static Cell<int> Ab164AsyncMapCalledAsAStaticMethodWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(MaybeAsyncExtensionMethods.Map(R3CsNeverMaybe.Task, c => c.Sample() + l.Sample())); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

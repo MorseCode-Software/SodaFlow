@@ -336,6 +336,50 @@ internal sealed partial class LoopStateEvaluator
         && this.region.TryEnterForObjects();
 
     /// <summary>
+    ///     True for a call of a method that gets a task that can be not complete.
+    ///     The method is of a package with no graph, and returns a task. Such a
+    ///     method awaits the task before it runs a function that it gets. Thus,
+    ///     the function runs after the call.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="method">The callee.</param>
+    public bool WaitsBeforeItsFunctions(InvocationExpressionSyntax call, IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (definition.ContainingAssembly is not { } assembly
+            || !SodaFlowSymbols.PackagesWithNoGraph.Contains(assembly.Name)
+            || definition.ReturnType is not INamedTypeSymbol returned
+            || !SodaFlowSymbols.IsTask(returned))
+        {
+            return false;
+        }
+
+        // The receiver of an extension method is the argument of its first parameter.
+        ExpressionSyntax? receiver =
+            method.ReducedFrom != null
+                ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
+                : null;
+
+        IEnumerable<ExpressionSyntax> tasks =
+            call.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)?.Type
+                        is INamedTypeSymbol type
+                    && SodaFlowSymbols.IsTask(type))
+                .Select(static argument => argument.Expression);
+
+        if (receiver != null
+            && definition.Parameters[0].Type is INamedTypeSymbol owner
+            && SodaFlowSymbols.IsTask(owner))
+        {
+            tasks = tasks.Append(receiver);
+        }
+
+        return tasks.Any(task => !CompleteTasks.IsComplete(region: this.region, task: task));
+    }
+
+    /// <summary>
     ///     The evaluator for the body of a callee, with each parameter bound to
     ///     the state of its argument. The parameter is the origin of that state.
     /// </summary>

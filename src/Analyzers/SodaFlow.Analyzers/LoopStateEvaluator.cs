@@ -3630,7 +3630,8 @@ internal sealed partial class LoopStateEvaluator
             IParameterSymbol? parameter = ParameterFor(method: method, argument: arguments[i], position: i);
 
             if (written is AnonymousFunctionExpressionSyntax
-                || !RunsFunction(kind: kind, method: method, parameter: parameter))
+                || !RunsFunction(kind: kind, method: method, parameter: parameter)
+                || this.WaitsBeforeItsFunctions(call: invocation, method: method))
             {
                 continue;
             }

@@ -2751,7 +2751,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             LoopStateEvaluator.RunsFunction(
                 kind: kind,
                 method: method,
-                parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position));
+                parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position))
+            && !this.evaluator.WaitsBeforeItsFunctions(call: node, method: method);
     }
 
     // A method of the platform gives an out variable one of the values that its owner has, as

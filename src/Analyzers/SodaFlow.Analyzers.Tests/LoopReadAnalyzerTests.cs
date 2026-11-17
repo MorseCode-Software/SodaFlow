@@ -2472,7 +2472,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab163UsingStatementDisposesAfterACompleteAwait"] = ["SF1005"],
             ["Ab163UsingStatementDisposesBeforeTheAwait"] = ["SF1005"],
             ["Ab163ForeachDisposesAfterAnAwaitThatDoesNotRun"] = ["SF1005"],
-            ["Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer"] = ["SF1005"]
+            ["Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer"] = ["SF1005"],
+            ["Ab164AsyncMapOfACompleteMaybeTask"] = ["SF1001"],
+            ["Ab164AsyncMapOfACompleteMaybeTaskWithAStoredFunction"] = ["SF1001"],
+            ["Ab164MapAsyncOfAMaybeRunsNow"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
