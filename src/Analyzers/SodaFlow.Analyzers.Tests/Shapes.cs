@@ -17095,6 +17095,30 @@ public static class Shapes
     public static Cell<int> Ag76InsertWithNamedArgumentsBeforeAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Insert(item: one, index: 0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
 
+    // S3797. The block samples the placeholder only under a condition that is the constant false.
+    public static Cell<int> R3LimReadUnderAConstantFalseCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (R3LimOff) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S3798. The block samples the placeholder only in the else of a condition that is the constant true.
+    public static Cell<int> Ag77ReadInTheElseOfAConstantTrueCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (!R3LimOff) { Kept.Add(0); } else { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S3799. The block samples the placeholder only in the body of a while whose condition is the constant false.
+    public static Cell<int> Ag77ReadInAWhileWithAConstantFalseCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { while (R3LimOff) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S3800. The block samples the placeholder under a condition of two constants that is false.
+    public static Cell<int> Ag77ReadUnderAConstantExpressionThatIsFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (R3LimOff || 1 > 2) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S3801. The block samples the placeholder under a condition that is the constant true. A control.
+    public static Cell<int> Ag77ReadUnderAConstantTrueCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (!R3LimOff) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S3802. The block samples the placeholder in the else of a condition that is the constant false. A control.
+    public static Cell<int> Ag77ReadInTheElseOfAConstantFalseCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (R3LimOff) { Kept.Add(0); } else { Kept.Add(l.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

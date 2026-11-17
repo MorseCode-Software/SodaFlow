@@ -2502,7 +2502,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag75DictionaryGivenAPendingCellAfterItsInitializer"] = ["SF1001"],
             ["Ag75ElementAtOfThisCodeThatReverses"] = ["SF1001"],
             ["Ag75DictionaryKeepsACopyOfAStruct"] = ["SF1001"],
-            ["Ag76InsertUnderAConditionThatFailsBeforeAForeach"] = ["SF1001"]
+            ["Ag76InsertUnderAConditionThatFailsBeforeAForeach"] = ["SF1001"],
+            ["Ag77ReadUnderAConstantTrueCondition"] = ["SF1001"],
+            ["Ag77ReadInTheElseOfAConstantFalseCondition"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

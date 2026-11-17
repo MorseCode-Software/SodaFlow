@@ -344,7 +344,9 @@ careful side, so it can report a read that does not throw:
   other than `Add`, `Insert`, or `AddRange`, or that gets an item under a condition with no loop
   that adds on every pass, and for an item that an `AddRange` of anything but a literal put in.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
-  calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
+  calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
+  condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
+  that the constant rules out, and the body of a `while` whose condition is the constant `false`.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and

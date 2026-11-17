@@ -719,8 +719,47 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             incrementors: node.Incrementors);
     }
 
+    // A branch that a constant condition rules out never runs. Thus, the walk does not read it.
+    public override void VisitIfStatement(IfStatementSyntax node)
+    {
+        if (this.ConstantOf(node.Condition) is not { } always)
+        {
+            base.VisitIfStatement(node);
+
+            return;
+        }
+
+        this.Visit(node.Condition);
+        this.Visit(always ? node.Statement : node.Else);
+    }
+
+    // The value of a condition that is a constant. Null for each other condition. Only names,
+    // literals, and operators can make a constant. Thus, the walk asks the compiler only about
+    // such a condition.
+    private bool? ConstantOf(ExpressionSyntax condition) =>
+        condition.DescendantNodesAndSelf()
+            .All(static part =>
+                part
+                    is IdentifierNameSyntax
+                    or MemberAccessExpressionSyntax
+                    or LiteralExpressionSyntax
+                    or ParenthesizedExpressionSyntax
+                    or PrefixUnaryExpressionSyntax
+                    or BinaryExpressionSyntax)
+        && this.region.ModelFor(condition).GetConstantValue(condition) is { Value: bool value }
+            ? value
+            : null;
+
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
+        // A loop whose condition is the constant false runs no turn.
+        if (this.ConstantOf(node.Condition) == false)
+        {
+            this.Visit(node.Condition);
+
+            return;
+        }
+
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         base.VisitWhileStatement(node);
         this.VisitTheSecondTurn(loop: node, body: node.Statement, before: before, condition: node.Condition);
