@@ -2605,7 +2605,8 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab179MapFunctionReadsThroughACompoundAssignment"] = ["SF1001"],
             ["Ab179MapFunctionReadsThroughAConversion"] = ["SF1001"],
             ["Ab179MapFunctionReadsThroughAnImplicitCreation"] = ["SF1001"],
-            ["Ab179MapFunctionReadsThroughTheInitOfABaseType"] = ["SF1001"]
+            ["Ab179MapFunctionReadsThroughTheInitOfABaseType"] = ["SF1001"],
+            ["Ag89DebouncedLinkedCellHeldAndSwitched"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

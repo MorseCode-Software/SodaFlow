@@ -17854,6 +17854,14 @@ public static class Shapes
     public static Cell<int> Ab179MapFunctionReadsThroughTheInitOfABaseType() =>
         Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(_ => new Ab179PlainDerived { Ab179Source = l }.Got).Sample(); return S.Hold(x); });
 
+    // S3986. Debounce fires the last value of its stream in the transaction of the alarm. Thus, a debounced linked cell, held and switched as the close, is a cycle when the alarm fires.
+    public static Cell<int> Ag89DebouncedLinkedCellHeldAndSwitched() =>
+        ((Func<Cell<int>>)(() => { Ag89Clock clock = new(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Debounce(timers: clock.Timers, deadline: static now => now + 10).Hold(Plain); s.Send(l.Map(v => v)); return h.SwitchC(); }); try { clock.AdvanceTo(10); } finally { clock.Dispose(); } return c; }))();
+
+    // S3987. Debounce fires the last value of its stream in the transaction of the alarm. A debounced cell with no link, held and switched as the close, is not a cycle.
+    public static Cell<int> Ag89DebouncedPlainCellHeldAndSwitched() =>
+        ((Func<Cell<int>>)(() => { Ag89Clock clock = new(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Debounce(timers: clock.Timers, deadline: static now => now + 10).Hold(Plain); s.Send(Cell.Constant(4)); return h.SwitchC(); }); try { clock.AdvanceTo(10); } finally { clock.Dispose(); } return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24075,6 +24083,64 @@ public static class Shapes
 
     // A type with no code of its own, whose base type samples a cell.
     public sealed class Ab179PlainDerived : Ab179ReadingBase;
+
+    // A clock that a shape moves by hand, with the timer system over it. A step of the clock opens a
+    // transaction, and the timer system runs each timer that is due at the start of it.
+    public sealed class Ag89Clock : IDisposable, ITimerSystemImplementation<int>
+    {
+        private readonly List<(int Time, Action Callback, Ag89Timer Timer)> timers = [];
+
+        public Ag89Clock() => this.Timers = new TimerSystem<int>(implementation: this, handleException: static _ => { });
+
+        public TimerSystem<int> Timers { get; }
+
+        public int Now { get; private set; }
+
+        public void AdvanceTo(int now)
+        {
+            this.Now = now;
+            Transaction.RunVoid(static () => { });
+        }
+
+        public void Dispose() => this.Timers.Dispose();
+
+        public void Start(Action<Exception> handleException)
+        {
+        }
+
+        public void Stop()
+        {
+        }
+
+        public SodaFlow.Time.ITimer SetTimer(int time, Action callback)
+        {
+            Ag89Timer timer = new();
+            this.timers.Add((time, callback, timer));
+
+            return timer;
+        }
+
+        public void RunTimersTo(int now)
+        {
+            (int Time, Action Callback, Ag89Timer Timer)[] due =
+                [.. this.timers.Where(each => !each.Timer.Canceled && each.Time <= now)];
+
+            foreach ((int Time, Action Callback, Ag89Timer Timer) each in due)
+            {
+                this.timers.Remove(each);
+                each.Callback();
+            }
+        }
+    }
+
+    public sealed class Ag89Timer : SodaFlow.Time.ITimer
+    {
+        public bool Canceled { get; private set; }
+
+        public void Cancel() => this.Canceled = true;
+
+        public void Dispose() => this.Canceled = true;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

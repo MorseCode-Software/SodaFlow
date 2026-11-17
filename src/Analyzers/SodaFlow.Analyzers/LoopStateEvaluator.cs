@@ -2676,10 +2676,10 @@ internal sealed partial class LoopStateEvaluator
                     linked: false,
                     contentPending: false,
                     contentLinked: false),
-                // A defer and a split fire in a new transaction. Thus, they have no link, and fire
-                // what their stream fires, or each element of it.
+                // A defer, a split, and a debounce fire in a new transaction. Thus, they have no link,
+                // and fire what their stream fires, or each element of it.
                 OperatorRule.Later => LoopState.None.WithContent(source.Content.AsOneOfItsElements),
-                // A timer, a debounce, a listener, and a send: no state.
+                // A timer, a listener, and a send: no state.
                 OperatorRule.Break => LoopState.None,
                 OperatorRule.Default or OperatorRule.FoldCollection => DefaultLibraryResult(
                     symbols: this.region.Symbols,

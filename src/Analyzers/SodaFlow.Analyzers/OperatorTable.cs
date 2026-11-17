@@ -168,8 +168,9 @@ internal enum OperatorRule
     FoldCollection,
 
     /// <summary>
-    ///     A defer or a split. Its firings come in a new transaction, thus it has
-    ///     no link. It fires the values of its stream, or their elements.
+    ///     A defer, a split, or a debounce. Its firings come in a new transaction,
+    ///     thus it has no link. It fires the values of its stream, or their
+    ///     elements.
     /// </summary>
     Later,
 
@@ -723,11 +724,11 @@ internal static class OperatorTable
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
-            "Defer" or "Split" when ofStreams => OperatorRule.Later,
+            "Defer" or "Split" or "Debounce" when ofStreams => OperatorRule.Later,
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
-            "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
+            "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
     }
