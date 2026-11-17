@@ -17243,6 +17243,10 @@ public static class Shapes
     public static Cell<int> Ag75SortedDictionaryWithAnIgnorableCharacter() =>
         Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<string, Cell<int>> cells = new() { ["a"] = Plain, ["a\u00AD"] = l.Map(v => v) }; return S.Hold(cells["a"].Sample()); });
 
+    // S3834. A query expression over a task calls a Select of this code that keeps its function and does not run it. A control.
+    public static Cell<int> Ab172QuerySyntaxOverATaskWithAKeepingSelectWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<int> t = from c in Task.FromResult(l.Map(v => v)) select c.Sample(); Kept.Add(t); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23159,6 +23163,16 @@ file static class Helpers
         }
 
         return last ?? new Shapes.Ab165Item();
+    }
+
+    private static readonly List<object> Ab172Functions = [];
+
+    // A Select of this code for a task, which keeps its function and does not run it.
+    public static Task<TResult> Select<T, TResult>(this Task<T> task, Func<T, TResult> f)
+    {
+        Ab172Functions.Add(f);
+
+        return new TaskCompletionSource<TResult>().Task;
     }
 
     // An ElementAt of this code, which counts from the end and changes nothing.
