@@ -45,7 +45,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["abc"], ordering: CollectionOrdering.Matching)
             .Because("the last value fires one time, after the quiet");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -69,7 +69,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching)
             .Because("an alarm that fired holds no deadline");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -90,7 +90,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
             .Because("the debounce works again after it fired");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -120,7 +120,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching)
             .Because("the value of the last firing fires, and the value before it never fires");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -149,7 +149,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a after a"], ordering: CollectionOrdering.Matching)
             .Because("the cell of the source has the value of the firing before the alarm fires");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -194,7 +194,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
             .Because("a firing that shares the transaction of the alarm arms the alarm again");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     private static Stream<string> Debounced(Stream<string> keys, ManualClock clock) =>

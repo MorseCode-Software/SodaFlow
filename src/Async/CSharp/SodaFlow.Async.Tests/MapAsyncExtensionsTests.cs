@@ -36,7 +36,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -137,7 +137,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received[0]).IsEqualTo("done");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -166,7 +166,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -200,7 +200,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -236,7 +236,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -361,8 +361,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
     }
 
     [Test]
@@ -400,8 +400,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
     }
 
     // A posted action runs in a transaction of its own. The cancellation here is in a posted
@@ -443,8 +443,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
     }
 
     // A queued item runs no operation, thus the cancellation itself ends it. That end must also
@@ -491,8 +491,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
     }
 
     // The cancellation comes from the result of "a", thus it is in the transaction that ends "a".
@@ -533,8 +533,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(reported).IsEmpty();
 
         status.Dispose();
-        errorListener.Unlisten();
-        l.Unlisten();
+        errorListener.Dispose();
+        l.Dispose();
     }
 
     // A callback on the token of an operation can throw, and Cancel gives that throw to its
@@ -686,7 +686,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -739,7 +739,7 @@ public sealed class MapAsyncExtensionsTests
         op.Release(input: "a", result: "A");
         TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 0);
 
-        l.Unlisten();
+        l.Dispose();
         status.Dispose();
     }
 
@@ -913,7 +913,7 @@ public sealed class MapAsyncExtensionsTests
         Thread.Sleep(200);
         await Assert.That(received.Count).IsEqualTo(0);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -944,7 +944,7 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => received.Count == 1);
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A disposal in a transaction that is open. The send of the trigger waits for the close of that
@@ -982,7 +982,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(op.HasStarted("b")).IsFalse();
         await Assert.That(received.Count).IsEqualTo(0);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A disposal in a transaction whose body then throws. That transaction sends nothing, thus the
@@ -1200,7 +1200,7 @@ public sealed class MapAsyncExtensionsTests
 
         await Assert.That(Transaction.Run(tracked.Sample).Count).IsEqualTo(0).Because("the pipeline stays disposed");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The same disposal in a transaction that a listener after it fails. The trigger goes after the
@@ -1277,7 +1277,7 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => received.Count == 1);
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1303,7 +1303,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received[0]).IsSameReferenceAs(thrown);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1411,7 +1411,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1450,7 +1450,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(constructions.Count).IsEqualTo(0);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1508,8 +1508,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(constructions.Count).IsEqualTo(0);
 
         status.Dispose();
-        lr.Unlisten();
-        le.Unlisten();
+        lr.Dispose();
+        le.Dispose();
     }
 
     [Test]
@@ -1539,8 +1539,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(received.Count).IsEqualTo(0);
 
         status.Dispose();
-        lr.Unlisten();
-        le.Unlisten();
+        lr.Dispose();
+        le.Dispose();
     }
 
     [Test]
@@ -1652,7 +1652,7 @@ public sealed class MapAsyncExtensionsTests
             .IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1700,7 +1700,7 @@ public sealed class MapAsyncExtensionsTests
             .IsEquivalentTo(expected: ["A with queue of 1"], ordering: CollectionOrdering.Matching)
             .Because("the edit of the queue for an end is in the transaction that sends its result");
 
-        probe.Unlisten();
+        probe.Dispose();
         status.Dispose();
     }
 
@@ -1767,8 +1767,8 @@ public sealed class MapAsyncExtensionsTests
             .Because("each result reaches the stream, in the sequence of the admissions");
 
         status.Dispose();
-        batch.Unlisten();
-        l.Unlisten();
+        batch.Dispose();
+        l.Dispose();
     }
 
     [Test]
@@ -1803,7 +1803,7 @@ public sealed class MapAsyncExtensionsTests
             .Because("the value of the Task is the value that the results stream gets");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1841,7 +1841,7 @@ public sealed class MapAsyncExtensionsTests
             .Because("the errors stream gets the same exception that the Task carries");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1976,7 +1976,7 @@ public sealed class MapAsyncExtensionsTests
 
         await Assert.That(started.IsCanceled).IsTrue();
 
-        probe.Unlisten();
+        probe.Dispose();
         status.Dispose();
     }
 
@@ -2023,7 +2023,7 @@ public sealed class MapAsyncExtensionsTests
             await Assert.That(op.HasStarted("a")).IsFalse();
             await Assert.That(Transaction.Run(tracked.Sample)).IsEmpty();
 
-            thrower.Unlisten();
+            thrower.Dispose();
             status.Dispose();
         }
     }
@@ -2086,7 +2086,7 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(op.HasStarted("a")).IsFalse();
 
         status.Dispose();
-        thrower.Unlisten();
+        thrower.Dispose();
     }
 
     // Execute posts the admission of its value, with a release that cancels its Task. A posted
@@ -2226,7 +2226,7 @@ public sealed class MapAsyncExtensionsTests
             .Because("each value reaches the results stream, in the sequence of the admissions");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -2433,7 +2433,7 @@ public sealed class MapAsyncExtensionsTests
             .Because("the value in the Task is the value that the results stream gets");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -2481,8 +2481,8 @@ public sealed class MapAsyncExtensionsTests
         await Assert.That(published).IsEmpty();
 
         status.Dispose();
-        itemsListener.Unlisten();
-        publishedListener.Unlisten();
+        itemsListener.Dispose();
+        publishedListener.Dispose();
     }
 
     [Test]
@@ -2838,7 +2838,7 @@ public sealed class MapAsyncExtensionsTests
 
         outer.Dispose();
         inner.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -2907,7 +2907,7 @@ public sealed class MapAsyncExtensionsTests
                 _ = e;
             }
 
-            bad.Unlisten();
+            bad.Dispose();
 
             return answer ?? throw new InvalidOperationException("Execute gave no Task.");
         }
@@ -3106,7 +3106,7 @@ public sealed class MapAsyncExtensionsTests
             .Because("the pipeline should hold nothing once the chain ends");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]

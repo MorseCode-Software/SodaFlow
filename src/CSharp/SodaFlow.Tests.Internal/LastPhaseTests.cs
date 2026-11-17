@@ -222,7 +222,7 @@ public sealed class LastPhaseTests
         List<int> @out = [];
         IListener l = s.Listen(@out.Add);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }

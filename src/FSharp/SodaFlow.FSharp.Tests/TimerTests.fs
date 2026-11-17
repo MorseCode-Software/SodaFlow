@@ -344,7 +344,7 @@ type ``System Clock Timer System Tests``() =
 
             now <- now.AddMinutes 5.0
             Transaction.run (fun () -> ())
-            listener.Unlisten()
+            listener.Dispose()
 
             do! Expect.Equal(now, Behavior.sample timers.Time)
             do! Expect.Sequence([ now ], alarms)

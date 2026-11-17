@@ -139,15 +139,15 @@ public class LiftBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.twoListener?.Unlisten();
-        this.sixListener?.Unlisten();
-        this.listListener?.Unlisten();
-        this.bothListener?.Unlisten();
-        this.applyListener?.Unlisten();
-        this.mergeFunctionListener?.Unlisten();
-        this.snapshotListener?.Unlisten();
-        this.mergeListener?.Unlisten();
-        this.switchListener?.Unlisten();
+        this.twoListener?.Dispose();
+        this.sixListener?.Dispose();
+        this.listListener?.Dispose();
+        this.bothListener?.Dispose();
+        this.applyListener?.Dispose();
+        this.mergeFunctionListener?.Dispose();
+        this.snapshotListener?.Dispose();
+        this.mergeListener?.Dispose();
+        this.switchListener?.Dispose();
     }
 
     /// <summary>Sends a new value to one input of the lift of two cells.</summary>

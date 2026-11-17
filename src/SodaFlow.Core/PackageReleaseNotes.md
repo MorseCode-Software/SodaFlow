@@ -9,7 +9,7 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
-BREAKING: IListener has one member, Unlisten. GetListenerWithWeakReference is gone from it, and the
+BREAKING: GetListenerWithWeakReference is gone from IListener, and the
 IListenerWithWeakReference that it returned is internal. The weak view lets the library stop the listeners attached to a
 stream once the stream is collected, without keeping the stream alive to do so. That is the library's own work, and a
 caller that implemented IListener, as the composite factories invite, had to write a method whose contract was the
@@ -17,13 +17,15 @@ library's. Every listener the library makes still has its weak view, now behind 
 attaches only that interface, so the compiler checks that each attached listener has one.
 
 BREAKING: the strong listener is removed, and one kind of listener is left. IStrongListener and IWeakListener are gone,
-and IListener is an IDisposable whose Dispose does what Unlisten does. A listener listens while a caller holds it, it
+and IListener is an IDisposable. Its Unlisten is gone, because Dispose did the same thing. Thus, a call to Unlisten
+changes to Dispose. A listener listens while a caller holds it, it
 keeps the stream that it monitors in memory, and the garbage collector removes it after no caller holds it.
 ListenStrongImpl and ListenOnceStrongImpl, which the language packages gave as ListenStrong and ListenOnceStrong, are
 removed with the strong and weak composite and empty listeners. ListenImpl, ListenOnceImpl, the composite, and the empty
 listener give an IListener. A strong listener that a caller dropped continued for as long as a source of its stream
 lived, and nothing could stop it after that. A caller that used one must keep its listener, in a field or in a using
-statement, and a type that implements IListener must add Dispose. The keep-alive sets stay for the one-shot listener of
+statement, and a type that implements IListener renames its Unlisten to Dispose. The keep-alive sets stay for the
+one-shot listener of
 ListenOnceAsync, because an await has no place to keep a listener. Where a note below names ListenStrong in a
 measurement, the measurement is from before this removal, and the benchmark of that name now attaches the listener that
 is left.
@@ -433,7 +435,7 @@ Fixed: MutableListener.SetListener stops the listener it replaces, and ClearList
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
 SwitchB and SwitchS, which stopped the old listener by hand. A set of the listener that is already the target stops
-nothing. Unlisten is unchanged.
+nothing. The stop of the MutableListener itself does not change.
 
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
@@ -534,7 +536,7 @@ OnceImpl loses a branch that could never run. What it does is unchanged.
 Removed: the internal NoListener type, which nothing uses any more. No released version of any package here calls it.
 
 Added: the internal IRootableListener and ListenOnceRootableImpl, which gives one. It is a one-shot listener that is
-weak until Root is called and is held by the stream after that, until its first firing or Unlisten. A Root after either
+weak until Root is called and is held by the stream after that, until its first firing or its Dispose. A Root after either
 of those does nothing. SodaFlow.FSharp's listenOnceAsync uses it so that an async that never runs leaves no listener
 behind.
 

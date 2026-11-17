@@ -270,7 +270,7 @@ public sealed class GarbageCollectionTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(seen.Distinct())
@@ -332,7 +332,7 @@ public sealed class GarbageCollectionTests
         Collect();
         StreamListenerManager.Sweep();
         c.Send(5);
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(cell.IsAlive).IsFalse().Because("only the stream of the updates is held");
         await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
@@ -771,7 +771,7 @@ public sealed class GarbageCollectionTests
                 {
                 });
 
-            listener.Unlisten();
+            listener.Dispose();
         }
     }
 
@@ -781,7 +781,7 @@ public sealed class GarbageCollectionTests
         Stream<string> mapped = s.Map(static x => (x + 2).ToString());
         IListener listener = mapped.Listen(@out.Add);
         s.Send(1);
-        listener.Unlisten();
+        listener.Dispose();
         return new WeakReference(mapped);
     }
 
@@ -802,7 +802,7 @@ public sealed class GarbageCollectionTests
             {
             });
 
-        listener.Unlisten();
+        listener.Dispose();
         return [.. chain];
     }
 
@@ -846,7 +846,7 @@ public sealed class GarbageCollectionTests
     private static WeakReference CreateRootableListenerUnlistenAndRoot(Stream<int> s, ICollection<int> @out)
     {
         IRootableListener listener = s.ListenOnceRootableImpl(@out.Add);
-        listener.Unlisten();
+        listener.Dispose();
         listener.Root();
         return new WeakReference(listener);
     }
@@ -864,7 +864,7 @@ public sealed class GarbageCollectionTests
     private static WeakReference CreateListenerAndUnlisten(Stream<int> s, ICollection<int> @out)
     {
         IListener listener = s.Listen(@out.Add);
-        listener.Unlisten();
+        listener.Dispose();
         return new WeakReference(listener);
     }
 

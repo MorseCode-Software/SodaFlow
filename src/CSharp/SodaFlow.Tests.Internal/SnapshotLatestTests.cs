@@ -32,7 +32,7 @@ public sealed class SnapshotLatestTests
         Send(s: updates, a: 11);
         int readsAfterTheUpdate = b2.Reads;
         Send(s: s, a: 1);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(readsAfterTheUpdate).IsEqualTo(0);
         await Assert.That(b2.Reads).IsEqualTo(1);

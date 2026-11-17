@@ -8,21 +8,16 @@ namespace SodaFlow;
 /// <summary>
 ///     A listener for stream firings. It listens while a caller holds it. The
 ///     garbage collector can remove it after no caller holds it. A call to
-///     <see cref="Unlisten" /> or to <see cref="IDisposable.Dispose" /> stops it.
+///     <see cref="IDisposable.Dispose" /> stops it.
 /// </summary>
+/// <remarks>
+///     You can call <see cref="IDisposable.Dispose" /> more than one time. A
+///     subsequent call does nothing.
+/// </remarks>
 [PublicAPI]
 // ReSharper disable once InheritdocConsiderUsage - The summary says what a listener is, and the documentation of
 // IDisposable does not.
-public interface IListener : IDisposable
-{
-    /// <summary>
-    ///     Stops listening.
-    /// </summary>
-    /// <remarks>
-    ///     You can call this more than one time. A subsequent call does nothing.
-    /// </remarks>
-    void Unlisten();
-}
+public interface IListener : IDisposable;
 
 // The weak view of a listener. It stops the listener, and it does not keep the stream alive. The
 // registry entry of a stream holds the weak views of the listeners attached to the stream. Thus,
@@ -97,7 +92,7 @@ internal static class ListenerInternal
             {
                 // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract - Protect
                 // against caller adding null.
-                l?.Unlisten();
+                l?.Dispose();
             }
         }
 
@@ -130,6 +125,6 @@ internal static class ListenerInternal
     {
         private readonly IListener listener = listener;
 
-        public void Unlisten() => this.listener.Unlisten();
+        public void Unlisten() => this.listener.Dispose();
     }
 }

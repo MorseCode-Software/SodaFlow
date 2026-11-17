@@ -62,8 +62,8 @@ public class TransactionBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.listener?.Unlisten();
-        this.chainListener?.Unlisten();
+        this.listener?.Dispose();
+        this.chainListener?.Dispose();
     }
 
     /// <summary>Opens a transaction that does nothing, and closes it.</summary>

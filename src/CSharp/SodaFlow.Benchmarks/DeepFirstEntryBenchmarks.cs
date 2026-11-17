@@ -75,8 +75,8 @@ public class DeepFirstEntryBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.listener?.Unlisten();
-        this.deepListener?.Unlisten();
+        this.listener?.Dispose();
+        this.deepListener?.Dispose();
     }
 
     /// <summary>Sends one value to the sink with one listener, with no transaction open.</summary>

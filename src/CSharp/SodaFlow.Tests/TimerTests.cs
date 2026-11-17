@@ -109,7 +109,7 @@ public sealed class TimerTests
                 ]));
 
         clock.AdvanceTo(12);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10, 11], ordering: CollectionOrdering.Matching);
         await Assert.That(times).IsEquivalentTo(expected: [10, 11, 12], ordering: CollectionOrdering.Matching);
@@ -136,7 +136,7 @@ public sealed class TimerTests
 
         clock.AdvanceTo(12);
         clock.FireHeldBackTimer();
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
         await Assert.That(times).IsEquivalentTo(expected: [12], ordering: CollectionOrdering.Matching);
@@ -262,8 +262,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
 
         clock.AdvanceTo(25);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
     }
@@ -287,8 +287,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -313,8 +313,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(30);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [30], ordering: CollectionOrdering.Matching);
     }
@@ -342,9 +342,9 @@ public sealed class TimerTests
         await Assert.That(times).IsEquivalentTo(expected: [16], ordering: CollectionOrdering.Matching);
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        timeListener.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        timeListener.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -370,8 +370,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -412,7 +412,7 @@ public sealed class TimerTests
         IListener l = Operational.Updates(timers.Time).Listen(times.Add);
         clock.AdvanceTo(12);
         clock.AdvanceTo(5);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(times).IsEquivalentTo(expected: [12, 5], ordering: CollectionOrdering.Matching);
     }
@@ -459,7 +459,7 @@ public sealed class TimerTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddMinutes(5));
 
@@ -528,7 +528,7 @@ public sealed class TimerTests
             });
         }
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(times)
             .IsEquivalentTo(
@@ -575,7 +575,7 @@ public sealed class TimerTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [alarmTime], ordering: CollectionOrdering.Matching);
         await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddHours(1));

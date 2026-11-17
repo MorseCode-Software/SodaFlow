@@ -1027,7 +1027,7 @@ public sealed class BindableValueConcurrencyTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.RunAll();
@@ -1071,7 +1071,7 @@ public sealed class BindableValueConcurrencyTests
         });
 
         c.Send(2);
-        pump.Unlisten();
+        pump.Dispose();
 
         int ranAfter = scheduler.RunAll();
 
@@ -1112,7 +1112,7 @@ public sealed class BindableValueConcurrencyTests
         });
 
         c.Send(2);
-        pump.Unlisten();
+        pump.Dispose();
 
         int ranAfter = scheduler.RunAll();
 
@@ -1149,7 +1149,7 @@ public sealed class BindableValueConcurrencyTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         int ranAfterTheFailure = scheduler.RunAll();
@@ -1164,7 +1164,7 @@ public sealed class BindableValueConcurrencyTests
         b.Value = b.Value;
         scheduler.RunAll();
 
-        records.Unlisten();
+        records.Dispose();
 
         await Assert.That(ranAfterTheFailure).IsEqualTo(0).Because("precondition: the scheduler dropped the refresh");
         await Assert.That(b.Value).IsEqualTo(5).Because("the next update posts a refresh again");
@@ -1190,7 +1190,7 @@ public sealed class BindableValueConcurrencyTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         int ranAfterTheFailure = scheduler.RunAll();
@@ -1230,7 +1230,7 @@ public sealed class BindableValueConcurrencyTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         // A drain in a transaction, as a nested message loop runs it from a callback.
@@ -1275,7 +1275,7 @@ public sealed class BindableValueConcurrencyTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         // A drain in a transaction, as a nested message loop runs it from a callback.

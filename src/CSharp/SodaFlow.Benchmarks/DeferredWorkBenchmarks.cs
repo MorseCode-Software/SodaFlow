@@ -70,9 +70,9 @@ public class DeferredWorkBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.deferListener?.Unlisten();
-        this.deferTwiceListener?.Unlisten();
-        this.splitListener?.Unlisten();
+        this.deferListener?.Dispose();
+        this.deferTwiceListener?.Dispose();
+        this.splitListener?.Dispose();
     }
 
     /// <summary>Posts one action from a transaction.</summary>

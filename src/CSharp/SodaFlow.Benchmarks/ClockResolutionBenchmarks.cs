@@ -65,7 +65,7 @@ public class ClockResolutionBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.listener?.Unlisten();
+        this.listener?.Dispose();
         this.timers?.Dispose();
     }
 

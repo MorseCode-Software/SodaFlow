@@ -40,7 +40,7 @@ public sealed class TransactionTests
         }
         finally
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         throw new InvalidOperationException("The transaction did not fail.");

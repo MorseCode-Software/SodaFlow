@@ -75,7 +75,7 @@ public class KeyedCollectionBuildBenchmarks
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
     }
 }

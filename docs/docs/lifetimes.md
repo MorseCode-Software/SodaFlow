@@ -12,8 +12,8 @@ that never die leak, also silently. Neither throws.
 
 `Listen` returns an `IListener`. The handler runs for as long as you hold that listener, and no
 longer. The listener keeps the graph that it observes in memory, and nothing but your reference
-keeps the listener. `IListener` is an `IDisposable`: `Unlisten()` and `Dispose()` do the same
-thing, and each stops the handler immediately.
+keeps the listener. `IListener` is an `IDisposable`, and `Dispose()` stops the handler immediately.
+It takes the place of `unlisten` in Sodium. In F#, `Listener.unlisten` calls it.
 
 Hold the listener in a field of the object that owns the subscription:
 
@@ -42,9 +42,11 @@ listener until the firing that you wait for.
 > the result. Code that calls `Listen` and discards the result compiles, and it is
 > [the mistake that fails silently](#the-mistake-that-fails-silently). Rename `IWeakListener`
 > to `IListener`, and the weak and strong forms of `Listener.Empty`, `CreateComposite`, and
-> `Append` to the plain ones. In F#, the same applies to `listenStrong`, `listenOnceStrong`, and
-> their `S` and `C` aliases, and the `WeakListener` and `StrongListener` modules are now
-> `Listener`.
+> `Append` to the plain ones. `Unlisten()` is gone also, because `Dispose()` does the same thing.
+> Change each call to `Dispose()`, and a type that implements `IListener` renames its `Unlisten`.
+> In F#, the same applies to `listenStrong`, `listenOnceStrong`, and their `S` and `C` aliases,
+> and the `WeakListener` and `StrongListener` modules are now `Listener`. `Listener.unlisten`
+> and `unlistenL` stay, and they call `Dispose()`.
 
 ## Waiting for one firing
 

@@ -27,10 +27,12 @@ the listener there, in a field or in a using statement. A call that changes to L
 and its handler stops at a garbage collection with no message. ListenOnceAsync does not change: an await has no place to
 keep a listener, so the sources of the stream hold the wait, and the core notes say what that fixes.
 
-BREAKING: the listener surface is smaller. IListener has only Unlisten, GetListenerWithWeakReference is gone from it and
+BREAKING: the listener surface is smaller. IListener has no member of its own. Its Unlisten is gone, because Dispose
+does the same thing. Thus, a call to Unlisten changes to Dispose. GetListenerWithWeakReference is gone from it and
 from the extension methods of MutableListener, and IListenerWithWeakReference is internal. MutableListener and
 MutableListenerExtensionMethods are internal, and Cleanup and CleanupExtensionMethods are removed; the core notes say
-why. A type of yours that implements IListener deletes its GetListenerWithWeakReference.
+why. A type of yours that implements IListener deletes its GetListenerWithWeakReference, and renames its Unlisten to
+Dispose.
 
 BREAKING: Stream.CreateLoop, Cell.CreateLoop, and Behavior.CreateLoop are removed, with the StreamLoop<T>, CellLoop<T>,
 and BehaviorLoop<T> they returned. Write a loop with Stream.Loop<T>(), Cell.Loop<T>(), or Behavior.Loop<T>() and

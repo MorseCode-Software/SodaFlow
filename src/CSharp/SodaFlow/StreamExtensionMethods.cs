@@ -40,7 +40,7 @@ public static class StreamExtensionMethods
     /// <summary>
     ///     Listen for events/firings on this stream. The listener from this call
     ///     listens while the caller keeps it. A call to
-    ///     <see cref="IListener.Unlisten" /> or a disposal stops the listener, and the
+    ///     <see cref="IDisposable.Dispose" /> stops the listener, and the
     ///     listener also stops when a GC collects it. This is an OPERATIONAL mechanism
     ///     for interfacing between the world of I/O and FRP.
     /// </summary>
@@ -49,8 +49,7 @@ public static class StreamExtensionMethods
     /// <param name="handler">The handler to run with each value the stream fires.</param>
     /// <returns>
     ///     An <see cref="IListener" />. Keep it for as long as the handler must run.
-    ///     A call to its <see cref="IListener.Unlisten" /> or a disposal of it stops
-    ///     the listener.
+    ///     A call to its <see cref="IDisposable.Dispose" /> stops the listener.
     /// </returns>
     /// <remarks>
     ///     <para>
@@ -83,7 +82,7 @@ public static class StreamExtensionMethods
     /// </param>
     /// <returns>
     ///     An <see cref="IListener" />. A call to its
-    ///     <see cref="IListener.Unlisten" /> or a disposal of it stops the listener
+    ///     <see cref="IDisposable.Dispose" /> stops the listener
     ///     before that first event arrives.
     /// </returns>
     /// <remarks>
@@ -167,7 +166,7 @@ public static class StreamExtensionMethods
             CancellationTokenRegistration registration =
                 token.Register(() =>
                 {
-                    listener.Unlisten();
+                    listener.Dispose();
                     tcs.TrySetCanceled();
                 });
 

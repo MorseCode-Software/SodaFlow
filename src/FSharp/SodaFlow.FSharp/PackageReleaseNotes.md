@@ -20,6 +20,8 @@ BREAKING: getListenerWithWeakReference in the Listener, WeakListener, StrongList
 Listener.unlistenWeak, are removed, and IListenerWithWeakReference is internal. The MutableListener module is removed
 with the type, which is internal, and the Cleanup module with Cleanup, which is removed; the core notes say why. F#
 never had the explicit loop types that the C# package removes in this release, so loops in F# do not change.
+IListener has no Unlisten method, because Dispose does the same thing. Listener.unlisten and unlistenL stay, and call
+Dispose, so a call of the method changes to Dispose or to Listener.unlisten.
 
 BREAKING: Cell<'T> derives from Behavior<'T>, so the functions of the Behavior module take a cell without asBehavior,
 and lift2 to lift8 take cells and behaviors together and give a behavior. asBehavior stays, as an upcast.

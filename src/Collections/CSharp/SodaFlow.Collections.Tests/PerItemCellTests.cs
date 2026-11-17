@@ -48,7 +48,7 @@ public sealed class PerItemCellTests
         edits.Send(TestUtil.Remove(7));
         edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven again", score: 71)));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(seen)
             .IsEquivalentTo(expected: ["seven", "gone", "seven again"], ordering: CollectionOrdering.Matching);
@@ -72,7 +72,7 @@ public sealed class PerItemCellTests
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(built).IsNotNull();
 
@@ -124,7 +124,7 @@ public sealed class PerItemCellTests
         edits.Send(TestUtil.Remove(7));
         edits.Send(TestUtil.Add(TestUtil.Item(number: 7, name: "seven again", score: 71)));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(seen)
             .IsEquivalentTo(
@@ -161,8 +161,8 @@ public sealed class PerItemCellTests
 
         edits.Send(TestUtil.Rename(key: 1, name: "renamed"));
 
-        a.Unlisten();
-        b.Unlisten();
+        a.Dispose();
+        b.Dispose();
 
         // This is the cost of the item cell, and the cause to keep the two cells where one binding
         // reads the identity and a different binding reads the state.
@@ -223,8 +223,8 @@ public sealed class PerItemCellTests
         edits.Send(TestUtil.Remove(3));
         edits.Send(TestUtil.Add(TestUtil.Item(number: 3, name: "again", score: 32)));
 
-        a.Unlisten();
-        b.Unlisten();
+        a.Dispose();
+        b.Dispose();
 
         await Assert.That(fromItem)
             .IsEquivalentTo(expected: fromPair, ordering: CollectionOrdering.Matching)
@@ -248,7 +248,7 @@ public sealed class PerItemCellTests
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 5, name: "five", score: 50)));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(built).IsNotNull();
 
@@ -296,7 +296,7 @@ public sealed class PerItemCellTests
         edits.Send(TestUtil.Score(key: 1, score: 11));
         edits.Send(TestUtil.Remove(1));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(seen).IsEquivalentTo(expected: ["gone"], ordering: CollectionOrdering.Matching);
     }
@@ -318,7 +318,7 @@ public sealed class PerItemCellTests
 
         edits.Send(TestUtil.Remove(1));
 
-        l.Unlisten();
+        l.Dispose();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -398,7 +398,7 @@ public sealed class PerItemCellTests
         // A change from 10 to 99 moves key 1 from the front of the view to the end.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(TestUtil.Keys(byScore.KeysCell.Sample()))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
@@ -439,7 +439,7 @@ public sealed class PerItemCellTests
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(TestUtil.Keys(passing.KeysCell.Sample()))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);

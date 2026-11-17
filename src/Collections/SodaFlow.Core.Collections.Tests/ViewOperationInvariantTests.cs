@@ -169,7 +169,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(bad).IsEmpty();
@@ -229,7 +229,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(bad).IsEmpty();
@@ -278,7 +278,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, ReactiveCollection<int, ItemIdentity, ItemState> view) in stages)
@@ -380,7 +380,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(reorder)

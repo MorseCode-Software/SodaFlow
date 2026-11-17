@@ -58,7 +58,7 @@ public class SelectAllBenchmarks
 
     /// <summary>Releases the listener holding the graph up.</summary>
     [GlobalCleanup]
-    public void Cleanup() => this.graph.Listener.Unlisten();
+    public void Cleanup() => this.graph.Listener.Dispose();
 
     /// <summary>
     ///     Builds the graph and fills it, which is what a view model does one
@@ -68,7 +68,7 @@ public class SelectAllBenchmarks
     public int BuildTheGraph()
     {
         Graph built = Graph.Build(this.ObjectCount);
-        built.Listener.Unlisten();
+        built.Listener.Dispose();
 
         return built.Objects.Sample().Count;
     }

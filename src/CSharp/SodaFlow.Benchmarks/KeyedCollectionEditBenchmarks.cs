@@ -180,7 +180,7 @@ public class KeyedCollectionEditBenchmarks
         {
             foreach (IListener listener in this.listeners)
             {
-                listener.Unlisten();
+                listener.Dispose();
             }
         }
     }

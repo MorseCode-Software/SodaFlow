@@ -70,7 +70,7 @@ public sealed class ViewChangeIndexTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes.Single();
@@ -132,7 +132,7 @@ public sealed class ViewChangeIndexTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes.Single();
@@ -170,7 +170,7 @@ public sealed class ViewChangeIndexTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         return changes.Single().IsIndexed;

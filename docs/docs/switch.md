@@ -109,7 +109,7 @@ handled for you: the subscription to the outer cell and the subscription to the 
 selected inner value are both tied to the lifetime of the stream or cell `Switch` returns, so
 they are released when the result is.
 
-What `Switch` does *not* do is unlisten anything you created. A subscription you make inside a
+What `Switch` does *not* do is stop anything you created. A subscription you make inside a
 branch follows the ordinary rule: it lives as long as you hold the listener. The outer cell
 moving off a branch does not release it. If a subscription should not survive its
 branch, its lifetime has to be tied to something that ends with the branch. See
