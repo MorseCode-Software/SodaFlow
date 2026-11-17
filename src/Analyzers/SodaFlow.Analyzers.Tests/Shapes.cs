@@ -17386,6 +17386,14 @@ public static class Shapes
     public static Cell<int> Ag85ThreadLocalOfAPackageDoesNotRunItsFunction() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag85Own.ThreadLocal<int> local = new(() => l.Sample()); return S.Snapshot(l, (a, b) => a + b + local.Value).Hold(0); });
 
+    // S3869. Console.Write gets an object whose ToString samples a pending cell.
+    public static Cell<int> R3LimConsoleWriteOfAnObjectThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Console.Write(new Titled(l.Map(v => v))); return S.Hold(0); });
+
+    // S3870. Console.Write with a format gets an object whose ToString samples a pending cell.
+    public static Cell<int> Ag83ConsoleWriteWithAFormatOfAnObjectThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Console.Write("{0}", new Titled(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

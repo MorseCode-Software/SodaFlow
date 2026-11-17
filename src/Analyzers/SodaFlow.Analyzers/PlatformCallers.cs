@@ -215,7 +215,7 @@ internal static class PlatformCallers
             Row(type: "StringBuilder", callbacks: PlatformCallbacks.Text,
                 "Append", "AppendJoin", "AppendFormat", "Insert"),
             Row(type: "TextWriter", callbacks: PlatformCallbacks.Text, "Write", "WriteLine"),
-            Row(type: "Console", callbacks: PlatformCallbacks.Text, "WriteLine"),
+            Row(type: "Console", callbacks: PlatformCallbacks.Text, "Write", "WriteLine"),
             Row(type: "Convert", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "XElement", callbacks: PlatformCallbacks.Text,
                 ".ctor", "SetValue", "SetElementValue", "SetAttributeValue", "ReplaceAll"),
