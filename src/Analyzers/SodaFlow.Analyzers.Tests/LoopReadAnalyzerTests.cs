@@ -2573,7 +2573,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag84ConverterInTheOptionsWithACellOfItsOwn"] = ["SF1005"],
             ["Ag84ConverterOfAProperty"] = ["SF1004"],
             ["Ag84ConverterOfJsonNet"] = ["SF1004"],
-            ["Ad2SerializerReadsThreeLevelsInside"] = ["SF1005"]
+            ["Ad2SerializerReadsThreeLevelsInside"] = ["SF1005"],
+            ["R3ApiSendThroughAsStreamSinkReachesTheHold"] = ["SF1002"],
+            ["Ab181HoldOfAsStreamSinkGetsASendIntoTheSink"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

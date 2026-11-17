@@ -17606,6 +17606,18 @@ public static class Shapes
     public static Cell<int> Ad2SerializerReadsThreeLevelsInside() =>
         Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ad2Third(new Ad2Second(new SerialOuter(new SerialRow(l.Map(v => v)))))); return S.Hold(text.Length); });
 
+    // S3924. AsStreamSink gives the same sink, thus a send of a linked cell through it reaches the hold of the sink. The switch of that hold as the close is a cycle.
+    public static Cell<int> R3ApiSendThroughAsStreamSinkReachesTheHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellStreamSink<Cell<int>> cs = Cell.CreateStreamSink<Cell<int>>(); Cell<Cell<int>> h = cs.Hold(Plain); StreamSink<Cell<int>> ss = cs.AsStreamSink(); ss.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S3925. AsStreamSink gives the same sink, thus a send of a linked cell into the first sink reaches a hold of the second. The switch of that hold as the close is a cycle.
+    public static Cell<int> Ab181HoldOfAsStreamSinkGetsASendIntoTheSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellStreamSink<Cell<int>> cs = Cell.CreateStreamSink<Cell<int>>(); StreamSink<Cell<int>> ss = cs.AsStreamSink(); Cell<Cell<int>> h = ss.Hold(Plain); cs.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S3926. A send through AsStreamSink of a cell with no link to the placeholder gives the hold no link. Thus, the switch of that hold as the close is not a cycle.
+    public static Cell<int> Ab181SendOfAPlainCellThroughAsStreamSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellStreamSink<Cell<int>> cs = Cell.CreateStreamSink<Cell<int>>(); Cell<Cell<int>> h = cs.Hold(Plain); StreamSink<Cell<int>> ss = cs.AsStreamSink(); ss.Send(Plain); return h.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

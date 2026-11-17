@@ -2572,6 +2572,9 @@ internal sealed partial class LoopStateEvaluator
                     linked: inputs.Linked,
                     contentPending: false,
                     contentLinked: false).WithContent(inputs.Content),
+                // A send through the result is a send into the sink of the receiver, and reaches each
+                // hold of that sink.
+                OperatorRule.Receiver => receiverState,
                 // A switch holds what the selected cell or stream holds.
                 OperatorRule.SwitchValue => new LoopState(
                     pending: receiverState.Pending || receiverState.ContentPending,

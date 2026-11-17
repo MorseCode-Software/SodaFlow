@@ -68,6 +68,12 @@ internal enum OperatorRule
     SameValues,
 
     /// <summary>
+    ///     The receiver itself, as <c>AsStreamSink</c> gives. The result has the
+    ///     state and the objects of the receiver.
+    /// </summary>
+    Receiver,
+
+    /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
     ///     any input is.
     /// </summary>
@@ -203,6 +209,7 @@ internal static class OperatorTable
             "AsCell",
             "AsBehavior",
             "AsStream",
+            "AsStreamSink",
             "SwitchC",
             "SwitchB",
             "SwitchS",
@@ -260,9 +267,8 @@ internal static class OperatorTable
     /// </remarks>
     public static readonly ImmutableHashSet<string> DefaultIsSound =
         ImmutableHashSet.Create(
-            // A stream or sink with no inputs.
+            // A stream with no inputs.
             "Never",
-            "AsStreamSink",
             // The cells and streams of a reactive collection. Their input is the collection, which is
             // not a placeholder.
             "FromAdds",
@@ -608,6 +614,7 @@ internal static class OperatorTable
             "Calm" when stream => OperatorRule.StreamFromReceiver,
             "Lift" => OperatorRule.LiftValue,
             "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.SameValues,
+            "AsStreamSink" => OperatorRule.Receiver,
             "Apply" => OperatorRule.Combine,
             "SwitchC" or "SwitchB" => OperatorRule.SwitchValue,
             "SwitchS" => OperatorRule.SwitchStream,
