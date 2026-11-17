@@ -337,8 +337,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
   as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
   only when the analyzer knows that the task is complete.
-- The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
-  call your getters and enumerate your sequences.
+- The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which call
+  your getters and enumerate your sequences. `System.Text.Json` writes the properties of the type
+  that the call or the property names, unless that type is `object` or has `[JsonDerivedType]`, and
+  the others write those of the object. The analyzer also reads a non-public member with
+  `[JsonInclude]` or with the `[JsonProperty]` of Json.NET.
 
 ### Its limits
 

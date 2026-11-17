@@ -614,13 +614,13 @@ internal sealed class SodaFlowSymbols
     ///     set.
     /// </summary>
     public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer) =>
-        property is
-        {
-            IsStatic: false,
-            IsIndexer: false,
-            DeclaredAccessibility: Accessibility.Public,
-            GetMethod.DeclaredAccessibility: Accessibility.Public
-        }
+        property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
+        && (property is
+            {
+                DeclaredAccessibility: Accessibility.Public,
+                GetMethod.DeclaredAccessibility: Accessibility.Public
+            }
+            || IsIncluded(member: property, serializer: serializer))
         && (serializer.ContainingType?.Name != "XmlSerializer"
             || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
         && !property.GetAttributes()
@@ -682,6 +682,38 @@ internal sealed class SodaFlowSymbols
             }
         }
     }
+
+    /// <summary>
+    ///     True for a member that the serializer writes at each accessibility:
+    ///     one with <c>JsonInclude</c> for <c>System.Text.Json</c>, and one with
+    ///     <c>JsonProperty</c> for Json.NET.
+    /// </summary>
+    private static bool IsIncluded(ISymbol member, IMethodSymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        && member.GetAttributes()
+            .Any(attribute =>
+                (attribute.AttributeClass?.Name, attribute.AttributeClass?.ContainingNamespace?.ToDisplayString(), library)
+                is ("JsonIncludeAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                or ("JsonPropertyAttribute", "Newtonsoft.Json", "Newtonsoft.Json"));
+
+    /// <summary>
+    ///     True for <c>System.Text.Json</c>. It writes the properties of the type
+    ///     that the call or the property names, and not those of the type of the
+    ///     object.
+    /// </summary>
+    public static bool WritesTheDeclaredType(IMethodSymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() == "System.Text.Json";
+
+    /// <summary>
+    ///     True for a type with <c>JsonDerivedType</c> or <c>JsonPolymorphic</c>.
+    ///     <c>System.Text.Json</c> then writes the properties of the type of the
+    ///     object.
+    /// </summary>
+    public static bool IsPolymorphic(ISymbol type) =>
+        type.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass is { Name: "JsonDerivedTypeAttribute" or "JsonPolymorphicAttribute" } found
+                && found.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Serialization");
 
     /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in

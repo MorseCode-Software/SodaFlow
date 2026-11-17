@@ -17454,6 +17454,58 @@ public static class Shapes
     public static Cell<int> Ab173ConditionalAndTestsOnlyTheLeftOperand() =>
         Cell.Loop<int>().WithoutCaptures(l => { R3CsGate g = new(Plain); R3CsGate both = g && new R3CsGate(l.Map(v => v)); Kept.Add(both); return S.Hold(0); });
 
+    // S3886. System.Text.Json writes the properties of the declared type, and only the derived class has the getter that samples.
+    public static Cell<int> R3CsSerializerWritesTheDeclaredType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsShape s = new R3CsCircle(l.Map(v => v)); string json = JsonSerializer.Serialize(s); return S.Hold(json.Length); });
+
+    // S3887. System.Text.Json writes a private property that has JsonInclude, and its getter samples a pending member.
+    public static Cell<int> R3CsSerializerWritesAnIncludedPrivateProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsHidden h = new(l.Map(v => v)); string json = JsonSerializer.Serialize(h); return S.Hold(json.Length); });
+
+    // S3888. System.Text.Json writes the type of the object when the call names object, and the getter of that type samples a pending member.
+    public static Cell<int> Ab168SerializerWritesTheObjectForObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object s = new R3CsCircle(l.Map(v => v)); string json = JsonSerializer.Serialize(s); return S.Hold(json.Length); });
+
+    // S3889. System.Text.Json writes the type of the object for a base type with JsonDerivedType, and the getter of the derived type samples a pending member.
+    public static Cell<int> Ab168SerializerWritesADerivedTypeThatTheBaseNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab168Shape s = new Ab168Circle(l.Map(v => v)); string json = JsonSerializer.Serialize(s); return S.Hold(json.Length); });
+
+    // S3890. Json.NET writes the type of the object, and only the derived class has the getter that samples.
+    public static Cell<int> Ab168JsonConvertWritesTheTypeOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsShape s = new R3CsCircle(l.Map(v => v)); string json = Newtonsoft.Json.JsonConvert.SerializeObject(s); return S.Hold(json.Length); });
+
+    // S3891. System.Text.Json writes the declared type of a property, and only the derived class of its value has the getter that samples.
+    public static Cell<int> Ab168SerializerWritesTheDeclaredTypeOfAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab168Holder h = new(new R3CsCircle(l.Map(v => v))); string json = JsonSerializer.Serialize(h); return S.Hold(json.Length); });
+
+    // S3892. System.Text.Json writes the element type of a list, and only the derived class of an element has the getter that samples.
+    public static Cell<int> Ab168SerializerWritesTheElementTypeOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<R3CsShape> all = [new R3CsCircle(l.Map(v => v))]; string json = JsonSerializer.Serialize(all); return S.Hold(json.Length); });
+
+    // S3893. System.Text.Json writes an interface of the platform that has no property, and the object has a getter that samples.
+    public static Cell<int> Ab168SerializerWritesAnInterfaceOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDisposable d = new Ab168Disposable(l.Map(v => v)); string json = JsonSerializer.Serialize(d); return S.Hold(json.Length); });
+
+    // S3894. System.Text.Json calls a virtual getter of the declared type, and the override of the object samples a pending member.
+    public static Cell<int> Ab168SerializerCallsTheOverrideOfAVirtualGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab168Base b = new Ab168Derived(l.Map(v => v)); string json = JsonSerializer.Serialize(b); return S.Hold(json.Length); });
+
+    // S3895. Json.NET writes a private property that has JsonProperty, and its getter samples a pending member.
+    public static Cell<int> Ab168JsonConvertWritesAPrivatePropertyWithJsonProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab168NetHidden h = new(l.Map(v => v)); string json = Newtonsoft.Json.JsonConvert.SerializeObject(h); return S.Hold(json.Length); });
+
+    // S3896. System.Text.Json does not write a private property that has the JsonProperty of Json.NET.
+    public static Cell<int> Ab168SerializerSkipsAPrivatePropertyWithJsonProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab168NetHidden h = new(l.Map(v => v)); string json = JsonSerializer.Serialize(h); return S.Hold(json.Length); });
+
+    // S3897. System.Text.Json writes the values of a dictionary, and a value has a getter that samples a pending member.
+    public static Cell<int> Ab168SerializerWritesTheValuesOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SerialRow> rows = new() { ["a"] = new SerialRow(l.Map(v => v)) }; string json = JsonSerializer.Serialize(rows); return S.Hold(json.Length); });
+
+    // S3898. Json.NET does not write a private property that has the JsonInclude of System.Text.Json.
+    public static Cell<int> Ab168JsonConvertSkipsAPrivatePropertyWithJsonInclude() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsHidden h = new(l.Map(v => v)); string json = Newtonsoft.Json.JsonConvert.SerializeObject(h); return S.Hold(json.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23471,6 +23523,47 @@ public static class Shapes
         public static bool operator true(Ab173Gate g) => g.share.Sample() > 0;
 
         public static bool operator false(Ab173Gate g) => false;
+    }
+
+    [JsonDerivedType(typeof(Ab168Circle), "circle")]
+    public class Ab168Shape
+    {
+        public int Id => 1;
+    }
+
+    public sealed class Ab168Circle(Cell<int> share) : Ab168Shape
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed class Ab168Holder(R3CsShape shape)
+    {
+        public R3CsShape Shape => shape;
+    }
+
+    public sealed class Ab168Disposable(Cell<int> share) : IDisposable
+    {
+        public int Now => share.Sample();
+
+        public void Dispose()
+        {
+        }
+    }
+
+    public class Ab168Base
+    {
+        public virtual int Now => 1;
+    }
+
+    public sealed class Ab168Derived(Cell<int> share) : Ab168Base
+    {
+        public override int Now => share.Sample();
+    }
+
+    public sealed class Ab168NetHidden(Cell<int> share)
+    {
+        [Newtonsoft.Json.JsonProperty]
+        private int Now => share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

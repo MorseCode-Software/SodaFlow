@@ -2548,7 +2548,14 @@ internal sealed class LoopReadAnalyzerTests
             ["R3CsSpreadConvertsEachElement"] = ["SF1004"],
             ["R3CsConditionalAndCallsOperatorFalse"] = ["SF1004"],
             ["Ab173SpreadIntoAListConvertsEachElement"] = ["SF1004"],
-            ["Ab173ConditionalOrCallsOperatorTrue"] = ["SF1004"]
+            ["Ab173ConditionalOrCallsOperatorTrue"] = ["SF1004"],
+            ["R3CsSerializerWritesAnIncludedPrivateProperty"] = ["SF1005"],
+            ["Ab168SerializerWritesTheObjectForObject"] = ["SF1005"],
+            ["Ab168SerializerWritesADerivedTypeThatTheBaseNames"] = ["SF1005"],
+            ["Ab168JsonConvertWritesTheTypeOfTheObject"] = ["SF1005"],
+            ["Ab168SerializerCallsTheOverrideOfAVirtualGetter"] = ["SF1005"],
+            ["Ab168JsonConvertWritesAPrivatePropertyWithJsonProperty"] = ["SF1005"],
+            ["Ab168SerializerWritesTheValuesOfADictionary"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

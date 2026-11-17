@@ -212,7 +212,11 @@ internal sealed class Construction(
     public IEnumerable<IPropertySymbol> Properties =>
         this.types.SelectMany(PropertiesOf).Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
 
-    private static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type)
+    /// <summary>
+    ///     The properties of a type and of its base types that this compilation
+    ///     declares.
+    /// </summary>
+    public static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type)
     {
         for (INamedTypeSymbol? current = type;
              current is { DeclaringSyntaxReferences.Length: > 0 };

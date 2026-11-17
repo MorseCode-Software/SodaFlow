@@ -3315,6 +3315,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     written: argument.Expression,
                     state: this.evaluator.Eval(argument.Expression),
                     serializer: callee,
+                    declared: SodaFlowSymbols.WritesTheDeclaredType(callee)
+                              && LoopStateEvaluator.ParameterFor(
+                                      method: method,
+                                      argument: argument,
+                                      position: arguments.IndexOf(argument))
+                                  is { } parameter
+                        ? method.Parameters[parameter.Ordinal].Type
+                        : null,
                     depth: 0);
             }
 
@@ -3384,7 +3392,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     The serializer does not get that query. Thus, the walk reads the members
     ///     of such an object only through its getters.
     /// </remarks>
-    private void Serialize(SyntaxNode written, LoopState state, IMethodSymbol serializer, int depth)
+    /// <param name="written">The argument, which is the place of a report.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="serializer">The method of the serializer.</param>
+    /// <param name="declared">
+    ///     The type that the call or the property gives the value, for a
+    ///     serializer that writes it. Null for each other serializer.
+    /// </param>
+    /// <param name="depth">The number of objects that the value is in.</param>
+    private void Serialize(
+        SyntaxNode written,
+        LoopState state,
+        IMethodSymbol serializer,
+        ITypeSymbol? declared,
+        int depth)
     {
         // The elements of a tuple are fields, and not each serializer writes a field.
         if (state.Members is { IsTuple: true } && !SodaFlowSymbols.WritesFields(serializer))
@@ -3405,13 +3426,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             foreach (KeyValuePair<ISymbol, LoopState> member in members.Members)
             {
-                this.Serialize(written: written, state: member.Value, serializer: serializer, depth: depth + 1);
+                this.Serialize(
+                    written: written,
+                    state: member.Value,
+                    serializer: serializer,
+                    declared: null,
+                    depth: depth + 1);
             }
 
             return;
         }
 
-        foreach (IPropertySymbol property in members.Properties)
+        INamedTypeSymbol? own = WrittenTypeOf(declared: declared, members: members);
+
+        foreach (IPropertySymbol property in own == null ? members.Properties : Construction.PropertiesOf(own))
         {
             if (property.GetMethod is { } read
                 && SodaFlowSymbols.IsSerialized(property: property, serializer: serializer)
@@ -3419,9 +3447,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     is { } getter)
             {
                 this.Report(getter);
-                this.Serialize(written: written, state: getter.State, serializer: serializer, depth: depth + 1);
+
+                this.Serialize(
+                    written: written,
+                    state: getter.State,
+                    serializer: serializer,
+                    declared: declared == null ? null : property.Type,
+                    depth: depth + 1);
             }
         }
+    }
+
+    // The type whose properties the serializer writes for an object. It is the type that the
+    // call or the property names, or the element type of a sequence of that type. The type of
+    // the object counts where that type says nothing, or where it lets a derived type write its
+    // own properties. Null then.
+    private static INamedTypeSymbol? WrittenTypeOf(ITypeSymbol? declared, Construction members)
+    {
+        while (declared != null && !members.Is(declared) && SodaFlowSymbols.ElementTypeOf(declared) is { } element)
+        {
+            declared = element;
+        }
+
+        return declared is INamedTypeSymbol named
+               && !Construction.SaysNothing(named)
+               && members.Is(named)
+               && !SodaFlowSymbols.IsPolymorphic(named)
+            ? named
+            : null;
     }
 
     /// <summary>
