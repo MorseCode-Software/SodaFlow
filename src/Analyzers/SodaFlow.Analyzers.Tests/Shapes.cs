@@ -18671,6 +18671,118 @@ public static class Shapes
     public static Cell<int> Ab189PlainCellThroughALocalOfALambdaThatABranchRuns() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab189Slots[56]; c.Share = l.Map(v => v); Action a = () => { SettableSlot z = c; z.Share = Plain; Kept.Add(z.Share!.Sample()); }; if (!Never) { a(); } return S.Hold(0); });
 
+    // S4190. A local of a struct type gets a copy of a value of a dictionary, and the block writes a pending cell into the copy. The value in the dictionary keeps its plain cell, thus the sample returns.
+    public static Cell<int> Ab187StructCopiedOutOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = Plain } }; SlotValue v = d["a"]; v.Share = l.Map(q => q); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4191. A local of a struct type gets a copy of an element of an array, and the block writes a pending cell into the copy. The element keeps its plain cell.
+    public static Cell<int> Ab187StructCopiedOutOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4192. A local of a struct type gets a copy of an element of a list, and the block writes a pending cell into the copy. The element keeps its plain cell.
+    public static Cell<int> Ab187StructCopiedOutOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotValue> xs = [new SlotValue { Share = Plain }]; SlotValue v = xs[0]; v.Share = l.Map(q => q); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4193. TryGetValue gives an out variable of a struct type a copy of a value of a dictionary. The block writes a pending cell into the copy.
+    public static Cell<int> Ab187StructCopiedByTryGetValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = Plain } }; d.TryGetValue("a", out SlotValue v); v.Share = l.Map(q => q); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4194. First gives a local of a struct type a copy of an element of a list. The block writes a pending cell into the copy.
+    public static Cell<int> Ab187StructCopiedByFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotValue> xs = [new SlotValue { Share = Plain }]; SlotValue v = xs.First(); v.Share = l.Map(q => q); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4195. ForEach gives the parameter of a lambda a copy of each element of a list of structs. The lambda writes a pending cell into the copy.
+    public static Cell<int> Ab187StructCopiedIntoTheParameterOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SlotValue> xs = [new SlotValue { Share = Plain }]; xs.ForEach(v => { v.Share = l.Map(q => q); }); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4196. An assignment after the declaration gives a local of a struct type a copy of an element. The block writes a pending cell into the copy.
+    public static Cell<int> Ab187StructCopiedByALaterAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue v = default; v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4197. First of the values of a dictionary gives a local of a struct type a copy. The block writes a pending cell into the copy.
+    public static Cell<int> Ab187StructCopiedOutOfTheValuesOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = Plain } }; SlotValue v = d.Values.First(); v.Share = l.Map(q => q); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4198. A local of a struct type gets a copy of the variable of a foreach, and the block writes a pending cell into that copy. The element keeps its plain cell.
+    public static Cell<int> Ab187StructCopiedFromTheVariableOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; foreach (SlotValue each in arr) { SlotValue v = each; v.Share = l.Map(q => q); } return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4199. A local of a struct type gets a copy of a second local, and the block writes a pending cell into the copy. A control.
+    public static Cell<int> Ab187StructCopiedFromALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue a = new SlotValue { Share = Plain }; SlotValue v = a; v.Share = l.Map(q => q); return S.Hold(a.Share!.Sample()); });
+
+    // S4200. A local of a struct type gets a copy of a field of an object, and the block writes a pending cell into the copy. A control.
+    public static Cell<int> Ab187StructCopiedFromAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab187Holder h = new() { V = new SlotValue { Share = Plain } }; SlotValue v = h.V; v.Share = l.Map(q => q); return S.Hold(h.V.Share!.Sample()); });
+
+    // S4201. A local of a struct type gets a copy of a property of an object, and the block writes a pending cell into the copy. A control.
+    public static Cell<int> Ab187StructCopiedFromAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab187Holder h = new() { P = new SlotValue { Share = Plain } }; SlotValue v = h.P; v.Share = l.Map(q => q); return S.Hold(h.P.Share!.Sample()); });
+
+    // S4202. A dictionary gets a copy of a struct in a local, and a second local gets a copy of that value. The block writes a pending cell into the second copy and samples the first local. A control.
+    public static Cell<int> Ab187StructCopiedOutOfADictionaryThatGotALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue a = new SlotValue { Share = Plain }; Dictionary<string, SlotValue> d = new() { ["a"] = a }; SlotValue v = d["a"]; v.Share = l.Map(q => q); return S.Hold(a.Share!.Sample()); });
+
+    // S4203. The block writes a pending cell into a copy of a value of a dictionary, and samples the cell of the copy.
+    public static Cell<int> Ab187CopyOfAValueReadThroughTheCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = Plain } }; SlotValue v = d["a"]; v.Share = l.Map(q => q); return S.Hold(v.Share!.Sample()); });
+
+    // S4204. A value of a dictionary has a pending cell, and the block writes a plain cell into a copy of it. The value keeps the pending cell.
+    public static Cell<int> Ab187PendingValueOfADictionaryWithAPlainCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = l.Map(q => q) } }; SlotValue v = d["a"]; v.Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4205. A local of a struct type has a pending cell, and the block writes a plain cell into a copy of it. The local keeps the pending cell.
+    public static Cell<int> Ab187PendingLocalWithAPlainCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue a = new SlotValue { Share = l.Map(q => q) }; SlotValue v = a; v.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S4206. An element of an array has a pending cell, and the block writes a plain cell into a copy of it. The element keeps the pending cell.
+    public static Cell<int> Ab187PendingElementOfAnArrayWithAPlainCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = l.Map(q => q) }]; SlotValue v = arr[0]; v.Share = Plain; return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4207. The block writes a pending cell into a copy of a value of a dictionary, and puts the copy back into the dictionary.
+    public static Cell<int> Ab187CopyPutBackIntoTheDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SlotValue> d = new() { ["a"] = new SlotValue { Share = Plain } }; SlotValue v = d["a"]; v.Share = l.Map(q => q); d["a"] = v; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4208. The block writes a pending cell into a struct element of an array, and makes no copy.
+    public static Cell<int> Ab187StructElementOfAnArrayWrittenInPlace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; arr[0].Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4209. A local with ref is a name of a struct element of an array, and the block writes a pending cell through it.
+    public static Cell<int> Ab187RefLocalToAStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; ref SlotValue v = ref arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4210. A local with ref is a name of one struct element, and then of a second one. The block writes a pending cell through it into the second one.
+    public static Cell<int> Ab187RefLocalGivenASecondStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }, new SlotValue { Share = Plain }]; ref SlotValue v = ref arr[1]; v = ref arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4211. The block writes a plain cell into a copy of a struct element. Then it writes a pending cell through a local with ref for the element.
+    public static Cell<int> Ab187CopyThenARefToTheStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue v = arr[0]; v.Share = Plain; ref SlotValue r = ref arr[0]; r.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4212. A local of a class type is a second name of a value of a dictionary, and the block writes a pending cell through it.
+    public static Cell<int> Ab187ClassValueOfADictionaryThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = new SettableSlot { Share = Plain } }; SettableSlot v = d["a"]; v.Share = l.Map(q => q); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4213. A local of a class type is a second name of an element of a list, and the block writes a pending cell through it.
+    public static Cell<int> Ab187ClassElementOfAListThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [new SettableSlot { Share = Plain }]; SettableSlot v = xs[0]; v.Share = l.Map(q => q); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4214. A copy of a struct value of a dictionary has a reference member, and the value shares the object of that member. The block writes a pending cell into that object through the copy.
+    public static Cell<int> Ab187CopyWithAReferenceMemberThatTheValueShares() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Ab187Box> d = new() { ["a"] = new Ab187Box { Inner = Ab187Slots[0] } }; Ab187Box v = d["a"]; v.Inner!.Share = l.Map(q => q); return S.Hold(d["a"].Inner!.Share!.Sample()); });
+
+    // S4215. A copy of a struct element of an array has a reference member with a new object, which the element shares. The block writes a pending cell into that object through the copy.
+    public static Cell<int> Ab187CopyWithAReferenceMemberThatTheElementShares() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab187Box[] arr = [new Ab187Box { Inner = new SettableSlot() }]; Ab187Box v = arr[0]; v.Inner!.Share = l.Map(q => q); return S.Hold(arr[0].Inner!.Share!.Sample()); });
+
+    // S4216. A local with ref is a name of a struct element at an index that a call gives, and the block writes a pending cell through it.
+    public static Cell<int> Ab187RefLocalToAStructElementAtAnIndexOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; ref SlotValue v = ref arr[Ab187Zero()]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4217. A local function gives its parameter with ref the location of a struct element, and writes a pending cell through the parameter.
+    public static Cell<int> Ab187RefParameterGivenAStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SlotValue p) { p = ref arr[0]; p.Share = l.Map(q => q); } });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -25561,6 +25673,22 @@ public static class Shapes
     private static void Ab189Reset(out SettableSlot slot) => slot = Ab189Slots[59];
 
     private static void Ab189Run(Action action) => action();
+
+    private static readonly SettableSlot[] Ab187Slots = [new()];
+
+    public struct Ab187Box
+    {
+        public SettableSlot? Inner { get; set; }
+    }
+
+    public sealed class Ab187Holder
+    {
+        public SlotValue V;
+
+        public SlotValue P { get; set; }
+    }
+
+    private static int Ab187Zero() => 0;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

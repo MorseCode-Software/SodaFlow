@@ -2749,7 +2749,22 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab189PlainCellThroughACapturedLocalInALambdaAfterOut"] = ["SF1001"],
             ["Ab189ReadThroughACapturedLocalThatALambdaAssignsAndRuns"] = ["SF1001"],
             ["Ab189PendingThroughALocalOfALambdaThatRuns"] = ["SF1001"],
-            ["Ab189PendingThroughACapturedLocalThatAListRuns"] = ["SF1001"]
+            ["Ab189PendingThroughACapturedLocalThatAListRuns"] = ["SF1001"],
+            ["Ab187CopyOfAValueReadThroughTheCopy"] = ["SF1001"],
+            ["Ab187PendingValueOfADictionaryWithAPlainCopy"] = ["SF1001"],
+            ["Ab187PendingLocalWithAPlainCopy"] = ["SF1001"],
+            ["Ab187PendingElementOfAnArrayWithAPlainCopy"] = ["SF1001"],
+            ["Ab187CopyPutBackIntoTheDictionary"] = ["SF1001"],
+            ["Ab187StructElementOfAnArrayWrittenInPlace"] = ["SF1001"],
+            ["Ab187RefLocalToAStructElement"] = ["SF1001"],
+            ["Ab187RefLocalGivenASecondStructElement"] = ["SF1001"],
+            ["Ab187CopyThenARefToTheStructElement"] = ["SF1001"],
+            ["Ab187ClassValueOfADictionaryThroughALocal"] = ["SF1001"],
+            ["Ab187ClassElementOfAListThroughALocal"] = ["SF1001"],
+            ["Ab187CopyWithAReferenceMemberThatTheValueShares"] = ["SF1001"],
+            ["Ab187CopyWithAReferenceMemberThatTheElementShares"] = ["SF1001"],
+            ["Ab187RefLocalToAStructElementAtAnIndexOfACall"] = ["SF1001"],
+            ["Ab187RefParameterGivenAStructElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

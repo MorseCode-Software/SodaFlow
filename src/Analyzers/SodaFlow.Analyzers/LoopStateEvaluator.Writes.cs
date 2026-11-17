@@ -2111,6 +2111,12 @@ internal sealed partial class LoopStateEvaluator
     private static bool KeepsItsObject(ISymbol name) =>
         name is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None };
 
+    // True for a local or a parameter of a value type with no ref. It has a copy of the value that
+    // it gets. Thus, it is no second name of an element, as CanBeAnObject says for a location.
+    private static bool HasACopy(ISymbol name) =>
+        name is ILocalSymbol { RefKind: RefKind.None, Type.IsValueType: true }
+            or IParameterSymbol { RefKind: RefKind.None, Type.IsValueType: true };
+
     // True for a member that is a location and no code: a field, or a property whose accessors
     // have no body. A read of it gives the value of the last write to it.
     private static bool IsALocation(ISymbol member) =>

@@ -835,7 +835,10 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public void HoldsOneOf(ISymbol local, ExpressionSyntax collection)
     {
-        this.Frame.ElementOf[local] = collection;
+        if (!HasACopy(local))
+        {
+            this.Frame.ElementOf[local] = collection;
+        }
 
         if (!this.HoldsOnlyWhatWentIn(collection))
         {
@@ -883,7 +886,7 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.CanBeUnseen.Add(local);
         }
 
-        if (this.CollectionOf(value) is { } collection)
+        if (this.CollectionOf(value) is { } collection && !HasACopy(local))
         {
             this.Frame.ElementOf[local] = collection;
         }
