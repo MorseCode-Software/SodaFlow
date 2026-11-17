@@ -336,10 +336,16 @@ careful side, so it can report a read that does not throw:
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
   code calls or passes to a call that runs it there. A lambda written at a call counts only where
-  the call is one of those two or a method of your own. A sample in a lambda written at any other
-  call, such as a `Map` of a stream or a LINQ `Select`, or of a hold kept in a record, a list, or a
-  field, gets each value sent into the sink as well. A close with such a sample can then get
-  `SF1002`, although the sample runs before the end of the transaction.
+  the call is one of those two, a method of your own, a method of an array or a `List<T>`, or a
+  LINQ method that runs it in the call. A LINQ query such as `Select` counts only where the same
+  code enumerates it in the transaction: a `First` or a `ToList` on it, a `foreach` over it, or a
+  local that holds it and that only such code reads. A hold that a method reads from its own object
+  counts where the code made that object with `new` and gave it the hold in the constructor of a
+  positional record, or in a readonly field or a get-only property that a primary constructor sets.
+  A sample in a lambda written at any other call, such as a `Map` of a stream, or of a hold kept in
+  a list or in a member that code can set again, gets each value sent into the sink as well. A
+  close with such a sample can then get `SF1002`, although the sample runs before the end of the
+  transaction.
 
 Some reads that throw it does not see:
 

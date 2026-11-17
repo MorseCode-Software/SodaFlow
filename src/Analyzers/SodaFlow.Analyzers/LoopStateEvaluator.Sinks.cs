@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -33,6 +34,25 @@ internal sealed partial class LoopStateEvaluator
         }
 
         ExpressionSyntax cell = Unwrapped(receiver);
+
+        if (this.InitialOfAHoldIn(cell: cell, reader: this, read: read) is { } initial)
+        {
+            return this.Eval(initial);
+        }
+
+        // A member of the object of a method. The code of the call that runs the method made the
+        // object, and has the hold.
+        return this.HeldMemberAt(cell) is ({ } caller, { } given)
+               && caller.InitialOfAHoldIn(cell: given, reader: this, read: read) is { } held
+            ? caller.Eval(held)
+            : null;
+    }
+
+    // The initial value of a hold that the code of this evaluator made in the transaction. The cell
+    // is the call that makes the hold, or a local that no code writes. The reader is the evaluator
+    // of the read. Null for each other cell, or for a read after the transaction.
+    private ExpressionSyntax? InitialOfAHoldIn(ExpressionSyntax cell, LoopStateEvaluator reader, SyntaxNode read)
+    {
         (ILocalSymbol Local, VariableDeclaratorSyntax Declarator)? named = null;
 
         // A local that no code writes has the hold of its initializer.
@@ -45,16 +65,13 @@ internal sealed partial class LoopStateEvaluator
             named = (local, declarator);
         }
 
-        if (this.InitialValueOf(cell) is not { } initial
-            || !this.RunsInTheTransaction(read)
-            || (named is { Local: var only, Declarator: var declaredAt }
-                && (!this.RunsInTheTransaction(declaredAt)
-                    || NamesOf(local: only, declarator: declaredAt, region: this.region)?.Any(IsWritten) != false)))
-        {
-            return null;
-        }
-
-        return this.Eval(initial);
+        return this.InitialValueOf(cell) is not { } initial
+               || !reader.RunsInTheTransaction(read)
+               || (named is { Local: var only, Declarator: var declaredAt }
+                   && (!this.RunsInTheTransaction(declaredAt)
+                       || NamesOf(local: only, declarator: declaredAt, region: this.region)?.Any(IsWritten) != false))
+            ? null
+            : initial;
     }
 
     // The initial value of the hold, of the accumulation, or of the cell sink that a call makes.
@@ -164,9 +181,9 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when a node runs only in the transaction of the block. That is the code of the block,
-    // and a function in it that the library runs only in the call. The function of a map of a
-    // constant cell is such a function also, because the transaction computes the first value of
-    // the map. A function that this evaluator reads for a call in the transaction is such a
+    // and a function in it that the library or the platform runs only in the call. The function of
+    // a map of a constant cell is such a function also, because the transaction computes the first
+    // value of the map. A function that this evaluator reads for a call in the transaction is such a
     // function also. Each other function, a query, and a member can run after the transaction.
     private bool RunsInTheTransaction(SyntaxNode node)
     {
@@ -201,11 +218,10 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when this evaluator reads a function for a call that runs in the transaction of the
-    // block. A call of the library runs the function in the call only where RunsOnlyInTheCall
-    // says so. Each other call that the walk follows into the function runs it in the call, as
-    // the walk reads it. Thus, a function that the code gives by its name is a part of the
-    // transaction, as a lambda at Transaction.Run is. Each other run of the function has an
-    // evaluator of its own, with its own call.
+    // block. RunsTheFunctionInTheCall says which calls run the function in the call. Thus, a
+    // function that the code gives by its name is a part of the transaction, as a lambda at
+    // Transaction.Run is. Each other run of the function has an evaluator of its own, with its own
+    // call.
     private bool IsReadForACallInTheTransaction(SyntaxNode function)
     {
         if (this.call is not { Caller: var caller, Site: InvocationExpressionSyntax site }
@@ -214,22 +230,46 @@ internal sealed partial class LoopStateEvaluator
             return false;
         }
 
-        bool runsTheFunction =
-            this.region.SymbolOf(site) is IMethodSymbol called
-            && (!this.region.Symbols.IsSodaFlow(called) || caller.RunsOnlyInTheCall(site));
-
-        return runsTheFunction && caller.RunsInTheTransaction(site);
+        return caller.RunsTheFunctionInTheCall(site) && caller.RunsInTheTransaction(site);
     }
 
-    // True when the library runs a function that a call gets only in that call. A transaction and
-    // a loop block run it one time. A map of a constant cell runs it for the first value, and has
+    // True when a call runs in the call a function that the walk follows from it. A call of a
+    // delegate runs it. A method of this compilation runs it also, but an iterator runs it only
+    // when the code enumerates the result at once. For a call of the library or of the platform,
+    // RunsOnlyInTheCall decides.
+    private bool RunsTheFunctionInTheCall(InvocationExpressionSyntax site)
+    {
+        if (this.region.SymbolOf(site) is not IMethodSymbol called)
+        {
+            return false;
+        }
+
+        if (called.MethodKind == MethodKind.DelegateInvoke || IsDynamicInvoke(called))
+        {
+            return true;
+        }
+
+        IReadOnlyList<IMethodSymbol> definitions =
+            this.region.Symbols.IsSodaFlow(called) ? [] : this.DefinitionsOf(invocation: site, method: called);
+
+        return definitions.Count > 0 && definitions.All(static definition => BodyOf(definition) != null)
+            ? !definitions.Any(IsIterator) || this.IsEnumeratedAtOnce(site)
+            : this.RunsOnlyInTheCall(site);
+    }
+
+    // True when the library or the platform runs a function that a call gets only in that call. A
+    // transaction and a loop block run it one time. A map of a constant cell runs it for the first value, and has
     // no update that runs it again.
     private bool RunsOnlyInTheCall(InvocationExpressionSyntax call)
     {
-        if (this.region.SymbolOf(call) is not IMethodSymbol method
-            || !this.region.Symbols.IsSodaFlow(method))
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
         {
             return false;
+        }
+
+        if (!this.region.Symbols.IsSodaFlow(method))
+        {
+            return this.RunsOnlyInTheCallOfThePlatform(call: call, method: method);
         }
 
         if (OperatorTable.RunsFunctionOneTime(method))
@@ -271,5 +311,161 @@ internal sealed partial class LoopStateEvaluator
                    } constant
                && this.region.SymbolOf(constant) is IMethodSymbol method
                && this.region.Symbols.IsSodaFlow(method);
+    }
+
+    // True when a method of the platform runs a function that it gets only in the call. A method
+    // of Enumerable that is not a query runs it, and so does a query that the code enumerates at
+    // once. So does each method of an array and of a List. Each other method can keep the function
+    // for a later time, as CancellationToken.Register does.
+    private bool RunsOnlyInTheCallOfThePlatform(ExpressionSyntax call, IMethodSymbol method)
+    {
+        INamedTypeSymbol type = (method.ReducedFrom ?? method).OriginalDefinition.ContainingType;
+
+        if (SodaFlowSymbols.IsLinqEnumerable(type))
+        {
+            return !SodaFlowSymbols.MakesQuery(method) || this.IsEnumeratedAtOnce(call);
+        }
+
+        return type.SpecialType == SpecialType.System_Array
+               || (type is { Name: "List", Arity: 1 }
+                   && type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
+    }
+
+    // True when the code of the transaction enumerates the result of a call. A method of
+    // Enumerable that is not a query enumerates its receiver, as in Select(...).First(), and a
+    // foreach enumerates its collection. A query of Enumerable passes the test to its own result.
+    // A local that no code writes passes it to each of its names, and each name must run in the
+    // transaction.
+    private bool IsEnumeratedAtOnce(ExpressionSyntax made)
+    {
+        while (true)
+        {
+            switch (made.Parent)
+            {
+                case MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax next } access
+                    when access.Expression == made
+                         && this.region.SymbolOf(next) is IMethodSymbol method
+                         && SodaFlowSymbols.IsLinqEnumerable(
+                             (method.ReducedFrom ?? method).OriginalDefinition.ContainingType):
+                    if (!SodaFlowSymbols.MakesQuery(method))
+                    {
+                        return true;
+                    }
+
+                    made = next;
+
+                    continue;
+                case CommonForEachStatementSyntax loop when loop.Expression == made:
+                    return true;
+                case EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+                    when this.region.ModelFor(declarator).GetDeclaredSymbol(declarator) is ILocalSymbol local:
+                    return NamesOf(local: local, declarator: declarator, region: this.region)?.ToList()
+                               is { Count: > 0 } names
+                           && names.All(name =>
+                               !IsWritten(name) && this.RunsInTheTransaction(name) && this.IsEnumeratedAtOnce(name));
+                default:
+                    return false;
+            }
+        }
+    }
+
+    // The hold that a member of the object of this method has, with the evaluator of the code that
+    // made the object. The member is one that only the constructor can set. The object is a
+    // creation at the call that runs this method, directly or through a local that no code writes.
+    private (LoopStateEvaluator Caller, ExpressionSyntax Given)? HeldMemberAt(SyntaxNode cell)
+    {
+        if (cell is not (IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
+            || this.function != null
+            || this.call is not { Caller: var caller, Site: InvocationExpressionSyntax site }
+            || this.region.SymbolOf(cell) is not { IsStatic: false } member
+            || member is not (IPropertySymbol or IFieldSymbol)
+            || this.ParameterThatSets(member) is not
+            {
+                ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+            } parameter
+            || cell.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } declaration
+            || this.region.ModelFor(declaration).GetDeclaredSymbol(declaration) is not { } method
+            || caller.OwnerAt(site: site, method: method) is not { } owner
+            || caller.CreationIn(owner) is not { ArgumentList: { } arguments } creation
+            || caller.region.SymbolOf(creation) is not IMethodSymbol made
+            || !SymbolEqualityComparer.Default.Equals(x: made.OriginalDefinition, y: constructor.OriginalDefinition)
+            || !caller.RunsInTheTransaction(creation))
+        {
+            return null;
+        }
+
+        ExpressionSyntax? given =
+            arguments.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: made, argument: argument, position: position)?.Ordinal == parameter.Ordinal)
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+
+        return given == null ? null : (caller, Unwrapped(given));
+    }
+
+    // The parameter of a constructor that gives a member its value, for a member that no code
+    // after the creation can set. That is a property of a positional record, or a readonly field
+    // or a property with no setter whose initializer is the parameter. An init accessor can set a
+    // member in a creation with an initializer only, and CreationIn does not accept one.
+    private IParameterSymbol? ParameterThatSets(ISymbol member)
+    {
+        if (member is IPropertySymbol { SetMethod.IsInitOnly: false } or IFieldSymbol { IsReadOnly: false })
+        {
+            return null;
+        }
+
+        ISymbol? source =
+            member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ParameterSyntax positional
+                ? this.region.ModelFor(positional).GetDeclaredSymbol(positional)
+                : this.region.InitializerOf(member.OriginalDefinition) is IdentifierNameSyntax named
+                    ? this.region.SymbolOf(named)
+                    : null;
+
+        return source as IParameterSymbol;
+    }
+
+    // The object of a method at a call. It is the receiver of a call of the method, or the owner
+    // of the one argument that names the method. Null for each other call.
+    private ExpressionSyntax? OwnerAt(InvocationExpressionSyntax site, ISymbol method)
+    {
+        if (site.Expression is MemberAccessExpressionSyntax called && IsTheMethod(called))
+        {
+            return called.Expression;
+        }
+
+        ExpressionSyntax[] owners =
+        [
+            .. site.ArgumentList.Arguments
+                .Select(static argument => argument.Expression)
+                .OfType<MemberAccessExpressionSyntax>()
+                .Where(IsTheMethod)
+                .Select(static named => named.Expression)
+        ];
+
+        return owners.Length == 1 ? owners[0] : null;
+
+        bool IsTheMethod(ExpressionSyntax named) =>
+            this.region.SymbolOf(named) is IMethodSymbol found
+            && SymbolEqualityComparer.Default.Equals(x: found.OriginalDefinition, y: method.OriginalDefinition);
+    }
+
+    // The creation that an expression is: the expression itself, or the initializer of a local
+    // that no code writes. A creation with an initializer can set a member with init, thus it is
+    // not one. Null for each other expression.
+    private BaseObjectCreationExpressionSyntax? CreationIn(ExpressionSyntax owner)
+    {
+        ExpressionSyntax made = Unwrapped(owner);
+
+        if (made is IdentifierNameSyntax name
+            && this.region.SymbolOf(name) is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+            && local.DeclaringSyntaxReferences[0].GetSyntax()
+                is VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+            && NamesOf(local: local, declarator: declarator, region: this.region)?.Any(IsWritten) == false)
+        {
+            made = Unwrapped(value);
+        }
+
+        return made is BaseObjectCreationExpressionSyntax { Initializer: null } creation ? creation : null;
     }
 }

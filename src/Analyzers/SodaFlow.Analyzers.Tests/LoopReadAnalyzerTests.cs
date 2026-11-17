@@ -2406,7 +2406,22 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab159MethodGivenToAMapOfAStream"] = ["SF1002"],
             ["Ab159LocalFunctionGivenToAMapOfACellThatChanges"] = ["SF1002"],
             ["Ab159LocalFunctionGivenToALiftOfCellsThatChange"] = ["SF1002"],
-            ["Ab159LiftGivenAFunctionThatReturnsItsSecondInput"] = ["SF1002"]
+            ["Ab159LiftGivenAFunctionThatReturnsItsSecondInput"] = ["SF1002"],
+            ["Ab160QueryEnumeratedInAMapOfAStream"] = ["SF1002"],
+            ["Ab160QueryOfALocalFunctionEnumeratedInAMapOfAStream"] = ["SF1002"],
+            ["Ab160QueryEnumeratedInTheBlockAndInAMapOfAStream"] = ["SF1002"],
+            ["Ab160SelectInAMapOfAStream"] = ["SF1002"],
+            ["Ab160PostedSelect"] = ["SF1002"],
+            ["Ab160LambdaGivenToRegister"] = ["SF1002"],
+            ["Ab160LocalFunctionGivenToRegister"] = ["SF1002"],
+            ["Ab160MemberSetAfterTheCreation"] = ["SF1002"],
+            ["Ab160MemberSetInTheInitializerOfTheCreation"] = ["SF1002"],
+            ["Ab160RecordInALocalWrittenInABranch"] = ["SF1002"],
+            ["Ab160RecordInALocalThatGetsTheOtherRecordLast"] = ["SF1002"],
+            ["Ab160CopyOfTheRecordWithTheOtherHold"] = ["SF1002"],
+            ["Ab160MethodOfARecordWithAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab160RunOfTheMethodOfARecordInAMapOfAStream"] = ["SF1002"],
+            ["Ab160CallOfTheMethodOfARecordInAMapOfAStream"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
