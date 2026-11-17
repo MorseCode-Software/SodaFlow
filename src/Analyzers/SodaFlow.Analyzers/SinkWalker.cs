@@ -2203,6 +2203,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.Declare(local: assigned, state: state);
                 }
 
+                // A parameter of a primary constructor that a member of the object uses is a field
+                // of the object. Thus, each call of a member after this reads the new value.
+                if (IsOfAPrimaryConstructor(assigned))
+                {
+                    this.evaluator.SetMember(member: assigned, state: state, replaces: replaces, from: from);
+                }
+
                 break;
             // A member of the object that the code is in: a constructor that sets its members, or
             // a method that does.
@@ -2226,6 +2233,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 break;
         }
     }
+
+    // True for a parameter of the primary constructor of a type. The constructor declares on the
+    // type.
+    private static bool IsOfAPrimaryConstructor(ISymbol name) =>
+        name is IParameterSymbol
+        {
+            ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+        }
+        && constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is TypeDeclarationSyntax;
 
     // An event keeps its handlers as a field keeps its value, when its declaration has no
     // accessors. The add accessor of each other event keeps them, and CheckAccessor reads it.

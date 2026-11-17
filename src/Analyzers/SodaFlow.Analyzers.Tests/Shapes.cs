@@ -17167,6 +17167,26 @@ public static class Shapes
     public static Cell<int> Ag79AConstructorKeepsALambdaOfTheObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag79LambdaKept b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ag79LambdaKept.Later[^1](); b.Rang -= h; b.Ring(); return S.Hold(0); });
 
+    // S3815. A method of an object gives a pending cell to a parameter of the primary constructor, and a getter then samples that parameter.
+    public static Cell<int> R3CsPrimaryConstructorParameterSetByAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsSwapped r = new(Plain); r.Use(l.Map(v => v)); return S.Hold(r.Now); });
+
+    // S3816. An object gets a pending cell for a parameter of its primary constructor, a method then gives that parameter a plain cell, and a getter samples it.
+    public static Cell<int> Ab174PrimaryConstructorParameterSetToAPlainCellByAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsSwapped r = new(l.Map(v => v)); r.Use(Plain); return S.Hold(r.Now); });
+
+    // S3817. A method gives its own parameter the plain cell of the primary constructor and samples it. The argument is pending.
+    public static Cell<int> Ab174MethodParameterSetByTheMethodStaysALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab174Kept r = new(Plain); return S.Hold(r.Read(l.Map(v => v))); });
+
+    // S3818. A method of an object gives a pending cell to a parameter of the primary constructor and samples it in the same method.
+    public static Cell<int> Ab174PrimaryConstructorParameterSetAndReadByOneMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab174Kept r = new(Plain); return S.Hold(r.SetAndRead(l.Map(v => v))); });
+
+    // S3819. A method samples its parameter and then gives it the cell of a second parameter. A first call gives it a pending cell, and a second call samples a plain cell.
+    public static Cell<int> Ab174MethodParameterAssignedInAnEarlierCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab174Kept r = new(Plain); Kept.Add(r.Pass(Plain, l.Map(v => v))); return S.Hold(r.Pass(Plain, Plain)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22987,6 +23007,31 @@ public static class Shapes
         public void Twice() => this.Rang += this.Rang;
 
         public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ab174Kept(Cell<int> share)
+    {
+        public int Read(Cell<int> c)
+        {
+            c = share;
+
+            return c.Sample();
+        }
+
+        public int Pass(Cell<int> c, Cell<int> next)
+        {
+            int n = c.Sample();
+            c = next;
+
+            return n;
+        }
+
+        public int SetAndRead(Cell<int> c)
+        {
+            share = c;
+
+            return share.Sample();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
