@@ -17418,6 +17418,42 @@ public static class Shapes
     public static Cell<int> Ab171DynamicCallOfADelegatePropertyReadsTheGetter() =>
         Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new Ab171Callable(l.Map(v => v)); int x = g.Size(); return S.Hold(x); });
 
+    // S3877. A spread into an array of long converts each element with the implicit conversion of the type, which samples a pending member.
+    public static Cell<int> R3CsSpreadConvertsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; long[] totals = [.. all]; return S.Hold(totals.Length); });
+
+    // S3878. A user-defined && calls operator false on its left operand, and that operator samples a pending member.
+    public static Cell<int> R3CsConditionalAndCallsOperatorFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsGate g = new(l.Map(v => v)); R3CsGate both = g && new R3CsGate(Plain); Kept.Add(both); return S.Hold(0); });
+
+    // S3879. A spread into an array of long converts each element, which has a plain cell.
+    public static Cell<int> Ab173SpreadConvertsAnElementWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); Tally[] all = [t]; long[] totals = [.. all]; return S.Snapshot(l, (a, b) => a + b + totals.Length).Hold(0); });
+
+    // S3880. A spread into an array of the same type converts nothing.
+    public static Cell<int> Ab173SpreadWithNoConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; Tally[] copy = [.. all]; Kept.Add(copy); return S.Hold(0); });
+
+    // S3881. A spread into a list of long converts each element with the implicit conversion of the type, which samples a pending member.
+    public static Cell<int> Ab173SpreadIntoAListConvertsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); List<Tally> all = [t]; List<long> totals = [.. all]; return S.Hold(totals.Count); });
+
+    // S3882. A user-defined || calls operator true on its left operand, and that operator samples a pending member.
+    public static Cell<int> Ab173ConditionalOrCallsOperatorTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab173Gate g = new(l.Map(v => v)); Ab173Gate either = g || new Ab173Gate(Plain); Kept.Add(either); return S.Hold(0); });
+
+    // S3883. A user-defined && calls operator false, which reads nothing, and not operator true, which samples a pending member.
+    public static Cell<int> Ab173ConditionalAndDoesNotCallOperatorTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab173Gate g = new(l.Map(v => v)); Ab173Gate both = g && new Ab173Gate(Plain); Kept.Add(both); return S.Hold(0); });
+
+    // S3884. A user-defined || calls operator true, which reads nothing, and not operator false, which samples a pending member.
+    public static Cell<int> Ab173ConditionalOrDoesNotCallOperatorFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsGate g = new(l.Map(v => v)); R3CsGate either = g || new R3CsGate(Plain); Kept.Add(either); return S.Hold(0); });
+
+    // S3885. A user-defined && calls operator false on its left operand only, and the right operand has the pending member.
+    public static Cell<int> Ab173ConditionalAndTestsOnlyTheLeftOperand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsGate g = new(Plain); R3CsGate both = g && new R3CsGate(l.Map(v => v)); Kept.Add(both); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23420,6 +23456,21 @@ public static class Shapes
     public sealed class Ab171Callable(Cell<int> share)
     {
         public Func<int> Size => share.Sample() > 0 ? static () => 1 : static () => 0;
+    }
+
+    public sealed class Ab173Gate
+    {
+        private readonly Cell<int> share;
+
+        public Ab173Gate(Cell<int> share) => this.share = share;
+
+        public static Ab173Gate operator &(Ab173Gate a, Ab173Gate b) => a;
+
+        public static Ab173Gate operator |(Ab173Gate a, Ab173Gate b) => a;
+
+        public static bool operator true(Ab173Gate g) => g.share.Sample() > 0;
+
+        public static bool operator false(Ab173Gate g) => false;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

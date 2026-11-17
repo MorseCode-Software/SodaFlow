@@ -295,6 +295,13 @@ internal sealed class LoopRegion(
             : null;
 
     /// <summary>
+    ///     The operator of the code that converts a value of the first type to
+    ///     the second one. Null when no such operator makes that conversion.
+    /// </summary>
+    public IMethodSymbol? ConversionOperator(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to).MethodSymbol;
+
+    /// <summary>
     ///     True when the compiler converts the first type to the second one with
     ///     no cast. No operator converts an interface. Thus, each value of a first
     ///     type that is an interface is then a value of the second type.

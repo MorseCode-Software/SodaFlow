@@ -2544,7 +2544,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag83ConsoleWriteWithAFormatOfAnObjectThatReads"] = ["SF1005"],
             ["R3CsDynamicPropertyReadsAGetter"] = ["SF1005"],
             ["Ab171DynamicPropertyOfABaseClass"] = ["SF1005"],
-            ["Ab171DynamicCallOfADelegatePropertyReadsTheGetter"] = ["SF1005"]
+            ["Ab171DynamicCallOfADelegatePropertyReadsTheGetter"] = ["SF1005"],
+            ["R3CsSpreadConvertsEachElement"] = ["SF1004"],
+            ["R3CsConditionalAndCallsOperatorFalse"] = ["SF1004"],
+            ["Ab173SpreadIntoAListConvertsEachElement"] = ["SF1004"],
+            ["Ab173ConditionalOrCallsOperatorTrue"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

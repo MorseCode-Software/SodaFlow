@@ -2283,6 +2283,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.RunQueries(spread.Expression);
             this.Report(this.evaluator.FollowEnumeration(written: spread.Expression, byThePattern: true));
+            this.Report(this.evaluator.FollowSpreadConversion(collection: node, spread: spread.Expression));
         }
 
         this.Report(this.evaluator.FollowCollectionExpression(node));

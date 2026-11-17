@@ -432,6 +432,23 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     The conversion that a spread makes on each element, when the
+    ///     collection has a different type of element. An operator of this
+    ///     compilation can make it. No node names that conversion.
+    /// </summary>
+    public Followed? FollowSpreadConversion(CollectionExpressionSyntax collection, ExpressionSyntax spread) =>
+        this.region.Symbols.DeclaresConversions
+        && SodaFlowSymbols.ElementTypeOf(this.region.TypeOf(spread)) is { } from
+        && SodaFlowSymbols.ElementTypeOf(this.region.TypeOf(collection)) is { } to
+        && this.region.ConversionOperator(from: from, to: to) is { } conversion
+            ? this.FollowImplied(
+                call: spread,
+                member: conversion,
+                owner: null,
+                arguments: [(spread, ElementOf(collection: this.Eval(spread), type: from))])
+            : null;
+
     // The method that the CollectionBuilder attribute of a type names: a static method of the
     // builder type, with one parameter, the span of the elements.
     private static IMethodSymbol? BuilderOf(ISymbol type) =>
@@ -485,6 +502,10 @@ internal sealed partial class LoopStateEvaluator
                 when this.region.Symbols.DeclaresOperators || this.region.Symbols.DeclaresToString =>
                 this.region.SymbolOf(binary) switch
                 {
+                    IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation
+                        when binary.IsKind(SyntaxKind.LogicalAndExpression)
+                             || binary.IsKind(SyntaxKind.LogicalOrExpression) =>
+                        this.FollowShortCircuit(binary: binary, operation: operation),
                     IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation =>
                         this.FollowOperator(call: binary, operation: operation, operands: [binary.Left, binary.Right]),
                     // A concatenation calls ToString on an operand that is not a string.
@@ -520,6 +541,23 @@ internal sealed partial class LoopStateEvaluator
                     operands: [compound.Left, compound.Right]),
             _ => null
         };
+
+    /// <summary>
+    ///     A user-defined <c>&amp;&amp;</c> or <c>||</c>. It calls
+    ///     <c>operator false</c> or <c>operator true</c> of the type of its
+    ///     operator on the left operand. It then calls the operator, unless that
+    ///     test decides the result. No node names the test.
+    /// </summary>
+    private Followed? FollowShortCircuit(BinaryExpressionSyntax binary, IMethodSymbol operation) =>
+        Both(
+            first: operation.ContainingType
+                    .GetMembers(binary.IsKind(SyntaxKind.LogicalAndExpression) ? "op_False" : "op_True")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static test => test.Parameters.Length == 1)
+                is { } test
+                ? this.FollowOperator(call: binary.Left, operation: test, operands: [binary.Left])
+                : null,
+            second: this.FollowOperator(call: binary, operation: operation, operands: [binary.Left, binary.Right]));
 
     /// <summary>
     ///     The operators that a tuple equality calls, one for each pair of

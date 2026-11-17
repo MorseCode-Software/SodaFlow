@@ -309,14 +309,15 @@ The analyzer follows a value made from the placeholder through the code of your 
   made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
   sent in a function that `Transaction.Post` runs after the transaction: a lambda, a local
   function, a method that you give to `Post` by its name, or a post inside a posted function.
-- Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
-  event accessor, `Deconstruct`, `ToString` in an interpolated string that the code formats at
-  once, which is the `ToString` of `IFormattable` for a value that implements it, `Dispose` at the
-  end of a `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection
-  initializer or a collection expression, the `Create` method of a `CollectionBuilder`, `Count` and
-  `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the copy
-  constructor of a record, the `ToString` of each value that a record or a tuple prints, and the
-  `==` of each element of a tuple comparison.
+- Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
+  element of a spread, `operator true` or `operator false` before a user-defined `||` or `&&`, a
+  setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
+  formats at once, which is the `ToString` of `IFormattable` for a value that implements it,
+  `Dispose` at the end of a `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a
+  collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
+  `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
+  copy constructor of a record, the `ToString` of each value that a record or a tuple prints, and
+  the `==` of each element of a tuple comparison.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
