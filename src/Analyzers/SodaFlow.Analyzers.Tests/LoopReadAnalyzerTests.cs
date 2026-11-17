@@ -2537,7 +2537,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab170RecordToStringCallsToStringOfAField"] = ["SF1005"],
             ["Ab170RecordToStringCallsToStringOfAnInnerRecordOfItsType"] = ["SF1005"],
             ["Ab170TupleToStringCallsToStringOfAnItemOfAnInnerTuple"] = ["SF1005"],
-            ["Ab170RecordThatHoldsItself"] = ["SF1005"]
+            ["Ab170RecordThatHoldsItself"] = ["SF1005"],
+            ["R3LimThreadLocalValueRunsItsFunctionInTheBlock"] = ["SF1001"],
+            ["Ag85ThreadLocalThatTracksItsValuesRunsItsFunction"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

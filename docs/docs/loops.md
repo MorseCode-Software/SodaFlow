@@ -321,21 +321,21 @@ The analyzer follows a value made from the placeholder through the code of your 
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` where something reads its `Value`. A query expression over a
-  type whose methods run their function in the call, such as `from x in maybe select ...` over a
-  `Maybe<T>`, runs where it is written. Where the code takes only one item from the call of an
-  iterator, with `First`, `FirstOrDefault`, `Any()` with no predicate, or a `foreach` that leaves
-  the loop in its first pass on every path, the iterator runs only up to its first `yield return`
-  and the `finally` blocks around it. An `async` method or lambda
-  runs in the block up to its first `await` of a task that may not be complete, and the rest of it
-  runs later. That holds for an `await` in a `switch` section or in the header of a `foreach`,
-  `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a `foreach` runs
-  later as well when such an `await` comes before it in its scope. An `await foreach` runs its body
-  in the block only for an item that the sequence gives at once, and the code after it only when
-  every item comes at once. An async iterator runs nothing until something enumerates it. A method
-  of `SodaFlow.Functional` that gets a task and returns one, such as the `Map` of a
-  `Task<Maybe<T>>`, awaits that task first, so its function runs in the block only when the
-  analyzer knows that the task is complete.
+  and the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`. A query
+  expression over a type whose methods run their function in the call, such as
+  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
+  only one item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no
+  predicate, or a `foreach` that leaves the loop in its first pass on every path, the iterator runs
+  only up to its first `yield return` and the `finally` blocks around it. An `async` method or
+  lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
+  of it runs later. That holds for an `await` in a `switch` section or in the header of a
+  `foreach`, `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a
+  `foreach` runs later as well when such an `await` comes before it in its scope. An
+  `await foreach` runs its body in the block only for an item that the sequence gives at once, and
+  the code after it only when every item comes at once. An async iterator runs nothing until
+  something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
+  as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
+  only when the analyzer knows that the task is complete.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 
@@ -390,8 +390,8 @@ Some reads that throw it does not see:
 - An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
   formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
   analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.
-- A function that a constructor from outside your project keeps, other than a `Lazy<T>` or the
-  comparer of a platform collection.
+- A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a
+  `ThreadLocal<T>`, or the comparer of a platform collection.
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
   is. That code runs in the block, and the analyzer reads it as code that runs later. The same
   goes for the body of an `await foreach` over a sequence other than a call of your own async

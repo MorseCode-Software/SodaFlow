@@ -17370,6 +17370,22 @@ public static class Shapes
     public static Cell<int> Ab170RecordThatHoldsItself() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab170Loop a = new() { Part = new Titled(l.Map(v => v)) }; a.Next = a; string s = $"n{a}"; return S.Hold(s.Length); });
 
+    // S3865. A ThreadLocal keeps a function that samples the placeholder, and the block reads its value.
+    public static Cell<int> R3LimThreadLocalValueRunsItsFunctionInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ThreadLocal<int> local = new(() => l.Sample()); return S.Hold(local.Value); });
+
+    // S3866. A ThreadLocal that tracks its values keeps a function that samples the placeholder, and the block reads its value.
+    public static Cell<int> Ag85ThreadLocalThatTracksItsValuesRunsItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ThreadLocal<int> local = new(() => l.Sample(), trackAllValues: true); return S.Hold(local.Value); });
+
+    // S3867. A ThreadLocal keeps a function that samples a plain cell, and the block reads its value.
+    public static Cell<int> Ag85ThreadLocalWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ThreadLocal<int> local = new(() => Plain.Sample()); return S.Snapshot(l, (a, b) => a + b + local.Value).Hold(0); });
+
+    // S3868. A type of a package with the name ThreadLocal keeps a function that samples the placeholder, and its Value does not run that function.
+    public static Cell<int> Ag85ThreadLocalOfAPackageDoesNotRunItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag85Own.ThreadLocal<int> local = new(() => l.Sample()); return S.Snapshot(l, (a, b) => a + b + local.Value).Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

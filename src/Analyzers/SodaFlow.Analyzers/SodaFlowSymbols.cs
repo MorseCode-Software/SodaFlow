@@ -390,14 +390,25 @@ internal sealed class SodaFlowSymbols
         };
 
     /// <summary>
-    ///     True for <c>System.Lazy</c>. It keeps the function that makes its
-    ///     value, and runs that function at the first read of <c>Value</c>.
+    ///     True for <c>System.Lazy</c> and <c>System.Threading.ThreadLocal</c>.
+    ///     Each keeps the function that makes its value, and runs that function
+    ///     at the first read of <c>Value</c>. A <c>ThreadLocal</c> runs it again
+    ///     on each other thread.
     /// </summary>
     public static bool IsLazy(ITypeSymbol? type) =>
         type?.OriginalDefinition is INamedTypeSymbol
         {
             Name: "Lazy",
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+        }
+        or INamedTypeSymbol
+        {
+            Name: "ThreadLocal",
+            ContainingNamespace:
+            {
+                Name: "Threading",
+                ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            }
         };
 
     /// <summary>

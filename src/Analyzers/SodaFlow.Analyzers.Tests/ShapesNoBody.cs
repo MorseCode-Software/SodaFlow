@@ -144,6 +144,18 @@ public interface IKeeper<T, TBox>
     List<T> Made();
 }
 
+// A type with the name of ThreadLocal of the platform, in a namespace of its own. It keeps its
+// function and does not run it.
+public static class Ag85Own
+{
+    public sealed class ThreadLocal<T>(Func<T> make)
+    {
+        public Func<T> Make { get; } = make;
+
+        public T Value => default!;
+    }
+}
+
 internal sealed class Filler<T> : IFiller<T>
     where T : new()
 {
