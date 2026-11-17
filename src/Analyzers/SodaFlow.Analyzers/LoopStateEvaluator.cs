@@ -2957,10 +2957,15 @@ internal sealed partial class LoopStateEvaluator
             return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
         }
 
-        // Reflection runs code that it finds at run time.
+        // Reflection runs code that it finds at run time. The walk reads only the forms that name that
+        // code with literals.
         if (SodaFlowSymbols.IsReflectionCall(method))
         {
-            return CalleeKind.Unknown;
+            return call is InvocationExpressionSyntax reflected
+                   && this.ReflectedCall(invocation: reflected, method: method) != null
+                   && this.Follow(call) != null
+                ? CalleeKind.Body
+                : CalleeKind.Unknown;
         }
 
         IReadOnlyList<IMethodSymbol> definitions =
@@ -3391,6 +3396,13 @@ internal sealed partial class LoopStateEvaluator
         }
 
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        // Reflection runs the method or the constructor that a literal names.
+        if (SodaFlowSymbols.IsReflectionCall(method)
+            && this.ReflectedCall(invocation: invocation, method: method) is { } reflected)
+        {
+            return this.FollowReflection(invocation: invocation, reflected: reflected);
+        }
 
         // A call of a delegate runs the functions that the delegate can be.
         if (method.MethodKind == MethodKind.DelegateInvoke)
@@ -4082,7 +4094,8 @@ internal sealed partial class LoopStateEvaluator
         IMethodSymbol constructor,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ExpressionSyntax? copied = null,
-        bool chained = false)
+        bool chained = false,
+        IReadOnlyList<Binding>? bound = null)
     {
         IMethodSymbol definition = constructor.OriginalDefinition;
         SyntaxNode? declaration = definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
@@ -4103,7 +4116,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         IReadOnlyList<Binding> bindings =
-            this.Bind(definition: definition, arguments: arguments, extensionReceiver: copied);
+            bound ?? this.Bind(definition: definition, arguments: arguments, extensionReceiver: copied);
 
         // A constructor that gets no state gives no member a state, and the evaluator does not
         // read it. The object keeps its type, because the code can set a member of it later.

@@ -17954,6 +17954,110 @@ public static class Shapes
     public static Cell<int> Ag88PlatformVirtualMethodOfAnUnseenObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ag88UnseenOpen[0].Equals(l.Map(v => v))); return S.Hold(0); });
 
+    // S4011. Reflection runs a method that samples the placeholder, and the run does not wrap the exception.
+    public static Cell<int> R3LimMethodRunByReflectionSamplesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, System.Reflection.BindingFlags.DoNotWrapExceptions, null, [l], null); return S.Hold(0); });
+
+    // S4012. Activator makes an object whose constructor samples a pending cell, and the run does not wrap the exception.
+    public static Cell<int> R3LimConstructorRunByReflectionSamplesItsArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(SamplingRow), System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DoNotWrapExceptions, null, [l.Map(v => v)], null); return S.Hold(0); });
+
+    // S4013. Reflection runs an instance method that samples its argument. The code names the method with a string and gives the arguments in an array.
+    public static Cell<int> Ag81InstanceMethodRunByReflectionWithAStringName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Reader).GetMethod("Read")!.Invoke(new Ag81Reader(), new object[] { l.Map(v => v) }); return S.Hold(0); });
+
+    // S4014. Activator makes an object whose constructor samples a pending cell. The code gives the argument with no array.
+    public static Cell<int> Ag81ConstructorRunByActivatorWithTheArgumentItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(SamplingRow), l.Map(v => v)); return S.Hold(0); });
+
+    // S4015. Reflection runs a method that does not sample, with a pending cell. A control.
+    public static Cell<int> Ag81MethodRunByReflectionThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? kept = typeof(Ag81Reader).GetMethod(nameof(Ag81Reader.Keep))!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4016. Reflection names a method that has two overloads. GetMethod throws, thus the analyzer does not follow it.
+    public static Cell<int> Ag81OverloadedMethodNamedByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Overloads).GetMethod(nameof(Ag81Overloads.Read))!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4017. Reflection names a method whose base class has a method of the same name. GetMethod throws, thus the analyzer does not follow it.
+    public static Cell<int> Ag81MethodWithANameOfItsBaseNamedByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Derived).GetMethod(nameof(Ag81Derived.Read))!.Invoke(new Ag81Derived(), [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4018. Reflection names a private method. GetMethod finds no public method, thus Invoke runs on null.
+    public static Cell<int> Ag81PrivateMethodNamedByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Reader).GetMethod("Hidden")!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4019. Reflection names a public method with binding flags that find only a method that is not public. Invoke then runs on null.
+    public static Cell<int> Ag81MethodNamedByReflectionWithFlagsThatDoNotFindIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4020. Reflection names a method with a variable, which the analyzer does not read.
+    public static Cell<int> Ag81MethodNamedByAVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string name = Plain == null ? "Keep" : "Read"; object? read = typeof(DvLinksReader).GetMethod(name)!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4021. Reflection runs a method of one parameter with two arguments. Invoke throws before the method runs.
+    public static Cell<int> Ag81MethodRunByReflectionWithTooManyArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [l.Map(v => v), 1]); return S.Hold(0); });
+
+    // S4022. Reflection runs an instance method on null. Invoke throws before the method runs.
+    public static Cell<int> Ag81InstanceMethodRunByReflectionOnNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Reader).GetMethod("Read")!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4023. Reflection runs a method with a ref parameter. The analyzer does not follow a ref parameter through the array.
+    public static Cell<int> Ag81MethodWithARefParameterRunByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Refs).GetMethod(nameof(Ag81Refs.Read))!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4024. Control. Reflection runs a method that samples, with a plain cell in a local array.
+    public static Cell<int> Ag81MethodRunByReflectionWithAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4025. Activator makes an object of a class with two constructors of one parameter. The analyzer does not choose between them.
+    public static Cell<int> Ag81ConstructorOfTwoThatFitRunByActivator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81TwoWays), l.Map(v => v)); return S.Hold(0); });
+
+    // S4026. Activator makes an object of a class whose constructor is private. Activator finds no constructor, and throws.
+    public static Cell<int> Ag81PrivateConstructorRunByActivator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81Closed), l.Map(v => v)); return S.Hold(0); });
+
+    // S4027. Activator makes an object with binding flags that find only a constructor that is not public. The constructor is public, thus Activator throws.
+    public static Cell<int> Ag81ConstructorRunByActivatorWithFlagsThatDoNotFindIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(SamplingRow), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, null, [l.Map(v => v)], null); return S.Hold(0); });
+
+    // S4028. Reflection names a generic method. Invoke throws for a method with open type parameters.
+    public static Cell<int> Ag81GenericMethodNamedByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Generic).GetMethod(nameof(Ag81Generic.Read))!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4029. Reflection names a method of a generic type with no type arguments. Invoke throws for a type with open type parameters.
+    public static Cell<int> Ag81MethodOfAnOpenGenericTypeNamedByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Box<>).GetMethod("Read")!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4030. Reflection runs a virtual method of the base class on an object whose override samples. The analyzer does not know the class of the object.
+    public static Cell<int> Ag81VirtualMethodRunByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(R3LimShown).GetMethod(nameof(R3LimShown.Now))!.Invoke(new R3LimShownReader(), [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4031. Reflection names the constructor as a method. GetMethod finds no method, thus Invoke runs on null.
+    public static Cell<int> Ag81ConstructorNamedAsAMethodByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(SamplingRow).GetMethod(".ctor")!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4032. Activator makes an object of an abstract class. Activator throws before a constructor runs.
+    public static Cell<int> Ag81AbstractClassMadeByActivator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81AbstractRow), l.Map(v => v)); return S.Hold(0); });
+
+    // S4033. Activator makes an object with the arguments in a local array, which the analyzer does not read.
+    public static Cell<int> Ag81ConstructorRunByActivatorWithAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; object? made = Activator.CreateInstance(typeof(SamplingRow), cells); return S.Hold(0); });
+
+    // S4034. Activator makes a struct whose constructor samples a pending cell.
+    public static Cell<int> Ag81StructMadeByActivatorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81RowValue), l.Map(v => v)); return S.Hold(0); });
+
+    // S4035. Reflection runs a method with a params parameter. Reflection gives the element of the array to the params parameter as one value, which does not fit, and Invoke throws before the method runs.
+    public static Cell<int> Ag81MethodWithAParamsParameterRunByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(Ag81Params).GetMethod(nameof(Ag81Params.Read))!.Invoke(null, [l.Map(v => v)]); return S.Hold(0); });
+
+    // S4036. Activator makes an object of a generic class with no type arguments. Activator throws for a type with open type parameters.
+    public static Cell<int> Ag81OpenGenericClassMadeByActivator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81GenericRow<>), l.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24331,6 +24435,87 @@ public static class Shapes
     public class Ag88ReadingMiddle : Ag88Reading;
 
     private static readonly Ag88ReadingMiddle[] Ag88UnseenMiddle = [new Ag88ReadingMiddle()];
+
+    public sealed class Ag81Reader
+    {
+        public int Read(Cell<int> c) => c.Sample();
+
+        public static Cell<int> Keep(Cell<int> c) => c;
+
+        private static int Hidden(Cell<int> c) => c.Sample();
+    }
+
+    public static class Ag81Overloads
+    {
+        public static int Read(Cell<int> c) => c.Sample();
+
+        public static int Read(Cell<int> c, int more) => c.Sample() + more;
+    }
+
+    public class Ag81Base
+    {
+        public int Read(Cell<int> c, int more) => c.Sample() + more;
+    }
+
+    public sealed class Ag81Derived : Ag81Base
+    {
+        public int Read(Cell<int> c) => c.Sample();
+    }
+
+    public static class Ag81Refs
+    {
+        public static int Read(ref Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ag81TwoWays
+    {
+        public Ag81TwoWays(Cell<int> cell) => this.Value = cell.Sample();
+
+        public Ag81TwoWays(Stream<int> stream) => this.Value = stream == null ? 0 : 1;
+
+        public int Value { get; }
+    }
+
+    public sealed class Ag81Closed
+    {
+        private Ag81Closed(Cell<int> cell) => this.Value = cell.Sample();
+
+        public int Value { get; }
+    }
+
+    public static class Ag81Generic
+    {
+        public static int Read<T>(Cell<int> c) => c.Sample();
+    }
+
+    public static class Ag81Box<T>
+    {
+        public static int Read(Cell<int> c) => c.Sample();
+    }
+
+    public abstract class Ag81AbstractRow
+    {
+        public Ag81AbstractRow(Cell<int> cell) => this.Value = cell.Sample();
+
+        public int Value { get; }
+    }
+
+    public readonly struct Ag81RowValue
+    {
+        public Ag81RowValue(Cell<int> cell) => this.Value = cell.Sample();
+
+        public int Value { get; }
+    }
+
+    public static class Ag81Params
+    {
+        public static int Read(params Cell<int>[] cells) => cells[0].Sample();
+    }
+
+    public sealed class Ag81GenericRow<T>(Cell<int> cell)
+    {
+        public int Value { get; } = cell.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

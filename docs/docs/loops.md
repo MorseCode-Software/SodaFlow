@@ -406,7 +406,13 @@ careful side, so it can report a read that does not throw:
 Some reads that throw it does not see:
 
 - Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
-  placeholder that you pass to one of these gets `SF1003`.
+  placeholder that you pass to one of these gets `SF1003`. The analyzer follows two literal forms:
+  `typeof(T).GetMethod("M").Invoke(obj, [a])`, where `T` and its base types have one public method
+  named `M`, which is not generic and not virtual and takes those arguments, and
+  `Activator.CreateInstance(typeof(T), a)`, where one public constructor of `T` takes that many
+  arguments. The name can be a string or a `nameof`, and the arguments must be written in the call,
+  one by one or as an array or a collection expression. A value that reaches `Invoke` inside an
+  array held in a local gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.
