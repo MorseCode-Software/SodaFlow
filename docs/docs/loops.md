@@ -391,10 +391,12 @@ careful side, so it can report a read that does not throw:
   local that holds it and that only such code reads. A hold that a method reads from its own object
   counts where the code made that object with `new` and gave it the hold in the constructor of a
   positional record, or in a readonly field or a get-only property that a primary constructor sets.
-  A sample in a lambda written at any other call, such as a `Map` of a stream, or of a hold kept in
-  a list or in a member that code can set again, gets each value sent into the sink as well. A close
-  with such a sample can then get `SF1002`, although the sample runs before the end of the
-  transaction.
+  A hold that the code reads from a list that you write as a literal, at a constant index, counts as
+  the hold itself. So does a sample in the function of a `Lazy<T>` whose `Value` the code of the
+  transaction reads. A sample in a lambda written at any other call, such as a `Map` of a stream, or
+  of a hold kept in a member that code can set again, in a list that code can change, or in a list
+  at an index that is not a constant, gets each value sent into the sink as well. A close with such
+  a sample can then get `SF1002`, although the sample runs before the end of the transaction.
 
 Some reads that throw it does not see:
 

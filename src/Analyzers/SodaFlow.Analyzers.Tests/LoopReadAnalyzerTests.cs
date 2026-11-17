@@ -2583,7 +2583,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab176MapOfAHoldThatReturnsALinkedCell"] = ["SF1002"],
             ["Ab176LiftOfAHoldAndALinkedConstant"] = ["SF1002"],
             ["Ab176MapOfAHoldSampledAfterTheClose"] = ["SF1002"],
-            ["Ab176MapInALocalThatTheBlockWrites"] = ["SF1002"]
+            ["Ab176MapInALocalThatTheBlockWrites"] = ["SF1002"],
+            ["Ag80HoldInAListWrittenWithALinkedHold"] = ["SF1002"],
+            ["Ag80HoldSampledInALazyReadAfterTheClose"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

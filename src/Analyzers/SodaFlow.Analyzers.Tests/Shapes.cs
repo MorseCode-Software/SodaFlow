@@ -17734,6 +17734,26 @@ public static class Shapes
     public static Cell<int> Ab176MapInALocalThatTheBlockWrites() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); Cell<Cell<int>> m = h.Map(c => c); s.Send(l.Map(v => v)); m = Cell.Constant(l.Map(v => v)); return m.Sample(); });
 
+    // S3956. A list has a hold of a sink, and a send of a cell linked to the placeholder comes after the hold. The close is a transaction of the block that samples the element of the list.
+    public static Cell<int> R3LimHoldInAListSampledInATransactionOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); List<Cell<Cell<int>>> all = [h]; return Transaction.Run(() => all[0].Sample()); });
+
+    // S3957. A Lazy samples a hold of a sink, and a send of a cell linked to the placeholder comes after the hold. The close is the value of the Lazy, which the block reads.
+    public static Cell<int> R3LimHoldSampledInALazyReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Lazy<Cell<int>> lazy = new(() => h.Sample()); return lazy.Value; });
+
+    // S3958. A list has a hold of a sink, and then the block writes a hold with a linked initial value to that element. A sample of the element in the block is then a cycle.
+    public static Cell<int> Ag80HoldInAListWrittenWithALinkedHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); List<Cell<Cell<int>>> all = [h]; all[0] = Stream.Never<Cell<int>>().Hold(l.Map(v => v)); return all[0].Sample(); });
+
+    // S3959. A list has a hold of a sink, and the block samples the element at the index of a second literal list. The sample gives the initial value, thus the close is not a cycle.
+    public static Cell<int> Ag80HoldInAListAtAConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); List<Cell<Cell<int>>> all = [Plain.Map(v => Plain), h]; return all[1].Sample(); });
+
+    // S3960. A Lazy samples a hold of a sink, and a map of a stream reads its Value first, after the close. The Lazy then gets the linked cell, and the switch of its hold is a cycle.
+    public static Cell<int> Ag80HoldSampledInALazyReadAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Lazy<Cell<int>> lazy = new(() => h.Sample()); return t.Map(_ => lazy.Value).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

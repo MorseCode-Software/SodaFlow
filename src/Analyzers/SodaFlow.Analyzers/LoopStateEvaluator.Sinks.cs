@@ -45,6 +45,13 @@ internal sealed partial class LoopStateEvaluator
             return first;
         }
 
+        // An element of a literal list at a constant index is the expression of that element.
+        if (cell is ElementAccessExpressionSyntax { ArgumentList.Arguments.Count: 1 } access
+            && this.PositionOf(access) is { } element)
+        {
+            return this.InitialOfAHoldOfTheBlock(read: read, receiver: element);
+        }
+
         // A member of the object of a method. The code of the call that runs the method made the
         // object, and has the hold.
         return this.HeldMemberAt(cell) is ({ } caller, { } given)
@@ -347,13 +354,25 @@ internal sealed partial class LoopStateEvaluator
     // call.
     private bool IsReadForACallInTheTransaction(SyntaxNode function)
     {
-        if (this.call is not { Caller: var caller, Site: InvocationExpressionSyntax site }
+        if (this.call is not { Caller: var caller, Site: var site }
             || (function is MethodDeclarationSyntax ? this.function != null : function != this.function))
         {
             return false;
         }
 
-        return caller.RunsTheFunctionInTheCall(site) && caller.RunsInTheTransaction(site);
+        // The first read of the Value of a Lazy runs its function. Each read before it is in the
+        // transaction also, because the code of the transaction made the hold that the function
+        // reads.
+        return site switch
+        {
+            InvocationExpressionSyntax invocation => caller.RunsTheFunctionInTheCall(invocation)
+                                                     && caller.RunsInTheTransaction(invocation),
+            MemberAccessExpressionSyntax or MemberBindingExpressionSyntax =>
+                caller.region.SymbolOf(site) is IPropertySymbol property
+                && SodaFlowSymbols.IsLazyValue(property)
+                && caller.RunsInTheTransaction(site),
+            _ => false
+        };
     }
 
     // True when a call runs in the call a function that the walk follows from it. A call of a
