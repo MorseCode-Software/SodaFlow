@@ -2519,7 +2519,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab175DefaultInterfaceMethodCallsAMethodOfTheClass"] = ["SF1005"],
             ["R3CsQuerySyntaxOverMaybeRunsNow"] = ["SF1001"],
             ["Ab172QuerySyntaxOverMaybeWithAWhere"] = ["SF1001"],
-            ["Ab172QuerySyntaxOverTwoMaybes"] = ["SF1001"]
+            ["Ab172QuerySyntaxOverTwoMaybes"] = ["SF1001"],
+            ["Ag75ElementAtOfThisCodeThatCountsFromTheEnd"] = ["SF1001"],
+            ["Ag75SortedDictionaryWithAnIgnorableCharacter"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -17235,6 +17235,14 @@ public static class Shapes
     public static Cell<int> Ab172QuerySyntaxOverAnAsyncSequenceWaits() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAsyncEnumerable<int> q = from c in Ab172Cells(l.Map(v => v)) select c.Sample(); Kept.Add(q); return S.Hold(0); });
 
+    // S3832. A list of objects has a pending cell and then a plain cell. An ElementAt of this code counts from the end, and the block samples the element of one. A control.
+    public static Cell<int> Ag75ElementAtOfThisCodeThatCountsFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ag75Back> slots = [new(l.Map(v => v)), new(Plain)]; return S.Hold(slots.ElementAt(1).Share.Sample()); });
+
+    // S3833. A sorted dictionary of strings gets a plain cell for a key and then a pending cell for the key with a soft hyphen, which its comparer finds equal, and the block samples the first key. A control.
+    public static Cell<int> Ag75SortedDictionaryWithAnIgnorableCharacter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedDictionary<string, Cell<int>> cells = new() { ["a"] = Plain, ["a\u00AD"] = l.Map(v => v) }; return S.Hold(cells["a"].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23127,6 +23135,11 @@ public static class Shapes
         await Task.CompletedTask;
     }
 
+    public sealed class Ag75Back(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -23147,6 +23160,10 @@ file static class Helpers
 
         return last ?? new Shapes.Ab165Item();
     }
+
+    // An ElementAt of this code, which counts from the end and changes nothing.
+    public static Shapes.Ag75Back ElementAt(this List<Shapes.Ag75Back> slots, int index) =>
+        slots[slots.Count - 1 - index];
 
     // An ElementAt of this code, which changes the order of the list before it reads.
     public static Shapes.Ag75Slot ElementAt(this List<Shapes.Ag75Slot> slots, int index)
