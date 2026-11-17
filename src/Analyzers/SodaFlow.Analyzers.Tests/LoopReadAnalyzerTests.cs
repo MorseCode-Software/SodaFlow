@@ -2652,7 +2652,10 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag90ACastToASealedClassKeepsTheObject"] = ["SF1001"],
             ["Ag90ACastToAnOpenClassKeepsTheObject"] = ["SF1001"],
             ["Ag90ALocalFromAKeyChangesTheDictionary"] = ["SF1001"],
-            ["Ag90ALocalInTheInitializerChangesTheDictionary"] = ["SF1001"]
+            ["Ag90ALocalInTheInitializerChangesTheDictionary"] = ["SF1001"],
+            ["Ag90ALambdaWithADefaultParameterSamplesTheFirst"] = ["SF1004"],
+            ["Ag90ACollectionExpressionTakesTheAddForItsElement"] = ["SF1004"],
+            ["Ag90AForeachEnumeratesTheCollection"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

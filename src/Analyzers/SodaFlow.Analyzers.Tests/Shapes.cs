@@ -8,6 +8,7 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -18082,6 +18083,26 @@ public static class Shapes
     public static Cell<int> Ag90APostedSendAndASampleOfASwitch() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Transaction.Post(() => c.Send(l.Map(v => v))); Cell<int> sw = c.SwitchC(); return S.Hold(sw.Sample()); });
 
+    // S4043. A lambda in a local has a second parameter with a default value. The block calls it with only a pending cell, and the lambda samples that cell.
+    public static Cell<int> Ag90ALambdaWithADefaultParameterSamplesTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var f = (Cell<int> c, int k = 0) => c.Sample() + k; return S.Hold(f(l.Map(v => v))); });
+
+    // S4044. An anonymous method with no parameter list is a function of one parameter. The block calls it with a pending cell, and it does not read the cell.
+    public static Cell<int> Ag90AnAnonymousMethodWithNoParameterList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = delegate { return 0; }; return S.Hold(f(l.Map(v => v))); });
+
+    // S4045. A collection expression makes a collection of this compilation that has an Add for int before an Add for a cell. The element is a pending cell, and the Add for a cell samples it.
+    public static Cell<int> Ag90ACollectionExpressionTakesTheAddForItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag90Adds all = [l.Map(v => v)]; return S.Hold(all.Count); });
+
+    // S4046. An initializer gives a collection of the platform a second collection whose enumerator samples a pending cell. The Add reads the second collection by its index, and does not enumerate it.
+    public static Cell<int> Ag90AnAddOfAnInitializerDoesNotEnumerateItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag90Names names = new(l.Map(v => v)); NameValueCollection all = new() { names }; return S.Hold(all.Count); });
+
+    // S4047. A foreach enumerates the same collection, and its enumerator samples the pending cell. A control.
+    public static Cell<int> Ag90AForeachEnumeratesTheCollection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag90Names names = new(l.Map(v => v)); foreach (object key in names) { Kept.Add(key); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24580,6 +24601,29 @@ public static class Shapes
     }
 
     private static readonly SettableSlot[] Ag90Unseen = [new(), new()];
+
+    public sealed class Ag90Adds : IEnumerable
+    {
+        public int Count { get; private set; }
+
+        public void Add(int number) => this.Count += number;
+
+        public void Add(Cell<int> c) => this.Count += c.Sample();
+
+        public IEnumerator GetEnumerator() => Array.Empty<int>().GetEnumerator();
+    }
+
+    public sealed class Ag90Names(in Cell<int> share) : NameValueCollection
+    {
+        private readonly Cell<int> share = share;
+
+        public override IEnumerator GetEnumerator()
+        {
+            Kept.Add(this.share.Sample());
+
+            return base.GetEnumerator();
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
