@@ -4329,9 +4329,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     True for a value of the library with no assertion, or for an array or
     ///     a collection expression that has one. A cast to <c>object</c> or an
     ///     array of objects hides the type of the value, but not the type of the
-    ///     expression in it.
+    ///     expression in it. A local can hide it also: see
+    ///     <see cref="HoldsACarrier" />.
     /// </summary>
-    private bool IsCarrier(ExpressionSyntax argument)
+    private bool IsCarrier(ExpressionSyntax argument) =>
+        this.IsCarrier(argument: argument, seen: ImmutableHashSet<ILocalSymbol>.Empty);
+
+    // The same, with the locals that the check read before. A local can get its own value.
+    private bool IsCarrier(ExpressionSyntax argument, ImmutableHashSet<ILocalSymbol> seen)
     {
         if (LoopStateEvaluator.IsAsserted(argument))
         {
@@ -4351,11 +4356,70 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             CollectionExpressionSyntax collection => collection.Elements
                 .OfType<ExpressionElementSyntax>()
-                .Any(element => this.IsCarrier(element.Expression)),
-            ImplicitArrayCreationExpressionSyntax made => made.Initializer.Expressions.Any(this.IsCarrier),
+                .Any(element => this.IsCarrier(argument: element.Expression, seen: seen)),
+            ImplicitArrayCreationExpressionSyntax made =>
+                made.Initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
             ArrayCreationExpressionSyntax { Initializer: { } initializer } =>
-                initializer.Expressions.Any(this.IsCarrier),
-            _ => type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType)
+                initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
+            _ when type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType) => true,
+            IdentifierNameSyntax name => this.region.SymbolOf(name) is ILocalSymbol local
+                                         && this.HoldsACarrier(local: local, seen: seen),
+            _ => false
         };
+    }
+
+    /// <summary>
+    ///     True when the code gives a local a value of the library that the type
+    ///     of the local hides. The type <c>object</c> and an array of objects
+    ///     hide it.
+    /// </summary>
+    /// <remarks>
+    ///     The check reads each value that the block of the local gives it. These
+    ///     are the initializer, an assignment, an assignment to an element, and a
+    ///     call of <c>Array.Fill</c>. The check does not see a value from a
+    ///     parameter, or from a call that fills the array.
+    /// </remarks>
+    private bool HoldsACarrier(ILocalSymbol local, ImmutableHashSet<ILocalSymbol> seen)
+    {
+        if (seen.Contains(local)
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax declarator
+            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        {
+            return false;
+        }
+
+        ImmutableHashSet<ILocalSymbol> read = seen.Add(local);
+
+        if (declarator.Initializer?.Value is { } initial && this.IsCarrier(argument: initial, seen: read))
+        {
+            return true;
+        }
+
+        return scope.DescendantNodes()
+            .Any(node => node switch
+            {
+                AssignmentExpressionSyntax assignment =>
+                    (IsTheLocal(assignment.Left)
+                     || (LoopStateEvaluator.Unwrapped(assignment.Left) is ElementAccessExpressionSyntax element
+                         && IsTheLocal(element.Expression)))
+                    && this.IsCarrier(argument: assignment.Right, seen: read),
+                // Only the value of Array.Fill can be a value of the library.
+                InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Fill" },
+                    ArgumentList.Arguments: var arguments
+                } call =>
+                    arguments.Any(argument => IsTheLocal(argument.Expression))
+                    && this.region.SymbolOf(call) is IMethodSymbol fill
+                    && LoopStateEvaluator.IsArrayFill(fill)
+                    && arguments.Any(argument => this.IsCarrier(argument: argument.Expression, seen: read)),
+                _ => false
+            });
+
+        bool IsTheLocal(ExpressionSyntax written) =>
+            LoopStateEvaluator.Unwrapped(written) is IdentifierNameSyntax name
+            && name.Identifier.ValueText == local.Name
+            && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local);
     }
 }

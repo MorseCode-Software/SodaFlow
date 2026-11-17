@@ -18211,6 +18211,62 @@ public static class Shapes
     public static Cell<int> Ab184HelperFillsFromBelowZeroTheArrayOfAnOutParameter() =>
         ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = []; try { Ab184Fills.MakeAndFillFromBelowZero(out readers, () => h.Sample()); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
 
+    // S4075. Reflection runs a method that samples its argument, with a pending cell in an array of objects that a local holds. The analyzer does not read the call.
+    public static Cell<int> Ab185MethodRunByReflectionWithAPendingCellInAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4076. Reflection runs a method that samples its argument. The block puts a pending cell into an element of an array of objects after the declaration.
+    public static Cell<int> Ab185MethodRunByReflectionWithAPendingCellSetIntoAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; given[0] = l.Map(v => v); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4077. Activator makes an object whose constructor samples a pending cell, from an array of objects that a local holds.
+    public static Cell<int> Ab185ConstructorRunByActivatorWithAPendingCellInAnArrayOfObjectsInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? made = Activator.CreateInstance(typeof(SamplingRow), given); return S.Hold(0); });
+
+    // S4078. Reflection runs a method that samples its argument. The array of objects comes from a second local, and the first local holds a pending cell.
+    public static Cell<int> Ab185MethodRunByReflectionWithAnArrayFromASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] first = [l.Map(v => v)]; object[] given = first; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4079. Reflection runs a method that samples its argument. Array.Fill puts a pending cell into the array of objects that a local holds.
+    public static Cell<int> Ab185MethodRunByReflectionWithAPendingCellFilledIntoAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; Array.Fill(given, l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4080. Reflection runs a method that samples its argument. The local first holds an array with a plain cell, and then an array with a pending cell.
+    public static Cell<int> Ab185MethodRunByReflectionWithAnArrayInALocalSetAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; given = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4081. Reflection runs a method that samples its argument. The local first holds an array with a pending cell, and then an array with a plain cell. A control.
+    public static Cell<int> Ab185MethodRunByReflectionWithAnArrayInALocalSetAgainToAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; given = [Plain]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4082. Reflection runs a method that it names with a variable, which the analyzer does not read. The argument is a local of the type object that holds a pending cell.
+    public static Cell<int> Ab185MethodNamedByAVariableWithACellInALocalOfObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object one = l.Map(v => v); string name = Plain == null ? "Keep" : "Read"; object? read = typeof(DvLinksReader).GetMethod(name)!.Invoke(null, [one]); return S.Hold(0); });
+
+    // S4083. A method of the code gets an array of objects with a pending cell, and does not read the cell. A control.
+    public static Cell<int> Ab185ArrayOfObjectsGivenToAMethodThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; int count = Ab185Arrays.Count(given); return S.Hold(count); });
+
+    // S4084. Reflection runs a method that does not sample, with an object of the code in an array of objects that a local holds. A control.
+    public static Cell<int> Ab185MethodRunByReflectionWithAnObjectOfTheCodeInAnArrayInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [new RecordPair(l.Map(v => v), Plain)]; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4085. A method of the code named Fill gets a plain cell and puts nothing into the array of objects, which holds a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab185OwnMethodNamedFillDoesNotPutIntoTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; int count = Ab185Fills.Fill(given, Plain); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(count); });
+
+    // S4086. Array.Fill puts a plain cell into a second array. The local holds a pending cell that a method of the code gives back as an object, and reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab185FillOfASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; object[] other = new object[1]; Array.Fill(other, Plain); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(other.Length); });
+
+    // S4087. Reflection runs a method that samples its argument. The local first holds an empty array of objects, and then an array with a pending cell.
+    public static Cell<int> Ab185MethodRunByReflectionWithAnEmptyArrayInALocalSetAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = []; given = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4088. A lambda has a parameter with the name of a local, and puts a pending cell into an element of its own array. The local holds a pending cell that a method of the code gives back as an object, and reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab185LambdaParameterWithTheNameOfTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Func<object[], int> put = given => { given[0] = l.Map(v => v); return given.Length; }; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24776,6 +24832,20 @@ public static class Shapes
             made = [first];
             Array.Fill(made, () => Plain, -1, 2);
         }
+    }
+
+    public static class Ab185Arrays
+    {
+        public static int Count(object[] given) => given.Length;
+
+        public static object Keep(object kept) => kept;
+    }
+
+    public static class Ab185Fills
+    {
+        public static int Fill(object[] array, object value) => array.Length + (value == null ? 0 : 1);
+
+        public static object Echo(object value) => value;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

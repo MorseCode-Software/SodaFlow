@@ -2674,7 +2674,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab184NullFilledAtAnIndexThatIsNotAConstant"] = ["SF1001"],
             ["Ab184NullFilledIntoEachElement"] = ["SF1001"],
             ["Ab184HelperFillsARangePastTheEndOfTheArrayOfAnOutParameter"] = ["SF1002"],
-            ["Ab184HelperFillsFromBelowZeroTheArrayOfAnOutParameter"] = ["SF1002"]
+            ["Ab184HelperFillsFromBelowZeroTheArrayOfAnOutParameter"] = ["SF1002"],
+            ["Ab185MethodRunByReflectionWithAPendingCellInAnArrayInALocal"] = ["SF1003"],
+            ["Ab185MethodRunByReflectionWithAPendingCellSetIntoAnArrayInALocal"] = ["SF1003"],
+            ["Ab185ConstructorRunByActivatorWithAPendingCellInAnArrayOfObjectsInALocal"] = ["SF1003"],
+            ["Ab185MethodRunByReflectionWithAnArrayFromASecondLocal"] = ["SF1003"],
+            ["Ab185MethodRunByReflectionWithAPendingCellFilledIntoAnArrayInALocal"] = ["SF1003"],
+            ["Ab185MethodRunByReflectionWithAnArrayInALocalSetAgain"] = ["SF1003"],
+            ["Ab185MethodNamedByAVariableWithACellInALocalOfObject"] = ["SF1003"],
+            ["Ab185MethodRunByReflectionWithAnEmptyArrayInALocalSetAgain"] = ["SF1003"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
