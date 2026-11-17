@@ -315,8 +315,9 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a method of the platform runs a function that it gets only in the call. A method
     // of Enumerable that is not a query runs it, and so does a query that the code enumerates at
-    // once. So does each method of an array and of a List. Each other method can keep the function
-    // for a later time, as CancellationToken.Register does.
+    // once. So does a method of an array or of a List that runs its function, as ForEach and Find
+    // do. Each other method can keep the function for a later time, as Add, Array.Fill, and
+    // CancellationToken.Register do.
     private bool RunsOnlyInTheCallOfThePlatform(ExpressionSyntax call, IMethodSymbol method)
     {
         INamedTypeSymbol type = (method.ReducedFrom ?? method).OriginalDefinition.ContainingType;
@@ -326,9 +327,12 @@ internal sealed partial class LoopStateEvaluator
             return !SodaFlowSymbols.MakesQuery(method) || this.IsEnumeratedAtOnce(call);
         }
 
-        return type.SpecialType == SpecialType.System_Array
-               || (type is { Name: "List", Arity: 1 }
-                   && type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
+        // BinarySearch gets a comparer and no function, thus no lambda is its argument.
+        return method.Name is "ForEach" or "Find" or "FindAll" or "FindIndex" or "FindLast" or "FindLastIndex"
+                   or "Exists" or "TrueForAll" or "RemoveAll" or "ConvertAll" or "Sort"
+               && (type.SpecialType == SpecialType.System_Array
+                   || (type is { Name: "List", Arity: 1 }
+                       && type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"));
     }
 
     // True when the code of the transaction enumerates the result of a call. A method of

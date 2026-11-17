@@ -17618,6 +17618,58 @@ public static class Shapes
     public static Cell<int> Ab181SendOfAPlainCellThroughAsStreamSink() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellStreamSink<Cell<int>> cs = Cell.CreateStreamSink<Cell<int>>(); Cell<Cell<int>> h = cs.Hold(Plain); StreamSink<Cell<int>> ss = cs.AsStreamSink(); ss.Send(Plain); return h.SwitchC(); });
 
+    // S3927. A list keeps a lambda that samples a hold of the block, and a map of a stream runs it after the close. Thus, the sample gets the linked cell that the block sent, and the switch of its hold is a cycle.
+    public static Cell<int> R3ApiLambdaKeptInAListAndRunAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); List<Func<Cell<int>>> readers = []; readers.Add(() => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3928. A list keeps a lambda that Insert gets, and a map of a stream runs it after the close. Thus, the sample gets the linked cell that the block sent, and the switch of its hold is a cycle.
+    public static Cell<int> Ab177LambdaInsertedInAListAndRunAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); List<Func<Cell<int>>> readers = []; readers.Insert(0, () => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3929. Find of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListFindRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.Find(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3930. Sort of a list runs its Comparison in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListSortRunsItsComparisonInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 1, 0 }.Sort((a, b) => { got = h.Sample(); return a - b; }); return got; });
+
+    // S3931. RemoveAll of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListRemoveAllRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.RemoveAll(_ => { got = h.Sample(); return false; }); return got; });
+
+    // S3932. Array.Find runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ArrayFindRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; Array.Find(new[] { 0 }, _ => { got = h.Sample(); return true; }); return got; });
+
+    // S3933. Array.TrueForAll runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ArrayTrueForAllRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; Array.TrueForAll(new[] { 0 }, _ => { got = h.Sample(); return true; }); return got; });
+
+    // S3934. FindAll of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListFindAllRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.FindAll(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3935. FindIndex of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListFindIndexRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.FindIndex(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3936. FindLast of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListFindLastRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.FindLast(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3937. FindLastIndex of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListFindLastIndexRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.FindLastIndex(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3938. Exists of a list runs its predicate in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListExistsRunsItsPredicateInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.Exists(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3939. ConvertAll of a list runs its converter in the call. Thus, the sample of a hold of the block gives the initial value, and the close is not a cycle.
+    public static Cell<int> Ab177ListConvertAllRunsItsConverterInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.ConvertAll(_ => { got = h.Sample(); return 0; }); return got; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
