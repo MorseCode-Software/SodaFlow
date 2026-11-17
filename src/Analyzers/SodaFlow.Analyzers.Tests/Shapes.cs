@@ -17754,6 +17754,30 @@ public static class Shapes
     public static Cell<int> Ag80HoldSampledInALazyReadAfterTheClose() =>
         ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Lazy<Cell<int>> lazy = new(() => h.Sample()); return t.Map(_ => lazy.Value).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
 
+    // S3961. The binding scheduler runs a posted action after the transaction, as Transaction.Post does. The action sends a linked cell into a sink whose switched hold is the close.
+    public static Cell<int> R3ApiSendInAnActionPostedToTheBindingScheduler() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.BindingScheduler.Immediate.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3962. A write to a two-way bindable of a cell sink posts a send of the value into the sink. The switch of that sink as the close then selects the linked cell.
+    public static Cell<int> R3ApiTwoWayWriteOfALinkedCellIntoASwitchedSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); Cell<int> sw = sink.SwitchC(); SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<Cell<int>> b = R2ApiFactory.CreateTwoWay(sink); b.Value = l.Map(v => v); return sw; });
+
+    // S3963. The immediate scheduler in a local runs a posted action after the transaction. The action sends a linked cell into a sink whose switched hold is the close, thus the close is a cycle.
+    public static Cell<int> Ab182SendInAnActionPostedToTheImmediateSchedulerInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IBindingScheduler scheduler = SodaFlow.Bindable.ObjectModel.ImmediateBindingScheduler.Instance; scheduler.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3964. The immediate scheduler runs a posted action after the transaction. Thus, a send of a cell with no link in it gives the switched hold no link.
+    public static Cell<int> Ab182SendOfAPlainCellInAnActionPostedToTheBindingScheduler() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.BindingScheduler.Immediate.Post(() => s.Send(Plain)); return s.Hold(Plain).SwitchC(); });
+
+    // S3965. A write to a two-way bindable of a cell and an edit sink posts a send of the value into the edit sink. The switch of a hold of that sink as the close then selects the linked cell.
+    public static Cell<int> Ab182TwoWayWriteOfALinkedCellIntoASwitchedEditSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> edits = Stream.CreateSink<Cell<int>>(); Cell<int> sw = edits.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<Cell<int>> b = R2ApiFactory.CreateTwoWay(cell: Cell.Constant(Plain), editsStreamSink: edits); b.Value = l.Map(v => v); return sw; });
+
+    // S3966. A write of a cell with no link to a two-way bindable of a cell sink posts a send of that cell. Thus, the switch of the sink as the close is not a cycle.
+    public static Cell<int> Ab182TwoWayWriteOfAPlainCellIntoASwitchedSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); Cell<int> sw = sink.SwitchC(); SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<Cell<int>> b = R2ApiFactory.CreateTwoWay(sink); b.Value = Cell.Constant(4); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

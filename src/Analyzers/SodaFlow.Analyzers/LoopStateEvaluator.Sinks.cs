@@ -310,6 +310,70 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     True for the immediate scheduler of the bindables, which runs a posted
+    ///     action after the transaction. That is <c>BindingScheduler.Immediate</c>,
+    ///     a value of the type <c>ImmediateBindingScheduler</c>, or a local that
+    ///     no code writes and that has one of them.
+    /// </summary>
+    /// <param name="scheduler">The expression of the scheduler.</param>
+    public bool IsTheImmediateScheduler(ExpressionSyntax scheduler)
+    {
+        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(scheduler));
+
+        return (this.region.SymbolOf(value) is IPropertySymbol
+                       { Name: "Immediate", ContainingType.Name: "BindingScheduler" } immediate
+                   && this.region.Symbols.IsSodaFlow(immediate))
+               || (this.region.TypeOf(value) is { Name: "ImmediateBindingScheduler" } type
+                   && this.region.Symbols.IsSodaFlow(type));
+    }
+
+    /// <summary>
+    ///     Reads a write to a two-way bindable of a sink as a send of the value
+    ///     into that sink after the transaction. The setter posts that send, as
+    ///     <c>Transaction.Post</c> does. The bindable is a local that no code
+    ///     writes, and that <c>CreateTwoWay</c> made.
+    /// </summary>
+    /// <param name="bindable">The expression of the bindable.</param>
+    /// <param name="value">The value that the code writes.</param>
+    /// <param name="write">The assignment.</param>
+    public void PostsAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
+            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateTwoWay" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return;
+        }
+
+        // The write of a bindable of a cell sink sends into that sink. The write of a bindable of
+        // a cell sends into its sink of edits.
+        ExpressionSyntax? sink =
+            creation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
+                    {
+                        OriginalDefinition.Name: "CellSink" or "StreamSink"
+                    } type
+                    && this.region.Symbols.IsSodaFlow(type))
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+
+        if (sink == null)
+        {
+            return;
+        }
+
+        LoopState content = this.Eval(value).AsContent;
+        LoopStateEvaluator later = this.Quiet();
+
+        this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
+    }
+
     // True when a node runs only in the transaction of the block. That is the code of the block,
     // and a function in it that the library or the platform runs only in the call. The function of
     // a map of a constant cell is such a function also, because the transaction computes the first

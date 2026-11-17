@@ -310,9 +310,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
   nothing new.
 - Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
-  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
-  sent in a function that `Transaction.Post` runs after the transaction: a lambda, a local
-  function, a method that you give to `Post` by its name, or a post inside a posted function.
+  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value sent
+  in a function that `Transaction.Post` runs after the transaction: a lambda, a local function, a
+  method that you give to `Post` by its name, or a post inside a posted function. The same holds for
+  an action that you post to `BindingScheduler.Immediate`, and for a write to the `Value` of a
+  two-way bindable of a sink, which sends the value into that sink after the transaction.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
   element of a spread, `operator true` or `operator false` before a user-defined `||` or `&&`, a
   setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code

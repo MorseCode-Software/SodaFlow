@@ -1544,6 +1544,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 && this.region.Symbols.IsSodaFlow(accessor))
             {
                 this.CheckRead(node: node.Left, owner: written.Expression, name: "Value");
+                this.evaluator.PostsAWrite(bindable: written.Expression, value: node.Right, write: node);
             }
 
             // The indexer of a dictionary of the platform calls a member of the key. The first key
@@ -2670,6 +2671,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         is { } action)
                 {
                     this.evaluator.RunsAfterTheTransaction(action.Expression);
+                }
+
+                // The immediate scheduler of a bindable runs a posted action after the transaction,
+                // as Transaction.Post does. Each other scheduler keeps the action for a time that the
+                // walk does not know.
+                if (receiver != null
+                    && method.Name == "Post"
+                    && arguments.Count == 1
+                    && this.evaluator.IsTheImmediateScheduler(receiver))
+                {
+                    this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
                 }
 
                 break;
