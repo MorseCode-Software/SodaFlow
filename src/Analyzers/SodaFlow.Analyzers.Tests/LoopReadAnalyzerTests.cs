@@ -2555,7 +2555,25 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab168JsonConvertWritesTheTypeOfTheObject"] = ["SF1005"],
             ["Ab168SerializerCallsTheOverrideOfAVirtualGetter"] = ["SF1005"],
             ["Ab168JsonConvertWritesAPrivatePropertyWithJsonProperty"] = ["SF1005"],
-            ["Ab168SerializerWritesTheValuesOfADictionary"] = ["SF1005"]
+            ["Ab168SerializerWritesTheValuesOfADictionary"] = ["SF1005"],
+            ["R3LimFieldWrittenByASerializerWithIncludeFields"] = ["SF1005"],
+            ["R3LimConverterOfItsOwnReads"] = ["SF1004"],
+            ["Ag84JsonConvertWritesAPublicField"] = ["SF1005"],
+            ["Ag84XmlSerializerWritesAPublicField"] = ["SF1005"],
+            ["Ag84SerializerWithOptionsFromALocalWritesAField"] = ["SF1005"],
+            ["Ag84SerializerWithACopyOfOptionsWritesAField"] = ["SF1005"],
+            ["Ag84SerializerWithWebDefaultsWritesAField"] = ["SF1005"],
+            ["Ag84SerializerWritesAnIncludedField"] = ["SF1005"],
+            ["Ag84SerializerWritesAReadOnlyField"] = ["SF1005"],
+            ["Ag84SerializerWritesAGetOnlyPropertyWhenTheOptionIsFalse"] = ["SF1005"],
+            ["Ag84SerializerWritesAPropertyWithASetterWithTheOption"] = ["SF1005"],
+            ["Ag84SerializerWithIncludeFieldsWritesATuple"] = ["SF1005"],
+            ["Ag84ConverterInTheOptionsReads"] = ["SF1004"],
+            ["Ag84ConverterInTheOptionsForAnotherType"] = ["SF1005"],
+            ["Ag84ConverterInTheOptionsWithACellOfItsOwn"] = ["SF1005"],
+            ["Ag84ConverterOfAProperty"] = ["SF1004"],
+            ["Ag84ConverterOfJsonNet"] = ["SF1004"],
+            ["Ad2SerializerReadsThreeLevelsInside"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

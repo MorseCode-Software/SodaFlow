@@ -17506,6 +17506,106 @@ public static class Shapes
     public static Cell<int> Ab168JsonConvertSkipsAPrivatePropertyWithJsonInclude() =>
         Cell.Loop<int>().WithoutCaptures(l => { R3CsHidden h = new(l.Map(v => v)); string json = Newtonsoft.Json.JsonConvert.SerializeObject(h); return S.Hold(json.Length); });
 
+    // S3899. A serializer with an option that includes fields writes a public field whose object has a getter that samples a pending cell.
+    public static Cell<int> R3LimFieldWrittenByASerializerWithIncludeFields() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), new JsonSerializerOptions { IncludeFields = true }); return S.Hold(text.Length); });
+
+    // S3900. A serializer with an option that ignores read-only properties gets an object whose only getter samples a pending cell.
+    public static Cell<int> R3LimGetOnlyPropertySkippedByASerializerOption() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new SerialRow(l.Map(v => v)), new JsonSerializerOptions { IgnoreReadOnlyProperties = true }); return S.Hold(text.Length); });
+
+    // S3901. A serializer writes an object through a converter of its own, and the converter samples a pending cell.
+    public static Cell<int> R3LimConverterOfItsOwnReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimConverted(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3902. Json.NET writes a public field whose object has a getter that samples a pending cell.
+    public static Cell<int> Ag84JsonConvertWritesAPublicField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R3LimFieldHolder(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3903. XmlSerializer writes a public field whose object has a getter that samples a pending cell.
+    public static Cell<int> Ag84XmlSerializerWritesAPublicField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag84XmlHolder holder = new() { Inner = new XmlRow(l.Map(v => v)) }; new XmlSerializer(typeof(Ag84XmlHolder)).Serialize(TextWriter.Null, holder); return S.Hold(0); });
+
+    // S3904. XmlSerializer does not write a readonly field, and the object of that field has a getter that samples a pending cell.
+    public static Cell<int> Ag84XmlSerializerSkipsAReadOnlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag84XmlFixedHolder holder = new(new XmlRow(l.Map(v => v))); new XmlSerializer(typeof(Ag84XmlFixedHolder)).Serialize(TextWriter.Null, holder); return S.Hold(0); });
+
+    // S3905. System.Text.Json with no options does not write a public field.
+    public static Cell<int> Ag84SerializerSkipsAFieldByDefault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3906. System.Text.Json with IncludeFields set to false does not write a public field.
+    public static Cell<int> Ag84SerializerSkipsAFieldWhenTheOptionIsFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), new JsonSerializerOptions { IncludeFields = false }); return S.Hold(text.Length); });
+
+    // S3907. System.Text.Json with options from a local can write a public field, and it does.
+    public static Cell<int> Ag84SerializerWithOptionsFromALocalWritesAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { JsonSerializerOptions options = new() { IncludeFields = true }; string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), options); return S.Hold(text.Length); });
+
+    // S3908. System.Text.Json with a copy of options can write a public field, and it does.
+    public static Cell<int> Ag84SerializerWithACopyOfOptionsWritesAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), new JsonSerializerOptions(Ag84FieldOptions)); return S.Hold(text.Length); });
+
+    // S3909. System.Text.Json with the defaults of the web and IncludeFields writes a public field.
+    public static Cell<int> Ag84SerializerWithWebDefaultsWritesAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), new JsonSerializerOptions(JsonSerializerDefaults.Web) { IncludeFields = true }); return S.Hold(text.Length); });
+
+    // S3910. System.Text.Json with the defaults of the web and no other option does not write a public field.
+    public static Cell<int> Ag84SerializerWithWebDefaultsSkipsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R3LimFieldHolder(l.Map(v => v)), new JsonSerializerOptions(JsonSerializerDefaults.Web)); return S.Hold(text.Length); });
+
+    // S3911. System.Text.Json writes a public field that has JsonInclude, with no options.
+    public static Cell<int> Ag84SerializerWritesAnIncludedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84IncludedFieldHolder(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3912. System.Text.Json with IncludeFields and IgnoreReadOnlyFields does not write a readonly field.
+    public static Cell<int> Ag84SerializerSkipsAReadOnlyFieldByAnOption() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84ReadOnlyFieldHolder(l.Map(v => v)), new JsonSerializerOptions { IncludeFields = true, IgnoreReadOnlyFields = true }); return S.Hold(text.Length); });
+
+    // S3913. System.Text.Json with IncludeFields writes a readonly field when IgnoreReadOnlyFields is not set.
+    public static Cell<int> Ag84SerializerWritesAReadOnlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84ReadOnlyFieldHolder(l.Map(v => v)), new JsonSerializerOptions { IncludeFields = true }); return S.Hold(text.Length); });
+
+    // S3914. System.Text.Json with IgnoreReadOnlyProperties set to false writes a property with no setter.
+    public static Cell<int> Ag84SerializerWritesAGetOnlyPropertyWhenTheOptionIsFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new SerialRow(l.Map(v => v)), new JsonSerializerOptions { IgnoreReadOnlyProperties = false }); return S.Hold(text.Length); });
+
+    // S3915. System.Text.Json with IgnoreReadOnlyProperties writes a property with a public setter.
+    public static Cell<int> Ag84SerializerWritesAPropertyWithASetterWithTheOption() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84SettableRow(l.Map(v => v)), new JsonSerializerOptions { IgnoreReadOnlyProperties = true }); return S.Hold(text.Length); });
+
+    // S3916. System.Text.Json with IncludeFields writes the items of a tuple, and an item has a getter that samples a pending cell.
+    public static Cell<int> Ag84SerializerWithIncludeFieldsWritesATuple() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize((new SerialRow(l.Map(v => v)), 1), new JsonSerializerOptions { IncludeFields = true }); return S.Hold(text.Length); });
+
+    // S3917. A converter that the type names writes the object in place of its getters, and that converter reads nothing.
+    public static Cell<int> Ag84ConverterOfTheTypeReplacesTheGetters() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84Quiet(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3918. A converter in the options writes the object, and it samples a pending cell.
+    public static Cell<int> Ag84ConverterInTheOptionsReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84Box(l.Map(v => v)), new JsonSerializerOptions { Converters = { new Ag84BoxConverter() } }); return S.Hold(text.Length); });
+
+    // S3919. A converter in the options for a different type does not write the object, and the getter of the object samples a pending cell.
+    public static Cell<int> Ag84ConverterInTheOptionsForAnotherType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new SerialRow(l.Map(v => v)), new JsonSerializerOptions { Converters = { new Ag84BoxConverter() } }); return S.Hold(text.Length); });
+
+    // S3920. A converter in the options has a pending cell of its own, and samples it.
+    public static Cell<int> Ag84ConverterInTheOptionsWithACellOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84Box(Plain), new JsonSerializerOptions { Converters = { new Ag84CellConverter(l.Map(v => v)) } }); return S.Hold(text.Length); });
+
+    // S3921. A converter that a property names writes the value of the property, and it samples a pending cell.
+    public static Cell<int> Ag84ConverterOfAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag84BoxHolder(new Ag84Box(l.Map(v => v)))); return S.Hold(text.Length); });
+
+    // S3922. A converter of Json.NET that the type names writes the object, and it samples a pending cell.
+    public static Cell<int> Ag84ConverterOfJsonNet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new Ag84NetBox(l.Map(v => v))); return S.Hold(text.Length); });
+
+    // S3923. System.Text.Json reads the getters of an object three levels inside the object that it gets.
+    public static Cell<int> Ad2SerializerReadsThreeLevelsInside() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ad2Third(new Ad2Second(new SerialOuter(new SerialRow(l.Map(v => v)))))); return S.Hold(text.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23564,6 +23664,122 @@ public static class Shapes
     {
         [Newtonsoft.Json.JsonProperty]
         private int Now => share.Sample();
+    }
+
+    private static readonly JsonSerializerOptions Ag84FieldOptions = new() { IncludeFields = true };
+
+    public sealed class Ag84XmlHolder
+    {
+        public XmlRow Inner = new();
+    }
+
+    public sealed class Ag84XmlFixedHolder
+    {
+        public readonly XmlRow Fixed = new();
+
+        public Ag84XmlFixedHolder()
+        {
+        }
+
+        public Ag84XmlFixedHolder(XmlRow row) => this.Fixed = row;
+    }
+
+    public sealed class Ag84IncludedFieldHolder(Cell<int> share)
+    {
+        [JsonInclude]
+        public SerialRow Inner = new(share);
+    }
+
+    public sealed class Ag84ReadOnlyFieldHolder(Cell<int> share)
+    {
+        public readonly SerialRow Inner = new(share);
+    }
+
+    public sealed class Ag84SettableRow(Cell<int> share)
+    {
+        public int Now
+        {
+            get => share.Sample();
+            set => _ = value;
+        }
+    }
+
+    [JsonConverter(typeof(Ag84QuietConverter))]
+    public sealed class Ag84Quiet(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed class Ag84QuietConverter : JsonConverter<Ag84Quiet>
+    {
+        public override Ag84Quiet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, Ag84Quiet value, JsonSerializerOptions options) =>
+            writer.WriteNumberValue(0);
+    }
+
+    public sealed class Ag84Box(Cell<int> share)
+    {
+        public int Now() => share.Sample();
+    }
+
+    public sealed class Ag84BoxConverter : JsonConverter<Ag84Box>
+    {
+        public override Ag84Box Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, Ag84Box value, JsonSerializerOptions options) =>
+            writer.WriteNumberValue(value.Now());
+    }
+
+    public sealed class Ag84CellConverter(Cell<int> share) : JsonConverter<Ag84Box>
+    {
+        public override Ag84Box Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, Ag84Box value, JsonSerializerOptions options) =>
+            writer.WriteNumberValue(share.Sample());
+    }
+
+    public sealed class Ag84BoxHolder(Ag84Box box)
+    {
+        [JsonConverter(typeof(Ag84BoxConverter))]
+        public Ag84Box Box => box;
+    }
+
+    [Newtonsoft.Json.JsonConverter(typeof(Ag84NetBoxConverter))]
+    public sealed class Ag84NetBox(Cell<int> share)
+    {
+        public int Now() => share.Sample();
+    }
+
+    public sealed class Ag84NetBoxConverter : Newtonsoft.Json.JsonConverter
+    {
+        public override bool CanConvert(Type objectType) => objectType == typeof(Ag84NetBox);
+
+        public override object ReadJson(
+            Newtonsoft.Json.JsonReader reader,
+            Type objectType,
+            object? existingValue,
+            Newtonsoft.Json.JsonSerializer serializer) =>
+            throw new NotSupportedException();
+
+        public override void WriteJson(
+            Newtonsoft.Json.JsonWriter writer,
+            object? value,
+            Newtonsoft.Json.JsonSerializer serializer) =>
+            writer.WriteValue(((Ag84NetBox)value!).Now());
+    }
+
+    public sealed class Ad2Second(SerialOuter outer)
+    {
+        public SerialOuter Outer => outer;
+    }
+
+    public sealed class Ad2Third(Ad2Second second)
+    {
+        public Ad2Second Second => second;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

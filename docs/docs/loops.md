@@ -341,7 +341,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   your getters and enumerate your sequences. `System.Text.Json` writes the properties of the type
   that the call or the property names, unless that type is `object` or has `[JsonDerivedType]`, and
   the others write those of the object. The analyzer also reads a non-public member with
-  `[JsonInclude]` or with the `[JsonProperty]` of Json.NET.
+  `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the public fields where the serializer
+  writes them, and a converter that a `[JsonConverter]` or the `Converters` of the options names.
+  It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
+  the options in the call. It reads the object that you give the serializer and the objects up to
+  three levels inside it.
 
 ### Its limits
 
@@ -354,6 +358,8 @@ careful side, so it can report a read that does not throw:
   runs inside another loop. It can also leave the value for a list that the code changes in a way
   other than `Add`, `Insert`, or `AddRange`, or that gets an item under a condition with no loop
   that adds on every pass, and for an item that an `AddRange` of anything but a literal put in.
+- Serializer options that you do not create in the call, such as options in a local or a field,
+  count as options that write public fields and read-only properties.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
@@ -390,7 +396,9 @@ Some reads that throw it does not see:
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.
-- A serializer with options or a converter of its own.
+- A converter of serializer options that you do not create in the call, a converter that a
+  `JsonConverterFactory` makes, the settings of Json.NET, and an object more than three levels
+  inside the one that you give a serializer.
 - An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
   formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
   analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.

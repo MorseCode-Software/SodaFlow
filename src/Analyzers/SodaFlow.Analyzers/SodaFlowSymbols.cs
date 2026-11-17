@@ -600,20 +600,12 @@ internal sealed class SodaFlowSymbols
     private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
 
     /// <summary>
-    ///     True for a serializer that writes the public fields of an object, and
-    ///     thus the elements of a tuple. <c>System.Text.Json</c> writes only
-    ///     properties, unless an option says differently.
-    /// </summary>
-    public static bool WritesFields(IMethodSymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() != "System.Text.Json";
-
-    /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
     ///     not an indexer, and it has no attribute that tells a serializer to
     ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
     ///     set.
     /// </summary>
-    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer) =>
+    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
         property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
         && (property is
             {
@@ -621,13 +613,86 @@ internal sealed class SodaFlowSymbols
                 GetMethod.DeclaredAccessibility: Accessibility.Public
             }
             || IsIncluded(member: property, serializer: serializer))
-        && (serializer.ContainingType?.Name != "XmlSerializer"
+        && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
             || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
-        && !property.GetAttributes()
+        && !IsIgnored(property);
+
+    /// <summary>
+    ///     True for a field that the serializer writes. It is public, and the
+    ///     serializer writes fields, or it has the attribute that includes it.
+    /// </summary>
+    public static bool IsSerialized(IFieldSymbol field, IMethodSymbol serializer, SerializerOptions options) =>
+        field is { IsStatic: false, IsConst: false, IsImplicitlyDeclared: false }
+        && ((field.DeclaredAccessibility == Accessibility.Public
+             && options.WritesFields
+             && !(field.IsReadOnly && options.SkipsReadOnlyFields))
+            || IsIncluded(member: field, serializer: serializer))
+        && !IsIgnored(field);
+
+    // A condition on JsonIgnore reads the value before it decides.
+    private static bool IsIgnored(ISymbol member) =>
+        member.GetAttributes()
             .Any(static attribute =>
                 attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
-                // A condition on JsonIgnore reads the value before it decides.
                 && attribute.NamedArguments.IsEmpty);
+
+    /// <summary>
+    ///     The converter that a <c>JsonConverter</c> attribute of a member or a
+    ///     type names, of <c>System.Text.Json</c> or of Json.NET.
+    /// </summary>
+    public static INamedTypeSymbol? ConverterOf(ISymbol member) =>
+        member.GetAttributes()
+            .Where(static attribute =>
+                attribute.AttributeClass is { Name: "JsonConverterAttribute" } found
+                && found.ContainingNamespace?.ToDisplayString()
+                    is "System.Text.Json.Serialization"
+                    or "Newtonsoft.Json")
+            .Select(static attribute => attribute.ConstructorArguments.FirstOrDefault().Value)
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault();
+
+    /// <summary>
+    ///     The method of a converter that writes a value: <c>Write</c> for
+    ///     <c>System.Text.Json</c> and <c>WriteJson</c> for Json.NET. It gets the
+    ///     value as its second parameter. Null when the code has no such method.
+    /// </summary>
+    public static IMethodSymbol? WriteOf(INamedTypeSymbol converter, IMethodSymbol serializer)
+    {
+        string name = WritesTheDeclaredType(serializer) ? "Write" : "WriteJson";
+
+        for (INamedTypeSymbol? current = converter;
+             current is { DeclaringSyntaxReferences.Length: > 0 };
+             current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static write => write is { IsAbstract: false, Parameters.Length: 3 })
+                is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     The type that a converter of <c>System.Text.Json</c> writes: the type
+    ///     argument of its base type <c>JsonConverter</c>.
+    /// </summary>
+    public static ITypeSymbol? HandledBy(INamedTypeSymbol converter)
+    {
+        for (INamedTypeSymbol? current = converter; current != null; current = current.BaseType)
+        {
+            if (current is { Name: "JsonConverter", TypeArguments.Length: 1 }
+                && current.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Serialization")
+            {
+                return current.TypeArguments[0];
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     ///     True for a call of a conditional method that the compiler removes from

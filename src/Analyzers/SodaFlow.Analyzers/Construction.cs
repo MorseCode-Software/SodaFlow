@@ -213,18 +213,38 @@ internal sealed class Construction(
         this.types.SelectMany(PropertiesOf).Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     The fields of the type of this object and of its base types that this
+    ///     compilation declares. A serializer reads some of them.
+    /// </summary>
+    public IEnumerable<IFieldSymbol> Fields =>
+        this.types.SelectMany(FieldsOf).Distinct<IFieldSymbol>(SymbolEqualityComparer.Default);
+
+    /// <summary>The types of this object. A value that is one of two objects has two.</summary>
+    public IEnumerable<INamedTypeSymbol> Types => this.types;
+
+    /// <summary>
     ///     The properties of a type and of its base types that this compilation
     ///     declares.
     /// </summary>
-    public static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type)
+    public static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type) =>
+        MembersOf<IPropertySymbol>(type);
+
+    /// <summary>
+    ///     The fields of a type and of its base types that this compilation
+    ///     declares.
+    /// </summary>
+    public static IEnumerable<IFieldSymbol> FieldsOf(INamedTypeSymbol type) => MembersOf<IFieldSymbol>(type);
+
+    private static IEnumerable<T> MembersOf<T>(INamedTypeSymbol type)
+        where T : ISymbol
     {
         for (INamedTypeSymbol? current = type;
              current is { DeclaringSyntaxReferences.Length: > 0 };
              current = current.BaseType)
         {
-            foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
+            foreach (T member in current.GetMembers().OfType<T>())
             {
-                yield return property;
+                yield return member;
             }
         }
     }
