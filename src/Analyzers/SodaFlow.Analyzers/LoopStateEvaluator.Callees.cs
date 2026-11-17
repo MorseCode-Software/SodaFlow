@@ -829,11 +829,10 @@ internal sealed partial class LoopStateEvaluator
         member.ContainingType is { TypeKind: TypeKind.Interface }
             ? this.thisMembers.Keys
                 .Select(static key => key.ContainingType)
-                .OfType<INamedTypeSymbol>()
                 .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
                 .Select(type => type.FindImplementationForInterfaceMember(member))
                 .OfType<ISymbol>()
-                .Distinct<ISymbol>(SymbolEqualityComparer.Default)
+                .Distinct(SymbolEqualityComparer.Default)
             : [];
 
     // The state of a member of an interface on the object of this code: see ImplementationsOnThis.
