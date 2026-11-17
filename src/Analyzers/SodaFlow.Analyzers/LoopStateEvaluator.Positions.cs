@@ -172,7 +172,7 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     // The same for the collection and the index of an ElementAt.
-    private LoopState? AtAStorePosition(ExpressionSyntax collection, ExpressionSyntax index)
+    private LoopState? AtAStorePosition(ExpressionSyntax collection, SyntaxNode index)
     {
         if (this.StorePositionsOf(collection) is not (_, var all)
             || this.PositionIn(index: index, count: all.Length) is not { } at)
