@@ -1118,7 +1118,7 @@ internal sealed partial class LoopStateEvaluator
     // True when code before a remove from an event of a local object gets to the object only to add
     // or remove a handler. Thus, no code between the add and the remove can copy the handlers. The
     // constructor must keep the object: see KeepsItsObject.
-    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, HashSet<SyntaxNode> changes)
+    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, ICollection<SyntaxNode> changes)
     {
         if (Unwrapped(remove.Left) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner }
             || this.region.SymbolOf(owner) is not ILocalSymbol local
@@ -1188,8 +1188,8 @@ internal sealed partial class LoopStateEvaluator
 
     // True when the code of a constructor can give its object to other code. The code names this
     // other than to get to a member, or it names a member of the object that runs code. A lambda
-    // and a local function can keep this.
-    private bool CanGiveItsObject(ConstructorDeclarationSyntax constructor)
+    // or a local function that keeps this also names it or a member of the object.
+    private bool CanGiveItsObject(BaseMethodDeclarationSyntax constructor)
     {
         INamedTypeSymbol? type = this.region.ModelFor(constructor).GetDeclaredSymbol(constructor)?.ContainingType;
 
@@ -1199,9 +1199,6 @@ internal sealed partial class LoopStateEvaluator
                    {
                        ThisExpressionSyntax =>
                            node.Parent is not MemberAccessExpressionSyntax access || access.Expression != node,
-                       BaseExpressionSyntax
-                           or AnonymousFunctionExpressionSyntax
-                           or LocalFunctionStatementSyntax => true,
                        SimpleNameSyntax name =>
                            this.region.SymbolOf(name)
                                is { IsStatic: false } member and (IMethodSymbol or IPropertySymbol or IEventSymbol)
