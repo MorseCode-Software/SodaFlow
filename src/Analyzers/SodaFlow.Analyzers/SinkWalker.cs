@@ -3649,11 +3649,62 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // The first source of a query expression is read where the code makes the query. Each other
-    // part runs when something enumerates the query.
+    // part runs when something enumerates the query. A query whose each clause runs its function in
+    // the call runs each part now: see RunsInTheCall.
     public override void VisitQueryExpression(QueryExpressionSyntax node)
     {
         this.Visit(node.FromClause.Expression);
+
+        if (this.RunsInTheCall(node))
+        {
+            this.Visit(node.Body);
+
+            return;
+        }
+
         this.evaluator.Wait(node);
+    }
+
+    // True for a query expression whose each clause calls a method that cannot know the library and
+    // that returns no sequence. Such a method runs its function in the call, as a method of
+    // SodaFlow.Functional does for Maybe. A clause that the compiler does not bind waits.
+    private bool RunsInTheCall(QueryExpressionSyntax query)
+    {
+        SemanticModel model = this.region.ModelFor(query);
+        List<ISymbol?> methods = [model.GetQueryClauseInfo(query.FromClause).CastInfo.Symbol];
+
+        for (QueryBodySyntax? body = query.Body; body != null; body = body.Continuation?.Body)
+        {
+            foreach (QueryClauseSyntax clause in body.Clauses)
+            {
+                if (clause is OrderByClauseSyntax order)
+                {
+                    methods.AddRange(order.Orderings.Select(ordering => model.GetSymbolInfo(ordering).Symbol));
+
+                    continue;
+                }
+
+                QueryClauseInfo info = model.GetQueryClauseInfo(clause);
+
+                if (info.OperationInfo.Symbol == null)
+                {
+                    return false;
+                }
+
+                methods.Add(info.CastInfo.Symbol);
+                methods.Add(info.OperationInfo.Symbol);
+            }
+
+            // A select clause that gives the range variable as it is calls no method after a
+            // second clause.
+            methods.Add(model.GetSymbolInfo(body.SelectOrGroup).Symbol);
+        }
+
+        return methods.All(method =>
+            method is not IMethodSymbol called
+            || (!this.region.Symbols.CanKnowTheLibrary(called.ContainingAssembly)
+                && !SodaFlowSymbols.IsEnumerated(called.ReturnType)
+                && !SodaFlowSymbols.IsAsyncEnumerated(called.ReturnType)));
     }
 
     // A second from clause and a join clause enumerate their source for each element.

@@ -17207,6 +17207,34 @@ public static class Shapes
     public static Cell<int> Ab175ClassMethodReplacesTheDefaultMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { IR3CsReads r = new Ab175Own(l.Map(v => v)); return S.Hold(r.Now()); });
 
+    // S3825. A query expression over a Maybe calls the Select of SodaFlow.Functional, which runs the select clause in the call.
+    public static Cell<int> R3CsQuerySyntaxOverMaybeRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> m = from c in Maybe.Some(l.Map(v => v)) select c.Sample(); Kept.Add(m); return S.Hold(0); });
+
+    // S3826. A query expression over a Maybe has a where clause that samples a pending cell. The Where of SodaFlow.Functional runs it in the call.
+    public static Cell<int> Ab172QuerySyntaxOverMaybeWithAWhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> m = from c in Maybe.Some(l.Map(v => v)) where c.Sample() > 0 select 1; Kept.Add(m); return S.Hold(0); });
+
+    // S3827. A query expression with two from clauses over two Maybes samples the pending cell of the second. The SelectMany of SodaFlow.Functional runs it in the call.
+    public static Cell<int> Ab172QuerySyntaxOverTwoMaybes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> m = from a in Maybe.Some(Plain) from c in Maybe.Some(l.Map(v => v)) select a.Sample() + c.Sample(); Kept.Add(m); return S.Hold(0); });
+
+    // S3828. A query expression over a Maybe of a plain cell samples it in the call. A control.
+    public static Cell<int> Ab172QuerySyntaxOverMaybeOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> m = from c in Maybe.Some(Plain) select c.Sample(); Kept.Add(m); return S.Hold(0); });
+
+    // S3829. A query expression over a list samples a pending cell, and no code enumerates the query. A control.
+    public static Cell<int> Ab172QuerySyntaxOverAListWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v)]; IEnumerable<int> q = from c in list select c.Sample(); Kept.Add(q); return S.Hold(0); });
+
+    // S3830. A query expression over a type of this code whose Select keeps its function and does not run it. A control.
+    public static Cell<int> Ab172QuerySyntaxOverAKeepingSelectWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab172Keeper<int> k = from c in new Ab172Keeper<Cell<int>>(l.Map(v => v)) select c.Sample(); Kept.Add(k); return S.Hold(0); });
+
+    // S3831. A query expression over an async sequence samples a pending cell, and no code enumerates the query. A control.
+    public static Cell<int> Ab172QuerySyntaxOverAnAsyncSequenceWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAsyncEnumerable<int> q = from c in Ab172Cells(l.Map(v => v)) select c.Sample(); Kept.Add(q); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23076,6 +23104,27 @@ public static class Shapes
         public Cell<int> Share { get; } = share;
 
         public int Now() => 0;
+    }
+
+    public sealed class Ab172Keeper<T>(T value)
+    {
+        public T Value { get; } = value;
+
+        public Func<T, int>? Kept { get; private set; }
+
+        public Ab172Keeper<int> Select(Func<T, int> f)
+        {
+            this.Kept = f;
+
+            return new Ab172Keeper<int>(0);
+        }
+    }
+
+    private static async IAsyncEnumerable<Cell<int>> Ab172Cells(Cell<int> c)
+    {
+        yield return c;
+
+        await Task.CompletedTask;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
