@@ -2647,7 +2647,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag81ConstructorRunByActivatorWithAnArrayInALocal"] = ["SF1003"],
             ["Ag81StructMadeByActivatorSamples"] = ["SF1004"],
             ["Ag81MethodWithAParamsParameterRunByReflection"] = ["SF1003"],
-            ["Ag81OpenGenericClassMadeByActivator"] = ["SF1003"]
+            ["Ag81OpenGenericClassMadeByActivator"] = ["SF1003"],
+            ["Ag90AnOverloadWithNoParameterBeforeTheOverride"] = ["SF1004"],
+            ["Ag90ACastToASealedClassKeepsTheObject"] = ["SF1001"],
+            ["Ag90ACastToAnOpenClassKeepsTheObject"] = ["SF1001"],
+            ["Ag90ALocalFromAKeyChangesTheDictionary"] = ["SF1001"],
+            ["Ag90ALocalInTheInitializerChangesTheDictionary"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

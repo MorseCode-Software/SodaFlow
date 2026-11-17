@@ -18058,6 +18058,30 @@ public static class Shapes
     public static Cell<int> Ag81OpenGenericClassMadeByActivator() =>
         Cell.Loop<int>().WithoutCaptures(l => { object? made = Activator.CreateInstance(typeof(Ag81GenericRow<>), l.Map(v => v)); return S.Hold(0); });
 
+    // S4037. A local of a base type has an object of a derived class. The class declares an overload with no parameter before its override, and the block calls the virtual method with a pending cell.
+    public static Cell<int> Ag90AnOverloadWithNoParameterBeforeTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag90Reader reader = new Ag90SamplingReader(); return S.Hold(reader.Read(l.Map(v => v))); });
+
+    // S4038. A value of an interface comes from code with no body. A local of a sealed class gets the value by a cast. A pending cell goes through that local, and a second local of the class reads the cell.
+    public static Cell<int> Ag90ACastToASealedClassKeepsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg90Marker h = Ag90SealedMarks.Last(); Ag90SealedMarked s = (Ag90SealedMarked)h; s.Share = l.Map(v => v); Ag90SealedMarked t = (Ag90SealedMarked)h; return S.Hold(t.Share!.Sample()); });
+
+    // S4039. The same, with a class that is not sealed and does not have the interface. A class that derives from it has the interface.
+    public static Cell<int> Ag90ACastToAnOpenClassKeepsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAg90Marker h = Ag90OpenMarks.Last(); Ag90OpenSlot s = (Ag90OpenSlot)h; s.Share = l.Map(v => v); Ag90OpenSlot t = (Ag90OpenSlot)h; return S.Hold(t.Share!.Sample()); });
+
+    // S4040. A dictionary gets an object that the walk did not see made for a constant key. A local gets the value of the key and a pending cell, and the block reads the key again.
+    public static Cell<int> Ag90ALocalFromAKeyChangesTheDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ag90Unseen[0] }; SettableSlot v = d["a"]; v.Share = l.Map(q => q); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4041. A dictionary gets the object of a local for a constant key. The local then gets a pending cell, and the block reads the key.
+    public static Cell<int> Ag90ALocalInTheInitializerChangesTheDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ag90Unseen[1]; Dictionary<string, SettableSlot> d = new() { ["a"] = x }; x.Share = l.Map(v => v); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4042. A posted function sends a pending cell into a cell sink. The block samples a switch of the sink, which has the value from before the send.
+    public static Cell<int> Ag90APostedSendAndASampleOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Transaction.Post(() => c.Send(l.Map(v => v))); Cell<int> sw = c.SwitchC(); return S.Hold(sw.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24516,6 +24540,46 @@ public static class Shapes
     {
         public int Value { get; } = cell.Sample();
     }
+
+    public class Ag90Reader
+    {
+        public virtual int Read(Cell<int> c) => 0;
+    }
+
+    public sealed class Ag90SamplingReader : Ag90Reader
+    {
+        public int Read() => 1;
+
+        public override int Read(Cell<int> c) => c.Sample();
+    }
+
+    public interface IAg90Marker;
+
+    public sealed class Ag90SealedMarked : IAg90Marker
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ag90OpenSlot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag90MarkedOpen : Ag90OpenSlot, IAg90Marker;
+
+    private static readonly ILine<IAg90Marker> Ag90SealedMarks = Ag90LineOf(new Ag90SealedMarked());
+
+    private static readonly ILine<IAg90Marker> Ag90OpenMarks = Ag90LineOf(new Ag90MarkedOpen());
+
+    private static ILine<IAg90Marker> Ag90LineOf(IAg90Marker first)
+    {
+        ILine<IAg90Marker> line = NoBody.Line<IAg90Marker>();
+        line.Put(first);
+
+        return line;
+    }
+
+    private static readonly SettableSlot[] Ag90Unseen = [new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
