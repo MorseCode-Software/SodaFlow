@@ -16931,6 +16931,22 @@ public static class Shapes
     public static Cell<int> Ab165IteratorFirstStopsInASwitchSection() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165SectionThenRead(l.Map(v => v), Kept.Count * 0).First()); return S.Hold(0); });
 
+    // S3756. A goto case jumps back to an earlier switch section, which samples the local after a later section gives it a pending cell.
+    public static Cell<int> R3CsGotoCaseRunsAnEarlierSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 1: Kept.Add(c.Sample()); break; case 0: c = l.Map(v => v); goto case 1; } return S.Hold(0); });
+
+    // S3757. A goto default jumps back to an earlier default section, which samples the local after a later section gives it a pending cell.
+    public static Cell<int> Ab169GotoDefaultRunsAnEarlierSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { default: Kept.Add(c.Sample()); break; case 0: c = l.Map(v => v); goto default; } return S.Hold(0); });
+
+    // S3758. Control: a goto case jumps forward to a later section, and an earlier section that does not run samples the local.
+    public static Cell<int> Ab169GotoCaseForwardDoesNotRunAnEarlierSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 1: Kept.Add(c.Sample()); break; case 0: c = l.Map(v => v); goto case 2; case 2: break; } return S.Hold(0); });
+
+    // S3759. Control: a goto case in an inner switch jumps back in that switch, and a section of the outer switch that does not run samples the local.
+    public static Cell<int> Ab169GotoCaseOfAnInnerSwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 1: Kept.Add(c.Sample()); break; case 0: c = l.Map(v => v); switch (k) { case 3: break; case 0: goto case 3; } break; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -297,8 +297,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   parameter.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` runs each of its functions.
-- Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
-  until a pass adds nothing new.
+- Loops: each pass of a `for`, `foreach`, `while`, or `do`, of a `goto` back to a label, or of a
+  `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
+  nothing new.
 - Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
   made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
   sent in a function that `Transaction.Post` runs after the transaction: a lambda, a local

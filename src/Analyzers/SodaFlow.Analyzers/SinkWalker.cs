@@ -1029,7 +1029,72 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.DeclarePattern(pattern: label.Pattern, state: state);
         }
 
+        // A goto case or a goto default to a section at or before its own runs that section again.
+        // The walk reads the sections from that one to the last such jump as the turn of a loop, as
+        // for a label.
+        if (this.JumpsBack(node) is not (int first, int last))
+        {
+            base.VisitSwitchStatement(node);
+
+            return;
+        }
+
+        int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Sections[first]);
         base.VisitSwitchStatement(node);
+
+        this.VisitTheSecondTurn(
+            loop: node,
+            body: node.Sections[first],
+            before: before,
+            parts: [.. node.Sections.Skip(first).Take(last - first + 1)]);
+    }
+
+    // The first section that a goto case or a goto default goes back to, and the last section with
+    // such a jump. Null when no jump goes back. A goto case of a switch inside a section goes to a
+    // label of that switch, which no section here has. A lambda or a local function cannot jump out
+    // of its code.
+    private (int First, int Last)? JumpsBack(SwitchStatementSyntax node)
+    {
+        GotoStatementSyntax[] jumps =
+        [
+            .. node.Sections
+                .SelectMany(static section => section.Statements)
+                .SelectMany(static statement =>
+                    statement.DescendantNodesAndSelf(static inner =>
+                        inner is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)))
+                .OfType<GotoStatementSyntax>()
+                .Where(static jump => !jump.IsKind(SyntaxKind.GotoStatement))
+        ];
+
+        if (jumps.Length == 0)
+        {
+            return null;
+        }
+
+        SemanticModel model = this.region.ModelFor(node);
+        (int First, int Last)? found = null;
+
+        foreach (GotoStatementSyntax jump in jumps)
+        {
+            int from = node.Sections.IndexOf(section => section.Span.Contains(jump.Span));
+
+            int to =
+                model.GetOperation(jump) is IBranchOperation { Target: { } target }
+                    ? node.Sections.IndexOf(section =>
+                        section.Labels.Any(label =>
+                            SymbolEqualityComparer.Default.Equals(x: model.GetDeclaredSymbol(label), y: target)))
+                    : -1;
+
+            if (to >= 0 && to <= from)
+            {
+                found =
+                    found is (int first, int last)
+                        ? (Math.Min(val1: first, val2: to), Math.Max(val1: last, val2: from))
+                        : (to, from);
+            }
+        }
+
+        return found;
     }
 
     public override void VisitSwitchExpression(SwitchExpressionSyntax node)

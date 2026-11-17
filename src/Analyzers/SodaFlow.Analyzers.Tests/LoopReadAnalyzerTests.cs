@@ -2483,7 +2483,9 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab165IteratorFirstPastAYieldThatDoesNotRun"] = ["SF1004"],
             ["Ab165IteratorFirstRunsTheFinally"] = ["SF1004"],
             ["Ab165IteratorFirstWithAGotoPastTheFirstYield"] = ["SF1004"],
-            ["Ab165OwnFirstRunsTheIteratorToTheEnd"] = ["SF1004"]
+            ["Ab165OwnFirstRunsTheIteratorToTheEnd"] = ["SF1004"],
+            ["R3CsGotoCaseRunsAnEarlierSection"] = ["SF1001"],
+            ["Ab169GotoDefaultRunsAnEarlierSection"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
