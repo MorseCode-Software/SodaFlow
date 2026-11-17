@@ -25,7 +25,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The position that a constant index gives in a collection with a number of elements. An index
     // from the end, ^k, gives the position count - k. Null for an index that is not in the collection.
-    private int? PositionIn(ExpressionSyntax index, int count)
+    private int? PositionIn(SyntaxNode index, int count)
     {
         if (index is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.IndexExpression } fromTheEnd)
         {
@@ -70,7 +70,7 @@ internal sealed partial class LoopStateEvaluator
     // when no code can change the dictionary. Each use of the local in its block must be a read: see
     // IsARead. The dictionary must be a Dictionary of the platform with the default comparer, and its
     // keys must have the type of a constant. Null for each other local.
-    private IReadOnlyDictionary<object, ExpressionSyntax>? ValuesByKeyOf(ILocalSymbol local)
+    private IReadOnlyDictionary<object, ExpressionSyntax>? ValuesByKeyOf(ISymbol local)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax
