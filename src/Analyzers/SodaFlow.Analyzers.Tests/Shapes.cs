@@ -17802,6 +17802,58 @@ public static class Shapes
     public static Cell<int> Ab180SortValueWithAComparerDoesNotCallCompareTo() =>
         Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new R3ApiReadingKey(state, l), sortComparer: Comparer<R3ApiReadingKey>.Create(static (a, b) => a.Number - b.Number), keyComparer: Comparer<int>.Default, isDescending: false).KeysCell.Sample().Count; return S.Hold(count); });
 
+    // S3973. The function of a map of a constant runs at the sample in the block, and it samples the placeholder through a property getter.
+    public static Cell<int> R3ApiMapFunctionReadsThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l); int x = Plain.Map(v => v + row.Now).Sample(); return S.Hold(x); });
+
+    // S3974. The function of a map of a constant runs at the sample in the block. It samples the placeholder through the constructor of an object that it makes.
+    public static Cell<int> R3ApiMapFunctionReadsThroughAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(v => v + new R3ApiSamplesAtConstruction(l).Got).Sample(); return S.Hold(x); });
+
+    // S3975. The predicate of a filtered view runs at the first read of its keys, and it samples the placeholder through a property getter.
+    public static Cell<int> R3ApiViewFilterPredicateReadsThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l); int count = TwoItems().Filter(predicate: (_, state) => state > row.Now).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3976. The function of a map of a constant runs at the sample in the block. It samples the placeholder only through a property getter.
+    public static Cell<int> Ab179MapFunctionReadsOnlyThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { PatternRow row = new(l); int x = Plain.Map(_ => row.Now).Sample(); return S.Hold(x); });
+
+    // S3977. The function of a map of a constant runs at the sample in the block. It samples the placeholder only through the constructor of an object that it makes.
+    public static Cell<int> Ab179MapFunctionReadsOnlyThroughAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(_ => new R3ApiSamplesAtConstruction(l).Got).Sample(); return S.Hold(x); });
+
+    // S3978. The function of a map of a constant runs at the sample in the block. It samples the placeholder through an indexer.
+    public static Cell<int> Ab179MapFunctionReadsThroughAnIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Indexed row = new(l); int x = Plain.Map(_ => row[0]).Sample(); return S.Hold(x); });
+
+    // S3979. The function of a map of a constant runs at the sample in the block. It samples the placeholder through a binary operator.
+    public static Cell<int> Ab179MapFunctionReadsThroughABinaryOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Adder adder = new(l); int x = Plain.Map(v => adder + v).Sample(); return S.Hold(x); });
+
+    // S3980. The function of a map of a constant runs at the sample in the block. It samples the placeholder through a unary operator.
+    public static Cell<int> Ab179MapFunctionReadsThroughAUnaryOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Adder adder = new(l); int x = Plain.Map(_ => -adder).Sample(); return S.Hold(x); });
+
+    // S3981. The function of a map of a constant runs at the sample in the block. It samples the placeholder through a postfix operator.
+    public static Cell<int> Ab179MapFunctionReadsThroughAPostfixOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Adder adder = new(l); int x = Plain.Map(_ => { Ab179Adder counted = adder; counted++; return 1; }).Sample(); return S.Hold(x); });
+
+    // S3982. The function of a map of a constant runs at the sample in the block. It samples the placeholder through a compound assignment.
+    public static Cell<int> Ab179MapFunctionReadsThroughACompoundAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Adder adder = new(l); int x = Plain.Map(v => { int t = v; t += adder; return t; }).Sample(); return S.Hold(x); });
+
+    // S3983. The function of a map of a constant runs at the sample in the block. It samples the placeholder through an explicit conversion.
+    public static Cell<int> Ab179MapFunctionReadsThroughAConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab179Adder adder = new(l); int x = Plain.Map(_ => (int)adder).Sample(); return S.Hold(x); });
+
+    // S3984. The function of a map of a constant runs at the sample in the block. It samples the placeholder through the constructor of an object that it makes with new().
+    public static Cell<int> Ab179MapFunctionReadsThroughAnImplicitCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(_ => { R3ApiSamplesAtConstruction made = new(l); return made.Got; }).Sample(); return S.Hold(x); });
+
+    // S3985. The function of a map of a constant runs at the sample in the block. It samples the placeholder through the init accessor of the base type of an object that it makes.
+    public static Cell<int> Ab179MapFunctionReadsThroughTheInitOfABaseType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Map(_ => new Ab179PlainDerived { Ab179Source = l }.Got).Sample(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23985,6 +24037,44 @@ public static class Shapes
 
         public int GetHashCode(int value) => value + offset.Sample() - offset.Sample();
     }
+
+    // An object whose indexer samples a cell.
+    public sealed class Ab179Indexed(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public int this[int index] => this.share.Sample() + index;
+    }
+
+    // An object whose operators and conversion sample a cell.
+    public sealed class Ab179Adder(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public static int operator +(Ab179Adder adder, int value) => adder.share.Sample() + value;
+
+        public static int operator +(int value, Ab179Adder adder) => value + adder.share.Sample();
+
+        public static int operator -(Ab179Adder adder) => -adder.share.Sample();
+
+        public static Ab179Adder operator ++(Ab179Adder adder) => adder.share.Sample() >= 0 ? adder : adder;
+
+        public static explicit operator int(Ab179Adder adder) => adder.share.Sample();
+    }
+
+    // A type whose init accessor samples the cell that it gets.
+    public class Ab179ReadingBase
+    {
+        public Cell<int> Ab179Source
+        {
+            init => this.Got = value.Sample();
+        }
+
+        public int Got { get; private set; }
+    }
+
+    // A type with no code of its own, whose base type samples a cell.
+    public sealed class Ab179PlainDerived : Ab179ReadingBase;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

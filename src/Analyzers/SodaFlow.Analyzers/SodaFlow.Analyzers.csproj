@@ -45,6 +45,7 @@
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="CalleeKind.cs"/>
         <Compile Include="CompleteTasks.cs"/>
+        <Compile Include="DeclaredCode.cs"/>
         <Compile Include="Construction.cs"/>
         <Compile Include="Diagnostics.cs"/>
         <Compile Include="Finding.cs"/>

@@ -114,6 +114,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
     private readonly Lazy<bool> declaresCompare;
+    private readonly Lazy<DeclaredCode> declaredCode;
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresSlice;
@@ -163,6 +164,7 @@ internal sealed class SodaFlowSymbols
 
         // Compare of a comparer, which a collection of the platform that keeps the comparer calls.
         this.declaresCompare = Declares(compilation: compilation, name: "Compare");
+        this.declaredCode = new Lazy<DeclaredCode>(() => DeclaredCode.Of(compilation));
 
         this.declaresPlatformMembers =
             new Lazy<bool>(() =>
@@ -251,6 +253,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>True when the compilation declares an operator or a conversion.</summary>
     public bool DeclaresOperators => this.declaresOperators.Value;
+
+    /// <summary>
+    ///     The members of the compilation that run code where a lambda shows no
+    ///     call. The walk reads the declarations one time, at the first question.
+    /// </summary>
+    public DeclaredCode DeclaredCode => this.declaredCode.Value;
 
     /// <summary>
     ///     True when the compilation declares a member that code of the platform

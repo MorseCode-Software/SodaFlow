@@ -4800,12 +4800,27 @@ internal sealed partial class LoopStateEvaluator
         return names;
     }
 
-    private static bool CanRead(SyntaxNode body) =>
-        body.DescendantNodesAndSelf()
-            .Any(static node =>
-                node is InvocationExpressionSyntax
+    // True when a lambda can read a value. It has a call, or a member named Value or CanExecute. It
+    // can also have a node that runs code of this compilation with no call syntax. That is a getter
+    // with a body, a creation of a type that runs code, an indexer, or an operator. See DeclaredCode.
+    private bool CanRead(SyntaxNode body)
+    {
+        SodaFlowSymbols symbols = this.region.Symbols;
+
+        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
+        {
+            if (node is InvocationExpressionSyntax
                     or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
-                    or MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" });
+                    or MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
+                || (node is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax && symbols.DeclaresIndexers)
+                || symbols.DeclaredCode.CanRunCode(node))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     ///     The state of an argument of a library operator. A function that the

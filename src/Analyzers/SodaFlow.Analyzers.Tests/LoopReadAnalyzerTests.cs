@@ -2592,7 +2592,20 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab182TwoWayWriteOfALinkedCellIntoASwitchedEditSink"] = ["SF1002"],
             ["R3ApiSortValueWhoseCompareToReads"] = ["SF1001"],
             ["R3ApiTwoWayWriteWithAComparerThatReads"] = ["SF1005"],
-            ["Ab180DescendingSortValueWhoseCompareToReads"] = ["SF1001"]
+            ["Ab180DescendingSortValueWhoseCompareToReads"] = ["SF1001"],
+            ["R3ApiMapFunctionReadsThroughAGetter"] = ["SF1001"],
+            ["R3ApiMapFunctionReadsThroughAConstructor"] = ["SF1001"],
+            ["R3ApiViewFilterPredicateReadsThroughAGetter"] = ["SF1001"],
+            ["Ab179MapFunctionReadsOnlyThroughAGetter"] = ["SF1001"],
+            ["Ab179MapFunctionReadsOnlyThroughAConstructor"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughAnIndexer"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughABinaryOperator"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughAUnaryOperator"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughAPostfixOperator"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughACompoundAssignment"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughAConversion"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughAnImplicitCreation"] = ["SF1001"],
+            ["Ab179MapFunctionReadsThroughTheInitOfABaseType"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
