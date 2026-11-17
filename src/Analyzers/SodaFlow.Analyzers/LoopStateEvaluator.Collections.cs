@@ -274,6 +274,85 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     True for <c>Array.Fill</c>. It puts its value into each element of its
+    ///     array, or into each element of a range.
+    /// </summary>
+    public static bool IsArrayFill(IMethodSymbol method) =>
+        method is { Name: "Fill", ContainingType.SpecialType: SpecialType.System_Array };
+
+    /// <summary>
+    ///     Records a call of <c>Array.Fill</c>, which puts its value into
+    ///     elements of its array, as an assignment to an element does. A call
+    ///     that is sure to run gives each position that it fills the value.
+    /// </summary>
+    /// <remarks>
+    ///     A range with an index or a count that is not a constant can be each
+    ///     position. Then, the collection has no positions after the call.
+    /// </remarks>
+    /// <param name="method">The method.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="replaces">True when the call always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the call.</param>
+    public void Fills(
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (ArgumentFor(method: method, arguments: arguments, parameter: "array") is not { } array
+            || ArgumentFor(method: method, arguments: arguments, parameter: "value") is not { } value)
+        {
+            return;
+        }
+
+        (MadeObject Made, ImmutableArray<LoopState> All)? before =
+            this.PositionsBeforeAnAssignment(collection: array, replaces: replaces, turn: turn);
+
+        LoopState put = this.Eval(value);
+
+        // Gets gives the array a new state, and a record of positions holds only for the state of
+        // its time. Thus, the positions from before the call are gone after this.
+        this.Gets(collection: array, value: value);
+        this.Absorb(target: array, state: put);
+        this.PutsIntoALocation(field: null, element: null, state: put, owner: array);
+
+        if (before is not (var made, var all) || Filled() is not (var first, var count))
+        {
+            return;
+        }
+
+        ImmutableArray<SyntaxNode?> givenBy = this.region.Objects.GivenBy(collection: made, values: all);
+
+        this.region.Objects.HasPositions(
+            collection: made,
+            values: all.Select((old, at) => at >= first && at - first < count ? put : old).ToImmutableArray(),
+            givenBy: givenBy.Select((old, at) => at >= first && at - first < count ? value : old).ToImmutableArray());
+
+        return;
+
+        // The first position that the call fills, and the count of positions.
+        (int First, int Count)? Filled()
+        {
+            if (method.Parameters.Length == 2)
+            {
+                return (0, all.Length);
+            }
+
+            return Constant("startIndex") is { } start
+                   && Constant("count") is { } length
+                   && length <= all.Length - start
+                ? (start, length)
+                : null;
+        }
+
+        int? Constant(string parameter) =>
+            ArgumentFor(method: method, arguments: arguments, parameter: parameter) is { } given
+            && this.region.ModelFor(given).GetConstantValue(given) is { Value: int number and >= 0 }
+                ? number
+                : null;
+    }
+
+    /// <summary>
     ///     Records that a method of the platform got its arguments. The method
     ///     can put a value into a collection that it gets, as <c>CopyTo</c> does to
     ///     an array. The parameter must have a type that the method can change.

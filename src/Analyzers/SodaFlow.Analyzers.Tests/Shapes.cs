@@ -18107,6 +18107,110 @@ public static class Shapes
     public static Cell<int> Ag90AForwardReferenceSamplesAnIntMember() =>
         ForwardReference<Ag90Counted>.WithoutCaptures(r => new Ag90Counted(value: Plain, count: r.Sample().Count)).Value;
 
+    // S4049. An array keeps a lambda that Array.Fill gets, and a map of a stream that fires after the close runs it, thus the sample gets the linked cell that the block sent and the switch of its hold is a cycle.
+    public static Cell<int> Ab184LambdaFilledIntoAnArrayAndRunAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = new Func<Cell<int>>[1]; Array.Fill(readers, () => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4050. Array.Fill with a start index and a count puts a lambda into a range of an array, and a map of a stream that fires after the close runs it. The switch of its hold is a cycle.
+    public static Cell<int> Ab184LambdaFilledIntoARangeOfAnArrayAndRunAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = new Func<Cell<int>>[1]; Array.Fill(readers, () => h.Sample(), 0, 1); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4051. Array.Fill puts a lambda into an array that a local made from a literal, and a map of a stream that fires after the close runs it. The switch of its hold is a cycle.
+    public static Cell<int> Ab184LambdaFilledIntoALiteralArrayAndRunAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Array.Fill(readers, () => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4052. Array.Fill puts a lambda that does not sample into an array, and a map of a stream that fires after the close runs it. A control.
+    public static Cell<int> Ab184PlainLambdaFilledIntoAnArray() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = new Func<Cell<int>>[1]; Array.Fill(readers, () => Plain); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4053. Array.Fill puts a lambda that samples into an array that a local made from a literal, and a second Array.Fill puts a plain lambda into each element. The map of a stream after the close runs only the plain lambda.
+    public static Cell<int> Ab184FilledLiteralArrayFilledAgainWithAPlainLambda() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Array.Fill(readers, () => h.Sample()); Array.Fill(readers, () => Plain); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4054. Array.Fill puts a lambda that samples into an array that a local made from a literal, and the block then puts a plain lambda into the only element. The map of a stream after the close runs only the plain lambda.
+    public static Cell<int> Ab184FilledLiteralArrayWithItsElementSetAgain() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Array.Fill(readers, () => h.Sample()); readers[0] = () => Plain; return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4055. Array.Fill with a range puts a lambda that samples into the second element of an array that a local made from a literal. The map of a stream after the close runs only the first element, which is plain.
+    public static Cell<int> Ab184LambdaFilledIntoAnotherRangeOfALiteralArray() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain, () => Plain]; Array.Fill(readers, () => h.Sample(), 1, 1); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4056. A method of the code named Fill gets a lambda that samples, and puts nothing into the array. The map of a stream after the close runs nothing that samples.
+    public static Cell<int> Ab184OwnMethodNamedFillDoesNotPut() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Ab184Arrays.Fill(readers, () => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4057. Array.Fill puts a lambda into an array, and the block runs it in the transaction. The sample of the hold gives the initial value, thus the close is not a cycle.
+    public static Cell<int> Ab184FilledLambdaRunInTheTransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; Func<Cell<int>>[] readers = new Func<Cell<int>>[1]; Array.Fill(readers, () => h.Sample()); got = readers[0](); return got; });
+
+    // S4058. Array.Fill puts a pending cell into an array, and the block samples an element before the close.
+    public static Cell<int> Ab184PendingCellFilledIntoAnArrayAndSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new Cell<int>[1]; Array.Fill(cells, l.Map(v => v)); int read = cells[0].Sample(); return S.Hold(read); });
+
+    // S4059. Array.Fill gets its arguments by name, in a different order, and puts a lambda into the first element. A map of a stream after the close runs it, thus the switch of its hold is a cycle.
+    public static Cell<int> Ab184LambdaFilledWithNamedArguments() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain, () => Plain]; Array.Fill(value: () => h.Sample(), count: 1, startIndex: 0, array: readers); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4060. Array.Fill puts a lambda that samples into an array, and a second Array.Fill in a branch that does not run puts a plain lambda there. The map of a stream after the close runs the lambda that samples.
+    public static Cell<int> Ab184FilledArrayFilledAgainInABranchThatDoesNotRun() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Array.Fill(readers, () => h.Sample()); if (Plain == null) { Array.Fill(readers, () => Plain); } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4061. Array.Fill puts the lambda of a local into an element at an index that is not a constant. The array had that lambda in its second element already. A map of a stream after the close runs the first element.
+    public static Cell<int> Ab184LambdaOfALocalFilledAtAnIndexThatIsNotAConstant() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>> f = () => h.Sample(); Func<Cell<int>>[] readers = [() => Plain, f]; int at = Plain == null ? 1 : 0; Array.Fill(readers, f, at, 1); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4062. Array.Fill puts an object of a local into an array, and the block then sets a pending cell in the object through the local. A sample through the element reads that cell.
+    public static Cell<int> Ab184ObjectFilledIntoAnArrayAndChangedThroughItsLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableRow[] rows = new SettableRow[1]; SettableRow row = new SettableRow(); Array.Fill(rows, row); row.Share = l.Map(v => v); int read = rows[0].Share!.Sample(); return S.Hold(read); });
+
+    // S4063. A helper fills the array that it gets with an object that has a pending cell, and gives back a ref parameter. The caller gives the first element of that array as the parameter, thus the block samples the pending cell.
+    public static Cell<int> Ab184ObjectFilledByAHelperAndReadByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableRow[] rows = [new SettableRow()]; SettableRow value = new SettableRow { Share = l.Map(v => v) }; SettableRow got = Ab184Rows.FillAndRead(rows, ref rows[0], value); int read = got.Share!.Sample(); return S.Hold(read); });
+
+    // S4064. A helper gives a ref parameter a new object, and then fills the array that it gets with an object that has a pending cell. The parameter is the first element of that array, thus the helper gives back the filled object.
+    public static Cell<int> Ab184ObjectFilledByAHelperAfterItSetsTheRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableRow[] rows = [new SettableRow()]; SettableRow value = new SettableRow { Share = l.Map(v => v) }; SettableRow got = Ab184Rows.SetFillAndRead(rows, ref rows[0], value); int read = got.Share!.Sample(); return S.Hold(read); });
+
+    // S4065. Array.Fill gets a range past the end of an array, and throws before it changes an element. The block catches the exception, thus the array keeps the lambda that samples, and a map of a stream after the close runs it.
+    public static Cell<int> Ab184FillOfARangePastTheEndChangesNothing() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => h.Sample()]; try { Array.Fill(readers, () => Plain, 0, 2); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4066. Array.Fill gets a start index below zero, and throws before it changes an element. The block catches the exception, thus the array keeps the lambda that samples, and a map of a stream after the close runs it.
+    public static Cell<int> Ab184FillWithAStartBelowZeroChangesNothing() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => h.Sample()]; try { Array.Fill(readers, () => Plain, -1, 2); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4067. A method of a package has the name of Array.Fill, and puts nothing into the array. The map of a stream after the close runs the plain lambda of the array.
+    public static Cell<int> Ab184MethodOfAPackageNamedFillDoesNotPut() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Ab184Own.Fill(readers, () => h.Sample()); return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4068. A local function calls Array.Fill with a range past the end of an array, which throws before it changes an element. The block catches the exception, thus the array keeps the lambda that samples, and a map of a stream after the close runs it.
+    public static Cell<int> Ab184FillOfARangePastTheEndInALocalFunction() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => h.Sample()]; try { FillAll(); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); void FillAll() => Array.Fill(readers, () => Plain, 0, 2); }); t.Send(1); return c; }))();
+
+    // S4069. A local function calls Array.Fill with a start index below zero, which throws before it changes an element. The block catches the exception, thus the array keeps the lambda that samples, and a map of a stream after the close runs it.
+    public static Cell<int> Ab184FillWithAStartBelowZeroInALocalFunction() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => h.Sample()]; try { FillAll(); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); void FillAll() => Array.Fill(readers, () => Plain, -1, 2); }); t.Send(1); return c; }))();
+
+    // S4070. Array.Fill with a range puts a lambda that samples into the first element of an array that a local made from a literal. The map of a stream after the close runs only the second element, which is plain.
+    public static Cell<int> Ab184LambdaFilledIntoTheFirstElementOfALiteralArray() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain, () => Plain]; Array.Fill(readers, () => h.Sample(), 0, 1); return t.Map(_ => readers[1]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4071. Array.Fill puts null into an element at an index that is not a constant, thus the coalescing assignment after it gives the element an object with a pending cell. The block samples that cell.
+    public static Cell<int> Ab184NullFilledAtAnIndexThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableRow?[] rows = [new SettableRow()]; int at = Plain == null ? 1 : 0; Array.Fill(rows, null, at, 1); rows[0] ??= new SettableRow { Share = l.Map(v => v) }; int read = rows[0]!.Share!.Sample(); return S.Hold(read); });
+
+    // S4072. Array.Fill puts null into each element, thus the coalescing assignment after it gives the element an object with a pending cell. The block samples that cell.
+    public static Cell<int> Ab184NullFilledIntoEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableRow?[] rows = [new SettableRow()]; Array.Fill(rows, null); rows[0] ??= new SettableRow { Share = l.Map(v => v) }; int read = rows[0]!.Share!.Sample(); return S.Hold(read); });
+
+    // S4073. A helper makes an array with a lambda that samples, gives it to an out parameter, and calls Array.Fill with a range past its end. The fill throws before it changes an element, and the block catches the exception. A map of a stream after the close runs the lambda that samples.
+    public static Cell<int> Ab184HelperFillsARangePastTheEndOfTheArrayOfAnOutParameter() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = []; try { Ab184Fills.MakeAndFillPastTheEnd(out readers, () => h.Sample()); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4074. A helper makes an array with a lambda that samples, gives it to an out parameter, and calls Array.Fill with a start index below zero. The fill throws before it changes an element, and the block catches the exception. A map of a stream after the close runs the lambda that samples.
+    public static Cell<int> Ab184HelperFillsFromBelowZeroTheArrayOfAnOutParameter() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = []; try { Ab184Fills.MakeAndFillFromBelowZero(out readers, () => h.Sample()); } catch (ArgumentOutOfRangeException) { } return t.Map(_ => readers[0]()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24634,6 +24738,44 @@ public static class Shapes
         public Cell<int> Value { get; } = value;
 
         public int Count { get; } = count;
+    }
+
+    public static class Ab184Arrays
+    {
+        public static int Fill<T>(T[] array, T value) => array.Length + (value == null ? 0 : 1);
+    }
+
+    public static class Ab184Rows
+    {
+        public static SettableRow FillAndRead(SettableRow[] array, ref SettableRow slot, SettableRow value)
+        {
+            Array.Fill(array, value);
+
+            return slot;
+        }
+
+        public static SettableRow SetFillAndRead(SettableRow[] array, ref SettableRow slot, SettableRow value)
+        {
+            slot = new SettableRow();
+            Array.Fill(array, value);
+
+            return slot;
+        }
+    }
+
+    public static class Ab184Fills
+    {
+        public static void MakeAndFillPastTheEnd(out Func<Cell<int>>[] made, Func<Cell<int>> first)
+        {
+            made = [first];
+            Array.Fill(made, () => Plain, 0, 2);
+        }
+
+        public static void MakeAndFillFromBelowZero(out Func<Cell<int>>[] made, Func<Cell<int>> first)
+        {
+            made = [first];
+            Array.Fill(made, () => Plain, -1, 2);
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

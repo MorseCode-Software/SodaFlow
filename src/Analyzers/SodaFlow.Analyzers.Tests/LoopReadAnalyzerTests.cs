@@ -2656,7 +2656,25 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag90ALambdaWithADefaultParameterSamplesTheFirst"] = ["SF1004"],
             ["Ag90ACollectionExpressionTakesTheAddForItsElement"] = ["SF1004"],
             ["Ag90AForeachEnumeratesTheCollection"] = ["SF1005"],
-            ["Ag90AForwardReferenceSamplesAnIntMember"] = ["SF1001"]
+            ["Ag90AForwardReferenceSamplesAnIntMember"] = ["SF1001"],
+            ["Ab184LambdaFilledIntoAnArrayAndRunAfterTheClose"] = ["SF1002"],
+            ["Ab184LambdaFilledIntoARangeOfAnArrayAndRunAfterTheClose"] = ["SF1002"],
+            ["Ab184LambdaFilledIntoALiteralArrayAndRunAfterTheClose"] = ["SF1002"],
+            ["Ab184PendingCellFilledIntoAnArrayAndSampled"] = ["SF1001"],
+            ["Ab184LambdaFilledWithNamedArguments"] = ["SF1002"],
+            ["Ab184FilledArrayFilledAgainInABranchThatDoesNotRun"] = ["SF1002"],
+            ["Ab184LambdaOfALocalFilledAtAnIndexThatIsNotAConstant"] = ["SF1002"],
+            ["Ab184ObjectFilledIntoAnArrayAndChangedThroughItsLocal"] = ["SF1001"],
+            ["Ab184ObjectFilledByAHelperAndReadByRef"] = ["SF1001"],
+            ["Ab184ObjectFilledByAHelperAfterItSetsTheRef"] = ["SF1001"],
+            ["Ab184FillOfARangePastTheEndChangesNothing"] = ["SF1002"],
+            ["Ab184FillWithAStartBelowZeroChangesNothing"] = ["SF1002"],
+            ["Ab184FillOfARangePastTheEndInALocalFunction"] = ["SF1002"],
+            ["Ab184FillWithAStartBelowZeroInALocalFunction"] = ["SF1002"],
+            ["Ab184NullFilledAtAnIndexThatIsNotAConstant"] = ["SF1001"],
+            ["Ab184NullFilledIntoEachElement"] = ["SF1001"],
+            ["Ab184HelperFillsARangePastTheEndOfTheArrayOfAnOutParameter"] = ["SF1002"],
+            ["Ab184HelperFillsFromBelowZeroTheArrayOfAnOutParameter"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

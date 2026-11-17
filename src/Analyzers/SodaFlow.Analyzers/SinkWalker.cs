@@ -2747,8 +2747,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.RunThroughFunctions(call: node, method: method, given: moved);
 
                 // The callee can put a value that it gets into its owner, and into a collection
-                // that it gets as an argument.
-                this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
+                // that it gets as an argument. Array.Fill puts its value into the elements of its
+                // array, and changes nothing else.
+                if (LoopStateEvaluator.IsArrayFill(method))
+                {
+                    (bool always, SyntaxNode? itsTurn) = this.WhereACallRuns(node);
+
+                    this.evaluator.Fills(method: method, arguments: arguments, replaces: always, turn: itsTurn);
+                }
+                else
+                {
+                    this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
+                }
 
                 if (receiver != null && method.ReducedFrom == null)
                 {

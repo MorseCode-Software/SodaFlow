@@ -156,6 +156,14 @@ public static class Ag85Own
     }
 }
 
+// A method with the name of Array.Fill of the platform. It puts nothing into the array.
+public static class Ab184Own
+{
+    public static void Fill<T>(T[] array, T value)
+    {
+    }
+}
+
 internal sealed class Filler<T> : IFiller<T>
     where T : new()
 {
