@@ -1794,11 +1794,12 @@ internal sealed partial class LoopStateEvaluator
         return whole;
     }
 
-    // Each object that the literal of the local of a foreach, or an Add before the foreach, put into
-    // the list. Such an Add is a statement at the first level of the block of the local. EndsEach
-    // uses the result only for a foreach that always runs in its function, in no loop. Thus, no
-    // goto jumps over such an Add, and the Add ran before the foreach. No use of the local takes an
-    // object out. The result has only objects that this code made one time and that the store has.
+    // Each object that the literal of the local of a foreach, or a put before the foreach, put into
+    // the list. Such a put is an Add, an Insert, or an AddRange of a literal: see APutOf. It is a
+    // statement at the first level of the block of the local. EndsEach uses the result only for a
+    // foreach that always runs in its function, in no loop. Thus, no goto jumps over such a put,
+    // and the put ran before the foreach. No use of the local removes an object. The result has
+    // only objects that this code made one time and that the store has.
     private IEnumerable<MadeObject> PutOneTimeBefore(CommonForEachStatementSyntax loop)
     {
         if (this.region.SymbolOf(Unwrapped(loop.Expression)) is not ILocalSymbol local
@@ -1812,8 +1813,9 @@ internal sealed partial class LoopStateEvaluator
         return written
             .Concat(
                 uses.Where(use => use.SpanStart < loop.SpanStart)
-                    .Select(use => this.AddedBy(use: use, scope: scope))
-                    .OfType<ExpressionSyntax>())
+                    .SelectMany(use => this.APutOf(use) is (var put, var statement) && statement.Parent == scope
+                        ? put
+                        : []))
             .Select(this.TheOneObjectOf)
             .OfType<MadeObject>()
             .Where(made => made is { Turn: null, IsOfTurnsBefore: false }

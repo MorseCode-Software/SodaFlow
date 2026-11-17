@@ -821,13 +821,69 @@ internal sealed partial class LoopStateEvaluator
             ? (arguments[0].Expression, statement)
             : null;
 
-    // True for a local that a literal made, when each use of it is a read or an Add statement. That
-    // Add is of a list of the platform. Thus, no code can take an element out of the collection.
+    // True for a local that a literal made, when each use of it is a read or a put: see APutOf.
+    // Thus, no code can remove an element from the collection.
     private bool OnlyGetsAdds(ExpressionSyntax collection) =>
         Unwrapped(collection) is IdentifierNameSyntax name
         && this.region.SymbolOf(name) is ILocalSymbol local
         && this.LiteralOf(local) is (_, var uses)
-        && uses.All(use => this.IsARead(use) || this.AnAddOf(use) != null);
+        && uses.All(use => this.IsARead(use) || this.APutOf(use) != null);
+
+    // The values that a statement puts into a list of the platform, with the statement. The name is
+    // the name of the list in that statement. The statement is an Add, an Insert, or an AddRange, and
+    // none of them removes an element. Only an AddRange of a literal gives its values. Null for
+    // each other use of the name.
+    private (IReadOnlyList<ExpressionSyntax> Put, ExpressionStatementSyntax Statement)? APutOf(SyntaxNode use)
+    {
+        if (this.AnAddOf(use) is (var added, var statement))
+        {
+            return ([added], statement);
+        }
+
+        if (use.Parent is not MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "Insert" or "AddRange",
+                Parent: InvocationExpressionSyntax { Parent: ExpressionStatementSyntax put } call
+            } access
+            || access.Expression != use
+            || this.region.SymbolOf(call)
+                is not IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner } method
+            || !SodaFlowSymbols.IsPlatform(owner))
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        if (method.Name == "Insert")
+        {
+            return (
+                [
+                    .. arguments
+                        .Where((argument, position) =>
+                            SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)?.Name
+                            == "item")
+                        .Select(static argument => argument.Expression)
+                ],
+                put);
+        }
+
+        return arguments.Count == 1
+            ? (Unwrapped(arguments[0].Expression) switch
+                {
+                    CollectionExpressionSyntax written
+                        when written.Elements.All(static element => element is ExpressionElementSyntax) =>
+                        [
+                            .. written.Elements.Cast<ExpressionElementSyntax>()
+                                .Select(static element => element.Expression)
+                        ],
+                    ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
+                    ImplicitArrayCreationExpressionSyntax implied => [.. implied.Initializer.Expressions],
+                    _ => []
+                },
+                put)
+            : null;
+    }
 
     // The elements of the literal that made a local, and each name of the local in its block.
     private (IReadOnlyList<ExpressionSyntax> Elements, IEnumerable<IdentifierNameSyntax> Uses)? LiteralOf(

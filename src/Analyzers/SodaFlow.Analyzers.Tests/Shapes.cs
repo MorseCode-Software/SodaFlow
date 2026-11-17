@@ -17075,6 +17075,26 @@ public static class Shapes
     public static Cell<int> Ag75DictionaryKeepsACopyOfAStruct() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue p = new() { Share = l.Map(v => v) }; Dictionary<string, SlotValue> d = new() { ["a"] = p }; p.Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
 
+    // S3792. A loop adds objects to a list, an Insert puts one more object first, and a foreach gives each object a plain cell. The block reads the inserted object.
+    public static Cell<int> R3LimInsertBeforeAForeachThatGivesEachAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Insert(0, one); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3793. A loop adds objects to a list, an AddRange of a literal puts two more objects after them, and a foreach gives each object a plain cell. The block reads the first object of the literal.
+    public static Cell<int> Ag76AddRangeOfALiteralBeforeAForeachThatGivesEachAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; SettableSlot two = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.AddRange([one, two]); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3794. A loop adds objects to a list, an AddRange of a second list puts more objects after them, and a foreach gives each object a plain cell. The block reads an object of the loop.
+    public static Cell<int> Ag76AddRangeOfAListBeforeAForeachThatGivesEachAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> other = [new SettableSlot { Share = Plain }]; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.AddRange(other); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3795. A loop adds objects to a list, an Insert under a condition that is false does not put one more object in, and a foreach gives each object a plain cell. The block reads the object that did not go in. A control.
+    public static Cell<int> Ag76InsertUnderAConditionThatFailsBeforeAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } if (list.Count > 5) { list.Insert(0, one); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3796. A loop adds objects to a list, an Insert with named arguments puts one more object first, and a foreach gives each object a plain cell. The block reads the inserted object.
+    public static Cell<int> Ag76InsertWithNamedArgumentsBeforeAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Insert(item: one, index: 0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
