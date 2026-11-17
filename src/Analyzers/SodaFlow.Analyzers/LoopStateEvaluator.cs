@@ -2223,7 +2223,7 @@ internal sealed partial class LoopStateEvaluator
                 {
                     return (this.thisMembers.TryGetValue(key: symbol.OriginalDefinition, value: out LoopState? own)
                             ? own
-                            : LoopState.None)
+                            : this.OfTheImplementationsOnThis(symbol))
                         .Join(field)
                         .Join(this.TypeState(expression));
                 }
@@ -3565,6 +3565,12 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax? receiver = ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method);
 
+        if (receiver is null or ThisExpressionSyntax
+            && this.ImplementationsOnThis(definition).OfType<IMethodSymbol>().ToArray() is { Length: > 0 } onThis)
+        {
+            return [.. onThis.Select(static found => found.OriginalDefinition)];
+        }
+
         if ((this.builtType != null && receiver is null or ThisExpressionSyntax
                 ? Construction.Of(this.builtType)
                 : receiver == null
@@ -4289,11 +4295,18 @@ internal sealed partial class LoopStateEvaluator
 
         // A property that the code reads through an interface is the property of the object. A
         // value that is one of two objects has the property of each.
-        return PropertiesOf(
-                owner: this.builtType != null && owner is null or ThisExpressionSyntax
-                    ? Construction.Of(this.builtType)
-                    : this.Self(owner).Members,
-                written: written)
+        IPropertySymbol[] onThis =
+            owner is null or ThisExpressionSyntax
+                ? [.. this.ImplementationsOnThis(written).OfType<IPropertySymbol>()]
+                : [];
+
+        return (onThis.Length > 0
+                ? onThis
+                : PropertiesOf(
+                    owner: this.builtType != null && owner is null or ThisExpressionSyntax
+                        ? Construction.Of(this.builtType)
+                        : this.Self(owner).Members,
+                    written: written))
             .Aggregate(
                 seed: (Followed?)null,
                 func: (all, property) =>

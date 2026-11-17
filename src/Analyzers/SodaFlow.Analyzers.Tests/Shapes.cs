@@ -17187,6 +17187,26 @@ public static class Shapes
     public static Cell<int> Ab174MethodParameterAssignedInAnEarlierCall() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab174Kept r = new(Plain); Kept.Add(r.Pass(Plain, l.Map(v => v))); return S.Hold(r.Pass(Plain, Plain)); });
 
+    // S3820. A default method of an interface samples a pending member that the class of the object implements.
+    public static Cell<int> R3CsDefaultInterfaceMethodReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IR3CsReads r = new R3CsReads(l.Map(v => v)); return S.Hold(r.Now()); });
+
+    // S3821. A default method of an interface samples a member that the class of the object implements with a getter that has a body. The member is pending.
+    public static Cell<int> Ab175DefaultInterfaceMethodReadsAGetterWithABody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IR3CsReads r = new Ab175Reads(l.Map(v => v)); return S.Hold(r.Now()); });
+
+    // S3822. A default method of an interface calls a method that the class of the object implements, and that method samples a pending cell.
+    public static Cell<int> Ab175DefaultInterfaceMethodCallsAMethodOfTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb175Calls r = new Ab175Calls(l.Map(v => v)); return S.Hold(r.Now()); });
+
+    // S3823. A default method of an interface samples a member that the class of the object implements. The member is plain. A control.
+    public static Cell<int> Ab175DefaultInterfaceMethodReadsAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IR3CsReads r = new R3CsReads(Plain); return S.Hold(r.Now()); });
+
+    // S3824. The class of the object has its own method for the default method of the interface, and that method does not sample. A control.
+    public static Cell<int> Ab175ClassMethodReplacesTheDefaultMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IR3CsReads r = new Ab175Own(l.Map(v => v)); return S.Hold(r.Now()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23032,6 +23052,30 @@ public static class Shapes
 
             return share.Sample();
         }
+    }
+
+    public sealed class Ab175Reads(Cell<int> share) : IR3CsReads
+    {
+        public Cell<int> Share => share;
+    }
+
+    public interface IAb175Calls
+    {
+        int Read();
+
+        int Now() => this.Read();
+    }
+
+    public sealed class Ab175Calls(Cell<int> share) : IAb175Calls
+    {
+        public int Read() => share.Sample();
+    }
+
+    public sealed class Ab175Own(Cell<int> share) : IR3CsReads
+    {
+        public Cell<int> Share { get; } = share;
+
+        public int Now() => 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

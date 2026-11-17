@@ -822,6 +822,30 @@ internal sealed partial class LoopStateEvaluator
         return (TaggedMembers(state), state);
     }
 
+    // The members of the object of this code that a member of an interface names. A default method
+    // of an interface names the member of the interface, but the object has the member of its
+    // class. The members of the object give its classes.
+    private IEnumerable<ISymbol> ImplementationsOnThis(ISymbol member) =>
+        member.ContainingType is { TypeKind: TypeKind.Interface }
+            ? this.thisMembers.Keys
+                .Select(static key => key.ContainingType)
+                .OfType<INamedTypeSymbol>()
+                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
+                .Select(type => type.FindImplementationForInterfaceMember(member))
+                .OfType<ISymbol>()
+                .Distinct<ISymbol>(SymbolEqualityComparer.Default)
+            : [];
+
+    // The state of a member of an interface on the object of this code: see ImplementationsOnThis.
+    private LoopState OfTheImplementationsOnThis(ISymbol member) =>
+        this.ImplementationsOnThis(member)
+            .Aggregate(
+                seed: LoopState.None,
+                func: (joined, found) =>
+                    this.thisMembers.TryGetValue(key: found.OriginalDefinition, value: out LoopState? own)
+                        ? joined.Join(own)
+                        : joined);
+
     private static Dictionary<ISymbol, LoopState> TaggedMembers(LoopState owner)
     {
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
