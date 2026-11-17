@@ -18,13 +18,16 @@ internal sealed partial class LoopStateEvaluator
     ///     block gives the initial value, also after a send into the sink of the
     ///     hold. An accumulation and a cell sink are holds also. A function that
     ///     runs only in the transaction is a part of it. Each other function can
-    ///     run after the transaction, thus a read in it gets each value.
+    ///     run after the transaction, thus a read in it gets each value. An
+    ///     evaluator that changes nothing uses the same test. It reads a function
+    ///     that the code gives by its name to a map. A map of a constant runs
+    ///     that function in the transaction.
     /// </remarks>
     /// <param name="read">The call that reads.</param>
     /// <param name="receiver">The cell that the call reads.</param>
     private LoopState? InitialOfAHoldOfTheBlock(SyntaxNode read, ExpressionSyntax? receiver)
     {
-        if (receiver == null || this.quiet)
+        if (receiver == null)
         {
             return null;
         }

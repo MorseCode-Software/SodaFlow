@@ -16347,6 +16347,46 @@ public static class Shapes
     public static Cell<int> Ab158PostedRunOfALocalFunction() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); StreamSink<Cell<int>> u = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => u.Send(Transaction.Run(ReadIt))); return u.Hold(Plain).SwitchC(); Cell<int> ReadIt() => h.Sample(); });
 
+    // S3610. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a local function that samples the hold. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(ReadAt).Hold(Plain).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3611. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A lambda in a local samples the hold, and a map of a stream that fires after the close gets the local. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159LambdaInALocalGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<int, Cell<int>> read = _ => h.Sample(); return t.Map(read).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3612. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a method of an object that samples the hold in a member. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159MethodGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(new Ab159Reader(h).ReadAt).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3613. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a cell that changes after the close gets a local function that samples the hold. The close is a switch of the map.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfACellThatChanges() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Hold(0).Map(ReadAt).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3614. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A lift of a cell that changes after the close gets a local function that samples the hold. The close is a switch of the lift.
+    public static Cell<int> Ab159LocalFunctionGivenToALiftOfCellsThatChange() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> k = t.Hold(0); return k.Lift(k, Both).SwitchC(); Cell<int> Both(int a, int b) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3615. A lift of a constant cell of a plain cell and a constant cell of a cell linked to the placeholder gets a local function that returns its second input. The close is a switch of the lift.
+    public static Cell<int> Ab159LiftGivenAFunctionThatReturnsItsSecondInput() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Cell<int>> x = Cell.Constant(Plain); Cell<Cell<int>> y = Cell.Constant(l.Map(v => v)); return x.Lift(y, Second).SwitchC(); Cell<int> Second(Cell<int> a, Cell<int> b) => b; });
+
+    // S3616. A lift of a constant cell of a plain cell and a constant cell of a cell linked to the placeholder gets a local function that returns its first input. The close is a switch of the lift. A control.
+    public static Cell<int> Ab159LiftGivenAFunctionThatReturnsItsFirstInput() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Cell<int>> x = Cell.Constant(Plain); Cell<Cell<int>> y = Cell.Constant(l.Map(v => v)); return x.Lift(y, First).SwitchC(); Cell<int> First(Cell<int> a, Cell<int> b) => a; });
+
+    // S3617. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a constant cell gets a local function that samples the hold. The close is a switch of the map. A control.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Cell.Constant(1).Map(ReadAt).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); });
+
+    // S3618. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a local function that returns a plain cell. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab159LocalFunctionThatReturnsAPlainCellGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(Plainly).Hold(Plain).SwitchC(); Cell<int> Plainly(int _) => Plain; }); t.Send(1); return c; }))();
+
+    // S3619. A local has a hold of a sink that gets only a plain cell. A map of a stream that fires after the close gets a local function that samples the hold. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab159LocalFunctionThatSamplesAPlainHoldGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); return t.Map(ReadAt).Hold(Plain).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21630,6 +21670,11 @@ public static class Shapes
 
     private static Cell<Cell<int>> Ab158Later(Stream<int> fires, Func<Cell<int>> read) =>
         fires.Map(_ => read()).Hold(Plain);
+
+    public sealed record Ab159Reader(Cell<Cell<int>> Held)
+    {
+        public Cell<int> ReadAt(int _) => this.Held.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

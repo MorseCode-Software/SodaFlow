@@ -2519,21 +2519,21 @@ internal sealed partial class LoopStateEvaluator
                     contentLinked: false).WithContent(receiverState.Content),
                 OperatorRule.MapLazy => this.HoldsContent(method)
                     ? receiverState.WithLinked(false)
-                        .WithContent(this.LambdaContent(invocation: invocation, parameterState: receiverState.Content))
+                        .WithContent(this.MappedContent(invocation: invocation, parameterState: receiverState.Content))
                     : receiverState.WithLinked(false),
                 OperatorRule.MapStream => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
                     contentPending: false,
                     contentLinked: false).WithContent(
-                    this.LambdaContent(invocation: invocation, parameterState: receiverState.Content)),
+                    this.MappedContent(invocation: invocation, parameterState: receiverState.Content)),
                 // The result holds what the function returns, and not what the receiver held.
                 OperatorRule.MapValue => new LoopState(
                     pending: receiverState.Pending,
                     linked: receiverState.Linked,
                     contentPending: false,
                     contentLinked: false).WithContent(
-                    this.LambdaContent(invocation: invocation, parameterState: receiverState.Content)),
+                    this.MappedContent(invocation: invocation, parameterState: receiverState.Content)),
                 OperatorRule.LiftLazy => this.HoldsContent(method)
                     ? inputs.WithLinked(false)
                         .WithContent(
@@ -3744,13 +3744,18 @@ internal sealed partial class LoopStateEvaluator
     ///     parameters gets. The last part is true when the callee can run the
     ///     function two or more times in the call.
     /// </param>
+    /// <param name="byPosition">
+    ///     For a callee with no body, the state that each parameter gets at its
+    ///     position, in place of the state of <paramref name="each" />.
+    /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
         string name,
         FunctionValue function,
         LoopState target,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each)
+        (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each,
+        ImmutableArray<LoopState> byPosition = default)
     {
         SemanticModel model = this.region.ModelFor(function.Declaration);
 
@@ -3758,8 +3763,15 @@ internal sealed partial class LoopStateEvaluator
             each is (var written, var given, _)
                 ?
                 [
-                    .. parameters.Select(parameter =>
-                        new Binding(parameter: parameter, argument: written, state: given))
+                    .. parameters.Select((parameter, position) =>
+                        new Binding(
+                            parameter: parameter,
+                            argument: written,
+                            state: byPosition.IsDefault
+                                ? given
+                                : position < byPosition.Length
+                                    ? byPosition[position]
+                                    : LoopState.None))
                 ]
                 : this.BindByPosition(parameters: parameters, arguments: arguments);
 
@@ -4823,16 +4835,14 @@ internal sealed partial class LoopStateEvaluator
                 .OfType<AnonymousFunctionExpressionSyntax>()
                 .FirstOrDefault();
 
-        if (lambda == null)
-        {
-            return LoopState.None;
-        }
-
         IEnumerable<LoopState> given = argumentStates.Select(static state => state.Content);
 
-        return this.EvalLambdaResult(
-            lambda: lambda,
-            boundParameters: (receiver != null ? given.Prepend(receiverState.Content) : given).ToImmutableArray());
+        ImmutableArray<LoopState> inputs =
+            (receiver != null ? given.Prepend(receiverState.Content) : given).ToImmutableArray();
+
+        return lambda == null
+            ? this.ContentOfANamedFunction(invocation: invocation, given: inputs)
+            : this.EvalLambdaResult(lambda: lambda, boundParameters: inputs);
     }
 
     /// <summary>

@@ -825,4 +825,69 @@ internal sealed partial class LoopStateEvaluator
 
         return bindings;
     }
+
+    /// <summary>
+    ///     The state of what the function of a map returns, for the content of a
+    ///     cell of cells or a cell of streams. The function is a lambda at the
+    ///     call, or a function that the code gives by its name.
+    /// </summary>
+    private LoopState MappedContent(InvocationExpressionSyntax invocation, LoopState parameterState) =>
+        invocation.ArgumentList.Arguments.Any(static argument =>
+            argument.Expression is AnonymousFunctionExpressionSyntax)
+            ? this.LambdaContent(invocation: invocation, parameterState: parameterState)
+            : this.ContentOfANamedFunction(invocation: invocation, given: ImmutableArray.Create(parameterState));
+
+    /// <summary>
+    ///     The state of what a function returns, for a function that the code
+    ///     gives by its name to a map or a lift. The function is a local function,
+    ///     a lambda in a local, or a method. Each parameter gets the state at its
+    ///     position.
+    /// </summary>
+    /// <remarks>
+    ///     The operator runs the function at a time that the walk does not know.
+    ///     Thus, an evaluator that changes nothing reads it. The walk reads it only
+    ///     for a result whose values can hold a state, as for a lambda.
+    /// </remarks>
+    private LoopState ContentOfANamedFunction(InvocationExpressionSyntax invocation, ImmutableArray<LoopState> given)
+    {
+        if (this.region.SymbolOf(invocation) is not IMethodSymbol method || !this.HoldsContent(method))
+        {
+            return LoopState.None;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        LoopState content = LoopState.None;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            if (ParameterFor(method: method, argument: arguments[i], position: i)
+                    is not { Type.TypeKind: TypeKind.Delegate }
+                || this.Eval(written) is not { Functions.IsEmpty: false } functions)
+            {
+                continue;
+            }
+
+            LoopStateEvaluator quiet = this.Quiet();
+
+            content =
+                functions.Functions.Aggregate(
+                    seed: content,
+                    func: (all, function) =>
+                        all.Join(
+                            quiet.FollowFunction(
+                                    call: invocation,
+                                    name: NameOf(written),
+                                    function: function,
+                                    target: functions,
+                                    arguments: default,
+                                    each: (written, LoopState.None, ManyTimes: true),
+                                    byPosition: given)
+                                ?.State
+                            ?? LoopState.None));
+        }
+
+        return content;
+    }
 }

@@ -2400,7 +2400,13 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab158RunOfALocalFunctionInAMapOfAStream"] = ["SF1002"],
             ["Ab158LocalFunctionGivenToAMethodThatRunsItLater"] = ["SF1002"],
             ["Ab158LocalFunctionGivenToRunOfAHoldWithALinkedInitialValue"] = ["SF1002"],
-            ["Ab158PostedRunOfALocalFunction"] = ["SF1002"]
+            ["Ab158PostedRunOfALocalFunction"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159LambdaInALocalGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159MethodGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToAMapOfACellThatChanges"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToALiftOfCellsThatChange"] = ["SF1002"],
+            ["Ab159LiftGivenAFunctionThatReturnsItsSecondInput"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
