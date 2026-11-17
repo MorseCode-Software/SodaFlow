@@ -125,13 +125,17 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "again", score: 20))))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -140,12 +144,16 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Score(key: 99, score: 1))).Throws<KeyNotFoundException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -211,11 +219,12 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            first,
-            second);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                first,
+                second);
 
         // SodaFlow does not give the sequence of a merge, thus a composition of the two has no
         // result and this code refuses it and does not resolve it.
@@ -226,6 +235,9 @@ public sealed class ReactiveCollectionTests
                     second.Send(TestUtil.Score(key: 1, score: 12));
                 }))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -234,13 +246,17 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Score(key: 1, score: 11).CombineWith(TestUtil.Remove(1))))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]

@@ -399,6 +399,8 @@ type ``System Clock Timer System Tests``() =
             do! Expect.Throws<ObjectDisposedException>(fun () -> timers.At(Cell.constant (Some 1.0)) |> ignore)
 
             let alarm = sinkC None
-            let _at = timers.At alarm
+            let at = timers.At alarm
             do! Expect.Throws<ObjectDisposedException>(fun () -> alarm |> sendC (Some 1.0))
+            // Only this test holds the stream of the alarm, which is the graph that refuses the send.
+            GC.KeepAlive at
         }
