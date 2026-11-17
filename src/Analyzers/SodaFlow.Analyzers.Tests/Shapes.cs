@@ -16979,6 +16979,102 @@ public static class Shapes
     public static Cell<int> Ab169ForwardJumpBeforeALaterLoopOfSections() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 0: goto case 1; case 1: Kept.Add(c.Sample()); break; case 2: c = l.Map(v => v); break; case 3: goto case 2; } return S.Hold(0); });
 
+    // S3768. A list has a pending cell and then a plain cell, and the block samples the last element by an index from the end.
+    public static Cell<int> R3LimListReadByAnIndexFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list[^1].Sample()); });
+
+    // S3769. A list has a pending cell and then a plain cell, and the block samples the element that ElementAt of one gives.
+    public static Cell<int> R3LimListReadByElementAtOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list.ElementAt(1).Sample()); });
+
+    // S3770. A dictionary has a pending cell for one constant key and a plain cell for a second key, and the block samples the value of the second key.
+    public static Cell<int> R3LimDictionaryReadByTheKeyOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { ["a"] = l.Map(v => v), ["b"] = Plain }; return S.Hold(cells["b"].Sample()); });
+
+    // S3771. A list has a plain cell and then a pending cell, a Reverse changes the order, and the block samples the last element by an index from the end.
+    public static Cell<int> Ag75ReversedListReadByAnIndexFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; cs.Reverse(); return S.Hold(cs[^1].Sample()); });
+
+    // S3772. A list has a plain cell and then a pending cell, a Reverse changes the order, and the block samples the element that ElementAt of zero gives. A control.
+    public static Cell<int> Ag75ReversedListReadByElementAtOfThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; cs.Reverse(); return S.Hold(cs.ElementAt(0).Sample()); });
+
+    // S3773. A list has a plain cell and then a pending cell, a Reverse changes the order, and the block samples the element that ElementAt of one gives.
+    public static Cell<int> Ag75ReversedListReadByElementAtOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cs = [Plain, l.Map(v => v)]; cs.Reverse(); return S.Hold(cs.ElementAt(1).Sample()); });
+
+    // S3774. A list has a pending cell and then a plain cell, and the block samples the element that ElementAt of an index from the end gives.
+    public static Cell<int> Ag75ListReadByElementAtOfAnIndexFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list.ElementAt(^1).Sample()); });
+
+    // S3775. A list has a pending cell and then a plain cell, and the block samples the element that ElementAt of zero gives. A control.
+    public static Cell<int> Ag75ListReadByElementAtOfThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list.ElementAt(0).Sample()); });
+
+    // S3776. A list has a pending cell and then a plain cell, and the block samples the element that ElementAtOrDefault of one gives.
+    public static Cell<int> Ag75ListReadByElementAtOrDefaultOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list.ElementAtOrDefault(1)!.Sample()); });
+
+    // S3777. A list has a plain cell, an Add puts a pending cell after it, and the block then samples the last element by an index from the end. A control.
+    public static Cell<int> Ag75ListWithAnAddReadByAnIndexFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; list.Add(l.Map(v => v)); return S.Hold(list[^1].Sample()); });
+
+    // S3778. A list has a plain cell, the block samples the last element by an index from the end, and an Add then puts a pending cell after it.
+    public static Cell<int> Ag75ListReadByAnIndexFromTheEndBeforeAnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; Kept.Add(list[^1].Sample()); list.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3779. A dictionary has a pending cell for one constant key and a plain cell for a second key, and the block samples the value of the first key. A control.
+    public static Cell<int> Ag75DictionaryReadByTheKeyOfThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { ["a"] = l.Map(v => v), ["b"] = Plain }; return S.Hold(cells["a"].Sample()); });
+
+    // S3780. A dictionary that ignores case gets a plain cell for a key and then a pending cell for the same key in capitals, and the block samples the first key. A control.
+    public static Cell<int> Ag75DictionaryThatIgnoresCaseReadByTheKeyOfTheReplacedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new(StringComparer.OrdinalIgnoreCase) { ["a"] = Plain, ["A"] = l.Map(v => v) }; return S.Hold(cells["a"].Sample()); });
+
+    // S3781. A dictionary gets a pending cell for a key and then a plain cell for the same key, and the block samples that key.
+    public static Cell<int> Ag75DictionaryWithTwoValuesForOneKeyReadAfterThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { ["b"] = l.Map(v => v), ["b"] = Plain }; return S.Hold(cells["b"].Sample()); });
+
+    // S3782. A dictionary gets a plain cell for a key and then a pending cell for the same key, and the block samples that key. A control.
+    public static Cell<int> Ag75DictionaryWithTwoValuesForOneKeyReadAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { ["b"] = Plain, ["b"] = l.Map(v => v) }; return S.Hold(cells["b"].Sample()); });
+
+    // S3783. A dictionary with long keys gets a plain cell for the int constant one and then a pending cell for the long constant one, and the block samples the key one. A control.
+    public static Cell<int> Ag75DictionaryOfLongKeysWithAnIntAndALongConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<long, Cell<int>> cells = new() { [1] = Plain, [1L] = l.Map(v => v) }; return S.Hold(cells[1].Sample()); });
+
+    // S3784. A dictionary with int keys gets a plain cell for a char constant and then a pending cell for the number of that char, and the block samples the char. A control.
+    public static Cell<int> Ag75DictionaryOfIntKeysWithACharAndItsNumber() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, Cell<int>> cells = new() { ['a'] = Plain, [97] = l.Map(v => v) }; return S.Hold(cells['a'].Sample()); });
+
+    // S3785. A dictionary with object keys gets a pending cell for the int one and a plain cell for the long one, which is a different key, and the block samples the int one. A control.
+    public static Cell<int> Ag75DictionaryOfObjectKeysWithAnIntAndALong() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> cells = new() { [1] = l.Map(v => v), [1L] = Plain }; return S.Hold(cells[1].Sample()); });
+
+    // S3786. A dictionary gets a pending cell and a plain cell by two Adds of its initializer, and the block samples the value of the second key.
+    public static Cell<int> Ag75DictionaryOfAddsReadByTheKeyOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { { "a", l.Map(v => v) }, { "b", Plain } }; return S.Hold(cells["b"].Sample()); });
+
+    // S3787. A dictionary with keys of an enum has a pending cell for one day and a plain cell for a second day, and the block samples the second day.
+    public static Cell<int> Ag75DictionaryOfAnEnumReadByTheKeyOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<DayOfWeek, Cell<int>> cells = new() { [DayOfWeek.Monday] = l.Map(v => v), [DayOfWeek.Friday] = Plain }; return S.Hold(cells[DayOfWeek.Friday].Sample()); });
+
+    // S3788. A dictionary gets a plain cell from its initializer, an assignment then gives that key a pending cell, and the block samples the key. A control.
+    public static Cell<int> Ag75DictionaryGivenAPendingCellAfterItsInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, Cell<int>> cells = new() { ["a"] = Plain }; cells["a"] = l.Map(v => v); return S.Hold(cells["a"].Sample()); });
+
+    // S3789. A list of objects has a pending cell and then a plain cell. An ElementAt of this code reverses the list and gives an element, and the block samples the element of one. A control.
+    public static Cell<int> Ag75ElementAtOfThisCodeThatReverses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ag75Slot> slots = [new(l.Map(v => v)), new(Plain)]; return S.Hold(slots.ElementAt(1).Share.Sample()); });
+
+    // S3790. A list of objects has a pending cell and then a plain cell. An ElementAt of this code reverses the list, and the block then samples the first element.
+    public static Cell<int> Ag75ElementAtOfThisCodeReversesBeforeAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Ag75Slot> slots = [new(l.Map(v => v)), new(Plain)]; Kept.Add(slots.ElementAt(0)); return S.Hold(slots[0].Share.Sample()); });
+
+    // S3791. A struct with a pending cell goes into a dictionary, the local then gets a plain cell, and the block samples the copy in the dictionary. A control.
+    public static Cell<int> Ag75DictionaryKeepsACopyOfAStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue p = new() { Share = l.Map(v => v) }; Dictionary<string, SlotValue> d = new() { ["a"] = p }; p.Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22677,6 +22773,11 @@ public static class Shapes
         Kept.Add(c.Sample());
     }
 
+    public sealed class Ag75Slot(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -22696,6 +22797,14 @@ file static class Helpers
         }
 
         return last ?? new Shapes.Ab165Item();
+    }
+
+    // An ElementAt of this code, which changes the order of the list before it reads.
+    public static Shapes.Ag75Slot ElementAt(this List<Shapes.Ag75Slot> slots, int index)
+    {
+        slots.Reverse();
+
+        return slots[index];
     }
 
     public static string DvVmCaptionExtension(this SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string> text) => "Caption: " + text.Value;

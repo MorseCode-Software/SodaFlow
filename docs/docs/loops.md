@@ -289,7 +289,9 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
   block sets.
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
-  element apart, so `cells[0]` is that one element.
+  element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
+  `Dictionary` that you write with constant keys and no comparer, and that the code then only
+  reads, keeps the value of each key apart, so `cells["total"]` is that one value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a

@@ -151,6 +151,15 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
         new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local of this code whose dictionary keeps the value of each
+    ///     constant key of its initializer: the expression of each such value.
+    ///     Null for a local whose dictionary does not. A local that no code asked
+    ///     about is not here.
+    /// </summary>
+    public Dictionary<ISymbol, IReadOnlyDictionary<object, ExpressionSyntax>?> ValuesByKey { get; } =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a local of this code that has one of the values of a collection:
     ///     the expression of that collection. The local is the variable of a
     ///     foreach, or a local that the code gave an element. It can also be a

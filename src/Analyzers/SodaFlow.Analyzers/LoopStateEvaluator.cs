@@ -1070,6 +1070,7 @@ internal sealed partial class LoopStateEvaluator
             if (this.region.SymbolOf(collection) is ILocalSymbol local)
             {
                 this.Frame.Positions[local] = null;
+                this.Frame.ValuesByKey[local] = null;
             }
 
             // A collection can contain an object that the walk did not see go in, and the element
@@ -1112,6 +1113,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 // A literal in a declaration. The local has no expression there.
                 this.Frame.Positions[declared] = null;
+                this.Frame.ValuesByKey[declared] = null;
                 this.KeepACopy(local: declared, state: state);
                 this.MergeIntoHolders(local: declared, state: state.AsContainer, level: level + 1);
             }
@@ -2403,6 +2405,11 @@ internal sealed partial class LoopStateEvaluator
                 return (method.Name == "First" ? values[0] : values[values.Length - 1])
                     .Join(this.TypeState(invocation));
             }
+        }
+
+        if (this.AtThePositionOfACall(invocation: invocation, method: method) is { } element)
+        {
+            return element.Join(this.TypeState(invocation));
         }
 
         // Code that is not the library. A body in this compilation gives the state. Code that

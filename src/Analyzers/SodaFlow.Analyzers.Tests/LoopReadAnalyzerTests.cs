@@ -2489,7 +2489,19 @@ internal sealed class LoopReadAnalyzerTests
             ["R3LimReadAfterAnAwaitOfACompleteTaskInAField"] = ["SF1004"],
             ["Ag86ReadAfterAnAwaitOfACompleteTaskInAnInstanceField"] = ["SF1004"],
             ["Ag86ReadAfterAnAwaitOfACompleteTaskInAProperty"] = ["SF1004"],
-            ["Ag86ReadAfterAnAwaitOfAFieldOfAField"] = ["SF1004"]
+            ["Ag86ReadAfterAnAwaitOfAFieldOfAField"] = ["SF1004"],
+            ["Ag75ReversedListReadByElementAtOfThePendingCell"] = ["SF1001"],
+            ["Ag75ListReadByElementAtOfThePendingCell"] = ["SF1001"],
+            ["Ag75ListWithAnAddReadByAnIndexFromTheEnd"] = ["SF1001"],
+            ["Ag75DictionaryReadByTheKeyOfThePendingCell"] = ["SF1001"],
+            ["Ag75DictionaryThatIgnoresCaseReadByTheKeyOfTheReplacedCell"] = ["SF1001"],
+            ["Ag75DictionaryWithTwoValuesForOneKeyReadAfterThePendingCell"] = ["SF1001"],
+            ["Ag75DictionaryOfLongKeysWithAnIntAndALongConstant"] = ["SF1001"],
+            ["Ag75DictionaryOfIntKeysWithACharAndItsNumber"] = ["SF1001"],
+            ["Ag75DictionaryOfObjectKeysWithAnIntAndALong"] = ["SF1001"],
+            ["Ag75DictionaryGivenAPendingCellAfterItsInitializer"] = ["SF1001"],
+            ["Ag75ElementAtOfThisCodeThatReverses"] = ["SF1001"],
+            ["Ag75DictionaryKeepsACopyOfAStruct"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
