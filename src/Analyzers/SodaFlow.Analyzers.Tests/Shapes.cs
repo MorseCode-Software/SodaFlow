@@ -16647,6 +16647,82 @@ public static class Shapes
     public static Cell<int> Ab151ALabelAfterTheForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } int k = 0; again: k++; if (k < 2) { goto again; } return S.Hold(one.Share!.Sample()); });
 
+    // S3685. Control: await foreach runs an async iterator up to its first item in the call, and the iterator samples its parameter there.
+    public static Cell<int> R3CsAwaitForeachReadsTheFirstItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R3CsYieldsARead(l.Map(v => v))) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3686. Control: a foreach that breaks in its first turn disposes the iterator, which runs the finally block that samples its parameter.
+    public static Cell<int> R3CsIteratorBreakRunsTheFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R3CsReadsInAFinally(l.Map(v => v))) { Kept.Add(n); break; } return S.Hold(0); });
+
+    // S3687. A tuple assignment swaps two locals, so the local that the block samples gets the plain cell.
+    public static Cell<int> R3CsTupleSwapGivesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = l.Map(v => v); (a, b) = (b, a); Kept.Add(b.Sample()); return S.Hold(0); });
+
+    // S3688. A tuple assignment swaps two locals, so the local that the block samples gets the pending cell.
+    public static Cell<int> R3CsTupleSwapGivesThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = l.Map(v => v); Cell<int> b = Plain; (a, b) = (b, a); Kept.Add(b.Sample()); return S.Hold(0); });
+
+    // S3689. Control: the same Select over a Maybe, written as a method call, runs its function in the call.
+    public static Cell<int> R3CsMethodSyntaxOverMaybeRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Maybe<int> m = Maybe.Some(l.Map(v => v)).Select(c => c.Sample()); Kept.Add(m); return S.Hold(0); });
+
+    // S3690. Control: a with expression copies an element of a literal array, and the block samples the pending cell of the copy.
+    public static Cell<int> R3CsWithOnAnElementOfALiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RecordRow[] rows = [new(l.Map(v => v))]; RecordRow copy = rows[0] with { }; Kept.Add(copy.Share.Sample()); return S.Hold(0); });
+
+    // S3691. A list has a pending cell and then a plain cell, and the block samples the second element from the end. A control.
+    public static Cell<int> R3LimListReadByAnIndexFromTheEndOfThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [l.Map(v => v), Plain]; return S.Hold(list[^2].Sample()); });
+
+    // S3692. The same, but a RemoveAt takes the inserted object out before the foreach. A control.
+    public static Cell<int> R3LimRemoveAtAfterTheInsertTakesTheObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Insert(0, one); list.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3693. The same comparer, and the block adds the same value two times. A control.
+    public static Cell<int> R3LimComparerThatReadsOnlyForATieWithATie() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<int> set = new(new R3LimTieComparer(l.Map(v => v))); set.Add(1); set.Add(1); return S.Hold(set.Count); });
+
+    // S3694. The same, but at run time the local is the other object. A control.
+    public static Cell<int> R3LimPlainThroughAChoiceThatIsTheOtherObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot b = new() { Share = Plain }; SettableSlot x = Never ? a : b; x.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3695. A local delegate gets the handler two times around a call, and one remove leaves one occurrence for the call of the delegate. A control.
+    public static Cell<int> R3LimHandlerAddedTwiceToALocalDelegateAroundACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Kept.Add(0); all += h; all -= h; all?.Invoke(); return S.Hold(0); });
+
+    // S3696. A list has a hold of a sink whose initial value is a cell linked to the placeholder. The close is a transaction of the block that samples the element of the list. A control.
+    public static Cell<int> R3LimHoldWithALinkedInitialValueInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); List<Cell<Cell<int>>> all = [g]; return Transaction.Run(() => all[0].Sample()); });
+
+    // S3697. The same, but the code runs the lambda before the member gets the pending cell.
+    public static Cell<int> R3LimCodeWithNoBodyRunsAKeptLambdaBeforeAWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; IActionKeeper keeper = NewActionKeeper(); keeper.Keep(() => Kept.Add(x.Share!.Sample())); keeper.Run(); x.Share = l.Map(v => v); return S.Hold(0); });
+
+    // S3698. Console.Write gets an object whose ToString samples a plain cell.
+    public static Cell<int> R3LimConsoleWriteOfAnObjectWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Console.Write(new Titled(Plain)); return S.Hold(0); });
+
+    // S3699. A ThreadLocal keeps a function that samples the placeholder, and the block does not read its value.
+    public static Cell<int> R3LimThreadLocalWithItsValueNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ThreadLocal<int> local = new(() => l.Sample()); Kept.Add(local); return S.Hold(0); });
+
+    // S3700. An async helper samples after an await of a static readonly field that has a task that never completes.
+    public static Cell<int> R3LimReadAfterAnAwaitOfATaskInAFieldThatNeverCompletes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { _ = R3LimReadAfterANotDoneField(l); return S.Hold(0); });
+
+    // S3701. A chain of four helpers gives a pending cell to the last one, which samples it. A control.
+    public static Cell<int> R3LimReadFourCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimDeep2(l.Map(v => v))); });
+
+    // S3702. A chain of five helpers gives a plain cell to the last one, which samples it.
+    public static Cell<int> R3LimPlainCellFiveCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimDeep1(Plain)); });
+
+    // S3703. A second element of the array is an object of the base class, whose method does not sample. The block calls it with a pending cell.
+    public static Cell<int> R3LimBaseMethodOfAnObjectFromAStaticArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimUnseenShown[1].Now(l.Map(v => v))); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21963,6 +22039,205 @@ public static class Shapes
     {
         public List<SettableSlot> List { get; } = [];
     }
+
+    private static readonly TaskCompletionSource<int[]> R3CsNeverNumbers = new();
+
+    private static readonly TaskCompletionSource<Maybe<Cell<int>>> R3CsNeverMaybe = new();
+
+    private static async IAsyncEnumerable<int> R3CsYieldsAfterAnAwait()
+    {
+        await R2NeverDone.Task;
+
+        yield return 1;
+    }
+
+    private static async IAsyncEnumerable<int> R3CsYieldsARead(Cell<int> c)
+    {
+        yield return c.Sample();
+
+        await R2NeverDone.Task;
+    }
+
+    private static IEnumerable<int> R3CsOneThenRead(Cell<int> c)
+    {
+        yield return 1;
+
+        Kept.Add(c.Sample());
+    }
+
+    private static IEnumerable<int> R3CsReadsInAFinally(Cell<int> c)
+    {
+        try
+        {
+            yield return 1;
+        }
+        finally
+        {
+            Kept.Add(c.Sample());
+        }
+    }
+
+    [System.Diagnostics.Conditional("R3_CS_TRACE")]
+    private static void R3CsTrace(int value) => Kept.Add(value);
+
+    public sealed class R3CsWalk(Cell<int> share)
+    {
+        public R3CsWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class R3CsWalker(Cell<int> share) : IDisposable
+    {
+        private int steps;
+
+        public int Current => 1;
+
+        public bool MoveNext() => this.steps++ < 1;
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    public sealed class R3CsFormatted(Cell<int> share) : IFormattable
+    {
+        public override string ToString() => "r3";
+
+        public string ToString(string? format, IFormatProvider? formatProvider) =>
+            share.Sample().ToString(format, formatProvider);
+    }
+
+    public sealed record R3CsShows(Titled Part);
+
+    public sealed class R3CsGate
+    {
+        private readonly Cell<int> share;
+
+        public R3CsGate(Cell<int> share) => this.share = share;
+
+        public static R3CsGate operator &(R3CsGate a, R3CsGate b) => a;
+
+        public static R3CsGate operator |(R3CsGate a, R3CsGate b) => a;
+
+        public static bool operator true(R3CsGate g) => true;
+
+        public static bool operator false(R3CsGate g) => g.share.Sample() < 0;
+    }
+
+    public sealed class R3CsSwapped(Cell<int> share)
+    {
+        public void Use(Cell<int> other) => share = other;
+
+        public int Now => share.Sample();
+    }
+
+    public interface IR3CsReads
+    {
+        Cell<int> Share { get; }
+
+        int Now() => this.Share.Sample();
+    }
+
+    public sealed class R3CsReads(Cell<int> share) : IR3CsReads
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public class R3CsShape
+    {
+        public int Id => 1;
+    }
+
+    public sealed class R3CsCircle(Cell<int> share) : R3CsShape
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed class R3CsHidden(Cell<int> share)
+    {
+        [JsonInclude]
+        private int Now => share.Sample();
+    }
+
+    // A sort value whose CompareTo samples a cell. A class and not a record, thus no generated member reads the cell.
+    public sealed class R3ApiReadingKey(int number, Cell<int> offset) : IComparable<R3ApiReadingKey>
+    {
+        public int Number { get; } = number;
+
+        public Cell<int> Offset { get; } = offset;
+
+        public int CompareTo(R3ApiReadingKey? other) => this.Number.CompareTo((other?.Number ?? 0) + this.Offset.Sample());
+    }
+
+    // An object whose constructor samples a cell.
+    public sealed class R3ApiSamplesAtConstruction
+    {
+        public R3ApiSamplesAtConstruction(Cell<int> share) => this.Got = share.Sample();
+
+        public int Got { get; }
+    }
+
+    private const bool R3LimOff = false;
+
+    public sealed class R3LimTieComparer(Cell<int> offset) : IComparer<int>
+    {
+        public int Compare(int x, int y) => x == y ? offset.Sample() * 0 : x.CompareTo(y);
+    }
+
+    public sealed class R3LimFieldHolder(Cell<int> share)
+    {
+        public SerialRow Inner = new(share);
+    }
+
+    [JsonConverter(typeof(R3LimReadingConverter))]
+    public sealed class R3LimConverted(Cell<int> share)
+    {
+        public int Now() => share.Sample();
+    }
+
+    public sealed class R3LimReadingConverter : JsonConverter<R3LimConverted>
+    {
+        public override R3LimConverted Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, R3LimConverted value, JsonSerializerOptions options) =>
+            writer.WriteNumberValue(value.Now());
+    }
+
+    private static readonly Task R3LimDone = Task.CompletedTask;
+
+    private static readonly Task R3LimNotDone = new TaskCompletionSource().Task;
+
+    private static async Task R3LimReadAfterADoneField(Cell<int> c)
+    {
+        await R3LimDone;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task R3LimReadAfterANotDoneField(Cell<int> c)
+    {
+        await R3LimNotDone;
+        Kept.Add(c.Sample());
+    }
+
+    private static int R3LimDeep1(Cell<int> c) => R3LimDeep2(c);
+
+    private static int R3LimDeep2(Cell<int> c) => R3LimDeep3(c);
+
+    private static int R3LimDeep3(Cell<int> c) => R3LimDeep4(c);
+
+    private static int R3LimDeep4(Cell<int> c) => R3LimDeep5(c);
+
+    private static int R3LimDeep5(Cell<int> c) => c.Sample();
+
+    public class R3LimShown
+    {
+        public virtual int Now(Cell<int> c) => 0;
+    }
+
+    public sealed class R3LimShownReader : R3LimShown
+    {
+        public override int Now(Cell<int> c) => c.Sample();
+    }
+
+    private static readonly R3LimShown[] R3LimUnseenShown = [new R3LimShownReader(), new R3LimShown()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

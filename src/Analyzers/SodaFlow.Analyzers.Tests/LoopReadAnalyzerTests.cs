@@ -2447,7 +2447,19 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab151AnAddInALambda"] = ["SF1001"],
             ["Ab151TheLiteralHasTheObjectOfTheLastTurn"] = ["SF1001"],
             ["Ab151TheLiteralHasAnElementOfALoopList"] = ["SF1001"],
-            ["Ab151AnAddOfTheObjectOfTheLastTurn"] = ["SF1001"]
+            ["Ab151AnAddOfTheObjectOfTheLastTurn"] = ["SF1001"],
+            ["R3CsAwaitForeachReadsTheFirstItem"] = ["SF1004"],
+            ["R3CsIteratorBreakRunsTheFinally"] = ["SF1004"],
+            ["R3CsTupleSwapGivesThePendingCell"] = ["SF1001"],
+            ["R3CsMethodSyntaxOverMaybeRunsNow"] = ["SF1001"],
+            ["R3CsWithOnAnElementOfALiteral"] = ["SF1001"],
+            ["R3LimListReadByAnIndexFromTheEndOfThePendingCell"] = ["SF1001"],
+            ["R3LimRemoveAtAfterTheInsertTakesTheObjectOut"] = ["SF1001"],
+            ["R3LimComparerThatReadsOnlyForATieWithATie"] = ["SF1005"],
+            ["R3LimPlainThroughAChoiceThatIsTheOtherObject"] = ["SF1001"],
+            ["R3LimHandlerAddedTwiceToALocalDelegateAroundACall"] = ["SF1001"],
+            ["R3LimHoldWithALinkedInitialValueInAList"] = ["SF1002"],
+            ["R3LimReadFourCallsDeep"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
