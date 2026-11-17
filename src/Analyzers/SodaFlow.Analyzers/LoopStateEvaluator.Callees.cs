@@ -942,38 +942,34 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     private bool SortValuesReadPending(InvocationExpressionSyntax invocation, IMethodSymbol method, LoopState given)
     {
-        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
-
-        for (int i = 0; i < arguments.Count; i++)
+        // The parameter of the definition has the type parameter of the sort value. The method of the
+        // call has the type that the selector returns.
+        if (method.Parameters.FirstOrDefault(static each => each.Name == "selector")?.Type is not
+            INamedTypeSymbol { DelegateInvokeMethod.ReturnType: INamedTypeSymbol sortValue })
         {
-            ExpressionSyntax written = arguments[i].Expression;
+            return false;
+        }
 
-            // The parameter of the definition has the type parameter of the sort value. The method of
-            // the call has the type that the selector returns.
-            if (ParameterFor(method: method, argument: arguments[i], position: i) is not { Name: "selector" } parameter
-                || method.Parameters.FirstOrDefault(static each => each.Name == "selector")?.Type is not
-                    INamedTypeSymbol { DelegateInvokeMethod.ReturnType: INamedTypeSymbol sortValue })
-            {
-                continue;
-            }
+        IMethodSymbol[] compareTo =
+        [
+            .. sortValue.GetMembers("CompareTo")
+                .OfType<IMethodSymbol>()
+                .Where(static member => member.Parameters.Length == 1 && !member.DeclaringSyntaxReferences.IsEmpty)
+        ];
 
-            IMethodSymbol[] compareTo =
-            [
-                .. sortValue.GetMembers("CompareTo")
-                    .OfType<IMethodSymbol>()
-                    .Where(static member => member.Parameters.Length == 1 && !member.DeclaringSyntaxReferences.IsEmpty)
-            ];
+        return compareTo.Length > 0
+               && invocation.ArgumentList.Arguments
+                   .Where((argument, position) =>
+                       ParameterFor(method: method, argument: argument, position: position) is { Name: "selector" })
+                   .Select(static argument => argument.Expression)
+                   .Any(ComparesPending);
 
-            if (compareTo.Length == 0)
-            {
-                continue;
-            }
-
+        bool ComparesPending(ExpressionSyntax written)
+        {
             LoopState functions = this.Eval(written);
 
-            foreach (FunctionValue function in Callables(state: functions, parameter: parameter))
-            {
-                LoopState value =
+            return Callables(state: functions, parameter: null)
+                .Select(function =>
                     this.FollowFunction(
                             call: invocation,
                             name: NameOf(written),
@@ -982,18 +978,12 @@ internal sealed partial class LoopStateEvaluator
                             arguments: default,
                             each: (written, given, ManyTimes: true))
                         ?.State
-                    ?? LoopState.None;
-
-                if (compareTo.Any(member =>
+                    ?? LoopState.None)
+                .Any(value =>
+                    compareTo.Any(member =>
                         this.FollowImplied(call: written, member: member, owner: value, arguments: [(written, value)])
-                            ?.Findings.Any(static finding => !finding.Escape) == true))
-                {
-                    return true;
-                }
-            }
+                            ?.Findings.Any(static finding => !finding.Escape) == true));
         }
-
-        return false;
     }
 
     /// <summary>
@@ -1018,38 +1008,38 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        Followed? all = null;
-        SeparatedSyntaxList<ArgumentSyntax> arguments = creation.ArgumentList.Arguments;
+        LoopState written = this.Eval(value);
 
-        for (int i = 0; i < arguments.Count; i++)
-        {
-            if (ParameterFor(method: method, argument: arguments[i], position: i) is not { } parameter
-                || !OperatorTable.IsComparerAtAWrite(method: method, parameter: parameter))
-            {
-                continue;
-            }
+        return creation.ArgumentList.Arguments
+            .Select((argument, position) =>
+                (argument.Expression,
+                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
+            .Where(argument =>
+                argument.Parameter is { } parameter
+                && OperatorTable.IsComparerAtAWrite(method: method, parameter: parameter))
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, argument) =>
+                {
+                    LoopState comparer = this.Eval(argument.Expression);
 
-            LoopState comparer = this.Eval(arguments[i].Expression);
-            LoopState written = this.Eval(value);
-
-            // The setter calls Equals only, and not GetHashCode.
-            foreach (FunctionValue function in Callables(state: comparer, parameter: parameter)
-                         .Where(static function =>
-                             function.Declaration is MethodDeclarationSyntax { Identifier.ValueText: "Equals" }))
-            {
-                all = Both(
-                    first: all,
-                    second: this.FollowFunction(
-                        call: write,
-                        name: "Equals",
-                        function: function,
-                        target: comparer,
-                        arguments: default,
-                        each: (value, written, ManyTimes: false)));
-            }
-        }
-
-        return all;
+                    // The setter calls Equals only, and not GetHashCode.
+                    return Callables(state: comparer, parameter: argument.Parameter)
+                        .Where(static function =>
+                            function.Declaration is MethodDeclarationSyntax { Identifier.ValueText: "Equals" })
+                        .Aggregate(
+                            seed: all,
+                            func: (found, function) =>
+                                Both(
+                                    first: found,
+                                    second: this.FollowFunction(
+                                        call: write,
+                                        name: "Equals",
+                                        function: function,
+                                        target: comparer,
+                                        arguments: default,
+                                        each: (value, written, ManyTimes: false))));
+                });
     }
 
     /// <summary>

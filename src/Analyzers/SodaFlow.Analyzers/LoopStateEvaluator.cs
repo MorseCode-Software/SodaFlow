@@ -4633,7 +4633,7 @@ internal sealed partial class LoopStateEvaluator
             // A lambda with no call and no property that reads cannot read a value. A function that
             // the operator keeps for a later time does not compute the value.
             .Where(argument =>
-                (argument.Written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
+                (argument.Written is not AnonymousFunctionExpressionSyntax lambda || this.CanRead(lambda.Body))
                 && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
             .Any(Reads);
 
@@ -4742,7 +4742,7 @@ internal sealed partial class LoopStateEvaluator
                 continue;
             }
 
-            if (!CanRead(lambda.Body))
+            if (!this.CanRead(lambda.Body))
             {
                 continue;
             }
@@ -4807,19 +4807,13 @@ internal sealed partial class LoopStateEvaluator
     {
         SodaFlowSymbols symbols = this.region.Symbols;
 
-        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
-        {
-            if (node is InvocationExpressionSyntax
+        return body.DescendantNodesAndSelf()
+            .Any(node =>
+                node is InvocationExpressionSyntax
                     or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
                     or MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
                 || (node is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax && symbols.DeclaresIndexers)
-                || symbols.DeclaredCode.CanRunCode(node))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                || symbols.DeclaredCode.CanRunCode(node));
     }
 
     /// <summary>

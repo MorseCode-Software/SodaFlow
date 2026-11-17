@@ -35,6 +35,13 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax cell = Unwrapped(receiver);
 
+        // An element of a literal list at a constant index is the expression of that element.
+        while (cell is ElementAccessExpressionSyntax { ArgumentList.Arguments.Count: 1 } access
+               && this.PositionOf(access) is { } element)
+        {
+            cell = Unwrapped(element);
+        }
+
         if (this.InitialOfAHoldIn(cell: cell, reader: this, read: read) is { } initial)
         {
             return this.Eval(initial);
@@ -43,13 +50,6 @@ internal sealed partial class LoopStateEvaluator
         if (this.FirstValueThrough(cell: cell, read: read) is { } first)
         {
             return first;
-        }
-
-        // An element of a literal list at a constant index is the expression of that element.
-        if (cell is ElementAccessExpressionSyntax { ArgumentList.Arguments.Count: 1 } access
-            && this.PositionOf(access) is { } element)
-        {
-            return this.InitialOfAHoldOfTheBlock(read: read, receiver: element);
         }
 
         // A member of the object of a method. The code of the call that runs the method made the
@@ -111,41 +111,38 @@ internal sealed partial class LoopStateEvaluator
         ExpressionSyntax? input = ReceiverOf(symbols: symbols, invocation: call, method: method);
         SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
 
-        switch (OperatorTable.Rule(
-                    symbols: symbols,
-                    method: method,
-                    receiverType: input == null ? null : this.region.TypeOf(input)))
-        {
-            case OperatorRule.SameValues:
-                return this.InitialOfAHoldOfTheBlock(read: read, receiver: input);
-            case OperatorRule.MapValue:
-                return this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is { } value
+        return OperatorTable.Rule(
+                symbols: symbols,
+                method: method,
+                receiverType: input == null ? null : this.region.TypeOf(input)) switch
+            {
+                OperatorRule.SameValues => this.InitialOfAHoldOfTheBlock(read: read, receiver: input),
+                OperatorRule.MapValue => this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is { } value
                     ? this.MappedContent(invocation: call, parameterState: value)
-                    : null;
-            case OperatorRule.LiftValue when input != null:
-                return this.LiftedFirstValue(lift: call, method: method, receiver: input, read: read);
-            case OperatorRule.ConstantLazy:
-                return arguments.FirstOrDefault()?.Expression is { } given
-                       && this.ValueOfALocalThatNoCodeWrites(Unwrapped(given)) is InvocationExpressionSyntax
-                       {
-                           Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SampleLazy" }
-                       } lazy
-                       && this.region.SymbolOf(lazy) is IMethodSymbol sample
-                       && symbols.IsSodaFlow(sample)
-                    ? this.InitialOfAHoldOfTheBlock(
-                        read: read,
-                        receiver: ReceiverOf(symbols: symbols, invocation: lazy, method: sample))
-                    : null;
-            case OperatorRule.Default when method.Name is "CreateOneWay" or "CreateTwoWay":
-                return arguments
-                    .Where((argument, position) =>
-                        symbols.IsCellOrBehaviorType(
-                            ParameterFor(method: method, argument: argument, position: position)?.Type))
-                    .Select(argument => this.InitialOfAHoldOfTheBlock(read: read, receiver: argument.Expression))
-                    .FirstOrDefault();
-            default:
-                return null;
-        }
+                    : null,
+                OperatorRule.LiftValue when input != null =>
+                    this.LiftedFirstValue(lift: call, method: method, receiver: input, read: read),
+                OperatorRule.ConstantLazy =>
+                    arguments.FirstOrDefault()?.Expression is { } given
+                    && this.ValueOfALocalThatNoCodeWrites(Unwrapped(given)) is InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SampleLazy" }
+                    } lazy
+                    && this.region.SymbolOf(lazy) is IMethodSymbol sample
+                    && symbols.IsSodaFlow(sample)
+                        ? this.InitialOfAHoldOfTheBlock(
+                            read: read,
+                            receiver: ReceiverOf(symbols: symbols, invocation: lazy, method: sample))
+                        : null,
+                OperatorRule.Default when method.Name is "CreateOneWay" or "CreateTwoWay" =>
+                    arguments
+                        .Where((argument, position) =>
+                            symbols.IsCellOrBehaviorType(
+                                ParameterFor(method: method, argument: argument, position: position)?.Type))
+                        .Select(argument => this.InitialOfAHoldOfTheBlock(read: read, receiver: argument.Expression))
+                        .FirstOrDefault(),
+                _ => null
+            };
     }
 
     // The value that a read in the transaction gives for a lift with a hold of the block as an

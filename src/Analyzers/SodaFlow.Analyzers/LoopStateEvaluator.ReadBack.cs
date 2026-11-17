@@ -85,7 +85,7 @@ internal sealed partial class LoopStateEvaluator
                 (Written: argument.Expression,
                     Parameter: ParameterFor(method: method, argument: argument, position: position)))
             .Where(argument => argument.Written is AnonymousFunctionExpressionSyntax lambda
-                               && CanRead(lambda.Body)
+                               && this.CanRead(lambda.Body)
                                && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
             .SelectMany(argument =>
             {

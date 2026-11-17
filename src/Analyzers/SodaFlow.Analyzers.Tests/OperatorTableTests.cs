@@ -95,7 +95,7 @@ internal sealed class OperatorTableTests
             .Select(NameOf)
             .Concat(
                 type.GetFields(Declared)
-                    .Where(static field => !field.IsLiteral && !field.IsSpecialName)
+                    .Where(static field => field is { IsLiteral: false, IsSpecialName: false })
                     .Select(static field => field.Name));
 
     private static string NameOf(MethodInfo method)
