@@ -225,6 +225,30 @@ internal sealed class Construction(
         }
     }
 
+    /// <summary>
+    ///     The instance property with the name that each type of this object
+    ///     has. It is the property of the type itself, or of the nearest base
+    ///     type that declares one. A read through <c>dynamic</c> binds to it.
+    /// </summary>
+    public IEnumerable<IPropertySymbol> PropertiesNamed(string name) =>
+        this.types
+            .Select(type => PropertyNamed(type: type, name: name))
+            .OfType<IPropertySymbol>()
+            .Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+    private static IPropertySymbol? PropertyNamed(INamedTypeSymbol type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name).OfType<IPropertySymbol>().FirstOrDefault() is { } property)
+            {
+                return property;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>True for a tuple that the code wrote with parentheses.</summary>
     public bool IsTuple =>
         !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsTupleType: true });

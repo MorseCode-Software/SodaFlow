@@ -3910,6 +3910,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // Only the owner is code. The name is the member, which the check below reads.
         this.Visit(node.Expression);
         this.CheckPropertyRead(node: node, owner: node.Expression);
+        this.CheckDynamicRead(node);
 
         // The name of a method with no body to read, used as a value, as in q.ToList. A call of
         // that delegate enumerates the sequence. The walk reads the query here, where it has the
@@ -4068,6 +4069,33 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         foreach (ArgumentSyntax argument in arguments)
         {
             this.CheckEscape(subject: node.Expression.ToString(), argument: argument.Expression);
+        }
+    }
+
+    /// <summary>
+    ///     A read of a property that the binder finds at run time, on a value of
+    ///     the type <c>dynamic</c>. As for a dynamic call, the walk reads the
+    ///     getter of the property with that name, of an object that it saw made.
+    ///     The walk does not come here for the target of a plain assignment.
+    /// </summary>
+    /// <remarks>
+    ///     Only a dynamic access has no symbol and an object with a property of
+    ///     that name. A static type with that property gives the symbol.
+    /// </remarks>
+    private void CheckDynamicRead(MemberAccessExpressionSyntax node)
+    {
+        if (this.region.SymbolOf(node) != null
+            || this.evaluator.Eval(node.Expression) is not { Members: { } members } owner)
+        {
+            return;
+        }
+
+        foreach (IPropertySymbol property in members.PropertiesNamed(node.Name.Identifier.ValueText))
+        {
+            if (property.GetMethod is { } read)
+            {
+                this.Report(this.evaluator.FollowImplied(call: node, member: read, owner: owner, arguments: []));
+            }
         }
     }
 

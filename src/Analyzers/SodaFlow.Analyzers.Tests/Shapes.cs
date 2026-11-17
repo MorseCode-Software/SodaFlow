@@ -17394,6 +17394,30 @@ public static class Shapes
     public static Cell<int> Ag83ConsoleWriteWithAFormatOfAnObjectThatReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Console.Write("{0}", new Titled(l.Map(v => v))); return S.Hold(0); });
 
+    // S3871. A dynamic read of a property calls the getter, which samples a pending member.
+    public static Cell<int> R3CsDynamicPropertyReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new SerialRow(l.Map(v => v)); int x = g.Now; return S.Hold(x); });
+
+    // S3872. A dynamic read of a property calls a getter that reads a plain cell.
+    public static Cell<int> Ab171DynamicPropertyWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new SerialRow(Plain); int x = g.Now; return S.Snapshot(l, (a, b) => a + b + x).Hold(0); });
+
+    // S3873. A dynamic write of a property calls the setter, and not the getter that samples a pending member.
+    public static Cell<int> Ab171DynamicPropertyWriteDoesNotCallTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new Ab171Settable(l.Map(v => v)); g.Now = 1; return S.Hold(0); });
+
+    // S3874. A dynamic read of a property calls the getter of a base class, which samples a pending member.
+    public static Cell<int> Ab171DynamicPropertyOfABaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new Ab171Child(l.Map(v => v)); int x = g.Now; return S.Hold(x); });
+
+    // S3875. A dynamic read of a property calls the override, and not the getter of the base class that samples a pending member.
+    public static Cell<int> Ab171DynamicPropertyCallsTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new Ab171Quiet(l.Map(v => v)); int x = g.Now; return S.Hold(x); });
+
+    // S3876. A dynamic call of a property that holds a delegate calls the getter, which samples a pending member.
+    public static Cell<int> Ab171DynamicCallOfADelegatePropertyReadsTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic g = new Ab171Callable(l.Map(v => v)); int x = g.Size(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23370,6 +23394,32 @@ public static class Shapes
         public Titled? Part { get; set; }
 
         public Ab170Loop? Next { get; set; }
+    }
+
+    public sealed class Ab171Settable(Cell<int> share)
+    {
+        public int Now
+        {
+            get => share.Sample();
+            set => _ = value;
+        }
+    }
+
+    public class Ab171Base(Cell<int> share)
+    {
+        public virtual int Now => share.Sample();
+    }
+
+    public sealed class Ab171Child(Cell<int> share) : Ab171Base(share);
+
+    public sealed class Ab171Quiet(Cell<int> share) : Ab171Base(share)
+    {
+        public override int Now => 1;
+    }
+
+    public sealed class Ab171Callable(Cell<int> share)
+    {
+        public Func<int> Size => share.Sample() > 0 ? static () => 1 : static () => 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

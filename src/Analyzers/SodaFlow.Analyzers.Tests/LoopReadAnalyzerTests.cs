@@ -2541,7 +2541,10 @@ internal sealed class LoopReadAnalyzerTests
             ["R3LimThreadLocalValueRunsItsFunctionInTheBlock"] = ["SF1001"],
             ["Ag85ThreadLocalThatTracksItsValuesRunsItsFunction"] = ["SF1001"],
             ["R3LimConsoleWriteOfAnObjectThatReads"] = ["SF1005"],
-            ["Ag83ConsoleWriteWithAFormatOfAnObjectThatReads"] = ["SF1005"]
+            ["Ag83ConsoleWriteWithAFormatOfAnObjectThatReads"] = ["SF1005"],
+            ["R3CsDynamicPropertyReadsAGetter"] = ["SF1005"],
+            ["Ab171DynamicPropertyOfABaseClass"] = ["SF1005"],
+            ["Ab171DynamicCallOfADelegatePropertyReadsTheGetter"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
