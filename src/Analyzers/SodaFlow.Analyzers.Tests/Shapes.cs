@@ -17910,6 +17910,50 @@ public static class Shapes
     public static Cell<int> Ag87RecursiveHelperSetsAField() =>
         Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87FieldDown(l.Map(v => v), 1)); });
 
+    // S4000. An element of a static array is an object whose override of a virtual method samples its argument, and the block calls that method with a pending cell.
+    public static Cell<int> R3LimOverrideOfAnObjectFromAStaticArrayReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimUnseenShown[0].Now(l.Map(v => v))); });
+
+    // S4001. An element of a static array is an object whose class has a virtual method that samples its argument, and nothing overrides that method. The block calls it with a pending cell.
+    public static Cell<int> Ag88VirtualMethodWithNoOverrideReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenLone[0].Now(l.Map(v => v))); });
+
+    // S4002. An element of a static array is an object whose method calls the base method of a virtual method with a pending cell. The base method does not sample, and an override in a different class does.
+    public static Cell<int> Ag88BaseCallInAMethodOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenChild[0].ThroughBase(l.Map(v => v))); });
+
+    // S4003. An element of a static array is an object of a sealed class whose method calls a virtual method on this with a pending cell. Only an override in a different class samples.
+    public static Cell<int> Ag88CallOnThisInAMethodOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenChild[0].ThroughThis(l.Map(v => v))); });
+
+    // S4004. An element of a static array is an object of a sealed class whose method calls a virtual method with no receiver, with a pending cell. Only an override in a different class samples.
+    public static Cell<int> Ag88CallWithNoReceiverInAMethodOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenChild[0].ThroughItsOwnObject(l.Map(v => v))); });
+
+    // S4005. An element of a static array of a sealed class that overrides nothing is the receiver of a virtual method that an override in a different class samples.
+    public static Cell<int> Ag88VirtualMethodOfAnUnseenObjectOfASealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenChild[0].Now(l.Map(v => v))); });
+
+    // S4006. The block calls a virtual method that an override samples, on an object of the base class that it made. The walk knows the class, thus it reads the base method.
+    public static Cell<int> Ag88VirtualMethodOfAnObjectThatTheBlockMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3LimShown shown = new(); return S.Hold(shown.Now(l.Map(v => v))); });
+
+    // S4007. An element of a static array is an object of a sealed class that inherits an override which samples. The block calls the virtual method with a pending cell.
+    public static Cell<int> Ag88InheritedOverrideOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenLeaf[0].Now(l.Map(v => v))); });
+
+    // S4008. An element of a static array is an object of a class that is not sealed and overrides nothing. Only overrides in other classes sample, and the block calls the virtual method with a pending cell.
+    public static Cell<int> Ag88VirtualMethodOfAnUnseenObjectOfAnOpenClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenOpen[0].Now(l.Map(v => v))); });
+
+    // S4009. An element of a static array is an object of a class that is not sealed and inherits an override which samples. The block calls the virtual method with a pending cell. The call names that override, and the walk reads it.
+    public static Cell<int> Ag88InheritedOverrideOfAnUnseenObjectOfAnOpenClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag88UnseenMiddle[0].Now(l.Map(v => v))); });
+
+    // S4010. An element of a static array is an object of a class that does not override Equals, and the block calls Equals with a pending cell. Equals of object compares the references, and the compilation has overrides of Equals elsewhere.
+    public static Cell<int> Ag88PlatformVirtualMethodOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ag88UnseenOpen[0].Equals(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24252,6 +24296,41 @@ public static class Shapes
             Ag87Field = before;
         }
     }
+
+    public class Ag88Lone
+    {
+        public virtual int Now(Cell<int> c) => c.Sample();
+    }
+
+    private static readonly Ag88Lone[] Ag88UnseenLone = [new Ag88Lone()];
+
+    public sealed class Ag88Child : R3LimShown
+    {
+        public int ThroughBase(Cell<int> c) => base.Now(c);
+
+        public int ThroughThis(Cell<int> c) => this.Now(c);
+
+        public int ThroughItsOwnObject(Cell<int> c) => Now(c);
+    }
+
+    private static readonly Ag88Child[] Ag88UnseenChild = [new Ag88Child()];
+
+    public class Ag88Reading : R3LimShown
+    {
+        public override int Now(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ag88ReadingLeaf : Ag88Reading;
+
+    private static readonly Ag88ReadingLeaf[] Ag88UnseenLeaf = [new Ag88ReadingLeaf()];
+
+    public class Ag88Open : R3LimShown;
+
+    private static readonly Ag88Open[] Ag88UnseenOpen = [new Ag88Open()];
+
+    public class Ag88ReadingMiddle : Ag88Reading;
+
+    private static readonly Ag88ReadingMiddle[] Ag88UnseenMiddle = [new Ag88ReadingMiddle()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

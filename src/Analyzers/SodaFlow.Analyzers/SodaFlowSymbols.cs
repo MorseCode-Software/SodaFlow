@@ -217,6 +217,8 @@ internal sealed class SodaFlowSymbols
                 .GetMembers("Dispose")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault();
+
+        this.Overrides = new OverrideIndex(compilation);
     }
 
     /// <summary>
@@ -320,6 +322,9 @@ internal sealed class SodaFlowSymbols
 
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
+
+    /// <summary>The methods that an override in the compilation replaces.</summary>
+    public OverrideIndex Overrides { get; }
 
     // Each gate from Declares is only for speed. A search for a member that the compilation does
     // not declare finds no body to read, thus a true value changes no rule. An explicit member of

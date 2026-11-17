@@ -2963,10 +2963,18 @@ internal sealed partial class LoopStateEvaluator
             return CalleeKind.Unknown;
         }
 
-        IMethodSymbol definition =
+        IReadOnlyList<IMethodSymbol> definitions =
             call is InvocationExpressionSyntax invocation
-                ? this.DefinitionsOf(invocation: invocation, method: method)[0]
-                : method.OriginalDefinition;
+                ? this.DefinitionsOf(invocation: invocation, method: method)
+                : [method.OriginalDefinition];
+
+        // An override can replace the method, and the walk does not know which one runs.
+        if (definitions.Count == 0)
+        {
+            return CalleeKind.Unknown;
+        }
+
+        IMethodSymbol definition = definitions[0];
 
         bool hasBody =
             definition.MethodKind == MethodKind.Constructor
@@ -3555,7 +3563,8 @@ internal sealed partial class LoopStateEvaluator
     ///     The definition of the method that a call runs. The call can be through
     ///     an interface or a base type, on an object whose constructor the evaluator
     ///     followed. Then, it runs the method of the type of that object. A value
-    ///     that is one of two objects gives the method of each.
+    ///     that is one of two objects gives the method of each. Empty for an
+    ///     object that the evaluator did not see made, when an override can run.
     /// </summary>
     private IReadOnlyList<IMethodSymbol> DefinitionsOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
@@ -3588,7 +3597,7 @@ internal sealed partial class LoopStateEvaluator
                     ? null
                     : this.Self(receiver).Members) is not { } members)
         {
-            return [definition];
+            return this.CanRunAnOverride(receiver: receiver, definition: definition) ? [] : [definition];
         }
 
         IMethodSymbol[] actual =

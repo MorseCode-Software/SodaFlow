@@ -2618,7 +2618,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag87WideRecursionThenARead"] = ["SF1003", "SF1004"],
             ["Ag87LocalFunctionShiftsItsCapturedCells"] = ["SF1001"],
             ["Ag87RecursiveHelperPutsIntoAList"] = ["SF1003", "SF1004"],
-            ["Ag87RecursiveHelperSetsAField"] = ["SF1003", "SF1005"]
+            ["Ag87RecursiveHelperSetsAField"] = ["SF1003", "SF1005"],
+            ["R3LimOverrideOfAnObjectFromAStaticArrayReads"] = ["SF1003"],
+            ["R3LimBaseMethodOfAnObjectFromAStaticArray"] = ["SF1003"],
+            ["Ag88VirtualMethodWithNoOverrideReads"] = ["SF1004"],
+            ["Ag88InheritedOverrideOfAnUnseenObject"] = ["SF1004"],
+            ["Ag88InheritedOverrideOfAnUnseenObjectOfAnOpenClass"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

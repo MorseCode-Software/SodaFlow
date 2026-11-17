@@ -435,5 +435,7 @@ Some reads that throw it does not see:
   and stops at a later one that gives the method the same kind of values in its arguments and in
   the members of its object as a call that it is still reading. There, it reports `SF1003` for a
   value made from the placeholder, as it does at the depth limit.
-- A virtual method, if the analyzer did not see the object built: it reads the method that the
-  code names, not an override.
+- A virtual method called on an object that the analyzer did not see built, where your project
+  overrides the method in a class that the object can be. The analyzer cannot tell which body
+  runs, so a value made from the placeholder that you pass to it gets `SF1003`. A call with no
+  receiver, inside a method of such an object, still reads only the method that the code names.
